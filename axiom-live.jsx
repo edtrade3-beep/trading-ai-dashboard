@@ -2154,6 +2154,10 @@ export default function App() {
   const [weatherData, setWeatherData] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState("");
+  const [earningsRows, setEarningsRows] = useState([]);
+  const [earningsLoading, setEarningsLoading] = useState(false);
+  const [earningsUpdatedAt, setEarningsUpdatedAt] = useState("");
+  const [earningsRefreshTick, setEarningsRefreshTick] = useState(0);
   const [symbolSearch, setSymbolSearch] = useState("");
   const [activeTab, setActiveTab] = useState("dashboard");
   const [loading, setLoading] = useState(false);
@@ -2394,6 +2398,72 @@ export default function App() {
     return () => { cancelled = true; };
   }, [selectedStock?.symbol, providerKeys]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (activeTab !== "earnings" || !apiKey) return () => { cancelled = true; };
+
+    const loadEarningsCalendar = async () => {
+      setEarningsLoading(true);
+      const symbols = [...new Set((watchlistSymbols || []).map((s) => String(s || "").toUpperCase()).filter(Boolean))].slice(0, 30);
+      const quoteMap = new Map((watchlistData || []).map((q) => [String(q.symbol || "").toUpperCase(), q]));
+
+      const rows = await Promise.all(symbols.map(async (symbol) => {
+        const quote = quoteMap.get(symbol) || {};
+        const fallbackDate = quote?.earningsDate || null;
+        let earningsDate = fallbackDate;
+        try {
+          const f = await withClientTimeout(fetchFundamentals(symbol, providerKeys), 4500, null);
+          earningsDate = f?.earningsDate || earningsDate;
+        } catch {}
+
+        const ts = earningsDate ? new Date(earningsDate).getTime() : NaN;
+        const valid = Number.isFinite(ts);
+        const now = new Date();
+        const nowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const eventStart = valid
+          ? new Date(new Date(ts).getFullYear(), new Date(ts).getMonth(), new Date(ts).getDate()).getTime()
+          : NaN;
+        const dayDiff = valid ? Math.round((eventStart - nowStart) / (24 * 60 * 60 * 1000)) : null;
+        const timing = dayDiff == null
+          ? "TBD"
+          : dayDiff === 0
+          ? "TODAY"
+          : dayDiff === 1
+          ? "TOMORROW"
+          : dayDiff > 1
+          ? `IN ${dayDiff}D`
+          : `${Math.abs(dayDiff)}D AGO`;
+
+        return {
+          symbol,
+          earningsDate: valid ? new Date(ts).toISOString() : null,
+          dayDiff,
+          timing,
+          chg: Number(quote?.changesPercentage || 0),
+          score: Number(quote?.composite || 0),
+          price: Number(quote?.price || 0),
+        };
+      }));
+
+      const sorted = rows.sort((a, b) => {
+        const ak = a.dayDiff == null ? 9999 : (a.dayDiff >= 0 ? a.dayDiff : 5000 + Math.abs(a.dayDiff));
+        const bk = b.dayDiff == null ? 9999 : (b.dayDiff >= 0 ? b.dayDiff : 5000 + Math.abs(b.dayDiff));
+        return ak - bk;
+      });
+
+      if (cancelled) return;
+      setEarningsRows(sorted);
+      setEarningsUpdatedAt(new Date().toLocaleTimeString());
+      setEarningsLoading(false);
+    };
+
+    loadEarningsCalendar().catch(() => {
+      if (!cancelled) setEarningsLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [activeTab, apiKey, watchlistSymbols, watchlistData, providerKeys, earningsRefreshTick]);
+
   const runPaletteCommand = useCallback((raw) => {
     const q = String(raw || "").trim().toUpperCase();
     if (!q) return;
@@ -2405,6 +2475,7 @@ export default function App() {
       TERMINAL: "terminal",
       MACRO: "macro",
       NEWS: "news",
+      EARNINGS: "earnings",
       TV: "tv",
       LIVETV: "tv",
       ALERTS: "alerts",
@@ -3438,6 +3509,7 @@ export default function App() {
               { id: "terminal", label: "TERMINAL" },
                 { id: "macro", label: "MACRO" },
                 { id: "news", label: "NEWS" },
+                { id: "earnings", label: "EARNINGS" },
                 { id: "tv", label: "LIVE TV" },
                 { id: "alerts", label: "ALERTS" },
               { id: "workflow", label: "WORKFLOW" },
@@ -4028,6 +4100,88 @@ export default function App() {
                 </a>
               ))}
               {!newsData.length && <div style={{ color: C.textDim, fontSize: 13 }}>No headlines loaded yet.</div>}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "earnings" && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
+                EARNINGS CALENDAR — WATCHLIST + LEADERS
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+                  {earningsUpdatedAt ? `Updated ${earningsUpdatedAt}` : "Not loaded"}
+                </span>
+                <button
+                  onClick={() => setEarningsRefreshTick((n) => n + 1)}
+                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                >
+                  {earningsLoading ? "UPDATING..." : "REFRESH"}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(140px, 1fr))", gap: 10, marginBottom: 12 }}>
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: 10 }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>TODAY / TOMORROW</div>
+                <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 800, color: C.amber }}>
+                  {earningsRows.filter((e) => Number.isFinite(e.dayDiff) && e.dayDiff >= 0 && e.dayDiff <= 1).length}
+                </div>
+              </div>
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: 10 }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>NEXT 7D</div>
+                <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 800, color: C.green }}>
+                  {earningsRows.filter((e) => Number.isFinite(e.dayDiff) && e.dayDiff >= 0 && e.dayDiff <= 7).length}
+                </div>
+              </div>
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: 10 }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>NEXT 14D</div>
+                <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 800, color: C.accent }}>
+                  {earningsRows.filter((e) => Number.isFinite(e.dayDiff) && e.dayDiff >= 0 && e.dayDiff <= 14).length}
+                </div>
+              </div>
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: 10 }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>UNKNOWN DATE</div>
+                <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 800, color: C.red }}>
+                  {earningsRows.filter((e) => !e.earningsDate).length}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "130px 160px 130px 120px 120px 1fr", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+                <span>SYMBOL</span>
+                <span>EARN DATE</span>
+                <span>COUNTDOWN</span>
+                <span>CHG%</span>
+                <span>SCORE</span>
+                <span>PRICE</span>
+              </div>
+              <div style={{ maxHeight: "58vh", overflow: "auto" }}>
+                {earningsRows.map((e) => {
+                  const isSoon = Number.isFinite(e.dayDiff) && e.dayDiff >= 0 && e.dayDiff <= 7;
+                  const dateLabel = e.earningsDate ? new Date(e.earningsDate).toLocaleDateString() : "TBD";
+                  const chg = Number(e.chg || 0);
+                  return (
+                    <div key={`earn-row-${e.symbol}`} style={{ display: "grid", gridTemplateColumns: "130px 160px 130px 120px 120px 1fr", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${C.border}`, background: isSoon ? `${C.amber}0D` : C.card }}>
+                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{e.symbol}</span>
+                      <span style={{ fontSize: 12, color: C.textSec }}>{dateLabel}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: isSoon ? C.amber : C.textSec }}>{e.timing}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: chg >= 0 ? C.green : C.red, fontWeight: 700 }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700 }}>{Math.round(Number(e.score || 0))}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>${Number(e.price || 0).toFixed(2)}</span>
+                    </div>
+                  );
+                })}
+                {!earningsRows.length && !earningsLoading && (
+                  <div style={{ padding: 14, fontSize: 12, color: C.textDim }}>No earnings rows yet. Click REFRESH.</div>
+                )}
+                {earningsLoading && (
+                  <div style={{ padding: 14, fontSize: 12, color: C.textDim }}>Loading earnings calendar...</div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -5227,12 +5381,12 @@ export default function App() {
                     setPaletteInput("");
                   }
                 }}
-                placeholder="Examples: NVDA GO | MACRO GO | TERMINAL GO | TF 15M GO"
+                placeholder="Examples: NVDA GO | EARNINGS GO | MACRO GO | TERMINAL GO | TF 15M GO"
                 style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "10px 12px", borderRadius: 6 }}
               />
             </div>
             <div style={{ padding: "10px 12px", display: "grid", gap: 4 }}>
-              {["NVDA GO", "MACRO GO", "NEWS GO", "TV GO", "ALERTS GO", "WORKFLOW GO", "FLOW GO", "PORTFOLIO GO", "SCANNER GO", "BACKTEST GO", "TERMINAL GO", "TF 5M GO", "TF 1D GO", "LAYOUT 2 GO", "LAYOUT 4 GO"].map((cmd) => (
+              {["NVDA GO", "EARNINGS GO", "MACRO GO", "NEWS GO", "TV GO", "ALERTS GO", "WORKFLOW GO", "FLOW GO", "PORTFOLIO GO", "SCANNER GO", "BACKTEST GO", "TERMINAL GO", "TF 5M GO", "TF 1D GO", "LAYOUT 2 GO", "LAYOUT 4 GO"].map((cmd) => (
                 <button key={cmd} onClick={() => { runPaletteCommand(cmd); setPaletteOpen(false); setPaletteInput(""); }} style={{ textAlign: "left", border: `1px solid ${C.border}`, background: C.card, borderRadius: 6, padding: "8px 10px", cursor: "pointer", fontFamily: MONO, fontSize: 11, color: C.textSec }}>
                   {cmd}
                 </button>
