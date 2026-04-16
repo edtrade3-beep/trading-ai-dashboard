@@ -1369,7 +1369,7 @@ async function fetchYahooFundamentals(symbol) {
 }
 
 function serveStatic(pathname, res) {
-  const cleanPath = pathname === "/" ? "/axiom-runner/index.html" : pathname;
+  const cleanPath = pathname === "/" ? "/index.html" : pathname;
   const filePath = path.join(ROOT, cleanPath);
 
   if (!filePath.startsWith(ROOT)) {
