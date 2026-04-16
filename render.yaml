@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: am-trading-platform
+    runtime: node
+    plan: free
+    region: ohio
+    rootDir: .
+    buildCommand: "npm install --no-audit --no-fund"
+    startCommand: "npm start"
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: HOST
+        value: 0.0.0.0
+      - key: FINNHUB_API_KEY
+        sync: false
+      - key: FMP_API_KEY
+        sync: false
+      - key: TWELVE_DATA_API_KEY
+        sync: false
+      - key: POLYGON_API_KEY
+        sync: false
+      - key: UNUSUAL_WHALES_API_KEY
+        sync: false
+      - key: TRADIER_API_KEY
+        sync: false

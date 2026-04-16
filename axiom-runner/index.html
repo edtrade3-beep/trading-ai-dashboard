@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Axiom Live Runner</title>
+  <link rel="icon" type="image/png" href="./assets/am-trading-logo.png">
+  <link rel="shortcut icon" type="image/png" href="./assets/am-trading-logo.png">
+  <link rel="apple-touch-icon" href="./assets/am-trading-logo.png">
+  <style>
+    html, body, #root {
+      height: 100%;
+      margin: 0;
+    }
+    body {
+      background: #fbfcff;
+    }
+    .boot {
+      display: grid;
+      place-items: center;
+      min-height: 100%;
+      color: #182338;
+      font: 14px/1.5 system-ui, sans-serif;
+    }
+    .boot-card {
+      max-width: 640px;
+      padding: 24px;
+      border: 1px solid #d9e1ee;
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: 0 10px 30px rgba(17, 35, 64, 0.08);
+    }
+    .boot-card h1 {
+      margin: 0 0 12px;
+      font-size: 20px;
+    }
+    .boot-card p {
+      margin: 0;
+      color: #5a6b85;
+    }
+    .boot-card pre {
+      margin: 16px 0 0;
+      white-space: pre-wrap;
+      color: #c7254e;
+      font: 12px/1.5 Consolas, monospace;
+    }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div class="boot">
+      <div class="boot-card">
+        <h1>Loading Axiom Live</h1>
+        <p>Preparing the React component in the browser.</p>
+      </div>
+    </div>
+  </div>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script>
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+
+    function renderError(message) {
+      root.render(
+        React.createElement("div", { className: "boot" },
+          React.createElement("div", { className: "boot-card" },
+            React.createElement("h1", null, "Axiom Live failed to start"),
+            React.createElement("p", null, "The runner page loaded, but the JSX app could not be compiled."),
+            React.createElement("pre", null, String(message || "Unknown error"))
+          )
+        )
+      );
+    }
+
+    async function boot() {
+      try {
+        const response = await fetch(`./axiom-live.jsx?v=${Date.now()}`, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error("Unable to read axiom-live.jsx (" + response.status + ")");
+        }
+
+        const source = await response.text();
+        const prepared = source
+          .replace(
+            /import\s+\{\s*useState,\s*useEffect,\s*useCallback,\s*useMemo,\s*useRef\s*\}\s+from\s+["']react["'];?/,
+            "const { useState, useEffect, useCallback, useMemo, useRef } = React;"
+          )
+          .replace(/export\s+default\s+function\s+App\s*\(/, "function App(")
+          .concat("\nwindow.__AXIOM_APP__ = App;\n");
+
+        Babel.transform(prepared, {
+          presets: ["react"],
+          filename: "axiom-live.jsx"
+        });
+
+        const compiled = Babel.transform(prepared, {
+          presets: ["react"],
+          filename: "axiom-live.jsx"
+        }).code;
+
+        new Function(compiled)();
+        const App = window.__AXIOM_APP__;
+
+        if (typeof App !== "function") {
+          throw new Error("Compiled app did not expose a React component.");
+        }
+
+        root.render(React.createElement(App));
+      } catch (error) {
+        renderError(error && error.stack ? error.stack : error);
+      }
+    }
+
+    boot();
+  </script>
+</body>
+</html>
