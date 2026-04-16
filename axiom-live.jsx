@@ -3369,7 +3369,7 @@ export default function App() {
         <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0, flex: "1 1 auto", overflow: "hidden" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <img
-              src="/axiom-runner/assets/am-trading-logo.png?v=2"
+              src="/assets/am-trading-logo.png?v=2"
               alt="AM Trading Platform"
               style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface }}
             />
