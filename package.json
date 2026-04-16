@@ -1,0 +1,13 @@
+{
+  "name": "am-trading-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AM Trading Platform - institutional-style market dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
