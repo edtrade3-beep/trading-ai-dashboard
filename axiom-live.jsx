@@ -3010,7 +3010,7 @@ export default function App() {
     () => LIVE_TV_SOURCES.find((s) => s.id === tvSource) || LIVE_TV_SOURCES[0],
     [tvSource]
   );
-  const generateMarketReport = useCallback(() => {
+  const generateMarketReport = useCallback(async () => {
     const nowLabel = new Date().toLocaleString();
     const getMacro = (sym) => macroData.find((m) => m.symbol === sym) || null;
     const spy = getMacro("SPY");
@@ -3034,6 +3034,52 @@ export default function App() {
 
     const priAlerts = [...(combinedAlerts || [])].slice(0, 5);
     const headlines = [...(newsData || [])].slice(0, 5);
+    const earningsFocusSymbols = [...new Set([
+      ...topGainers.map((q) => q.symbol),
+      ...topLosers.map((q) => q.symbol),
+      ...rotationRank.slice(0, 5).map((q) => q.symbol),
+    ].filter(Boolean))].slice(0, 10);
+
+    const earningsWatchRaw = await Promise.all(earningsFocusSymbols.map(async (symbol) => {
+      const wlRow = wl.find((q) => q.symbol === symbol);
+      let earningsDate = wlRow?.earningsDate || null;
+      if (!earningsDate) {
+        try {
+          const f = await withClientTimeout(fetchFundamentals(symbol, providerKeys), 5000, null);
+          earningsDate = f?.earningsDate || null;
+        } catch {}
+      }
+
+      const eventTs = earningsDate ? new Date(earningsDate).getTime() : NaN;
+      const validDate = Number.isFinite(eventTs);
+      const now = new Date();
+      const nowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const eventStart = validDate ? new Date(new Date(eventTs).getFullYear(), new Date(eventTs).getMonth(), new Date(eventTs).getDate()).getTime() : NaN;
+      const dayDiff = validDate ? Math.round((eventStart - nowStart) / (24 * 60 * 60 * 1000)) : null;
+      const timing = dayDiff == null
+        ? "TBD"
+        : dayDiff === 0
+        ? "TODAY"
+        : dayDiff === 1
+        ? "TOMORROW"
+        : dayDiff > 1
+        ? `IN ${dayDiff}D`
+        : `${Math.abs(dayDiff)}D AGO`;
+
+      return {
+        symbol,
+        earningsDate: validDate ? new Date(eventTs).toISOString() : null,
+        dayDiff,
+        timing,
+      };
+    }));
+    const earningsWatch = earningsWatchRaw
+      .sort((a, b) => {
+        const av = a.dayDiff == null ? 9999 : Math.abs(a.dayDiff);
+        const bv = b.dayDiff == null ? 9999 : Math.abs(b.dayDiff);
+        return av - bv;
+      })
+      .slice(0, 8);
 
     const lines = [];
     lines.push("AM TRADING - MARKET OVERALL REPORT");
@@ -3062,7 +3108,14 @@ export default function App() {
     lines.push(`Upgrades: ${(newsIntel.upgrades || []).length} | Downgrades: ${(newsIntel.downgrades || []).length}`);
     lines.push(...headlines.map((n, i) => `${i + 1}. ${n.ticker || "MKT"} - ${n.title || "Headline unavailable"}`));
     lines.push("");
-    lines.push("5) EXECUTION FOCUS");
+    lines.push("5) EARNINGS WATCH");
+    lines.push(`Upcoming within 14d: ${earningsWatch.filter((e) => Number.isFinite(e.dayDiff) && e.dayDiff >= 0 && e.dayDiff <= 14).length}`);
+    lines.push(...earningsWatch.map((e, i) => {
+      const dateLabel = e.earningsDate ? new Date(e.earningsDate).toLocaleDateString() : "TBD";
+      return `${i + 1}. ${e.symbol} - ${dateLabel} (${e.timing})`;
+    }));
+    lines.push("");
+    lines.push("6) EXECUTION FOCUS");
     lines.push(`Rotation leaders: ${rotationRank.slice(0, 5).map((q) => `${q.symbol}(RS ${Number(q.relVsSpy || 0) >= 0 ? "+" : ""}${Number(q.relVsSpy || 0).toFixed(2)}%, RVOL ${Number(q.rvol || 0).toFixed(2)}x)`).join(" | ") || "N/A"}`);
     lines.push(`Suggested posture: ${regime === "Risk-On" ? "Lean long on high-RS names with confirmation." : regime === "Risk-Off" ? "Reduce gross, tighten stops, prioritize defense." : "Balanced posture; trade selective A+ setups only."}`);
     lines.push("");
@@ -3095,6 +3148,7 @@ export default function App() {
       upgradesCount: (newsIntel.upgrades || []).length,
       downgradesCount: (newsIntel.downgrades || []).length,
       headlines,
+      earningsWatch,
       rotationTop: rotationRank.slice(0, 5),
       posture: regime === "Risk-On"
         ? "Lean long on high-RS names with confirmation."
@@ -3105,7 +3159,7 @@ export default function App() {
     setMarketReportGeneratedAt(nowLabel);
     setMarketReportText(lines.join("\n"));
     setMarketReportOpen(true);
-  }, [macroData, watchlistData, sectorData, combinedAlerts, newsData, marketSession, regime, macroTone, macroSignalFlags, macroEventAlerts.length, flowBias, flowCallNotional, flowPutNotional, newsIntel.upgrades, newsIntel.downgrades, rotationRank]);
+  }, [macroData, watchlistData, sectorData, combinedAlerts, newsData, marketSession, regime, macroTone, macroSignalFlags, macroEventAlerts.length, flowBias, flowCallNotional, flowPutNotional, newsIntel.upgrades, newsIntel.downgrades, rotationRank, providerKeys]);
   const applyWorkflowPrimary = useCallback((candidate, meta = {}) => {
     if (!candidate?.symbol) return;
     const entry = Number(candidate.entry || 0);
@@ -3369,7 +3423,7 @@ export default function App() {
         <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0, flex: "1 1 auto", overflow: "hidden" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <img
-              src="/assets/am-trading-logo.png?v=2"
+              src="/axiom-runner/assets/am-trading-logo.png?v=2"
               alt="AM Trading Platform"
               style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface }}
             />
@@ -5135,6 +5189,18 @@ export default function App() {
                           <span style={{ color: Number(q.relVsSpy || 0) >= 0 ? C.green : C.red, fontWeight: 700 }}> RS {Number(q.relVsSpy || 0) >= 0 ? "+" : ""}{Number(q.relVsSpy || 0).toFixed(2)}%</span>
                         </span>
                       ))}
+                    </div>
+                    <div style={{ fontSize: 12, marginBottom: 6 }}>
+                      <b>Earnings watch:</b> {(marketReportData.earningsWatch || []).map((e, idx) => {
+                        const isUpcoming = Number.isFinite(e.dayDiff) && e.dayDiff >= 0 && e.dayDiff <= 7;
+                        const tone = isUpcoming ? C.amber : C.textSec;
+                        return (
+                          <span key={`earn-${idx}`} style={{ marginRight: 8, color: tone }}>
+                            <span style={{ fontWeight: 800 }}>{e.symbol}</span> {e.timing}
+                          </span>
+                        );
+                      })}
+                      {!marketReportData.earningsWatch?.length && <span style={{ color: C.textDim }}> No earnings dates available.</span>}
                     </div>
                     <div style={{ fontSize: 12, color: C.textSec }}><b>Posture:</b> <span style={{ fontWeight: 700 }}>{marketReportData.posture}</span></div>
                   </div>
