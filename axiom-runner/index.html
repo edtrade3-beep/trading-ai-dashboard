@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Axiom Live Runner</title>
-  <link rel="icon" type="image/png" href="./assets/am-trading-logo.png">
-  <link rel="shortcut icon" type="image/png" href="./assets/am-trading-logo.png">
-  <link rel="apple-touch-icon" href="./assets/am-trading-logo.png">
+  <link rel="icon" type="image/png" href="/axiom-runner/assets/am-trading-logo.png">
+  <link rel="shortcut icon" type="image/png" href="/axiom-runner/assets/am-trading-logo.png">
+  <link rel="apple-touch-icon" href="/axiom-runner/assets/am-trading-logo.png">
   <style>
     html, body, #root {
       height: 100%;
@@ -76,7 +76,7 @@
 
     async function boot() {
       try {
-        const response = await fetch(`./axiom-live.jsx?v=${Date.now()}`, { cache: "no-store" });
+        const response = await fetch(`/axiom-runner/axiom-live.jsx?v=${Date.now()}`, { cache: "no-store" });
         if (!response.ok) {
           throw new Error("Unable to read axiom-live.jsx (" + response.status + ")");
         }
