@@ -14,6 +14,7 @@ const TWELVE_DATA_API_KEY = process.env.TWELVE_DATA_API_KEY || "";
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || "";
 const UNUSUAL_WHALES_API_KEY = process.env.UNUSUAL_WHALES_API_KEY || "";
 const TRADIER_API_KEY = process.env.TRADIER_API_KEY || "";
+const TV_WEBHOOK_SECRET = (process.env.TV_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET || "").trim();
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -50,6 +51,8 @@ const MACRO_SYMBOLS = {
   US2Y: ["^UST2Y", "^US2Y", "2YY=F"]
 };
 const MARKET_CAP_CACHE = new Map();
+const TV_WEBHOOK_ALERTS = [];
+const TV_WEBHOOK_MAX_ROWS = 160;
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -57,6 +60,52 @@ const server = http.createServer(async (req, res) => {
 
     if (requestUrl.pathname === "/api/health") {
       return writeJson(res, 200, { ok: true, version: "market-v2" });
+    }
+
+    if (requestUrl.pathname === "/api/webhooks/tradingview") {
+      if (req.method === "GET") {
+        return writeJson(res, 200, {
+          ok: true,
+          endpoint: "/api/webhooks/tradingview",
+          method: "POST",
+          secured: Boolean(TV_WEBHOOK_SECRET),
+          auth: TV_WEBHOOK_SECRET ? "query token (?token=...)" : "none",
+          note: "Send JSON from TradingView alerts. Example: {\"symbol\":\"NVDA\",\"side\":\"BUY\",\"message\":\"Breakout above range\"}"
+        });
+      }
+      if (req.method !== "POST") {
+        return writeJson(res, 405, { error: "Method not allowed. Use POST." });
+      }
+      if (!isTradingViewWebhookAuthorized(requestUrl, req)) {
+        return writeJson(res, 401, {
+          error: "Unauthorized webhook token.",
+          hint: "Set ?token=YOUR_SECRET in TradingView webhook URL and TV_WEBHOOK_SECRET on server."
+        });
+      }
+      const body = await readRequestBody(req);
+      const payload = parseTradingViewPayload(body);
+      if (!payload) {
+        return writeJson(res, 400, { error: "Invalid TradingView payload." });
+      }
+      TV_WEBHOOK_ALERTS.unshift(payload);
+      if (TV_WEBHOOK_ALERTS.length > TV_WEBHOOK_MAX_ROWS) {
+        TV_WEBHOOK_ALERTS.length = TV_WEBHOOK_MAX_ROWS;
+      }
+      return writeJson(res, 200, { ok: true, received: payload, total: TV_WEBHOOK_ALERTS.length });
+    }
+
+    if (requestUrl.pathname === "/api/market/tv-alerts") {
+      const limit = Math.max(1, Math.min(100, Number(requestUrl.searchParams.get("limit") || 30)));
+      const symbol = String(requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
+      const rows = TV_WEBHOOK_ALERTS
+        .filter((row) => (symbol ? row.symbol === symbol : true))
+        .slice(0, limit);
+      return writeJson(res, 200, {
+        source: "tradingview-webhook",
+        secured: Boolean(TV_WEBHOOK_SECRET),
+        total: TV_WEBHOOK_ALERTS.length,
+        rows
+      });
     }
 
     if (requestUrl.pathname.startsWith("/api/fmp/")) {
@@ -307,6 +356,113 @@ function resolveProviderKeys(searchParams) {
   };
 }
 
+function isTradingViewWebhookAuthorized(requestUrl, req) {
+  if (!TV_WEBHOOK_SECRET) return true;
+  const queryToken = String(requestUrl.searchParams.get("token") || "").trim();
+  const headerToken = String(req.headers["x-axiom-token"] || req.headers["x-webhook-token"] || "").trim();
+  const authHeader = String(req.headers.authorization || "").trim();
+  let bearer = "";
+  if (authHeader.toLowerCase().startsWith("bearer ")) {
+    bearer = authHeader.slice(7).trim();
+  }
+  const provided = queryToken || headerToken || bearer;
+  return provided === TV_WEBHOOK_SECRET;
+}
+
+function scoreTradingViewPayload(text) {
+  const msg = String(text || "").toLowerCase();
+  let score = 72;
+  if (msg.includes("breakout")) score += 10;
+  if (msg.includes("reclaim")) score += 8;
+  if (msg.includes("sweep")) score += 8;
+  if (msg.includes("unusual")) score += 8;
+  if (msg.includes("bearish") || msg.includes("breakdown")) score += 6;
+  if (msg.includes("risk") || msg.includes("invalid")) score += 6;
+  return Math.max(55, Math.min(99, score));
+}
+
+function inferTradingViewSide(rawSide, message) {
+  const side = String(rawSide || "").toUpperCase();
+  if (["BUY", "LONG", "CALL"].includes(side)) return "BUY";
+  if (["SELL", "SHORT", "PUT"].includes(side)) return "SELL";
+  const msg = String(message || "").toLowerCase();
+  if (msg.includes("buy") || msg.includes("long") || msg.includes("bull")) return "BUY";
+  if (msg.includes("sell") || msg.includes("short") || msg.includes("bear")) return "SELL";
+  return "INFO";
+}
+
+function parseTradingViewPayload(bodyText) {
+  const raw = String(bodyText || "").trim();
+  if (!raw) return null;
+
+  let data = null;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    data = { message: raw };
+  }
+  if (!data || typeof data !== "object") return null;
+
+  const message = String(
+    data.message ||
+    data.text ||
+    data.alert_message ||
+    data.alertName ||
+    data.note ||
+    ""
+  ).trim();
+
+  const explicitSymbol = String(data.symbol || data.ticker || data.instrument || data.s || "")
+    .trim()
+    .toUpperCase();
+  const tvSymbolMatch = message.match(/(?:NASDAQ|NYSE|AMEX|CBOE|BINANCE|COINBASE):([A-Z0-9.\-]+)/i);
+  const rawSymbolMatch = message.match(/\b([A-Z]{1,6}(?:\-[A-Z]{2,5})?)\b/);
+  const symbol = explicitSymbol || (tvSymbolMatch ? String(tvSymbolMatch[1] || "").toUpperCase() : "") || (rawSymbolMatch ? String(rawSymbolMatch[1] || "").toUpperCase() : "");
+  if (!symbol) return null;
+
+  const side = inferTradingViewSide(data.side || data.action || data.signal, message);
+  const priceNum = Number(data.price || data.close || data.last || 0);
+  const timeframe = String(data.timeframe || data.tf || "").toUpperCase();
+  const exchange = String(data.exchange || data.market || "").toUpperCase();
+  const score = scoreTradingViewPayload(message);
+  const type = side === "SELL" ? "risk" : "opportunity";
+
+  return {
+    id: `tv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    source: "tradingview",
+    symbol,
+    side,
+    type,
+    score,
+    message: message || `${symbol} TradingView alert`,
+    exchange: exchange || null,
+    timeframe: timeframe || null,
+    price: Number.isFinite(priceNum) && priceNum > 0 ? Number(priceNum.toFixed(4)) : null,
+    at: new Date().toISOString(),
+    raw: data
+  };
+}
+
+function readRequestBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > 1024 * 1024) {
+        reject(new Error("Request body too large."));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => {
+      resolve(Buffer.concat(chunks).toString("utf8"));
+    });
+    req.on("error", reject);
+  });
+}
+
 async function fetchJsonSafe(url, headers = {}) {
   try {
     const response = await fetch(url, {
@@ -356,6 +512,10 @@ function normalizeFmpQuoteRow(raw) {
     pe: Number(raw.pe) || 0,
     priceAvg50: Number(raw.priceAvg50) || 0,
     priceAvg200: Number(raw.priceAvg200) || 0,
+    preMarketPrice: 0,
+    postMarketPrice: 0,
+    preMarketChangePercent: 0,
+    postMarketChangePercent: 0,
   };
 }
 
@@ -402,6 +562,10 @@ async function fetchFinnhubQuotes(symbols, finnhubKey) {
       pe: 0,
       priceAvg50: 0,
       priceAvg200: 0,
+      preMarketPrice: 0,
+      postMarketPrice: 0,
+      preMarketChangePercent: 0,
+      postMarketChangePercent: 0,
     };
   }));
   return rows.filter(Boolean);
@@ -505,6 +669,10 @@ function normalizeQuoteBatchToRows(symbols, liveRows) {
       marketCap: Number(live?.marketCap) || 0,
       priceAvg50: 0,
       priceAvg200: 0,
+      preMarketPrice: round2(Number(live?.preMarketPrice) || 0),
+      postMarketPrice: round2(Number(live?.postMarketPrice) || 0),
+      preMarketChangePercent: round2(Number(live?.preMarketChangePercent) || 0),
+      postMarketChangePercent: round2(Number(live?.postMarketChangePercent) || 0),
     };
   }).filter(Boolean);
   return rows;
@@ -905,6 +1073,10 @@ async function fetchYahooQuotes(symbols) {
         marketCap,
         priceAvg50: round2(avg50 || 0),
         priceAvg200: round2(avg200 || 0),
+        preMarketPrice: round2(Number(live?.preMarketPrice) || 0),
+        postMarketPrice: round2(Number(live?.postMarketPrice) || 0),
+        preMarketChangePercent: round2(Number(live?.preMarketChangePercent) || 0),
+        postMarketChangePercent: round2(Number(live?.postMarketChangePercent) || 0),
       };
     } catch {
       return null;
