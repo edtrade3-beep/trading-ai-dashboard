@@ -662,7 +662,9 @@ function App() {
 
     const fileResults = [];
     const allItems = [];
-    for (const file of selected) {
+    for (let fi = 0; fi < selected.length; fi++) {
+      const file = selected[fi];
+      setPdfStatus(`Processing ${file.name} (${fi + 1}/${selected.length})…`);
       const formData = new FormData();
       formData.append("file", file);
       try {
@@ -870,18 +872,31 @@ function App() {
               )}
               {!pdfLoading && pdfResults.length > 0 && (
                 <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
-                  {pdfResults.map((r, i) => (
-                    <div key={i} style={{ padding: "8px 12px", borderRadius: 6, border: `1px solid ${r.error ? theme.warning + "66" : theme.success + "66"}`, background: r.error ? theme.warning + "11" : theme.success + "11", display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontSize: 16 }}>{r.error ? "⚠️" : "✅"}</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, color: theme.text, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</div>
-                        {r.error
-                          ? <div style={{ fontSize: 11, color: theme.warning }}>{r.error}</div>
-                          : <div style={{ fontSize: 11, color: theme.success }}>{r.count} vehicle{r.count !== 1 ? "s" : ""} found</div>
-                        }
+                  {pdfResults.map((r, i) => {
+                    const isWarn = r.error || r.count === 0;
+                    return (
+                      <div key={i} style={{ padding: "8px 12px", borderRadius: 6, border: `1px solid ${isWarn ? theme.warning + "66" : theme.success + "66"}`, background: isWarn ? theme.warning + "11" : theme.success + "11", display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 16 }}>{isWarn ? "⚠️" : "✅"}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, color: theme.text, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</div>
+                          {r.error
+                            ? <div style={{ fontSize: 11, color: theme.warning }}>{r.error}</div>
+                            : r.count === 0
+                              ? <div style={{ fontSize: 11, color: theme.warning }}>No vehicles found — PDF may be image-based or format not recognized</div>
+                              : <div style={{ fontSize: 11, color: theme.success }}>{r.count} vehicle{r.count !== 1 ? "s" : ""} imported</div>
+                          }
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
+                  {pdfResults.length > 1 && (() => {
+                    const total = pdfResults.reduce((s, r) => s + r.count, 0);
+                    return total > 0 ? (
+                      <div style={{ padding: "8px 12px", borderRadius: 6, border: `1px solid ${theme.primary}44`, background: `${theme.primary}0d`, fontSize: 12, fontWeight: 700, color: theme.primary }}>
+                        Total: {total} vehicle{total !== 1 ? "s" : ""} imported from {pdfResults.length} files — switched to Inventory tab
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               )}
             </section>
