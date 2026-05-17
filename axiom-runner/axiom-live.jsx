@@ -60,6 +60,228 @@ const LAYOUT = {
 };
 const WEATHER_ZIP = "45014";
 
+// ── Islamic Module Constants ──
+const QURAN_RECITERS = [
+  { id: "Alafasy_128kbps", label: "مشاري العفاسي", server: "server8.mp3quran.net/afs" },
+  { id: "Abdurrahmaan_As-Sudais_192kbps", label: "عبد الرحمن السديس", server: "server11.mp3quran.net/sds" },
+  { id: "Saood_ash-Shuraym_128kbps", label: "سعود الشريم", server: "server7.mp3quran.net/shur" },
+  { id: "Maher_AlMuaiqly_128kbps", label: "ماهر المعيقلي", server: "server12.mp3quran.net/maher" },
+  { id: "Yasser_Ad-Dussary_128kbps", label: "ياسر الدوسري", server: "server11.mp3quran.net/yasser" },
+  { id: "Saad_Al-Ghamdi_128kbps", label: "سعد الغامدي", server: "server7.mp3quran.net/s_gmd" },
+  { id: "Abdul_Basit_Murattal_192kbps", label: "عبد الباسط (مرتل)", server: "server7.mp3quran.net/basit" },
+  { id: "Minshawi_Murattal_128kbps", label: "محمد المنشاوي", server: "server10.mp3quran.net/minsh" },
+  { id: "Husary_128kbps", label: "محمود خليل الحصري", server: "server13.mp3quran.net/husr" },
+  { id: "Abu_Bakr_Ash-Shaatree_128kbps", label: "أبو بكر الشاطري", server: "server11.mp3quran.net/shr" },
+  { id: "Nasser_Alqatami_128kbps", label: "ناصر القطامي", server: "server6.mp3quran.net/qtm" },
+  { id: "Islam_Sobhi_128kbps", label: "إسلام صبحي", server: "server10.mp3quran.net/islam_sobhi" },
+  { id: "Raad_Muhammad_al-Kurdi_128kbps", label: "رعد محمد الكردي", server: "server6.mp3quran.net/kurdi" },
+  { id: "Fares_Abbad_64kbps", label: "فارس عباد", server: "server7.mp3quran.net/frs" },
+  { id: "Ali_Jaber_128kbps", label: "علي جابر", server: "server8.mp3quran.net/jbr" },
+  { id: "Ahmed_ibn_Ali_al-Ajamy_128kbps", label: "أحمد العجمي", server: "server9.mp3quran.net/ajm" },
+  { id: "Idrees_Abkar_128kbps", label: "إدريس أبكر", server: "server10.mp3quran.net/edriss" },
+  { id: "Bandar_Baleela_128kbps", label: "بندر بليلة", server: "server11.mp3quran.net/baleelah" },
+];
+const SURAH_LIST = [
+  [1,"الفاتحة","Al-Fatiha"],
+  [2,"البقرة","Al-Baqarah"],
+  [3,"آل عمران","Ali 'Imran"],
+  [4,"النساء","An-Nisa"],
+  [5,"المائدة","Al-Ma'idah"],
+  [6,"الأنعام","Al-An'am"],
+  [7,"الأعراف","Al-A'raf"],
+  [8,"الأنفال","Al-Anfal"],
+  [9,"التوبة","At-Tawbah"],
+  [10,"يونس","Yunus"],
+  [11,"هود","Hud"],
+  [12,"يوسف","Yusuf"],
+  [13,"الرعد","Ar-Ra'd"],
+  [14,"إبراهيم","Ibrahim"],
+  [15,"الحجر","Al-Hijr"],
+  [16,"النحل","An-Nahl"],
+  [17,"الإسراء","Al-Isra"],
+  [18,"الكهف","Al-Kahf"],
+  [19,"مريم","Maryam"],
+  [20,"طه","Ta-Ha"],
+  [21,"الأنبياء","Al-Anbiya"],
+  [22,"الحج","Al-Hajj"],
+  [23,"المؤمنون","Al-Mu'minun"],
+  [24,"النور","An-Nur"],
+  [25,"الفرقان","Al-Furqan"],
+  [26,"الشعراء","Ash-Shu'ara"],
+  [27,"النمل","An-Naml"],
+  [28,"القصص","Al-Qasas"],
+  [29,"العنكبوت","Al-'Ankabut"],
+  [30,"الروم","Ar-Rum"],
+  [31,"لقمان","Luqman"],
+  [32,"السجدة","As-Sajdah"],
+  [33,"الأحزاب","Al-Ahzab"],
+  [34,"سبأ","Saba"],
+  [35,"فاطر","Fatir"],
+  [36,"يس","Ya-Sin"],
+  [37,"الصافات","As-Saffat"],
+  [38,"ص","Sad"],
+  [39,"الزمر","Az-Zumar"],
+  [40,"غافر","Ghafir"],
+  [41,"فصلت","Fussilat"],
+  [42,"الشورى","Ash-Shura"],
+  [43,"الزخرف","Az-Zukhruf"],
+  [44,"الدخان","Ad-Dukhan"],
+  [45,"الجاثية","Al-Jathiyah"],
+  [46,"الأحقاف","Al-Ahqaf"],
+  [47,"محمد","Muhammad"],
+  [48,"الفتح","Al-Fath"],
+  [49,"الحجرات","Al-Hujurat"],
+  [50,"ق","Qaf"],
+  [51,"الذاريات","Adh-Dhariyat"],
+  [52,"الطور","At-Tur"],
+  [53,"النجم","An-Najm"],
+  [54,"القمر","Al-Qamar"],
+  [55,"الرحمن","Ar-Rahman"],
+  [56,"الواقعة","Al-Waqi'ah"],
+  [57,"الحديد","Al-Hadid"],
+  [58,"المجادلة","Al-Mujadila"],
+  [59,"الحشر","Al-Hashr"],
+  [60,"الممتحنة","Al-Mumtahanah"],
+  [61,"الصف","As-Saf"],
+  [62,"الجمعة","Al-Jumu'ah"],
+  [63,"المنافقون","Al-Munafiqun"],
+  [64,"التغابن","At-Taghabun"],
+  [65,"الطلاق","At-Talaq"],
+  [66,"التحريم","At-Tahrim"],
+  [67,"الملك","Al-Mulk"],
+  [68,"القلم","Al-Qalam"],
+  [69,"الحاقة","Al-Haqqah"],
+  [70,"المعارج","Al-Ma'arij"],
+  [71,"نوح","Nuh"],
+  [72,"الجن","Al-Jinn"],
+  [73,"المزمل","Al-Muzzammil"],
+  [74,"المدثر","Al-Muddaththir"],
+  [75,"القيامة","Al-Qiyamah"],
+  [76,"الإنسان","Al-Insan"],
+  [77,"المرسلات","Al-Mursalat"],
+  [78,"النبأ","An-Naba"],
+  [79,"النازعات","An-Nazi'at"],
+  [80,"عبس","'Abasa"],
+  [81,"التكوير","At-Takwir"],
+  [82,"الإنفطار","Al-Infitar"],
+  [83,"المطففين","Al-Mutaffifin"],
+  [84,"الإنشقاق","Al-Inshiqaq"],
+  [85,"البروج","Al-Buruj"],
+  [86,"الطارق","At-Tariq"],
+  [87,"الأعلى","Al-A'la"],
+  [88,"الغاشية","Al-Ghashiyah"],
+  [89,"الفجر","Al-Fajr"],
+  [90,"البلد","Al-Balad"],
+  [91,"الشمس","Ash-Shams"],
+  [92,"الليل","Al-Layl"],
+  [93,"الضحى","Ad-Duha"],
+  [94,"الشرح","Ash-Sharh"],
+  [95,"التين","At-Tin"],
+  [96,"العلق","Al-'Alaq"],
+  [97,"القدر","Al-Qadr"],
+  [98,"البينة","Al-Bayyinah"],
+  [99,"الزلزلة","Az-Zalzalah"],
+  [100,"العاديات","Al-'Adiyat"],
+  [101,"القارعة","Al-Qari'ah"],
+  [102,"التكاثر","At-Takathur"],
+  [103,"العصر","Al-'Asr"],
+  [104,"الهمزة","Al-Humazah"],
+  [105,"الفيل","Al-Fil"],
+  [106,"قريش","Quraysh"],
+  [107,"الماعون","Al-Ma'un"],
+  [108,"الكوثر","Al-Kawthar"],
+  [109,"الكافرون","Al-Kafirun"],
+  [110,"النصر","An-Nasr"],
+  [111,"المسد","Al-Masad"],
+  [112,"الإخلاص","Al-Ikhlas"],
+  [113,"الفلق","Al-Falaq"],
+  [114,"الناس","An-Nas"],
+];
+const ATHKAR_DATA = {
+  morning: {
+    title: "أذكار الصباح",
+    items: [
+      { id: "m1", text: "أَعُوذُ بِاللهِ مِنَ الشَّيْطَانِ الرَّجِيمِ\nاللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ ۚ لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ", count: 1, label: "آية الكرسي" },
+      { id: "m2", text: "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ\nقُلْ هُوَ اللَّهُ أَحَدٌ، اللَّهُ الصَّمَدُ، لَمْ يَلِدْ وَلَمْ يُولَدْ، وَلَمْ يَكُن لَّهُ كُفُوًا أَحَدٌ", count: 3, label: "سورة الإخلاص" },
+      { id: "m3", text: "أَصْبَحْنَا وَأَصْبَحَ الْمُلْكُ لِلَّهِ، وَالْحَمْدُ لِلَّهِ، لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ", count: 1, label: "دعاء الصباح" },
+      { id: "m4", text: "اللَّهُمَّ بِكَ أَصْبَحْنَا، وَبِكَ أَمْسَيْنَا، وَبِكَ نَحْيَا، وَبِكَ نَمُوتُ وَإِلَيْكَ النُّشُورُ", count: 1, label: "دعاء الاستيقاظ" },
+      { id: "m5", text: "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ", count: 100, label: "تسبيح الصباح" },
+      { id: "m6", text: "اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ", count: 1, label: "سيد الاستغفار" },
+      { id: "m7", text: "اللَّهُمَّ عَافِنِي فِي بَدَنِي، اللَّهُمَّ عَافِنِي فِي سَمْعِي، اللَّهُمَّ عَافِنِي فِي بَصَرِي، لَا إِلَهَ إِلَّا أَنْتَ", count: 3, label: "دعاء العافية" },
+      { id: "m8", text: "رَضِيتُ بِاللَّهِ رَبًّا، وَبِالإِسْلَامِ دِيناً، وَبِمُحَمَّدٍ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ نَبِيًّا", count: 3, label: "الرضا بالله" },
+    ],
+  },
+  evening: {
+    title: "أذكار المساء",
+    items: [
+      { id: "e1", text: "أَعُوذُ بِاللهِ مِنَ الشَّيْطَانِ الرَّجِيمِ\nاللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ ۚ لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ", count: 1, label: "آية الكرسي" },
+      { id: "e2", text: "أَمْسَيْنَا وَأَمْسَى الْمُلْكُ لِلَّهِ، وَالْحَمْدُ لِلَّهِ، لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ", count: 1, label: "دعاء المساء" },
+      { id: "e3", text: "اللَّهُمَّ بِكَ أَمْسَيْنَا، وَبِكَ أَصْبَحْنَا، وَبِكَ نَحْيَا، وَبِكَ نَمُوتُ وَإِلَيْكَ الْمَصِيرُ", count: 1, label: "دعاء المساء" },
+      { id: "e4", text: "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ", count: 100, label: "تسبيح المساء" },
+      { id: "e5", text: "اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ", count: 1, label: "سيد الاستغفار" },
+      { id: "e6", text: "اللَّهُمَّ عَافِنِي فِي بَدَنِي، اللَّهُمَّ عَافِنِي فِي سَمْعِي، اللَّهُمَّ عَافِنِي فِي بَصَرِي، لَا إِلَهَ إِلَّا أَنْتَ", count: 3, label: "دعاء العافية" },
+    ],
+  },
+  afterPrayer: {
+    title: "أذكار بعد الصلاة",
+    items: [
+      { id: "p1", text: "أَسْتَغْفِرُ اللَّهَ", count: 3, label: "الاستغفار" },
+      { id: "p2", text: "اللَّهُمَّ أَنْتَ السَّلَامُ وَمِنْكَ السَّلَامُ، تَبَارَكْتَ يَا ذَا الْجَلَالِ وَالْإِكْرَامِ", count: 1, label: "دعاء التسليم" },
+      { id: "p3", text: "لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ", count: 1, label: "التهليل" },
+      { id: "p4", text: "سُبْحَانَ اللَّهِ", count: 33, label: "التسبيح" },
+      { id: "p5", text: "الْحَمْدُ لِلَّهِ", count: 33, label: "التحميد" },
+      { id: "p6", text: "اللَّهُ أَكْبَرُ", count: 34, label: "التكبير" },
+      { id: "p7", text: "آيَةُ الْكُرْسِيِّ", count: 1, label: "آية الكرسي بعد كل صلاة" },
+    ],
+  },
+  sleep: {
+    title: "أذكار النوم",
+    items: [
+      { id: "s1", text: "بِاسْمِكَ اللَّهُمَّ أَمُوتُ وَأَحْيَا", count: 1, label: "دعاء النوم" },
+      { id: "s2", text: "اللَّهُمَّ قِنِي عَذَابَكَ يَوْمَ تَبْعَثُ عِبَادَكَ", count: 3, label: "الدعاء قبل النوم" },
+      { id: "s3", text: "سُبْحَانَ اللَّهِ", count: 33, label: "تسبيح النوم" },
+      { id: "s4", text: "الْحَمْدُ لِلَّهِ", count: 33, label: "تحميد النوم" },
+      { id: "s5", text: "اللَّهُ أَكْبَرُ", count: 34, label: "تكبير النوم" },
+      { id: "s6", text: "قُلْ هُوَ اللَّهُ أَحَدٌ ...", count: 3, label: "سورة الإخلاص" },
+    ],
+  },
+  istighfar: {
+    title: "الاستغفار",
+    items: [
+      { id: "i1", text: "أَسْتَغْفِرُ اللَّهَ الْعَظِيمَ الَّذِي لَا إِلَهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ وَأَتُوبُ إِلَيْهِ", count: 100, label: "الاستغفار الكامل" },
+      { id: "i2", text: "اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ، أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ وَأَبُوءُ بِذَنْبِي فَاغْفِرْ لِي فَإِنَّهُ لَا يَغْفِرُ الذُّنُوبَ إِلَّا أَنْتَ", count: 1, label: "سيد الاستغفار" },
+    ],
+  },
+  salawat: {
+    title: "الصلاة على النبي ﷺ",
+    items: [
+      { id: "sl1", text: "اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَى نَبِيِّنَا مُحَمَّدٍ", count: 10, label: "الصلاة المختصرة" },
+      { id: "sl2", text: "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ، كَمَا صَلَّيْتَ عَلَى إِبْرَاهِيمَ وَعَلَى آلِ إِبْرَاهِيمَ، إِنَّكَ حَمِيدٌ مَجِيدٌ", count: 10, label: "الصلاة الإبراهيمية" },
+    ],
+  },
+  duaa: {
+    title: "أدعية مختارة",
+    items: [
+      { id: "d1", text: "رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً وَقِنَا عَذَابَ النَّارِ", count: 1, label: "دعاء الدنيا والآخرة" },
+      { id: "d2", text: "اللَّهُمَّ إِنِّي أَسْأَلُكَ الْعَفْوَ وَالْعَافِيَةَ فِي الدُّنْيَا وَالْآخِرَةِ", count: 3, label: "دعاء العفو والعافية" },
+      { id: "d3", text: "حَسْبِيَ اللَّهُ لَا إِلَهَ إِلَّا هُوَ، عَلَيْهِ تَوَكَّلْتُ وَهُوَ رَبُّ الْعَرْشِ الْعَظِيمِ", count: 7, label: "دعاء التوكل" },
+      { id: "d4", text: "اللَّهُمَّ أَصْلِحْ لِي دِينِي الَّذِي هُوَ عِصْمَةُ أَمْرِي، وَأَصْلِحْ لِي دُنْيَايَ الَّتِي فِيهَا مَعَاشِي، وَأَصْلِحْ لِي آخِرَتِي الَّتِي فِيهَا مَعَادِي", count: 1, label: "دعاء الصلاح" },
+    ],
+  },
+};
+const TASBIH_DHIKR = [
+  { id: "t1", text: "سبحان الله", transliteration: "Subhan Allah" },
+  { id: "t2", text: "الحمد لله", transliteration: "Alhamdulillah" },
+  { id: "t3", text: "الله أكبر", transliteration: "Allahu Akbar" },
+  { id: "t4", text: "لا إله إلا الله", transliteration: "La ilaha illallah" },
+  { id: "t5", text: "أستغفر الله", transliteration: "Astaghfirullah" },
+  { id: "t6", text: "اللهم صلِّ على محمد", transliteration: "Allahumma salli 'ala Muhammad" },
+  { id: "t7", text: "سبحان الله وبحمده", transliteration: "Subhan Allahi wa bihamdih" },
+  { id: "t8", text: "سبحان الله العظيم", transliteration: "Subhan Allahil Azeem" },
+  { id: "t9", text: "لا حول ولا قوة إلا بالله", transliteration: "La hawla wa la quwwata illa billah" },
+  { id: "t10", text: "حسبي الله ونعم الوكيل", transliteration: "Hasbiyallahu wa ni'mal wakeel" },
+];
+
 const MARKET_BASE_URL = "/api/market";
 const CANDLE_BASE_URL = "/api/yahoo";
 
@@ -2549,6 +2771,53 @@ export default function App() {
   const [analyzerExpanded, setAnalyzerExpanded] = useState(null);
   const [tgStatus, setTgStatus] = useState(null); // null | "sending" | "ok" | "error" | "unconfigured"
   const [tgMsg, setTgMsg] = useState("");
+
+  // ── Quran Player State ──
+  const [quranReciter, setQuranReciter] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("quran_reciter") || "null") || QURAN_RECITERS[0]; } catch { return QURAN_RECITERS[0]; }
+  });
+  const [quranSurah, setQuranSurah] = useState(() => {
+    try { return Number(localStorage.getItem("quran_surah") || "1"); } catch { return 1; }
+  });
+  const [quranPlaying, setQuranPlaying] = useState(false);
+  const [quranAutoNext, setQuranAutoNext] = useState(true);
+  const quranAudioRef = useRef(null);
+
+  // ── Athan State ──
+  const [athanCity, setAthanCity] = useState(() => localStorage.getItem("athan_city") || "");
+  const [athanCountry, setAthanCountry] = useState(() => localStorage.getItem("athan_country") || "");
+  const [athanMethod, setAthanMethod] = useState(() => Number(localStorage.getItem("athan_method") || "4"));
+  const [athanSoundOn, setAthanSoundOn] = useState(() => localStorage.getItem("athan_sound") !== "off");
+  const [athanReminder, setAthanReminder] = useState(() => Number(localStorage.getItem("athan_reminder") || "10"));
+  const [athanTimes, setAthanTimes] = useState(null);
+  const [athanHijri, setAthanHijri] = useState(null);
+  const [athanLoading, setAthanLoading] = useState(false);
+  const [athanError, setAthanError] = useState("");
+  const [athanNow, setAthanNow] = useState(new Date());
+  const athanAudioRef = useRef(null);
+
+  // Clock tick for athan countdown — must live at component level (Rules of Hooks)
+  useEffect(() => {
+    if (activeTab !== "athan") return;
+    const t = setInterval(() => setAthanNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, [activeTab]);
+
+  // ── Athkar State ──
+  const [athkarCategory, setAthkarCategory] = useState("morning");
+  const [athkarProgress, setAthkarProgress] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("athkar_progress") || "{}"); } catch { return {}; }
+  });
+
+  // ── Tasbih State ──
+  const [tasbihDhikr, setTasbihDhikr] = useState(TASBIH_DHIKR[0]);
+  const [tasbihTarget, setTasbihTarget] = useState(33);
+  const [tasbihCustomTarget, setTasbihCustomTarget] = useState("");
+  const [tasbihCount, setTasbihCount] = useState(() => {
+    try { return Number(localStorage.getItem("tasbih_count") || "0"); } catch { return 0; }
+  });
+  const [tasbihCompleted, setTasbihCompleted] = useState(false);
+
   const themeMode = String(settings.themeMode || "light").toLowerCase() === "dark" ? "dark" : "light";
 
   const SESSION_TTL = 8 * 60 * 60 * 1000;
@@ -4580,6 +4849,10 @@ export default function App() {
               { id: "sectors", label: "SECTORS" },
               { id: "journal", label: "JOURNAL" },
               { id: "analyzer", label: "ANALYZER" },
+              { id: "quran", label: "قرآن" },
+              { id: "athan", label: "أوقات الصلاة" },
+              { id: "athkar", label: "أذكار" },
+              { id: "tasbih", label: "تسبيح" },
             ].map(t => (
               <Pill key={t.id} active={activeTab === t.id} onClick={() => setActiveTab(t.id)}>
                 {t.label}{t.id === "alerts" && triggeredAlertBadge > 0 && (
@@ -7773,6 +8046,527 @@ export default function App() {
                 )}
               </div>
             )}
+          </div>
+        );
+      })()}
+
+      {/* ══════════════════ QURAN TAB ══════════════════ */}
+      {activeTab === "quran" && (() => {
+        const surahNum = quranSurah;
+        const surahPadded = String(surahNum).padStart(3, "0");
+        const audioUrl = `https://${quranReciter.server}/${surahPadded}.mp3`;
+        const surahInfo = SURAH_LIST[surahNum - 1];
+        const gold = "#c9a84c";
+        const goldDim = "#c9a84c44";
+        return (
+          <div dir="rtl" style={{ maxWidth: 700, margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              <div style={{ fontFamily: "Georgia, serif", fontSize: 13, color: gold, letterSpacing: "0.12em", marginBottom: 4 }}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.1em", direction: "ltr" }}>24/7 QURAN RECITATION</div>
+            </div>
+
+            {/* Current surah card */}
+            <div style={{ background: C.card, border: `1px solid ${goldDim}`, borderRadius: 16, padding: "24px 20px", marginBottom: 16, textAlign: "center", boxShadow: `0 0 40px ${gold}0a` }}>
+              <div style={{ fontSize: 32, fontWeight: 900, color: gold, fontFamily: "Georgia, serif", marginBottom: 4 }}>
+                {surahInfo?.[1]}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, direction: "ltr", marginBottom: 16 }}>
+                {surahNum}. {surahInfo?.[2]}
+              </div>
+
+              {/* Audio element */}
+              <audio
+                ref={quranAudioRef}
+                src={audioUrl}
+                onPlay={() => setQuranPlaying(true)}
+                onPause={() => setQuranPlaying(false)}
+                onEnded={() => {
+                  if (quranAutoNext && surahNum < 114) {
+                    const next = surahNum + 1;
+                    setQuranSurah(next);
+                    localStorage.setItem("quran_surah", String(next));
+                    setTimeout(() => { if (quranAudioRef.current) { quranAudioRef.current.load(); quranAudioRef.current.play().catch(() => {}); } }, 200);
+                  } else { setQuranPlaying(false); }
+                }}
+                style={{ display: "none" }}
+              />
+
+              {/* Play/Pause controls */}
+              <div style={{ display: "flex", justifyContent: "center", gap: 16, alignItems: "center", marginBottom: 16 }}>
+                <button
+                  onClick={() => {
+                    const prev = surahNum > 1 ? surahNum - 1 : 114;
+                    setQuranSurah(prev);
+                    localStorage.setItem("quran_surah", String(prev));
+                    setQuranPlaying(false);
+                    setTimeout(() => { if (quranAudioRef.current) { quranAudioRef.current.load(); if (quranPlaying) quranAudioRef.current.play().catch(() => {}); } }, 100);
+                  }}
+                  style={{ background: C.surface, border: `1px solid ${goldDim}`, color: gold, borderRadius: 999, width: 44, height: 44, fontSize: 18, cursor: "pointer" }}
+                >‹</button>
+
+                <button
+                  onClick={() => {
+                    if (!quranAudioRef.current) return;
+                    if (quranPlaying) { quranAudioRef.current.pause(); setQuranPlaying(false); }
+                    else { quranAudioRef.current.play().catch(e => console.warn(e)); }
+                  }}
+                  style={{ background: gold, border: "none", color: C.bg, borderRadius: 999, width: 64, height: 64, fontSize: 26, cursor: "pointer", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}
+                >{quranPlaying ? "⏸" : "▶"}</button>
+
+                <button
+                  onClick={() => {
+                    const next = surahNum < 114 ? surahNum + 1 : 1;
+                    setQuranSurah(next);
+                    localStorage.setItem("quran_surah", String(next));
+                    setQuranPlaying(false);
+                    setTimeout(() => { if (quranAudioRef.current) { quranAudioRef.current.load(); if (quranPlaying) quranAudioRef.current.play().catch(() => {}); } }, 100);
+                  }}
+                  style={{ background: C.surface, border: `1px solid ${goldDim}`, color: gold, borderRadius: 999, width: 44, height: 44, fontSize: 18, cursor: "pointer" }}
+                >›</button>
+              </div>
+
+              {/* Auto-next toggle */}
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12, color: C.textSec, direction: "ltr" }}>
+                <input type="checkbox" checked={quranAutoNext} onChange={e => setQuranAutoNext(e.target.checked)}
+                  style={{ accentColor: gold, width: 14, height: 14 }} />
+                تشغيل السورة التالية تلقائياً
+              </label>
+            </div>
+
+            {/* Reciter + Surah selectors */}
+            <div style={{ display: "grid", gap: 10, marginBottom: 14 }}>
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px" }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 6, direction: "rtl" }}>القارئ</div>
+                <select
+                  value={quranReciter.id}
+                  onChange={e => {
+                    const r = QURAN_RECITERS.find(x => x.id === e.target.value) || QURAN_RECITERS[0];
+                    setQuranReciter(r);
+                    localStorage.setItem("quran_reciter", JSON.stringify(r));
+                    setQuranPlaying(false);
+                    setTimeout(() => { if (quranAudioRef.current) { quranAudioRef.current.load(); } }, 100);
+                  }}
+                  style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "10px 12px", fontFamily: "Arial, sans-serif", fontSize: 14, borderRadius: 6, direction: "rtl" }}
+                >
+                  {QURAN_RECITERS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                </select>
+              </div>
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px" }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 6 }}>السورة</div>
+                <select
+                  value={surahNum}
+                  onChange={e => {
+                    const n = Number(e.target.value);
+                    setQuranSurah(n);
+                    localStorage.setItem("quran_surah", String(n));
+                    setQuranPlaying(false);
+                    setTimeout(() => { if (quranAudioRef.current) { quranAudioRef.current.load(); } }, 100);
+                  }}
+                  style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "10px 12px", fontFamily: "Arial, sans-serif", fontSize: 14, borderRadius: 6, direction: "rtl" }}
+                >
+                  {SURAH_LIST.map(([n, ar, en]) => <option key={n} value={n}>{n}. {ar} — {en}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Quick surah grid (last 10) */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12 }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 8 }}>السور القصيرة — التلاوة السريعة</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 6 }}>
+                {SURAH_LIST.slice(104).map(([n, ar]) => (
+                  <button key={n} onClick={() => {
+                    setQuranSurah(n);
+                    localStorage.setItem("quran_surah", String(n));
+                    setQuranPlaying(false);
+                    setTimeout(() => { if (quranAudioRef.current) { quranAudioRef.current.load(); } }, 100);
+                  }}
+                    style={{ background: n === surahNum ? `${gold}22` : C.surface, border: `1px solid ${n === surahNum ? gold : C.border}`, color: n === surahNum ? gold : C.text, borderRadius: 6, padding: "7px 6px", fontSize: 13, cursor: "pointer", fontFamily: "Arial, sans-serif" }}>
+                    {ar}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ══════════════════ ATHAN TAB ══════════════════ */}
+      {activeTab === "athan" && (() => {
+        const gold = "#c9a84c";
+        const PRAYER_NAMES = ["الفجر", "الشروق", "الظهر", "العصر", "المغرب", "العشاء"];
+        const PRAYER_KEYS = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"];
+        const METHODS = [
+          { id: 1, label: "University of Islamic Sciences, Karachi" },
+          { id: 2, label: "Islamic Society of North America (ISNA)" },
+          { id: 3, label: "Muslim World League" },
+          { id: 4, label: "Umm Al-Qura University, Makkah" },
+          { id: 5, label: "Egyptian General Authority" },
+          { id: 9, label: "Kuwait" },
+          { id: 11, label: "Qatar" },
+          { id: 14, label: "Turkey" },
+          { id: 15, label: "Singapore" },
+        ];
+
+        const fetchPrayerTimes = async (lat, lng, city, country) => {
+          setAthanLoading(true);
+          setAthanError("");
+          try {
+            const today = new Date();
+            const dd = String(today.getDate()).padStart(2, "0");
+            const mm = String(today.getMonth() + 1).padStart(2, "0");
+            const yyyy = today.getFullYear();
+            let url;
+            if (lat && lng) {
+              url = `https://api.aladhan.com/v1/timings/${Math.floor(Date.now() / 1000)}?latitude=${lat}&longitude=${lng}&method=${athanMethod}`;
+            } else {
+              url = `https://api.aladhan.com/v1/timingsByCity?city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}&method=${athanMethod}`;
+            }
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.code !== 200) throw new Error(data.data || "خطأ في جلب أوقات الصلاة");
+            setAthanTimes(data.data.timings);
+            setAthanHijri(data.data.date?.hijri);
+          } catch (err) {
+            setAthanError(String(err.message || "فشل في جلب أوقات الصلاة"));
+          }
+          setAthanLoading(false);
+        };
+
+        const loadByGeo = () => {
+          if (!navigator.geolocation) { setAthanError("المتصفح لا يدعم تحديد الموقع"); return; }
+          navigator.geolocation.getCurrentPosition(
+            pos => { fetchPrayerTimes(pos.coords.latitude, pos.coords.longitude, null, null); },
+            () => { setAthanError("رُفض إذن الموقع — أدخل المدينة يدوياً"); }
+          );
+        };
+
+        // Parse "HH:MM" string to today's Date
+        const parseTime = (str) => {
+          if (!str) return null;
+          const [h, m] = str.split(":").map(Number);
+          const d = new Date(athanNow);
+          d.setHours(h, m, 0, 0);
+          return d;
+        };
+
+        const prayerTimes = PRAYER_KEYS.map((k, i) => ({
+          key: k, name: PRAYER_NAMES[i],
+          time: athanTimes ? parseTime(athanTimes[k]) : null,
+          timeStr: athanTimes?.[k] || "—",
+        }));
+
+        const now = athanNow;
+        const nextPrayer = prayerTimes.filter(p => p.key !== "Sunrise" && p.time && p.time > now).sort((a, b) => a.time - b.time)[0];
+        const countdown = nextPrayer?.time ? Math.max(0, Math.floor((nextPrayer.time - now) / 1000)) : null;
+        const cdH = countdown != null ? Math.floor(countdown / 3600) : 0;
+        const cdM = countdown != null ? Math.floor((countdown % 3600) / 60) : 0;
+        const cdS = countdown != null ? countdown % 60 : 0;
+
+        return (
+          <div dir="rtl" style={{ maxWidth: 780, margin: "0 auto" }}>
+            {/* Header */}
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              <div style={{ fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 900, color: gold }}>أوقات الصلاة</div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, direction: "ltr", marginTop: 4 }}>PRAYER TIMES</div>
+            </div>
+
+            {/* Date display */}
+            <div style={{ background: C.card, border: `1px solid ${gold}44`, borderRadius: 12, padding: "12px 16px", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+              <div>
+                <div style={{ fontSize: 13, color: C.text, fontWeight: 700 }}>{now.toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</div>
+                {athanHijri && <div style={{ fontSize: 12, color: gold, marginTop: 2 }}>{athanHijri.day} {athanHijri.month?.ar} {athanHijri.year} هـ</div>}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 18, color: C.text, fontWeight: 700, direction: "ltr" }}>
+                {now.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              </div>
+            </div>
+
+            {/* Next prayer countdown */}
+            {nextPrayer && countdown != null && (
+              <div style={{ background: `${gold}12`, border: `1px solid ${gold}66`, borderRadius: 12, padding: "16px 20px", marginBottom: 14, textAlign: "center" }}>
+                <div style={{ fontSize: 12, color: gold, marginBottom: 4 }}>الوقت المتبقي على {nextPrayer.name}</div>
+                <div style={{ fontFamily: MONO, fontSize: 30, fontWeight: 900, color: gold, direction: "ltr" }}>
+                  {String(cdH).padStart(2, "0")}:{String(cdM).padStart(2, "0")}:{String(cdS).padStart(2, "0")}
+                </div>
+              </div>
+            )}
+
+            {/* Prayer cards */}
+            {athanTimes && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10, marginBottom: 16 }}>
+                {prayerTimes.map(p => {
+                  const isNext = nextPrayer?.key === p.key;
+                  const isPast = p.time && p.time < now;
+                  return (
+                    <div key={p.key} style={{ background: isNext ? `${gold}18` : C.card, border: `1px solid ${isNext ? gold : C.border}`, borderRadius: 10, padding: "14px 10px", textAlign: "center" }}>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: isNext ? gold : C.text, fontFamily: "Arial, sans-serif", marginBottom: 6 }}>{p.name}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 14, color: isPast ? C.textDim : C.text, direction: "ltr" }}>{p.timeStr}</div>
+                      {isNext && <div style={{ fontSize: 9, color: gold, fontFamily: MONO, marginTop: 4 }}>التالية</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {athanLoading && <div style={{ textAlign: "center", color: C.textDim, fontFamily: MONO, fontSize: 12, marginBottom: 14 }}>جاري تحميل أوقات الصلاة…</div>}
+            {athanError && <div style={{ background: `${C.red}12`, border: `1px solid ${C.red}44`, borderRadius: 8, padding: "10px 14px", color: C.red, fontSize: 13, marginBottom: 14 }}>{athanError}</div>}
+
+            {/* Location + Settings */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 10 }}>الإعدادات</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                <input value={athanCity} onChange={e => setAthanCity(e.target.value)} placeholder="المدينة (مثل: مكة)" dir="rtl"
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "9px 10px", borderRadius: 6, fontSize: 13, fontFamily: "Arial, sans-serif" }}
+                  onBlur={() => localStorage.setItem("athan_city", athanCity)} />
+                <input value={athanCountry} onChange={e => setAthanCountry(e.target.value)} placeholder="الدولة (مثل: SA)" dir="rtl"
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "9px 10px", borderRadius: 6, fontSize: 13, fontFamily: "Arial, sans-serif" }}
+                  onBlur={() => localStorage.setItem("athan_country", athanCountry)} />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, marginBottom: 10 }}>
+                <select value={athanMethod} onChange={e => { setAthanMethod(Number(e.target.value)); localStorage.setItem("athan_method", e.target.value); }}
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "9px 10px", borderRadius: 6, fontSize: 12, fontFamily: "Arial, sans-serif" }} dir="rtl">
+                  {METHODS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                </select>
+                <button onClick={loadByGeo}
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.accent, borderRadius: 6, padding: "9px 12px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
+                  📍 موقعي
+                </button>
+                <button onClick={() => { if (athanCity && athanCountry) fetchPrayerTimes(null, null, athanCity, athanCountry); else loadByGeo(); }}
+                  style={{ background: `${gold}18`, border: `1px solid ${gold}55`, color: gold, borderRadius: 6, padding: "9px 12px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
+                  تحديث
+                </button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: C.textSec, cursor: "pointer" }}>
+                  <input type="checkbox" checked={athanSoundOn} onChange={e => { setAthanSoundOn(e.target.checked); localStorage.setItem("athan_sound", e.target.checked ? "on" : "off"); }}
+                    style={{ accentColor: gold }} />
+                  تشغيل صوت الأذان
+                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 12, color: C.textSec }}>تنبيه قبل الصلاة:</span>
+                  <select value={athanReminder} onChange={e => { setAthanReminder(Number(e.target.value)); localStorage.setItem("athan_reminder", e.target.value); }}
+                    style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "4px 8px", borderRadius: 4, fontSize: 12, fontFamily: "Arial, sans-serif" }}>
+                    <option value={5}>5 دقائق</option>
+                    <option value={10}>10 دقائق</option>
+                    <option value={15}>15 دقيقة</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            {!athanTimes && !athanLoading && (
+              <div style={{ textAlign: "center" }}>
+                <button onClick={loadByGeo}
+                  style={{ background: `${gold}18`, border: `1px solid ${gold}66`, color: gold, borderRadius: 10, padding: "14px 28px", fontFamily: "Arial, sans-serif", fontSize: 16, cursor: "pointer", fontWeight: 700 }}>
+                  📍 اعرض أوقات الصلاة لموقعي
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ══════════════════ ATHKAR TAB ══════════════════ */}
+      {activeTab === "athkar" && (() => {
+        const gold = "#c9a84c";
+        const CATEGORIES = [
+          { id: "morning", label: "أذكار الصباح" },
+          { id: "evening", label: "أذكار المساء" },
+          { id: "afterPrayer", label: "أذكار بعد الصلاة" },
+          { id: "sleep", label: "أذكار النوم" },
+          { id: "istighfar", label: "الاستغفار" },
+          { id: "salawat", label: "الصلاة على النبي" },
+          { id: "duaa", label: "أدعية" },
+        ];
+        const catData = ATHKAR_DATA[athkarCategory];
+        const saveProgress = (updated) => {
+          setAthkarProgress(updated);
+          try { localStorage.setItem("athkar_progress", JSON.stringify(updated)); } catch {}
+        };
+        const catItems = catData?.items || [];
+        const allDone = catItems.every(item => (athkarProgress[item.id] || 0) >= item.count);
+
+        return (
+          <div dir="rtl" style={{ maxWidth: 760, margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              <div style={{ fontFamily: "Georgia, serif", fontSize: 24, fontWeight: 900, color: gold }}>الأذكار</div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, direction: "ltr", marginTop: 4 }}>ISLAMIC REMEMBRANCE</div>
+            </div>
+
+            {/* Category tabs */}
+            <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8, marginBottom: 14, flexWrap: "wrap" }}>
+              {CATEGORIES.map(cat => (
+                <button key={cat.id} onClick={() => setAthkarCategory(cat.id)}
+                  style={{ border: `1px solid ${athkarCategory === cat.id ? gold : C.border}`, background: athkarCategory === cat.id ? `${gold}18` : C.surface, color: athkarCategory === cat.id ? gold : C.textSec, borderRadius: 20, padding: "6px 14px", fontFamily: "Arial, sans-serif", fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}>
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {allDone && (
+              <div style={{ background: `${gold}14`, border: `1px solid ${gold}66`, borderRadius: 10, padding: "14px 16px", textAlign: "center", marginBottom: 14 }}>
+                <div style={{ fontSize: 18, color: gold, fontFamily: "Arial, sans-serif", fontWeight: 700 }}>✓ تم إكمال {catData.title}</div>
+                <div style={{ fontSize: 12, color: C.textSec, marginTop: 4 }}>بارك الله فيك وتقبل منك</div>
+                <button onClick={() => {
+                  const reset = { ...athkarProgress };
+                  catItems.forEach(item => { reset[item.id] = 0; });
+                  saveProgress(reset);
+                }} style={{ marginTop: 10, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "6px 14px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
+                  إعادة
+                </button>
+              </div>
+            )}
+
+            {/* Dhikr items */}
+            <div style={{ display: "grid", gap: 10 }}>
+              {catItems.map(item => {
+                const current = athkarProgress[item.id] || 0;
+                const done = current >= item.count;
+                const pct = Math.min(100, (current / item.count) * 100);
+                return (
+                  <div key={item.id} style={{ background: done ? `${gold}0a` : C.card, border: `1px solid ${done ? gold + "44" : C.border}`, borderRadius: 12, padding: "16px 14px", opacity: done ? 0.75 : 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                      <div style={{ fontSize: 11, color: gold, fontFamily: MONO }}>{item.label}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 11, color: done ? gold : C.textSec }}>{current}/{item.count}</div>
+                    </div>
+                    <div style={{ fontFamily: "Arial, sans-serif", fontSize: 17, lineHeight: 2, color: C.text, textAlign: "right", marginBottom: 12, whiteSpace: "pre-wrap" }}>
+                      {item.text}
+                    </div>
+                    {/* Progress bar */}
+                    <div style={{ height: 3, background: C.border, borderRadius: 2, marginBottom: 10, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${pct}%`, background: done ? gold : C.accent, borderRadius: 2, transition: "width 0.2s" }} />
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        onClick={() => {
+                          if (done) return;
+                          const next = current + 1;
+                          saveProgress({ ...athkarProgress, [item.id]: next });
+                        }}
+                        disabled={done}
+                        style={{ flex: 1, background: done ? `${gold}18` : C.accent, border: "none", color: done ? gold : "#fff", borderRadius: 8, padding: "11px 0", fontFamily: "Arial, sans-serif", fontSize: 15, cursor: done ? "default" : "pointer", fontWeight: 700 }}>
+                        {done ? "✓ مكتمل" : "عد — " + (item.count - current) + " متبقٍ"}
+                      </button>
+                      <button onClick={() => saveProgress({ ...athkarProgress, [item.id]: 0 })}
+                        style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textSec, borderRadius: 8, padding: "11px 14px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
+                        إعادة
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ══════════════════ TASBIH TAB ══════════════════ */}
+      {activeTab === "tasbih" && (() => {
+        const gold = "#c9a84c";
+        const effectiveTarget = tasbihCustomTarget ? Number(tasbihCustomTarget) : tasbihTarget;
+        const pct = effectiveTarget > 0 ? Math.min(100, (tasbihCount / effectiveTarget) * 100) : 0;
+        const done = tasbihCount >= effectiveTarget && effectiveTarget > 0;
+
+        const doCount = () => {
+          if (done) return;
+          const next = tasbihCount + 1;
+          setTasbihCount(next);
+          localStorage.setItem("tasbih_count", String(next));
+          if (next >= effectiveTarget) setTasbihCompleted(true);
+        };
+
+        const doReset = () => {
+          setTasbihCount(0);
+          setTasbihCompleted(false);
+          localStorage.setItem("tasbih_count", "0");
+        };
+
+        return (
+          <div dir="rtl" style={{ maxWidth: 560, margin: "0 auto", textAlign: "center" }}>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 900, color: gold }}>التسبيح</div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, direction: "ltr", marginTop: 4 }}>DIGITAL TASBIH</div>
+            </div>
+
+            {/* Current dhikr */}
+            <div style={{ background: C.card, border: `2px solid ${gold}44`, borderRadius: 20, padding: "28px 20px", marginBottom: 16 }}>
+              <div style={{ fontFamily: "Arial, sans-serif", fontSize: 28, fontWeight: 900, color: gold, lineHeight: 1.7, marginBottom: 4 }}>
+                {tasbihDhikr.text}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, direction: "ltr", marginBottom: 20 }}>
+                {tasbihDhikr.transliteration}
+              </div>
+
+              {/* Big counter */}
+              <div style={{ fontFamily: MONO, fontSize: 80, fontWeight: 900, color: done ? gold : C.text, lineHeight: 1, marginBottom: 8 }}>
+                {tasbihCount}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginBottom: 20 }}>
+                / {effectiveTarget}
+              </div>
+
+              {/* Progress ring-style bar */}
+              <div style={{ height: 6, background: C.border, borderRadius: 3, marginBottom: 20, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${pct}%`, background: done ? gold : C.accent, borderRadius: 3, transition: "width 0.1s" }} />
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 20 }}>{pct.toFixed(1)}%</div>
+
+              {/* Big tap button */}
+              <button
+                onClick={doCount}
+                disabled={done}
+                onKeyDown={e => { if (e.code === "Space") { e.preventDefault(); doCount(); } }}
+                style={{ width: 180, height: 180, borderRadius: "50%", background: done ? `${gold}14` : `${gold}22`, border: `3px solid ${done ? gold : gold + "66"}`, color: gold, fontSize: 44, cursor: done ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", transition: "transform 0.08s, background 0.1s", boxShadow: done ? `0 0 40px ${gold}22` : "none" }}
+                onMouseDown={e => { if (!done) e.currentTarget.style.transform = "scale(0.94)"; }}
+                onMouseUp={e => { e.currentTarget.style.transform = "scale(1)"; }}
+              >
+                {done ? "✓" : "☝"}
+              </button>
+            </div>
+
+            {/* Completed message */}
+            {(done || tasbihCompleted) && (
+              <div style={{ background: `${gold}14`, border: `1px solid ${gold}66`, borderRadius: 12, padding: "16px 20px", marginBottom: 14 }}>
+                <div style={{ fontSize: 18, color: gold, fontWeight: 700 }}>تم إكمال الذكر</div>
+                <div style={{ fontSize: 13, color: C.textSec, marginTop: 4 }}>بارك الله فيك</div>
+              </div>
+            )}
+
+            {/* Controls */}
+            <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 16, flexWrap: "wrap" }}>
+              <button onClick={doReset}
+                style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textSec, borderRadius: 8, padding: "10px 22px", fontFamily: "Arial, sans-serif", fontSize: 14, cursor: "pointer" }}>
+                إعادة
+              </button>
+              {tasbihCount > 0 && <div style={{ display: "flex", alignItems: "center", fontFamily: MONO, fontSize: 11, color: C.textDim }}>العدد الحالي: {tasbihCount}</div>}
+            </div>
+
+            {/* Dhikr selector */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 8 }}>الذكر</div>
+              <div style={{ display: "grid", gap: 6 }}>
+                {TASBIH_DHIKR.map(d => (
+                  <button key={d.id} onClick={() => { setTasbihDhikr(d); doReset(); }}
+                    style={{ background: tasbihDhikr.id === d.id ? `${gold}18` : C.surface, border: `1px solid ${tasbihDhikr.id === d.id ? gold : C.border}`, color: tasbihDhikr.id === d.id ? gold : C.text, borderRadius: 8, padding: "10px 14px", fontFamily: "Arial, sans-serif", fontSize: 15, cursor: "pointer", textAlign: "right" }}>
+                    {d.text}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Target selector */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 8 }}>الهدف</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 10 }}>
+                {[33, 99, 100, 1000].map(t => (
+                  <button key={t} onClick={() => { setTasbihTarget(t); setTasbihCustomTarget(""); }}
+                    style={{ background: tasbihTarget === t && !tasbihCustomTarget ? `${gold}18` : C.surface, border: `1px solid ${tasbihTarget === t && !tasbihCustomTarget ? gold : C.border}`, color: tasbihTarget === t && !tasbihCustomTarget ? gold : C.text, borderRadius: 8, padding: "8px 16px", fontFamily: MONO, fontSize: 13, cursor: "pointer" }}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <input type="number" value={tasbihCustomTarget} onChange={e => setTasbihCustomTarget(e.target.value)} placeholder="هدف مخصص…"
+                style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "9px 12px", borderRadius: 8, fontFamily: MONO, fontSize: 12, textAlign: "center" }} />
+            </div>
           </div>
         );
       })()}
