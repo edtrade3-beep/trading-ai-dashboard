@@ -2016,7 +2016,7 @@ function TerminalWorkspace({
                   <div>
                     {executionRows.map((r) => (
                       <div key={`ex-${r.symbol}`} style={{ borderBottom: `1px solid ${C.border}`, padding: "8px 10px" }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "54px 70px 70px 70px 52px 1fr", gap: 8, alignItems: "center" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "54px 70px 70px 70px 52px 1fr auto", gap: 8, alignItems: "center" }}>
                           <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{r.symbol}</span>
                           <span style={{ fontFamily: MONO, fontSize: 10, color: C.textSec }}>E ${r.entry.toFixed(2)}</span>
                           <span style={{ fontFamily: MONO, fontSize: 10, color: C.red }}>S ${r.stop.toFixed(2)}</span>
@@ -2025,6 +2025,12 @@ function TerminalWorkspace({
                           <span style={{ justifySelf: "end" }}>
                             <Badge color={r.status === "TRIGGERED" ? C.green : r.status === "STALK" ? C.amber : C.textDim}>{r.status}</Badge>
                           </span>
+                          <button onClick={async () => {
+                            try {
+                              await fetch("/api/journal", { method: "POST", headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ ticker: r.symbol, side: "BUY", score: r.score, entry: r.entry, stopLoss: r.stop, target: r.target, timeframe: "1D", style: "Terminal", notes: `Blotter ${r.status} · RR ${r.rr.toFixed(2)} · RVOL ${r.rvol.toFixed(2)}x` }) });
+                            } catch {}
+                          }} style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>LOG</button>
                         </div>
                       </div>
                     ))}
@@ -5408,6 +5414,13 @@ export default function App() {
                                   style={{ border: `1px solid ${C.green}55`, background: watchlistLogSymbol === q.symbol ? `${C.green}22` : C.surface, color: C.green, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}
                                 >
                                   LOG
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setWatchlistSymbols(prev => prev.filter(s => s !== q.symbol)); }}
+                                  style={{ border: `1px solid ${C.red}44`, background: C.surface, color: C.red, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                  title={`Remove ${q.symbol} from watchlist`}
+                                >
+                                  ×
                                 </button>
                               </div>
                             </td>
