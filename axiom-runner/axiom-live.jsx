@@ -185,6 +185,265 @@ function fmtCountdownShort(secs) {
   return `${ss}s`;
 }
 
+// ── Telegram / TradingView Alert Analyzer ──────────────────────────────────
+
+const ANALYZER_SAMPLES = [
+`🚨 NVDA LONG — Breakout Setup
+Price: $875.50
+VWAP: Above ($868.20)
+EMA: 9 > 21 Bullish
+RVOL: 2.4x
+Entry: $872–875
+Stop: $862
+T1: $895
+T2: $912
+T3: $930`,
+
+`AAPL — potential long
+Current: $184.20
+EMA: mixed/flat
+Volume: normal
+Entry near current
+Stop maybe $180
+Target $190`,
+
+`🔥 META LONG SWING 1D
+Price: $485
+Above VWAP ($478)
+EMA 9 > 21 bullish
+RVOL: 1.8x
+Entry: $483–485
+Stop: $474
+T1: $497
+T2: $510
+T3: $525`,
+
+`TSLA SHORT 15M
+Price: $245.80
+Below VWAP ($249.10)
+EMA: 9 < 21 bearish stack
+RVOL: 3.1x
+Entry: $246–247
+Stop: $252
+T1: $240
+T2: $235
+T3: $229
+Setup: Failed breakout reversal`,
+];
+
+function parseTelegramAlert(rawText) {
+  const text = String(rawText || "").trim();
+  if (!text || text.length < 10) return null;
+
+  // Symbol — first uppercase ticker word (optionally preceded by $)
+  const symMatch = text.match(/\$([A-Z]{1,6}(?:\.[A-Z]{1,3})?)\b/) ||
+    text.match(/\b([A-Z]{2,6}(?:\.[A-Z]{1,3})?)\b/);
+  const symbol = symMatch ? symMatch[1] : null;
+
+  // Direction
+  const dirMatch = text.match(/\b(LONG|SHORT|BUY|SELL|BULLISH|BEARISH|CALL|PUT|BULL|BEAR)\b/i);
+  let direction = dirMatch ? dirMatch[1].toUpperCase() : null;
+  if (["BUY","BULL","BULLISH","CALL"].includes(direction)) direction = "LONG";
+  if (["SELL","BEAR","BEARISH","PUT"].includes(direction)) direction = "SHORT";
+
+  // Timeframe
+  const tfMatch = text.match(/\b(1M|3M|5M|10M|15M|30M|1H|2H|4H|1D|1W|DAILY|WEEKLY|SWING|INTRADAY)\b/i);
+  const timeframe = tfMatch ? tfMatch[1].toUpperCase() : null;
+
+  // Price
+  const priceMatch = text.match(/(?:PRICE|CURRENT|LAST|AT)[:\s]*\$?([\d,]+\.?\d*)/i) ||
+    text.match(/\$\s*([\d]{2,6}\.?\d{0,2})\b/);
+  const price = priceMatch ? Number(priceMatch[1].replace(/,/g, "")) : null;
+
+  // VWAP status + value
+  let vwapStatus = null;
+  const vwapAbove = /above\s+vwap|vwap[:\s]+above|price.*above.*vwap/i.test(text);
+  const vwapBelow = /below\s+vwap|vwap[:\s]+below|price.*below.*vwap/i.test(text);
+  const vwapAt    = /at\s+vwap|near\s+vwap/i.test(text);
+  if (vwapAbove) vwapStatus = "above";
+  else if (vwapBelow) vwapStatus = "below";
+  else if (vwapAt) vwapStatus = "at";
+
+  const vwapValMatch = text.match(/vwap[:\s(]+\$?([\d,]+\.?\d*)/i);
+  const vwapValue = vwapValMatch ? Number(vwapValMatch[1].replace(/,/g, "")) : null;
+  if (vwapValue && price && !vwapStatus) {
+    vwapStatus = price > vwapValue * 1.002 ? "above" : price < vwapValue * 0.998 ? "below" : "at";
+  }
+
+  // EMA trend
+  let emaTrend = null;
+  if (/ema.*bull|bullish.*ema|9\s*[>]\s*21|ema.*align.*bull|above.*ema/i.test(text)) emaTrend = "bullish";
+  else if (/ema.*bear|bearish.*ema|9\s*[<]\s*21|ema.*align.*bear|below.*ema/i.test(text)) emaTrend = "bearish";
+  else if (/ema.*align[^e]|aligned.*ema/i.test(text)) emaTrend = "aligned";
+  else if (/ema.*flat|ema.*mix|mixed.*ema/i.test(text)) emaTrend = "flat";
+
+  // RVOL
+  const rvolMatch = text.match(/rvol[:\s]*([\d.]+)\s*x?/i) || text.match(/([\d.]+)\s*x\s+(?:rvol|vol)/i);
+  const rvol = rvolMatch ? Number(rvolMatch[1]) : null;
+
+  // Entry zone
+  const entryMatch = text.match(/(?:entry|enter)[:\s]*\$?([\d,]+\.?\d*)(?:\s*[–\-—]\s*\$?([\d,]+\.?\d*))?/i);
+  const entryLow  = entryMatch ? Number(entryMatch[1].replace(/,/g, "")) : null;
+  const entryHigh = entryMatch && entryMatch[2] ? Number(entryMatch[2].replace(/,/g, "")) : null;
+
+  // Stop
+  const stopMatch = text.match(/(?:stop|sl|stop.?loss)[:\s]*\$?([\d,]+\.?\d*)/i);
+  const stop = stopMatch ? Number(stopMatch[1].replace(/,/g, "")) : null;
+
+  // Targets — labeled
+  const t1Match = text.match(/(?:t1|tp1|target\s*1)[:\s]*\$?([\d,]+\.?\d*)/i);
+  const t2Match = text.match(/(?:t2|tp2|target\s*2)[:\s]*\$?([\d,]+\.?\d*)/i);
+  const t3Match = text.match(/(?:t3|tp3|target\s*3)[:\s]*\$?([\d,]+\.?\d*)/i);
+  let t1 = t1Match ? Number(t1Match[1].replace(/,/g, "")) : null;
+  let t2 = t2Match ? Number(t2Match[1].replace(/,/g, "")) : null;
+  let t3 = t3Match ? Number(t3Match[1].replace(/,/g, "")) : null;
+
+  // Fallback: generic target line
+  if (!t1) {
+    const tgMatch = text.match(/(?:target|tp|take.?profit)[:\s]*\$?([\d,]+\.?\d*)(?:[,\s]+\$?([\d,]+\.?\d*))?(?:[,\s]+\$?([\d,]+\.?\d*))?/i);
+    if (tgMatch) {
+      if (tgMatch[1]) t1 = Number(tgMatch[1].replace(/,/g, ""));
+      if (tgMatch[2]) t2 = Number(tgMatch[2].replace(/,/g, ""));
+      if (tgMatch[3]) t3 = Number(tgMatch[3].replace(/,/g, ""));
+    }
+  }
+
+  // Inline alert score
+  const scoreMatch = text.match(/(?:score|rating)[:\s]*(\d{1,3})/i);
+  const alertScore = scoreMatch ? Number(scoreMatch[1]) : null;
+
+  // Setup type
+  let setupType = "unspecified";
+  if (/breakout|break.?above|break.?out/i.test(text)) setupType = "breakout";
+  else if (/pullback|retest|retrace/i.test(text)) setupType = "pullback";
+  else if (/reversal|bounce|recovery|failed/i.test(text)) setupType = "reversal";
+  else if (/continuation|trend\s+follow/i.test(text)) setupType = "continuation";
+
+  return { symbol, direction, timeframe, price, vwapStatus, vwapValue, emaTrend, rvol, entryLow, entryHigh, stop, t1, t2, t3, alertScore, setupType, raw: rawText };
+}
+
+function scoreAlert(parsed) {
+  if (!parsed || !parsed.symbol) {
+    return { score: 0, grade: "F", decision: "AVOID", warnings: ["Cannot parse alert — no symbol detected"], risks: [], positives: [], suggestedEntry: null, suggestedStop: null, suggestedT1: null, suggestedT2: null, suggestedT3: null, rrRatio: null };
+  }
+
+  let score = 50;
+  const warnings = [], risks = [], positives = [];
+  const { direction, vwapStatus, emaTrend, rvol, price, stop, entryLow, entryHigh, t1, t2, t3, setupType } = parsed;
+
+  // ── VWAP alignment (+/-15)
+  if (!vwapStatus) {
+    warnings.push("VWAP status unknown — bias unconfirmed");
+  } else if (vwapStatus === "above" && direction === "LONG") {
+    score += 15; positives.push("Price ABOVE VWAP — bullish bias confirmed");
+  } else if (vwapStatus === "below" && direction === "SHORT") {
+    score += 15; positives.push("Price BELOW VWAP — bearish bias confirmed");
+  } else if (vwapStatus === "above" && direction === "SHORT") {
+    score -= 10; risks.push("Shorting ABOVE VWAP — fighting institutional order flow");
+  } else if (vwapStatus === "below" && direction === "LONG") {
+    score -= 15; risks.push("Longing BELOW VWAP — counter-trend, high failure rate");
+  } else if (vwapStatus === "at") {
+    score += 2; warnings.push("Price AT VWAP — wait for decisive break in either direction");
+  }
+
+  // ── EMA trend (+/-12)
+  if (!emaTrend) {
+    warnings.push("EMA data missing — trend confirmation unavailable");
+  } else if (emaTrend === "bullish" && direction === "LONG") {
+    score += 12; positives.push("EMA 9 > 21 — bullish stack, trend aligned");
+  } else if (emaTrend === "bearish" && direction === "SHORT") {
+    score += 12; positives.push("EMA 9 < 21 — bearish stack, trend aligned");
+  } else if (emaTrend === "bullish" && direction === "SHORT") {
+    score -= 12; risks.push("Fighting bullish EMA stack on a SHORT — high risk");
+  } else if (emaTrend === "bearish" && direction === "LONG") {
+    score -= 12; risks.push("Fighting bearish EMA stack on a LONG — high risk");
+  } else if (emaTrend === "aligned") {
+    score += 6; positives.push("EMAs aligned with trade direction");
+  } else if (emaTrend === "flat") {
+    score -= 5; warnings.push("EMAs flat — choppy price action, no clear trend");
+  }
+
+  // ── RVOL (+/-15)
+  if (rvol === null) {
+    score -= 5; warnings.push("RVOL not specified — volume confirmation unknown");
+  } else if (rvol >= 2.5) {
+    score += 15; positives.push(`RVOL ${rvol.toFixed(1)}x — institutional volume spike detected`);
+  } else if (rvol >= 2.0) {
+    score += 12; positives.push(`RVOL ${rvol.toFixed(1)}x — strong volume, move has conviction`);
+  } else if (rvol >= 1.5) {
+    score += 8; positives.push(`RVOL ${rvol.toFixed(1)}x — above-average volume`);
+  } else if (rvol >= 1.0) {
+    score += 2; warnings.push(`RVOL ${rvol.toFixed(1)}x — average volume, low conviction`);
+  } else {
+    score -= 12; risks.push(`RVOL ${rvol.toFixed(1)}x — below-average volume, breakout suspect`);
+  }
+
+  // ── Stop loss & R:R
+  const entryRef = entryLow || price;
+  let rrRatio = null;
+  if (!stop) {
+    score -= 20; risks.push("NO STOP LOSS defined — position carries undefined risk");
+  } else if (entryRef && t1) {
+    const risk = Math.abs(entryRef - stop);
+    const reward = Math.abs(t1 - entryRef);
+    rrRatio = risk > 0 ? reward / risk : 0;
+    if (rrRatio >= 3)       { score += 12; positives.push(`R:R ${rrRatio.toFixed(1)}:1 — excellent risk/reward`); }
+    else if (rrRatio >= 2)  { score += 8;  positives.push(`R:R ${rrRatio.toFixed(1)}:1 — solid risk/reward`); }
+    else if (rrRatio >= 1.5){ score += 3;  warnings.push(`R:R ${rrRatio.toFixed(1)}:1 — acceptable but not ideal`); }
+    else if (rrRatio >= 1)  { score -= 5;  warnings.push(`R:R ${rrRatio.toFixed(1)}:1 — marginal, consider reducing size`); }
+    else                    { score -= 15; risks.push(`R:R ${rrRatio.toFixed(1)}:1 — unfavorable, risk outweighs reward`); }
+
+    const stopPct = risk / entryRef * 100;
+    if (stopPct > 5)       { score -= 8;  risks.push(`Stop ${stopPct.toFixed(1)}% from entry — too wide, forces small size`); }
+    else if (stopPct > 3)  { warnings.push(`Stop ${stopPct.toFixed(1)}% from entry — moderate risk`); }
+  }
+
+  // ── VWAP extension risk
+  if (parsed.vwapValue && price) {
+    const extPct = Math.abs(price - parsed.vwapValue) / parsed.vwapValue * 100;
+    if (extPct > 3)       { score -= 12; risks.push(`Price ${extPct.toFixed(1)}% from VWAP — chasing an extended move`); }
+    else if (extPct > 2)  { score -= 6;  warnings.push(`Price ${extPct.toFixed(1)}% from VWAP — slightly extended, prefer pullback entry`); }
+  }
+
+  // ── Setup type bonus/penalty
+  if (setupType === "breakout")     { score += 5; positives.push("Breakout setup — momentum trade"); }
+  else if (setupType === "pullback"){ score += 7; positives.push("Pullback to key level — higher R:R potential"); }
+  else if (setupType === "reversal"){ score -= 3; warnings.push("Reversal trade — statistically lower probability, need volume confirmation"); }
+
+  // ── Missing data penalties
+  if (!direction)  { score -= 15; risks.push("No trade direction specified"); }
+  if (!t1)         { score -= 8;  warnings.push("No targets defined — exit plan unclear"); }
+
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
+  // Grade and decision
+  let grade, decision;
+  if (score >= 80)      { grade = "A+"; decision = "ENTER"; }
+  else if (score >= 70) { grade = "A";  decision = "WAIT"; }
+  else if (score >= 60) { grade = "B";  decision = "WAIT"; }
+  else if (score >= 50) { grade = "C";  decision = "AVOID"; }
+  else                  { grade = "D";  decision = "AVOID"; }
+
+  // Hard overrides
+  if (risks.some(r => r.includes("undefined risk") || r.includes("unfavorable"))) decision = "AVOID";
+  if (risks.some(r => r.includes("counter-trend") || r.includes("fighting"))) decision = score >= 75 ? "WAIT" : "AVOID";
+
+  // Suggested levels (use alert values or derive)
+  const suggestedEntry = entryLow || price;
+  const suggestedEntryHigh = entryHigh || (suggestedEntry ? suggestedEntry * (direction === "LONG" ? 1.005 : 0.995) : null);
+  const suggestedStop  = stop || (suggestedEntry ? (direction === "LONG" ? suggestedEntry * 0.97 : suggestedEntry * 1.03) : null);
+  const suggestedT1    = t1   || (suggestedEntry ? (direction === "LONG" ? suggestedEntry * 1.03 : suggestedEntry * 0.97) : null);
+  const suggestedT2    = t2   || (suggestedT1   ? (direction === "LONG" ? suggestedT1 * 1.03    : suggestedT1 * 0.97)    : null);
+  const suggestedT3    = t3   || (suggestedT2   ? (direction === "LONG" ? suggestedT2 * 1.03    : suggestedT2 * 0.97)    : null);
+
+  // Invalidation condition
+  const invalidation = suggestedStop
+    ? `Close ${direction === "LONG" ? "below" : "above"} $${suggestedStop.toFixed(2)} — exit immediately`
+    : "No stop defined — set one before entry";
+
+  return { score, grade, decision, warnings, risks, positives, rrRatio, invalidation, suggestedEntry, suggestedEntryHigh, suggestedStop, suggestedT1, suggestedT2, suggestedT3 };
+}
+
 function nextDayOfMonthOccurrence(day = 12, hour = 8, minute = 30, fromDate = new Date()) {
   const d = new Date(fromDate);
   d.setSeconds(0, 0);
@@ -2270,6 +2529,11 @@ export default function App() {
   const seenTriggeredAlerts = useRef(new Set());
   const lastAlertsTabVisit = useRef(0);
   const [triggeredAlertBadge, setTriggeredAlertBadge] = useState(0);
+
+  // ── Alert Analyzer state
+  const [analyzerInput, setAnalyzerInput] = useState("");
+  const [analyzerResults, setAnalyzerResults] = useState([]);
+  const [analyzerExpanded, setAnalyzerExpanded] = useState(null);
   const themeMode = String(settings.themeMode || "light").toLowerCase() === "dark" ? "dark" : "light";
 
   const SESSION_TTL = 8 * 60 * 60 * 1000;
@@ -4300,6 +4564,7 @@ export default function App() {
               { id: "tools", label: "TOOLS" },
               { id: "sectors", label: "SECTORS" },
               { id: "journal", label: "JOURNAL" },
+              { id: "analyzer", label: "ANALYZER" },
             ].map(t => (
               <Pill key={t.id} active={activeTab === t.id} onClick={() => setActiveTab(t.id)}>
                 {t.label}{t.id === "alerts" && triggeredAlertBadge > 0 && (
@@ -7007,6 +7272,370 @@ export default function App() {
             </div>
           </div>
         )}
+
+      {activeTab === "analyzer" && (() => {
+        const runAnalysis = (inputText) => {
+          const blocks = (inputText || analyzerInput)
+            .split(/\n{2,}|---+/)
+            .map(b => b.trim())
+            .filter(b => b.length > 8);
+          const results = blocks.map(block => {
+            const parsed = parseTelegramAlert(block);
+            const scored = scoreAlert(parsed);
+            return { parsed, scored, id: Math.random().toString(36).slice(2) };
+          }).filter(r => r.parsed && r.parsed.symbol);
+          results.sort((a, b) => b.scored.score - a.scored.score);
+          setAnalyzerResults(results);
+          setAnalyzerExpanded(results[0]?.id || null);
+        };
+
+        const decisionStyle = (d) => {
+          const map = { ENTER: C.green, WAIT: C.amber, AVOID: C.red, HOLD: C.accent, TRIM: C.purple, EXIT: C.red };
+          return map[d] || C.textDim;
+        };
+        const gradeColor = (g) => {
+          if (g === "A+") return C.green;
+          if (g === "A")  return C.accent;
+          if (g === "B")  return C.amber;
+          return C.red;
+        };
+        const scoreBar = (s) => {
+          const color = s >= 80 ? C.green : s >= 70 ? C.accent : s >= 60 ? C.amber : C.red;
+          return (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ flex: 1, height: 6, background: `${color}22`, borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ width: `${s}%`, height: "100%", background: color, borderRadius: 3 }} />
+              </div>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color, minWidth: 28 }}>{s}</span>
+            </div>
+          );
+        };
+
+        const top3 = analyzerResults.slice(0, 3);
+        const rest = analyzerResults.slice(3);
+
+        return (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
+                  TELEGRAM / TRADINGVIEW ALERT ANALYZER
+                </div>
+                <div style={{ fontSize: 10, color: C.textDim, marginTop: 3 }}>
+                  Paste one or more alerts separated by blank lines or ---. Institution-grade scoring. A+ only.
+                </div>
+              </div>
+              <button
+                onClick={() => { setAnalyzerInput(ANALYZER_SAMPLES.join("\n\n---\n\n")); }}
+                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+              >LOAD SAMPLES</button>
+            </div>
+
+            {/* Input area */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginBottom: 14 }}>
+              <textarea
+                value={analyzerInput}
+                onChange={e => setAnalyzerInput(e.target.value)}
+                placeholder={`Paste alert(s) here. Separate multiple alerts with a blank line or ---\n\nExample:\n🚨 NVDA LONG\nPrice: $875\nVWAP: Above\nEMA: 9 > 21 Bullish\nRVOL: 2.4x\nEntry: $872–875\nStop: $862\nT1: $895  T2: $912  T3: $930`}
+                style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "10px 12px", borderRadius: 6, resize: "vertical", minHeight: 160, lineHeight: 1.6, width: "100%", boxSizing: "border-box" }}
+              />
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <button
+                  onClick={() => runAnalysis()}
+                  style={{ background: C.accent, border: "none", color: "#fff", borderRadius: 4, padding: "10px 16px", fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
+                >ANALYZE</button>
+                <button
+                  onClick={() => { setAnalyzerInput(""); setAnalyzerResults([]); setAnalyzerExpanded(null); }}
+                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "8px 12px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                >CLEAR</button>
+              </div>
+            </div>
+
+            {analyzerResults.length === 0 && (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 32, textAlign: "center" }}>
+                <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginBottom: 6 }}>No alerts analyzed yet</div>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Click LOAD SAMPLES to test with demo alerts, or paste your own above.</div>
+              </div>
+            )}
+
+            {analyzerResults.length > 0 && (
+              <div style={{ display: "grid", gap: 12 }}>
+
+                {/* Summary ranking table */}
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+                  <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, letterSpacing: "0.08em" }}>
+                      SIGNAL RANKING — {analyzerResults.length} ALERT{analyzerResults.length !== 1 ? "S" : ""} ANALYZED
+                    </span>
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Top 3 highlighted</span>
+                  </div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead>
+                        <tr style={{ background: C.surface }}>
+                          {["#","SYMBOL","DIR","TF","PRICE","VWAP","EMA","RVOL","SCORE","GRADE","DECISION","RISK LEVEL"].map(h => (
+                            <th key={h} style={{ padding: "8px 10px", fontFamily: MONO, fontSize: 9, color: C.textDim, fontWeight: 700, textAlign: h === "#" || h === "SCORE" ? "center" : "left", whiteSpace: "nowrap", letterSpacing: "0.06em" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analyzerResults.map((r, idx) => {
+                          const { parsed: p, scored: s } = r;
+                          const isTop = idx < 3;
+                          const isSelected = analyzerExpanded === r.id;
+                          const riskLevel = s.risks.length === 0 ? "LOW" : s.risks.length <= 1 ? "MODERATE" : "HIGH";
+                          const riskColor = riskLevel === "LOW" ? C.green : riskLevel === "MODERATE" ? C.amber : C.red;
+                          return (
+                            <tr
+                              key={r.id}
+                              onClick={() => setAnalyzerExpanded(isSelected ? null : r.id)}
+                              style={{ borderTop: `1px solid ${C.border}`, cursor: "pointer", background: isSelected ? `${C.accent}0a` : isTop ? `${C.green}04` : "transparent", transition: "background 0.1s" }}
+                            >
+                              <td style={{ padding: "9px 10px", textAlign: "center" }}>
+                                {isTop && <span style={{ background: idx === 0 ? C.green : idx === 1 ? C.accent : C.amber, color: "#fff", borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, fontWeight: 800 }}>#{idx + 1}</span>}
+                                {!isTop && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>#{idx + 1}</span>}
+                              </td>
+                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 12, fontWeight: 800, color: isTop ? C.text : C.textSec }}>{p.symbol || "—"}</td>
+                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 11, fontWeight: 700, color: p.direction === "LONG" ? C.green : p.direction === "SHORT" ? C.red : C.textDim }}>{p.direction || "—"}</td>
+                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 10, color: C.textSec }}>{p.timeframe || "—"}</td>
+                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 11, color: C.text }}>{p.price ? `$${p.price.toFixed(2)}` : "—"}</td>
+                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 10, fontWeight: 700, color: p.vwapStatus === "above" ? C.green : p.vwapStatus === "below" ? C.red : C.textDim }}>
+                                {p.vwapStatus ? p.vwapStatus.toUpperCase() : "—"}
+                              </td>
+                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 10, color: p.emaTrend === "bullish" ? C.green : p.emaTrend === "bearish" ? C.red : C.textDim }}>
+                                {p.emaTrend ? p.emaTrend.toUpperCase() : "—"}
+                              </td>
+                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 10, color: (p.rvol || 0) >= 2 ? C.green : (p.rvol || 0) >= 1.5 ? C.amber : C.textDim }}>
+                                {p.rvol != null ? `${p.rvol.toFixed(1)}x` : "—"}
+                              </td>
+                              <td style={{ padding: "9px 10px", minWidth: 100 }}>{scoreBar(s.score)}</td>
+                              <td style={{ padding: "9px 10px", textAlign: "center" }}>
+                                <span style={{ background: `${gradeColor(s.grade)}18`, color: gradeColor(s.grade), border: `1px solid ${gradeColor(s.grade)}44`, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10, fontWeight: 800 }}>{s.grade}</span>
+                              </td>
+                              <td style={{ padding: "9px 10px" }}>
+                                <span style={{ background: `${decisionStyle(s.decision)}18`, color: decisionStyle(s.decision), border: `1px solid ${decisionStyle(s.decision)}44`, borderRadius: 4, padding: "4px 9px", fontFamily: MONO, fontSize: 11, fontWeight: 900, letterSpacing: "0.04em" }}>{s.decision}</span>
+                              </td>
+                              <td style={{ padding: "9px 10px" }}>
+                                <span style={{ color: riskColor, fontFamily: MONO, fontSize: 10, fontWeight: 700 }}>{riskLevel}</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Detailed breakdown for expanded alert */}
+                {analyzerExpanded && (() => {
+                  const r = analyzerResults.find(x => x.id === analyzerExpanded);
+                  if (!r) return null;
+                  const { parsed: p, scored: s } = r;
+                  const idx = analyzerResults.indexOf(r);
+                  const isTop3 = idx < 3;
+                  const headerColor = s.decision === "ENTER" ? C.green : s.decision === "WAIT" ? C.amber : C.red;
+
+                  return (
+                    <div style={{ background: C.card, border: `1px solid ${headerColor}44`, borderRadius: 8, overflow: "hidden" }}>
+                      {/* Breakdown header */}
+                      <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: `${headerColor}0c`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                          <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text }}>{p.symbol}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: p.direction === "LONG" ? C.green : C.red }}>{p.direction || "—"}</span>
+                          {p.timeframe && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{p.timeframe}</span>}
+                          <span style={{ background: `${headerColor}18`, color: headerColor, border: `1px solid ${headerColor}44`, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 12, fontWeight: 900 }}>{s.decision}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Score: <span style={{ color: gradeColor(s.grade), fontWeight: 800 }}>{s.score}/100</span></span>
+                        </div>
+                        <button onClick={() => setAnalyzerExpanded(null)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>CLOSE ✕</button>
+                      </div>
+
+                      <div style={{ padding: 14, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+
+                        {/* Trade Plan */}
+                        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
+                          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>TRADE PLAN</div>
+                          {[
+                            { label: "Entry Zone", value: s.suggestedEntry ? (s.suggestedEntryHigh && s.suggestedEntryHigh !== s.suggestedEntry ? `$${s.suggestedEntry.toFixed(2)} – $${s.suggestedEntryHigh.toFixed(2)}` : `$${s.suggestedEntry.toFixed(2)}`): "—", color: C.accent },
+                            { label: "Stop Loss",  value: s.suggestedStop  ? `$${s.suggestedStop.toFixed(2)}`  : "⚠ NOT DEFINED", color: C.red },
+                            { label: "Target 1",   value: s.suggestedT1    ? `$${s.suggestedT1.toFixed(2)}`    : "—", color: C.green },
+                            { label: "Target 2",   value: s.suggestedT2    ? `$${s.suggestedT2.toFixed(2)}`    : "—", color: C.green },
+                            { label: "Target 3",   value: s.suggestedT3    ? `$${s.suggestedT3.toFixed(2)}`    : "—", color: C.green },
+                            { label: "R:R to T1",  value: s.rrRatio != null ? `${s.rrRatio.toFixed(1)}:1`     : "—", color: s.rrRatio >= 2 ? C.green : s.rrRatio >= 1 ? C.amber : C.red },
+                            { label: "Invalidate", value: s.invalidation, color: C.red },
+                          ].map(({ label, value, color }) => (
+                            <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6, gap: 8 }}>
+                              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, flexShrink: 0 }}>{label}</span>
+                              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color, textAlign: "right" }}>{value}</span>
+                            </div>
+                          ))}
+                          {/* Log to Journal button */}
+                          <button
+                            onClick={async () => {
+                              if (!p.symbol) return;
+                              try {
+                                await fetch("/api/journal", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({
+                                    ticker: p.symbol,
+                                    side: p.direction === "SHORT" ? "SELL" : "BUY",
+                                    score: s.score,
+                                    entry: s.suggestedEntry || 0,
+                                    stopLoss: s.suggestedStop || 0,
+                                    target: s.suggestedT1 || 0,
+                                    timeframe: p.timeframe || "1D",
+                                    style: "Analyzer",
+                                    notes: `Alert Analyzer · Grade ${s.grade} · ${s.decision} · ${p.setupType} · RVOL ${p.rvol != null ? p.rvol.toFixed(1) + "x" : "n/a"} · VWAP ${p.vwapStatus || "?"} · EMA ${p.emaTrend || "?"}`,
+                                  }),
+                                });
+                                alert(`${p.symbol} logged to journal.`);
+                              } catch {}
+                            }}
+                            style={{ marginTop: 10, width: "100%", border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 4, padding: "7px 0", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                          >LOG TO JOURNAL</button>
+                        </div>
+
+                        {/* Signal Analysis */}
+                        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
+                          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>SIGNAL ANALYSIS</div>
+
+                          {/* Score bar */}
+                          <div style={{ marginBottom: 12 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Setup Score</span>
+                              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: gradeColor(s.grade) }}>{s.score}/100 — {s.grade}</span>
+                            </div>
+                            <div style={{ height: 8, background: `${gradeColor(s.grade)}22`, borderRadius: 4, overflow: "hidden" }}>
+                              <div style={{ width: `${s.score}%`, height: "100%", background: gradeColor(s.grade), borderRadius: 4 }} />
+                            </div>
+                          </div>
+
+                          {s.positives.length > 0 && (
+                            <div style={{ marginBottom: 10 }}>
+                              <div style={{ fontFamily: MONO, fontSize: 9, color: C.green, fontWeight: 700, marginBottom: 5, letterSpacing: "0.06em" }}>✓ STRENGTHS</div>
+                              {s.positives.map((p, i) => (
+                                <div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 4 }}>
+                                  <span style={{ color: C.green, fontSize: 10, flexShrink: 0, marginTop: 1 }}>+</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textSec, lineHeight: 1.4 }}>{p}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {s.warnings.length > 0 && (
+                            <div style={{ marginBottom: 10 }}>
+                              <div style={{ fontFamily: MONO, fontSize: 9, color: C.amber, fontWeight: 700, marginBottom: 5, letterSpacing: "0.06em" }}>⚠ CAUTIONS</div>
+                              {s.warnings.map((w, i) => (
+                                <div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 4 }}>
+                                  <span style={{ color: C.amber, fontSize: 10, flexShrink: 0, marginTop: 1 }}>!</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textSec, lineHeight: 1.4 }}>{w}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {s.risks.length > 0 && (
+                            <div>
+                              <div style={{ fontFamily: MONO, fontSize: 9, color: C.red, fontWeight: 700, marginBottom: 5, letterSpacing: "0.06em" }}>✗ RISK FLAGS</div>
+                              {s.risks.map((r, i) => (
+                                <div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 4 }}>
+                                  <span style={{ color: C.red, fontSize: 10, flexShrink: 0, marginTop: 1 }}>✕</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textSec, lineHeight: 1.4 }}>{r}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Raw alert + context */}
+                        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
+                          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>RAW ALERT + CONTEXT</div>
+
+                          {/* Parsed fields */}
+                          <div style={{ marginBottom: 10 }}>
+                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, fontWeight: 700, marginBottom: 6, letterSpacing: "0.06em" }}>PARSED FIELDS</div>
+                            {[
+                              ["Symbol",    p.symbol || "—"],
+                              ["Direction", p.direction || "—"],
+                              ["Timeframe", p.timeframe || "—"],
+                              ["Price",     p.price ? `$${p.price.toFixed(2)}` : "—"],
+                              ["VWAP",      p.vwapStatus ? `${p.vwapStatus.toUpperCase()}${p.vwapValue ? ` ($${p.vwapValue.toFixed(2)})` : ""}` : "—"],
+                              ["EMA",       p.emaTrend ? p.emaTrend.toUpperCase() : "—"],
+                              ["RVOL",      p.rvol != null ? `${p.rvol.toFixed(1)}x` : "—"],
+                              ["Setup",     p.setupType || "—"],
+                            ].map(([label, val]) => (
+                              <div key={label} style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{label}</span>
+                                <span style={{ fontFamily: MONO, fontSize: 10, color: C.text, fontWeight: 600 }}>{val}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Raw text */}
+                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, fontWeight: 700, marginBottom: 5, letterSpacing: "0.06em" }}>RAW TEXT</div>
+                          <pre style={{ margin: 0, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, padding: "8px 10px", fontFamily: MONO, fontSize: 10, color: C.textSec, whiteSpace: "pre-wrap", maxHeight: 180, overflowY: "auto", lineHeight: 1.5 }}>{p.raw}</pre>
+
+                          {/* WS link */}
+                          {p.symbol && (
+                            <a href={`/workstation#${p.symbol}`} target="_blank" rel="noopener" style={{ display: "block", marginTop: 10, border: `1px solid ${C.border}`, background: C.bg, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, textAlign: "center", textDecoration: "none" }}>
+                              Open {p.symbol} in Workstation →
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Cards for top 3 if no expanded view */}
+                {!analyzerExpanded && top3.length > 0 && (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
+                    {top3.map((r, idx) => {
+                      const { parsed: p, scored: s } = r;
+                      const headerColor = s.decision === "ENTER" ? C.green : s.decision === "WAIT" ? C.amber : C.red;
+                      const rankLabels = ["BEST SETUP", "2ND BEST", "3RD BEST"];
+                      return (
+                        <div key={r.id} onClick={() => setAnalyzerExpanded(r.id)} style={{ background: C.card, border: `2px solid ${headerColor}44`, borderRadius: 8, overflow: "hidden", cursor: "pointer" }}>
+                          <div style={{ padding: "8px 12px", background: `${headerColor}10`, borderBottom: `1px solid ${headerColor}33`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: headerColor, letterSpacing: "0.08em" }}>{rankLabels[idx]}</span>
+                            <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>click to expand</span>
+                          </div>
+                          <div style={{ padding: "10px 12px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+                              <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>{p.symbol}</span>
+                              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: p.direction === "LONG" ? C.green : p.direction === "SHORT" ? C.red : C.textDim }}>{p.direction || "—"}</span>
+                            </div>
+                            <div style={{ marginBottom: 8 }}>{scoreBar(s.score)}</div>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              <span style={{ background: `${headerColor}18`, color: headerColor, border: `1px solid ${headerColor}44`, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 11, fontWeight: 900 }}>{s.decision}</span>
+                              <span style={{ background: `${gradeColor(s.grade)}18`, color: gradeColor(s.grade), borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 10, fontWeight: 700 }}>{s.grade}</span>
+                              {p.rvol != null && <span style={{ background: C.surface, color: (p.rvol >= 2 ? C.green : p.rvol >= 1.5 ? C.amber : C.textDim), borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10 }}>RVOL {p.rvol.toFixed(1)}x</span>}
+                            </div>
+                            {s.suggestedEntry && (
+                              <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                                <div style={{ background: C.surface, borderRadius: 4, padding: "5px 8px" }}>
+                                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>ENTRY</div>
+                                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700 }}>${s.suggestedEntry.toFixed(2)}</div>
+                                </div>
+                                {s.suggestedStop && (
+                                  <div style={{ background: C.surface, borderRadius: 4, padding: "5px 8px" }}>
+                                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>STOP</div>
+                                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.red, fontWeight: 700 }}>${s.suggestedStop.toFixed(2)}</div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {marketReportOpen && (
         <div onClick={() => setMarketReportOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(8,18,34,0.24)", zIndex: 1250, display: "grid", placeItems: "start center", paddingTop: "10vh" }}>
