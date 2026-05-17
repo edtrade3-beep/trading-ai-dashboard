@@ -55,7 +55,26 @@
       "Bash(node --check src/portfolio-store.js)",
       "Bash(node --check client/trading/workstation.js)",
       "Bash(node --check client/dealer/app.jsx)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(node --check src/anthropic.js)",
+      "Bash(awk 'NR>=6425 && NR<=6445' axiom-runner/axiom-live.jsx)",
+      "Bash(awk 'NR>=5280 && NR<=5310' axiom-runner/axiom-live.jsx)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(node --check src/routes/price-alerts.js)",
+      "Bash(node --check src/price-alert-store.js)",
+      "Bash(node --check src/price-alert-monitor.js)",
+      "Bash(curl -s \"http://localhost:3000/api/market/quote?symbol=NVDA\")",
+      "Bash(curl -s \"http://localhost:3000/api/market/quote?symbols=NVDA\")",
+      "Bash(curl -s \"http://localhost:3000/api/journal\")",
+      "Bash(curl -s \"http://localhost:3000/api/price-alerts\")",
+      "Bash(curl -s \"http://localhost:3000/api/portfolio\")",
+      "Bash(sed -n '6114,6160p' axiom-runner/axiom-live.jsx)",
+      "Bash(sed -n '6236,6280p' axiom-runner/axiom-live.jsx)",
+      "Bash(sed -n '6290,6350p' axiom-runner/axiom-live.jsx)",
+      "Bash(curl -s \"http://localhost:3000/api/inventory\")",
+      "Bash(curl -s \"http://localhost:3000/api/inventory/export.csv\")",
+      "Bash(curl -s \"http://localhost:3000/api/health\")"
     ]
   }
 }
