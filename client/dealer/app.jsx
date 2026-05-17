@@ -299,6 +299,8 @@ function App() {
   const [soldFormPrice, setSoldFormPrice] = useState("");
   const [notesFormVin, setNotesFormVin] = useState(null);
   const [notesFormText, setNotesFormText] = useState("");
+  const [editVin, setEditVin] = useState(null);
+  const [editForm, setEditForm] = useState({});
   const [deleteConfirmVin, setDeleteConfirmVin] = useState(null);
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
@@ -1406,6 +1408,15 @@ ${FINANCE_LINE}` : "Decode a vehicle first to generate finance wording."}
                             >{soldFormVin === item.vin ? "Cancel" : "Sold"}</button>
                           )}
                           <button
+                            onClick={() => {
+                              if (editVin === item.vin) { setEditVin(null); return; }
+                              setEditVin(item.vin);
+                              setEditForm({ price: String(item.price || ""), mileage: String(item.mileage || ""), condition: item.condition || "Good", year: String(item.year || ""), make: item.make || "", model: item.model || "", trim: item.trim || "" });
+                            }}
+                            style={{ ...styles.buttonGhost, height: 34, padding: "0 10px", fontSize: 12, flexShrink: 0, color: editVin === item.vin ? theme.primary : theme.muted }}
+                            title="Edit vehicle details"
+                          >{editVin === item.vin ? "Cancel" : "Edit"}</button>
+                          <button
                             onClick={() => { setNotesFormVin(notesFormVin === item.vin ? null : item.vin); setNotesFormText(item.dealerNotes || ""); }}
                             style={{ ...styles.buttonGhost, height: 34, padding: "0 10px", fontSize: 12, flexShrink: 0, color: item.dealerNotes ? theme.warning : theme.muted }}
                             title={item.dealerNotes || "Add dealer notes"}
@@ -1454,6 +1465,50 @@ ${FINANCE_LINE}` : "Decode a vehicle first to generate finance wording."}
                                 onClick={() => setNotesFormVin(null)}
                                 style={{ ...styles.buttonGhost, height: 32, padding: "0 12px", fontSize: 12 }}
                               >Cancel</button>
+                            </div>
+                          </div>
+                        )}
+                        {editVin === item.vin && (
+                          <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${theme.border}` }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8, marginBottom: 8 }}>
+                              {[
+                                { label: "Year", key: "year" },
+                                { label: "Make", key: "make" },
+                                { label: "Model", key: "model" },
+                                { label: "Trim", key: "trim" },
+                                { label: "Mileage", key: "mileage" },
+                                { label: "Asking Price ($)", key: "price" },
+                              ].map(({ label, key }) => (
+                                <div key={key}>
+                                  <div style={{ fontSize: 10, color: theme.muted, fontWeight: 600, marginBottom: 3 }}>{label}</div>
+                                  <input value={editForm[key] || ""} onChange={e => setEditForm(f => ({ ...f, [key]: e.target.value }))} style={{ ...styles.input, fontSize: 12, height: 34, padding: "0 8px" }} />
+                                </div>
+                              ))}
+                              <div>
+                                <div style={{ fontSize: 10, color: theme.muted, fontWeight: 600, marginBottom: 3 }}>Condition</div>
+                                <select value={editForm.condition || "Good"} onChange={e => setEditForm(f => ({ ...f, condition: e.target.value }))} style={{ ...styles.input, fontSize: 12, height: 34, padding: "0 8px" }}>
+                                  {["Excellent", "Very Good", "Good", "Fair", "Rough"].map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                              </div>
+                            </div>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <button
+                                onClick={() => {
+                                  const updated = {
+                                    year: Number(editForm.year) || item.year,
+                                    make: editForm.make.trim() || item.make,
+                                    model: editForm.model.trim() || item.model,
+                                    trim: editForm.trim.trim(),
+                                    mileage: Number(String(editForm.mileage).replace(/[^0-9]/g, "")) || item.mileage,
+                                    price: Number(String(editForm.price).replace(/[^0-9.]/g, "")) || item.price,
+                                    condition: editForm.condition || item.condition,
+                                  };
+                                  setInventory(prev => prev.map(v => v.vin === item.vin ? { ...v, ...updated } : v));
+                                  setEditVin(null);
+                                }}
+                                style={{ ...styles.buttonPrimary, height: 32, padding: "0 14px", fontSize: 12 }}
+                              >Save Changes</button>
+                              <button onClick={() => setEditVin(null)} style={{ ...styles.buttonGhost, height: 32, padding: "0 12px", fontSize: 12 }}>Cancel</button>
                             </div>
                           </div>
                         )}
