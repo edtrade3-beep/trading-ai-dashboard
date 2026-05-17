@@ -2534,6 +2534,8 @@ export default function App() {
   const [analyzerInput, setAnalyzerInput] = useState("");
   const [analyzerResults, setAnalyzerResults] = useState([]);
   const [analyzerExpanded, setAnalyzerExpanded] = useState(null);
+  const [tgStatus, setTgStatus] = useState(null); // null | "sending" | "ok" | "error" | "unconfigured"
+  const [tgMsg, setTgMsg] = useState("");
   const themeMode = String(settings.themeMode || "light").toLowerCase() === "dark" ? "dark" : "light";
 
   const SESSION_TTL = 8 * 60 * 60 * 1000;
@@ -7335,8 +7337,6 @@ export default function App() {
 
             {/* Telegram connection status bar */}
             {(() => {
-              const [tgStatus, setTgStatus] = React.useState(null); // null | "sending" | "ok" | "error" | "unconfigured"
-              const [tgMsg, setTgMsg] = React.useState("");
               const sendTest = async () => {
                 setTgStatus("sending");
                 setTgMsg("");
@@ -7362,9 +7362,9 @@ export default function App() {
                     >{tgStatus === "sending" ? "SENDING…" : "SEND TEST"}</button>
                   </div>
                   {tgStatus === "unconfigured" && (
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.amber, borderLeft: `2px solid ${C.amber}44`, paddingLeft: 8 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.amber, borderLeft: `2px solid ${C.amber}44`, paddingLeft: 8 }}>
                       Set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID in Render.com env vars
-                    </div>
+                    </span>
                   )}
                 </div>
               );
