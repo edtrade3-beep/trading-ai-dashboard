@@ -143,7 +143,7 @@ const TV_EXCHANGE_HINTS = {
   XLP: "AMEX", XLU: "AMEX", XLRE: "AMEX", XLB: "AMEX",
 };
 const STORAGE_KEY = "axiom_local_config_v1";
-const APP_LOCK_PASSWORD = "@Dixie123";
+// App password is validated server-side via POST /api/auth/check (never stored in source)
 const AUTH_STORAGE_KEY = "axiom_app_unlock_v1";
 const DEFAULT_SETTINGS = {
   refreshMs: 180000,
@@ -2134,6 +2134,7 @@ export default function App() {
   const [marketUniverseData, setMarketUniverseData] = useState([]);
   const [marketUniverseLoading, setMarketUniverseLoading] = useState(false);
   const [newsData, setNewsData] = useState([]);
+  const [newsLoading, setNewsLoading] = useState(false);
   const [tvWebhookRows, setTvWebhookRows] = useState([]);
   const [tvWebhookSecured, setTvWebhookSecured] = useState(false);
   const [optionsFlow, setOptionsFlow] = useState(null);
@@ -2179,6 +2180,14 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [portfolioHoldings, setPortfolioHoldings] = useState(DEFAULT_PORTFOLIO);
   const [scannerFilters, setScannerFilters] = useState(DEFAULT_SCANNER_FILTERS);
+  const [serverScreenLoading, setServerScreenLoading] = useState(false);
+  const [serverScreenResults, setServerScreenResults] = useState(null);
+  const [marketMovers, setMarketMovers] = useState(null);
+  const [marketMoversLoading, setMarketMoversLoading] = useState(false);
+  const [tvWebhookFilter, setTvWebhookFilter] = useState("");
+  const [tvWebhookLoggedRows, setTvWebhookLoggedRows] = useState({});
+  const [newsSymFilter, setNewsSymFilter] = useState("");
+  const [newsSentFilter, setNewsSentFilter] = useState("all");
   const [workflowState, setWorkflowState] = useState(DEFAULT_WORKFLOW);
   const [workflowAutoPlan, setWorkflowAutoPlan] = useState(null);
   const [tvSource, setTvSource] = useState("bloomberg");
@@ -2195,22 +2204,38 @@ export default function App() {
   const intervalRef = useRef(null);
   const themeMode = String(settings.themeMode || "light").toLowerCase() === "dark" ? "dark" : "light";
 
+  const SESSION_TTL = 8 * 60 * 60 * 1000;
   useEffect(() => {
     try {
-      if (sessionStorage.getItem(AUTH_STORAGE_KEY) === "1") {
-        setAppUnlocked(true);
+      const raw = sessionStorage.getItem(AUTH_STORAGE_KEY);
+      if (raw) {
+        const { ts } = JSON.parse(raw);
+        if (Date.now() - ts < SESSION_TTL) setAppUnlocked(true);
+        else sessionStorage.removeItem(AUTH_STORAGE_KEY);
       }
-    } catch {}
+    } catch {
+      // Legacy "1" value — clear it so user re-authenticates cleanly
+      try { sessionStorage.removeItem(AUTH_STORAGE_KEY); } catch {}
+    }
   }, []);
 
   const handleUnlock = useCallback(() => {
-    if (String(unlockInput || "") === APP_LOCK_PASSWORD) {
-      setAppUnlocked(true);
-      setUnlockError("");
-      try { sessionStorage.setItem(AUTH_STORAGE_KEY, "1"); } catch {}
-      return;
-    }
-    setUnlockError("Incorrect password");
+    fetch("/api/auth/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: String(unlockInput || "") }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok) {
+          setAppUnlocked(true);
+          setUnlockError("");
+          try { sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ ts: Date.now() })); } catch {}
+        } else {
+          setUnlockError("Incorrect password");
+        }
+      })
+      .catch(() => setUnlockError("Connection error — try again"));
   }, [unlockInput]);
 
   const handleLock = useCallback(() => {
@@ -2219,6 +2244,65 @@ export default function App() {
     setUnlockError("");
     try { sessionStorage.removeItem(AUTH_STORAGE_KEY); } catch {}
   }, []);
+
+  const refreshNews = useCallback(async () => {
+    setNewsLoading(true);
+    try {
+      const tickers = watchlistData.length
+        ? [...watchlistData].sort((a, b) => Math.abs(b.changesPercentage || 0) - Math.abs(a.changesPercentage || 0)).slice(0, 6).map((q) => q.symbol)
+        : watchlistSymbols.slice(0, 6);
+      const headlines = await withClientTimeout(fetchNews(tickers, 24, providerKeys), 10000, []);
+      setNewsData(Array.isArray(headlines) ? headlines : []);
+    } catch {}
+    setNewsLoading(false);
+  }, [watchlistData, watchlistSymbols, providerKeys]);
+
+  const fetchMarketMovers = useCallback(async () => {
+    setMarketMoversLoading(true);
+    try {
+      const symbols = (watchlistSymbols.length ? watchlistSymbols : WATCHLIST_SYMBOLS).join(",");
+      const res = await fetch(`/api/market/movers?symbols=${encodeURIComponent(symbols)}&n=5`);
+      if (!res.ok) throw new Error("Movers fetch failed");
+      const data = await res.json();
+      setMarketMovers(data);
+    } catch {}
+    setMarketMoversLoading(false);
+  }, [watchlistSymbols]);
+
+  useEffect(() => {
+    if (activeTab === "sectors" && !marketMovers && !marketMoversLoading) {
+      fetchMarketMovers();
+    }
+  }, [activeTab, marketMovers, marketMoversLoading, fetchMarketMovers]);
+
+  const runServerScreen = useCallback(async () => {
+    setServerScreenLoading(true);
+    setServerScreenResults(null);
+    try {
+      const symbols = watchlistSymbols.length ? watchlistSymbols : WATCHLIST_SYMBOLS;
+      const res = await fetch("/api/market/screen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbols,
+          filters: {
+            minPrice: Number(scannerFilters.minPrice) || 0,
+            minChangePct: Number(scannerFilters.minChange) || 0,
+            minRvol: Number(scannerFilters.minRvol) || 0,
+            minScore: Number(scannerFilters.minScore) || 0,
+            limit: 50,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Screen failed");
+      setServerScreenResults(data.results || []);
+    } catch {
+      setServerScreenResults([]);
+    } finally {
+      setServerScreenLoading(false);
+    }
+  }, [watchlistSymbols, scannerFilters]);
 
   useEffect(() => {
     const themeObj = themeMode === "dark" ? THEME_DARK : THEME_LIGHT;
@@ -2330,6 +2414,48 @@ export default function App() {
     const t = setInterval(() => setClockNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  // Load portfolio from server on first mount (fills in if localStorage was empty)
+  const portfolioServerSynced = useRef(false);
+  useEffect(() => {
+    if (portfolioServerSynced.current) return;
+    portfolioServerSynced.current = true;
+    fetch("/api/portfolio")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data || !Array.isArray(data.holdings) || !data.holdings.length) return;
+        setPortfolioHoldings((prev) => {
+          const hasLocal = prev.some((h) => h.symbol && Number(h.shares) > 0);
+          if (hasLocal) return prev;
+          return data.holdings.map((h) => ({
+            symbol: String(h.symbol || "").toUpperCase(),
+            shares: String(h.shares || "0"),
+            avgCost: String(h.costBasis || "0"),
+          }));
+        });
+      })
+      .catch(() => {});
+  }, []);
+
+  // Debounced server save whenever portfolio changes
+  useEffect(() => {
+    if (!portfolioServerSynced.current) return;
+    const holdings = portfolioHoldings
+      .filter((h) => h.symbol && Number(h.shares) > 0)
+      .map((h) => ({
+        symbol: String(h.symbol || "").toUpperCase(),
+        shares: Number(h.shares) || 0,
+        costBasis: Number(h.avgCost) || 0,
+      }));
+    const timer = setTimeout(() => {
+      fetch("/api/portfolio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ holdings }),
+      }).catch(() => {});
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [portfolioHoldings]);
 
   useEffect(() => {
     if (!watchlistSymbols.length) return;
@@ -3525,7 +3651,56 @@ export default function App() {
     setMarketReportText(lines.join("\n"));
     setMarketReportOpen(true);
   }, [macroData, watchlistData, sectorData, combinedAlerts, newsData, marketSession, regime, macroTone, macroSignalFlags, macroEventAlerts, econCalendarRows, flowBias, flowCallNotional, flowPutNotional, newsIntel.upgrades, newsIntel.downgrades, rotationRank, providerKeys, cryptoSnapshot, riskPct, riskAccount]);
-  const runAIAgent = useCallback(() => {
+  const buildHeuristicAgentOutput = useCallback((prompt, wl, topLongs, topRisks, topAlerts, spy, qqq, iwm, btc, avgIdx, focus, focusScore, focusTrend) => {
+    const lines = [];
+    lines.push("AI AGENT - INSTITUTIONAL SUMMARY (Heuristic)");
+    lines.push(`Generated: ${new Date().toLocaleString()}`);
+    lines.push(`Prompt: ${prompt || "General market check"}`);
+    lines.push("");
+    lines.push("1) MARKET VERDICT");
+    lines.push(`Regime: ${regime} | Tone: ${macroTone} | Session: ${marketSession}`);
+    lines.push(`Index momentum: SPY ${spy >= 0 ? "+" : ""}${spy.toFixed(2)}% | QQQ ${qqq >= 0 ? "+" : ""}${qqq.toFixed(2)}% | IWM ${iwm >= 0 ? "+" : ""}${iwm.toFixed(2)}% | BTC ${btc >= 0 ? "+" : ""}${btc.toFixed(2)}%`);
+    lines.push(`Flow bias: ${flowBias} (Calls ${formatNum(flowCallNotional)} vs Puts ${formatNum(flowPutNotional)})`);
+    lines.push(`Bias: ${avgIdx > 0.45 && flowBias === "CALL BIAS" ? "BULLISH TILT" : avgIdx < -0.35 && flowBias === "PUT BIAS" ? "DEFENSIVE / BEARISH TILT" : "MIXED / SELECTIVE"}`);
+    lines.push("");
+    lines.push("2) BEST LONG CANDIDATES");
+    if (topLongs.length) {
+      lines.push(...topLongs.map((q, i) =>
+        `${i + 1}. ${q.symbol} | RS ${Number(q.relVsSpy || 0) >= 0 ? "+" : ""}${Number(q.relVsSpy || 0).toFixed(2)}% | RVOL ${Number(q.rvol || 0).toFixed(2)}x | Score ${Math.round(Number(q.composite || 0))} | TV ${getTradingViewUrl(q.symbol)}`
+      ));
+    } else {
+      lines.push("No clean long setups right now.");
+    }
+    lines.push("");
+    lines.push("3) RISK NAMES / HEDGES");
+    lines.push(...topRisks.map((q, i) =>
+      `${i + 1}. ${q.symbol} | RS ${Number(q.relVsSpy || 0).toFixed(2)}% | RVOL ${Number(q.rvol || 0).toFixed(2)}x`
+    ));
+    lines.push("");
+    lines.push("4) PRIORITY ALERTS");
+    if (topAlerts.length) {
+      lines.push(...topAlerts.map((a, i) => `${i + 1}. ${a.symbol} [${String(a.type || "").toUpperCase()} ${a.score}] ${a.text}`));
+    } else {
+      lines.push("No high-priority alerts.");
+    }
+    if (focus) {
+      lines.push("");
+      lines.push(`5) FOCUS SYMBOL: ${focus.symbol}`);
+      lines.push(`Price ${formatNum(focus.price)} | CHG ${Number(focus.changesPercentage || 0) >= 0 ? "+" : ""}${Number(focus.changesPercentage || 0).toFixed(2)}% | Trend ${focusTrend}`);
+      lines.push(`Composite ${focusScore?.composite || 0} | Tech ${focusScore?.tech || 0} | Fund ${focusScore?.fund || 0}`);
+      lines.push(`TradingView: ${getTradingViewUrl(focus.symbol)}`);
+    }
+    lines.push("");
+    lines.push("6) EXECUTION PLAN (TODAY)");
+    lines.push("A) Trade only A/A+ setups with RS + RVOL confirmation.");
+    lines.push("B) Keep size moderate until macro/event risk is clear.");
+    lines.push("C) Cut losers fast, scale winners by confirmation.");
+    lines.push("");
+    lines.push("Decision-support only, not financial advice.");
+    return lines.join("\n");
+  }, [regime, macroTone, marketSession, flowBias, flowCallNotional, flowPutNotional]);
+
+  const runAIAgent = useCallback(async () => {
     setAgentLoading(true);
     try {
       const prompt = String(agentPrompt || "").trim();
@@ -3545,69 +3720,54 @@ export default function App() {
       const btc = Number(macroData.find((m) => m.symbol === "BTCUSD")?.changesPercentage || 0);
       const avgIdx = (spy + qqq + iwm) / 3;
 
-      const allSyms = Array.from(new Set([
-        ...wl.map((q) => q.symbol),
-        ...rotationRank.map((q) => q.symbol),
-      ]));
+      const allSyms = Array.from(new Set([...wl.map((q) => q.symbol), ...rotationRank.map((q) => q.symbol)]));
       const matchedSymbol = allSyms.find((s) => prompt.toUpperCase().includes(s));
       const focus = matchedSymbol ? findBySym(matchedSymbol) : null;
       const focusScore = focus ? computeScores(focus) : null;
       const focusTrend = focus ? classifyTrend(focus) : null;
 
-      const lines = [];
-      lines.push("AI AGENT - INSTITUTIONAL SUMMARY");
-      lines.push(`Generated: ${new Date().toLocaleString()}`);
-      lines.push(`Prompt: ${prompt || "General market check"}`);
-      lines.push("");
-      lines.push("1) MARKET VERDICT");
-      lines.push(`Regime: ${regime} | Tone: ${macroTone} | Session: ${marketSession}`);
-      lines.push(`Index momentum: SPY ${spy >= 0 ? "+" : ""}${spy.toFixed(2)}% | QQQ ${qqq >= 0 ? "+" : ""}${qqq.toFixed(2)}% | IWM ${iwm >= 0 ? "+" : ""}${iwm.toFixed(2)}% | BTC ${btc >= 0 ? "+" : ""}${btc.toFixed(2)}%`);
-      lines.push(`Flow bias: ${flowBias} (Calls ${formatNum(flowCallNotional)} vs Puts ${formatNum(flowPutNotional)})`);
-      lines.push(`Bias: ${avgIdx > 0.45 && flowBias === "CALL BIAS" ? "BULLISH TILT" : avgIdx < -0.35 && flowBias === "PUT BIAS" ? "DEFENSIVE / BEARISH TILT" : "MIXED / SELECTIVE"}`);
-      lines.push("");
-      lines.push("2) BEST LONG CANDIDATES");
-      if (topLongs.length) {
-        lines.push(...topLongs.map((q, i) =>
-          `${i + 1}. ${q.symbol} | RS ${Number(q.relVsSpy || 0) >= 0 ? "+" : ""}${Number(q.relVsSpy || 0).toFixed(2)}% | RVOL ${Number(q.rvol || 0).toFixed(2)}x | Score ${Math.round(Number(q.composite || 0))} | TV ${getTradingViewUrl(q.symbol)}`
-        ));
-      } else {
-        lines.push("No clean long setups right now.");
-      }
-      lines.push("");
-      lines.push("3) RISK NAMES / HEDGES");
-      lines.push(...topRisks.map((q, i) =>
-        `${i + 1}. ${q.symbol} | RS ${Number(q.relVsSpy || 0).toFixed(2)}% | RVOL ${Number(q.rvol || 0).toFixed(2)}x`
-      ));
-      lines.push("");
-      lines.push("4) PRIORITY ALERTS");
-      if (topAlerts.length) {
-        lines.push(...topAlerts.map((a, i) => `${i + 1}. ${a.symbol} [${String(a.type || "").toUpperCase()} ${a.score}] ${a.text}`));
-      } else {
-        lines.push("No high-priority alerts.");
-      }
+      // Try the server-side Claude AI endpoint first; fall back to heuristic if not configured.
+      try {
+        const indexRows = [
+          { label: "SPY", value: spy },
+          { label: "QQQ", value: qqq },
+          { label: "IWM", value: iwm },
+          { label: "BTC", value: btc },
+        ];
+        const res = await fetch("/api/agent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt,
+            regime,
+            macroTone,
+            session: marketSession,
+            flowBias,
+            flowCallNotional,
+            flowPutNotional,
+            indexRows,
+            topLongs,
+            topRisks,
+            alerts: topAlerts,
+            focus: focus ? { symbol: focus.symbol, price: focus.price, changesPercentage: focus.changesPercentage, trend: focusTrend, score: focusScore?.composite || 0 } : null,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.output) {
+          setAgentOutput(`AI AGENT - CLAUDE ANALYSIS\nGenerated: ${new Date().toLocaleString()}\n\n${data.output}`);
+          setAgentRunAt(new Date().toLocaleString());
+          return;
+        }
+      } catch {}
 
-      if (focus) {
-        lines.push("");
-        lines.push(`5) FOCUS SYMBOL: ${focus.symbol}`);
-        lines.push(`Price ${formatNum(focus.price)} | CHG ${Number(focus.changesPercentage || 0) >= 0 ? "+" : ""}${Number(focus.changesPercentage || 0).toFixed(2)}% | Trend ${focusTrend}`);
-        lines.push(`Composite ${focusScore?.composite || 0} | Tech ${focusScore?.tech || 0} | Fund ${focusScore?.fund || 0}`);
-        lines.push(`TradingView: ${getTradingViewUrl(focus.symbol)}`);
-      }
-
-      lines.push("");
-      lines.push("6) EXECUTION PLAN (TODAY)");
-      lines.push("A) Trade only A/A+ setups with RS + RVOL confirmation.");
-      lines.push("B) Keep size moderate until macro/event risk is clear.");
-      lines.push("C) Cut losers fast, scale winners by confirmation.");
-      lines.push("");
-      lines.push("Decision-support only, not financial advice.");
-
-      setAgentOutput(lines.join("\n"));
+      // Heuristic fallback
+      const output = buildHeuristicAgentOutput(prompt, wl, topLongs, topRisks, topAlerts, spy, qqq, iwm, btc, avgIdx, focus, focusScore, focusTrend);
+      setAgentOutput(output);
       setAgentRunAt(new Date().toLocaleString());
     } finally {
       setAgentLoading(false);
     }
-  }, [agentPrompt, watchlistData, rotationRank, combinedAlerts, macroData, regime, macroTone, marketSession, flowBias, flowCallNotional, flowPutNotional]);
+  }, [agentPrompt, watchlistData, rotationRank, combinedAlerts, macroData, regime, macroTone, marketSession, flowBias, flowCallNotional, flowPutNotional, buildHeuristicAgentOutput]);
   const applyWorkflowPrimary = useCallback((candidate, meta = {}) => {
     if (!candidate?.symbol) return;
     const entry = Number(candidate.entry || 0);
@@ -4133,6 +4293,29 @@ export default function App() {
                   </select>
                 </div>
               </div>
+              {watchlistData.length >= 3 && (() => {
+                const sorted = [...watchlistData].sort((a, b) => (b.changesPercentage || 0) - (a.changesPercentage || 0));
+                const top3 = sorted.slice(0, 3);
+                const bot3 = sorted.slice(-3).reverse();
+                return (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 6, marginBottom: 10 }}>
+                    {top3.map((q) => (
+                      <div key={`mv-t-${q.symbol}`} style={{ background: `${C.green}18`, border: `1px solid ${C.green}44`, borderRadius: 6, padding: "6px 10px" }}>
+                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text }}>{q.symbol}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, fontWeight: 700 }}>+{(q.changesPercentage || 0).toFixed(2)}%</div>
+                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>${(q.price || 0).toFixed(2)}</div>
+                      </div>
+                    ))}
+                    {bot3.map((q) => (
+                      <div key={`mv-b-${q.symbol}`} style={{ background: `${C.red}18`, border: `1px solid ${C.red}44`, borderRadius: 6, padding: "6px 10px" }}>
+                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text }}>{q.symbol}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, fontWeight: 700 }}>{(q.changesPercentage || 0).toFixed(2)}%</div>
+                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>${(q.price || 0).toFixed(2)}</div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
               <div style={{
                 background: C.card, border: `1px solid ${C.border}`, borderRadius: 5,
                 overflow: "hidden",
@@ -4467,25 +4650,78 @@ export default function App() {
 
         {activeTab === "news" && (
           <div>
-            <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em", marginBottom: 14 }}>
-              NEWS DESK — LIVE HEADLINES
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+              <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
+                NEWS DESK — LIVE HEADLINES
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  value={newsSymFilter}
+                  onChange={(e) => setNewsSymFilter(e.target.value.toUpperCase())}
+                  placeholder="Filter symbol…"
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 10, padding: "5px 8px", width: 120, borderRadius: 4 }}
+                />
+                <select
+                  value={newsSentFilter}
+                  onChange={(e) => setNewsSentFilter(e.target.value)}
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 10, padding: "5px 8px", borderRadius: 4 }}
+                >
+                  <option value="all">All Sentiment</option>
+                  <option value="bullish">Bullish</option>
+                  <option value="bearish">Bearish</option>
+                  <option value="neutral">Neutral</option>
+                </select>
+                <button
+                  onClick={refreshNews}
+                  disabled={newsLoading}
+                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                >
+                  {newsLoading ? "LOADING..." : `REFRESH (${newsData.length})`}
+                </button>
+              </div>
             </div>
             <div style={{ display: "grid", gap: 10 }}>
-              {newsData.map((n, i) => (
-                <a key={`${n.ticker}-${i}`} href={n.link} target="_blank" rel="noreferrer" style={{
-                  display: "block", background: C.card, border: `1px solid ${C.border}`, borderRadius: 6,
-                  padding: 12, textDecoration: "none",
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.accent }}>{n.ticker} · {n.publisher}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
-                      {n.publishedAt ? new Date(n.publishedAt).toLocaleString() : ""}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 4 }}>{n.title}</div>
-                  {n.summary ? <div style={{ fontSize: 11, color: C.textSec }}>{n.summary}</div> : null}
-                </a>
-              ))}
+              {newsData
+                .filter((n) => {
+                  if (newsSymFilter && !String(n.ticker || "").toUpperCase().includes(newsSymFilter)) return false;
+                  if (newsSentFilter !== "all") {
+                    const bullish = ["beat","surge","upgrade","growth","record","bull","rally","wins","strong","expands"];
+                    const bearish = ["miss","drop","downgrade","cuts","probe","lawsuit","bear","weak","fall","slump"];
+                    const txt = (String(n.title || "") + " " + String(n.summary || "")).toLowerCase();
+                    const bs = bullish.filter(w => txt.includes(w)).length;
+                    const be = bearish.filter(w => txt.includes(w)).length;
+                    const sent = bs > be ? "bullish" : be > bs ? "bearish" : "neutral";
+                    if (sent !== newsSentFilter) return false;
+                  }
+                  return true;
+                })
+                .map((n, i) => {
+                  const bullish = ["beat","surge","upgrade","growth","record","bull","rally","wins","strong","expands"];
+                  const bearish = ["miss","drop","downgrade","cuts","probe","lawsuit","bear","weak","fall","slump"];
+                  const txt = (String(n.title || "") + " " + String(n.summary || "")).toLowerCase();
+                  const bs = bullish.filter(w => txt.includes(w)).length;
+                  const be = bearish.filter(w => txt.includes(w)).length;
+                  const sent = bs > be ? "bullish" : be > bs ? "bearish" : "neutral";
+                  const sentColor = sent === "bullish" ? C.green : sent === "bearish" ? C.red : C.textDim;
+                  return (
+                    <a key={`${n.ticker}-${i}`} href={n.link} target="_blank" rel="noreferrer" style={{
+                      display: "block", background: C.card, border: `1px solid ${C.border}`, borderRadius: 6,
+                      padding: 12, textDecoration: "none",
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <span style={{ fontFamily: MONO, fontSize: 10, color: C.accent }}>{n.ticker} · {n.publisher}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 9, color: sentColor, fontWeight: 700, textTransform: "uppercase" }}>{sent}</span>
+                        </div>
+                        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                          {n.publishedAt ? new Date(n.publishedAt).toLocaleString() : ""}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 4 }}>{n.title}</div>
+                      {n.summary ? <div style={{ fontSize: 11, color: C.textSec }}>{n.summary}</div> : null}
+                    </a>
+                  );
+                })}
               {!newsData.length && <div style={{ color: C.textDim, fontSize: 13 }}>No headlines loaded yet.</div>}
             </div>
           </div>
@@ -4625,47 +4861,6 @@ export default function App() {
           <div>
             <div style={{ fontSize: 10, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em", marginBottom: 14 }}>
               SECTOR PERFORMANCE — LIVE
-            </div>
-            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, marginBottom: 12, display: "none" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent }}>WEATHER — ZIP {WEATHER_ZIP}</div>
-                <button
-                  onClick={fetchWeather}
-                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
-                >
-                  {weatherLoading ? "UPDATING..." : "REFRESH"}
-                </button>
-              </div>
-              {weatherError && <div style={{ fontSize: 12, color: C.red }}>{weatherError}</div>}
-              {!weatherError && weatherData && (
-                <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 1fr 1fr", gap: 8 }}>
-                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}>
-                    <div style={{ fontSize: 10, color: C.textDim, marginBottom: 4 }}>{weatherData.location}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 800, color: C.text }}>{weatherData.temp.toFixed(0)}°F</div>
-                    <div style={{ fontSize: 11, color: C.textSec }}>{weatherCodeLabel(weatherData.code)}</div>
-                  </div>
-                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}>
-                    <div style={{ fontSize: 10, color: C.textDim }}>Feels</div>
-                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 700 }}>{weatherData.feelsLike.toFixed(0)}°F</div>
-                  </div>
-                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}>
-                    <div style={{ fontSize: 10, color: C.textDim }}>Wind</div>
-                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 700 }}>{weatherData.wind.toFixed(0)} mph</div>
-                  </div>
-                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}>
-                    <div style={{ fontSize: 10, color: C.textDim }}>High / Low</div>
-                    <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 700 }}>{weatherData.high.toFixed(0)}° / {weatherData.low.toFixed(0)}°</div>
-                  </div>
-                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}>
-                    <div style={{ fontSize: 10, color: C.textDim }}>Rain Chance</div>
-                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 700, color: weatherData.rainChance >= 50 ? C.red : C.green }}>{weatherData.rainChance.toFixed(0)}%</div>
-                  </div>
-                </div>
-              )}
-              {!weatherError && !weatherData && <div style={{ fontSize: 12, color: C.textDim }}>Loading weather...</div>}
-              {!weatherError && weatherData && (
-                <div style={{ marginTop: 6, fontSize: 10, color: C.textDim }}>Updated {weatherData.updatedAt}</div>
-              )}
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
               <div style={{ minWidth: 420, maxWidth: 560, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px" }}>
@@ -4907,7 +5102,7 @@ export default function App() {
                 ADD CUSTOM ALERT
               </button>
             </div>
-            <div style={{ display: "grid", gap: 10 }}>
+            <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
               {combinedAlerts.map((a, idx) => (
                 <div key={`${a.symbol}-${idx}`} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 16 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -4923,6 +5118,91 @@ export default function App() {
               ))}
               {combinedAlerts.length === 0 && <div style={{ color: C.textDim, fontSize: 13 }}>No active alerts yet.</div>}
             </div>
+
+            {tvWebhookRows.length > 0 && (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+                <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700 }}>TRADINGVIEW WEBHOOK HISTORY ({tvWebhookRows.length})</span>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <input
+                      value={tvWebhookFilter}
+                      onChange={(e) => setTvWebhookFilter(e.target.value.toUpperCase())}
+                      placeholder="Filter symbol…"
+                      style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 10, padding: "4px 8px", width: 120, borderRadius: 4 }}
+                    />
+                    <button
+                      onClick={() => setTvWebhookRows([])}
+                      style={{ border: `1px solid ${C.red}55`, background: `${C.red}12`, color: C.red, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                    >CLEAR</button>
+                    <Badge color={tvWebhookSecured ? C.green : C.amber}>{tvWebhookSecured ? "SECURED" : "OPEN"}</Badge>
+                  </div>
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ background: C.surface }}>
+                        <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textDim }}>TIME</th>
+                        <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textDim }}>SYMBOL</th>
+                        <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textDim }}>SIDE</th>
+                        <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textDim }}>TF</th>
+                        <th style={{ padding: "7px 10px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>PRICE</th>
+                        <th style={{ padding: "7px 10px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>SCORE</th>
+                        <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textDim }}>MESSAGE</th>
+                        <th style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 10, color: C.textDim }}>LOG</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tvWebhookRows
+                        .filter((row) => !tvWebhookFilter || String(row?.symbol || "").toUpperCase().includes(tvWebhookFilter))
+                        .slice(0, 20)
+                        .map((row, i) => {
+                          const rowKey = `${row?.symbol}-${row?.at || i}`;
+                          const side = String(row?.side || "INFO").toUpperCase();
+                          const sideColor = side === "BUY" ? C.green : side === "SELL" ? C.red : C.textDim;
+                          const px = Number(row?.price || 0);
+                          const logged = tvWebhookLoggedRows[rowKey];
+                          return (
+                            <tr key={`tvh-${i}`} style={{ borderTop: `1px solid ${C.border}` }}>
+                              <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 10, color: C.textDim, whiteSpace: "nowrap" }}>
+                                {row?.at ? new Date(row.at).toLocaleString(undefined, { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
+                              </td>
+                              <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{row?.symbol || "?"}</td>
+                              <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 11, color: sideColor, fontWeight: 700 }}>{side}</td>
+                              <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 10, color: C.textDim }}>{row?.timeframe || "—"}</td>
+                              <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 11, textAlign: "right", color: C.text }}>{px > 0 ? `$${px.toFixed(2)}` : "—"}</td>
+                              <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 11, textAlign: "right", color: C.accent }}>{row?.score || "—"}</td>
+                              <td style={{ padding: "7px 10px", fontSize: 11, color: C.textSec, maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row?.message || "—"}</td>
+                              <td style={{ padding: "7px 10px", textAlign: "center" }}>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await fetch("/api/journal", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                          ticker: row?.symbol || "TV",
+                                          side: side === "BUY" ? "BUY" : side === "SELL" ? "SELL" : "WAIT",
+                                          score: row?.score || 72,
+                                          entry: px || 0,
+                                          notes: row?.message || "",
+                                          timeframe: row?.timeframe || "1D",
+                                          style: "Swing",
+                                        }),
+                                      });
+                                      setTvWebhookLoggedRows((prev) => ({ ...prev, [rowKey]: true }));
+                                    } catch {}
+                                  }}
+                                  style={{ border: `1px solid ${logged ? C.green + "55" : C.border}`, background: logged ? `${C.green}12` : C.surface, color: logged ? C.green : C.accent, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                >{logged ? "OK ✓" : "LOG"}</button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -4964,6 +5244,7 @@ export default function App() {
                     "Top 5 long setups right now",
                     "Top risks and hedges now",
                     "Build me execution plan for today",
+                    ...(terminalSymbol ? [`Analyze ${terminalSymbol} — entry, stop, target, score`] : []),
                   ].map((q) => (
                     <button
                       key={`aq-${q}`}
@@ -4988,7 +5269,15 @@ export default function App() {
             </div>
 
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 8 }}>AGENT OUTPUT</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>AGENT OUTPUT</div>
+                {agentOutput && (
+                  <button
+                    onClick={() => navigator.clipboard.writeText(agentOutput).catch(() => {})}
+                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                  >COPY</button>
+                )}
+              </div>
               <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: SANS, fontSize: 14, lineHeight: 1.55, color: C.text }}>
                 {agentOutput || "No output yet. Click RUN AGENT."}
               </pre>
@@ -5104,7 +5393,41 @@ export default function App() {
                 {!macroSignalFlags.red.length && !macroSignalFlags.green.length && <div style={{ fontSize: 11, color: C.textDim }}>No major macro flags.</div>}
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(320px, 1fr))", gap: 12, marginBottom: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(280px, 1fr))", gap: 12, marginBottom: 12 }}>
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, letterSpacing: "0.08em" }}>
+                    WATCHLIST MOVERS
+                  </div>
+                  <button
+                    onClick={fetchMarketMovers}
+                    disabled={marketMoversLoading}
+                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                  >
+                    {marketMoversLoading ? "…" : "REFRESH"}
+                  </button>
+                </div>
+                {!marketMovers && !marketMoversLoading && <div style={{ fontSize: 10, color: C.textDim }}>Loading…</div>}
+                {marketMoversLoading && <div style={{ fontSize: 10, color: C.textDim }}>Fetching movers…</div>}
+                {marketMovers && (
+                  <>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.green, fontWeight: 700, marginBottom: 4 }}>TOP GAINERS</div>
+                    {(marketMovers.gainers || []).map((q) => (
+                      <div key={`mv-g-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
+                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.text, fontWeight: 700 }}>{q.symbol}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.green, fontWeight: 700 }}>+{Number(q.changesPercentage || 0).toFixed(2)}%</span>
+                      </div>
+                    ))}
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.red, fontWeight: 700, marginTop: 8, marginBottom: 4 }}>TOP LOSERS</div>
+                    {(marketMovers.losers || []).map((q) => (
+                      <div key={`mv-l-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
+                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.text, fontWeight: 700 }}>{q.symbol}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.red, fontWeight: 700 }}>{Number(q.changesPercentage || 0).toFixed(2)}%</span>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
                 <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
                   PRE / POST MARKET MOVERS
@@ -5240,12 +5563,21 @@ export default function App() {
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>POSITIONS</span>
-                <button
-                  onClick={() => setPortfolioHoldings((prev) => [...prev, { symbol: "", shares: "0", avgCost: "0" }])}
-                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
-                >
-                  ADD POSITION
-                </button>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <a
+                    href="/api/portfolio/export.csv"
+                    download
+                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "6px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer", textDecoration: "none" }}
+                  >
+                    EXPORT CSV
+                  </a>
+                  <button
+                    onClick={() => setPortfolioHoldings((prev) => [...prev, { symbol: "", shares: "0", avgCost: "0" }])}
+                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  >
+                    ADD POSITION
+                  </button>
+                </div>
               </div>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -5339,6 +5671,9 @@ export default function App() {
                 <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "8px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
                   REFRESH SCAN
                 </button>
+                <button onClick={runServerScreen} disabled={serverScreenLoading} style={{ border: `1px solid ${C.accent}`, background: serverScreenLoading ? C.surface : C.card, color: C.accent, borderRadius: 4, padding: "8px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
+                  {serverScreenLoading ? "SCREENING…" : "SERVER SCREEN"}
+                </button>
               </div>
               {scannerFilters.scope === "market" && (
                 <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: C.textDim }}>
@@ -5403,6 +5738,51 @@ export default function App() {
                 </table>
               </div>
             </div>
+            {serverScreenResults !== null && (
+              <div style={{ background: C.card, border: `1px solid ${C.accent}`, borderRadius: 8, overflow: "hidden", marginTop: 12 }}>
+                <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.accent }}>SERVER SCREEN RESULTS: {serverScreenResults.length}</span>
+                  <button onClick={() => setServerScreenResults(null)} style={{ border: "none", background: "transparent", color: C.textDim, fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>CLEAR</button>
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ background: C.surface }}>
+                        <th style={{ padding: "8px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Symbol</th>
+                        <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Price</th>
+                        <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>CHG%</th>
+                        <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>RVOL</th>
+                        <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Tech</th>
+                        <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Score</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {serverScreenResults.map((q) => {
+                        const chg = Number(q.changesPercentage || 0);
+                        return (
+                          <tr key={`srv-${q.symbol}`}>
+                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, fontFamily: MONO, fontWeight: 700, color: C.text }}>
+                              <div>{q.symbol}</div>
+                              <button onClick={() => openTradingView(q.symbol)} style={{ marginTop: 4, border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>TV</button>
+                            </td>
+                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, color: C.text }}>${Number(q.price || 0).toFixed(2)}</td>
+                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, color: chg >= 0 ? C.green : C.red }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</td>
+                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, color: Number(q.rvol || 0) >= 1.2 ? C.green : C.text }}>{Number(q.rvol || 0).toFixed(2)}x</td>
+                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, color: C.textSec }}>{q.tech}</td>
+                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, color: Number(q.composite || 0) >= 70 ? C.green : C.text }}>{q.composite}</td>
+                          </tr>
+                        );
+                      })}
+                      {!serverScreenResults.length && (
+                        <tr>
+                          <td colSpan={5} style={{ padding: 14, textAlign: "center", color: C.textDim, fontSize: 12 }}>No symbols matched the server-side screen filters.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -5433,6 +5813,29 @@ export default function App() {
 
             {backtestResult && !backtestResult.error && (
               <>
+                <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center" }}>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await fetch("/api/journal", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            ticker: backtestSymbol,
+                            side: "BUY",
+                            score: Math.min(99, Math.round(50 + backtestResult.winRate / 2)),
+                            entry: backtestResult.trades?.[0]?.entry || 0,
+                            notes: `Backtest ${backtestTf} ${backtestResult.totalTrades} trades · ${backtestResult.winRate.toFixed(1)}% WR · ${backtestResult.netRet >= 0 ? "+" : ""}${backtestResult.netRet.toFixed(2)}% net · MaxDD ${backtestResult.maxDrawdown.toFixed(2)}%`,
+                            timeframe: backtestTf,
+                            style: "Backtest",
+                          }),
+                        });
+                      } catch {}
+                    }}
+                    style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 4, padding: "6px 12px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  >LOG BACKTEST TO JOURNAL</button>
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{backtestSymbol} · {backtestTf} · {backtestResult.totalTrades} trades</span>
+                </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(140px, 1fr))", gap: 10, marginBottom: 12 }}>
                   <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Trades</div><div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800 }}>{backtestResult.totalTrades}</div></div>
                   <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Win Rate</div><div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: backtestResult.winRate >= 50 ? C.green : C.red }}>{backtestResult.winRate.toFixed(1)}%</div></div>
@@ -5663,6 +6066,32 @@ export default function App() {
                   <div style={{ fontSize: 10, color: C.textSec }}>Base Risk Budget: <span style={{ fontFamily: MONO, color: C.text }}>${riskPlan.baseRiskDollars.toFixed(2)}</span></div>
                   <div style={{ fontSize: 10, color: C.textSec }}>Regime Mult: <span style={{ fontFamily: MONO, color: C.text }}>{riskPlan.regimeMult.toFixed(2)}x</span> · Quality: <span style={{ fontFamily: MONO, color: C.text }}>{riskPlan.qualityMult.toFixed(2)}x</span></div>
                   <div style={{ fontSize: 10, color: C.textSec }}>Vol Adj: <span style={{ fontFamily: MONO, color: C.text }}>{riskPlan.volAdj.toFixed(2)}x</span> · Corr Cap: <span style={{ fontFamily: MONO, color: C.text }}>{riskPlan.corrCap.toFixed(2)}x</span></div>
+                </div>
+                <div style={{ marginTop: 10, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+                  <button
+                    onClick={async () => {
+                      const sym = (terminalSymbol || selectedStock?.symbol || "").toUpperCase();
+                      if (!sym || !riskPlan.shares) return;
+                      try {
+                        await fetch("/api/journal", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            ticker: sym,
+                            side: riskSide === "short" ? "SELL" : "BUY",
+                            score: 72,
+                            entry: Number(riskEntry) || 0,
+                            stopLoss: Number(riskStop) || 0,
+                            target: riskPlan.t1 || 0,
+                            notes: `${riskSetupQuality} setup · ${riskPlan.shares} shares · risk $${riskPlan.estRisk.toFixed(0)} · regime ${riskPlan.regime}`,
+                            timeframe: "1D",
+                            style: "Swing",
+                          }),
+                        });
+                      } catch {}
+                    }}
+                    style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 4, padding: "6px 12px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}
+                  >LOG TRADE TO JOURNAL</button>
                 </div>
               </div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>

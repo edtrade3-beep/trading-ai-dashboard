@@ -1,0 +1,64 @@
+const { fetchJsonSafe } = require("../utils");
+
+function normalizeFmpQuoteRow(raw) {
+  if (!raw) return null;
+  const symbol = String(raw.symbol || "").toUpperCase();
+  if (!symbol) return null;
+  const price = Number(raw.price);
+  const previousClose = Number(raw.previousClose);
+  const change = Number(raw.change);
+  const changesPercentage = Number(raw.changesPercentage);
+  return {
+    symbol,
+    name: raw.name || raw.companyName || symbol,
+    price: Number.isFinite(price) ? price : 0,
+    change: Number.isFinite(change) ? change : 0,
+    changesPercentage: Number.isFinite(changesPercentage) ? changesPercentage : 0,
+    open: Number(raw.open) || 0,
+    previousClose: Number.isFinite(previousClose) ? previousClose : 0,
+    dayHigh: Number(raw.dayHigh) || 0,
+    dayLow: Number(raw.dayLow) || 0,
+    volume: Number(raw.volume) || 0,
+    avgVolume: Number(raw.avgVolume) || 0,
+    yearHigh: Number(raw.yearHigh) || 0,
+    yearLow: Number(raw.yearLow) || 0,
+    marketCap: Number(raw.marketCap) || 0,
+    pe: Number(raw.pe) || 0,
+    priceAvg50: Number(raw.priceAvg50) || 0,
+    priceAvg200: Number(raw.priceAvg200) || 0,
+    preMarketPrice: 0,
+    postMarketPrice: 0,
+    preMarketChangePercent: 0,
+    postMarketChangePercent: 0,
+  };
+}
+
+async function fetchFmpQuotes(symbols, fmpKey) {
+  if (!fmpKey) return [];
+  const list = symbols.map((s) => String(s || "").trim()).filter(Boolean).join(",");
+  if (!list) return [];
+  const url = `https://financialmodelingprep.com/api/v3/quote/${encodeURIComponent(list)}?apikey=${encodeURIComponent(fmpKey)}`;
+  const payload = await fetchJsonSafe(url);
+  if (!Array.isArray(payload)) return [];
+  return payload.map(normalizeFmpQuoteRow).filter(Boolean);
+}
+
+async function fetchFmpFundamentals(symbol, fmpKey) {
+  if (!fmpKey || !symbol) return null;
+  const quoteUrl = `https://financialmodelingprep.com/api/v3/quote/${encodeURIComponent(symbol)}?apikey=${encodeURIComponent(fmpKey)}`;
+  const profileUrl = `https://financialmodelingprep.com/api/v3/profile/${encodeURIComponent(symbol)}?apikey=${encodeURIComponent(fmpKey)}`;
+  const [quotePayload, profilePayload] = await Promise.all([fetchJsonSafe(quoteUrl), fetchJsonSafe(profileUrl)]);
+  const quote = Array.isArray(quotePayload) ? quotePayload[0] : null;
+  const profile = Array.isArray(profilePayload) ? profilePayload[0] : null;
+  if (!quote && !profile) return null;
+  return {
+    symbol,
+    marketCap: Number(quote?.marketCap) || Number(profile?.mktCap) || 0,
+    pe: Number(quote?.pe) || 0,
+    eps: Number(quote?.eps) || 0,
+    sharesOutstanding: Number(profile?.sharesOutstanding) || 0,
+    earningsDate: profile?.lastDiv || null,
+  };
+}
+
+module.exports = { normalizeFmpQuoteRow, fetchFmpQuotes, fetchFmpFundamentals };

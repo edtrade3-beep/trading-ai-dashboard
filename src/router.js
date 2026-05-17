@@ -1,0 +1,78 @@
+const { URL } = require("node:url");
+const { writeJson } = require("./utils");
+const { serveStatic } = require("./static");
+const { checkRateLimit } = require("./rate-limit");
+const handleAuth = require("./routes/auth");
+const handleHealth = require("./routes/health");
+const handleWebhooks = require("./routes/webhooks");
+const handleProxy = require("./routes/proxy");
+const handleYahoo = require("./routes/yahoo");
+const handleMarket = require("./routes/market");
+const handleInventory = require("./routes/inventory");
+const handleJournal = require("./routes/journal");
+const handleAgent = require("./routes/agent");
+const handlePortfolio = require("./routes/portfolio");
+const handleDealership = require("./dealership/routes");
+
+async function handleRequest(req, res) {
+  try {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    const { pathname } = requestUrl;
+
+    if (pathname === "/api/auth/check") {
+      return handleAuth(req, res, requestUrl);
+    }
+
+    if (pathname === "/api/health") {
+      return handleHealth(req, res, requestUrl);
+    }
+
+    if (pathname === "/api/webhooks/tradingview" || pathname === "/api/market/tv-alerts") {
+      return handleWebhooks(req, res, requestUrl);
+    }
+
+    if (pathname.startsWith("/api/fmp/") || pathname.startsWith("/api/td/")) {
+      return handleProxy(req, res, requestUrl);
+    }
+
+    if (pathname.startsWith("/api/yahoo/")) {
+      return handleYahoo(req, res, requestUrl);
+    }
+
+    if (pathname.startsWith("/api/market/") || pathname === "/api/live") {
+      if (!checkRateLimit(req)) {
+        return writeJson(res, 429, { error: "Too many requests. Please slow down." });
+      }
+      return handleMarket(req, res, requestUrl);
+    }
+
+    if (pathname === "/api/inventory" || pathname.startsWith("/api/inventory/")) {
+      return handleInventory(req, res, requestUrl);
+    }
+
+    if (pathname === "/api/journal" || pathname.startsWith("/api/journal/")) {
+      return handleJournal(req, res, requestUrl);
+    }
+
+    if (pathname === "/api/agent") {
+      return handleAgent(req, res, requestUrl);
+    }
+
+    if (pathname === "/api/portfolio" || pathname.startsWith("/api/portfolio/")) {
+      return handlePortfolio(req, res, requestUrl);
+    }
+
+    if (pathname.startsWith("/api/dealer/")) {
+      return handleDealership(req, res, requestUrl);
+    }
+
+    return serveStatic(pathname, res);
+  } catch (error) {
+    return writeJson(res, 500, {
+      error: "Server error",
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+}
+
+module.exports = handleRequest;

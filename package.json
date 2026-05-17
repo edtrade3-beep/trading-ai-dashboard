@@ -2,12 +2,14 @@
   "name": "am-trading-platform",
   "version": "1.0.0",
   "private": true,
-  "description": "AM Trading Platform - institutional-style market dashboard",
+  "description": "Dixie Motors Platform — trading analyst workstation and dealer portal",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "check": "node --check server.js",
+    "test": "node test/smoke.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   }
 }
