@@ -7183,6 +7183,50 @@ export default function App() {
               );
             })()}
 
+            {/* Performance analytics row */}
+            {journalEntries.length > 0 && (() => {
+              const closed = journalEntries.filter(e => e.status === "closed" && e.pnl != null).sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt));
+              if (closed.length < 2) return null;
+              const wins = closed.filter(e => e.pnl > 0);
+              const losses = closed.filter(e => e.pnl <= 0);
+              const avgWin = wins.length ? wins.reduce((s, e) => s + e.pnl, 0) / wins.length : 0;
+              const avgLoss = losses.length ? Math.abs(losses.reduce((s, e) => s + e.pnl, 0) / losses.length) : 0;
+              const profitFactor = avgLoss > 0 ? (avgWin * wins.length) / (avgLoss * losses.length) : wins.length ? Infinity : 0;
+              const rFactor = avgLoss > 0 ? avgWin / avgLoss : 0;
+              let curStreak = 0, maxWinStreak = 0, maxLossStreak = 0, curWin = 0, curLoss = 0;
+              closed.forEach(e => {
+                if (e.pnl > 0) { curWin++; curLoss = 0; maxWinStreak = Math.max(maxWinStreak, curWin); }
+                else { curLoss++; curWin = 0; maxLossStreak = Math.max(maxLossStreak, curLoss); }
+              });
+              const lastPnl = closed[closed.length - 1].pnl;
+              curStreak = closed.slice().reverse().findIndex(e => lastPnl > 0 ? e.pnl <= 0 : e.pnl > 0);
+              if (curStreak === -1) curStreak = closed.length;
+              let peak = 0, runningPnl = 0, maxDd = 0;
+              closed.forEach(e => { runningPnl += e.pnl; if (runningPnl > peak) peak = runningPnl; const dd = peak - runningPnl; if (dd > maxDd) maxDd = dd; });
+              const expectancy = closed.length ? closed.reduce((s, e) => s + e.pnl, 0) / closed.length : 0;
+              return (
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 12 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>PERFORMANCE ANALYTICS ({closed.length} closed trades)</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8 }}>
+                    <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>AVG WIN</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.green }}>+${avgWin.toFixed(0)}</div></div>
+                    <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>AVG LOSS</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.red }}>-${avgLoss.toFixed(0)}</div></div>
+                    <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>R-FACTOR</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: rFactor >= 1.5 ? C.green : rFactor >= 1 ? C.amber : C.red }}>{isFinite(rFactor) ? rFactor.toFixed(2) : "∞"}</div></div>
+                    <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>PROFIT FACTOR</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: profitFactor >= 1.5 ? C.green : profitFactor >= 1 ? C.amber : C.red }}>{isFinite(profitFactor) ? profitFactor.toFixed(2) : "∞"}</div></div>
+                    <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>EXPECTANCY</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: expectancy >= 0 ? C.green : C.red }}>{expectancy >= 0 ? "+" : ""}${expectancy.toFixed(0)}</div></div>
+                    <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>MAX DRAWDOWN</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: maxDd > 0 ? C.red : C.textDim }}>{maxDd > 0 ? `-$${maxDd.toFixed(0)}` : "—"}</div></div>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>STREAKS</div>
+                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>
+                        <span style={{ color: C.green }}>W{maxWinStreak}</span>
+                        <span style={{ color: C.textDim }}> / </span>
+                        <span style={{ color: C.red }}>L{maxLossStreak}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Toolbar */}
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
               {["all", "open", "closed", "cancelled"].map(f => (
