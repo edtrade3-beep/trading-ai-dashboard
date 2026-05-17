@@ -4169,6 +4169,20 @@ export default function App() {
     const losers = portfolioRows.filter((r) => r.pnl < 0).length;
     return { totalValue, totalCost, totalPnl, totalPnlPct, winners, losers };
   }, [portfolioRows]);
+  const liveJournalPnl = useMemo(() => {
+    const map = {};
+    for (const e of journalEntries) {
+      if (e.status !== "open" || !e.entry || !e.ticker) continue;
+      const q = watchlistData.find(d => d.symbol === e.ticker);
+      if (!q || !q.price) continue;
+      const dir = e.side === "SELL" ? -1 : 1;
+      const size = e.size || 1;
+      const livePnl = dir * (q.price - e.entry) * size;
+      const livePnlPct = ((q.price - e.entry) / e.entry) * 100 * dir;
+      map[e.id] = { livePrice: q.price, livePnl, livePnlPct };
+    }
+    return map;
+  }, [journalEntries, watchlistData]);
   const flowRows = Array.isArray(optionsFlow?.flow) ? optionsFlow.flow : [];
   const flowBySymbol = Array.isArray(optionsFlow?.bySymbol) ? optionsFlow.bySymbol : [];
   const flowCallNotional = Number(optionsFlow?.summary?.callNotional || 0);
@@ -7838,7 +7852,8 @@ export default function App() {
                     </thead>
                     <tbody>
                       {filtered.map(e => {
-                        const pnlColor = e.pnl == null ? C.textSec : e.pnl >= 0 ? C.green : C.red;
+                        const livePnlData = liveJournalPnl[e.id];
+                        const pnlColor = livePnlData ? (livePnlData.livePnl >= 0 ? C.green : C.red) : e.pnl == null ? C.textSec : e.pnl >= 0 ? C.green : C.red;
                         return (
                           <React.Fragment key={e.id}>
                             <tr style={{ borderTop: `1px solid ${C.border}` }}>
@@ -7850,11 +7865,19 @@ export default function App() {
                               <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: e.side === "BUY" ? C.green : e.side === "SELL" ? C.red : C.amber, fontWeight: 700 }}>{e.side}</td>
                               <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.textSec }}>{e.timeframe || "—"}</td>
                               <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.textSec }}>{e.score}</td>
-                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.text }}>{e.entry ? `$${e.entry}` : "—"}</td>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.text }}>
+                                {e.entry ? `$${e.entry}` : "—"}
+                                {livePnlData && <div style={{ fontSize: 9, fontFamily: MONO, color: C.textDim, marginTop: 1 }}>{`$${livePnlData.livePrice.toFixed(2)}`}</div>}
+                              </td>
                               <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.red }}>{e.stopLoss ? `$${e.stopLoss}` : "—"}</td>
                               <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.green }}>{e.target ? `$${e.target}` : "—"}</td>
                               <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: pnlColor }}>
-                                {e.pnl != null ? `${e.pnl >= 0 ? "+" : ""}$${e.pnl.toFixed(2)}` : "—"}
+                                {livePnlData ? (
+                                  <div>
+                                    <div>{livePnlData.livePnl >= 0 ? "+" : ""}${livePnlData.livePnl.toFixed(2)}</div>
+                                    <div style={{ fontSize: 9, color: pnlColor, opacity: 0.8 }}>{livePnlData.livePnlPct >= 0 ? "+" : ""}{livePnlData.livePnlPct.toFixed(2)}% LIVE</div>
+                                  </div>
+                                ) : e.pnl != null ? `${e.pnl >= 0 ? "+" : ""}$${e.pnl.toFixed(2)}` : "—"}
                               </td>
                               <td style={{ padding: "8px 10px", textAlign: "center" }}>
                                 <span style={{ background: e.status === "open" ? `${C.green}22` : e.status === "closed" ? `${C.accent}22` : `${C.amber}22`, color: e.status === "open" ? C.green : e.status === "closed" ? C.accent : C.amber, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>{e.status}</span>
