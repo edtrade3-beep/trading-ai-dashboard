@@ -76,7 +76,8 @@
       "Bash(curl -s \"http://localhost:3000/api/inventory/export.csv\")",
       "Bash(curl -s \"http://localhost:3000/api/health\")",
       "Bash(node --check src/routes/settings.js)",
-      "Bash(node --check src/settings-store.js)"
+      "Bash(node --check src/settings-store.js)",
+      "Bash(curl -s http://localhost:3000/api/settings)"
     ]
   }
 }

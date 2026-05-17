@@ -733,6 +733,7 @@ function App() {
             <Pill text="Protected" color={theme.success} />
             <Pill text="Finance Ready" color={theme.primary} />
             <Pill text="Best Deals First" color={theme.warning} />
+            <a href="/" target="_blank" rel="noopener" style={{ fontSize: 11, fontWeight: 700, color: theme.primary, textDecoration: "none", border: `1px solid ${theme.primary}44`, borderRadius: 6, padding: "4px 10px" }}>TRADING ↗</a>
           </div>
         </header>
 
