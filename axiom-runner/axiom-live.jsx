@@ -1229,6 +1229,10 @@ function TerminalWorkspace({
   const [showLeft, setShowLeft] = useState(true);
   const [showRight, setShowRight] = useState(true);
   const [drag, setDrag] = useState(null);
+  const [alertFormOpen, setAlertFormOpen] = useState(false);
+  const [alertTarget, setAlertTarget] = useState("");
+  const [alertDir, setAlertDir] = useState("above");
+  const [alertSaving, setAlertSaving] = useState(false);
 
   useEffect(() => {
     if (!drag) return;
@@ -1405,8 +1409,34 @@ function TerminalWorkspace({
                   {tf}
                 </button>
               ))}
+              <button onClick={() => { setAlertFormOpen(v => !v); setAlertTarget(selected.price ? selected.price.toFixed(2) : ""); }} style={{ border: `1px solid ${alertFormOpen ? C.amber : C.border}`, background: alertFormOpen ? `${C.amber}14` : C.surface, color: alertFormOpen ? C.amber : C.textDim, fontFamily: MONO, fontSize: 10, padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}>
+                + ALERT
+              </button>
             </div>
           </div>
+          {alertFormOpen && (
+            <div style={{ padding: "8px 14px", borderBottom: `1px solid ${C.border}`, background: `${C.amber}08`, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{selected.symbol}</span>
+              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Price alert</span>
+              <select value={alertDir} onChange={e => setAlertDir(e.target.value)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontFamily: MONO, fontSize: 11, padding: "5px 8px" }}>
+                <option value="above">ABOVE</option>
+                <option value="below">BELOW</option>
+              </select>
+              <input type="number" step="0.01" value={alertTarget} onChange={e => setAlertTarget(e.target.value)} placeholder="Target price" style={{ width: 110, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontFamily: MONO, fontSize: 11, padding: "5px 8px" }} />
+              <button disabled={alertSaving} onClick={async () => {
+                if (!alertTarget || Number(alertTarget) <= 0) return;
+                setAlertSaving(true);
+                try {
+                  await fetch("/api/price-alerts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol: selected.symbol, targetPrice: Number(alertTarget), direction: alertDir }) });
+                  setAlertFormOpen(false);
+                  setAlertTarget("");
+                } finally { setAlertSaving(false); }
+              }} style={{ border: `1px solid ${C.amber}55`, background: `${C.amber}18`, color: C.amber, borderRadius: 4, padding: "5px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
+                {alertSaving ? "SAVING…" : "SET ALERT"}
+              </button>
+              <button onClick={() => setAlertFormOpen(false)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "5px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>✕</button>
+            </div>
+          )}
           <div style={{ padding: 10, background: "linear-gradient(180deg,#ffffff 0%,#f8fbff 100%)", display: "grid", gap: 10, gridTemplateColumns: "1.15fr 1fr" }}>
             <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, background: C.surface, overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr" }}>
               <div style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -6936,6 +6966,14 @@ export default function App() {
                                     }}
                                     style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
                                   >PRINT</button>
+                                  <button
+                                    onClick={async () => {
+                                      if (!window.confirm(`Delete journal entry for ${e.ticker}?`)) return;
+                                      await fetch(`/api/journal/${e.id}`, { method: "DELETE" });
+                                      loadJournalTab();
+                                    }}
+                                    style={{ border: `1px solid ${C.red}55`, background: `${C.red}0f`, color: C.red, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                  >DEL</button>
                                 </div>
                               </td>
                             </tr>
