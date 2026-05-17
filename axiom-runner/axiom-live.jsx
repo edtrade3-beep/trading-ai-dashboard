@@ -5930,23 +5930,37 @@ export default function App() {
                   const be = bearish.filter(w => txt.includes(w)).length;
                   const sent = bs > be ? "bullish" : be > bs ? "bearish" : "neutral";
                   const sentColor = sent === "bullish" ? C.green : sent === "bearish" ? C.red : C.textDim;
+                  const onWatchlist = watchlistSymbols.includes(n.ticker);
                   return (
-                    <a key={`${n.ticker}-${i}`} href={n.link} target="_blank" rel="noreferrer" style={{
-                      display: "block", background: C.card, border: `1px solid ${C.border}`, borderRadius: 6,
-                      padding: 12, textDecoration: "none",
-                    }}>
+                    <div key={`${n.ticker}-${i}`} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: 12, position: "relative" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <span style={{ fontFamily: MONO, fontSize: 10, color: C.accent }}>{n.ticker} · {n.publisher}</span>
+                          <button onClick={() => { setTerminalSymbol(n.ticker); setActiveTab("terminal"); }}
+                            style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 10, cursor: "pointer", padding: 0, fontWeight: 700 }}>
+                            {n.ticker}
+                          </button>
+                          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>· {n.publisher}</span>
                           <span style={{ fontFamily: MONO, fontSize: 9, color: sentColor, fontWeight: 700, textTransform: "uppercase" }}>{sent}</span>
                         </div>
-                        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
-                          {n.publishedAt ? new Date(n.publishedAt).toLocaleString() : ""}
-                        </span>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                            {n.publishedAt ? new Date(n.publishedAt).toLocaleString() : ""}
+                          </span>
+                          {n.ticker && (
+                            <button
+                              onClick={() => setWatchlistSymbols(prev => onWatchlist ? prev.filter(s => s !== n.ticker) : Array.from(new Set([...prev, n.ticker])))}
+                              title={onWatchlist ? `Remove ${n.ticker} from watchlist` : `Add ${n.ticker} to watchlist`}
+                              style={{ border: `1px solid ${onWatchlist ? C.red : C.green}55`, background: onWatchlist ? C.redBg : C.greenBg, color: onWatchlist ? C.red : C.green, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>
+                              {onWatchlist ? "−WL" : "+WL"}
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 4 }}>{n.title}</div>
-                      {n.summary ? <div style={{ fontSize: 11, color: C.textSec }}>{n.summary}</div> : null}
-                    </a>
+                      <a href={n.link} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
+                        <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 4 }}>{n.title}</div>
+                        {n.summary ? <div style={{ fontSize: 11, color: C.textSec }}>{n.summary}</div> : null}
+                      </a>
+                    </div>
                   );
                 })}
               {!newsData.length && <div style={{ color: C.textDim, fontSize: 13 }}>No headlines loaded yet.</div>}
