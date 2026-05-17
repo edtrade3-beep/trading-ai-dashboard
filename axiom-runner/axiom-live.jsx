@@ -5342,7 +5342,32 @@ export default function App() {
                   <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Target</div><div style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>${Number(workflowAutoPlan.target || 0).toFixed(2)}</div></div>
                 </div>
                 <div style={{ marginBottom: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px" }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 4 }}>WHY THIS NAME</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>WHY THIS NAME</div>
+                    <button
+                      onClick={async () => {
+                        if (!workflowAutoPlan?.symbol) return;
+                        try {
+                          await fetch("/api/journal", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              ticker: workflowAutoPlan.symbol,
+                              side: "BUY",
+                              score: Math.round(Number(workflowAutoPlan.score || 72)),
+                              entry: Number(workflowAutoPlan.entry || 0),
+                              stopLoss: Number(workflowAutoPlan.stop || 0),
+                              target: Number(workflowAutoPlan.target || 0),
+                              notes: workflowAutoPlan.why || "Workflow auto-plan",
+                              timeframe: "1D",
+                              style: "Workflow",
+                            }),
+                          });
+                        } catch {}
+                      }}
+                      style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                    >LOG PLAN</button>
+                  </div>
                   <div style={{ fontSize: 12, color: C.textSec, lineHeight: 1.45 }}>{workflowAutoPlan.why || "No rationale available."}</div>
                 </div>
                 <div>
@@ -5768,7 +5793,19 @@ export default function App() {
                           <tr key={`srv-${q.symbol}`}>
                             <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, fontFamily: MONO, fontWeight: 700, color: C.text }}>
                               <div>{q.symbol}</div>
-                              <button onClick={() => openTradingView(q.symbol)} style={{ marginTop: 4, border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>TV</button>
+                              <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+                                <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>CHART</button>
+                                <button onClick={() => openTradingView(q.symbol)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>TV</button>
+                                <button onClick={async () => {
+                                  try {
+                                    await fetch("/api/journal", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ ticker: q.symbol, side: chg >= 0 ? "BUY" : "SELL", score: Number(q.composite || 72), entry: Number(q.price || 0), notes: `Scanner hit · RVOL ${Number(q.rvol || 0).toFixed(2)}x · score ${q.composite}`, timeframe: "1D", style: "Scanner" }),
+                                    });
+                                  } catch {}
+                                }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>LOG</button>
+                              </div>
                             </td>
                             <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, color: C.text }}>${Number(q.price || 0).toFixed(2)}</td>
                             <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, color: chg >= 0 ? C.green : C.red }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</td>
