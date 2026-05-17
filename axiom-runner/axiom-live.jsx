@@ -2686,6 +2686,8 @@ export default function App() {
   const [journalTickerSearch, setJournalTickerSearch] = useState("");
   const [journalCloseId, setJournalCloseId] = useState(null);
   const [journalClosePrice, setJournalClosePrice] = useState("");
+  const [journalEditId, setJournalEditId] = useState(null);
+  const [journalEditNotes, setJournalEditNotes] = useState("");
   const [watchlistLogSymbol, setWatchlistLogSymbol] = useState(null);
   const [watchlistLogSide, setWatchlistLogSide] = useState("BUY");
   const [priceAlerts, setPriceAlerts] = useState([]);
@@ -7755,9 +7757,37 @@ export default function App() {
                                     }}
                                     style={{ border: `1px solid ${C.red}55`, background: `${C.red}0f`, color: C.red, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
                                   >DEL</button>
+                                  <button
+                                    onClick={() => { setJournalEditId(journalEditId === e.id ? null : e.id); setJournalEditNotes(e.notes || ""); }}
+                                    style={{ border: `1px solid ${C.accent}55`, background: journalEditId === e.id ? `${C.accent}28` : `${C.accent}0f`, color: C.accent, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                  >EDIT</button>
                                 </div>
                               </td>
                             </tr>
+                            {journalEditId === e.id && (
+                              <tr style={{ background: `${C.accent}06`, borderTop: `1px solid ${C.accent}33` }}>
+                                <td colSpan={12} style={{ padding: "10px 12px" }}>
+                                  <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                                    <textarea
+                                      value={journalEditNotes}
+                                      onChange={e2 => setJournalEditNotes(e2.target.value)}
+                                      autoFocus
+                                      rows={3}
+                                      placeholder="Trade notes…"
+                                      style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "6px 8px", fontFamily: SANS, fontSize: 12, resize: "vertical", borderRadius: 4 }}
+                                    />
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                      <button onClick={async () => {
+                                        await fetch(`/api/journal/${e.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notes: journalEditNotes }) });
+                                        setJournalEditId(null);
+                                        loadJournalTab();
+                                      }} style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}18`, color: C.accent, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>SAVE</button>
+                                      <button onClick={() => setJournalEditId(null)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>CANCEL</button>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
                             {journalCloseId === e.id && (
                               <tr style={{ background: `${C.green}08`, borderTop: `1px solid ${C.green}44` }}>
                                 <td colSpan={12} style={{ padding: "10px 12px" }}>
