@@ -2143,6 +2143,8 @@ export default function App() {
   const [journalFilter, setJournalFilter] = useState("all");
   const [journalCloseId, setJournalCloseId] = useState(null);
   const [journalClosePrice, setJournalClosePrice] = useState("");
+  const [watchlistLogSymbol, setWatchlistLogSymbol] = useState(null);
+  const [watchlistLogSide, setWatchlistLogSide] = useState("BUY");
   const [priceAlerts, setPriceAlerts] = useState([]);
   const [paSymbol, setPaSymbol] = useState("");
   const [paTarget, setPaTarget] = useState("");
@@ -4508,6 +4510,11 @@ export default function App() {
                         <SortH col="symbol">SYMBOL</SortH>
                         <SortH col="price" align="right">PRICE</SortH>
                         <SortH col="change" align="right">CHG%</SortH>
+                        {(marketSession === "PREMARKET" || marketSession === "AFTERMARKET") && (
+                          <th style={{ padding: "10px 8px", fontSize: 10, fontFamily: MONO, textAlign: "right", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em", color: marketSession === "PREMARKET" ? C.accent : C.amber }}>
+                            {marketSession === "PREMARKET" ? "PRE%" : "POST%"}
+                          </th>
+                        )}
                         <th style={{ padding: "10px 8px", fontSize: 10, fontFamily: MONO, color: C.textDim, textAlign: "right", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>5M</th>
                         <th style={{ padding: "10px 8px", fontSize: 10, fontFamily: MONO, color: C.textDim, textAlign: "right", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>30M</th>
                         <th style={{ padding: "10px 8px", fontSize: 10, fontFamily: MONO, color: C.textDim, textAlign: "center", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>TREND</th>
@@ -4526,8 +4533,10 @@ export default function App() {
                         const scores = computeScores(q);
                         const trend = classifyTrend(q);
                         const rvol = q.avgVolume ? (q.volume / q.avgVolume) : 0;
+                        const colSpan = (marketSession === "PREMARKET" || marketSession === "AFTERMARKET") ? 13 : 12;
                         return (
-                          <tr key={q.symbol}
+                          <React.Fragment key={q.symbol}>
+                          <tr
                             onClick={() => setSelectedStock(q)}
                             style={{ cursor: "pointer", transition: "background 0.1s" }}
                             onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
@@ -4552,6 +4561,12 @@ export default function App() {
                                 >
                                   WS
                                 </a>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setWatchlistLogSymbol(watchlistLogSymbol === q.symbol ? null : q.symbol); setWatchlistLogSide("BUY"); }}
+                                  style={{ border: `1px solid ${C.green}55`, background: watchlistLogSymbol === q.symbol ? `${C.green}22` : C.surface, color: C.green, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}
+                                >
+                                  LOG
+                                </button>
                               </div>
                             </td>
                             <td style={{ padding: "10px 8px", fontFamily: MONO, fontSize: 15, color: C.text, textAlign: "right", borderBottom: `1px solid ${C.border}`, fontWeight: 700 }}>
@@ -4564,6 +4579,18 @@ export default function App() {
                             }}>
                               {isUp ? "+" : ""}{chg.toFixed(2)}%
                             </td>
+                            {(marketSession === "PREMARKET" || marketSession === "AFTERMARKET") && (() => {
+                              const extChg = marketSession === "PREMARKET"
+                                ? Number(q.preMarketChangePercent || 0)
+                                : Number(q.postMarketChangePercent || 0);
+                              const extColor = marketSession === "PREMARKET" ? C.accent : C.amber;
+                              const extBg = marketSession === "PREMARKET" ? C.accentGlow : C.amberBg;
+                              return (
+                                <td style={{ padding: "10px 8px", fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "right", borderBottom: `1px solid ${C.border}`, color: extChg !== 0 ? extColor : C.textDim, background: extChg !== 0 ? extBg : "transparent" }}>
+                                  {extChg !== 0 ? `${extChg >= 0 ? "+" : ""}${extChg.toFixed(2)}%` : "—"}
+                                </td>
+                              );
+                            })()}
                             <td style={{ padding: "10px 8px", fontFamily: MONO, fontSize: 12, textAlign: "right", borderBottom: `1px solid ${C.border}`, color: (q.delta5m || 0) >= 0 ? C.green : C.red }}>
                               {(q.delta5m || 0) >= 0 ? "+" : ""}{(q.delta5m || 0).toFixed(2)}%
                             </td>
@@ -4596,6 +4623,35 @@ export default function App() {
                               <ScoreBar value={scores.fund} color={C.purple} />
                             </td>
                           </tr>
+                          {watchlistLogSymbol === q.symbol && (
+                            <tr style={{ background: `${C.green}08`, borderTop: `1px solid ${C.green}33` }}>
+                              <td colSpan={colSpan} style={{ padding: "8px 12px" }}>
+                                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text }}>{q.symbol}</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>${(q.price || 0).toFixed(2)}</span>
+                                  {["BUY", "SELL"].map(s => (
+                                    <button key={s} onClick={() => setWatchlistLogSide(s)}
+                                      style={{ border: `1px solid ${s === "BUY" ? C.green : C.red}55`, background: watchlistLogSide === s ? (s === "BUY" ? `${C.green}22` : `${C.red}22`) : C.surface, color: s === "BUY" ? C.green : C.red, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
+                                      {s}
+                                    </button>
+                                  ))}
+                                  <button onClick={async () => {
+                                    try {
+                                      await fetch("/api/journal", { method: "POST", headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ ticker: q.symbol, side: watchlistLogSide, score: Math.round(scores.composite || 0), entry: q.price || 0, timeframe: "1D", style: "Watchlist", notes: `Quick log from MONITOR · CHG ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}% · RVOL ${rvol.toFixed(2)}x` }),
+                                      });
+                                      setWatchlistLogSymbol(null);
+                                    } catch {}
+                                  }} style={{ border: `1px solid ${C.green}55`, background: `${C.green}18`, color: C.green, borderRadius: 4, padding: "4px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
+                                    LOG TRADE
+                                  </button>
+                                  <button onClick={() => setWatchlistLogSymbol(null)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>✕</button>
+                                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Logs to Journal with current price as entry</span>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          </React.Fragment>
                         );
                       })}
                     </tbody>

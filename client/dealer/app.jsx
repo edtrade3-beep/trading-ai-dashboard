@@ -277,9 +277,11 @@ function App() {
   const [finance, setFinance] = useState({ apr: 9.9, downPayment: 3000, termMonths: 72 });
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [siteStatus, setSiteStatus] = useState("");
+  const [siteResult, setSiteResult] = useState(null);
   const [siteLoading, setSiteLoading] = useState(false);
   const [pdfFiles, setPdfFiles] = useState(Array(PDF_SLOTS).fill(null));
   const [pdfStatus, setPdfStatus] = useState("");
+  const [pdfResults, setPdfResults] = useState([]);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [adStyle, setAdStyle] = useState("standard");
   const [replyStyle, setReplyStyle] = useState("info");
@@ -613,7 +615,8 @@ function App() {
     }
 
     setSiteLoading(true);
-    setSiteStatus("Importing from website...");
+    setSiteStatus("Fetching inventory from website...");
+    setSiteResult(null);
 
     try {
       const response = await fetch("/api/inventory/import-website", {
@@ -626,10 +629,12 @@ function App() {
 
       const items = Array.isArray(data.items) ? data.items : [];
       setInventory(items);
-      setSiteStatus(items.length ? `Imported ${items.length} vehicles from website.` : "No vehicles found on that website.");
+      setSiteResult({ count: items.length, method: data.method || "", error: null });
+      setSiteStatus("");
       if (items.length) setTab("Inventory");
     } catch (error) {
-      setSiteStatus(error.message || "Website import failed.");
+      setSiteResult({ count: 0, method: "", error: error.message || "Website import failed." });
+      setSiteStatus("");
     } finally {
       setSiteLoading(false);
     }
@@ -643,31 +648,36 @@ function App() {
     }
 
     setPdfLoading(true);
-    setPdfStatus("Uploading PDF files...");
+    setPdfStatus(`Processing ${selected.length} file${selected.length > 1 ? "s" : ""}...`);
+    setPdfResults([]);
 
-    try {
-      const allItems = [];
-      for (const file of selected) {
-        const formData = new FormData();
-        formData.append("file", file);
-
+    const fileResults = [];
+    const allItems = [];
+    for (const file of selected) {
+      const formData = new FormData();
+      formData.append("file", file);
+      try {
         const response = await fetch("/api/inventory/import-pdf", {
           method: "POST",
           body: formData,
         });
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || `PDF import failed for ${file.name}`);
-        allItems.push(...(Array.isArray(data.items) ? data.items : []));
+        if (!response.ok) throw new Error(data.error || `Failed`);
+        const items = Array.isArray(data.items) ? data.items : [];
+        allItems.push(...items);
+        fileResults.push({ name: file.name, count: items.length, error: null });
+      } catch (err) {
+        fileResults.push({ name: file.name, count: 0, error: err.message || "Failed" });
       }
-
-      setInventory(allItems);
-      setPdfStatus(allItems.length ? `Imported ${allItems.length} vehicles from ${selected.length} PDF file(s).` : "No vehicles found in selected PDFs.");
-      if (allItems.length) setTab("Inventory");
-    } catch (error) {
-      setPdfStatus(error.message || "PDF import failed.");
-    } finally {
-      setPdfLoading(false);
     }
+
+    setPdfResults(fileResults);
+    setPdfStatus("");
+    if (allItems.length) {
+      setInventory(allItems);
+      setTab("Inventory");
+    }
+    setPdfLoading(false);
   }
 
   if (!unlocked) {
@@ -813,8 +823,51 @@ function App() {
                 <button onClick={() => setPdfFiles(Array(PDF_SLOTS).fill(null))} style={styles.buttonGhost}>Clear PDF Boxes</button>
               </div>
 
-              {siteStatus ? <div style={styles.statusText}>{siteStatus}</div> : null}
-              {pdfStatus ? <div style={styles.statusText}>{pdfStatus}</div> : null}
+              {siteLoading && siteStatus && (
+                <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 12, height: 12, border: `2px solid ${theme.primary}`, borderTopColor: "transparent", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />
+                  <span style={{ fontSize: 13, color: theme.muted }}>{siteStatus}</span>
+                </div>
+              )}
+              {!siteLoading && siteResult && (
+                <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 6, border: `1px solid ${siteResult.error ? theme.warning + "66" : theme.success + "66"}`, background: siteResult.error ? theme.warning + "11" : theme.success + "11", display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 18 }}>{siteResult.error ? "⚠️" : "✅"}</span>
+                  <div>
+                    {siteResult.error
+                      ? <div style={{ fontSize: 13, color: theme.warning, fontWeight: 600 }}>{siteResult.error}</div>
+                      : <div style={{ fontSize: 13, color: theme.success, fontWeight: 600 }}>{siteResult.count} vehicle{siteResult.count !== 1 ? "s" : ""} imported — switched to Inventory tab</div>
+                    }
+                    {siteResult.method && !siteResult.error && (
+                      <div style={{ fontSize: 11, color: theme.muted, marginTop: 2 }}>Source method: {siteResult.method}</div>
+                    )}
+                    {siteResult.count === 0 && !siteResult.error && (
+                      <div style={{ fontSize: 11, color: theme.muted, marginTop: 2 }}>No vehicles detected. Try a direct /inventory or /vehicles page URL.</div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {pdfLoading && pdfStatus && (
+                <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 12, height: 12, border: `2px solid ${theme.warning}`, borderTopColor: "transparent", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />
+                  <span style={{ fontSize: 13, color: theme.muted }}>{pdfStatus}</span>
+                </div>
+              )}
+              {!pdfLoading && pdfResults.length > 0 && (
+                <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+                  {pdfResults.map((r, i) => (
+                    <div key={i} style={{ padding: "8px 12px", borderRadius: 6, border: `1px solid ${r.error ? theme.warning + "66" : theme.success + "66"}`, background: r.error ? theme.warning + "11" : theme.success + "11", display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 16 }}>{r.error ? "⚠️" : "✅"}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, color: theme.text, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</div>
+                        {r.error
+                          ? <div style={{ fontSize: 11, color: theme.warning }}>{r.error}</div>
+                          : <div style={{ fontSize: 11, color: theme.success }}>{r.count} vehicle{r.count !== 1 ? "s" : ""} found</div>
+                        }
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             {tab === "Overview" && (
