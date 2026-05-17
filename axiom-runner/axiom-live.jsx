@@ -2690,6 +2690,7 @@ export default function App() {
   const [journalLoading, setJournalLoading] = useState(false);
   const [journalFilter, setJournalFilter] = useState("all");
   const [journalTickerSearch, setJournalTickerSearch] = useState("");
+  const [journalStyleFilter, setJournalStyleFilter] = useState("all");
   const [journalCloseId, setJournalCloseId] = useState(null);
   const [journalClosePrice, setJournalClosePrice] = useState("");
   const [journalEditId, setJournalEditId] = useState(null);
@@ -5775,6 +5776,30 @@ export default function App() {
                 })()}
               </div>
 
+              {/* Portfolio Mini Widget */}
+              {portfolioSummary.totalCost > 0 && portfolioSummary.totalValue > 0 && (
+                <div
+                  onClick={() => setActiveTab("portfolio")}
+                  style={{ background: C.card, border: `1px solid ${portfolioSummary.totalPnl >= 0 ? `${C.green}55` : `${C.red}55`}`, borderRadius: 5, padding: 14, cursor: "pointer" }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <div style={{ fontSize: 11, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em" }}>PORTFOLIO</div>
+                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red }}>
+                      {portfolioSummary.totalPnl >= 0 ? "+" : ""}{portfolioSummary.totalPnlPct.toFixed(2)}%
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.text, fontWeight: 700 }}>{formatNum(portfolioSummary.totalValue)}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 11, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red, fontWeight: 700 }}>
+                      {portfolioSummary.totalPnl >= 0 ? "+" : ""}{formatNum(portfolioSummary.totalPnl)}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 10, fontFamily: MONO, color: C.textDim }}>
+                    {portfolioSummary.winners}W / {portfolioSummary.losers}L · {portfolioRows.length} positions · click to expand
+                  </div>
+                </div>
+              )}
+
               {/* News Wire */}
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
                 <div style={{ fontSize: 11, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 10 }}>
@@ -7765,6 +7790,11 @@ export default function App() {
                 placeholder="Search ticker…"
                 style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 10, padding: "6px 8px", width: 120, borderRadius: 4 }}
               />
+              <select value={journalStyleFilter} onChange={e => setJournalStyleFilter(e.target.value)}
+                style={{ background: C.surface, border: `1px solid ${journalStyleFilter !== "all" ? C.purple : C.border}`, color: journalStyleFilter !== "all" ? C.purple : C.textSec, fontFamily: MONO, fontSize: 10, padding: "6px 8px", borderRadius: 4 }}>
+                <option value="all">All Styles</option>
+                {["Swing", "Scanner", "Workflow", "Terminal", "Watchlist", "Backtest", "Analyzer", "Day Trade"].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
               <button onClick={loadJournalTab} disabled={journalLoading}
                 style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", marginLeft: "auto" }}>
                 {journalLoading ? "LOADING…" : "REFRESH"}
@@ -7789,11 +7819,12 @@ export default function App() {
                 const filtered = journalEntries.filter(e => {
                   if (journalFilter !== "all" && e.status !== journalFilter) return false;
                   if (journalTickerSearch && !String(e.ticker || "").toUpperCase().includes(journalTickerSearch)) return false;
+                  if (journalStyleFilter !== "all" && String(e.style || "").toLowerCase() !== journalStyleFilter.toLowerCase()) return false;
                   return true;
                 });
                 if (!filtered.length) return (
                   <div style={{ padding: 20, textAlign: "center", color: C.textDim, fontSize: 12, fontFamily: MONO }}>
-                    No entries {journalFilter !== "all" ? `with status "${journalFilter}"` : ""}{journalTickerSearch ? ` matching "${journalTickerSearch}"` : ""}.
+                    No entries {journalFilter !== "all" ? `with status "${journalFilter}"` : ""}{journalTickerSearch ? ` matching "${journalTickerSearch}"` : ""}{journalStyleFilter !== "all" ? ` with style "${journalStyleFilter}"` : ""}.
                   </div>
                 );
                 return (
