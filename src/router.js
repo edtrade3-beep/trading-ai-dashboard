@@ -15,6 +15,7 @@ const handlePortfolio = require("./routes/portfolio");
 const handleDealership = require("./dealership/routes");
 const handlePriceAlerts = require("./routes/price-alerts");
 const handleSettings = require("./routes/settings");
+const { sendTelegramAlert, isConfigured: telegramConfigured } = require("./telegram");
 
 async function handleRequest(req, res) {
   try {
@@ -74,6 +75,26 @@ async function handleRequest(req, res) {
 
     if (pathname === "/api/settings") {
       return handleSettings(req, res, requestUrl);
+    }
+
+    // POST /api/telegram/test — sends a test message using env-var credentials only
+    if (pathname === "/api/telegram/test" && req.method === "POST") {
+      if (!telegramConfigured()) {
+        return writeJson(res, 503, { ok: false, error: "Telegram not configured. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID env vars." });
+      }
+      try {
+        await sendTelegramAlert({
+          symbol: "AXIOM",
+          side: "BUY",
+          price: null,
+          score: 100,
+          message: "✅ Dixie AM Trading Platform — Telegram connection confirmed. Alerts are live.",
+          at: new Date().toISOString(),
+        });
+        return writeJson(res, 200, { ok: true, message: "Test message sent to Telegram." });
+      } catch (err) {
+        return writeJson(res, 500, { ok: false, error: String(err.message || err) });
+      }
     }
 
     // Clean URL aliases

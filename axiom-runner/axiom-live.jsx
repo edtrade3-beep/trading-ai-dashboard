@@ -7316,7 +7316,7 @@ export default function App() {
 
         return (
           <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
               <div>
                 <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
                   TELEGRAM / TRADINGVIEW ALERT ANALYZER
@@ -7325,11 +7325,50 @@ export default function App() {
                   Paste one or more alerts separated by blank lines or ---. Institution-grade scoring. A+ only.
                 </div>
               </div>
-              <button
-                onClick={() => { setAnalyzerInput(ANALYZER_SAMPLES.join("\n\n---\n\n")); }}
-                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
-              >LOAD SAMPLES</button>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  onClick={() => { setAnalyzerInput(ANALYZER_SAMPLES.join("\n\n---\n\n")); }}
+                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                >LOAD SAMPLES</button>
+              </div>
             </div>
+
+            {/* Telegram connection status bar */}
+            {(() => {
+              const [tgStatus, setTgStatus] = React.useState(null); // null | "sending" | "ok" | "error" | "unconfigured"
+              const [tgMsg, setTgMsg] = React.useState("");
+              const sendTest = async () => {
+                setTgStatus("sending");
+                setTgMsg("");
+                try {
+                  const res = await fetch("/api/telegram/test", { method: "POST" });
+                  const data = await res.json();
+                  if (data.ok) { setTgStatus("ok"); setTgMsg("Message delivered to Telegram."); }
+                  else { setTgStatus(res.status === 503 ? "unconfigured" : "error"); setTgMsg(data.error || "Unknown error"); }
+                } catch (e) { setTgStatus("error"); setTgMsg(String(e.message || e)); }
+              };
+              const statusColor = tgStatus === "ok" ? C.green : tgStatus === "unconfigured" ? C.amber : tgStatus === "error" ? C.red : C.textDim;
+              const statusText = tgStatus === "sending" ? "Sending…" : tgStatus === "ok" ? "✓ Connected" : tgStatus === "unconfigured" ? "⚠ Not configured" : tgStatus === "error" ? "✕ Error" : "Not tested";
+              return (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, padding: "8px 12px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 6 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.06em" }}>TELEGRAM BOT</span>
+                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: statusColor }}>{statusText}</span>
+                  {tgMsg && <span style={{ fontFamily: MONO, fontSize: 10, color: statusColor, flex: 1 }}>{tgMsg}</span>}
+                  <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                    <button
+                      onClick={sendTest}
+                      disabled={tgStatus === "sending"}
+                      style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 4, padding: "5px 12px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                    >{tgStatus === "sending" ? "SENDING…" : "SEND TEST"}</button>
+                  </div>
+                  {tgStatus === "unconfigured" && (
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.amber, borderLeft: `2px solid ${C.amber}44`, paddingLeft: 8 }}>
+                      Set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID in Render.com env vars
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Input area */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginBottom: 14 }}>
