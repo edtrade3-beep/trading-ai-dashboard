@@ -308,10 +308,14 @@ function App() {
   }, []);
 
   const rankedInventory = useMemo(() => {
+    const now = Date.now();
     return inventory
       .map((item) => {
         const pricing = estimatePrice(item);
-        return { ...item, pricing, score: scoreDeal(item, pricing) };
+        const daysOnLot = item.addedAt
+          ? Math.floor((now - new Date(item.addedAt).getTime()) / 86400000)
+          : null;
+        return { ...item, pricing, score: scoreDeal(item, pricing), daysOnLot };
       })
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
@@ -328,7 +332,12 @@ function App() {
     const avgPrice = active.length ? Math.round(totalValue / active.length) : 0;
     const grades = { A: 0, B: 0, C: 0, D: 0 };
     active.forEach(v => { const g = dealGrade(v.score).grade; grades[g] = (grades[g] || 0) + 1; });
-    return { totalValue, totalFrontEnd, avgPrice, grades, activeCount: active.length };
+    const withAge = active.filter(v => v.daysOnLot != null);
+    const avgDaysOnLot = withAge.length ? Math.round(withAge.reduce((s, v) => s + v.daysOnLot, 0) / withAge.length) : null;
+    const oldestUnit = withAge.length ? withAge.reduce((a, b) => b.daysOnLot > a.daysOnLot ? b : a, withAge[0]) : null;
+    const aged30 = withAge.filter(v => v.daysOnLot >= 30).length;
+    const aged45 = withAge.filter(v => v.daysOnLot >= 45).length;
+    return { totalValue, totalFrontEnd, avgPrice, grades, activeCount: active.length, avgDaysOnLot, oldestUnit, aged30, aged45 };
   }, [rankedInventory]);
 
   const [inventorySearch, setInventorySearch] = useState("");
@@ -495,6 +504,7 @@ function App() {
       mileage: Number(addForm.mileage) || 0,
       price: Number(addForm.price) || 0,
       condition: addForm.condition || "Good",
+      addedAt: new Date().toISOString(),
     };
     setInventory(prev => [newItem, ...prev]);
     setAddForm(EMPTY_VEHICLE_FORM);
@@ -851,6 +861,9 @@ function App() {
                         <InfoRow label="Lot Total Value" value={money(lotStats.totalValue)} styles={styles} />
                         <InfoRow label="Avg Market Price" value={money(lotStats.avgPrice)} styles={styles} />
                         <InfoRow label="Total Front-End Potential" value={money(lotStats.totalFrontEnd)} styles={styles} />
+                        {lotStats.avgDaysOnLot != null && <InfoRow label="Avg Days on Lot" value={`${lotStats.avgDaysOnLot} days`} styles={styles} />}
+                        {lotStats.aged30 > 0 && <InfoRow label="Units 30+ Days" value={String(lotStats.aged30)} styles={styles} />}
+                        {lotStats.aged45 > 0 && <InfoRow label="Units 45+ Days (Age Risk)" value={String(lotStats.aged45)} strong styles={styles} />}
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 10 }}>
                         {["A", "B", "C", "D"].map((g) => {
@@ -926,7 +939,7 @@ function App() {
                         onClick={() => {
                           const already = inventory.some(v => v.vin === vehicle.vin);
                           if (already) { showToast("This VIN is already in inventory", "error"); return; }
-                          setInventory(prev => [{ vin: vehicle.vin, year: vehicle.year, make: vehicle.make, model: vehicle.model, trim: vehicle.trim || "", mileage: vehicle.mileage || 0, price: vehicle.price || 0, condition: vehicle.condition || "Good" }, ...prev]);
+                          setInventory(prev => [{ vin: vehicle.vin, year: vehicle.year, make: vehicle.make, model: vehicle.model, trim: vehicle.trim || "", mileage: vehicle.mileage || 0, price: vehicle.price || 0, condition: vehicle.condition || "Good", addedAt: new Date().toISOString() }, ...prev]);
                           showToast(`${vehicle.year} ${vehicle.make} ${vehicle.model} added to inventory`, "success");
                         }}
                         style={styles.buttonSuccess}
@@ -1303,9 +1316,17 @@ ${FINANCE_LINE}` : "Decode a vehicle first to generate finance wording."}
                           }
                           <div onClick={() => chooseVehicle(item)} role="button" tabIndex={0} style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
                             <div style={{ fontWeight: 900 }}>{`${item.year} ${item.make} ${item.model}${item.trim ? " " + item.trim : ""}`}</div>
-                            <div style={{ color: theme.muted, marginTop: 3, fontSize: 12 }}>
-                              {item.vin} · {item.mileage ? item.mileage.toLocaleString() + " mi" : "—"} · {item.condition}
-                              {item.soldPrice ? ` · Sold ${money(item.soldPrice)} · Gross ${money(item.soldPrice - item.pricing.totalCost)}` : ""}
+                            <div style={{ color: theme.muted, marginTop: 3, fontSize: 12, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                              <span>{item.vin} · {item.mileage ? item.mileage.toLocaleString() + " mi" : "—"} · {item.condition}</span>
+                              {item.soldPrice ? <span>· Sold {money(item.soldPrice)} · Gross {money(item.soldPrice - item.pricing.totalCost)}</span> : null}
+                              {!item.soldPrice && item.daysOnLot != null && (
+                                <span style={{
+                                  fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 4,
+                                  background: item.daysOnLot >= 45 ? "#fef2f2" : item.daysOnLot >= 30 ? "#fffbeb" : "#f0fdf4",
+                                  color: item.daysOnLot >= 45 ? "#dc2626" : item.daysOnLot >= 30 ? "#d97706" : "#16a34a",
+                                  border: `1px solid ${item.daysOnLot >= 45 ? "#fecaca" : item.daysOnLot >= 30 ? "#fde68a" : "#bbf7d0"}`,
+                                }}>{item.daysOnLot}d on lot</span>
+                              )}
                             </div>
                             {item.dealerNotes ? (
                               <div style={{ marginTop: 4, fontSize: 11, color: theme.warning, fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
