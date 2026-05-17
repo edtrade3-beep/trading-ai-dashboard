@@ -2143,6 +2143,11 @@ export default function App() {
   const [journalFilter, setJournalFilter] = useState("all");
   const [journalCloseId, setJournalCloseId] = useState(null);
   const [journalClosePrice, setJournalClosePrice] = useState("");
+  const [priceAlerts, setPriceAlerts] = useState([]);
+  const [paSymbol, setPaSymbol] = useState("");
+  const [paTarget, setPaTarget] = useState("");
+  const [paDirection, setPaDirection] = useState("above");
+  const [paNote, setPaNote] = useState("");
   const [optionsFlow, setOptionsFlow] = useState(null);
   const [macroData, setMacroData] = useState([]);
   const [sectorData, setSectorData] = useState([]);
@@ -2299,6 +2304,18 @@ export default function App() {
 
   useEffect(() => {
     if (activeTab === "journal") loadJournalTab();
+  }, [activeTab]);
+
+  const loadPriceAlertList = useCallback(async () => {
+    try {
+      const res = await fetch("/api/price-alerts");
+      const data = res.ok ? await res.json() : { alerts: [] };
+      setPriceAlerts(data.alerts || []);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "alerts") loadPriceAlertList();
   }, [activeTab]);
 
   const runServerScreen = useCallback(async () => {
@@ -5174,6 +5191,74 @@ export default function App() {
                 </div>
               ))}
               {combinedAlerts.length === 0 && <div style={{ color: C.textDim, fontSize: 13 }}>No active alerts yet.</div>}
+            </div>
+
+            {/* Price target alerts panel */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", marginBottom: 14 }}>
+              <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700 }}>PRICE TARGET ALERTS</span>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Server-side · Telegram notification when triggered</span>
+              </div>
+              <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <input value={paSymbol} onChange={e => setPaSymbol(e.target.value.toUpperCase())} placeholder="Symbol (e.g. NVDA)"
+                  style={{ width: 130, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "7px 10px" }} />
+                <select value={paDirection} onChange={e => setPaDirection(e.target.value)}
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "7px 10px" }}>
+                  <option value="above">Above</option>
+                  <option value="below">Below</option>
+                </select>
+                <input value={paTarget} onChange={e => setPaTarget(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Price (e.g. 890)"
+                  style={{ width: 100, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "7px 10px" }} />
+                <input value={paNote} onChange={e => setPaNote(e.target.value)} placeholder="Note (optional)"
+                  style={{ flex: 1, minWidth: 120, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "7px 10px" }} />
+                <button onClick={async () => {
+                  if (!paSymbol || !paTarget) return;
+                  await fetch("/api/price-alerts", { method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ symbol: paSymbol, targetPrice: Number(paTarget), direction: paDirection, note: paNote }) });
+                  setPaSymbol(""); setPaTarget(""); setPaNote("");
+                  loadPriceAlertList();
+                }} style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 4, padding: "7px 12px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
+                  + SET ALERT
+                </button>
+              </div>
+              {priceAlerts.length === 0 ? (
+                <div style={{ padding: "14px 14px", color: C.textDim, fontSize: 12, fontFamily: MONO }}>No price alerts set. Add one above.</div>
+              ) : (
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ background: C.surface }}>
+                      {["SYMBOL", "DIRECTION", "TARGET", "NOTE", "STATUS", "CREATED", "ACTION"].map(h => (
+                        <th key={h} style={{ padding: "7px 10px", textAlign: h === "NOTE" ? "left" : "center", fontFamily: MONO, fontSize: 10, color: C.textDim }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {priceAlerts.map(a => (
+                      <tr key={a.id} style={{ borderTop: `1px solid ${C.border}`, opacity: a.status !== "active" ? 0.55 : 1 }}>
+                        <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>
+                          <button onClick={() => { setTerminalSymbol(a.symbol); setActiveTab("terminal"); }}
+                            style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", padding: 0 }}>{a.symbol}</button>
+                        </td>
+                        <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: a.direction === "above" ? C.green : C.red }}>{a.direction.toUpperCase()}</td>
+                        <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>${a.targetPrice.toLocaleString()}</td>
+                        <td style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textSec, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.note || "—"}</td>
+                        <td style={{ padding: "7px 10px", textAlign: "center" }}>
+                          <span style={{ background: a.status === "active" ? `${C.green}22` : a.status === "triggered" ? `${C.accent}22` : `${C.amber}22`, color: a.status === "active" ? C.green : a.status === "triggered" ? C.accent : C.amber, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>{a.status}</span>
+                        </td>
+                        <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 10, color: C.textSec }}>{new Date(a.createdAt).toLocaleDateString()}</td>
+                        <td style={{ padding: "7px 10px", textAlign: "center" }}>
+                          {a.status === "active" && (
+                            <button onClick={async () => {
+                              await fetch(`/api/price-alerts/${a.id}/cancel`, { method: "PATCH" });
+                              loadPriceAlertList();
+                            }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>CANCEL</button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
 
             {tvWebhookRows.length > 0 && (

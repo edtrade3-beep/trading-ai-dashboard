@@ -13,6 +13,7 @@ const handleJournal = require("./routes/journal");
 const handleAgent = require("./routes/agent");
 const handlePortfolio = require("./routes/portfolio");
 const handleDealership = require("./dealership/routes");
+const handlePriceAlerts = require("./routes/price-alerts");
 
 async function handleRequest(req, res) {
   try {
@@ -64,6 +65,10 @@ async function handleRequest(req, res) {
 
     if (pathname.startsWith("/api/dealer/")) {
       return handleDealership(req, res, requestUrl);
+    }
+
+    if (pathname === "/api/price-alerts" || pathname.startsWith("/api/price-alerts/")) {
+      return handlePriceAlerts(req, res, requestUrl);
     }
 
     return serveStatic(pathname, res);

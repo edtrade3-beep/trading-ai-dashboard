@@ -2,6 +2,7 @@ const http = require("node:http");
 const os = require("node:os");
 const { PORT, HOST } = require("./src/config");
 const handleRequest = require("./src/router");
+const { startPriceAlertMonitor } = require("./src/price-alert-monitor");
 
 const server = http.createServer(handleRequest);
 
@@ -15,4 +16,5 @@ server.listen(PORT, HOST, () => {
   for (const ip of lanIps) {
     console.log(`LAN access: http://${ip}:${PORT}`);
   }
+  startPriceAlertMonitor();
 });
