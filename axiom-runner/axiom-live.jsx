@@ -7709,8 +7709,12 @@ export default function App() {
                 });
                 sparkPath = pts.join(" ");
               }
+              const openIds = Object.keys(liveJournalPnl);
+              const totalLivePnl = openIds.reduce((s, id) => s + liveJournalPnl[id].livePnl, 0);
+              const livePnlColor = openIds.length === 0 ? C.textDim : totalLivePnl >= 0 ? C.green : C.red;
+              const livePnlDisplay = openIds.length > 0 ? `${totalLivePnl >= 0 ? "+" : ""}$${Math.round(totalLivePnl)}` : "—";
               return (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, marginBottom: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8, marginBottom: 12 }}>
                   {[
                     { label: "TRADES", value: journalEntries.length },
                     { label: "OPEN", value: journalStats.open ?? 0 },
@@ -7718,6 +7722,7 @@ export default function App() {
                     { label: "TOTAL P/L", value: equityFinal, color: equityColor },
                     { label: "AVG P/L", value: journalStats.avgPnl != null ? `${journalStats.avgPnl >= 0 ? "+" : ""}$${Math.round(journalStats.avgPnl)}` : "—" },
                     { label: "BEST TRADE", value: journalStats.bestTrade ? `${journalStats.bestTrade.ticker} +$${Math.round(journalStats.bestTrade.pnl)}` : "—" },
+                    { label: `LIVE UNRLZD (${openIds.length})`, value: livePnlDisplay, color: livePnlColor },
                   ].map(({ label, value, color }) => (
                     <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>
                       <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{label}</div>
@@ -7845,7 +7850,7 @@ export default function App() {
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                       <tr style={{ background: C.surface }}>
-                        {["DATE","TICKER","SIDE","TF","SCORE","ENTRY","SL","TARGET","P/L","STATUS","NOTES","ACTION"].map(h => (
+                        {["DATE","TICKER","SIDE","TF","SCORE","ENTRY","SL","TARGET","R:R","P/L","STATUS","NOTES","ACTION"].map(h => (
                           <th key={h} style={{ padding: "8px 10px", textAlign: h === "NOTES" ? "left" : "center", fontFamily: MONO, fontSize: 10, color: C.textDim, fontWeight: 600 }}>{h}</th>
                         ))}
                       </tr>
@@ -7871,6 +7876,17 @@ export default function App() {
                               </td>
                               <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.red }}>{e.stopLoss ? `$${e.stopLoss}` : "—"}</td>
                               <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.green }}>{e.target ? `$${e.target}` : "—"}</td>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11 }}>
+                                {(() => {
+                                  if (!e.entry || !e.stopLoss || !e.target) return <span style={{ color: C.textDim }}>—</span>;
+                                  const risk = Math.abs(e.entry - e.stopLoss);
+                                  const reward = Math.abs(e.target - e.entry);
+                                  if (risk <= 0) return <span style={{ color: C.textDim }}>—</span>;
+                                  const rr = reward / risk;
+                                  const rrColor = rr >= 3 ? C.green : rr >= 2 ? C.accent : rr >= 1 ? C.amber : C.red;
+                                  return <span style={{ color: rrColor, fontWeight: 700 }}>{rr.toFixed(1)}R</span>;
+                                })()}
+                              </td>
                               <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: pnlColor }}>
                                 {livePnlData ? (
                                   <div>
@@ -7941,7 +7957,7 @@ export default function App() {
                             </tr>
                             {journalEditId === e.id && (
                               <tr style={{ background: `${C.accent}06`, borderTop: `1px solid ${C.accent}33` }}>
-                                <td colSpan={12} style={{ padding: "10px 12px" }}>
+                                <td colSpan={13} style={{ padding: "10px 12px" }}>
                                   <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
                                     <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: "0 0 auto" }}>
                                       <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>ENTRY</div>
@@ -7993,7 +8009,7 @@ export default function App() {
                             )}
                             {journalCloseId === e.id && (
                               <tr style={{ background: `${C.green}08`, borderTop: `1px solid ${C.green}44` }}>
-                                <td colSpan={12} style={{ padding: "10px 12px" }}>
+                                <td colSpan={13} style={{ padding: "10px 12px" }}>
                                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                                     <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Close price:</span>
                                     <input type="number" step="0.01" value={journalClosePrice} onChange={e2 => setJournalClosePrice(e2.target.value)}
