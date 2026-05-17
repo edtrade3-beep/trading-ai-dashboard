@@ -180,6 +180,18 @@ fetchLiveBtn.addEventListener("click", async () => {
   }
 });
 
+// Auto-fetch live data when ticker field is filled and user leaves it
+const tickerInput = form.elements.namedItem("ticker");
+if (tickerInput) {
+  tickerInput.addEventListener("blur", () => {
+    const val = String(tickerInput.value || "").trim().toUpperCase();
+    if (val.length >= 1 && val.length <= 6) fetchLiveBtn.click();
+  });
+  tickerInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); fetchLiveBtn.click(); }
+  });
+}
+
 form.addEventListener("submit", (event) => {
   event.preventDefault();
   runAnalysis();

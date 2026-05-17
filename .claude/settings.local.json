@@ -77,7 +77,8 @@
       "Bash(curl -s \"http://localhost:3000/api/health\")",
       "Bash(node --check src/routes/settings.js)",
       "Bash(node --check src/settings-store.js)",
-      "Bash(curl -s http://localhost:3000/api/settings)"
+      "Bash(curl -s http://localhost:3000/api/settings)",
+      "Bash(curl -s \"http://localhost:3000/api/live?ticker=NVDA&timeframe=1D&style=Swing\")"
     ]
   }
 }
