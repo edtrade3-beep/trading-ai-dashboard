@@ -2688,6 +2688,10 @@ export default function App() {
   const [journalClosePrice, setJournalClosePrice] = useState("");
   const [journalEditId, setJournalEditId] = useState(null);
   const [journalEditNotes, setJournalEditNotes] = useState("");
+  const [journalEditEntry, setJournalEditEntry] = useState("");
+  const [journalEditSL, setJournalEditSL] = useState("");
+  const [journalEditTarget, setJournalEditTarget] = useState("");
+  const [journalEditSize, setJournalEditSize] = useState("");
   const [watchlistLogSymbol, setWatchlistLogSymbol] = useState(null);
   const [watchlistLogSide, setWatchlistLogSide] = useState("BUY");
   const [priceAlerts, setPriceAlerts] = useState([]);
@@ -6353,7 +6357,10 @@ export default function App() {
                       title={alertSoundEnabled ? "Mute alert sound" : "Enable alert sound"}
                     >{alertSoundEnabled ? "SOUND ON" : "MUTED"}</button>
                     <button
-                      onClick={() => setTvWebhookRows([])}
+                      onClick={async () => {
+                        setTvWebhookRows([]);
+                        try { await fetch("/api/market/tv-alerts", { method: "DELETE" }); } catch {}
+                      }}
                       style={{ border: `1px solid ${C.red}55`, background: `${C.red}12`, color: C.red, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
                     >CLEAR</button>
                     <Badge color={tvWebhookSecured ? C.green : C.amber}>{tvWebhookSecured ? "SECURED" : "OPEN"}</Badge>
@@ -7859,7 +7866,7 @@ export default function App() {
                                     style={{ border: `1px solid ${C.red}55`, background: `${C.red}0f`, color: C.red, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
                                   >DEL</button>
                                   <button
-                                    onClick={() => { setJournalEditId(journalEditId === e.id ? null : e.id); setJournalEditNotes(e.notes || ""); }}
+                                    onClick={() => { setJournalEditId(journalEditId === e.id ? null : e.id); setJournalEditNotes(e.notes || ""); setJournalEditEntry(String(e.entry || "")); setJournalEditSL(String(e.stopLoss || "")); setJournalEditTarget(String(e.target || "")); setJournalEditSize(String(e.size || "")); }}
                                     style={{ border: `1px solid ${C.accent}55`, background: journalEditId === e.id ? `${C.accent}28` : `${C.accent}0f`, color: C.accent, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
                                   >EDIT</button>
                                 </div>
@@ -7868,18 +7875,46 @@ export default function App() {
                             {journalEditId === e.id && (
                               <tr style={{ background: `${C.accent}06`, borderTop: `1px solid ${C.accent}33` }}>
                                 <td colSpan={12} style={{ padding: "10px 12px" }}>
-                                  <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                                    <textarea
-                                      value={journalEditNotes}
-                                      onChange={e2 => setJournalEditNotes(e2.target.value)}
-                                      autoFocus
-                                      rows={3}
-                                      placeholder="Trade notes…"
-                                      style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "6px 8px", fontFamily: SANS, fontSize: 12, resize: "vertical", borderRadius: 4 }}
-                                    />
-                                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                  <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: "0 0 auto" }}>
+                                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>ENTRY</div>
+                                      <input type="number" step="0.01" value={journalEditEntry} onChange={e2 => setJournalEditEntry(e2.target.value)} placeholder="Entry $"
+                                        style={{ width: 90, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: MONO, fontSize: 11, borderRadius: 4 }} />
+                                    </div>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: "0 0 auto" }}>
+                                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>STOP</div>
+                                      <input type="number" step="0.01" value={journalEditSL} onChange={e2 => setJournalEditSL(e2.target.value)} placeholder="SL $"
+                                        style={{ width: 90, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: MONO, fontSize: 11, borderRadius: 4 }} />
+                                    </div>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: "0 0 auto" }}>
+                                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>TARGET</div>
+                                      <input type="number" step="0.01" value={journalEditTarget} onChange={e2 => setJournalEditTarget(e2.target.value)} placeholder="Target $"
+                                        style={{ width: 90, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: MONO, fontSize: 11, borderRadius: 4 }} />
+                                    </div>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: "0 0 auto" }}>
+                                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>SHARES</div>
+                                      <input type="number" step="1" value={journalEditSize} onChange={e2 => setJournalEditSize(e2.target.value)} placeholder="Qty"
+                                        style={{ width: 80, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: MONO, fontSize: 11, borderRadius: 4 }} />
+                                    </div>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 160 }}>
+                                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>NOTES</div>
+                                      <textarea
+                                        value={journalEditNotes}
+                                        onChange={e2 => setJournalEditNotes(e2.target.value)}
+                                        autoFocus
+                                        rows={2}
+                                        placeholder="Trade notes…"
+                                        style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: SANS, fontSize: 12, resize: "vertical", borderRadius: 4 }}
+                                      />
+                                    </div>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 6, alignSelf: "flex-end" }}>
                                       <button onClick={async () => {
-                                        await fetch(`/api/journal/${e.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notes: journalEditNotes }) });
+                                        const patch = { notes: journalEditNotes };
+                                        if (journalEditEntry) patch.entry = Number(journalEditEntry);
+                                        if (journalEditSL) patch.stopLoss = Number(journalEditSL);
+                                        if (journalEditTarget) patch.target = Number(journalEditTarget);
+                                        if (journalEditSize) patch.size = Number(journalEditSize);
+                                        await fetch(`/api/journal/${e.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
                                         setJournalEditId(null);
                                         loadJournalTab();
                                       }} style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}18`, color: C.accent, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>SAVE</button>

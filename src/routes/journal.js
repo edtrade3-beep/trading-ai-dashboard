@@ -95,6 +95,9 @@ async function handleJournal(req, res, requestUrl) {
     }
     if (body.notes !== undefined) updates.notes = String(body.notes).slice(0, 1000);
     if (body.size !== undefined) updates.size = Number(body.size) || 0;
+    if (body.entry !== undefined && Number(body.entry) > 0) updates.entry = Math.round(Number(body.entry) * 10000) / 10000;
+    if (body.stopLoss !== undefined) updates.stopLoss = Number(body.stopLoss) > 0 ? Math.round(Number(body.stopLoss) * 10000) / 10000 : null;
+    if (body.target !== undefined) updates.target = Number(body.target) > 0 ? Math.round(Number(body.target) * 10000) / 10000 : null;
 
     entries[idx] = { ...existing, ...updates };
     saveJournal(entries);

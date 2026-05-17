@@ -89,6 +89,15 @@ async function handleWebhooks(req, res, requestUrl) {
     if (!isTradingViewWebhookAuthorized(requestUrl, req)) {
       return writeJson(res, 401, { error: "Unauthorized." });
     }
+
+    // DELETE — clear all persisted TV webhook history
+    if (req.method === "DELETE") {
+      const removed = TV_WEBHOOK_ALERTS.length;
+      TV_WEBHOOK_ALERTS = [];
+      saveAlerts([]);
+      return writeJson(res, 200, { ok: true, removed });
+    }
+
     const limit = Math.max(1, Math.min(100, Number(requestUrl.searchParams.get("limit") || 30)));
     const symbol = String(requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
     const rows = TV_WEBHOOK_ALERTS
