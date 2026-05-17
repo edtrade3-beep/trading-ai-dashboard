@@ -1038,7 +1038,7 @@ function App() {
                           <div style={{ fontSize: 11, fontWeight: 700, color: theme.muted, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 }}>Similar Listings</div>
                           <div style={{ display: "grid", gap: 6 }}>
                             {comps.comps.map((c, i) => (
-                              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: theme.hover, borderRadius: 8, fontSize: 12 }}>
+                              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: theme.soft, borderRadius: 8, fontSize: 12 }}>
                                 <div>
                                   <span style={{ fontWeight: 700 }}>{c.year} {c.make} {c.model}</span>
                                   <span style={{ color: theme.muted, marginLeft: 8 }}>{c.mileage.toLocaleString()} mi · {c.condition} · {c.source}</span>

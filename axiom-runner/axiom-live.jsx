@@ -2187,6 +2187,10 @@ export default function App() {
   const [agentOutput, setAgentOutput] = useState("");
   const [agentLoading, setAgentLoading] = useState(false);
   const [agentRunAt, setAgentRunAt] = useState("");
+  const [briefText, setBriefText] = useState("");
+  const [briefLoading, setBriefLoading] = useState(false);
+  const [briefAt, setBriefAt] = useState("");
+  const [briefExpanded, setBriefExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [loading, setLoading] = useState(false);
   const [portfolioHoldings, setPortfolioHoldings] = useState(DEFAULT_PORTFOLIO);
@@ -2213,6 +2217,7 @@ export default function App() {
   const [sortCol, setSortCol] = useState("composite");
   const [sortDir, setSortDir] = useState("desc");
   const intervalRef = useRef(null);
+  const seenTriggeredAlerts = useRef(new Set());
   const themeMode = String(settings.themeMode || "light").toLowerCase() === "dark" ? "dark" : "light";
 
   const SESSION_TTL = 8 * 60 * 60 * 1000;
@@ -2229,6 +2234,14 @@ export default function App() {
       try { sessionStorage.removeItem(AUTH_STORAGE_KEY); } catch {}
     }
   }, []);
+
+  // Request browser notification permission when app is unlocked
+  useEffect(() => {
+    if (!appUnlocked) return;
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, [appUnlocked]);
 
   const handleUnlock = useCallback(() => {
     fetch("/api/auth/check", {
@@ -2310,7 +2323,25 @@ export default function App() {
     try {
       const res = await fetch("/api/price-alerts");
       const data = res.ok ? await res.json() : { alerts: [] };
-      setPriceAlerts(data.alerts || []);
+      const alerts = data.alerts || [];
+      // Fire browser notifications for newly triggered alerts
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        for (const a of alerts) {
+          if (a.status === "triggered" && !seenTriggeredAlerts.current.has(a.id)) {
+            seenTriggeredAlerts.current.add(a.id);
+            try {
+              new Notification(`Price Alert: ${a.symbol}`, {
+                body: `${a.symbol} hit ${a.direction} $${a.targetPrice}${a.note ? ` · ${a.note}` : ""}`,
+                icon: "/axiom-runner/assets/am-trading-logo.png",
+              });
+            } catch {}
+          } else if (a.status !== "triggered") {
+            // Pre-seed seen set for active alerts (don't notify unless they newly trigger)
+            // (no-op: we only add to seenTriggeredAlerts when status === "triggered")
+          }
+        }
+      }
+      setPriceAlerts(alerts);
     } catch {}
   }, []);
 
@@ -2514,22 +2545,25 @@ export default function App() {
           setWatchlistSymbols(s.watchlistSymbols);
           setWatchlistInput(s.watchlistSymbols.join(","));
         }
+        if (s.themeMode === "dark" || s.themeMode === "light") {
+          setSettings((prev) => ({ ...prev, themeMode: s.themeMode }));
+        }
       })
       .catch(() => {});
   }, []);
 
-  // Debounced server save of watchlist whenever it changes
+  // Debounced server save of watchlist + themeMode whenever they change
   useEffect(() => {
     if (!settingsServerSynced.current) return;
     const timer = setTimeout(() => {
       fetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ watchlistSymbols }),
+        body: JSON.stringify({ watchlistSymbols, themeMode }),
       }).catch(() => {});
     }, 4000);
     return () => clearTimeout(timer);
-  }, [watchlistSymbols]);
+  }, [watchlistSymbols, themeMode]);
 
   useEffect(() => {
     if (!watchlistSymbols.length) return;
@@ -3867,6 +3901,41 @@ export default function App() {
       setAgentLoading(false);
     }
   }, [agentPrompt, watchlistData, rotationRank, combinedAlerts, macroData, regime, macroTone, marketSession, flowBias, flowCallNotional, flowPutNotional, buildHeuristicAgentOutput]);
+  const runMorningBrief = useCallback(async () => {
+    setBriefLoading(true);
+    try {
+      const spy = Number(macroData.find((m) => m.symbol === "SPY")?.changesPercentage || 0);
+      const qqq = Number(macroData.find((m) => m.symbol === "QQQ")?.changesPercentage || 0);
+      const iwm = Number(macroData.find((m) => m.symbol === "IWM")?.changesPercentage || 0);
+      const btc = Number(macroData.find((m) => m.symbol === "BTCUSD")?.changesPercentage || 0);
+      const topMovers = [...watchlistData]
+        .sort((a, b) => Math.abs(b.changesPercentage || 0) - Math.abs(a.changesPercentage || 0))
+        .slice(0, 5);
+      const indexRows = [{ label: "SPY", value: spy }, { label: "QQQ", value: qqq }, { label: "IWM", value: iwm }, { label: "BTC", value: btc }];
+      const briefPrompt = `Morning market brief for ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}. Session: ${marketSession}. Regime: ${regime}. Flow: ${flowBias}. Give me: 1) Market tone in 2 sentences, 2) Top 3 names to watch and why, 3) Key risks today, 4) One sentence action plan. Be direct and concise.`;
+      try {
+        const res = await fetch("/api/agent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: briefPrompt, regime, macroTone, session: marketSession, flowBias, flowCallNotional, flowPutNotional, indexRows, topLongs: rotationRank.slice(0, 3), topRisks: [...rotationRank].sort((a, b) => a.relVsSpy - b.relVsSpy).slice(0, 2), alerts: combinedAlerts.slice(0, 3) }),
+        });
+        const data = await res.json();
+        if (res.ok && data.output) {
+          setBriefText(data.output);
+          setBriefAt(new Date().toLocaleTimeString());
+          return;
+        }
+      } catch {}
+      // Heuristic fallback
+      const tone = spy >= 0.5 ? "BULLISH" : spy <= -0.5 ? "BEARISH" : "MIXED";
+      const movers = topMovers.slice(0, 3).map((q) => `${q.symbol} ${q.changesPercentage >= 0 ? "+" : ""}${(q.changesPercentage || 0).toFixed(2)}%`).join(", ");
+      setBriefText(`Market ${tone} | SPY ${spy >= 0 ? "+" : ""}${spy.toFixed(2)}% QQQ ${qqq >= 0 ? "+" : ""}${qqq.toFixed(2)}% IWM ${iwm >= 0 ? "+" : ""}${iwm.toFixed(2)}%\n\nTop movers: ${movers}\n\nRegime: ${regime} · Flow: ${flowBias} · Session: ${marketSession}\n\nWatch for volatility around economic events. Manage size.`);
+      setBriefAt(new Date().toLocaleTimeString());
+    } finally {
+      setBriefLoading(false);
+    }
+  }, [macroData, watchlistData, marketSession, regime, flowBias, flowCallNotional, flowPutNotional, macroTone, rotationRank, combinedAlerts]);
+
   const applyWorkflowPrimary = useCallback((candidate, meta = {}) => {
     if (!candidate?.symbol) return;
     const entry = Number(candidate.entry || 0);
@@ -4529,6 +4598,39 @@ export default function App() {
 
             {/* Right Sidebar */}
             <div style={{ display: "flex", flexDirection: "column", gap: 12, alignSelf: "start" }}>
+              {/* Morning Brief */}
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div style={{ fontSize: 9, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>MORNING BRIEF</div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    {briefAt && <span style={{ fontSize: 9, fontFamily: MONO, color: C.textDim }}>{briefAt}</span>}
+                    <button
+                      onClick={runMorningBrief}
+                      disabled={briefLoading}
+                      style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 9, fontWeight: 700, cursor: "pointer" }}
+                    >
+                      {briefLoading ? "..." : briefText ? "REFRESH" : "BRIEF ME"}
+                    </button>
+                  </div>
+                </div>
+                {briefText ? (
+                  <>
+                    <div style={{ fontSize: 11, fontFamily: SANS, color: C.textSec, lineHeight: 1.45, whiteSpace: "pre-wrap", maxHeight: briefExpanded ? "none" : 120, overflow: "hidden" }}>
+                      {briefText}
+                    </div>
+                    <button
+                      onClick={() => setBriefExpanded(x => !x)}
+                      style={{ marginTop: 6, border: "none", background: "none", color: C.accent, fontFamily: MONO, fontSize: 9, cursor: "pointer", padding: 0 }}
+                    >
+                      {briefExpanded ? "COLLAPSE ▲" : "EXPAND ▼"}
+                    </button>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 10, fontFamily: SANS, color: C.textDim }}>
+                    Click BRIEF ME for an AI-generated market summary.
+                  </div>
+                )}
+              </div>
               {/* Alerts Feed */}
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
