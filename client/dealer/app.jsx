@@ -247,6 +247,7 @@ function App() {
   const [tab, setTab] = useState("Overview");
   const [vin, setVin] = useState("");
   const [vehicle, setVehicle] = useState(null);
+  const [vinHistory, setVinHistory] = useState(() => { try { return JSON.parse(localStorage.getItem("dixie_vin_history") || "[]"); } catch { return []; } });
   const [inventory, setInventory] = useState(SAMPLE_INVENTORY);
   const inventoryInitialized = useRef(false);
 
@@ -429,6 +430,12 @@ function App() {
       setVinSource(data.source || "");
       setVin(clean);
       setTab("Vehicle");
+      setVinHistory((prev) => {
+        const entry = { vin: clean, label: `${data.year} ${data.make} ${data.model}`, at: Date.now() };
+        const next = [entry, ...prev.filter((h) => h.vin !== clean)].slice(0, 8);
+        try { localStorage.setItem("dixie_vin_history", JSON.stringify(next)); } catch {}
+        return next;
+      });
     } catch (err) {
       showToast(err.message || "VIN decode failed — check the VIN and try again", "error");
     } finally {
@@ -781,7 +788,7 @@ function App() {
           <main style={styles.main}>
             <section style={styles.panel}>
               <div style={styles.toolbarGrid}>
-                <Field label="VIN" styles={styles}>
+                <Field label={vinHistory.length > 0 ? `VIN (${vinHistory.length} recent)` : "VIN"} styles={styles}>
                   <input
                     value={vin}
                     onChange={(e) => setVin(normalizeVin(e.target.value))}
@@ -789,7 +796,14 @@ function App() {
                     placeholder="Enter 17-digit VIN"
                     style={styles.input}
                     disabled={vinLoading}
+                    list="vin-history-list"
+                    autoComplete="off"
                   />
+                  {vinHistory.length > 0 && (
+                    <datalist id="vin-history-list">
+                      {vinHistory.map((h) => <option key={h.vin} value={h.vin}>{h.label}</option>)}
+                    </datalist>
+                  )}
                 </Field>
                 <Field label="Source" styles={styles}>
                   <div style={styles.infoBox}>
