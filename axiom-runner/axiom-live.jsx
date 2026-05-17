@@ -5100,6 +5100,18 @@ export default function App() {
               </span>
             </div>
           )}
+          {portfolioSummary.totalCost > 0 && portfolioSummary.totalValue > 0 && (
+            <div
+              onClick={() => setActiveTab("portfolio")}
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 3, border: `1px solid ${portfolioSummary.totalPnl >= 0 ? C.green : C.red}44`, background: portfolioSummary.totalPnl >= 0 ? `${C.green}0f` : `${C.red}0f`, cursor: "pointer" }}
+              title={`Portfolio: ${portfolioSummary.winners}W / ${portfolioSummary.losers}L — click to view`}
+            >
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>PORT</span>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red }}>
+                {portfolioSummary.totalPnl >= 0 ? "+" : ""}{portfolioSummary.totalPnlPct.toFixed(2)}%
+              </span>
+            </div>
+          )}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div style={{
               width: 7, height: 7, borderRadius: "50%", background: C.green,
