@@ -7002,6 +7002,16 @@ export default function App() {
                                 style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
                                 title="Add to watchlist"
                               >+WL</button>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await fetch("/api/journal", { method: "POST", headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ ticker: q.symbol, side: "BUY", score: q.scannerScore || 70, entry: q.price || 0, timeframe: "1D", style: "Scanner", notes: `Scanner hit · CHG ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}% · RVOL ${q.rvol.toFixed(2)}x · Score ${q.scannerScore}` }) });
+                                  } catch {}
+                                }}
+                                style={{ border: `1px solid ${C.accent}55`, background: C.surface, color: C.accent, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                title="Quick log to journal"
+                              >LOG</button>
                             </div>
                           </td>
                           <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, color: C.text }}>${q.price.toFixed(2)}</td>
