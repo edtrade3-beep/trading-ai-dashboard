@@ -2238,6 +2238,8 @@ export default function App() {
   const [sortDir, setSortDir] = useState("desc");
   const intervalRef = useRef(null);
   const seenTriggeredAlerts = useRef(new Set());
+  const lastAlertsTabVisit = useRef(0);
+  const [triggeredAlertBadge, setTriggeredAlertBadge] = useState(0);
   const themeMode = String(settings.themeMode || "light").toLowerCase() === "dark" ? "dark" : "light";
 
   const SESSION_TTL = 8 * 60 * 60 * 1000;
@@ -2344,30 +2346,41 @@ export default function App() {
       const res = await fetch("/api/price-alerts");
       const data = res.ok ? await res.json() : { alerts: [] };
       const alerts = data.alerts || [];
-      // Fire browser notifications for newly triggered alerts
-      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-        for (const a of alerts) {
-          if (a.status === "triggered" && !seenTriggeredAlerts.current.has(a.id)) {
-            seenTriggeredAlerts.current.add(a.id);
+      // Fire browser notifications for newly triggered alerts and update badge
+      let newlyTriggered = 0;
+      for (const a of alerts) {
+        if (a.status === "triggered" && !seenTriggeredAlerts.current.has(a.id)) {
+          seenTriggeredAlerts.current.add(a.id);
+          newlyTriggered++;
+          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
             try {
               new Notification(`Price Alert: ${a.symbol}`, {
                 body: `${a.symbol} hit ${a.direction} $${a.targetPrice}${a.note ? ` · ${a.note}` : ""}`,
                 icon: "/axiom-runner/assets/am-trading-logo.png",
               });
             } catch {}
-          } else if (a.status !== "triggered") {
-            // Pre-seed seen set for active alerts (don't notify unless they newly trigger)
-            // (no-op: we only add to seenTriggeredAlerts when status === "triggered")
           }
         }
       }
+      if (newlyTriggered > 0) setTriggeredAlertBadge(prev => prev + newlyTriggered);
       setPriceAlerts(alerts);
     } catch {}
   }, []);
 
   useEffect(() => {
-    if (activeTab === "alerts") loadPriceAlertList();
+    if (activeTab === "alerts") {
+      lastAlertsTabVisit.current = Date.now();
+      setTriggeredAlertBadge(0);
+      loadPriceAlertList();
+    }
   }, [activeTab]);
+
+  // Background poll: check for newly triggered price alerts every 2 minutes regardless of active tab
+  useEffect(() => {
+    loadPriceAlertList();
+    const tid = setInterval(() => loadPriceAlertList(), 120_000);
+    return () => clearInterval(tid);
+  }, []);
 
   const runServerScreen = useCallback(async () => {
     setServerScreenLoading(true);
@@ -4258,7 +4271,11 @@ export default function App() {
               { id: "sectors", label: "SECTORS" },
               { id: "journal", label: "JOURNAL" },
             ].map(t => (
-              <Pill key={t.id} active={activeTab === t.id} onClick={() => setActiveTab(t.id)}>{t.label}</Pill>
+              <Pill key={t.id} active={activeTab === t.id} onClick={() => setActiveTab(t.id)}>
+                {t.label}{t.id === "alerts" && triggeredAlertBadge > 0 && (
+                  <span style={{ marginLeft: 5, background: C.red, color: "#fff", borderRadius: 10, padding: "1px 5px", fontSize: 9, fontWeight: 800, verticalAlign: "middle" }}>{triggeredAlertBadge}</span>
+                )}
+              </Pill>
             ))}
           </div>
         </div>
