@@ -14,6 +14,7 @@ const handleAgent = require("./routes/agent");
 const handlePortfolio = require("./routes/portfolio");
 const handleDealership = require("./dealership/routes");
 const handlePriceAlerts = require("./routes/price-alerts");
+const handleSettings = require("./routes/settings");
 
 async function handleRequest(req, res) {
   try {
@@ -69,6 +70,10 @@ async function handleRequest(req, res) {
 
     if (pathname === "/api/price-alerts" || pathname.startsWith("/api/price-alerts/")) {
       return handlePriceAlerts(req, res, requestUrl);
+    }
+
+    if (pathname === "/api/settings") {
+      return handleSettings(req, res, requestUrl);
     }
 
     // Clean URL aliases

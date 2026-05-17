@@ -2500,6 +2500,37 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [portfolioHoldings]);
 
+  // Server-side settings: load watchlist on first mount, override localStorage if server has one
+  const settingsServerSynced = useRef(false);
+  useEffect(() => {
+    if (settingsServerSynced.current) return;
+    settingsServerSynced.current = true;
+    fetch("/api/settings")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data?.settings) return;
+        const s = data.settings;
+        if (Array.isArray(s.watchlistSymbols) && s.watchlistSymbols.length > 0) {
+          setWatchlistSymbols(s.watchlistSymbols);
+          setWatchlistInput(s.watchlistSymbols.join(","));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Debounced server save of watchlist whenever it changes
+  useEffect(() => {
+    if (!settingsServerSynced.current) return;
+    const timer = setTimeout(() => {
+      fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ watchlistSymbols }),
+      }).catch(() => {});
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [watchlistSymbols]);
+
   useEffect(() => {
     if (!watchlistSymbols.length) return;
     if (!watchlistSymbols.includes(terminalSymbol)) {
@@ -4227,6 +4258,18 @@ export default function App() {
           }}>
             {loading ? "⟳" : "REFRESH"}
           </button>
+          <a href="/dealer" target="_blank" rel="noopener" style={{
+            background: C.card, border: `1px solid ${C.border}`, color: C.textSec,
+            fontFamily: MONO, fontSize: 10, padding: "6px 11px", borderRadius: 3, cursor: "pointer", textDecoration: "none", display: "inline-block",
+          }}>
+            DEALER
+          </a>
+          <a href="/workstation" target="_blank" rel="noopener" style={{
+            background: C.card, border: `1px solid ${C.border}`, color: C.textSec,
+            fontFamily: MONO, fontSize: 10, padding: "6px 11px", borderRadius: 3, cursor: "pointer", textDecoration: "none", display: "inline-block",
+          }}>
+            WS
+          </a>
           <button onClick={generateMarketReport} style={{
             background: `${C.accent}12`, border: `1px solid ${C.accent}55`, color: C.accent,
             fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "6px 11px", borderRadius: 3, cursor: "pointer",

@@ -74,7 +74,9 @@
       "Bash(sed -n '6290,6350p' axiom-runner/axiom-live.jsx)",
       "Bash(curl -s \"http://localhost:3000/api/inventory\")",
       "Bash(curl -s \"http://localhost:3000/api/inventory/export.csv\")",
-      "Bash(curl -s \"http://localhost:3000/api/health\")"
+      "Bash(curl -s \"http://localhost:3000/api/health\")",
+      "Bash(node --check src/routes/settings.js)",
+      "Bash(node --check src/settings-store.js)"
     ]
   }
 }
