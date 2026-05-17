@@ -5818,51 +5818,49 @@ export default function App() {
                 </table>
               </div>
             </div>
-          </div>
-
-          {/* Portfolio allocation donut chart */}
-          {portfolioRows.length >= 2 && (() => {
-            const CHART_COLORS = ["#4f8cff","#22c55e","#f59e0b","#a78bfa","#f43f5e","#06b6d4","#fb923c","#84cc16","#e879f9","#38bdf8","#fbbf24","#34d399","#f87171","#c084fc","#60a5fa"];
-            const total = portfolioRows.reduce((s, r) => s + Math.max(r.marketValue, 0), 0);
-            if (!total) return null;
-            const cx = 100, cy = 100, r = 72, innerR = 44;
-            let angle = -Math.PI / 2;
-            const slices = portfolioRows.map((row, i) => {
-              const pct = Math.max(row.marketValue, 0) / total;
-              const startAngle = angle;
-              angle += pct * 2 * Math.PI;
-              return { row, pct, startAngle, endAngle: angle, color: CHART_COLORS[i % CHART_COLORS.length] };
-            });
-            function arcPath(cx, cy, r, start, end) {
-              const x1 = cx + r * Math.cos(start), y1 = cy + r * Math.sin(start);
-              const x2 = cx + r * Math.cos(end), y2 = cy + r * Math.sin(end);
-              const large = end - start > Math.PI ? 1 : 0;
-              return `M ${cx + innerR * Math.cos(start)} ${cy + innerR * Math.sin(start)} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${cx + innerR * Math.cos(end)} ${cy + innerR * Math.sin(end)} A ${innerR} ${innerR} 0 ${large} 0 ${cx + innerR * Math.cos(start)} ${cy + innerR * Math.sin(start)} Z`;
-            }
-            return (
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 16, marginTop: 12 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 12 }}>ALLOCATION</div>
-                <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
-                  <svg width={200} height={200} viewBox="0 0 200 200">
-                    {slices.map((s, i) => (
-                      <path key={i} d={arcPath(cx, cy, r, s.startAngle, s.endAngle)} fill={s.color} opacity={0.88} />
-                    ))}
-                    <text x={cx} y={cy - 6} textAnchor="middle" fontSize={11} fill={C.textDim} fontFamily={MONO}>TOTAL</text>
-                    <text x={cx} y={cy + 10} textAnchor="middle" fontSize={13} fontWeight={800} fill={C.text} fontFamily={MONO}>{formatNum(total)}</text>
-                  </svg>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "6px 16px", flex: 1, minWidth: 0 }}>
-                    {slices.map((s, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <div style={{ width: 10, height: 10, borderRadius: 2, background: s.color, flexShrink: 0 }} />
-                        <span style={{ fontFamily: MONO, fontSize: 11, color: C.text, fontWeight: 700 }}>{s.row.symbol}</span>
-                        <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{(s.pct * 100).toFixed(1)}%</span>
-                      </div>
-                    ))}
+            {portfolioRows.length >= 2 && (() => {
+              const CHART_COLORS = ["#4f8cff","#22c55e","#f59e0b","#a78bfa","#f43f5e","#06b6d4","#fb923c","#84cc16","#e879f9","#38bdf8","#fbbf24","#34d399","#f87171","#c084fc","#60a5fa"];
+              const total = portfolioRows.reduce((s, r) => s + Math.max(r.marketValue, 0), 0);
+              if (!total) return null;
+              const cx = 100, cy = 100, outerR = 72, innerR = 44;
+              let angle = -Math.PI / 2;
+              const slices = portfolioRows.map((row, i) => {
+                const pct = Math.max(row.marketValue, 0) / total;
+                const startAngle = angle;
+                angle += pct * 2 * Math.PI;
+                return { row, pct, startAngle, endAngle: angle, color: CHART_COLORS[i % CHART_COLORS.length] };
+              });
+              function arcPath(start, end) {
+                const x1 = cx + outerR * Math.cos(start), y1 = cy + outerR * Math.sin(start);
+                const x2 = cx + outerR * Math.cos(end), y2 = cy + outerR * Math.sin(end);
+                const large = end - start > Math.PI ? 1 : 0;
+                return `M ${cx + innerR * Math.cos(start)} ${cy + innerR * Math.sin(start)} L ${x1} ${y1} A ${outerR} ${outerR} 0 ${large} 1 ${x2} ${y2} L ${cx + innerR * Math.cos(end)} ${cy + innerR * Math.sin(end)} A ${innerR} ${innerR} 0 ${large} 0 ${cx + innerR * Math.cos(start)} ${cy + innerR * Math.sin(start)} Z`;
+              }
+              return (
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 16, marginTop: 12 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 12 }}>ALLOCATION</div>
+                  <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
+                    <svg width={200} height={200} viewBox="0 0 200 200">
+                      {slices.map((s, i) => (
+                        <path key={i} d={arcPath(s.startAngle, s.endAngle)} fill={s.color} opacity={0.88} />
+                      ))}
+                      <text x={cx} y={cy - 6} textAnchor="middle" fontSize={11} fill={C.textDim} fontFamily={MONO}>TOTAL</text>
+                      <text x={cx} y={cy + 10} textAnchor="middle" fontSize={13} fontWeight={800} fill={C.text} fontFamily={MONO}>{formatNum(total)}</text>
+                    </svg>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "6px 16px", flex: 1, minWidth: 0 }}>
+                      {slices.map((s, i) => (
+                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <div style={{ width: 10, height: 10, borderRadius: 2, background: s.color, flexShrink: 0 }} />
+                          <span style={{ fontFamily: MONO, fontSize: 11, color: C.text, fontWeight: 700 }}>{s.row.symbol}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{(s.pct * 100).toFixed(1)}%</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })()}
+              );
+            })()}
+          </div>
         )}
 
         {activeTab === "scanner" && (
