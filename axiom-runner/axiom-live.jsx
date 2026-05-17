@@ -2876,6 +2876,49 @@ export default function App() {
     return () => clearInterval(t);
   }, [athanTimes, athanReminder]);
 
+  // Prayer time arrival — plays a Web Audio beep when prayer time hits (if athanSoundOn)
+  const athanFiredSounds = useRef(new Set());
+  useEffect(() => {
+    if (!athanTimes || !athanSoundOn) return;
+    const PRAYER_KEYS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
+    const today = new Date().toISOString().slice(0, 10);
+    const t = setInterval(() => {
+      const now = new Date();
+      PRAYER_KEYS.forEach(key => {
+        const timeStr = athanTimes[key];
+        if (!timeStr) return;
+        const [h, m] = timeStr.split(":").map(Number);
+        const prayerTime = new Date(now);
+        prayerTime.setHours(h, m, 0, 0);
+        const diffSec = Math.abs((prayerTime - now) / 1000);
+        if (diffSec <= 30) {
+          const soundKey = `${today}:${key}`;
+          if (!athanFiredSounds.current.has(soundKey)) {
+            athanFiredSounds.current.add(soundKey);
+            try {
+              const ctx = new (window.AudioContext || window.webkitAudioContext)();
+              // Three-tone athan chime: 880Hz → 1100Hz → 880Hz
+              [[880, 0, 0.4], [1100, 0.45, 0.4], [880, 0.9, 0.6]].forEach(([freq, startAt, dur]) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = "sine";
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.22, ctx.currentTime + startAt);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startAt + dur);
+                osc.start(ctx.currentTime + startAt);
+                osc.stop(ctx.currentTime + startAt + dur);
+                osc.onended = () => { try { ctx.close(); } catch {} };
+              });
+            } catch {}
+          }
+        }
+      });
+    }, 15000);
+    return () => clearInterval(t);
+  }, [athanTimes, athanSoundOn]);
+
   // Reload global quran audio when surah or reciter changes, resume if was playing
   const quranWasPlaying = useRef(false);
   useEffect(() => {
