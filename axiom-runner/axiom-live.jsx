@@ -4536,12 +4536,23 @@ export default function App() {
                             <td style={{ padding: "10px 10px", borderBottom: `1px solid ${C.border}` }}>
                               <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: 14, color: C.text }}>{q.symbol}</div>
                               <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.name}</div>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); openTradingView(q.symbol); }}
-                                style={{ marginTop: 4, border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
-                              >
-                                TV CHART
-                              </button>
+                              <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); openTradingView(q.symbol); }}
+                                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                >
+                                  TV
+                                </button>
+                                <a
+                                  href={`/workstation#${q.symbol}`}
+                                  target="_blank"
+                                  rel="noopener"
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.purple, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", textDecoration: "none" }}
+                                >
+                                  WS
+                                </a>
+                              </div>
                             </td>
                             <td style={{ padding: "10px 8px", fontFamily: MONO, fontSize: 15, color: C.text, textAlign: "right", borderBottom: `1px solid ${C.border}`, fontWeight: 700 }}>
                               ${q.price?.toFixed(2)}

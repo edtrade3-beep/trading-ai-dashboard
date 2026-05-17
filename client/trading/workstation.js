@@ -73,6 +73,20 @@ const weights = {
       });
     }
   } catch {}
+
+  // Pre-fill ticker from URL hash (e.g. /workstation#NVDA)
+  const hashTicker = (location.hash || "").replace(/^#/, "").trim().toUpperCase();
+  if (hashTicker && /^[A-Z]{1,6}$/.test(hashTicker)) {
+    const tickerField = form.elements.namedItem("ticker");
+    if (tickerField) {
+      tickerField.value = hashTicker;
+      // Clear hash to keep URL clean after pre-fill
+      if (history.replaceState) history.replaceState(null, "", location.pathname);
+      // Trigger live fetch after a short delay to let page settle
+      setTimeout(() => { fetchLiveBtn && fetchLiveBtn.click(); }, 200);
+    }
+  }
+
   renderHistory();
   loadJournal();
 })();
