@@ -2804,6 +2804,38 @@ export default function App() {
     return () => clearInterval(t);
   }, [activeTab]);
 
+  // Shared prayer-time fetch function (component level so useEffect can call it)
+  const fetchPrayerTimes = useCallback(async (lat, lng, city, country) => {
+    setAthanLoading(true);
+    setAthanError("");
+    try {
+      let url;
+      if (lat && lng) {
+        url = `https://api.aladhan.com/v1/timings/${Math.floor(Date.now() / 1000)}?latitude=${lat}&longitude=${lng}&method=${athanMethod}`;
+      } else {
+        url = `https://api.aladhan.com/v1/timingsByCity?city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}&method=${athanMethod}`;
+      }
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.code !== 200) throw new Error(data.data || "خطأ في جلب أوقات الصلاة");
+      setAthanTimes(data.data.timings);
+      setAthanHijri(data.data.date?.hijri);
+    } catch (err) {
+      setAthanError(String(err.message || "فشل في جلب أوقات الصلاة"));
+    }
+    setAthanLoading(false);
+  }, [athanMethod]);
+
+  // Auto-load prayer times when athan tab opens with a saved city
+  const athanAutoLoaded = useRef(false);
+  useEffect(() => {
+    if (activeTab !== "athan" || athanTimes || athanLoading || athanAutoLoaded.current) return;
+    athanAutoLoaded.current = true;
+    if (athanCity && athanCountry) {
+      fetchPrayerTimes(null, null, athanCity, athanCountry);
+    }
+  }, [activeTab, athanTimes, athanLoading, athanCity, athanCountry, fetchPrayerTimes]);
+
   // Prayer time reminder — fires browser notification N min before each prayer
   useEffect(() => {
     if (!athanTimes || !athanReminder) return;
@@ -8261,31 +8293,6 @@ export default function App() {
           { id: 14, label: "Turkey" },
           { id: 15, label: "Singapore" },
         ];
-
-        const fetchPrayerTimes = async (lat, lng, city, country) => {
-          setAthanLoading(true);
-          setAthanError("");
-          try {
-            const today = new Date();
-            const dd = String(today.getDate()).padStart(2, "0");
-            const mm = String(today.getMonth() + 1).padStart(2, "0");
-            const yyyy = today.getFullYear();
-            let url;
-            if (lat && lng) {
-              url = `https://api.aladhan.com/v1/timings/${Math.floor(Date.now() / 1000)}?latitude=${lat}&longitude=${lng}&method=${athanMethod}`;
-            } else {
-              url = `https://api.aladhan.com/v1/timingsByCity?city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}&method=${athanMethod}`;
-            }
-            const res = await fetch(url);
-            const data = await res.json();
-            if (data.code !== 200) throw new Error(data.data || "خطأ في جلب أوقات الصلاة");
-            setAthanTimes(data.data.timings);
-            setAthanHijri(data.data.date?.hijri);
-          } catch (err) {
-            setAthanError(String(err.message || "فشل في جلب أوقات الصلاة"));
-          }
-          setAthanLoading(false);
-        };
 
         const loadByGeo = () => {
           if (!navigator.geolocation) { setAthanError("المتصفح لا يدعم تحديد الموقع"); return; }
