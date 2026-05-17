@@ -2691,6 +2691,7 @@ export default function App() {
   const [journalFilter, setJournalFilter] = useState("all");
   const [journalTickerSearch, setJournalTickerSearch] = useState("");
   const [journalStyleFilter, setJournalStyleFilter] = useState("all");
+  const [journalSort, setJournalSort] = useState({ col: "openedAt", dir: "desc" });
   const [journalCloseId, setJournalCloseId] = useState(null);
   const [journalClosePrice, setJournalClosePrice] = useState("");
   const [journalEditId, setJournalEditId] = useState(null);
@@ -7871,23 +7872,42 @@ export default function App() {
                 <div style={{ padding: 24, textAlign: "center", color: C.textDim, fontSize: 12, fontFamily: MONO }}>LOADING…</div>
               )}
               {journalEntries.length > 0 && (() => {
+                const SORT_KEYS = { DATE: "openedAt", TICKER: "ticker", SIDE: "side", TF: "timeframe", SCORE: "score", ENTRY: "entry", "P/L": "pnl", STATUS: "status" };
+                const sortFn = (a, b) => {
+                  const key = SORT_KEYS[journalSort.col];
+                  if (!key) return 0;
+                  const va = a[key] ?? "";
+                  const vb = b[key] ?? "";
+                  const cmp = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb));
+                  return journalSort.dir === "asc" ? cmp : -cmp;
+                };
                 const filtered = journalEntries.filter(e => {
                   if (journalFilter !== "all" && e.status !== journalFilter) return false;
                   if (journalTickerSearch && !String(e.ticker || "").toUpperCase().includes(journalTickerSearch)) return false;
                   if (journalStyleFilter !== "all" && String(e.style || "").toLowerCase() !== journalStyleFilter.toLowerCase()) return false;
                   return true;
-                });
+                }).sort(sortFn);
                 if (!filtered.length) return (
                   <div style={{ padding: 20, textAlign: "center", color: C.textDim, fontSize: 12, fontFamily: MONO }}>
                     No entries {journalFilter !== "all" ? `with status "${journalFilter}"` : ""}{journalTickerSearch ? ` matching "${journalTickerSearch}"` : ""}{journalStyleFilter !== "all" ? ` with style "${journalStyleFilter}"` : ""}.
                   </div>
                 );
+                const SortTh = ({ col, children, align }) => {
+                  const sortable = !!SORT_KEYS[col];
+                  const active = journalSort.col === col;
+                  return (
+                    <th onClick={sortable ? () => setJournalSort(s => ({ col, dir: s.col === col && s.dir === "desc" ? "asc" : "desc" })) : undefined}
+                      style={{ padding: "8px 10px", textAlign: align || "center", fontFamily: MONO, fontSize: 10, color: active ? C.accent : C.textDim, fontWeight: 600, cursor: sortable ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
+                      {children}{active ? (journalSort.dir === "desc" ? " ↓" : " ↑") : ""}
+                    </th>
+                  );
+                };
                 return (
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                       <tr style={{ background: C.surface }}>
                         {["DATE","TICKER","SIDE","TF","SCORE","ENTRY","SL","TARGET","R:R","P/L","STATUS","NOTES","ACTION"].map(h => (
-                          <th key={h} style={{ padding: "8px 10px", textAlign: h === "NOTES" ? "left" : "center", fontFamily: MONO, fontSize: 10, color: C.textDim, fontWeight: 600 }}>{h}</th>
+                          <SortTh key={h} col={h} align={h === "NOTES" ? "left" : "center"}>{h}</SortTh>
                         ))}
                       </tr>
                     </thead>
