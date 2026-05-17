@@ -4774,13 +4774,14 @@ export default function App() {
             </div>
 
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "130px 160px 130px 120px 120px 1fr", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+              <div style={{ display: "grid", gridTemplateColumns: "130px 160px 130px 120px 120px 1fr auto", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 10, color: C.textDim }}>
                 <span>SYMBOL</span>
                 <span>EARN DATE</span>
                 <span>COUNTDOWN</span>
                 <span>CHG%</span>
                 <span>SCORE</span>
                 <span>PRICE</span>
+                <span></span>
               </div>
               <div style={{ maxHeight: "58vh", overflow: "auto" }}>
                 {earningsRows.map((e) => {
@@ -4788,13 +4789,17 @@ export default function App() {
                   const dateLabel = e.earningsDate ? new Date(e.earningsDate).toLocaleDateString() : "TBD";
                   const chg = Number(e.chg || 0);
                   return (
-                    <div key={`earn-row-${e.symbol}`} style={{ display: "grid", gridTemplateColumns: "130px 160px 130px 120px 120px 1fr", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${C.border}`, background: isSoon ? `${C.amber}0D` : C.card }}>
+                    <div key={`earn-row-${e.symbol}`} style={{ display: "grid", gridTemplateColumns: "130px 160px 130px 120px 120px 1fr auto", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${C.border}`, background: isSoon ? `${C.amber}0D` : C.card, alignItems: "center" }}>
                       <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{e.symbol}</span>
                       <span style={{ fontSize: 12, color: C.textSec }}>{dateLabel}</span>
                       <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: isSoon ? C.amber : C.textSec }}>{e.timing}</span>
                       <span style={{ fontFamily: MONO, fontSize: 11, color: chg >= 0 ? C.green : C.red, fontWeight: 700 }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span>
                       <span style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700 }}>{Math.round(Number(e.score || 0))}</span>
                       <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>${Number(e.price || 0).toFixed(2)}</span>
+                      <button
+                        onClick={() => { setTerminalSymbol(e.symbol); setActiveTab("terminal"); }}
+                        style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", whiteSpace: "nowrap" }}
+                      >CHART</button>
                     </div>
                   );
                 })}
@@ -5969,7 +5974,7 @@ export default function App() {
                 </div>
                 <div>
                   {flowRows.map((row, idx) => (
-                    <div key={`${row.symbol}-${row.side}-${row.strike}-${idx}`} style={{ display: "grid", gridTemplateColumns: "62px 52px 70px 70px 72px 90px 88px 82px", gap: 8, alignItems: "center", padding: "9px 12px", borderBottom: `1px solid ${C.border}` }}>
+                    <div key={`${row.symbol}-${row.side}-${row.strike}-${idx}`} style={{ display: "grid", gridTemplateColumns: "62px 52px 70px 70px 72px 90px 88px 82px auto", gap: 8, alignItems: "center", padding: "9px 12px", borderBottom: `1px solid ${C.border}` }}>
                       <span style={{ fontFamily: MONO, fontSize: 12, color: C.text, fontWeight: 700 }}>{row.symbol}</span>
                       <Badge color={row.side === "CALL" ? C.green : C.red}>{row.side}</Badge>
                       <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>K {Number(row.strike || 0).toFixed(0)}</span>
@@ -5978,6 +5983,26 @@ export default function App() {
                       <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>OI {row.openInterest || 0}</span>
                       <span style={{ fontFamily: MONO, fontSize: 11, color: C.text }}>{formatNum(row.notional || 0)}</span>
                       <Badge color={row.unusual ? C.amber : C.textDim}>{row.tradeType || "TAPE"}</Badge>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await fetch("/api/journal", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                ticker: row.symbol,
+                                side: row.side === "CALL" ? "BUY" : "SELL",
+                                score: row.unusual ? 85 : 72,
+                                entry: Number(row.underlyingPrice || row.strike || 0),
+                                notes: `${row.tradeType || "FLOW"} · K${Number(row.strike || 0).toFixed(0)} ${row.expiry || ""} · ${formatNum(row.notional || 0)} notional${row.unusual ? " · UNUSUAL" : ""}`,
+                                timeframe: "1D",
+                                style: "Options",
+                              }),
+                            });
+                          } catch {}
+                        }}
+                        style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "4px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                      >LOG</button>
                     </div>
                   ))}
                   {!flowRows.length && <div style={{ padding: 12, color: C.textDim, fontSize: 12 }}>No flow tape available yet.</div>}
@@ -5994,7 +6019,7 @@ export default function App() {
             </div>
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
               {[...rotationRank].slice(0, 12).map((q, idx) => (
-                <div key={q.symbol} style={{ display: "grid", gridTemplateColumns: "56px 1fr 150px 128px 116px", gap: 12, alignItems: "center", padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
+                <div key={q.symbol} style={{ display: "grid", gridTemplateColumns: "56px 1fr 150px 128px 116px auto", gap: 12, alignItems: "center", padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
                   <span style={{ fontFamily: MONO, color: C.textDim, fontSize: 12 }}>#{idx + 1}</span>
                   <div>
                     <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 700 }}>{q.symbol}</div>
@@ -6009,6 +6034,32 @@ export default function App() {
                   <Badge color={idx < 3 ? C.green : idx > 8 ? C.red : C.amber}>
                     {idx < 3 ? "LEADER" : idx > 8 ? "LAGGER" : "NEUTRAL"}
                   </Badge>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
+                      style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "5px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                    >CHART</button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await fetch("/api/journal", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              ticker: q.symbol,
+                              side: q.relVsSpy >= 0 ? "BUY" : "SELL",
+                              score: Math.round(Math.min(99, 60 + (q.composite || 0) * 0.3 + Number(q.relVsSpy || 0))),
+                              entry: Number(q.price || 0),
+                              notes: `Rotation #${idx + 1} · RS ${q.relVsSpy >= 0 ? "+" : ""}${q.relVsSpy.toFixed(2)}% · RVOL ${q.rvol.toFixed(2)}x`,
+                              timeframe: "1D",
+                              style: "Swing",
+                            }),
+                          });
+                        } catch {}
+                      }}
+                      style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "5px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                    >LOG</button>
+                  </div>
                 </div>
               ))}
             </div>
