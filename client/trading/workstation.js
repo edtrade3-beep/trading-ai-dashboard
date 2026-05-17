@@ -563,9 +563,65 @@ function renderJournalStats(entries, serverStats) {
   ].map((item) => `<div class="journal-stat-chip"><span>${escapeHtml(String(item.value))}</span>${escapeHtml(item.label)}</div>`).join("");
 }
 
+function renderPnlChart(entries) {
+  const wrap = document.querySelector("#pnl-chart-wrap");
+  const svg = document.querySelector("#pnl-chart");
+  if (!wrap || !svg) return;
+
+  const closed = entries
+    .filter((e) => e.status === "closed" && e.pnl != null && e.closedAt)
+    .sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt));
+
+  if (closed.length < 2) { wrap.style.display = "none"; return; }
+  wrap.style.display = "block";
+
+  const W = svg.parentElement.clientWidth - 32;
+  const H = 110;
+  const PAD = { top: 10, right: 10, bottom: 22, left: 48 };
+  const innerW = W - PAD.left - PAD.right;
+  const innerH = H - PAD.top - PAD.bottom;
+
+  let cum = 0;
+  const points = [{ x: 0, y: 0, label: "Start", pnl: 0 }];
+  closed.forEach((e, i) => {
+    cum += e.pnl;
+    points.push({ x: i + 1, y: cum, label: e.ticker, pnl: e.pnl });
+  });
+
+  const minY = Math.min(0, ...points.map(p => p.y));
+  const maxY = Math.max(0, ...points.map(p => p.y));
+  const rangeY = maxY - minY || 1;
+
+  function px(i) { return PAD.left + (i / (points.length - 1)) * innerW; }
+  function py(v) { return PAD.top + (1 - (v - minY) / rangeY) * innerH; }
+
+  const zeroY = py(0);
+  const finalPnl = points[points.length - 1].y;
+  const lineColor = finalPnl >= 0 ? "#16a34a" : "#dc2626";
+
+  const polyline = points.map((p, i) => `${px(i).toFixed(1)},${py(p.y).toFixed(1)}`).join(" ");
+  const fillPath = `M${px(0)},${zeroY} ` + points.map((p, i) => `L${px(i).toFixed(1)},${py(p.y).toFixed(1)}`).join(" ") + ` L${px(points.length - 1)},${zeroY} Z`;
+
+  const lastPt = points[points.length - 1];
+
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = `
+    <line x1="${PAD.left}" y1="${zeroY.toFixed(1)}" x2="${PAD.left + innerW}" y2="${zeroY.toFixed(1)}" stroke="#e2e8f0" stroke-width="1" />
+    <path d="${fillPath}" fill="${lineColor}" opacity="0.10" />
+    <polyline points="${polyline}" fill="none" stroke="${lineColor}" stroke-width="2" stroke-linejoin="round" />
+    <circle cx="${px(points.length - 1).toFixed(1)}" cy="${py(lastPt.y).toFixed(1)}" r="4" fill="${lineColor}" />
+    <text x="${PAD.left - 4}" y="${zeroY.toFixed(1)}" text-anchor="end" font-size="9" fill="#94a3b8" dominant-baseline="middle">$0</text>
+    <text x="${PAD.left - 4}" y="${PAD.top}" text-anchor="end" font-size="9" fill="#94a3b8" dominant-baseline="middle">${maxY >= 0 ? "+" : ""}$${Math.round(maxY)}</text>
+    <text x="${PAD.left - 4}" y="${(PAD.top + innerH).toFixed(1)}" text-anchor="end" font-size="9" fill="#94a3b8" dominant-baseline="middle">${minY < 0 ? "" : "+"}$${Math.round(minY)}</text>
+    <text x="${px(points.length - 1).toFixed(1)}" y="${H - 4}" text-anchor="middle" font-size="9" fill="${lineColor}" font-weight="700">${finalPnl >= 0 ? "+" : ""}$${Math.round(finalPnl)}</text>
+    <text x="${PAD.left}" y="${H - 4}" text-anchor="middle" font-size="9" fill="#94a3b8">Start</text>
+  `;
+}
+
 function renderJournal(entries, serverStats) {
   if (!journalEl) return;
   renderJournalStats(entries, serverStats);
+  renderPnlChart(entries);
   if (!entries.length) {
     journalEl.innerHTML = `<p class="placeholder">No journal entries yet. Log a trade to start.</p>`;
     return;
