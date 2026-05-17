@@ -3449,6 +3449,13 @@ export default function App() {
       TOOLS: "tools",
       SECTORS: "sectors",
       JOURNAL: "journal",
+      ANALYZER: "analyzer",
+      QURAN: "quran",
+      ATHAN: "athan",
+      PRAYER: "athan",
+      ATHKAR: "athkar",
+      TASBIH: "tasbih",
+      DHIKR: "tasbih",
     };
 
     if (toTab[normalized]) {
@@ -5037,6 +5044,17 @@ export default function App() {
               </div>
             );
           })()}
+          {athanHijri && (
+            <div
+              onClick={() => setActiveTab("athan")}
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", background: "#c9a84c0f", borderRadius: 3, border: "1px solid #c9a84c30", cursor: "pointer", direction: "rtl" }}
+              title="Go to prayer times"
+            >
+              <span style={{ fontSize: 10, fontFamily: "Arial, sans-serif", color: "#c9a84c", fontWeight: 700 }}>
+                {athanHijri.day} {athanHijri.month?.ar} {athanHijri.year} هـ
+              </span>
+            </div>
+          )}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div style={{
               width: 7, height: 7, borderRadius: "50%", background: C.green,
@@ -8963,7 +8981,7 @@ export default function App() {
               />
             </div>
             <div style={{ padding: "10px 12px", display: "grid", gap: 4 }}>
-              {["NVDA GO", "EARNINGS GO", "MACRO GO", "NEWS GO", "TV GO", "ALERTS GO", "AGENT GO", "WORKFLOW GO", "FLOW GO", "PORTFOLIO GO", "SCANNER GO", "BACKTEST GO", "TERMINAL GO", "JOURNAL GO", "TF 5M GO", "TF 1D GO", "LAYOUT 2 GO", "LAYOUT 4 GO"].map((cmd) => (
+              {["NVDA GO", "EARNINGS GO", "MACRO GO", "NEWS GO", "TV GO", "ALERTS GO", "AGENT GO", "WORKFLOW GO", "FLOW GO", "PORTFOLIO GO", "SCANNER GO", "BACKTEST GO", "TERMINAL GO", "JOURNAL GO", "TF 5M GO", "TF 1D GO", "LAYOUT 2 GO", "LAYOUT 4 GO", "QURAN GO", "ATHAN GO", "ATHKAR GO", "TASBIH GO"].map((cmd) => (
                 <button key={cmd} onClick={() => { runPaletteCommand(cmd); setPaletteOpen(false); setPaletteInput(""); }} style={{ textAlign: "left", border: `1px solid ${C.border}`, background: C.card, borderRadius: 6, padding: "8px 10px", cursor: "pointer", fontFamily: MONO, fontSize: 11, color: C.textSec }}>
                   {cmd}
                 </button>
