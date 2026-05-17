@@ -167,6 +167,24 @@ function getMarketSessionET(now = new Date()) {
   return "OVERNIGHT";
 }
 
+function getSessionCountdownSecs(now = new Date()) {
+  const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const s = et.getHours() * 3600 + et.getMinutes() * 60 + et.getSeconds();
+  const PRE = 4 * 3600, OPEN = 9.5 * 3600, CLOSE = 16 * 3600, AH_END = 20 * 3600, DAY = 86400;
+  if (s >= PRE && s < OPEN)   return { label: "OPENS IN",   secs: OPEN - s,    session: "PREMARKET" };
+  if (s >= OPEN && s < CLOSE) return { label: "CLOSES IN",  secs: CLOSE - s,   session: "REGULAR" };
+  if (s >= CLOSE && s < AH_END) return { label: "AH ENDS IN", secs: AH_END - s, session: "AFTERMARKET" };
+  return { label: "PRE IN", secs: s >= AH_END ? (DAY - s + PRE) : (PRE - s), session: "OVERNIGHT" };
+}
+
+function fmtCountdownShort(secs) {
+  const s = Math.max(0, Math.round(secs));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m ${String(ss).padStart(2, "0")}s`;
+  if (m > 0) return `${m}m ${String(ss).padStart(2, "0")}s`;
+  return `${ss}s`;
+}
+
 function nextDayOfMonthOccurrence(day = 12, hour = 8, minute = 30, fromDate = new Date()) {
   const d = new Date(fromDate);
   d.setSeconds(0, 0);
@@ -3247,6 +3265,7 @@ export default function App() {
       .sort((a, b) => b.scannerScore - a.scannerScore);
   }, [watchlistData, marketUniverseData, scannerFilters]);
   const marketSession = useMemo(() => getMarketSessionET(new Date()), [lastUpdate, loading]);
+  const sessionCountdown = useMemo(() => getSessionCountdownSecs(new Date(clockNow)), [clockNow]);
   const newsIntel = useMemo(() => analyzeNewsIntelligence(newsData), [newsData]);
   const macroEventCalendar = useMemo(() => buildMacroEventCalendarV2(new Date(clockNow)), [clockNow]);
   const econCalendarView = String(settings.econCalendarView || "today");
@@ -4308,6 +4327,18 @@ export default function App() {
               {regime.toUpperCase()}
             </span>
           </div>
+          {(() => {
+            const cdColor = sessionCountdown.session === "REGULAR" ? C.green
+              : sessionCountdown.session === "PREMARKET" ? C.accent
+              : sessionCountdown.session === "AFTERMARKET" ? C.amber
+              : C.textDim;
+            return (
+              <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", background: `${cdColor}0f`, borderRadius: 3, border: `1px solid ${cdColor}30` }}>
+                <span style={{ fontSize: 9, fontFamily: MONO, color: C.textDim, letterSpacing: "0.06em" }}>{sessionCountdown.label}</span>
+                <span style={{ fontSize: 11, fontFamily: MONO, color: cdColor, fontWeight: 700, letterSpacing: "0.04em" }}>{fmtCountdownShort(sessionCountdown.secs)}</span>
+              </div>
+            );
+          })()}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div style={{
               width: 7, height: 7, borderRadius: "50%", background: C.green,
