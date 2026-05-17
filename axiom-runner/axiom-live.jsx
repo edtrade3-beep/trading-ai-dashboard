@@ -5834,6 +5834,42 @@ export default function App() {
                 ))}
                 {!newsData.length && <div style={{ fontSize: 11, color: C.textDim }}>No headlines yet.</div>}
               </div>
+
+              {/* Daily P/L Tracker */}
+              {(() => {
+                const todayStr = new Date().toISOString().slice(0, 10);
+                const todayTrades = journalEntries.filter(e => e.status === "closed" && e.pnl != null && String(e.closedAt || "").startsWith(todayStr));
+                const todayPnl = todayTrades.reduce((s, e) => s + e.pnl, 0);
+                const todayWins = todayTrades.filter(e => e.pnl > 0).length;
+                const todayLosses = todayTrades.filter(e => e.pnl <= 0).length;
+                const openCount = Object.keys(liveJournalPnl).length;
+                const liveTotalPnl = Object.values(liveJournalPnl).reduce((s, d) => s + d.livePnl, 0);
+                if (todayTrades.length === 0 && openCount === 0) return null;
+                const pnlColor = todayPnl >= 0 ? C.green : C.red;
+                return (
+                  <div onClick={() => setActiveTab("journal")}
+                    style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14, cursor: "pointer" }}>
+                    <div style={{ fontSize: 11, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 10 }}>
+                      TODAY&apos;S P/L
+                    </div>
+                    {todayTrades.length > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>Realized ({todayTrades.length})</span>
+                        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: pnlColor }}>{todayPnl >= 0 ? "+" : ""}${todayPnl.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {openCount > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>Unrealized ({openCount})</span>
+                        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: liveTotalPnl >= 0 ? C.green : C.red }}>{liveTotalPnl >= 0 ? "+" : ""}${liveTotalPnl.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {todayTrades.length > 0 && (
+                      <div style={{ fontSize: 10, fontFamily: MONO, color: C.textDim }}>{todayWins}W / {todayLosses}L · click for full journal</div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
@@ -7902,7 +7938,7 @@ export default function App() {
                               <td style={{ padding: "8px 10px", textAlign: "center" }}>
                                 <div style={{ display: "flex", gap: 4, justifyContent: "center", flexWrap: "wrap" }}>
                                   {e.status === "open" && (
-                                    <button onClick={() => { setJournalCloseId(e.id); setJournalClosePrice(""); }}
+                                    <button onClick={() => { setJournalCloseId(e.id); setJournalClosePrice(livePnlData ? String(livePnlData.livePrice.toFixed(2)) : ""); }}
                                       style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>CLOSE</button>
                                   )}
                                   <button
@@ -8014,7 +8050,8 @@ export default function App() {
                                     <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Close price:</span>
                                     <input type="number" step="0.01" value={journalClosePrice} onChange={e2 => setJournalClosePrice(e2.target.value)}
                                       placeholder="e.g. 184.50" autoFocus
-                                      style={{ width: 120, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "6px 8px", fontFamily: MONO, fontSize: 11 }} />
+                                      style={{ width: 120, background: C.surface, border: `1px solid ${C.green}55`, color: C.text, padding: "6px 8px", fontFamily: MONO, fontSize: 11 }} />
+                                    {liveJournalPnl[e.id] && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Live: ${liveJournalPnl[e.id].livePrice.toFixed(2)}</span>}
                                     <button onClick={async () => {
                                       const cp = Number(journalClosePrice);
                                       if (!cp) return;
