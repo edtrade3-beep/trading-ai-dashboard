@@ -1,4 +1,6 @@
-const { writeJson, fetchJsonSafe, withTimeout } = require("../utils");
+const { writeJson, fetchJsonSafe, withTimeout, readRequestBody } = require("../utils");
+const { callAnthropicApi } = require("../anthropic");
+const { ANTHROPIC_API_KEY } = require("../config");
 
 function monthlyPayment(amount, apr, months, downPayment) {
   const principal = Math.max(Number(amount || 0) - Number(downPayment || 0), 0);
@@ -202,6 +204,70 @@ async function handleDealership(req, res, requestUrl) {
       comps,
       note: "Estimates based on age, mileage, make, and condition. Not a KBB or NADA quote.",
     });
+  }
+
+  // POST /api/dealer/describe — AI vehicle description generator
+  if (pathname === "/api/dealer/describe" && req.method === "POST") {
+    if (!ANTHROPIC_API_KEY) {
+      return writeJson(res, 503, { error: "ANTHROPIC_API_KEY is not configured." });
+    }
+    let body;
+    try {
+      const raw = await readRequestBody(req);
+      body = JSON.parse(raw);
+    } catch {
+      return writeJson(res, 400, { error: "Invalid JSON body" });
+    }
+
+    const v = body || {};
+    const year = Number(v.year || 0);
+    const make = String(v.make || "").trim();
+    const model = String(v.model || "").trim();
+    if (!year || !make || !model) {
+      return writeJson(res, 400, { error: "year, make, and model are required" });
+    }
+
+    const trim = String(v.trim || "").trim();
+    const mileage = Number(v.mileage || 0);
+    const condition = String(v.condition || "Good").trim();
+    const price = Number(v.price || 0);
+    const engine = String(v.engine || "").trim();
+    const drive = String(v.drive || "").trim();
+    const fuel = String(v.fuel || "").trim();
+    const transmission = String(v.transmission || "").trim();
+    const notes = String(v.notes || "").trim();
+    const style = String(v.style || "facebook").toLowerCase();
+
+    const styleInstructions = {
+      facebook: "Write a Facebook Marketplace listing. Casual, friendly, conversational. Include key facts, highlight value, end with a clear call to action. 3-5 short paragraphs.",
+      website: "Write a professional dealership website listing description. SEO-friendly, detailed, trust-building. Use clear headings if needed. 4-6 paragraphs.",
+      craigslist: "Write a Craigslist listing. Plain text, practical, bullet points for key specs. Focus on price and condition. 2-3 paragraphs max.",
+      summary: "Write a 2-sentence summary description suitable for a price sticker or window tag. Highlight the best features and value in 40-60 words total.",
+    };
+
+    const prompt = `You are an experienced used car sales copywriter. Write a compelling vehicle listing description.
+
+VEHICLE DETAILS:
+- ${year} ${make} ${model}${trim ? " " + trim : ""}
+- Mileage: ${mileage ? mileage.toLocaleString() + " miles" : "not specified"}
+- Condition: ${condition}
+- Price: ${price ? "$" + price.toLocaleString() : "contact for price"}
+${engine ? "- Engine: " + engine : ""}
+${transmission ? "- Transmission: " + transmission : ""}
+${drive ? "- Drivetrain: " + drive : ""}
+${fuel ? "- Fuel: " + fuel : ""}
+${notes ? "- Additional notes: " + notes : ""}
+
+PLATFORM / STYLE: ${styleInstructions[style] || styleInstructions.facebook}
+
+Do not invent features not listed above. Do not use all-caps except for the vehicle name. No emojis unless writing for Facebook.`;
+
+    try {
+      const text = await callAnthropicApi(prompt, ANTHROPIC_API_KEY, { maxTokens: 600 });
+      return writeJson(res, 200, { description: text, style, generatedAt: new Date().toISOString() });
+    } catch (err) {
+      return writeJson(res, 422, { error: err instanceof Error ? err.message : "AI description failed" });
+    }
   }
 
   return writeJson(res, 404, { error: "Dealer endpoint not found" });

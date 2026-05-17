@@ -1,48 +1,6 @@
-const https = require("node:https");
 const { writeJson, readRequestBody } = require("../utils");
 const { ANTHROPIC_API_KEY } = require("../config");
-
-function callAnthropicApi(prompt, apiKey) {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
-    });
-
-    const options = {
-      hostname: "api.anthropic.com",
-      path: "/v1/messages",
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(body),
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-    };
-
-    const req = https.request(options, (res) => {
-      let data = "";
-      res.on("data", (chunk) => { data += chunk; });
-      res.on("end", () => {
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.error) return reject(new Error(parsed.error.message || "Anthropic API error"));
-          const text = parsed.content?.[0]?.text || "";
-          resolve(text);
-        } catch {
-          reject(new Error("Failed to parse Anthropic response"));
-        }
-      });
-    });
-
-    req.on("error", reject);
-    req.setTimeout(30000, () => { req.destroy(new Error("Anthropic API timeout")); });
-    req.write(body);
-    req.end();
-  });
-}
+const { callAnthropicApi } = require("../anthropic");
 
 function buildMarketPrompt(ctx) {
   const indexLine = (ctx.indexRows || [])

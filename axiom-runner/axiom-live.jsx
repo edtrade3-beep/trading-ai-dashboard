@@ -2797,6 +2797,30 @@ export default function App() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 
+  // Play a soft beep when new TV webhook alerts arrive
+  const prevWebhookCount = useRef(0);
+  const [alertSoundEnabled, setAlertSoundEnabled] = useState(true);
+  useEffect(() => {
+    const count = tvWebhookRows.length;
+    if (count > prevWebhookCount.current && prevWebhookCount.current > 0 && alertSoundEnabled) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 880;
+        osc.type = "sine";
+        gain.gain.setValueAtTime(0.18, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.35);
+        osc.onended = () => ctx.close();
+      } catch {}
+    }
+    prevWebhookCount.current = count;
+  }, [tvWebhookRows.length, alertSoundEnabled]);
+
   // Sorting
   const sorted = useMemo(() => {
     return [...watchlistData].sort((a, b) => {
@@ -5135,6 +5159,11 @@ export default function App() {
                       placeholder="Filter symbol…"
                       style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 10, padding: "4px 8px", width: 120, borderRadius: 4 }}
                     />
+                    <button
+                      onClick={() => setAlertSoundEnabled(v => !v)}
+                      style={{ border: `1px solid ${alertSoundEnabled ? C.green : C.border}`, background: alertSoundEnabled ? `${C.green}12` : C.surface, color: alertSoundEnabled ? C.green : C.textDim, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                      title={alertSoundEnabled ? "Mute alert sound" : "Enable alert sound"}
+                    >{alertSoundEnabled ? "SOUND ON" : "MUTED"}</button>
                     <button
                       onClick={() => setTvWebhookRows([])}
                       style={{ border: `1px solid ${C.red}55`, background: `${C.red}12`, color: C.red, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}

@@ -286,6 +286,9 @@ function App() {
   const [notes, setNotes] = useState("");
   const [comps, setComps] = useState(null);
   const [compsLoading, setCompsLoading] = useState(false);
+  const [aiDesc, setAiDesc] = useState("");
+  const [aiDescLoading, setAiDescLoading] = useState(false);
+  const [aiDescStyle, setAiDescStyle] = useState("facebook");
   const [showAddForm, setShowAddForm] = useState(false);
   const EMPTY_VEHICLE_FORM = { year: "", make: "", model: "", trim: "", mileage: "", price: "", condition: "Good", vin: "" };
   const [addForm, setAddForm] = useState(EMPTY_VEHICLE_FORM);
@@ -444,10 +447,37 @@ function App() {
     }
   }
 
+  async function generateDescription() {
+    if (!vehicle) return;
+    setAiDescLoading(true);
+    setAiDesc("");
+    try {
+      const res = await fetch("/api/dealer/describe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          year: vehicle.year, make: vehicle.make, model: vehicle.model, trim: vehicle.trim,
+          mileage: vehicle.mileage, condition: vehicle.condition, price: vehicle.price,
+          engine: vehicle.engine, drive: vehicle.drive, fuel: vehicle.fuel,
+          transmission: vehicle.transmission, notes: notes,
+          style: aiDescStyle,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "AI description failed");
+      setAiDesc(data.description || "");
+    } catch (err) {
+      showToast(err.message || "AI description failed", "error");
+    } finally {
+      setAiDescLoading(false);
+    }
+  }
+
   function chooseVehicle(item) {
     setVehicle(item);
     setVin(item.vin);
     setComps(null);
+    setAiDesc("");
     setTab("Vehicle");
   }
 
@@ -907,6 +937,41 @@ function App() {
                         {compsLoading ? "Loading…" : "Market Comps"}
                       </button>
                       <button onClick={printVehicleSheet} style={styles.buttonGhost}>Print Sheet</button>
+                    </div>
+
+                    {/* AI Description Generator */}
+                    <div style={{ ...styles.card, marginTop: 14 }}>
+                      <div style={styles.rowBetween}>
+                        <div style={styles.smallLabel}>AI Description Generator</div>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          {["facebook", "website", "craigslist", "summary"].map(s => (
+                            <button key={s} onClick={() => { setAiDescStyle(s); setAiDesc(""); }} style={aiDescStyle === s ? styles.buttonPrimary : styles.buttonGhost}>
+                              {s.charAt(0).toUpperCase() + s.slice(1)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                        <button onClick={generateDescription} disabled={aiDescLoading} style={{ ...styles.buttonPrimary, flexShrink: 0 }}>
+                          {aiDescLoading ? "Generating…" : "Generate"}
+                        </button>
+                        {aiDesc && (
+                          <button onClick={() => navigator.clipboard.writeText(aiDesc).catch(() => {})} style={{ ...styles.buttonSuccess, flexShrink: 0 }}>
+                            Copy
+                          </button>
+                        )}
+                      </div>
+                      {aiDesc ? (
+                        <textarea
+                          value={aiDesc}
+                          onChange={e => setAiDesc(e.target.value)}
+                          style={{ ...styles.textarea, marginTop: 10, minHeight: 160, fontSize: 13 }}
+                        />
+                      ) : (
+                        <div style={{ color: theme.muted, fontSize: 12, marginTop: 8 }}>
+                          Pick a platform style and click Generate to create a ready-to-post listing description.
+                        </div>
+                      )}
                     </div>
                     <div style={{ ...styles.card, marginTop: 14 }}>
                       <div style={styles.smallLabel}>Vehicle History</div>
