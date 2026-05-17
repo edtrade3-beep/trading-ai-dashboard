@@ -2795,6 +2795,7 @@ export default function App() {
   const [athanError, setAthanError] = useState("");
   const [athanNow, setAthanNow] = useState(new Date());
   const athanAudioRef = useRef(null);
+  const athanFiredReminders = useRef(new Set()); // tracks "YYYY-MM-DD:PrayerKey:mins" keys
 
   // Clock tick for athan countdown — must live at component level (Rules of Hooks)
   useEffect(() => {
@@ -2803,10 +2804,74 @@ export default function App() {
     return () => clearInterval(t);
   }, [activeTab]);
 
+  // Prayer time reminder — fires browser notification N min before each prayer
+  useEffect(() => {
+    if (!athanTimes || !athanReminder) return;
+    const PRAYER_KEYS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
+    const PRAYER_NAMES_AR = { Fajr: "الفجر", Dhuhr: "الظهر", Asr: "العصر", Maghrib: "المغرب", Isha: "العشاء" };
+    const today = new Date().toISOString().slice(0, 10);
+
+    const t = setInterval(() => {
+      if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+      const now = new Date();
+      PRAYER_KEYS.forEach(key => {
+        const timeStr = athanTimes[key];
+        if (!timeStr) return;
+        const [h, m] = timeStr.split(":").map(Number);
+        const prayerTime = new Date(now);
+        prayerTime.setHours(h, m, 0, 0);
+        const diffSec = Math.round((prayerTime - now) / 1000);
+        const diffMin = diffSec / 60;
+        // Fire when within [target-0.5, target+0.5] minute window
+        if (diffMin >= athanReminder - 0.5 && diffMin < athanReminder + 0.5) {
+          const key2 = `${today}:${key}:${athanReminder}`;
+          if (!athanFiredReminders.current.has(key2)) {
+            athanFiredReminders.current.add(key2);
+            try {
+              new Notification(`🕌 ${PRAYER_NAMES_AR[key]} خلال ${athanReminder} دقيقة`, {
+                body: `وقت صلاة ${PRAYER_NAMES_AR[key]} الساعة ${timeStr}`,
+                icon: "/axiom-runner/assets/am-trading-logo.png",
+                tag: key2,
+              });
+            } catch {}
+          }
+        }
+      });
+    }, 30000); // check every 30 seconds
+    return () => clearInterval(t);
+  }, [athanTimes, athanReminder]);
+
+  // Reload global quran audio when surah or reciter changes, resume if was playing
+  const quranWasPlaying = useRef(false);
+  useEffect(() => {
+    if (!quranAudioRef.current) return;
+    const shouldPlay = quranWasPlaying.current;
+    quranWasPlaying.current = false; // consume the flag
+    quranAudioRef.current.load();
+    if (shouldPlay) {
+      quranAudioRef.current.play().catch(() => {});
+    }
+  }, [quranSurah, quranReciter]);
+
   // ── Athkar State ──
   const [athkarCategory, setAthkarCategory] = useState("morning");
   const [athkarProgress, setAthkarProgress] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("athkar_progress") || "{}"); } catch { return {}; }
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const lastReset = localStorage.getItem("athkar_reset_date");
+      if (lastReset !== today) {
+        // New day — clear daily categories, keep persistent ones
+        const saved = JSON.parse(localStorage.getItem("athkar_progress") || "{}");
+        const DAILY_CATS = ["morning", "evening", "afterPrayer", "sleep"];
+        const allDailyKeys = DAILY_CATS.flatMap(cat => (ATHKAR_DATA[cat]?.items || []).map(i => i.id));
+        const reset = { ...saved };
+        allDailyKeys.forEach(k => { reset[k] = 0; });
+        localStorage.setItem("athkar_progress", JSON.stringify(reset));
+        localStorage.setItem("athkar_reset_date", today);
+        return reset;
+      }
+      return JSON.parse(localStorage.getItem("athkar_progress") || "{}");
+    } catch { return {}; }
   });
 
   // ── Tasbih State ──
@@ -4978,6 +5043,18 @@ export default function App() {
           }}>
             MARKET REPORT
           </button>
+          {quranPlaying && (
+            <button
+              onClick={() => { if (quranAudioRef.current) quranAudioRef.current.pause(); }}
+              style={{ background: `#c9a84c18`, border: `1px solid #c9a84c55`, color: "#c9a84c", fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "6px 10px", borderRadius: 3, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, maxWidth: 160 }}
+              title="Quran playing — click to pause"
+            >
+              <span>▐▌</span>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 110 }}>
+                {SURAH_LIST.find(s => s[0] === quranSurah)?.[1] || `سورة ${quranSurah}`}
+              </span>
+            </button>
+          )}
           <button onClick={handleLock} style={{
             background: `${C.red}12`, border: `1px solid ${C.red}55`, color: C.red,
             fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "6px 11px", borderRadius: 3, cursor: "pointer",
@@ -8074,32 +8151,14 @@ export default function App() {
                 {surahNum}. {surahInfo?.[2]}
               </div>
 
-              {/* Audio element */}
-              <audio
-                ref={quranAudioRef}
-                src={audioUrl}
-                onPlay={() => setQuranPlaying(true)}
-                onPause={() => setQuranPlaying(false)}
-                onEnded={() => {
-                  if (quranAutoNext && surahNum < 114) {
-                    const next = surahNum + 1;
-                    setQuranSurah(next);
-                    localStorage.setItem("quran_surah", String(next));
-                    setTimeout(() => { if (quranAudioRef.current) { quranAudioRef.current.load(); quranAudioRef.current.play().catch(() => {}); } }, 200);
-                  } else { setQuranPlaying(false); }
-                }}
-                style={{ display: "none" }}
-              />
-
               {/* Play/Pause controls */}
               <div style={{ display: "flex", justifyContent: "center", gap: 16, alignItems: "center", marginBottom: 16 }}>
                 <button
                   onClick={() => {
                     const prev = surahNum > 1 ? surahNum - 1 : 114;
+                    quranWasPlaying.current = quranPlaying;
                     setQuranSurah(prev);
                     localStorage.setItem("quran_surah", String(prev));
-                    setQuranPlaying(false);
-                    setTimeout(() => { if (quranAudioRef.current) { quranAudioRef.current.load(); if (quranPlaying) quranAudioRef.current.play().catch(() => {}); } }, 100);
                   }}
                   style={{ background: C.surface, border: `1px solid ${goldDim}`, color: gold, borderRadius: 999, width: 44, height: 44, fontSize: 18, cursor: "pointer" }}
                 >‹</button>
@@ -8107,7 +8166,7 @@ export default function App() {
                 <button
                   onClick={() => {
                     if (!quranAudioRef.current) return;
-                    if (quranPlaying) { quranAudioRef.current.pause(); setQuranPlaying(false); }
+                    if (quranPlaying) { quranAudioRef.current.pause(); }
                     else { quranAudioRef.current.play().catch(e => console.warn(e)); }
                   }}
                   style={{ background: gold, border: "none", color: C.bg, borderRadius: 999, width: 64, height: 64, fontSize: 26, cursor: "pointer", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}
@@ -8116,10 +8175,9 @@ export default function App() {
                 <button
                   onClick={() => {
                     const next = surahNum < 114 ? surahNum + 1 : 1;
+                    quranWasPlaying.current = quranPlaying;
                     setQuranSurah(next);
                     localStorage.setItem("quran_surah", String(next));
-                    setQuranPlaying(false);
-                    setTimeout(() => { if (quranAudioRef.current) { quranAudioRef.current.load(); if (quranPlaying) quranAudioRef.current.play().catch(() => {}); } }, 100);
                   }}
                   style={{ background: C.surface, border: `1px solid ${goldDim}`, color: gold, borderRadius: 999, width: 44, height: 44, fontSize: 18, cursor: "pointer" }}
                 >›</button>
@@ -8141,10 +8199,9 @@ export default function App() {
                   value={quranReciter.id}
                   onChange={e => {
                     const r = QURAN_RECITERS.find(x => x.id === e.target.value) || QURAN_RECITERS[0];
+                    quranWasPlaying.current = quranPlaying;
                     setQuranReciter(r);
                     localStorage.setItem("quran_reciter", JSON.stringify(r));
-                    setQuranPlaying(false);
-                    setTimeout(() => { if (quranAudioRef.current) { quranAudioRef.current.load(); } }, 100);
                   }}
                   style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "10px 12px", fontFamily: "Arial, sans-serif", fontSize: 14, borderRadius: 6, direction: "rtl" }}
                 >
@@ -8157,10 +8214,9 @@ export default function App() {
                   value={surahNum}
                   onChange={e => {
                     const n = Number(e.target.value);
+                    quranWasPlaying.current = quranPlaying;
                     setQuranSurah(n);
                     localStorage.setItem("quran_surah", String(n));
-                    setQuranPlaying(false);
-                    setTimeout(() => { if (quranAudioRef.current) { quranAudioRef.current.load(); } }, 100);
                   }}
                   style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "10px 12px", fontFamily: "Arial, sans-serif", fontSize: 14, borderRadius: 6, direction: "rtl" }}
                 >
@@ -8175,10 +8231,9 @@ export default function App() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 6 }}>
                 {SURAH_LIST.slice(104).map(([n, ar]) => (
                   <button key={n} onClick={() => {
+                    quranWasPlaying.current = quranPlaying;
                     setQuranSurah(n);
                     localStorage.setItem("quran_surah", String(n));
-                    setQuranPlaying(false);
-                    setTimeout(() => { if (quranAudioRef.current) { quranAudioRef.current.load(); } }, 100);
                   }}
                     style={{ background: n === surahNum ? `${gold}22` : C.surface, border: `1px solid ${n === surahNum ? gold : C.border}`, color: n === surahNum ? gold : C.text, borderRadius: 6, padding: "7px 6px", fontSize: 13, cursor: "pointer", fontFamily: "Arial, sans-serif" }}>
                     {ar}
@@ -8570,6 +8625,25 @@ export default function App() {
           </div>
         );
       })()}
+
+      {/* Global Quran audio element — stays mounted across all tab switches */}
+      <audio
+        ref={quranAudioRef}
+        src={`https://${quranReciter.server}/${String(quranSurah).padStart(3, "0")}.mp3`}
+        onPlay={() => setQuranPlaying(true)}
+        onPause={() => setQuranPlaying(false)}
+        onEnded={() => {
+          if (quranAutoNext && quranSurah < 114) {
+            quranWasPlaying.current = true;
+            setQuranSurah(prev => {
+              const next = prev < 114 ? prev + 1 : 1;
+              localStorage.setItem("quran_surah", String(next));
+              return next;
+            });
+          } else { setQuranPlaying(false); }
+        }}
+        style={{ display: "none" }}
+      />
 
       {marketReportOpen && (
         <div onClick={() => setMarketReportOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(8,18,34,0.24)", zIndex: 1250, display: "grid", placeItems: "start center", paddingTop: "10vh" }}>
