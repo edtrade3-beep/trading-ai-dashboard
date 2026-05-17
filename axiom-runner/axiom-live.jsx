@@ -1480,7 +1480,7 @@ function TerminalWorkspace({
   selectedSymbol, onSelectSymbol, timeframe, onTimeframeChange,
   candleData, loadingCandles, terminalLayout, onLayoutChange,
   hotkeyProfile, onHotkeyProfileChange, drawTools, onDrawToolsChange,
-  panelSymbols, onPanelSymbolChange, panelCandleMap, fundamentals,
+  panelSymbols, onPanelSymbolChange, panelCandleMap, fundamentals, marketSession,
 }) {
   const selected = watchlistData.find((q) => q.symbol === selectedSymbol) || watchlistData[0] || null;
   const [leftW, setLeftW] = useState(220);
@@ -1628,13 +1628,26 @@ function TerminalWorkspace({
             {watchlistData.slice(0, 20).map((q) => {
               const up = (q.changesPercentage || 0) >= 0;
               const active = q.symbol === selected.symbol;
+              const isPreMarket = marketSession === "PREMARKET";
+              const isPostMarket = marketSession === "AFTERMARKET";
+              const extChg = isPreMarket
+                ? Number(q.preMarketChangePercent || 0)
+                : isPostMarket ? Number(q.postMarketChangePercent || 0) : null;
+              const extColor = isPreMarket ? C.accent : C.amber;
               return (
                 <button key={q.symbol} onClick={() => onSelectSymbol(q.symbol)} style={{ width: "100%", textAlign: "left", border: "none", cursor: "pointer", padding: "9px 10px", borderBottom: `1px solid ${C.border}`, background: active ? C.cardHover : "transparent" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{q.symbol}</span>
                     <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: up ? C.green : C.red }}>{up ? "+" : ""}{(q.changesPercentage || 0).toFixed(2)}%</span>
                   </div>
-                  <div style={{ marginTop: 2, fontFamily: MONO, fontSize: 10, color: C.textDim }}>${q.price?.toFixed(2)}</div>
+                  <div style={{ marginTop: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>${q.price?.toFixed(2)}</span>
+                    {extChg !== null && extChg !== 0 && (
+                      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: extColor, background: `${extColor}18`, borderRadius: 3, padding: "1px 4px" }}>
+                        {isPreMarket ? "PRE" : "POST"} {extChg >= 0 ? "+" : ""}{extChg.toFixed(2)}%
+                      </span>
+                    )}
+                  </div>
                 </button>
               );
             })}
@@ -4782,6 +4795,7 @@ export default function App() {
             onPanelSymbolChange={handlePanelSymbolChange}
             panelCandleMap={terminalPanelCandles}
             fundamentals={terminalFundamentals}
+            marketSession={marketSession}
           />
         )}
 
@@ -7108,23 +7122,66 @@ export default function App() {
             </div>
 
             {/* Stats bar */}
-            {journalStats && journalEntries.length > 0 && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, marginBottom: 12 }}>
-                {[
-                  { label: "TRADES", value: journalEntries.length },
-                  { label: "OPEN", value: journalStats.open ?? 0 },
-                  { label: "WIN RATE", value: journalStats.closed ? `${journalStats.winRate ?? 0}%` : "—" },
-                  { label: "TOTAL P/L", value: journalStats.totalPnl != null ? `${journalStats.totalPnl >= 0 ? "+" : ""}$${Math.round(journalStats.totalPnl)}` : "—" },
-                  { label: "AVG P/L", value: journalStats.avgPnl != null ? `${journalStats.avgPnl >= 0 ? "+" : ""}$${Math.round(journalStats.avgPnl)}` : "—" },
-                  { label: "BEST TRADE", value: journalStats.bestTrade ? `${journalStats.bestTrade.ticker} +$${Math.round(journalStats.bestTrade.pnl)}` : "—" },
-                ].map(({ label, value }) => (
-                  <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{label}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: C.text, marginTop: 2 }}>{value}</div>
-                  </div>
-                ))}
-              </div>
-            )}
+            {journalStats && journalEntries.length > 0 && (() => {
+              const closedTrades = [...journalEntries]
+                .filter(e => e.status === "closed" && e.pnl != null && e.closedAt)
+                .sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt));
+              const equityCurve = closedTrades.reduce((acc, e) => {
+                acc.push((acc[acc.length - 1] || 0) + e.pnl);
+                return acc;
+              }, []);
+              const totalPnl = journalStats.totalPnl;
+              const equityFinal = totalPnl != null ? `${totalPnl >= 0 ? "+" : ""}$${Math.round(totalPnl)}` : "—";
+              const equityColor = totalPnl == null ? C.textDim : totalPnl >= 0 ? C.green : C.red;
+              const eW = 280, eH = 52;
+              let sparkPath = "";
+              if (equityCurve.length >= 2) {
+                const minY = Math.min(...equityCurve, 0);
+                const maxY = Math.max(...equityCurve, 0);
+                const range = Math.max(maxY - minY, 1);
+                const pts = equityCurve.map((v, i) => {
+                  const x = (i / (equityCurve.length - 1)) * eW;
+                  const y = eH - ((v - minY) / range) * (eH - 6) - 3;
+                  return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+                });
+                sparkPath = pts.join(" ");
+              }
+              return (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, marginBottom: 12 }}>
+                  {[
+                    { label: "TRADES", value: journalEntries.length },
+                    { label: "OPEN", value: journalStats.open ?? 0 },
+                    { label: "WIN RATE", value: journalStats.closed ? `${journalStats.winRate ?? 0}%` : "—" },
+                    { label: "TOTAL P/L", value: equityFinal, color: equityColor },
+                    { label: "AVG P/L", value: journalStats.avgPnl != null ? `${journalStats.avgPnl >= 0 ? "+" : ""}$${Math.round(journalStats.avgPnl)}` : "—" },
+                    { label: "BEST TRADE", value: journalStats.bestTrade ? `${journalStats.bestTrade.ticker} +$${Math.round(journalStats.bestTrade.pnl)}` : "—" },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{label}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: color || C.text, marginTop: 2 }}>{value}</div>
+                    </div>
+                  ))}
+                  {equityCurve.length >= 2 && (
+                    <div style={{ gridColumn: "1 / -1", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 16 }}>
+                      <div>
+                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 2 }}>EQUITY CURVE ({equityCurve.length} closed)</div>
+                        <div style={{ fontFamily: MONO, fontSize: 10, color: equityColor, fontWeight: 700 }}>{equityFinal} cumulative P/L</div>
+                      </div>
+                      <svg width={eW} height={eH} style={{ overflow: "visible", flex: 1 }}>
+                        <line x1="0" y1={eH / 2} x2={eW} y2={eH / 2} stroke={C.border} strokeWidth="1" strokeDasharray="3,3" />
+                        <path d={sparkPath} fill="none" stroke={equityColor} strokeWidth="1.8" strokeLinejoin="round" />
+                        <circle cx={eW} cy={(() => {
+                          const minY = Math.min(...equityCurve, 0);
+                          const maxY = Math.max(...equityCurve, 0);
+                          const range = Math.max(maxY - minY, 1);
+                          return eH - ((equityCurve[equityCurve.length - 1] - minY) / range) * (eH - 6) - 3;
+                        })()} r="3" fill={equityColor} />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Toolbar */}
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
