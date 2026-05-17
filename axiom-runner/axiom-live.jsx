@@ -7040,6 +7040,21 @@ export default function App() {
               SCANNER BUILDER - MOMENTUM + RELATIVE STRENGTH
             </div>
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, marginBottom: 12 }}>
+              <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, alignSelf: "center" }}>PRESETS:</span>
+                {[
+                  { label: "Momentum", f: { minPrice: "15", minChange: "2", minRvol: "1.5", minScore: "65", sector: "ALL" } },
+                  { label: "Breakout", f: { minPrice: "20", minChange: "1", minRvol: "2", minScore: "70", sector: "ALL" } },
+                  { label: "RVOL Spike", f: { minPrice: "10", minChange: "0.5", minRvol: "3", minScore: "55", sector: "ALL" } },
+                  { label: "Large Cap", f: { minPrice: "50", minChange: "0.3", minRvol: "1", minScore: "60", sector: "ALL" } },
+                  { label: "Reset", f: { minPrice: "10", minChange: "0.5", minRvol: "1", minScore: "55", sector: "ALL" } },
+                ].map(({ label, f }) => (
+                  <button key={label} onClick={() => setScannerFilters(s => ({ ...s, ...f }))}
+                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 999, padding: "3px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(120px, 1fr))", gap: 8, alignItems: "center" }}>
                 <input value={scannerFilters.minPrice} onChange={(e) => setScannerFilters((s) => ({ ...s, minPrice: e.target.value.replace(/[^\d.]/g, "") }))} placeholder="Min Price" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }} />
                 <input value={scannerFilters.minChange} onChange={(e) => setScannerFilters((s) => ({ ...s, minChange: e.target.value.replace(/[^\d.-]/g, "") }))} placeholder="Min |CHG%|" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }} />
