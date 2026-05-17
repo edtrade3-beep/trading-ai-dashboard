@@ -2137,6 +2137,12 @@ export default function App() {
   const [newsLoading, setNewsLoading] = useState(false);
   const [tvWebhookRows, setTvWebhookRows] = useState([]);
   const [tvWebhookSecured, setTvWebhookSecured] = useState(false);
+  const [journalEntries, setJournalEntries] = useState([]);
+  const [journalStats, setJournalStats] = useState(null);
+  const [journalLoading, setJournalLoading] = useState(false);
+  const [journalFilter, setJournalFilter] = useState("all");
+  const [journalCloseId, setJournalCloseId] = useState(null);
+  const [journalClosePrice, setJournalClosePrice] = useState("");
   const [optionsFlow, setOptionsFlow] = useState(null);
   const [macroData, setMacroData] = useState([]);
   const [sectorData, setSectorData] = useState([]);
@@ -2274,6 +2280,26 @@ export default function App() {
       fetchMarketMovers();
     }
   }, [activeTab, marketMovers, marketMoversLoading, fetchMarketMovers]);
+
+  const loadJournalTab = useCallback(async () => {
+    if (journalLoading) return;
+    setJournalLoading(true);
+    try {
+      const [entriesRes, statsRes] = await Promise.all([
+        fetch("/api/journal"),
+        fetch("/api/journal/stats"),
+      ]);
+      const entriesData = entriesRes.ok ? await entriesRes.json() : { entries: [] };
+      const statsData = statsRes.ok ? await statsRes.json() : null;
+      setJournalEntries(entriesData.entries || []);
+      setJournalStats(statsData);
+    } catch {}
+    setJournalLoading(false);
+  }, [journalLoading]);
+
+  useEffect(() => {
+    if (activeTab === "journal") loadJournalTab();
+  }, [activeTab]);
 
   const runServerScreen = useCallback(async () => {
     setServerScreenLoading(true);
@@ -2631,6 +2657,7 @@ export default function App() {
       ROTATION: "rotation",
       TOOLS: "tools",
       SECTORS: "sectors",
+      JOURNAL: "journal",
     };
 
     if (toTab[normalized]) {
@@ -4091,6 +4118,7 @@ export default function App() {
               { id: "rotation", label: "ROTATION" },
               { id: "tools", label: "TOOLS" },
               { id: "sectors", label: "SECTORS" },
+              { id: "journal", label: "JOURNAL" },
             ].map(t => (
               <Pill key={t.id} active={activeTab === t.id} onClick={() => setActiveTab(t.id)}>{t.label}</Pill>
             ))}
@@ -5706,6 +5734,50 @@ export default function App() {
               </div>
             </div>
           </div>
+
+          {/* Portfolio allocation donut chart */}
+          {portfolioRows.length >= 2 && (() => {
+            const CHART_COLORS = ["#4f8cff","#22c55e","#f59e0b","#a78bfa","#f43f5e","#06b6d4","#fb923c","#84cc16","#e879f9","#38bdf8","#fbbf24","#34d399","#f87171","#c084fc","#60a5fa"];
+            const total = portfolioRows.reduce((s, r) => s + Math.max(r.marketValue, 0), 0);
+            if (!total) return null;
+            const cx = 100, cy = 100, r = 72, innerR = 44;
+            let angle = -Math.PI / 2;
+            const slices = portfolioRows.map((row, i) => {
+              const pct = Math.max(row.marketValue, 0) / total;
+              const startAngle = angle;
+              angle += pct * 2 * Math.PI;
+              return { row, pct, startAngle, endAngle: angle, color: CHART_COLORS[i % CHART_COLORS.length] };
+            });
+            function arcPath(cx, cy, r, start, end) {
+              const x1 = cx + r * Math.cos(start), y1 = cy + r * Math.sin(start);
+              const x2 = cx + r * Math.cos(end), y2 = cy + r * Math.sin(end);
+              const large = end - start > Math.PI ? 1 : 0;
+              return `M ${cx + innerR * Math.cos(start)} ${cy + innerR * Math.sin(start)} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${cx + innerR * Math.cos(end)} ${cy + innerR * Math.sin(end)} A ${innerR} ${innerR} 0 ${large} 0 ${cx + innerR * Math.cos(start)} ${cy + innerR * Math.sin(start)} Z`;
+            }
+            return (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 16, marginTop: 12 }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 12 }}>ALLOCATION</div>
+                <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
+                  <svg width={200} height={200} viewBox="0 0 200 200">
+                    {slices.map((s, i) => (
+                      <path key={i} d={arcPath(cx, cy, r, s.startAngle, s.endAngle)} fill={s.color} opacity={0.88} />
+                    ))}
+                    <text x={cx} y={cy - 6} textAnchor="middle" fontSize={11} fill={C.textDim} fontFamily={MONO}>TOTAL</text>
+                    <text x={cx} y={cy + 10} textAnchor="middle" fontSize={13} fontWeight={800} fill={C.text} fontFamily={MONO}>{formatNum(total)}</text>
+                  </svg>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "6px 16px", flex: 1, minWidth: 0 }}>
+                    {slices.map((s, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: 2, background: s.color, flexShrink: 0 }} />
+                        <span style={{ fontFamily: MONO, fontSize: 11, color: C.text, fontWeight: 700 }}>{s.row.symbol}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{(s.pct * 100).toFixed(1)}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         )}
 
         {activeTab === "scanner" && (
@@ -6366,6 +6438,137 @@ export default function App() {
           </div>
         )}
 
+        {activeTab === "journal" && (
+          <div>
+            <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em", marginBottom: 14 }}>
+              TRADE JOURNAL — PERFORMANCE TRACKER
+            </div>
+
+            {/* Stats bar */}
+            {journalStats && journalEntries.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, marginBottom: 12 }}>
+                {[
+                  { label: "TRADES", value: journalEntries.length },
+                  { label: "OPEN", value: journalStats.open ?? 0 },
+                  { label: "WIN RATE", value: journalStats.closed ? `${journalStats.winRate ?? 0}%` : "—" },
+                  { label: "TOTAL P/L", value: journalStats.totalPnl != null ? `${journalStats.totalPnl >= 0 ? "+" : ""}$${Math.round(journalStats.totalPnl)}` : "—" },
+                  { label: "AVG P/L", value: journalStats.avgPnl != null ? `${journalStats.avgPnl >= 0 ? "+" : ""}$${Math.round(journalStats.avgPnl)}` : "—" },
+                  { label: "BEST TRADE", value: journalStats.bestTrade ? `${journalStats.bestTrade.ticker} +$${Math.round(journalStats.bestTrade.pnl)}` : "—" },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{label}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: C.text, marginTop: 2 }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Toolbar */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+              {["all", "open", "closed", "cancelled"].map(f => (
+                <button key={f} onClick={() => setJournalFilter(f)}
+                  style={{ border: `1px solid ${journalFilter === f ? C.accent : C.border}`, background: journalFilter === f ? `${C.accent}18` : C.surface, color: journalFilter === f ? C.accent : C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", textTransform: "uppercase" }}>
+                  {f}
+                </button>
+              ))}
+              <button onClick={loadJournalTab} disabled={journalLoading}
+                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", marginLeft: "auto" }}>
+                {journalLoading ? "LOADING…" : "REFRESH"}
+              </button>
+              <a href="/api/journal/export.csv" download
+                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", textDecoration: "none" }}>
+                EXPORT CSV
+              </a>
+            </div>
+
+            {/* Journal table */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+              {journalEntries.length === 0 && !journalLoading && (
+                <div style={{ padding: 24, textAlign: "center", color: C.textDim, fontSize: 13, fontFamily: MONO }}>
+                  No journal entries yet. Use LOG buttons throughout the platform to start tracking trades.
+                </div>
+              )}
+              {journalLoading && (
+                <div style={{ padding: 24, textAlign: "center", color: C.textDim, fontSize: 12, fontFamily: MONO }}>LOADING…</div>
+              )}
+              {journalEntries.length > 0 && (() => {
+                const filtered = journalFilter === "all" ? journalEntries : journalEntries.filter(e => e.status === journalFilter);
+                if (!filtered.length) return (
+                  <div style={{ padding: 20, textAlign: "center", color: C.textDim, fontSize: 12, fontFamily: MONO }}>No {journalFilter} entries.</div>
+                );
+                return (
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ background: C.surface }}>
+                        {["DATE","TICKER","SIDE","TF","SCORE","ENTRY","SL","TARGET","P/L","STATUS","NOTES","ACTION"].map(h => (
+                          <th key={h} style={{ padding: "8px 10px", textAlign: h === "NOTES" ? "left" : "center", fontFamily: MONO, fontSize: 10, color: C.textDim, fontWeight: 600 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map(e => {
+                        const pnlColor = e.pnl == null ? C.textSec : e.pnl >= 0 ? C.green : C.red;
+                        return (
+                          <React.Fragment key={e.id}>
+                            <tr style={{ borderTop: `1px solid ${C.border}` }}>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.textSec }}>{new Date(e.openedAt).toLocaleDateString()}</td>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>
+                                <button onClick={() => { setTerminalSymbol(e.ticker); setActiveTab("terminal"); }}
+                                  style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", padding: 0 }}>{e.ticker}</button>
+                              </td>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: e.side === "BUY" ? C.green : e.side === "SELL" ? C.red : C.amber, fontWeight: 700 }}>{e.side}</td>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.textSec }}>{e.timeframe || "—"}</td>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.textSec }}>{e.score}</td>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.text }}>{e.entry ? `$${e.entry}` : "—"}</td>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.red }}>{e.stopLoss ? `$${e.stopLoss}` : "—"}</td>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.green }}>{e.target ? `$${e.target}` : "—"}</td>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: pnlColor }}>
+                                {e.pnl != null ? `${e.pnl >= 0 ? "+" : ""}$${e.pnl.toFixed(2)}` : "—"}
+                              </td>
+                              <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                                <span style={{ background: e.status === "open" ? `${C.green}22` : e.status === "closed" ? `${C.accent}22` : `${C.amber}22`, color: e.status === "open" ? C.green : e.status === "closed" ? C.accent : C.amber, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>{e.status}</span>
+                              </td>
+                              <td style={{ padding: "8px 10px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textSec, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.notes || "—"}</td>
+                              <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                                <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                                  {e.status === "open" && (
+                                    <button onClick={() => { setJournalCloseId(e.id); setJournalClosePrice(""); }}
+                                      style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>CLOSE</button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                            {journalCloseId === e.id && (
+                              <tr style={{ background: `${C.green}08`, borderTop: `1px solid ${C.green}44` }}>
+                                <td colSpan={12} style={{ padding: "10px 12px" }}>
+                                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Close price:</span>
+                                    <input type="number" step="0.01" value={journalClosePrice} onChange={e2 => setJournalClosePrice(e2.target.value)}
+                                      placeholder="e.g. 184.50" autoFocus
+                                      style={{ width: 120, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "6px 8px", fontFamily: MONO, fontSize: 11 }} />
+                                    <button onClick={async () => {
+                                      const cp = Number(journalClosePrice);
+                                      if (!cp) return;
+                                      await fetch(`/api/journal/${e.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "closed", closePrice: cp }) });
+                                      setJournalCloseId(null);
+                                      loadJournalTab();
+                                    }} style={{ border: `1px solid ${C.green}55`, background: `${C.green}18`, color: C.green, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>CONFIRM</button>
+                                    <button onClick={() => setJournalCloseId(null)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>CANCEL</button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
       {marketReportOpen && (
         <div onClick={() => setMarketReportOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(8,18,34,0.24)", zIndex: 1250, display: "grid", placeItems: "start center", paddingTop: "10vh" }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: 960, maxWidth: "94vw", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, boxShadow: "0 24px 60px rgba(15,27,45,0.18)", overflow: "hidden" }}>
@@ -6664,7 +6867,7 @@ export default function App() {
               />
             </div>
             <div style={{ padding: "10px 12px", display: "grid", gap: 4 }}>
-              {["NVDA GO", "EARNINGS GO", "MACRO GO", "NEWS GO", "TV GO", "ALERTS GO", "AGENT GO", "WORKFLOW GO", "FLOW GO", "PORTFOLIO GO", "SCANNER GO", "BACKTEST GO", "TERMINAL GO", "TF 5M GO", "TF 1D GO", "LAYOUT 2 GO", "LAYOUT 4 GO"].map((cmd) => (
+              {["NVDA GO", "EARNINGS GO", "MACRO GO", "NEWS GO", "TV GO", "ALERTS GO", "AGENT GO", "WORKFLOW GO", "FLOW GO", "PORTFOLIO GO", "SCANNER GO", "BACKTEST GO", "TERMINAL GO", "JOURNAL GO", "TF 5M GO", "TF 1D GO", "LAYOUT 2 GO", "LAYOUT 4 GO"].map((cmd) => (
                 <button key={cmd} onClick={() => { runPaletteCommand(cmd); setPaletteOpen(false); setPaletteInput(""); }} style={{ textAlign: "left", border: `1px solid ${C.border}`, background: C.card, borderRadius: 6, padding: "8px 10px", cursor: "pointer", fontFamily: MONO, fontSize: 11, color: C.textSec }}>
                   {cmd}
                 </button>
