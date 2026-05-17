@@ -6135,12 +6135,23 @@ export default function App() {
                         <tr key={`scan-${q.symbol}`}>
                           <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, fontFamily: MONO, fontWeight: 700, color: C.text }}>
                             <div>{q.symbol}</div>
-                            <button
-                              onClick={() => openTradingView(q.symbol)}
-                              style={{ marginTop: 4, border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
-                            >
-                              TV
-                            </button>
+                            <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+                              <button
+                                onClick={() => openTradingView(q.symbol)}
+                                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                              >TV</button>
+                              <a
+                                href={`/workstation#${q.symbol}`}
+                                target="_blank"
+                                rel="noopener"
+                                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.purple, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", textDecoration: "none" }}
+                              >WS</a>
+                              <button
+                                onClick={() => setWatchlistSymbols((prev) => Array.from(new Set([...prev, q.symbol])))}
+                                style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                title="Add to watchlist"
+                              >+WL</button>
+                            </div>
                           </td>
                           <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, color: C.text }}>${q.price.toFixed(2)}</td>
                           <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, color: chg >= 0 ? C.green : C.red }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</td>
@@ -6192,6 +6203,8 @@ export default function App() {
                               <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
                                 <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>CHART</button>
                                 <button onClick={() => openTradingView(q.symbol)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>TV</button>
+                                <a href={`/workstation#${q.symbol}`} target="_blank" rel="noopener" style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.purple, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer", textDecoration: "none" }}>WS</a>
+                                <button onClick={() => setWatchlistSymbols((prev) => Array.from(new Set([...prev, q.symbol])))} style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>+WL</button>
                                 <button onClick={async () => {
                                   try {
                                     await fetch("/api/journal", {
