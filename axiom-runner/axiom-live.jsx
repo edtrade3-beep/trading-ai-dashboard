@@ -5239,25 +5239,46 @@ export default function App() {
                 </div>
               </div>
               {watchlistData.length >= 3 && (() => {
-                const sorted = [...watchlistData].sort((a, b) => (b.changesPercentage || 0) - (a.changesPercentage || 0));
-                const top3 = sorted.slice(0, 3);
-                const bot3 = sorted.slice(-3).reverse();
+                const isPreMkt = marketSession === "PREMARKET";
+                const isPostMkt = marketSession === "AFTERMARKET";
+                const isExt = isPreMkt || isPostMkt;
+                const extColor = isPreMkt ? C.accent : C.amber;
+                const extLabel = isPreMkt ? "PRE" : "POST";
+                const getChg = (q) => isExt
+                  ? Number(isPreMkt ? q.preMarketChangePercent : q.postMarketChangePercent) || 0
+                  : (q.changesPercentage || 0);
+                const moversBase = [...watchlistData].sort((a, b) => getChg(b) - getChg(a));
+                const top3 = moversBase.slice(0, 3);
+                const bot3 = moversBase.slice(-3).reverse();
                 return (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 6, marginBottom: 10 }}>
-                    {top3.map((q) => (
-                      <div key={`mv-t-${q.symbol}`} style={{ background: `${C.green}18`, border: `1px solid ${C.green}44`, borderRadius: 6, padding: "6px 10px" }}>
-                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text }}>{q.symbol}</div>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, fontWeight: 700 }}>+{(q.changesPercentage || 0).toFixed(2)}%</div>
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>${(q.price || 0).toFixed(2)}</div>
+                  <div>
+                    {isExt && (
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: extColor, fontWeight: 700, marginBottom: 4, letterSpacing: "0.1em" }}>
+                        {extLabel}MARKET MOVERS
                       </div>
-                    ))}
-                    {bot3.map((q) => (
-                      <div key={`mv-b-${q.symbol}`} style={{ background: `${C.red}18`, border: `1px solid ${C.red}44`, borderRadius: 6, padding: "6px 10px" }}>
-                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text }}>{q.symbol}</div>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, fontWeight: 700 }}>{(q.changesPercentage || 0).toFixed(2)}%</div>
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>${(q.price || 0).toFixed(2)}</div>
-                      </div>
-                    ))}
+                    )}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 6, marginBottom: 10 }}>
+                      {top3.map((q) => {
+                        const chg = getChg(q);
+                        return (
+                          <div key={`mv-t-${q.symbol}`} style={{ background: `${C.green}18`, border: `1px solid ${C.green}44`, borderRadius: 6, padding: "6px 10px" }}>
+                            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text }}>{q.symbol}</div>
+                            <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, fontWeight: 700 }}>+{chg.toFixed(2)}%</div>
+                            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{isExt ? <span style={{ color: extColor, fontWeight: 700 }}>{extLabel} </span> : null}${(q.price || 0).toFixed(2)}</div>
+                          </div>
+                        );
+                      })}
+                      {bot3.map((q) => {
+                        const chg = getChg(q);
+                        return (
+                          <div key={`mv-b-${q.symbol}`} style={{ background: `${C.red}18`, border: `1px solid ${C.red}44`, borderRadius: 6, padding: "6px 10px" }}>
+                            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text }}>{q.symbol}</div>
+                            <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, fontWeight: 700 }}>{chg.toFixed(2)}%</div>
+                            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{isExt ? <span style={{ color: extColor, fontWeight: 700 }}>{extLabel} </span> : null}${(q.price || 0).toFixed(2)}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })()}
@@ -5639,32 +5660,47 @@ export default function App() {
 
               {/* Top Movers */}
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
-                <div style={{ fontSize: 11, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 10 }}>
-                  WATCHLIST MOVERS
-                </div>
-                {[...watchlistData]
-                  .sort((a, b) => Math.abs(b.changesPercentage || 0) - Math.abs(a.changesPercentage || 0))
-                  .slice(0, 5)
-                  .map(q => {
-                    const chg = q.changesPercentage || 0;
-                    const isUp = chg >= 0;
-                    return (
-                      <div key={q.symbol} onClick={() => setSelectedStock(q)} style={{
-                        display: "flex", justifyContent: "space-between", padding: "4px 0",
-                        borderBottom: `1px solid ${C.border}`, cursor: "pointer",
-                      }}>
-                        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text }}>{q.symbol}</span>
-                        <span style={{
-                          fontFamily: MONO, fontSize: 10, fontWeight: 700,
-                          color: isUp ? C.green : C.red,
-                          padding: "1px 6px", borderRadius: 2,
-                          background: isUp ? C.greenBg : C.redBg,
-                        }}>
-                          {isUp ? "+" : ""}{chg.toFixed(2)}%
-                        </span>
+                {(() => {
+                  const isPreMkt = marketSession === "PREMARKET";
+                  const isPostMkt = marketSession === "AFTERMARKET";
+                  const isExt = isPreMkt || isPostMkt;
+                  const extLabel = isPreMkt ? "PRE" : "POST";
+                  const extColor = isPreMkt ? C.accent : C.amber;
+                  const getChg = (q) => isExt
+                    ? Number(isPreMkt ? q.preMarketChangePercent : q.postMarketChangePercent) || 0
+                    : (q.changesPercentage || 0);
+                  return (
+                    <>
+                      <div style={{ fontSize: 11, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                        WATCHLIST MOVERS
+                        {isExt && <span style={{ fontSize: 9, fontFamily: MONO, color: extColor, fontWeight: 700, border: `1px solid ${extColor}44`, padding: "1px 5px", borderRadius: 3 }}>{extLabel}</span>}
                       </div>
-                    );
-                  })}
+                      {[...watchlistData]
+                        .sort((a, b) => Math.abs(getChg(b)) - Math.abs(getChg(a)))
+                        .slice(0, 5)
+                        .map(q => {
+                          const chg = getChg(q);
+                          const isUp = chg >= 0;
+                          return (
+                            <div key={q.symbol} onClick={() => setSelectedStock(q)} style={{
+                              display: "flex", justifyContent: "space-between", padding: "4px 0",
+                              borderBottom: `1px solid ${C.border}`, cursor: "pointer",
+                            }}>
+                              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text }}>{q.symbol}</span>
+                              <span style={{
+                                fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                                color: isUp ? C.green : C.red,
+                                padding: "1px 6px", borderRadius: 2,
+                                background: isUp ? C.greenBg : C.redBg,
+                              }}>
+                                {isUp ? "+" : ""}{chg.toFixed(2)}%
+                              </span>
+                            </div>
+                          );
+                        })}
+                    </>
+                  );
+                })()}
               </div>
 
               {/* News Wire */}
