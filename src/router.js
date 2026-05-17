@@ -71,6 +71,18 @@ async function handleRequest(req, res) {
       return handlePriceAlerts(req, res, requestUrl);
     }
 
+    // Clean URL aliases
+    if (pathname === "/dealer" || pathname === "/dealer/") {
+      res.writeHead(302, { Location: "/client/dealer/index.html" });
+      res.end();
+      return;
+    }
+    if (pathname === "/workstation" || pathname === "/workstation/") {
+      res.writeHead(302, { Location: "/client/trading/workstation.html" });
+      res.end();
+      return;
+    }
+
     return serveStatic(pathname, res);
   } catch (error) {
     return writeJson(res, 500, {

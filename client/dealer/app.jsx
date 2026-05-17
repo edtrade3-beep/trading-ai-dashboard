@@ -1,4 +1,4 @@
-const { useMemo, useState, useEffect, useRef } = React;
+const { useMemo, useState, useEffect, useRef, useCallback } = React;
 
 // App password is validated server-side via POST /api/auth/check (never stored in source)
 const PDF_SLOTS = 3;
