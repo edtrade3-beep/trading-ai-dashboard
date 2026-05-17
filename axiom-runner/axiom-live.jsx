@@ -6769,11 +6769,46 @@ export default function App() {
                               </td>
                               <td style={{ padding: "8px 10px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textSec, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.notes || "—"}</td>
                               <td style={{ padding: "8px 10px", textAlign: "center" }}>
-                                <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                                <div style={{ display: "flex", gap: 4, justifyContent: "center", flexWrap: "wrap" }}>
                                   {e.status === "open" && (
                                     <button onClick={() => { setJournalCloseId(e.id); setJournalClosePrice(""); }}
                                       style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>CLOSE</button>
                                   )}
+                                  <button
+                                    onClick={() => {
+                                      const rr = e.entry && e.stopLoss && e.target ? ((e.target - e.entry) / Math.max(0.001, e.entry - e.stopLoss)).toFixed(2) : "—";
+                                      const w = window.open("", "_blank", "width=700,height=820");
+                                      w.document.write(`<!DOCTYPE html><html><head><title>Trade Sheet – ${e.ticker}</title>
+<style>body{font-family:Inter,Arial,sans-serif;padding:32px 40px;color:#0f172a;font-size:13px;}h1{font-size:22px;font-weight:900;margin:0 0 4px;}h2{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin:24px 0 8px;}table{width:100%;border-collapse:collapse;margin-bottom:16px;}td{padding:7px 10px;border-bottom:1px solid #e2e8f0;}td:first-child{font-weight:700;width:36%;}.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:800;}.green{background:#dcfce7;color:#15803d;}.red{background:#fee2e2;color:#b91c1c;}.blue{background:#dbeafe;color:#1d4ed8;}.amber{background:#fef9c3;color:#92400e;}.footer{margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;}@media print{body{padding:16px;}}</style>
+</head><body>
+<h1>${e.ticker} Trade Sheet</h1>
+<span class="badge ${e.side === "BUY" ? "green" : e.side === "SELL" ? "red" : "blue"}">${e.side}</span>
+<span class="badge ${e.status === "open" ? "blue" : e.status === "closed" ? "green" : "amber"}" style="margin-left:6px">${String(e.status).toUpperCase()}</span>
+<h2>Plan</h2>
+<table>
+<tr><td>Entry</td><td>${e.entry ? "$" + e.entry : "—"}</td></tr>
+<tr><td>Stop Loss</td><td>${e.stopLoss ? "$" + e.stopLoss : "—"}</td></tr>
+<tr><td>Target</td><td>${e.target ? "$" + e.target : "—"}</td></tr>
+<tr><td>R:R</td><td>${rr}</td></tr>
+<tr><td>Score</td><td>${e.score}/100</td></tr>
+<tr><td>Timeframe</td><td>${e.timeframe || "—"}</td></tr>
+<tr><td>Style</td><td>${e.style || "—"}</td></tr>
+</table>
+<h2>Result</h2>
+<table>
+<tr><td>Status</td><td>${String(e.status).toUpperCase()}</td></tr>
+<tr><td>Close Price</td><td>${e.closePrice ? "$" + e.closePrice : "—"}</td></tr>
+<tr><td>P/L</td><td>${e.pnl != null ? (e.pnl >= 0 ? "+" : "") + "$" + Number(e.pnl).toFixed(2) : "—"}</td></tr>
+</table>
+<h2>Notes</h2>
+<p style="line-height:1.6;padding:8px;background:#f8fafc;border-radius:6px;white-space:pre-wrap">${e.notes || "No notes."}</p>
+<div class="footer">Dixie AM Trading Platform · Logged ${new Date(e.openedAt).toLocaleString()} · Printed ${new Date().toLocaleString()}</div>
+<script>setTimeout(()=>{window.print();},300);</script>
+</body></html>`);
+                                      w.document.close();
+                                    }}
+                                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                  >PRINT</button>
                                 </div>
                               </td>
                             </tr>
