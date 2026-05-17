@@ -2683,6 +2683,7 @@ export default function App() {
   const [journalStats, setJournalStats] = useState(null);
   const [journalLoading, setJournalLoading] = useState(false);
   const [journalFilter, setJournalFilter] = useState("all");
+  const [journalTickerSearch, setJournalTickerSearch] = useState("");
   const [journalCloseId, setJournalCloseId] = useState(null);
   const [journalClosePrice, setJournalClosePrice] = useState("");
   const [watchlistLogSymbol, setWatchlistLogSymbol] = useState(null);
@@ -7610,13 +7611,19 @@ export default function App() {
             })()}
 
             {/* Toolbar */}
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
               {["all", "open", "closed", "cancelled"].map(f => (
                 <button key={f} onClick={() => setJournalFilter(f)}
                   style={{ border: `1px solid ${journalFilter === f ? C.accent : C.border}`, background: journalFilter === f ? `${C.accent}18` : C.surface, color: journalFilter === f ? C.accent : C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", textTransform: "uppercase" }}>
                   {f}
                 </button>
               ))}
+              <input
+                value={journalTickerSearch}
+                onChange={e => setJournalTickerSearch(e.target.value.toUpperCase())}
+                placeholder="Search ticker…"
+                style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 10, padding: "6px 8px", width: 120, borderRadius: 4 }}
+              />
               <button onClick={loadJournalTab} disabled={journalLoading}
                 style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", marginLeft: "auto" }}>
                 {journalLoading ? "LOADING…" : "REFRESH"}
@@ -7638,9 +7645,15 @@ export default function App() {
                 <div style={{ padding: 24, textAlign: "center", color: C.textDim, fontSize: 12, fontFamily: MONO }}>LOADING…</div>
               )}
               {journalEntries.length > 0 && (() => {
-                const filtered = journalFilter === "all" ? journalEntries : journalEntries.filter(e => e.status === journalFilter);
+                const filtered = journalEntries.filter(e => {
+                  if (journalFilter !== "all" && e.status !== journalFilter) return false;
+                  if (journalTickerSearch && !String(e.ticker || "").toUpperCase().includes(journalTickerSearch)) return false;
+                  return true;
+                });
                 if (!filtered.length) return (
-                  <div style={{ padding: 20, textAlign: "center", color: C.textDim, fontSize: 12, fontFamily: MONO }}>No {journalFilter} entries.</div>
+                  <div style={{ padding: 20, textAlign: "center", color: C.textDim, fontSize: 12, fontFamily: MONO }}>
+                    No entries {journalFilter !== "all" ? `with status "${journalFilter}"` : ""}{journalTickerSearch ? ` matching "${journalTickerSearch}"` : ""}.
+                  </div>
                 );
                 return (
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
