@@ -5409,7 +5409,17 @@ export default function App() {
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", marginBottom: 14 }}>
               <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700 }}>PRICE TARGET ALERTS</span>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Server-side · Telegram notification when triggered</span>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Server-side · Telegram notification when triggered</span>
+                  {priceAlerts.some(a => a.status !== "active") && (
+                    <button onClick={async () => {
+                      await fetch("/api/price-alerts/clear-history", { method: "DELETE" });
+                      loadPriceAlertList();
+                    }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>
+                      CLEAR HISTORY
+                    </button>
+                  )}
+                </div>
               </div>
               <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 <input value={paSymbol} onChange={e => setPaSymbol(e.target.value.toUpperCase())} placeholder="Symbol (e.g. NVDA)"

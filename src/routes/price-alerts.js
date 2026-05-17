@@ -78,6 +78,14 @@ async function handlePriceAlerts(req, res, requestUrl) {
     return writeJson(res, 200, { ok: true });
   }
 
+  // DELETE /api/price-alerts/clear-history — remove all triggered and cancelled alerts
+  if (pathname === "/api/price-alerts/clear-history" && req.method === "DELETE") {
+    const alerts = loadPriceAlerts();
+    const kept = alerts.filter(a => a.status === "active");
+    savePriceAlerts(kept);
+    return writeJson(res, 200, { ok: true, removed: alerts.length - kept.length });
+  }
+
   return writeJson(res, 404, { error: "Unknown price-alerts endpoint" });
 }
 
