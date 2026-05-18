@@ -134,6 +134,18 @@ function buildCustomerReply(vehicle, pricing, finance, style) {
   if (style === "whatsapp") {
     return `Hi 👋 Yes the *${title}* is still available!\n\n💰 Price: *${money(pricing.suggested)}*\n💸 Est. payment: *${payLine}*\n\n✅ ITIN accepted\n✅ All credit welcome\n✅ Low down options\n\nWhen can you come see it? 🚗`;
   }
+  if (style === "lowball") {
+    return `Hi! Thanks for reaching out on the ${title}.\n\nI appreciate the offer but we're firm at ${money(pricing.suggested)}. This one is priced right for the market — clean title, ${vehicle.condition ? vehicle.condition.toLowerCase() + " condition" : "nice condition"}.\n\nIf financing helps, estimated payment is around ${payLine} with no major credit requirements.\n\nHappy to let you come see it and make a decision in person. What day works for you?`;
+  }
+  if (style === "appointment") {
+    return `Great, looking forward to seeing you!\n\nJust to confirm — you're coming to see the ${title}.\n\nWhen you arrive just ask for us by name. Bring your ID. If you're planning to buy, we can get you in and out quickly.\n\nSee you then! 👍`;
+  }
+  if (style === "followup") {
+    return `Hi! Just following up on the ${title} you were interested in.\n\nStill available at ${money(pricing.suggested)}. Estimated payment ${payLine}.\n\nWanted to check in before it's gone — had some interest this week. Let me know if you have any questions or want to set up a time to look at it!`;
+  }
+  if (style === "spanish") {
+    return `¡Hola! Sí, el ${title} sigue disponible.\n\n💰 Precio: ${money(pricing.suggested)}\n💸 Pago estimado: ${payLine}\n\n✅ Aceptamos ITIN\n✅ Todos los créditos bienvenidos\n✅ Enganche bajo disponible\n\n¿Cuándo puede venir a verlo? Estamos aquí 7 días a la semana. 🚗`;
+  }
   // default: info
   return `Hi! Yes the ${title} is still available.\n\nPrice: ${money(pricing.suggested)}\nEstimated payment: ${payLine}\n\nCome by anytime — we're here 7 days a week. Feel free to bring a mechanic!`;
 }
@@ -208,6 +220,25 @@ Estimated payment: ${paymentLine}
 Serious buyers only. Price is negotiable for cash.${notes ? "\n\n" + notes : ""}`;
   }
 
+  if (style === "spanish") {
+    return `${title}
+
+💰 Precio: ${money(pricing.suggested)}
+🚗 ${vehicle.mileage ? vehicle.mileage.toLocaleString() + " millas" : ""}
+📋 Condición: ${vehicle.condition}
+
+${paymentLine.replace("Estimated payment:", "Pago estimado:")}
+
+✅ Aceptamos ITIN
+✅ Todos los créditos bienvenidos
+✅ Enganche bajo disponible
+✅ Título limpio
+
+${FINANCE_LINE.replace("We finance everyone","Financiamos a todos").replace("ITIN accepted","ITIN aceptado")}
+
+📩 Mándenos un mensaje — estamos aquí 7 días a la semana.${notes ? "\n\n" + notes : ""}`;
+  }
+
   return `${title}
 
 ✅ Clean title
@@ -279,11 +310,13 @@ function App() {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [siteStatus, setSiteStatus] = useState("");
   const [siteResult, setSiteResult] = useState(null);
+  const [sitePreview, setSitePreview] = useState([]);
   const [siteLoading, setSiteLoading] = useState(false);
   const [pdfFiles, setPdfFiles] = useState(Array(PDF_SLOTS).fill(null));
   const [pdfStatus, setPdfStatus] = useState("");
   const [pdfResults, setPdfResults] = useState([]);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [clearInvConfirm, setClearInvConfirm] = useState(false);
   const [adStyle, setAdStyle] = useState("standard");
   const [replyStyle, setReplyStyle] = useState("info");
   const [notes, setNotes] = useState("");
@@ -293,7 +326,7 @@ function App() {
   const [aiDescLoading, setAiDescLoading] = useState(false);
   const [aiDescStyle, setAiDescStyle] = useState("facebook");
   const [showAddForm, setShowAddForm] = useState(false);
-  const EMPTY_VEHICLE_FORM = { year: "", make: "", model: "", trim: "", mileage: "", price: "", condition: "Good", vin: "" };
+  const EMPTY_VEHICLE_FORM = { year: "", make: "", model: "", trim: "", mileage: "", price: "", condition: "Good", vin: "", photoUrl: "" };
   const [addForm, setAddForm] = useState(EMPTY_VEHICLE_FORM);
   const [soldFilter, setSoldFilter] = useState("active"); // "active" | "sold" | "all"
   const [soldFormVin, setSoldFormVin] = useState(null);
@@ -353,6 +386,24 @@ function App() {
     const totalGross = sold.reduce((s, v) => s + (v.soldPrice - v.pricing.totalCost), 0);
     const avgGross = Math.round(totalGross / sold.length);
     return { count: sold.length, totalGross, avgGross };
+  }, [rankedInventory]);
+
+  const monthlyGross = useMemo(() => {
+    const sold = rankedInventory.filter(v => v.soldPrice > 0 && v.soldAt);
+    if (sold.length < 2) return null;
+    const byMonth = {};
+    sold.forEach(v => {
+      const d = new Date(v.soldAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      if (!byMonth[key]) byMonth[key] = { gross: 0, units: 0 };
+      byMonth[key].gross += v.soldPrice - v.pricing.totalCost;
+      byMonth[key].units++;
+    });
+    const months = Object.keys(byMonth).sort().slice(-6);
+    if (months.length < 2) return null;
+    const rows = months.map(k => ({ key: k, ...byMonth[k] }));
+    const maxGross = Math.max(...rows.map(r => Math.abs(r.gross)), 1);
+    return { rows, maxGross };
   }, [rankedInventory]);
 
   const filteredInventory = useMemo(() => {
@@ -515,6 +566,7 @@ function App() {
       mileage: Number(addForm.mileage) || 0,
       price: Number(addForm.price) || 0,
       condition: addForm.condition || "Good",
+      photoUrl: addForm.photoUrl.trim() || "",
       addedAt: new Date().toISOString(),
     };
     setInventory(prev => [newItem, ...prev]);
@@ -624,9 +676,11 @@ function App() {
     }
 
     setSiteLoading(true);
-    setSiteStatus("Fetching inventory from website...");
+    setSiteStatus("Connecting to website…");
     setSiteResult(null);
+    setSitePreview([]);
 
+    const statusTimer = setTimeout(() => setSiteStatus("Still working — some sites are slow (up to 15s)…"), 5000);
     try {
       const response = await fetch("/api/inventory/import-website", {
         method: "POST",
@@ -638,6 +692,7 @@ function App() {
 
       const items = Array.isArray(data.items) ? data.items : [];
       setInventory(items);
+      setSitePreview(items.slice(0, 3));
       setSiteResult({ count: items.length, method: data.method || "", error: null });
       setSiteStatus("");
       if (items.length) setTab("Inventory");
@@ -645,6 +700,7 @@ function App() {
       setSiteResult({ count: 0, method: "", error: error.message || "Website import failed." });
       setSiteStatus("");
     } finally {
+      clearTimeout(statusTimer);
       setSiteLoading(false);
     }
   }
@@ -819,14 +875,34 @@ function App() {
                 </div>
               </div>
 
-              <div style={{ ...styles.toolbarGrid, marginTop: 12, gridTemplateColumns: "minmax(0, 2fr) 220px" }}>
-                <Field label="Website URL" styles={styles}>
-                  <input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://yourdealerwebsite.com/inventory" style={styles.input} />
-                </Field>
-                <div style={styles.bottomAlign}>
-                  <button onClick={importWebsite} style={{ ...styles.buttonSuccess, width: "100%" }}>{siteLoading ? "Importing..." : "Pull Cars"}</button>
-                </div>
-              </div>
+              {(() => {
+                const urlTrimmed = websiteUrl.trim();
+                const urlOk = /^https?:\/\/.{4,}/i.test(urlTrimmed);
+                const urlBad = urlTrimmed.length > 4 && !urlOk;
+                return (
+                  <div style={{ ...styles.toolbarGrid, marginTop: 12, gridTemplateColumns: "minmax(0, 2fr) 220px" }}>
+                    <Field label="Website URL" styles={styles}>
+                      <div style={{ position: "relative" }}>
+                        <input
+                          value={websiteUrl}
+                          onChange={(e) => { setWebsiteUrl(e.target.value); setSiteResult(null); setSitePreview([]); }}
+                          onKeyDown={(e) => e.key === "Enter" && urlOk && !siteLoading && importWebsite()}
+                          placeholder="https://yourdealerwebsite.com/inventory"
+                          style={{ ...styles.input, paddingRight: 36, borderColor: urlBad ? theme.warning : urlOk ? theme.success : undefined }}
+                        />
+                        {urlOk && <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: theme.success, fontSize: 16, pointerEvents: "none" }}>✓</span>}
+                        {urlBad && <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: theme.warning, fontSize: 16, pointerEvents: "none" }}>✗</span>}
+                      </div>
+                      {urlBad && <div style={{ fontSize: 11, color: theme.warning, marginTop: 3 }}>URL must start with https:// or http://</div>}
+                    </Field>
+                    <div style={styles.bottomAlign}>
+                      <button onClick={importWebsite} disabled={siteLoading || !urlOk} style={{ ...styles.buttonSuccess, width: "100%", opacity: (!urlOk || siteLoading) ? 0.55 : 1 }}>
+                        {siteLoading ? "Importing…" : "Pull Cars"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div style={{ ...styles.pdfGrid, marginTop: 12 }}>
                 {Array.from({ length: PDF_SLOTS }).map((_, index) => (
@@ -848,20 +924,46 @@ function App() {
                 </div>
               )}
               {!siteLoading && siteResult && (
-                <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 6, border: `1px solid ${siteResult.error ? theme.warning + "66" : theme.success + "66"}`, background: siteResult.error ? theme.warning + "11" : theme.success + "11", display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 18 }}>{siteResult.error ? "⚠️" : "✅"}</span>
-                  <div>
-                    {siteResult.error
-                      ? <div style={{ fontSize: 13, color: theme.warning, fontWeight: 600 }}>{siteResult.error}</div>
-                      : <div style={{ fontSize: 13, color: theme.success, fontWeight: 600 }}>{siteResult.count} vehicle{siteResult.count !== 1 ? "s" : ""} imported — switched to Inventory tab</div>
-                    }
-                    {siteResult.method && !siteResult.error && (
-                      <div style={{ fontSize: 11, color: theme.muted, marginTop: 2 }}>Source method: {siteResult.method}</div>
-                    )}
-                    {siteResult.count === 0 && !siteResult.error && (
-                      <div style={{ fontSize: 11, color: theme.muted, marginTop: 2 }}>No vehicles detected. Try a direct /inventory or /vehicles page URL.</div>
-                    )}
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ padding: "10px 14px", borderRadius: 6, border: `1px solid ${siteResult.error ? theme.warning + "66" : theme.success + "66"}`, background: siteResult.error ? theme.warning + "11" : theme.success + "11", display: "flex", alignItems: "flex-start", gap: 10 }}>
+                    <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>{siteResult.error ? "⚠️" : siteResult.count === 0 ? "🔍" : "✅"}</span>
+                    <div style={{ flex: 1 }}>
+                      {siteResult.error
+                        ? <>
+                            <div style={{ fontSize: 13, color: theme.warning, fontWeight: 600 }}>{siteResult.error}</div>
+                            <div style={{ fontSize: 11, color: theme.muted, marginTop: 4 }}>
+                              Try the direct inventory page URL (e.g. <code>/inventory</code> or <code>/used-cars</code>). Dealer sites with login walls or heavy JS may not be parseable.
+                            </div>
+                          </>
+                        : siteResult.count === 0
+                          ? <>
+                              <div style={{ fontSize: 13, color: theme.muted, fontWeight: 600 }}>No vehicles detected on that page.</div>
+                              <div style={{ fontSize: 11, color: theme.muted, marginTop: 4 }}>
+                                Try a more specific URL like <code>/used-inventory</code>, <code>/vehicles/used</code>, or export the lot as a PDF and use the PDF import instead.
+                              </div>
+                            </>
+                          : <>
+                              <div style={{ fontSize: 13, color: theme.success, fontWeight: 600 }}>
+                                {siteResult.count} vehicle{siteResult.count !== 1 ? "s" : ""} imported
+                                {siteResult.method && <span style={{ fontWeight: 400, color: theme.muted, fontSize: 11 }}> via {siteResult.method}</span>}
+                              </div>
+                              <button onClick={() => setTab("Inventory")} style={{ marginTop: 5, background: "transparent", border: "none", padding: 0, color: theme.primary, fontSize: 11, cursor: "pointer", fontWeight: 700 }}>
+                                View in Inventory tab →
+                              </button>
+                            </>
+                      }
+                    </div>
                   </div>
+                  {sitePreview.length > 0 && (
+                    <div style={{ marginTop: 6, padding: "8px 12px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.surface }}>
+                      <div style={{ fontSize: 10, color: theme.muted, fontWeight: 700, marginBottom: 6, letterSpacing: "0.06em" }}>PREVIEW — FIRST {sitePreview.length} VEHICLES</div>
+                      {sitePreview.map((v, i) => (
+                        <div key={i} style={{ fontSize: 12, color: theme.text, padding: "3px 0", borderTop: i > 0 ? `1px solid ${theme.border}` : "none" }}>
+                          {v.year} {v.make} {v.model}{v.trim ? " " + v.trim : ""} · {v.mileage ? v.mileage.toLocaleString() + " mi" : "—"} · {v.price ? "$" + v.price.toLocaleString() : "no price"}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               {pdfLoading && pdfStatus && (
@@ -882,7 +984,10 @@ function App() {
                           {r.error
                             ? <div style={{ fontSize: 11, color: theme.warning }}>{r.error}</div>
                             : r.count === 0
-                              ? <div style={{ fontSize: 11, color: theme.warning }}>No vehicles found — PDF may be image-based or format not recognized</div>
+                              ? <>
+                                  <div style={{ fontSize: 11, color: theme.warning }}>No vehicles found — PDF may be a scanned image</div>
+                                  <div style={{ fontSize: 10, color: theme.muted, marginTop: 2 }}>Only text-based PDFs work. Try exporting from your DMS as a text PDF, or copy-paste the lot list into a .txt file.</div>
+                                </>
                               : <div style={{ fontSize: 11, color: theme.success }}>{r.count} vehicle{r.count !== 1 ? "s" : ""} imported</div>
                           }
                         </div>
@@ -1246,6 +1351,7 @@ ${FINANCE_LINE}` : "Decode a vehicle first to generate finance wording."}
                     <button onClick={() => setAdStyle("cash")} style={adStyle === "cash" ? styles.buttonSuccess : styles.buttonGhost}>Cash Buyer</button>
                     <button onClick={() => setAdStyle("craigslist")} style={adStyle === "craigslist" ? styles.buttonPrimary : styles.buttonGhost}>Craigslist</button>
                     <button onClick={() => setAdStyle("offerup")} style={adStyle === "offerup" ? styles.buttonPrimary : styles.buttonGhost}>OfferUp</button>
+                    <button onClick={() => setAdStyle("spanish")} style={adStyle === "spanish" ? styles.buttonPrimary : styles.buttonGhost}>Español</button>
                   </div>
                   <Field label="Extra Notes" styles={styles}>
                     <textarea value={notes} onChange={(e) => setNotes(e.target.value)} style={styles.textarea} placeholder="Add custom notes for the ad..." />
@@ -1264,7 +1370,7 @@ ${FINANCE_LINE}` : "Decode a vehicle first to generate finance wording."}
                 </Panel>
 
                 <Panel title="Ad Summary" badge="Finance Included" styles={styles}>
-                  <InfoRow label="Platform" value={{ standard: "Facebook", hot: "Facebook", cash: "Facebook", craigslist: "Craigslist", offerup: "OfferUp" }[adStyle] || adStyle} styles={styles} />
+                  <InfoRow label="Platform" value={{ standard: "Facebook", hot: "Facebook", cash: "Facebook", craigslist: "Craigslist", offerup: "OfferUp", spanish: "Facebook (Español)" }[adStyle] || adStyle} styles={styles} />
                   <InfoRow label="Price" value={pricing ? money(pricing.suggested) : "-"} styles={styles} />
                   <InfoRow label="Payment" value={pricing ? `${money(payment)}/mo` : "-"} styles={styles} />
                   <InfoRow label="W.A.C." value={`after ${money(finance.downPayment)} down`} styles={styles} />
@@ -1278,11 +1384,15 @@ ${FINANCE_LINE}` : "Decode a vehicle first to generate finance wording."}
                 </div>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
                   {[
-                    { key: "info",      label: "Just Info" },
-                    { key: "firm",      label: "Price Firm" },
-                    { key: "flex",      label: "Some Flexibility" },
-                    { key: "finance",   label: "Finance Push" },
-                    { key: "whatsapp",  label: "WhatsApp" },
+                    { key: "info",        label: "Just Info" },
+                    { key: "firm",        label: "Price Firm" },
+                    { key: "flex",        label: "Some Flexibility" },
+                    { key: "finance",     label: "Finance Push" },
+                    { key: "whatsapp",    label: "WhatsApp" },
+                    { key: "lowball",     label: "Counter Lowball" },
+                    { key: "appointment", label: "Confirm Appt" },
+                    { key: "followup",    label: "Follow Up" },
+                    { key: "spanish",     label: "Español 🇲🇽" },
                   ].map(({ key, label }) => (
                     <button
                       key={key}
@@ -1333,6 +1443,12 @@ ${FINANCE_LINE}` : "Decode a vehicle first to generate finance wording."}
                       ? `${filteredInventory.length} of ${rankedInventory.length} vehicles`
                       : `${rankedInventory.length} vehicle${rankedInventory.length !== 1 ? "s" : ""}`}
                   </span>
+                  {rankedInventory.length > 0 && (
+                    <button
+                      onClick={() => { if (clearInvConfirm) { setInventory([]); setClearInvConfirm(false); } else { setClearInvConfirm(true); setTimeout(() => setClearInvConfirm(false), 3000); } }}
+                      style={{ ...styles.buttonGhost, color: clearInvConfirm ? "#dc2626" : theme.muted, borderColor: clearInvConfirm ? "#fecaca" : undefined, background: clearInvConfirm ? "#fef2f2" : "transparent", fontSize: 12, height: 34, padding: "0 10px", marginLeft: "auto" }}
+                    >{clearInvConfirm ? "Confirm Clear All?" : "Clear All"}</button>
+                  )}
                 </div>
 
                 {soldStats && soldFilter !== "active" && (
@@ -1342,6 +1458,32 @@ ${FINANCE_LINE}` : "Decode a vehicle first to generate finance wording."}
                     <InfoRow label="Avg Gross Per Deal" value={money(soldStats.avgGross)} styles={styles} />
                   </div>
                 )}
+
+                {monthlyGross && soldFilter !== "active" && (() => {
+                  const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                  return (
+                    <div style={{ ...styles.card, marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: theme.muted, letterSpacing: "0.06em", marginBottom: 12 }}>MONTHLY GROSS PROFIT</div>
+                      <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 80 }}>
+                        {monthlyGross.rows.map(r => {
+                          const [yr, mo] = r.key.split("-");
+                          const label = MONTH_ABBR[parseInt(mo, 10) - 1] + " '" + yr.slice(2);
+                          const pct = Math.abs(r.gross) / monthlyGross.maxGross;
+                          const barH = Math.max(Math.round(pct * 64), 4);
+                          const color = r.gross >= 0 ? theme.success : "#dc2626";
+                          return (
+                            <div key={r.key} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                              <div style={{ fontSize: 9, color: theme.muted, fontWeight: 600 }}>{r.gross >= 0 ? "+" : ""}{Math.round(r.gross / 1000)}k</div>
+                              <div style={{ width: "100%", height: barH, background: color, borderRadius: "3px 3px 0 0", opacity: 0.85, transition: "height 0.3s" }} title={`${r.units} units · ${money(r.gross)}`} />
+                              <div style={{ fontSize: 9, color: theme.muted, whiteSpace: "nowrap" }}>{label}</div>
+                              <div style={{ fontSize: 9, color: theme.muted }}>{r.units}u</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <input
                   value={inventorySearch}
@@ -1373,6 +1515,14 @@ ${FINANCE_LINE}` : "Decode a vehicle first to generate finance wording."}
                           />
                         </Field>
                       ))}
+                      <Field label="Photo URL (optional)" styles={styles}>
+                        <input
+                          value={addForm.photoUrl}
+                          onChange={e => setAddForm(f => ({ ...f, photoUrl: e.target.value }))}
+                          placeholder="https://…"
+                          style={styles.input}
+                        />
+                      </Field>
                       <Field label="Condition" styles={styles}>
                         <select value={addForm.condition} onChange={e => setAddForm(f => ({ ...f, condition: e.target.value }))} style={styles.input}>
                           {["Excellent", "Very Good", "Good", "Fair", "Rough"].map(c => <option key={c} value={c}>{c}</option>)}
@@ -1393,11 +1543,13 @@ ${FINANCE_LINE}` : "Decode a vehicle first to generate finance wording."}
                     {filteredInventory.map((item) => {
                       const g = dealGrade(item.score);
                       return (
-                      <div key={item.vin} style={{ ...styles.listButton, cursor: "default" }}>
+                      <div key={item.vin} style={{ ...styles.listButton, cursor: "default", overflow: "hidden", paddingBottom: !item.soldPrice && item.daysOnLot != null ? 0 : undefined }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                          {item.soldPrice
-                            ? <div style={{ width: 36, height: 36, borderRadius: 10, background: "#f0fdf4", border: "1.5px solid #bbf7d0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 900, fontSize: 10, color: "#16a34a" }}>SOLD</div>
-                            : <div style={{ width: 36, height: 36, borderRadius: 10, background: g.bg, border: `1.5px solid ${g.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 900, fontSize: 16, color: g.color }}>{g.grade}</div>
+                          {item.photoUrl
+                            ? <img src={item.photoUrl} alt="" style={{ width: 52, height: 38, borderRadius: 8, objectFit: "cover", flexShrink: 0, border: `1px solid ${theme.border}` }} />
+                            : item.soldPrice
+                              ? <div style={{ width: 36, height: 36, borderRadius: 10, background: "#f0fdf4", border: "1.5px solid #bbf7d0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 900, fontSize: 10, color: "#16a34a" }}>SOLD</div>
+                              : <div style={{ width: 36, height: 36, borderRadius: 10, background: g.bg, border: `1.5px solid ${g.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 900, fontSize: 16, color: g.color }}>{g.grade}</div>
                           }
                           <div onClick={() => chooseVehicle(item)} role="button" tabIndex={0} style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
                             <div style={{ fontWeight: 900 }}>{`${item.year} ${item.make} ${item.model}${item.trim ? " " + item.trim : ""}`}</div>
@@ -1440,7 +1592,7 @@ ${FINANCE_LINE}` : "Decode a vehicle first to generate finance wording."}
                             onClick={() => {
                               if (editVin === item.vin) { setEditVin(null); return; }
                               setEditVin(item.vin);
-                              setEditForm({ price: String(item.price || ""), mileage: String(item.mileage || ""), condition: item.condition || "Good", year: String(item.year || ""), make: item.make || "", model: item.model || "", trim: item.trim || "" });
+                              setEditForm({ price: String(item.price || ""), mileage: String(item.mileage || ""), condition: item.condition || "Good", year: String(item.year || ""), make: item.make || "", model: item.model || "", trim: item.trim || "", photoUrl: item.photoUrl || "" });
                             }}
                             style={{ ...styles.buttonGhost, height: 34, padding: "0 10px", fontSize: 12, flexShrink: 0, color: editVin === item.vin ? theme.primary : theme.muted }}
                             title="Edit vehicle details"
@@ -1450,6 +1602,15 @@ ${FINANCE_LINE}` : "Decode a vehicle first to generate finance wording."}
                             style={{ ...styles.buttonGhost, height: 34, padding: "0 10px", fontSize: 12, flexShrink: 0, color: item.dealerNotes ? theme.warning : theme.muted }}
                             title={item.dealerNotes || "Add dealer notes"}
                           >Notes</button>
+                          {item.vin && !item.vin.startsWith("MAN-") && (
+                            <a
+                              href={`https://www.carfax.com/VehicleHistory/ar20/p/Report.cfx?vin=${item.vin}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ ...styles.buttonGhost, height: 34, padding: "0 10px", fontSize: 12, flexShrink: 0, textDecoration: "none", display: "inline-flex", alignItems: "center", color: theme.primary }}
+                              title="Open CARFAX report"
+                            >CARFAX</a>
+                          )}
                           <button
                             onClick={() => deleteConfirmVin === item.vin ? deleteVehicle(item.vin) : setDeleteConfirmVin(item.vin)}
                             onBlur={() => setTimeout(() => setDeleteConfirmVin(null), 200)}
@@ -1519,6 +1680,10 @@ ${FINANCE_LINE}` : "Decode a vehicle first to generate finance wording."}
                                   {["Excellent", "Very Good", "Good", "Fair", "Rough"].map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
                               </div>
+                              <div style={{ gridColumn: "1 / -1" }}>
+                                <div style={{ fontSize: 10, color: theme.muted, fontWeight: 600, marginBottom: 3 }}>Photo URL (optional)</div>
+                                <input value={editForm.photoUrl || ""} onChange={e => setEditForm(f => ({ ...f, photoUrl: e.target.value }))} placeholder="https://…" style={{ ...styles.input, fontSize: 12, height: 34, padding: "0 8px", width: "100%" }} />
+                              </div>
                             </div>
                             <div style={{ display: "flex", gap: 8 }}>
                               <button
@@ -1531,6 +1696,7 @@ ${FINANCE_LINE}` : "Decode a vehicle first to generate finance wording."}
                                     mileage: Number(String(editForm.mileage).replace(/[^0-9]/g, "")) || item.mileage,
                                     price: Number(String(editForm.price).replace(/[^0-9.]/g, "")) || item.price,
                                     condition: editForm.condition || item.condition,
+                                    photoUrl: (editForm.photoUrl || "").trim(),
                                   };
                                   setInventory(prev => prev.map(v => v.vin === item.vin ? { ...v, ...updated } : v));
                                   setEditVin(null);
@@ -1541,6 +1707,28 @@ ${FINANCE_LINE}` : "Decode a vehicle first to generate finance wording."}
                             </div>
                           </div>
                         )}
+                        {!item.soldPrice && item.daysOnLot != null && (() => {
+                          const MAX_DAYS = 60;
+                          const pct = Math.min(item.daysOnLot / MAX_DAYS, 1) * 100;
+                          const barColor = item.daysOnLot >= 45 ? "#dc2626" : item.daysOnLot >= 30 ? "#d97706" : "#16a34a";
+                          const label = item.daysOnLot >= 45 ? `${item.daysOnLot}d — AGING` : item.daysOnLot >= 30 ? `${item.daysOnLot}d — Watch` : `${item.daysOnLot}d on lot`;
+                          return (
+                            <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${theme.border}` }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                                <span style={{ fontSize: 10, color: barColor, fontWeight: 700 }}>{label}</span>
+                                <span style={{ fontSize: 10, color: theme.muted }}>30d · 45d · 60d</span>
+                              </div>
+                              <div style={{ height: 5, background: theme.border, borderRadius: 3, overflow: "hidden" }}>
+                                <div style={{ width: `${pct}%`, height: "100%", background: barColor, borderRadius: 3, transition: "width 0.3s" }} />
+                              </div>
+                              <div style={{ position: "relative", height: 0 }}>
+                                {[30, 45].map(d => (
+                                  <div key={d} style={{ position: "absolute", left: `${(d / MAX_DAYS) * 100}%`, top: -5, width: 1, height: 5, background: theme.muted, opacity: 0.5 }} />
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                       );
                     })}

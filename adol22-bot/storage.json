@@ -1,0 +1,16 @@
+{
+  "settings": {
+    "mode": "balanced",
+    "risk_amount": 100,
+    "max_daily_loss": -2,
+    "auto_scan": false,
+    "watchlist": ["SPY", "QQQ", "NVDA", "AAPL", "TSLA", "MSFT", "AMD", "BTC-USD", "ETH-USD"]
+  },
+  "daily_state": {
+    "date": "",
+    "daily_pnl_r": 0,
+    "alerts_this_hour": 0,
+    "hour_window_start": null
+  },
+  "rejected_log": []
+}

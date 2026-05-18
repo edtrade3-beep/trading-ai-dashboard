@@ -1557,6 +1557,27 @@ function MacroTape({ data, cryptoSnapshot }) {
           </div>
         );
       })}
+      {(() => {
+        const vixyRow = tapeRows.find(q => q.symbol === "VIXY" || q._label === "VIX");
+        if (!vixyRow) return null;
+        const vixChg = vixyRow.changesPercentage || 0;
+        const spyRow = tapeRows.find(q => q.symbol === "SPY");
+        const spyChg = spyRow ? (spyRow.changesPercentage || 0) : 0;
+        let regime, regimeColor, regimeBg;
+        if (vixChg >= 3 || (vixChg >= 1 && spyChg <= -1)) {
+          regime = "FEAR"; regimeColor = C.red; regimeBg = `${C.red}18`;
+        } else if (vixChg <= -2 || (vixChg < 0 && spyChg >= 0.5)) {
+          regime = "CALM"; regimeColor = C.green; regimeBg = `${C.green}18`;
+        } else {
+          regime = "NEUTRAL"; regimeColor = C.amber; regimeBg = `${C.amber}18`;
+        }
+        return (
+          <div style={{ padding: "7px 14px", background: regimeBg, display: "flex", alignItems: "center", gap: 6, minWidth: "fit-content", borderRight: `1px solid ${C.border}`, marginLeft: "auto", flexShrink: 0 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: regimeColor, display: "inline-block", boxShadow: `0 0 6px ${regimeColor}` }} />
+            <span style={{ fontFamily: MONO, fontSize: 10, color: regimeColor, fontWeight: 800, letterSpacing: "0.1em" }}>VIX REGIME: {regime}</span>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -2662,6 +2683,8 @@ export default function App() {
   const [apiKey, setApiKey] = useState("YAHOO_LOCAL");
   const [watchlistSymbols, setWatchlistSymbols] = useState(WATCHLIST_SYMBOLS);
   const [watchlistInput, setWatchlistInput] = useState(WATCHLIST_SYMBOLS.join(","));
+  const [watchlistNotes, setWatchlistNotes] = useState(() => { try { return JSON.parse(localStorage.getItem("ax_wl_notes") || "{}"); } catch { return {}; } });
+  const [openNoteSymbol, setOpenNoteSymbol] = useState(null);
   const [customAlertSymbol, setCustomAlertSymbol] = useState("");
   const [customAlertMin, setCustomAlertMin] = useState("70");
   const [customAlerts, setCustomAlerts] = useState([]);
@@ -2691,6 +2714,7 @@ export default function App() {
   const [journalFilter, setJournalFilter] = useState("all");
   const [journalTickerSearch, setJournalTickerSearch] = useState("");
   const [journalStyleFilter, setJournalStyleFilter] = useState("all");
+  const [journalDateRange, setJournalDateRange] = useState("all");
   const [journalSort, setJournalSort] = useState({ col: "openedAt", dir: "desc" });
   const [journalCloseId, setJournalCloseId] = useState(null);
   const [journalClosePrice, setJournalClosePrice] = useState("");
@@ -2700,8 +2724,7 @@ export default function App() {
   const [journalEditSL, setJournalEditSL] = useState("");
   const [journalEditTarget, setJournalEditTarget] = useState("");
   const [journalEditSize, setJournalEditSize] = useState("");
-  const [watchlistLogSymbol, setWatchlistLogSymbol] = useState(null);
-  const [watchlistLogSide, setWatchlistLogSide] = useState("BUY");
+  const [quickLogModal, setQuickLogModal] = useState(null);
   const [priceAlerts, setPriceAlerts] = useState([]);
   const [paSymbol, setPaSymbol] = useState("");
   const [paTarget, setPaTarget] = useState("");
@@ -2730,6 +2753,7 @@ export default function App() {
   });
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteInput, setPaletteInput] = useState("");
+  const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
   const [marketReportOpen, setMarketReportOpen] = useState(false);
   const [marketReportText, setMarketReportText] = useState("");
   const [marketReportData, setMarketReportData] = useState(null);
@@ -3234,6 +3258,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    try { localStorage.setItem("ax_wl_notes", JSON.stringify(watchlistNotes)); } catch {}
+  }, [watchlistNotes]);
+
+  useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         watchlistSymbols,
@@ -3557,6 +3585,13 @@ export default function App() {
         setPaletteOpen((v) => !v);
       } else if (e.key === "Escape") {
         setPaletteOpen(false);
+        setShortcutHelpOpen(false);
+      } else if (!paletteOpen && !shortcutHelpOpen && e.key === "?") {
+        const tag = e.target?.tagName?.toLowerCase();
+        if (tag !== "input" && tag !== "textarea") {
+          e.preventDefault();
+          setShortcutHelpOpen(v => !v);
+        }
       } else if (!paletteOpen && e.key === "/") {
         const t = e.target;
         const tag = t?.tagName?.toLowerCase();
@@ -3581,7 +3616,7 @@ export default function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [paletteOpen, activeTab, hotkeyProfile]);
+  }, [paletteOpen, shortcutHelpOpen, activeTab, hotkeyProfile]);
 
   const fetchAll = useCallback(async (key) => {
     setError("");
@@ -5018,7 +5053,7 @@ export default function App() {
               { id: "workflow", label: "WORKFLOW" },
               { id: "flow", label: "FLOW" },
               { id: "portfolio", label: "PORTFOLIO" },
-              { id: "scanner", label: "SCANNER" },
+              { id: "scanner", label: "SCANNER", badge: scannerRows.filter(r => r.scannerScore >= 70).length || null },
               { id: "backtest", label: "BACKTEST" },
               { id: "rotation", label: "ROTATION" },
               { id: "tools", label: "TOOLS" },
@@ -5033,6 +5068,8 @@ export default function App() {
               <Pill key={t.id} active={activeTab === t.id} onClick={() => setActiveTab(t.id)}>
                 {t.label}{t.id === "alerts" && triggeredAlertBadge > 0 && (
                   <span style={{ marginLeft: 5, background: C.red, color: "#fff", borderRadius: 10, padding: "1px 5px", fontSize: 9, fontWeight: 800, verticalAlign: "middle" }}>{triggeredAlertBadge}</span>
+                )}{t.badge != null && (
+                  <span style={{ marginLeft: 5, background: C.green, color: "#fff", borderRadius: 10, padding: "1px 5px", fontSize: 9, fontWeight: 800, verticalAlign: "middle" }}>{t.badge}</span>
                 )}
               </Pill>
             ))}
@@ -5295,6 +5332,7 @@ export default function App() {
                   <input
                     value={watchlistInput}
                     onChange={(e) => setWatchlistInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { const next = watchlistInput.split(",").map(s => s.trim().toUpperCase()).filter(Boolean); if (next.length) { setWatchlistSymbols(Array.from(new Set(next))); setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); } } }}
                     placeholder="AAPL,MSFT,NVDA"
                     style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 10, padding: "6px 8px", minWidth: 160, width: "min(300px, 40vw)" }}
                   />
@@ -5426,10 +5464,17 @@ export default function App() {
                                   WS
                                 </a>
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); setWatchlistLogSymbol(watchlistLogSymbol === q.symbol ? null : q.symbol); setWatchlistLogSide("BUY"); }}
-                                  style={{ border: `1px solid ${C.green}55`, background: watchlistLogSymbol === q.symbol ? `${C.green}22` : C.surface, color: C.green, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}
+                                  onClick={(e) => { e.stopPropagation(); setQuickLogModal({ symbol: q.symbol, price: q.price || 0, entry: (q.price || 0).toFixed(2), stopLoss: "", target: "", size: "", side: "BUY", timeframe: "1D", style: "Watchlist", notes: `CHG ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}% · RVOL ${rvol.toFixed(2)}x`, score: scores.composite || 0, chg, rvol }); }}
+                                  style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}
                                 >
                                   LOG
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setOpenNoteSymbol(openNoteSymbol === q.symbol ? null : q.symbol); }}
+                                  style={{ border: `1px solid ${watchlistNotes[q.symbol] ? C.amber + "88" : C.border}`, background: watchlistNotes[q.symbol] ? C.amber + "18" : C.surface, color: watchlistNotes[q.symbol] ? C.amber : C.textDim, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                  title="Add note"
+                                >
+                                  NOTE
                                 </button>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setWatchlistSymbols(prev => prev.filter(s => s !== q.symbol)); }}
@@ -5439,6 +5484,11 @@ export default function App() {
                                   ×
                                 </button>
                               </div>
+                              {watchlistNotes[q.symbol] && openNoteSymbol !== q.symbol && (
+                                <div style={{ fontFamily: MONO, fontSize: 9, color: C.amber, marginTop: 3, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  📝 {watchlistNotes[q.symbol]}
+                                </div>
+                              )}
                             </td>
                             <td style={{ padding: "10px 8px", fontFamily: MONO, fontSize: 15, color: C.text, textAlign: "right", borderBottom: `1px solid ${C.border}`, fontWeight: 700 }}>
                               ${q.price?.toFixed(2)}
@@ -5494,30 +5544,31 @@ export default function App() {
                               <ScoreBar value={scores.fund} color={C.purple} />
                             </td>
                           </tr>
-                          {watchlistLogSymbol === q.symbol && (
-                            <tr style={{ background: `${C.green}08`, borderTop: `1px solid ${C.green}33` }}>
-                              <td colSpan={colSpan} style={{ padding: "8px 12px" }}>
-                                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text }}>{q.symbol}</span>
-                                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>${(q.price || 0).toFixed(2)}</span>
-                                  {["BUY", "SELL"].map(s => (
-                                    <button key={s} onClick={() => setWatchlistLogSide(s)}
-                                      style={{ border: `1px solid ${s === "BUY" ? C.green : C.red}55`, background: watchlistLogSide === s ? (s === "BUY" ? `${C.green}22` : `${C.red}22`) : C.surface, color: s === "BUY" ? C.green : C.red, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
-                                      {s}
-                                    </button>
-                                  ))}
-                                  <button onClick={async () => {
-                                    try {
-                                      await fetch("/api/journal", { method: "POST", headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({ ticker: q.symbol, side: watchlistLogSide, score: Math.round(scores.composite || 0), entry: q.price || 0, timeframe: "1D", style: "Watchlist", notes: `Quick log from MONITOR · CHG ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}% · RVOL ${rvol.toFixed(2)}x` }),
-                                      });
-                                      setWatchlistLogSymbol(null);
-                                    } catch {}
-                                  }} style={{ border: `1px solid ${C.green}55`, background: `${C.green}18`, color: C.green, borderRadius: 4, padding: "4px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
-                                    LOG TRADE
+                          {openNoteSymbol === q.symbol && (
+                            <tr style={{ background: C.card }}>
+                              <td colSpan={colSpan} style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}` }}>
+                                <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                                  <textarea
+                                    autoFocus
+                                    value={watchlistNotes[q.symbol] || ""}
+                                    onChange={e => setWatchlistNotes(n => ({ ...n, [q.symbol]: e.target.value }))}
+                                    onClick={e => e.stopPropagation()}
+                                    placeholder={`Notes for ${q.symbol} — thesis, key levels, catalysts…`}
+                                    rows={2}
+                                    style={{ flex: 1, background: C.surface, border: `1px solid ${C.amber}44`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "6px 8px", borderRadius: 4, resize: "vertical", outline: "none" }}
+                                  />
+                                  <button
+                                    onClick={e => { e.stopPropagation(); setWatchlistNotes(n => { const next = { ...n }; delete next[q.symbol]; return next; }); setOpenNoteSymbol(null); }}
+                                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.red, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer", flexShrink: 0 }}
+                                  >
+                                    CLEAR
                                   </button>
-                                  <button onClick={() => setWatchlistLogSymbol(null)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>✕</button>
-                                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Logs to Journal with current price as entry</span>
+                                  <button
+                                    onClick={e => { e.stopPropagation(); setOpenNoteSymbol(null); }}
+                                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer", flexShrink: 0 }}
+                                  >
+                                    DONE
+                                  </button>
                                 </div>
                               </td>
                             </tr>
@@ -7050,8 +7101,23 @@ export default function App() {
 
         {activeTab === "scanner" && (
           <div>
-            <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em", marginBottom: 14 }}>
-              SCANNER BUILDER - MOMENTUM + RELATIVE STRENGTH
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
+                SCANNER BUILDER — MOMENTUM + RELATIVE STRENGTH
+              </div>
+              <div style={{ display: "flex", align: "center", gap: 10 }}>
+                {scannerRows.filter(r => r.scannerScore >= 70).length > 0 && (
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.green, fontWeight: 700 }}>
+                    ⭐ {scannerRows.filter(r => r.scannerScore >= 70).length} HIGH-SCORE SETUP{scannerRows.filter(r => r.scannerScore >= 70).length !== 1 ? "S" : ""}
+                  </span>
+                )}
+                {lastUpdate && (
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+                    Last scan: {lastUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {dataFreshSec != null && dataFreshSec < 190 ? ` · refreshes in ${Math.max(0, 180 - dataFreshSec)}s` : ""}
+                  </span>
+                )}
+              </div>
             </div>
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, marginBottom: 12 }}>
               <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
@@ -7140,12 +7206,7 @@ export default function App() {
                                 title="Add to watchlist"
                               >+WL</button>
                               <button
-                                onClick={async () => {
-                                  try {
-                                    await fetch("/api/journal", { method: "POST", headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ ticker: q.symbol, side: "BUY", score: q.scannerScore || 70, entry: q.price || 0, timeframe: "1D", style: "Scanner", notes: `Scanner hit · CHG ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}% · RVOL ${q.rvol.toFixed(2)}x · Score ${q.scannerScore}` }) });
-                                  } catch {}
-                                }}
+                                onClick={() => setQuickLogModal({ symbol: q.symbol, price: q.price || 0, entry: (q.price || 0).toFixed(2), stopLoss: "", target: "", size: "", side: "BUY", timeframe: "1D", style: "Breakout", notes: `Scanner hit · CHG ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}% · RVOL ${q.rvol.toFixed(2)}x · Score ${q.scannerScore}`, score: q.scannerScore || 0, chg, rvol: q.rvol || 0 })}
                                 style={{ border: `1px solid ${C.accent}55`, background: C.surface, color: C.accent, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
                                 title="Quick log to journal"
                               >LOG</button>
@@ -7203,15 +7264,7 @@ export default function App() {
                                 <button onClick={() => openTradingView(q.symbol)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>TV</button>
                                 <a href={`/workstation#${q.symbol}`} target="_blank" rel="noopener" style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.purple, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer", textDecoration: "none" }}>WS</a>
                                 <button onClick={() => setWatchlistSymbols((prev) => Array.from(new Set([...prev, q.symbol])))} style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>+WL</button>
-                                <button onClick={async () => {
-                                  try {
-                                    await fetch("/api/journal", {
-                                      method: "POST",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ ticker: q.symbol, side: chg >= 0 ? "BUY" : "SELL", score: Number(q.composite || 72), entry: Number(q.price || 0), notes: `Scanner hit · RVOL ${Number(q.rvol || 0).toFixed(2)}x · score ${q.composite}`, timeframe: "1D", style: "Scanner" }),
-                                    });
-                                  } catch {}
-                                }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>LOG</button>
+                                <button onClick={() => setQuickLogModal({ symbol: q.symbol, price: Number(q.price) || 0, entry: (Number(q.price) || 0).toFixed(2), stopLoss: "", target: "", size: "", side: chg >= 0 ? "BUY" : "SELL", timeframe: "1D", style: "Breakout", notes: `Server scan · RVOL ${Number(q.rvol || 0).toFixed(2)}x · Score ${q.composite}`, score: Number(q.composite || 0), chg, rvol: Number(q.rvol || 0) })} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>LOG</button>
                               </div>
                             </td>
                             <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, color: C.text }}>${Number(q.price || 0).toFixed(2)}</td>
@@ -7861,6 +7914,83 @@ export default function App() {
               );
             })()}
 
+            {/* Style breakdown */}
+            {journalEntries.length > 2 && (() => {
+              const closed = journalEntries.filter(e => e.status === "closed" && e.pnl != null);
+              if (closed.length < 2) return null;
+              const byStyle = {};
+              closed.forEach(e => {
+                const s = e.style || "Other";
+                if (!byStyle[s]) byStyle[s] = { trades: 0, wins: 0, pnl: 0 };
+                byStyle[s].trades++;
+                if (e.pnl > 0) byStyle[s].wins++;
+                byStyle[s].pnl += e.pnl;
+              });
+              const rows = Object.entries(byStyle).sort((a, b) => b[1].pnl - a[1].pnl);
+              if (rows.length < 2) return null;
+              return (
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 12 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>PERFORMANCE BY STYLE</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {rows.map(([style, s]) => {
+                      const wr = Math.round((s.wins / s.trades) * 100);
+                      const pnlColor = s.pnl >= 0 ? C.green : C.red;
+                      return (
+                        <div key={style} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 10px", minWidth: 100 }}>
+                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 3 }}>{style.toUpperCase()}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: pnlColor }}>{s.pnl >= 0 ? "+" : ""}${Math.round(s.pnl)}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 1 }}>{s.trades} trades · <span style={{ color: wr >= 50 ? C.green : C.red }}>{wr}% WR</span></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Monthly P/L chart */}
+            {journalEntries.length > 1 && (() => {
+              const closed = journalEntries.filter(e => e.status === "closed" && e.pnl != null && e.closedAt);
+              if (closed.length < 3) return null;
+              const byMonth = {};
+              closed.forEach(e => {
+                const d = new Date(e.closedAt);
+                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                if (!byMonth[key]) byMonth[key] = { pnl: 0, trades: 0, wins: 0 };
+                byMonth[key].pnl += e.pnl;
+                byMonth[key].trades++;
+                if (e.pnl > 0) byMonth[key].wins++;
+              });
+              const months = Object.keys(byMonth).sort().slice(-8);
+              if (months.length < 2) return null;
+              const rows = months.map(k => ({ key: k, ...byMonth[k] }));
+              const maxAbs = Math.max(...rows.map(r => Math.abs(r.pnl)), 1);
+              const MABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+              return (
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 12 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>MONTHLY P/L</div>
+                  <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 80 }}>
+                    {rows.map(r => {
+                      const [yr, mo] = r.key.split("-");
+                      const label = MABBR[parseInt(mo, 10) - 1] + " '" + yr.slice(2);
+                      const pct = Math.abs(r.pnl) / maxAbs;
+                      const barH = Math.max(Math.round(pct * 60), 4);
+                      const col = r.pnl >= 0 ? C.green : C.red;
+                      const wr = Math.round((r.wins / r.trades) * 100);
+                      return (
+                        <div key={r.key} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }} title={`${r.trades} trades · ${wr}% WR · ${r.pnl >= 0 ? "+" : ""}$${Math.round(r.pnl)}`}>
+                          <div style={{ fontFamily: MONO, fontSize: 9, color: col, fontWeight: 700 }}>{r.pnl >= 0 ? "+" : ""}${Math.round(r.pnl)}</div>
+                          <div style={{ width: "100%", height: barH, background: col, borderRadius: "3px 3px 0 0", opacity: 0.75, transition: "height 0.3s ease" }} />
+                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, whiteSpace: "nowrap" }}>{label}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 9, color: wr >= 50 ? C.green : C.red }}>{wr}%</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Toolbar */}
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
               {["all", "open", "closed", "cancelled"].map(f => (
@@ -7878,7 +8008,15 @@ export default function App() {
               <select value={journalStyleFilter} onChange={e => setJournalStyleFilter(e.target.value)}
                 style={{ background: C.surface, border: `1px solid ${journalStyleFilter !== "all" ? C.purple : C.border}`, color: journalStyleFilter !== "all" ? C.purple : C.textSec, fontFamily: MONO, fontSize: 10, padding: "6px 8px", borderRadius: 4 }}>
                 <option value="all">All Styles</option>
-                {["Swing", "Scanner", "Workflow", "Terminal", "Watchlist", "Backtest", "Analyzer", "Day Trade"].map(s => <option key={s} value={s}>{s}</option>)}
+                {["Breakout","Pullback","Reversal","Momentum","Scalp","Swing","Day Trade","Watchlist","Scanner","Workflow","Terminal","Backtest","Analyzer"].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select value={journalDateRange} onChange={e => setJournalDateRange(e.target.value)}
+                style={{ background: C.surface, border: `1px solid ${journalDateRange !== "all" ? C.amber : C.border}`, color: journalDateRange !== "all" ? C.amber : C.textSec, fontFamily: MONO, fontSize: 10, padding: "6px 8px", borderRadius: 4 }}>
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="quarter">This Quarter</option>
               </select>
               <button onClick={loadJournalTab} disabled={journalLoading}
                 style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", marginLeft: "auto" }}>
@@ -7910,10 +8048,19 @@ export default function App() {
                   const cmp = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb));
                   return journalSort.dir === "asc" ? cmp : -cmp;
                 };
+                const _drStart = (() => {
+                  const now = new Date();
+                  if (journalDateRange === "today") { const d = new Date(now); d.setHours(0,0,0,0); return d; }
+                  if (journalDateRange === "week")  { const d = new Date(now); d.setDate(d.getDate() - d.getDay()); d.setHours(0,0,0,0); return d; }
+                  if (journalDateRange === "month") { return new Date(now.getFullYear(), now.getMonth(), 1); }
+                  if (journalDateRange === "quarter") { const q = Math.floor(now.getMonth() / 3); return new Date(now.getFullYear(), q * 3, 1); }
+                  return null;
+                })();
                 const filtered = journalEntries.filter(e => {
                   if (journalFilter !== "all" && e.status !== journalFilter) return false;
                   if (journalTickerSearch && !String(e.ticker || "").toUpperCase().includes(journalTickerSearch)) return false;
                   if (journalStyleFilter !== "all" && String(e.style || "").toLowerCase() !== journalStyleFilter.toLowerCase()) return false;
+                  if (_drStart) { const t = new Date(e.openedAt || 0); if (t < _drStart) return false; }
                   return true;
                 }).sort(sortFn);
                 if (!filtered.length) return (
@@ -9334,6 +9481,155 @@ export default function App() {
           onExit={() => { setSelectedStock(null); setActiveTab("dashboard"); }}
           onOpenTradingView={openTradingView}
         />
+      )}
+
+      {shortcutHelpOpen && (
+        <div onClick={() => setShortcutHelpOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(8,18,34,0.55)", zIndex: 1300, display: "grid", placeItems: "center" }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: 560, maxWidth: "92vw", maxHeight: "80vh", overflowY: "auto", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, boxShadow: "0 24px 60px rgba(15,27,45,0.25)", padding: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <div style={{ fontFamily: MONO, fontSize: 13, color: C.text, fontWeight: 700 }}>KEYBOARD SHORTCUTS</div>
+              <button onClick={() => setShortcutHelpOpen(false)} style={{ border: "none", background: "transparent", color: C.textDim, cursor: "pointer", fontSize: 18, padding: "0 4px" }}>×</button>
+            </div>
+            {[
+              { section: "GLOBAL" },
+              { key: "Ctrl+K  or  /", desc: "Open command palette" },
+              { key: "?", desc: "Show this help overlay" },
+              { key: "Esc", desc: "Close any overlay / palette" },
+              { section: "TERMINAL (when terminal tab is active)" },
+              { key: hotkeyProfile === "scalper" ? "Z" : "Q", desc: "Switch chart to 5M" },
+              { key: hotkeyProfile === "scalper" ? "X" : "W", desc: "Switch chart to 15M" },
+              { key: hotkeyProfile === "scalper" ? "C" : "E", desc: "Switch chart to 1H" },
+              { key: hotkeyProfile === "scalper" ? "V" : "R", desc: "Switch chart to 1D" },
+              { key: hotkeyProfile === "scalper" ? "B" : "T", desc: "Switch chart to 1W" },
+              { key: "1", desc: "Single-panel layout" },
+              { key: "2", desc: "Two-panel layout" },
+              { key: "4", desc: "Four-panel layout" },
+              { section: "NAVIGATION" },
+              { key: "Click any watchlist row", desc: "Open in terminal" },
+              { key: "TV button", desc: "Open TradingView chart" },
+              { key: "WS button", desc: "Open Workstation" },
+              { key: "LOG button", desc: "Log trade to journal" },
+            ].map((item, i) => item.section
+              ? <div key={i} style={{ fontFamily: MONO, fontSize: 9, color: C.accent, letterSpacing: "0.12em", fontWeight: 700, marginTop: i > 0 ? 14 : 0, marginBottom: 6 }}>{item.section}</div>
+              : <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <kbd style={{ fontFamily: MONO, fontSize: 11, background: C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: "2px 8px", color: C.text }}>{item.key}</kbd>
+                  <span style={{ fontFamily: SANS, fontSize: 12, color: C.textSec }}>{item.desc}</span>
+                </div>
+            )}
+            <div style={{ marginTop: 16, fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: "center" }}>
+              Hotkey profile: <strong>{hotkeyProfile}</strong> · Change in Terminal → profile selector
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Quick-Log Modal ── */}
+      {quickLogModal && (
+        <div onClick={() => setQuickLogModal(null)} style={{ position: "fixed", inset: 0, background: "rgba(8,18,34,0.58)", zIndex: 1350, display: "grid", placeItems: "center" }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: 420, maxWidth: "94vw", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, boxShadow: "0 24px 60px rgba(15,27,45,0.30)", padding: 24 }}>
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+              <div>
+                <span style={{ fontFamily: MONO, fontSize: 17, color: C.text, fontWeight: 800 }}>{quickLogModal.symbol}</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginLeft: 10 }}>${Number(quickLogModal.price).toFixed(2)}</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: quickLogModal.chg >= 0 ? C.green : C.red, marginLeft: 8, fontWeight: 700 }}>{quickLogModal.chg >= 0 ? "+" : ""}{quickLogModal.chg.toFixed(2)}%</span>
+                {quickLogModal.score > 0 && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 10 }}>Score {Math.round(quickLogModal.score)}</span>}
+              </div>
+              <button onClick={() => setQuickLogModal(null)} style={{ border: "none", background: "transparent", color: C.textDim, cursor: "pointer", fontSize: 20, lineHeight: 1, padding: "0 2px" }}>×</button>
+            </div>
+
+            {/* BUY / SELL toggle */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+              {["BUY", "SELL"].map(s => (
+                <button key={s} onClick={() => setQuickLogModal(m => ({ ...m, side: s }))}
+                  style={{ flex: 1, border: `1px solid ${s === "BUY" ? C.green : C.red}66`, background: quickLogModal.side === s ? (s === "BUY" ? `${C.green}22` : `${C.red}22`) : C.card, color: s === "BUY" ? C.green : C.red, borderRadius: 5, padding: "7px 0", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 800, letterSpacing: "0.05em" }}>
+                  {s}
+                </button>
+              ))}
+            </div>
+
+            {/* Numeric fields */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+              {[
+                { label: "ENTRY", key: "entry" },
+                { label: "STOP", key: "stopLoss" },
+                { label: "TARGET", key: "target" },
+                { label: "SHARES", key: "size", step: "1" },
+              ].map(({ label, key, step }) => (
+                <div key={key}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", marginBottom: 4 }}>{label}</div>
+                  <input type="number" step={step || "0.01"} value={quickLogModal[key]}
+                    onChange={e => setQuickLogModal(m => ({ ...m, [key]: e.target.value }))}
+                    style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: "6px 8px", fontFamily: MONO, fontSize: 12, color: C.text, outline: "none" }} />
+                </div>
+              ))}
+            </div>
+
+            {/* R:R badge */}
+            {(() => {
+              const entry = Number(quickLogModal.entry) || 0;
+              const stop = Number(quickLogModal.stopLoss) || 0;
+              const target = Number(quickLogModal.target) || 0;
+              if (entry > 0 && stop > 0 && target > 0 && Math.abs(entry - stop) > 0) {
+                const rr = Math.abs(target - entry) / Math.abs(entry - stop);
+                return (
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: rr >= 2 ? C.green : rr >= 1 ? C.amber : C.red, textAlign: "right", marginBottom: 10, fontWeight: 700 }}>
+                    R:R {rr.toFixed(1)}:1 {rr >= 2 ? "✓" : rr >= 1 ? "~" : "✗"}
+                  </div>
+                );
+              }
+              return <div style={{ marginBottom: 10 }} />;
+            })()}
+
+            {/* Timeframe + Style */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", marginBottom: 4 }}>TIMEFRAME</div>
+                <select value={quickLogModal.timeframe} onChange={e => setQuickLogModal(m => ({ ...m, timeframe: e.target.value }))}
+                  style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: "6px 8px", fontFamily: MONO, fontSize: 12, color: C.text }}>
+                  {["1m","5m","15m","1H","4H","1D","1W"].map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", marginBottom: 4 }}>STYLE</div>
+                <select value={quickLogModal.style} onChange={e => setQuickLogModal(m => ({ ...m, style: e.target.value }))}
+                  style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: "6px 8px", fontFamily: MONO, fontSize: 12, color: C.text }}>
+                  {["Breakout","Pullback","Reversal","Momentum","Scalp","Swing","Watchlist"].map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", marginBottom: 4 }}>NOTES</div>
+              <textarea rows={2} value={quickLogModal.notes} onChange={e => setQuickLogModal(m => ({ ...m, notes: e.target.value }))}
+                style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: "6px 8px", fontFamily: MONO, fontSize: 11, color: C.text, resize: "none", outline: "none" }} />
+            </div>
+
+            {/* Submit */}
+            <button onClick={async () => {
+              try {
+                await fetch("/api/journal", { method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    ticker: quickLogModal.symbol,
+                    side: quickLogModal.side,
+                    score: Math.round(quickLogModal.score || 0),
+                    entry: Number(quickLogModal.entry) || 0,
+                    stopLoss: Number(quickLogModal.stopLoss) || 0,
+                    target: Number(quickLogModal.target) || 0,
+                    size: Number(quickLogModal.size) || 0,
+                    timeframe: quickLogModal.timeframe,
+                    style: quickLogModal.style,
+                    notes: quickLogModal.notes,
+                  }),
+                });
+                setQuickLogModal(null);
+              } catch {}
+            }} style={{ width: "100%", border: "none", background: quickLogModal.side === "BUY" ? C.green : C.red, color: "#fff", borderRadius: 5, padding: "11px 0", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 800, letterSpacing: "0.06em" }}>
+              LOG {quickLogModal.side} — {quickLogModal.symbol}
+            </button>
+          </div>
+        </div>
       )}
 
       <style>{`
