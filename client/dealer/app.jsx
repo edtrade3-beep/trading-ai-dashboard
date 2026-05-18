@@ -307,6 +307,7 @@ function App() {
   const [vinLoading, setVinLoading] = useState(false);
   const [vinSource, setVinSource] = useState("");
   const [finance, setFinance] = useState({ apr: 9.9, downPayment: 3000, termMonths: 72 });
+  const [deal, setDeal] = useState({ salePrice: "", tradeValue: "", tradeOwed: "", salesTaxPct: "6.25", docFee: "299", titleFee: "75", tagFee: "50" });
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [siteStatus, setSiteStatus] = useState("");
   const [siteResult, setSiteResult] = useState(null);
@@ -1373,6 +1374,119 @@ ${FINANCE_LINE}` : "Decode a vehicle first to generate finance wording."}
                     </Panel>
                   </div>
                 )}
+
+                {/* Deal Worksheet */}
+                {(() => {
+                  const salePrice = Number(deal.salePrice) || (pricing ? pricing.suggested : 0);
+                  const tradeValue = Number(deal.tradeValue) || 0;
+                  const tradeOwed = Number(deal.tradeOwed) || 0;
+                  const taxPct = Number(deal.salesTaxPct) || 0;
+                  const docFee = Number(deal.docFee) || 0;
+                  const titleFee = Number(deal.titleFee) || 0;
+                  const tagFee = Number(deal.tagFee) || 0;
+                  const netTrade = tradeValue - tradeOwed;
+                  const taxableAmount = Math.max(0, salePrice - Math.max(0, netTrade));
+                  const salesTaxAmt = taxableAmount * taxPct / 100;
+                  const totalFees = docFee + titleFee + tagFee;
+                  const cashDown = Number(finance.downPayment) || 0;
+                  const amtFinanced = Math.max(0, salePrice + salesTaxAmt + totalFees - Math.max(0, netTrade) - cashDown);
+                  const pmt = monthlyPayment(amtFinanced, finance.apr, finance.termMonths, 0);
+
+                  function printDealSheet() {
+                    const title = vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : "Vehicle";
+                    const w = window.open("", "_blank", "width=720,height=860");
+                    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Deal Worksheet – ${title}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;color:#0f172a;padding:28px;max-width:620px;margin:0 auto;font-size:13px}
+h2{font-size:20px;font-weight:900;margin-bottom:2px}
+.sub{color:#64748b;font-size:12px;margin-bottom:18px}
+table{width:100%;border-collapse:collapse;margin-bottom:16px}
+td{padding:7px 10px;border-bottom:1px solid #e2e8f0}
+td:last-child{text-align:right;font-weight:600}
+.section{font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;padding:10px 10px 4px;border-bottom:2px solid #0f172a}
+.total td{font-weight:900;font-size:15px;background:#f8fafc;border-top:2px solid #0f172a;border-bottom:2px solid #0f172a}
+.payment-box{background:#0f172a;color:#fff;border-radius:8px;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;margin-top:16px}
+.payment-box .big{font-size:32px;font-weight:900}
+.payment-box .label{font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.disc{font-size:11px;color:#94a3b8;margin-top:4px}
+footer{margin-top:16px;font-size:10px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px}
+@media print{.payment-box{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body>
+<h2>Deal Worksheet</h2>
+<div class="sub">${title}${vehicle ? ` · VIN: ${vehicle.vin}` : ""} · ${new Date().toLocaleDateString()}</div>
+<table>
+<tr><td class="section" colspan="2">Vehicle</td></tr>
+<tr><td>Sale Price</td><td>${money(salePrice)}</td></tr>
+${tradeValue > 0 ? `<tr><td>Trade-In Value</td><td>${money(tradeValue)}</td></tr>` : ""}
+${tradeOwed > 0 ? `<tr><td>Payoff Balance</td><td>(${money(tradeOwed)})</td></tr>` : ""}
+${tradeValue > 0 ? `<tr><td>Net Trade</td><td>${netTrade >= 0 ? money(netTrade) : "("+money(Math.abs(netTrade))+")"}</td></tr>` : ""}
+<tr><td class="section" colspan="2">Fees & Tax</td></tr>
+<tr><td>Sales Tax (${taxPct}%)</td><td>${money(salesTaxAmt)}</td></tr>
+<tr><td>Doc Fee</td><td>${money(docFee)}</td></tr>
+<tr><td>Title Fee</td><td>${money(titleFee)}</td></tr>
+<tr><td>Tags & Registration</td><td>${money(tagFee)}</td></tr>
+<tr><td class="section" colspan="2">Financing</td></tr>
+<tr><td>Cash / Down Payment</td><td>(${money(cashDown)})</td></tr>
+<tr class="total"><td>Amount Financed</td><td>${money(amtFinanced)}</td></tr>
+</table>
+<div class="payment-box">
+<div>
+<div class="label">Monthly Payment</div>
+<div class="big">${money(pmt)}/mo</div>
+<div class="disc">${finance.termMonths} months @ ${finance.apr}% APR (W.A.C.)</div>
+</div>
+<div style="text-align:right">
+<div class="label">Total Drive-Out</div>
+<div style="font-size:20px;font-weight:900">${money(salePrice + salesTaxAmt + totalFees)}</div>
+</div>
+</div>
+<footer>Price, fees, and payment are estimates. Taxes, title, and registration fees may vary. Financing subject to credit approval. This is not a binding contract.</footer>
+</body></html>`);
+                    w.document.close();
+                    w.focus();
+                    setTimeout(() => w.print(), 400);
+                  }
+
+                  return (
+                    <div style={styles.card}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                        <span style={{ fontWeight: 700, fontSize: 13 }}>Deal Worksheet</span>
+                        <button onClick={printDealSheet} style={styles.buttonGhost}>Print Deal Sheet</button>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 14 }}>
+                        {[
+                          { label: "Sale Price ($)", key: "salePrice", placeholder: pricing ? String(pricing.suggested) : "0" },
+                          { label: "Trade-In Value ($)", key: "tradeValue", placeholder: "0" },
+                          { label: "Trade Payoff ($)", key: "tradeOwed", placeholder: "0" },
+                          { label: "Sales Tax %", key: "salesTaxPct", placeholder: "6.25" },
+                          { label: "Doc Fee ($)", key: "docFee", placeholder: "299" },
+                          { label: "Title Fee ($)", key: "titleFee", placeholder: "75" },
+                          { label: "Tags & Reg ($)", key: "tagFee", placeholder: "50" },
+                        ].map(({ label, key, placeholder }) => (
+                          <Field key={key} label={label} styles={styles}>
+                            <input value={deal[key]} onChange={e => setDeal(d => ({ ...d, [key]: e.target.value.replace(/[^\d.]/g, "") }))} placeholder={placeholder} style={styles.input} />
+                          </Field>
+                        ))}
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, border: `1px solid ${theme.border}`, borderRadius: 6, overflow: "hidden" }}>
+                        {[
+                          { label: "Net Trade", value: netTrade >= 0 ? money(netTrade) : `(${money(Math.abs(netTrade))})`, color: netTrade >= 0 ? theme.success : "#dc2626" },
+                          { label: "Sales Tax", value: money(salesTaxAmt), color: theme.text },
+                          { label: "Total Fees", value: money(totalFees), color: theme.text },
+                          { label: "Total Drive-Out", value: money(salePrice + salesTaxAmt + totalFees), color: theme.text },
+                          { label: "Amount Financed", value: money(amtFinanced), color: theme.primary },
+                          { label: "Est. Payment", value: `${money(pmt)}/mo`, color: theme.primary },
+                        ].map(({ label, value, color }) => (
+                          <div key={label} style={{ padding: "10px 12px", borderBottom: `1px solid ${theme.border}`, borderRight: `1px solid ${theme.border}` }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: theme.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>{label}</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color }}>{value}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
