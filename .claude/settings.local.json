@@ -78,7 +78,27 @@
       "Bash(node --check src/routes/settings.js)",
       "Bash(node --check src/settings-store.js)",
       "Bash(curl -s http://localhost:3000/api/settings)",
-      "Bash(curl -s \"http://localhost:3000/api/live?ticker=NVDA&timeframe=1D&style=Swing\")"
+      "Bash(curl -s \"http://localhost:3000/api/live?ticker=NVDA&timeframe=1D&style=Swing\")",
+      "Bash(node --check src/routes/health.js)",
+      "Bash(node --check src/routes/proxy.js)",
+      "Bash(node --check src/routes/yahoo.js)",
+      "Bash(node --check axiom-runner/axiom-live.jsx)",
+      "Bash(node --input-type=commonjs --check)",
+      "Bash(node -e ' *)",
+      "Bash(node --check src/routes/agent.js src/routes/webhooks.js src/routes/market.js src/routes/inventory.js src/routes/journal.js src/routes/portfolio.js src/routes/price-alerts.js src/routes/settings.js src/routes/auth.js src/routes/health.js src/routes/proxy.js src/routes/yahoo.js server.js)",
+      "Bash(node --check server.js src/router.js src/routes/inventory.js src/routes/journal.js src/routes/portfolio.js src/routes/agent.js)",
+      "Bash(node -e \"const fs=require\\('fs'\\);const src=fs.readFileSync\\('axiom-runner/axiom-live.jsx','utf8'\\);let o=0,c=0;for\\(const ch of src\\){if\\(ch==='{'\\)o++;if\\(ch==='}'\\)c++;}console.log\\('{ balance:',o-c,'\\(should be 0\\)'\\)\")",
+      "Bash(node -e \"const fs=require\\('fs'\\);const src=fs.readFileSync\\('client/dealer/app.jsx','utf8'\\);let o=0,c=0;for\\(const ch of src\\){if\\(ch==='{'\\)o++;if\\(ch==='}'\\)c++;}console.log\\('{ balance:',o-c,'\\(should be 0\\)'\\)\")",
+      "Bash(node -e \"const fs=require\\('fs'\\);const src=fs.readFileSync\\('axiom-runner/axiom-live.jsx','utf8'\\);let o=0,c=0;for\\(const ch of src\\){if\\(ch==='{'\\)o++;if\\(ch==='}'\\)c++;}console.log\\('{ balance:',o-c\\)\")",
+      "Bash(node -e \"const fs=require\\('fs'\\);const src=fs.readFileSync\\('axiom-runner/axiom-live.jsx','utf8'\\);let o=0,c=0;for\\(const ch of src\\){if\\(ch==='{'\\)o++;if\\(ch==='}'\\)c++;}console.log\\('brace balance:',o-c\\)\")",
+      "Bash(node -e \"require\\('dotenv'\\)\")",
+      "PowerShell(cd \"C:\\\\Users\\\\dixie\\\\OneDrive\\\\Documents\\\\New project\\\\.claude\\\\worktrees\\\\hungry-brown-07cbf5\\\\adol22-bot\"; $files = @\\('bot.py','scoring.py','formatter.py','scanner.py','scheduler.py','risk_manager.py','watchlist.py','ai_prompts.py','webhook_server.py','market_data.py'\\); foreach \\($f in $files\\) { $result = python -c \"import ast; ast.parse\\(open\\('$f'\\).read\\(\\)\\); print\\('$f OK'\\)\" 2>&1; Write-Output $result })",
+      "PowerShell($base = \"http://localhost:3000\"; $eps = @\\(\"/api/market/quote?symbol=NVDA\", \"/api/market/macro\", \"/api/market/movers\"\\); foreach \\($ep in $eps\\) { try { $r = Invoke-WebRequest -Uri \"$base$ep\" -TimeoutSec 8 -UseBasicParsing; Write-Output \"[$\\($r.StatusCode\\)] $ep`n$\\($r.Content.Substring\\(0,[Math]::Min\\(200,$r.Content.Length\\)\\)\\)\" } catch { $resp = $_.Exception.Response; if \\($resp\\) { $stream = $resp.GetResponseStream\\(\\); $reader = New-Object System.IO.StreamReader\\($stream\\); Write-Output \"[$\\(\\([int]$resp.StatusCode\\)\\)] $ep`n$\\($reader.ReadToEnd\\(\\).Substring\\(0,300\\)\\)\" } else { Write-Output \"[ERR] $ep — $\\($_.Exception.Message\\)\" } } })",
+      "Bash(python -m py_compile \"C:/Users/dixie/OneDrive/Documents/New project/.claude/worktrees/hungry-brown-07cbf5/adol22-bot/bot.py\")",
+      "Bash(python3 -m py_compile \"C:/Users/dixie/OneDrive/Documents/New project/.claude/worktrees/hungry-brown-07cbf5/adol22-bot/bot.py\")",
+      "Bash(node --check \"C:/Users/dixie/OneDrive/Documents/New project/.claude/worktrees/hungry-brown-07cbf5/server.js\")",
+      "Bash(node --check \"C:/Users/dixie/OneDrive/Documents/New project/.claude/worktrees/hungry-brown-07cbf5/src/router.js\")",
+      "Bash(node --check \"C:/Users/dixie/OneDrive/Documents/New project/.claude/worktrees/hungry-brown-07cbf5/src/routes/plan.js\")"
     ]
   }
 }

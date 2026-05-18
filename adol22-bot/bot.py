@@ -117,10 +117,12 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "  `/movers` — top % movers\n\n"
         "*Market*\n"
         "  `/macro` — SPY/QQQ/VIX/BTC overview\n"
-        "  `/sectors` — sector performance\n\n"
+        "  `/sectors` — sector performance\n"
+        "  `/econ` — upcoming macro events (CPI, NFP, Fed, PCE)\n\n"
         "*Alerts*\n"
         "  `/alert NVDA above 900` — set price alert on platform\n"
-        "  `/alert NVDA below 400 breakdown` — alert with note\n\n"
+        "  `/alert NVDA below 400 breakdown` — alert with note\n"
+        "  `/alerts` — list active price alerts\n\n"
         "*Risk & Settings*\n"
         "  `/risk` — risk status\n"
         "  `/pnl +1.5` — log P/L in R\n"
@@ -465,6 +467,37 @@ async def cmd_set_alert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
     else:
         await update.message.reply_text(f"❌ {data.get('error', 'Unknown error')}")
+
+
+# ── /alerts — list current active price alerts ───────────────────────────────
+
+async def cmd_list_alerts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """List active price alerts set on the platform."""
+    if not await _auth_guard(update, context): return
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{SERVER_URL}/api/price-alerts", timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                data = await resp.json()
+    except Exception as e:
+        await update.message.reply_text(f"❌ Could not reach platform: {e}")
+        return
+
+    alerts = data if isinstance(data, list) else data.get("alerts", [])
+    active = [a for a in alerts if a.get("status") == "active"]
+    if not active:
+        await update.message.reply_text("No active price alerts. Use `/alert NVDA above 900` to set one.", parse_mode="Markdown")
+        return
+
+    lines = [f"🔔 *Active Price Alerts* ({len(active)})\n"]
+    for a in active:
+        arrow = "▲" if a.get("direction") == "above" else "▼"
+        sym = a.get("symbol", "?")
+        price = a.get("targetPrice", 0)
+        note = a.get("note", "")
+        note_str = f" · _{note}_" if note else ""
+        lines.append(f"  {arrow} *{sym}* `${price:,.2f}`{note_str}")
+    lines.append("\nUse `/alert NVDA above 950` to add more.")
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
 # ── /note — append a note to the most recent open journal entry ───────────────
@@ -994,6 +1027,72 @@ async def cmd_chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"Chart error: {e}")
 
 
+# ── /econ ─────────────────────────────────────────────────────────────────────
+
+async def cmd_econ(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show next major macro events with countdown."""
+    if not await _auth_guard(update, context): return
+    import pytz
+    from datetime import datetime, timedelta
+
+    et = pytz.timezone("US/Eastern")
+    now = datetime.now(et)
+
+    def _next_day_of_month(target_day, hour, minute):
+        """Next occurrence of target_day at hour:minute ET."""
+        safe_day = min(target_day, 28)
+        try:
+            d = now.replace(day=safe_day, hour=hour, minute=minute, second=0, microsecond=0)
+        except ValueError:
+            d = now.replace(day=28, hour=hour, minute=minute, second=0, microsecond=0)
+        if d <= now:
+            m = d.month % 12 + 1
+            y = d.year + (1 if d.month == 12 else 0)
+            d = d.replace(year=y, month=m)
+        return d
+
+    def _next_first_friday(hour, minute):
+        """Next first Friday of a month at hour:minute ET."""
+        d = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        for _ in range(62):
+            d += timedelta(days=1)
+            if d.weekday() == 4 and d.day <= 7:
+                return d
+        return d
+
+    def _fmt_countdown(dt):
+        secs = int((dt - now).total_seconds())
+        if secs < 0:
+            return "LIVE"
+        if secs < 3600:
+            return f"{secs // 60}m"
+        if secs < 86400:
+            h, m = divmod(secs // 60, 60)
+            return f"{h}h {m}m"
+        days, rem = divmod(secs, 86400)
+        return f"{days}d {rem // 3600}h"
+
+    events = [
+        ("FED",     "Fed Decision (est.)", _next_day_of_month(7, 14, 0),   "HIGH"),
+        ("CPI",     "US CPI Release",      _next_day_of_month(12, 8, 30),  "HIGH"),
+        ("JOBS",    "NFP / Jobs",          _next_first_friday(8, 30),       "HIGH"),
+        ("PCE",     "PCE Deflator",        _next_day_of_month(28, 8, 30),  "MED"),
+        ("MINUTES", "FOMC Minutes (est.)", _next_day_of_month(7 + 21, 14, 0), "MED"),
+        ("ECB",     "ECB Rate Decision",   _next_day_of_month(6, 8, 15),   "MED"),
+    ]
+    events.sort(key=lambda e: e[2])
+
+    lines = ["📅 *Upcoming Macro Events*\n"]
+    for tag, title, dt, impact in events:
+        countdown = _fmt_countdown(dt)
+        dtstr = dt.strftime("%b %d %I:%M %p ET").replace(" 0", " ")
+        icon = "🔴" if impact == "HIGH" else "🟡"
+        lines.append(f"{icon} `{tag:8}` *{title}*\n           _{dtstr}_ · *{countdown}*\n")
+
+    lines.append("_Dates estimated. Verify at federalreserve.gov / bls.gov._")
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
 # ── Free-text message handler (ticker lookup) ─────────────────────────────────
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1092,6 +1191,7 @@ def main() -> None:
     app.add_handler(CommandHandler("midday",   cmd_midday_now))
     app.add_handler(CommandHandler("briefing", cmd_briefing))
     app.add_handler(CommandHandler("alert",    cmd_set_alert))
+    app.add_handler(CommandHandler("alerts",   cmd_list_alerts))
     app.add_handler(CommandHandler("note",     cmd_note))
     app.add_handler(CommandHandler("journal",  cmd_journal_stats))
     app.add_handler(CommandHandler("trades",   cmd_trades))
@@ -1100,6 +1200,7 @@ def main() -> None:
     app.add_handler(CommandHandler("plan",     cmd_plan))
     app.add_handler(CommandHandler("holdings", cmd_holdings))
     app.add_handler(CommandHandler("port",     cmd_holdings))
+    app.add_handler(CommandHandler("econ",     cmd_econ))
 
     # Free-text (ticker lookup)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))

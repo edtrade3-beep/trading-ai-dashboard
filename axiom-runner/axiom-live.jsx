@@ -6265,9 +6265,19 @@ export default function App() {
                       }}>
                         {isUp ? "+" : ""}{chg.toFixed(2)}%
                       </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, fontFamily: MONO, color: C.textDim }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, fontFamily: MONO, color: C.textDim, marginBottom: 8 }}>
                         <span>${q.price?.toFixed(2)}</span>
                         <span>Vol: {q.volume ? (q.volume / 1e6).toFixed(1) + "M" : "—"}</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 5 }}>
+                        <button
+                          onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(q.symbol) ? prev.filter(s => s !== q.symbol) : Array.from(new Set([...prev, q.symbol])))}
+                          style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: watchlistSymbols.includes(q.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(q.symbol) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(q.symbol) ? C.red : C.green}44`, borderRadius: 3, cursor: "pointer" }}
+                        >{watchlistSymbols.includes(q.symbol) ? "−WL" : "+WL"}</button>
+                        <button
+                          onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
+                          style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 3, cursor: "pointer" }}
+                        >CHART</button>
                       </div>
                     </div>
                   );
@@ -6351,9 +6361,19 @@ export default function App() {
                       <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{t}</span>
                     </div>
                     <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 800 }}>${q.price?.toFixed(2)}</div>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, marginBottom: 6 }}>
                       <span style={{ fontFamily: MONO, fontSize: 11, color: d1 >= 0 ? C.green : C.red }}>1D {d1 >= 0 ? "+" : ""}{d1.toFixed(2)}%</span>
                       <span style={{ fontFamily: MONO, fontSize: 11, color: d7 >= 0 ? C.green : C.red }}>1W {d7 >= 0 ? "+" : ""}{d7.toFixed(2)}%</span>
+                    </div>
+                    <div style={{ display: "flex", gap: 5 }}>
+                      <button
+                        onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(k) ? prev.filter(s => s !== k) : Array.from(new Set([...prev, k])))}
+                        style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: watchlistSymbols.includes(k) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(k) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(k) ? C.red : C.green}44`, borderRadius: 3, cursor: "pointer" }}
+                      >{watchlistSymbols.includes(k) ? "−WL" : "+WL"}</button>
+                      <button
+                        onClick={() => { setTerminalSymbol(k); setActiveTab("terminal"); }}
+                        style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 3, cursor: "pointer" }}
+                      >CHART</button>
                     </div>
                   </div>
                 );
@@ -6414,8 +6434,18 @@ export default function App() {
                       <Badge color={up ? C.green : C.red}>{up ? "UP" : "DOWN"}</Badge>
                     </div>
                     <div style={{ fontFamily: MONO, fontSize: 30, fontWeight: 800, color: C.text }}>${q.price?.toFixed(2)}</div>
-                    <div style={{ marginTop: 6, fontFamily: MONO, fontSize: 15, color: up ? C.green : C.red, fontWeight: 700 }}>
+                    <div style={{ marginTop: 6, marginBottom: 10, fontFamily: MONO, fontSize: 15, color: up ? C.green : C.red, fontWeight: 700 }}>
                       {up ? "+" : ""}{chg.toFixed(2)}%
+                    </div>
+                    <div style={{ display: "flex", gap: 5 }}>
+                      <button
+                        onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(q.symbol) ? prev.filter(s => s !== q.symbol) : Array.from(new Set([...prev, q.symbol])))}
+                        style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: watchlistSymbols.includes(q.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(q.symbol) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(q.symbol) ? C.red : C.green}44`, borderRadius: 3, cursor: "pointer" }}
+                      >{watchlistSymbols.includes(q.symbol) ? "−WL" : "+WL"}</button>
+                      <button
+                        onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
+                        style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 3, cursor: "pointer" }}
+                      >CHART</button>
                     </div>
                   </div>
                 );
@@ -7171,12 +7201,24 @@ export default function App() {
                           {row.pnlPct >= 0 ? "+" : ""}{row.pnlPct.toFixed(2)}%
                         </td>
                         <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "center" }}>
-                          <button
-                            onClick={() => setPortfolioHoldings((prev) => prev.filter((_, i) => i !== row.idx))}
-                            style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.red, borderRadius: 4, padding: "5px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
-                          >
-                            REMOVE
-                          </button>
+                          <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                            {row.symbol && (
+                              <button
+                                onClick={() => { setTerminalSymbol(row.symbol); setActiveTab("terminal"); }}
+                                style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 4, padding: "5px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                              >CHART</button>
+                            )}
+                            {row.symbol && (
+                              <button
+                                onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(row.symbol) ? prev.filter(s => s !== row.symbol) : Array.from(new Set([...prev, row.symbol])))}
+                                style={{ border: `1px solid ${watchlistSymbols.includes(row.symbol) ? C.red : C.green}44`, background: watchlistSymbols.includes(row.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(row.symbol) ? C.red : C.green, borderRadius: 4, padding: "5px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                              >{watchlistSymbols.includes(row.symbol) ? "−WL" : "+WL"}</button>
+                            )}
+                            <button
+                              onClick={() => setPortfolioHoldings((prev) => prev.filter((_, i) => i !== row.idx))}
+                              style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.red, borderRadius: 4, padding: "5px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                            >RM</button>
+                          </div>
                         </td>
                       </tr>
                     ))}
