@@ -7653,8 +7653,28 @@ export default function App() {
             <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em", marginBottom: 14 }}>
               ROTATION ENGINE — CAPITAL FLOW RANKING
             </div>
+            {rotationRank.length > 0 && (() => {
+              const leaders = rotationRank.filter(q => q.relVsSpy >= 1).length;
+              const laggers = rotationRank.filter(q => q.relVsSpy <= -1).length;
+              const neutral = rotationRank.length - leaders - laggers;
+              return (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 10 }}>
+                  {[
+                    { label: "TOTAL", value: rotationRank.length, color: C.text },
+                    { label: "LEADERS (RS ≥ +1%)", value: leaders, color: C.green },
+                    { label: "NEUTRAL", value: neutral, color: C.amber },
+                    { label: "LAGGERS (RS ≤ -1%)", value: laggers, color: C.red },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 12px" }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{label}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color, marginTop: 2 }}>{value}</div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-              {[...rotationRank].slice(0, 12).map((q, idx) => (
+              {[...rotationRank].slice(0, 20).map((q, idx) => (
                 <div key={q.symbol} style={{ display: "grid", gridTemplateColumns: "56px 1fr 150px 128px 116px auto", gap: 12, alignItems: "center", padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
                   <span style={{ fontFamily: MONO, color: C.textDim, fontSize: 12 }}>#{idx + 1}</span>
                   <div>
@@ -7675,6 +7695,10 @@ export default function App() {
                       onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
                       style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "5px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
                     >CHART</button>
+                    <button
+                      onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(q.symbol) ? prev.filter(s => s !== q.symbol) : Array.from(new Set([...prev, q.symbol])))}
+                      style={{ border: `1px solid ${watchlistSymbols.includes(q.symbol) ? C.red : C.green}55`, background: C.surface, color: watchlistSymbols.includes(q.symbol) ? C.red : C.green, borderRadius: 4, padding: "5px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                    >{watchlistSymbols.includes(q.symbol) ? "−WL" : "+WL"}</button>
                     <button
                       onClick={async () => {
                         try {
