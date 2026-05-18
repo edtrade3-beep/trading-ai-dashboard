@@ -2706,6 +2706,7 @@ export default function App() {
   const [marketUniverseLoading, setMarketUniverseLoading] = useState(false);
   const [newsData, setNewsData] = useState([]);
   const [newsLoading, setNewsLoading] = useState(false);
+  const [telegramOk, setTelegramOk] = useState(false);
   const [tvWebhookRows, setTvWebhookRows] = useState([]);
   const [tvWebhookSecured, setTvWebhookSecured] = useState(false);
   const [journalEntries, setJournalEntries] = useState([]);
@@ -3138,6 +3139,10 @@ export default function App() {
     loadPriceAlertList();
     const tid = setInterval(() => loadPriceAlertList(), 120_000);
     return () => clearInterval(tid);
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/health").then(r => r.ok ? r.json() : {}).then(d => { if (d.telegram) setTelegramOk(true); }).catch(() => {});
   }, []);
 
   const runServerScreen = useCallback(async () => {
@@ -6395,9 +6400,25 @@ export default function App() {
 
         {activeTab === "alerts" && (
           <div>
-            <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em", marginBottom: 14 }}>
-              ALERT CENTER — {combinedAlerts.length} LIVE SIGNALS
-            </div>
+            {(() => {
+              const today = new Date().toISOString().slice(0, 10);
+              const todayFired = tvWebhookRows.filter(r => r?.at && r.at.slice(0, 10) === today).length;
+              return (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
+                    ALERT CENTER — {combinedAlerts.length} LIVE SIGNALS
+                  </div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    {todayFired > 0 && (
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.accent, background: `${C.accent}12`, border: `1px solid ${C.accent}33`, borderRadius: 4, padding: "3px 8px" }}>
+                        {todayFired} TV WEBHOOK{todayFired !== 1 ? "S" : ""} TODAY
+                      </div>
+                    )}
+                    <Badge color={telegramOk ? C.green : C.textDim}>{telegramOk ? "TELEGRAM ON" : "TELEGRAM OFF"}</Badge>
+                  </div>
+                </div>
+              );
+            })()}
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
               <input
                 value={customAlertSymbol}
@@ -6426,19 +6447,39 @@ export default function App() {
               </button>
             </div>
             <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
-              {combinedAlerts.map((a, idx) => (
-                <div key={`${a.symbol}-${idx}`} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 16 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontFamily: MONO, fontWeight: 800, fontSize: 14 }}>{a.symbol}</span>
-                      <Badge color={a.type === "risk" ? C.red : a.type === "flow" ? C.amber : C.green}>{a.type}</Badge>
+              {combinedAlerts.map((a, idx) => {
+                const alertColor = a.type === "risk" ? C.red : a.type === "flow" ? C.amber : C.green;
+                const alertSide = a.type === "risk" ? "SELL" : "BUY";
+                return (
+                  <div key={`${a.symbol}-${idx}`} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <button onClick={() => { setTerminalSymbol(a.symbol); setActiveTab("terminal"); }}
+                          style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontWeight: 800, fontSize: 14, cursor: "pointer", padding: 0 }}>{a.symbol}</button>
+                        <Badge color={alertColor}>{a.type}</Badge>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Priority {a.score}</span>
+                        <button
+                          onClick={() => setQuickLogModal({ symbol: a.symbol, price: 0, entry: "", stopLoss: "", target: "", size: "", side: alertSide, timeframe: "1D", style: "Alert", notes: a.text || "", score: a.score || 70, chg: 0, rvol: 0 })}
+                          style={{ border: `1px solid ${alertColor}55`, background: `${alertColor}12`, color: alertColor, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}
+                        >LOG</button>
+                        <button
+                          onClick={async () => {
+                            const emoji = a.type === "risk" ? "🔴" : a.type === "flow" ? "🟡" : "🟢";
+                            const msg = `${emoji} *${a.symbol}* — ${a.type.toUpperCase()} Alert\nPriority: ${a.score}/100\n_${a.text}_`;
+                            try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
+                          }}
+                          style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                          title="Send to Telegram"
+                        >NOTIFY</button>
+                      </div>
                     </div>
-                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>Priority {a.score}</span>
+                    <div style={{ fontSize: 13, color: C.textSec, marginBottom: 8 }}>{a.text}</div>
+                    <ScoreBar value={a.score} color={alertColor} />
                   </div>
-                  <div style={{ fontSize: 13, color: C.textSec, marginBottom: 8 }}>{a.text}</div>
-                  <ScoreBar value={a.score} color={a.type === "risk" ? C.red : a.type === "flow" ? C.amber : C.green} />
-                </div>
-              ))}
+                );
+              })}
               {combinedAlerts.length === 0 && <div style={{ color: C.textDim, fontSize: 13 }}>No active alerts yet.</div>}
             </div>
 

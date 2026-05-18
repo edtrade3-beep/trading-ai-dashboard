@@ -15,7 +15,7 @@ const handlePortfolio = require("./routes/portfolio");
 const handleDealership = require("./dealership/routes");
 const handlePriceAlerts = require("./routes/price-alerts");
 const handleSettings = require("./routes/settings");
-const { sendTelegramAlert, isConfigured: telegramConfigured } = require("./telegram");
+const { sendTelegramAlert, sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
 
 async function handleRequest(req, res) {
   try {
@@ -75,6 +75,19 @@ async function handleRequest(req, res) {
 
     if (pathname === "/api/settings") {
       return handleSettings(req, res, requestUrl);
+    }
+
+    // POST /api/notify — sends a freeform Telegram message from the platform UI
+    if (pathname === "/api/notify" && req.method === "POST") {
+      if (!telegramConfigured()) {
+        return writeJson(res, 503, { ok: false, error: "Telegram not configured." });
+      }
+      let body = "";
+      for await (const chunk of req) body += chunk;
+      const { text } = JSON.parse(body || "{}");
+      if (!text) return writeJson(res, 400, { ok: false, error: "Missing text" });
+      await sendTelegramMessage(text);
+      return writeJson(res, 200, { ok: true });
     }
 
     // POST /api/telegram/test — sends a test message using env-var credentials only
