@@ -7649,7 +7649,17 @@ export default function App() {
                         <span style={{ fontFamily: MONO, fontSize: 13, color: C.text, fontWeight: 700 }}>{row.symbol}</span>
                         <Badge color={Number(row.callPutRatio || 0) >= 1 ? C.green : C.red}>C/P {Number(row.callPutRatio || 0).toFixed(2)}</Badge>
                       </div>
-                      <div style={{ fontSize: 11, color: C.textDim, marginTop: 4 }}>Expiry {row.expiration || "—"}</div>
+                      <div style={{ fontSize: 11, color: C.textDim, marginTop: 4, marginBottom: 6 }}>Expiry {row.expiration || "—"}</div>
+                      <div style={{ display: "flex", gap: 5 }}>
+                        <button
+                          onClick={() => { setTerminalSymbol(row.symbol); setActiveTab("terminal"); }}
+                          style={{ fontFamily: MONO, fontSize: 9, padding: "2px 7px", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 3, cursor: "pointer" }}
+                        >CHART</button>
+                        <button
+                          onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(row.symbol) ? prev.filter(s => s !== row.symbol) : Array.from(new Set([...prev, row.symbol])))}
+                          style={{ fontFamily: MONO, fontSize: 9, padding: "2px 7px", background: watchlistSymbols.includes(row.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(row.symbol) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(row.symbol) ? C.red : C.green}44`, borderRadius: 3, cursor: "pointer" }}
+                        >{watchlistSymbols.includes(row.symbol) ? "−WL" : "+WL"}</button>
+                      </div>
                     </div>
                   ))}
                   {!flowBySymbol.length && <div style={{ padding: 12, color: C.textDim, fontSize: 12 }}>No options flow yet.</div>}
@@ -7671,26 +7681,32 @@ export default function App() {
                       <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>OI {row.openInterest || 0}</span>
                       <span style={{ fontFamily: MONO, fontSize: 11, color: C.text }}>{formatNum(row.notional || 0)}</span>
                       <Badge color={row.unusual ? C.amber : C.textDim}>{row.tradeType || "TAPE"}</Badge>
-                      <button
-                        onClick={async () => {
-                          try {
-                            await fetch("/api/journal", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                ticker: row.symbol,
-                                side: row.side === "CALL" ? "BUY" : "SELL",
-                                score: row.unusual ? 85 : 72,
-                                entry: Number(row.underlyingPrice || row.strike || 0),
-                                notes: `${row.tradeType || "FLOW"} · K${Number(row.strike || 0).toFixed(0)} ${row.expiry || ""} · ${formatNum(row.notional || 0)} notional${row.unusual ? " · UNUSUAL" : ""}`,
-                                timeframe: "1D",
-                                style: "Options",
-                              }),
-                            });
-                          } catch {}
-                        }}
-                        style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "4px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
-                      >LOG</button>
+                      <div style={{ display: "flex", gap: 5 }}>
+                        <button
+                          onClick={() => { setTerminalSymbol(row.symbol); setActiveTab("terminal"); }}
+                          style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 4, padding: "4px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                        >CHART</button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await fetch("/api/journal", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  ticker: row.symbol,
+                                  side: row.side === "CALL" ? "BUY" : "SELL",
+                                  score: row.unusual ? 85 : 72,
+                                  entry: Number(row.underlyingPrice || row.strike || 0),
+                                  notes: `${row.tradeType || "FLOW"} · K${Number(row.strike || 0).toFixed(0)} ${row.expiry || ""} · ${formatNum(row.notional || 0)} notional${row.unusual ? " · UNUSUAL" : ""}`,
+                                  timeframe: "1D",
+                                  style: "Options",
+                                }),
+                              });
+                            } catch {}
+                          }}
+                          style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "4px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                        >LOG</button>
+                      </div>
                     </div>
                   ))}
                   {!flowRows.length && <div style={{ padding: 12, color: C.textDim, fontSize: 12 }}>No flow tape available yet.</div>}
@@ -8695,6 +8711,18 @@ export default function App() {
                           {p.timeframe && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{p.timeframe}</span>}
                           <span style={{ background: `${headerColor}18`, color: headerColor, border: `1px solid ${headerColor}44`, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 12, fontWeight: 900 }}>{s.decision}</span>
                           <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Score: <span style={{ color: gradeColor(s.grade), fontWeight: 800 }}>{s.score}/100</span></span>
+                          {p.symbol && (
+                            <button
+                              onClick={() => { setTerminalSymbol(p.symbol); setActiveTab("terminal"); }}
+                              style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 4, padding: "4px 9px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                            >CHART</button>
+                          )}
+                          {p.symbol && (
+                            <button
+                              onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(p.symbol) ? prev.filter(s => s !== p.symbol) : Array.from(new Set([...prev, p.symbol])))}
+                              style={{ border: `1px solid ${watchlistSymbols.includes(p.symbol) ? C.red : C.green}44`, background: watchlistSymbols.includes(p.symbol) ? `${C.red}15` : `${C.green}15`, color: watchlistSymbols.includes(p.symbol) ? C.red : C.green, borderRadius: 4, padding: "4px 9px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                            >{watchlistSymbols.includes(p.symbol) ? "−WL" : "+WL"}</button>
+                          )}
                         </div>
                         <button onClick={() => setAnalyzerExpanded(null)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>CLOSE ✕</button>
                       </div>
