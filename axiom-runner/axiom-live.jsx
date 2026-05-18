@@ -5984,6 +5984,7 @@ export default function App() {
                   <option value="bullish">Bullish</option>
                   <option value="bearish">Bearish</option>
                   <option value="neutral">Neutral</option>
+                  <option value="wl">WL Only</option>
                 </select>
                 <button
                   onClick={refreshNews}
@@ -5998,7 +5999,9 @@ export default function App() {
               {newsData
                 .filter((n) => {
                   if (newsSymFilter && !String(n.ticker || "").toUpperCase().includes(newsSymFilter)) return false;
-                  if (newsSentFilter !== "all") {
+                  if (newsSentFilter === "wl") {
+                    if (!watchlistSymbols.includes(String(n.ticker || "").toUpperCase())) return false;
+                  } else if (newsSentFilter !== "all") {
                     const bullish = ["beat","surge","upgrade","growth","record","bull","rally","wins","strong","expands"];
                     const bearish = ["miss","drop","downgrade","cuts","probe","lawsuit","bear","weak","fall","slump"];
                     const txt = (String(n.title || "") + " " + String(n.summary || "")).toLowerCase();
@@ -6034,12 +6037,19 @@ export default function App() {
                             {n.publishedAt ? new Date(n.publishedAt).toLocaleString() : ""}
                           </span>
                           {n.ticker && (
-                            <button
-                              onClick={() => setWatchlistSymbols(prev => onWatchlist ? prev.filter(s => s !== n.ticker) : Array.from(new Set([...prev, n.ticker])))}
-                              title={onWatchlist ? `Remove ${n.ticker} from watchlist` : `Add ${n.ticker} to watchlist`}
-                              style={{ border: `1px solid ${onWatchlist ? C.red : C.green}55`, background: onWatchlist ? C.redBg : C.greenBg, color: onWatchlist ? C.red : C.green, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>
-                              {onWatchlist ? "−WL" : "+WL"}
-                            </button>
+                            <React.Fragment>
+                              <button
+                                onClick={() => setQuickLogModal({ symbol: n.ticker, price: 0, entry: "", stopLoss: "", target: "", size: "", side: sent === "bearish" ? "SELL" : "BUY", timeframe: "1D", style: "News", notes: n.title || "", score: sent === "bullish" ? 72 : 55, chg: 0, rvol: 0 })}
+                                style={{ border: `1px solid ${C.accent}44`, background: C.surface, color: C.accent, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>
+                                LOG
+                              </button>
+                              <button
+                                onClick={() => setWatchlistSymbols(prev => onWatchlist ? prev.filter(s => s !== n.ticker) : Array.from(new Set([...prev, n.ticker])))}
+                                title={onWatchlist ? `Remove ${n.ticker} from watchlist` : `Add ${n.ticker} to watchlist`}
+                                style={{ border: `1px solid ${onWatchlist ? C.red : C.green}55`, background: onWatchlist ? C.redBg : C.greenBg, color: onWatchlist ? C.red : C.green, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>
+                                {onWatchlist ? "−WL" : "+WL"}
+                              </button>
+                            </React.Fragment>
                           )}
                         </div>
                       </div>
