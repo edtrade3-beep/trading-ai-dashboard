@@ -6694,6 +6694,9 @@ export default function App() {
                     "Top 5 long setups right now",
                     "Top risks and hedges now",
                     "Build me execution plan for today",
+                    "Sector rotation — where is money flowing?",
+                    "What's my biggest risk today?",
+                    "Options flow summary — calls or puts leading?",
                     ...(terminalSymbol ? [`Analyze ${terminalSymbol} — entry, stop, target, score`] : []),
                   ].map((q) => (
                     <button
@@ -6722,10 +6725,22 @@ export default function App() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>AGENT OUTPUT</div>
                 {agentOutput && (
-                  <button
-                    onClick={() => navigator.clipboard.writeText(agentOutput).catch(() => {})}
-                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
-                  >COPY</button>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const truncated = agentOutput.length > 4000 ? agentOutput.slice(0, 4000) + "\n…(truncated)" : agentOutput;
+                          await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `🤖 *AI Agent — ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}*\n\n${truncated}` }) });
+                        } catch {}
+                      }}
+                      style={{ border: `1px solid ${telegramOk ? C.green + "44" : C.border}`, background: telegramOk ? `${C.green}0f` : C.surface, color: telegramOk ? C.green : C.textDim, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: telegramOk ? "pointer" : "not-allowed" }}
+                      title={telegramOk ? "Send to Telegram" : "Telegram not configured"}
+                    >SEND TO BOT</button>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(agentOutput).catch(() => {})}
+                      style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                    >COPY</button>
+                  </div>
                 )}
               </div>
               <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: SANS, fontSize: 14, lineHeight: 1.55, color: C.text }}>
