@@ -137,7 +137,11 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "  `/trades` — list open journal trades\n"
         "  `/close NVDA 450` — close most recent NVDA trade at 450\n"
         "  `/close 450` — close most recent open trade at 450\n"
-        "  `/note NVDA watching VWAP` — append timestamped note to open trade\n"
+        "  `/note NVDA watching VWAP` — append timestamped note to open trade\n\n"
+        "*Charts*\n"
+        "  `/chart NVDA` — ASCII price chart (1 month)\n"
+        "  `/chart NVDA 5d` — 5-day intraday chart\n"
+        "  `/chart NVDA 3mo` — 3-month chart\n"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
 
@@ -809,6 +813,69 @@ async def cmd_midday_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await update.message.reply_text(text, parse_mode="Markdown")
 
 
+# ── /chart ────────────────────────────────────────────────────────────────────
+
+async def cmd_chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Usage: /chart NVDA  or  /chart NVDA 5d"""
+    if not await _auth_guard(update, context): return
+    args = context.args
+    if not args:
+        await update.message.reply_text("Usage: `/chart NVDA` or `/chart NVDA 5d`", parse_mode="Markdown")
+        return
+
+    symbol = args[0].upper()
+    period = args[1] if len(args) > 1 else "1mo"
+    VALID_PERIODS = {"1d","5d","1mo","3mo","6mo","1y","2y"}
+    if period not in VALID_PERIODS:
+        period = "1mo"
+
+    await update.message.reply_text(f"Fetching chart for {symbol} ({period})…")
+
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period=period, interval="1d" if period not in ("1d","5d") else ("5m" if period == "1d" else "1h"))
+        if hist.empty:
+            await update.message.reply_text(f"No data for {symbol}.")
+            return
+
+        closes = list(hist["Close"].dropna())
+        if len(closes) < 4:
+            await update.message.reply_text(f"Not enough data for {symbol}.")
+            return
+
+        # ASCII sparkline — 20 bars wide, 8 rows tall
+        W, H = 20, 6
+        sample = closes[::max(1, len(closes) // W)][:W]
+        lo, hi = min(sample), max(sample)
+        span = hi - lo or 1
+
+        rows = []
+        for row in range(H - 1, -1, -1):
+            threshold = lo + span * row / (H - 1)
+            line = ""
+            for v in sample:
+                line += "█" if v >= threshold - span / (H * 2) else " "
+            rows.append(line)
+
+        change = closes[-1] - closes[0]
+        change_pct = change / closes[0] * 100
+        arrow = "▲" if change >= 0 else "▼"
+        color_label = "🟢" if change >= 0 else "🔴"
+
+        chart_block = "\n".join(rows)
+        caption = (
+            f"📊 *{symbol}* ({period})\n"
+            f"```\n{chart_block}\n```\n"
+            f"{color_label} ${closes[-1]:.2f}  {arrow} {change_pct:+.2f}%\n"
+            f"Range: ${lo:.2f} – ${hi:.2f}"
+        )
+        await update.message.reply_text(caption, parse_mode="Markdown")
+
+    except Exception as e:
+        await update.message.reply_text(f"Chart error: {e}")
+
+
 # ── Free-text message handler (ticker lookup) ─────────────────────────────────
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -911,6 +978,7 @@ def main() -> None:
     app.add_handler(CommandHandler("journal",  cmd_journal_stats))
     app.add_handler(CommandHandler("trades",   cmd_trades))
     app.add_handler(CommandHandler("close",    cmd_close_trade))
+    app.add_handler(CommandHandler("chart",    cmd_chart))
 
     # Free-text (ticker lookup)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))

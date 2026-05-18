@@ -4056,7 +4056,7 @@ export default function App() {
         };
       })
       .filter((q) => q.price >= minPrice)
-      .filter((q) => Math.abs(q.changesPercentage || 0) >= minChange)
+      .filter((q) => minChange < 0 ? (q.changesPercentage || 0) <= minChange : Math.abs(q.changesPercentage || 0) >= minChange)
       .filter((q) => q.rvol >= minRvol)
       .filter((q) => q.scannerScore >= minScore)
       .filter((q) => sector === "ALL" || q.sectorEtf === sector)
@@ -7221,6 +7221,8 @@ export default function App() {
                 {[
                   { label: "Momentum", f: { minPrice: "15", minChange: "2", minRvol: "1.5", minScore: "65", sector: "ALL" } },
                   { label: "Breakout", f: { minPrice: "20", minChange: "1", minRvol: "2", minScore: "70", sector: "ALL" } },
+                  { label: "Pullback", f: { minPrice: "20", minChange: "-2", minRvol: "1.2", minScore: "60", sector: "ALL" } },
+                  { label: "Short Setup", f: { minPrice: "15", minChange: "-1.5", minRvol: "1.5", minScore: "55", sector: "ALL" } },
                   { label: "RVOL Spike", f: { minPrice: "10", minChange: "0.5", minRvol: "3", minScore: "55", sector: "ALL" } },
                   { label: "Large Cap", f: { minPrice: "50", minChange: "0.3", minRvol: "1", minScore: "60", sector: "ALL" } },
                   { label: "Reset", f: { minPrice: "10", minChange: "0.5", minRvol: "1", minScore: "55", sector: "ALL" } },
