@@ -9606,28 +9606,50 @@ export default function App() {
                 style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: "6px 8px", fontFamily: MONO, fontSize: 11, color: C.text, resize: "none", outline: "none" }} />
             </div>
 
-            {/* Submit */}
-            <button onClick={async () => {
-              try {
-                await fetch("/api/journal", { method: "POST", headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    ticker: quickLogModal.symbol,
-                    side: quickLogModal.side,
-                    score: Math.round(quickLogModal.score || 0),
-                    entry: Number(quickLogModal.entry) || 0,
-                    stopLoss: Number(quickLogModal.stopLoss) || 0,
-                    target: Number(quickLogModal.target) || 0,
-                    size: Number(quickLogModal.size) || 0,
-                    timeframe: quickLogModal.timeframe,
-                    style: quickLogModal.style,
-                    notes: quickLogModal.notes,
-                  }),
-                });
-                setQuickLogModal(null);
-              } catch {}
-            }} style={{ width: "100%", border: "none", background: quickLogModal.side === "BUY" ? C.green : C.red, color: "#fff", borderRadius: 5, padding: "11px 0", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 800, letterSpacing: "0.06em" }}>
-              LOG {quickLogModal.side} — {quickLogModal.symbol}
-            </button>
+            {/* Action row */}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => {
+                  const m = quickLogModal;
+                  const entry = Number(m.entry) || 0;
+                  const stop = Number(m.stopLoss) || 0;
+                  const target = Number(m.target) || 0;
+                  const rr = entry > 0 && stop > 0 && target > 0 ? (Math.abs(target - entry) / Math.abs(entry - stop)).toFixed(1) : "?";
+                  const plan = [
+                    `📋 ${m.symbol} | ${m.side} | ${m.style} | ${m.timeframe}`,
+                    `Entry: $${entry.toFixed(2)} | Stop: $${stop.toFixed(2)} | Target: $${target.toFixed(2)}`,
+                    `Size: ${Number(m.size) || "?"} shares | R:R ${rr}:1`,
+                    m.notes ? `Notes: ${m.notes}` : "",
+                  ].filter(Boolean).join("\n");
+                  navigator.clipboard.writeText(plan).catch(() => {});
+                }}
+                style={{ border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 5, padding: "11px 12px", fontFamily: MONO, fontSize: 11, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" }}
+                title="Copy trade plan to clipboard"
+              >
+                COPY
+              </button>
+              <button onClick={async () => {
+                try {
+                  await fetch("/api/journal", { method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      ticker: quickLogModal.symbol,
+                      side: quickLogModal.side,
+                      score: Math.round(quickLogModal.score || 0),
+                      entry: Number(quickLogModal.entry) || 0,
+                      stopLoss: Number(quickLogModal.stopLoss) || 0,
+                      target: Number(quickLogModal.target) || 0,
+                      size: Number(quickLogModal.size) || 0,
+                      timeframe: quickLogModal.timeframe,
+                      style: quickLogModal.style,
+                      notes: quickLogModal.notes,
+                    }),
+                  });
+                  setQuickLogModal(null);
+                } catch {}
+              }} style={{ flex: 1, border: "none", background: quickLogModal.side === "BUY" ? C.green : C.red, color: "#fff", borderRadius: 5, padding: "11px 0", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 800, letterSpacing: "0.06em" }}>
+                LOG {quickLogModal.side} — {quickLogModal.symbol}
+              </button>
+            </div>
           </div>
         </div>
       )}

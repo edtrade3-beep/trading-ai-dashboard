@@ -414,7 +414,8 @@ async function handleMarket(req, res, requestUrl) {
     const n = Math.max(1, Math.min(20, Number(searchParams.get("n") || 5)));
     const keys = resolveProviderKeys(searchParams);
     const payload = await fetchMarketQuotes(symbols, keys);
-    const quotes = (payload.quotes || []).filter((q) => typeof q.price === "number" && typeof q.changesPercentage === "number");
+    const rawQuotes = Array.isArray(payload) ? payload : (payload.quotes || []);
+    const quotes = rawQuotes.filter((q) => typeof q.price === "number" && typeof q.changesPercentage === "number");
     const sorted = [...quotes].sort((a, b) => b.changesPercentage - a.changesPercentage);
     return writeJson(res, 200, {
       gainers: sorted.slice(0, n).map((q) => ({ symbol: q.symbol, price: q.price, changesPercentage: q.changesPercentage })),

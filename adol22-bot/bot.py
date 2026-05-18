@@ -128,6 +128,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "  `/risk_amt 200` — set $ risk per trade\n"
         "  `/size NVDA 450 440` — position size (entry, stop)\n\n"
         "*Reports*\n"
+        "  `/briefing` — compact situational briefing (regime + setups + P/L)\n"
         "  `/morning` — run morning brief now\n"
         "  `/midday` — run midday check-in now\n"
         "  `/status` — bot status, regime, daily P/L\n\n"
@@ -672,6 +673,79 @@ async def cmd_morning(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await update.message.reply_text(text, parse_mode="Markdown")
 
 
+async def cmd_briefing(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Compact situational briefing: regime + macro + top watchlist setups + risk."""
+    if not await _auth_guard(update, context): return
+    import pytz
+    from datetime import datetime
+    await update.message.reply_text("📋 Building briefing...")
+    macro    = fetch_macro_data()
+    wl       = wl_store.get_watchlist()
+    settings = wl_store.get_settings()
+    state    = wl_store.get_daily_state()
+
+    spy = macro.get("SPY", {})
+    qqq = macro.get("QQQ", {})
+    vix = macro.get("VIX", {})
+    spy_chg  = spy.get("change_pct", 0)
+    qqq_chg  = qqq.get("change_pct", 0)
+    vix_p    = vix.get("price", 20)
+    vix_chg  = vix.get("change_pct", 0)
+
+    # Session
+    try:
+        et = pytz.timezone("US/Eastern")
+        now_et = datetime.now(et)
+        total  = now_et.hour * 60 + now_et.minute
+        session = "PRE-MARKET" if total < 570 else "LIVE" if total < 960 else "AFTER-HOURS" if total < 1200 else "CLOSED"
+        time_str = now_et.strftime("%I:%M %p ET")
+    except Exception:
+        session, time_str = "UNKNOWN", "?"
+
+    regime = "FEAR 🔴" if vix_chg >= 3 else "CALM 🟢" if vix_chg <= -2 else "NEUTRAL 🟡"
+
+    # Scan top 5 watchlist setups
+    scores  = scan_watchlist(wl, min_score=55)
+    top5    = sorted(scores, key=lambda x: x.get("composite", 0), reverse=True)[:5]
+
+    # Daily P/L
+    pnl_r    = state.get("daily_pnl_r", 0)
+    risk_amt = settings.get("risk_amount", 100)
+    mode     = settings.get("mode", "balanced")
+
+    lines = [
+        f"📋 *ADOL22 Briefing* — {time_str}",
+        f"Session: *{session}*  |  Regime: *{regime}*",
+        "",
+        f"SPY `{spy_chg:+.2f}%`  QQQ `{qqq_chg:+.2f}%`  VIX `{vix_p:.1f}` ({vix_chg:+.2f}%)",
+        "",
+    ]
+
+    if top5:
+        lines.append("*Top Setups*")
+        for r in top5:
+            sym   = r.get("symbol", "?")
+            score = r.get("composite", 0)
+            chg   = r.get("changesPercentage", 0)
+            price = r.get("price", 0)
+            rv    = r.get("rvol", 0)
+            bar   = "▓" * min(int(score // 10), 10)
+            lines.append(f"  `{sym:6}` ${price:.2f} {chg:+.2f}% RVOL {rv:.1f}x  [{score:.0f}] {bar}")
+        lines.append("")
+
+    lines += [
+        f"Mode: *{mode.title()}*  |  Risk: *${risk_amt}*",
+        f"Daily P/L: *{pnl_r:+.2f}R*  |  Watchlist: *{len(wl)} tickers*",
+    ]
+
+    # AI market note
+    ai_note = analyze_market(macro)
+    if ai_note and not ai_note.startswith("["):
+        lines += ["", f"🤖 {ai_note[:280]}"]
+
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
 async def cmd_midday_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await _auth_guard(update, context): return
     await update.message.reply_text("Running midday report...")
@@ -778,6 +852,7 @@ def main() -> None:
     app.add_handler(CommandHandler("size",     cmd_size))
     app.add_handler(CommandHandler("morning",  cmd_morning))
     app.add_handler(CommandHandler("midday",   cmd_midday_now))
+    app.add_handler(CommandHandler("briefing", cmd_briefing))
     app.add_handler(CommandHandler("alert",    cmd_set_alert))
     app.add_handler(CommandHandler("journal",  cmd_journal_stats))
     app.add_handler(CommandHandler("trades",   cmd_trades))

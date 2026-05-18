@@ -1007,6 +1007,7 @@ function App() {
             </section>
 
             {tab === "Overview" && (
+              <React.Fragment>
               <div style={styles.twoCol}>
                 <Panel title="Business Snapshot" badge="Overview" styles={styles}>
                   <div style={styles.metricGrid}>
@@ -1087,6 +1088,40 @@ function App() {
                   </div>
                 </Panel>
               </div>
+
+              {/* Aged Inventory Alert */}
+              {(() => {
+                const aged = rankedInventory.filter(v => !v.soldPrice && v.daysOnLot >= 30).sort((a, b) => b.daysOnLot - a.daysOnLot);
+                if (!aged.length) return null;
+                return (
+                  <div style={{ ...styles.card, marginTop: 14, borderColor: aged.some(v => v.daysOnLot >= 45) ? "#f59e0b" : styles.card.borderColor }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#d97706", letterSpacing: "0.06em" }}>⚠️ AGED INVENTORY — {aged.length} UNIT{aged.length !== 1 ? "S" : ""} 30+ DAYS</div>
+                      <div style={{ fontSize: 11, color: theme.muted }}>{aged.filter(v => v.daysOnLot >= 45).length} at 45+ days</div>
+                    </div>
+                    <div style={{ display: "grid", gap: 8 }}>
+                      {aged.slice(0, 6).map(v => {
+                        const urgency = v.daysOnLot >= 60 ? "#dc2626" : v.daysOnLot >= 45 ? "#d97706" : theme.muted;
+                        const dropPct = v.daysOnLot >= 60 ? 8 : v.daysOnLot >= 45 ? 5 : 3;
+                        const suggested = Math.round(v.pricing.suggested * (1 - dropPct / 100) / 100) * 100;
+                        return (
+                          <div key={v.vin} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: theme.soft, borderRadius: 6, padding: "8px 10px", border: `1px solid ${urgency}33` }}>
+                            <div>
+                              <div style={{ fontWeight: 700, fontSize: 13, color: theme.text }}>{v.year} {v.make} {v.model} {v.trim}</div>
+                              <div style={{ fontSize: 11, color: theme.muted, marginTop: 2 }}>{v.mileage?.toLocaleString()} mi · Current ask {money(v.pricing.suggested)}</div>
+                            </div>
+                            <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 10 }}>
+                              <div style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: urgency }}>{v.daysOnLot}d</div>
+                              <div style={{ fontSize: 11, color: theme.muted }}>→ {money(suggested)} <span style={{ color: "#dc2626" }}>(-{dropPct}%)</span></div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+              </React.Fragment>
             )}
 
             {tab === "Vehicle" && (
