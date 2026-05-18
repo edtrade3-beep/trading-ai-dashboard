@@ -3143,6 +3143,7 @@ export default function App() {
 
   useEffect(() => {
     fetch("/api/health").then(r => r.ok ? r.json() : {}).then(d => { if (d.telegram) setTelegramOk(true); }).catch(() => {});
+    fetch("/api/plan").then(r => r.ok ? r.json() : {}).then(d => { if (d.text && !localStorage.getItem("ax_game_plan")) setDailyGamePlan(d.text); }).catch(() => {});
   }, []);
 
   const runServerScreen = useCallback(async () => {
@@ -3269,6 +3270,10 @@ export default function App() {
 
   useEffect(() => {
     try { localStorage.setItem("ax_game_plan", dailyGamePlan); } catch {}
+    const tid = setTimeout(() => {
+      fetch("/api/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: dailyGamePlan }) }).catch(() => {});
+    }, 1000);
+    return () => clearTimeout(tid);
   }, [dailyGamePlan]);
 
   useEffect(() => {

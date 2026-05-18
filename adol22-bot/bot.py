@@ -141,7 +141,10 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "*Charts*\n"
         "  `/chart NVDA` — ASCII price chart (1 month)\n"
         "  `/chart NVDA 5d` — 5-day intraday chart\n"
-        "  `/chart NVDA 3mo` — 3-month chart\n"
+        "  `/chart NVDA 3mo` — 3-month chart\n\n"
+        "*Game Plan*\n"
+        "  `/plan` — show today's game plan from the platform\n"
+        "  `/plan SPY above 590 is bullish…` — save/update today's plan\n"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
 
@@ -813,6 +816,53 @@ async def cmd_midday_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await update.message.reply_text(text, parse_mode="Markdown")
 
 
+# ── /plan ─────────────────────────────────────────────────────────────────────
+
+async def cmd_plan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Usage: /plan — show today's plan  |  /plan <text> — set or append plan"""
+    if not await _auth_guard(update, context): return
+    args = context.args
+
+    if not args:
+        # GET plan
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{SERVER_URL}/api/plan", timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                    data = await resp.json()
+            text = data.get("text", "").strip()
+            updated = data.get("updatedAt", "")
+            if not text:
+                await update.message.reply_text("📋 No game plan set for today.\n\nUse `/plan Your plan here` to set one.", parse_mode="Markdown")
+            else:
+                ts = ""
+                if updated:
+                    try:
+                        from datetime import datetime
+                        ts = " · Updated " + datetime.fromisoformat(updated.replace("Z", "+00:00")).strftime("%m/%d %H:%M")
+                    except Exception:
+                        pass
+                await update.message.reply_text(f"📋 *Today's Game Plan*{ts}\n\n{text}", parse_mode="Markdown")
+        except Exception as e:
+            await update.message.reply_text(f"Error fetching plan: {e}")
+    else:
+        # POST plan
+        plan_text = " ".join(args)
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{SERVER_URL}/api/plan",
+                    json={"text": plan_text},
+                    timeout=aiohttp.ClientTimeout(total=8),
+                ) as resp:
+                    data = await resp.json()
+            if data.get("ok"):
+                await update.message.reply_text(f"✅ Game plan saved:\n\n_{plan_text}_", parse_mode="Markdown")
+            else:
+                await update.message.reply_text("Failed to save plan.")
+        except Exception as e:
+            await update.message.reply_text(f"Error saving plan: {e}")
+
+
 # ── /chart ────────────────────────────────────────────────────────────────────
 
 async def cmd_chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -979,6 +1029,7 @@ def main() -> None:
     app.add_handler(CommandHandler("trades",   cmd_trades))
     app.add_handler(CommandHandler("close",    cmd_close_trade))
     app.add_handler(CommandHandler("chart",    cmd_chart))
+    app.add_handler(CommandHandler("plan",     cmd_plan))
 
     # Free-text (ticker lookup)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))

@@ -15,6 +15,7 @@ const handlePortfolio = require("./routes/portfolio");
 const handleDealership = require("./dealership/routes");
 const handlePriceAlerts = require("./routes/price-alerts");
 const handleSettings = require("./routes/settings");
+const handlePlan = require("./routes/plan");
 const { sendTelegramAlert, sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
 
 async function handleRequest(req, res) {
@@ -75,6 +76,10 @@ async function handleRequest(req, res) {
 
     if (pathname === "/api/settings") {
       return handleSettings(req, res, requestUrl);
+    }
+
+    if (pathname === "/api/plan") {
+      return handlePlan(req, res);
     }
 
     // POST /api/notify — sends a freeform Telegram message from the platform UI
