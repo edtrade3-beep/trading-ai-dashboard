@@ -8,9 +8,11 @@ Reports fire at:  7:00 AM ET  (pre-market brief)
 
 import asyncio
 import logging
+import os
 from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+import aiohttp
 
 from market_data  import fetch_macro_data, fetch_sector_performance
 from scanner      import scan_watchlist, find_top_movers
@@ -18,6 +20,8 @@ from formatter    import (format_morning_report, format_midday_report,
                           format_close_report)
 from ai_prompts   import analyze_market
 import watchlist as wl_store
+
+SERVER_URL = os.getenv("SERVER_URL", "http://localhost:3000")
 
 log = logging.getLogger(__name__)
 
@@ -44,6 +48,17 @@ async def job_morning_brief(bot, chat_id: str) -> None:
         scores  = scan_watchlist(wl, min_score=60)
 
         text = format_morning_report(macro, sectors, scores)
+
+        # Append today's game plan if set
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{SERVER_URL}/api/plan", timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                    plan_data = await resp.json()
+            plan_text = (plan_data.get("text") or "").strip()
+            if plan_text:
+                text += f"\n\n📋 *Today's Plan:* {plan_text[:300]}"
+        except Exception:
+            pass
 
         # Append AI market read if available
         ai_note = analyze_market(macro)
