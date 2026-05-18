@@ -2788,6 +2788,7 @@ export default function App() {
   const [newsSentFilter, setNewsSentFilter] = useState("all");
   const [workflowState, setWorkflowState] = useState(DEFAULT_WORKFLOW);
   const [workflowAutoPlan, setWorkflowAutoPlan] = useState(null);
+  const [dailyGamePlan, setDailyGamePlan] = useState(() => { try { return localStorage.getItem("ax_game_plan") || ""; } catch { return ""; } });
   const [tvSource, setTvSource] = useState("bloomberg");
   const [backtestSymbol, setBacktestSymbol] = useState(WATCHLIST_SYMBOLS[0]);
   const [backtestTf, setBacktestTf] = useState("1D");
@@ -3260,6 +3261,10 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem("ax_wl_notes", JSON.stringify(watchlistNotes)); } catch {}
   }, [watchlistNotes]);
+
+  useEffect(() => {
+    try { localStorage.setItem("ax_game_plan", dailyGamePlan); } catch {}
+  }, [dailyGamePlan]);
 
   useEffect(() => {
     try {
@@ -5175,6 +5180,27 @@ export default function App() {
               </span>
             </div>
           )}
+          {(() => {
+            const today = new Date().toISOString().slice(0, 10);
+            const todayClosed = journalEntries.filter(e => e.status === "closed" && e.pnl != null && (e.closedAt || "").slice(0, 10) === today);
+            if (!todayClosed.length) return null;
+            const todayPnl = todayClosed.reduce((s, e) => s + e.pnl, 0);
+            const todayWins = todayClosed.filter(e => e.pnl > 0).length;
+            const color = todayPnl >= 0 ? C.green : C.red;
+            return (
+              <div
+                onClick={() => setActiveTab("journal")}
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 3, border: `1px solid ${color}44`, background: `${color}0f`, cursor: "pointer" }}
+                title={`Today: ${todayClosed.length} trades · ${todayWins}W — click to view journal`}
+              >
+                <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>TODAY</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color }}>
+                  {todayPnl >= 0 ? "+" : ""}${Math.round(todayPnl)}
+                </span>
+                <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{todayClosed.length}T</span>
+              </div>
+            );
+          })()}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div style={{
               width: 7, height: 7, borderRadius: "50%", background: C.green,
@@ -6705,6 +6731,35 @@ export default function App() {
                 </button>
               </div>
             </div>
+            {/* Daily Game Plan */}
+            <div style={{ background: C.card, border: `1px solid ${dailyGamePlan ? C.accent + "55" : C.border}`, borderRadius: 8, padding: 12, marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em" }}>TODAY'S GAME PLAN</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{new Date().toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}</span>
+                  {dailyGamePlan && (
+                    <button
+                      onClick={() => navigator.clipboard.writeText(dailyGamePlan).catch(() => {})}
+                      style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 3, padding: "1px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                    >COPY</button>
+                  )}
+                  {dailyGamePlan && (
+                    <button
+                      onClick={() => setDailyGamePlan("")}
+                      style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.red, borderRadius: 3, padding: "1px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                    >CLEAR</button>
+                  )}
+                </div>
+              </div>
+              <textarea
+                value={dailyGamePlan}
+                onChange={e => setDailyGamePlan(e.target.value)}
+                placeholder="Write your plan for today before the market opens:&#10;— What is the market regime? (bullish / bearish / choppy)&#10;— Key names and why&#10;— Max trades today: ___  Max loss: ___&#10;— Rules for today:"
+                rows={dailyGamePlan ? Math.min(Math.max(dailyGamePlan.split("\n").length + 1, 3), 8) : 5}
+                style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, padding: "8px 10px", fontFamily: SANS, fontSize: 13, color: C.text, resize: "vertical", outline: "none", lineHeight: 1.5 }}
+              />
+            </div>
+
             {workflowAutoPlan && (
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, marginBottom: 12 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr 1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>

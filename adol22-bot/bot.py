@@ -137,6 +137,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "  `/trades` — list open journal trades\n"
         "  `/close NVDA 450` — close most recent NVDA trade at 450\n"
         "  `/close 450` — close most recent open trade at 450\n"
+        "  `/note NVDA watching VWAP` — append timestamped note to open trade\n"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
 
@@ -455,6 +456,58 @@ async def cmd_set_alert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
     else:
         await update.message.reply_text(f"❌ {data.get('error', 'Unknown error')}")
+
+
+# ── /note — append a note to the most recent open journal entry ───────────────
+
+async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _auth_guard(update, context): return
+    if not context.args:
+        await update.message.reply_text("Usage: `/note NVDA holding above VWAP, watching for breakout`", parse_mode="Markdown")
+        return
+
+    # Optional leading ticker arg
+    first = context.args[0].upper()
+    import re
+    if re.match(r"^[A-Z]{1,6}$", first):
+        filter_ticker = first
+        note_text = " ".join(context.args[1:])
+    else:
+        filter_ticker = None
+        note_text = " ".join(context.args)
+
+    if not note_text.strip():
+        await update.message.reply_text("Please include note text after the ticker.")
+        return
+
+    try:
+        data = await _journal_get()
+    except Exception as exc:
+        await update.message.reply_text(f"❌ Could not reach journal: {exc}")
+        return
+
+    entries   = data.get("entries", [])
+    open_list = [e for e in entries if e.get("status") == "open"]
+    if filter_ticker:
+        open_list = [e for e in open_list if e.get("ticker") == filter_ticker]
+
+    if not open_list:
+        msg = f"No open {filter_ticker} trades found." if filter_ticker else "No open trades found."
+        await update.message.reply_text(msg)
+        return
+
+    trade = open_list[-1]
+    existing_notes = trade.get("notes") or ""
+    new_notes = f"{existing_notes}\n[{update.message.date.strftime('%H:%M')}] {note_text}".strip() if existing_notes else f"[{update.message.date.strftime('%H:%M')}] {note_text}"
+
+    try:
+        await _journal_patch(trade["id"], {"notes": new_notes})
+    except Exception as exc:
+        await update.message.reply_text(f"❌ Failed to update: {exc}")
+        return
+
+    ticker = trade.get("ticker", "?")
+    await update.message.reply_text(f"✏️ *Note added to {ticker}*\n_{note_text}_", parse_mode="Markdown")
 
 
 # ── /news ─────────────────────────────────────────────────────────────────────
@@ -854,6 +907,7 @@ def main() -> None:
     app.add_handler(CommandHandler("midday",   cmd_midday_now))
     app.add_handler(CommandHandler("briefing", cmd_briefing))
     app.add_handler(CommandHandler("alert",    cmd_set_alert))
+    app.add_handler(CommandHandler("note",     cmd_note))
     app.add_handler(CommandHandler("journal",  cmd_journal_stats))
     app.add_handler(CommandHandler("trades",   cmd_trades))
     app.add_handler(CommandHandler("close",    cmd_close_trade))

@@ -1395,6 +1395,22 @@ ${FINANCE_LINE}` : "Decode a vehicle first to generate finance wording."}
                     <Field label="Ad Text" styles={styles}>
                       <textarea value={adText} readOnly style={styles.textarea} />
                     </Field>
+                    {adText && (() => {
+                      const len = adText.length;
+                      const limits = { craigslist: 5000, offerup: 4000 };
+                      const limit = limits[adStyle] || null;
+                      const overLimit = limit && len > limit;
+                      return (
+                        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 11 }}>
+                          <span style={{ color: theme.muted }}>{len.toLocaleString()} characters</span>
+                          {limit && (
+                            <span style={{ color: overLimit ? "#dc2626" : theme.muted, fontWeight: overLimit ? 700 : 400 }}>
+                              {overLimit ? `⚠️ Over ${limit.toLocaleString()} char limit` : `Limit: ${limit.toLocaleString()}`}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                   {adText ? (
                     <button
