@@ -798,6 +798,17 @@ async def cmd_briefing(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         f"Daily P/L: *{pnl_r:+.2f}R*  |  Watchlist: *{len(wl)} tickers*",
     ]
 
+    # Game plan from server
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{SERVER_URL}/api/plan", timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                plan_data = await resp.json()
+        plan_text = (plan_data.get("text") or "").strip()
+        if plan_text:
+            lines += ["", f"📋 *Game Plan*: {plan_text[:300]}"]
+    except Exception:
+        pass
+
     # AI market note
     ai_note = analyze_market(macro)
     if ai_note and not ai_note.startswith("["):
