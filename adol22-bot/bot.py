@@ -835,6 +835,16 @@ async def cmd_briefing(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         f"Daily P/L: *{pnl_r:+.2f}R*  |  Watchlist: *{len(wl)} tickers*",
     ]
 
+    # Open journal positions
+    try:
+        jdata = await _journal_get()
+        open_trades = [e for e in jdata.get("entries", []) if e.get("status") == "open"]
+        if open_trades:
+            syms = ", ".join(e.get("ticker", "?") for e in open_trades[:6])
+            lines += ["", f"📋 *{len(open_trades)} open trade(s):* {syms}"]
+    except Exception:
+        pass
+
     # Game plan from server
     try:
         async with aiohttp.ClientSession() as session:
