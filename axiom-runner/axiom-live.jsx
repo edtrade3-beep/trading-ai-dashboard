@@ -6931,14 +6931,18 @@ export default function App() {
                           <span style={{ fontFamily: MONO, fontSize: 11, color: C.accent }}>{Number(cand.score || 0).toFixed(1)}</span>
                         </div>
                         <div style={{ fontSize: 10, color: C.textDim, minHeight: 32 }}>{cand.why}</div>
-                        {cand.symbol !== workflowAutoPlan.symbol && (
+                        <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
                           <button
-                            onClick={() => applyWorkflowPrimary(cand)}
-                            style={{ marginTop: 6, border: `1px solid ${C.border}`, background: C.card, color: C.text, borderRadius: 4, padding: "5px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
-                          >
-                            SET PRIMARY
-                          </button>
-                        )}
+                            onClick={() => { setTerminalSymbol(cand.symbol); setActiveTab("terminal"); }}
+                            style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                          >CHART</button>
+                          {cand.symbol !== workflowAutoPlan.symbol && (
+                            <button
+                              onClick={() => applyWorkflowPrimary(cand)}
+                              style={{ border: `1px solid ${C.border}`, background: C.card, color: C.text, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                            >SET PRIMARY</button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -6994,15 +6998,15 @@ export default function App() {
                   <>
                     <div style={{ fontFamily: MONO, fontSize: 10, color: C.green, fontWeight: 700, marginBottom: 4 }}>TOP GAINERS</div>
                     {(marketMovers.gainers || []).map((q) => (
-                      <div key={`mv-g-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
-                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.text, fontWeight: 700 }}>{q.symbol}</span>
+                      <div key={`mv-g-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
+                        <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
                         <span style={{ fontFamily: MONO, fontSize: 10, color: C.green, fontWeight: 700 }}>+{Number(q.changesPercentage || 0).toFixed(2)}%</span>
                       </div>
                     ))}
                     <div style={{ fontFamily: MONO, fontSize: 10, color: C.red, fontWeight: 700, marginTop: 8, marginBottom: 4 }}>TOP LOSERS</div>
                     {(marketMovers.losers || []).map((q) => (
-                      <div key={`mv-l-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
-                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.text, fontWeight: 700 }}>{q.symbol}</span>
+                      <div key={`mv-l-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
+                        <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
                         <span style={{ fontFamily: MONO, fontSize: 10, color: C.red, fontWeight: 700 }}>{Number(q.changesPercentage || 0).toFixed(2)}%</span>
                       </div>
                     ))}
@@ -7016,8 +7020,8 @@ export default function App() {
                 <div style={{ display: "grid", gap: 6 }}>
                   <div style={{ fontFamily: MONO, fontSize: 10, color: C.accent, fontWeight: 700 }}>PREMARKET</div>
                   {(prePostMovers.pre || []).map((q) => (
-                    <div key={`wf-pre-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
-                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.text, fontWeight: 700 }}>{q.symbol}</span>
+                    <div key={`wf-pre-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
+                      <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
                       <span style={{ fontFamily: MONO, fontSize: 10, color: q.pre >= 0 ? C.green : C.red, fontWeight: 700 }}>
                         {q.pre >= 0 ? "+" : ""}{q.pre.toFixed(2)}%
                       </span>
@@ -7028,8 +7032,8 @@ export default function App() {
                 <div style={{ display: "grid", gap: 6, marginTop: 10 }}>
                   <div style={{ fontFamily: MONO, fontSize: 10, color: C.purple, fontWeight: 700 }}>AFTERHOURS</div>
                   {(prePostMovers.post || []).map((q) => (
-                    <div key={`wf-post-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
-                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.text, fontWeight: 700 }}>{q.symbol}</span>
+                    <div key={`wf-post-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
+                      <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
                       <span style={{ fontFamily: MONO, fontSize: 10, color: q.post >= 0 ? C.green : C.red, fontWeight: 700 }}>
                         {q.post >= 0 ? "+" : ""}{q.post.toFixed(2)}%
                       </span>
@@ -7048,7 +7052,7 @@ export default function App() {
                   return (
                     <div key={`wf-est-${r.symbol}`} style={{ borderBottom: `1px solid ${C.border}`, padding: "6px 0" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.text, fontWeight: 700 }}>{r.symbol}</span>
+                        <button onClick={() => { setTerminalSymbol(r.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", padding: 0 }}>{r.symbol}</button>
                         <span style={{ fontFamily: MONO, fontSize: 9, color: tone, background: bg, border: `1px solid ${tone}44`, padding: "1px 6px", borderRadius: 999, fontWeight: 800 }}>{r.status}</span>
                       </div>
                       <div style={{ fontSize: 10, color: C.textDim }}>
