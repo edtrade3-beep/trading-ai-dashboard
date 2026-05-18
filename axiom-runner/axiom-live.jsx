@@ -1724,6 +1724,7 @@ function TerminalWorkspace({
   candleData, loadingCandles, terminalLayout, onLayoutChange,
   hotkeyProfile, onHotkeyProfileChange, drawTools, onDrawToolsChange,
   panelSymbols, onPanelSymbolChange, panelCandleMap, fundamentals, marketSession,
+  onQuickLog,
 }) {
   const selected = watchlistData.find((q) => q.symbol === selectedSymbol) || watchlistData[0] || null;
   const [leftW, setLeftW] = useState(220);
@@ -1878,20 +1879,29 @@ function TerminalWorkspace({
                 : isPostMarket ? Number(q.postMarketChangePercent || 0) : null;
               const extColor = isPreMarket ? C.accent : C.amber;
               return (
-                <button key={q.symbol} onClick={() => onSelectSymbol(q.symbol)} style={{ width: "100%", textAlign: "left", border: "none", cursor: "pointer", padding: "9px 10px", borderBottom: `1px solid ${C.border}`, background: active ? C.cardHover : "transparent" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{q.symbol}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: up ? C.green : C.red }}>{up ? "+" : ""}{(q.changesPercentage || 0).toFixed(2)}%</span>
+                <div key={q.symbol} style={{ width: "100%", borderBottom: `1px solid ${C.border}`, background: active ? C.cardHover : "transparent", display: "flex", alignItems: "stretch" }}>
+                  <div onClick={() => onSelectSymbol(q.symbol)} style={{ flex: 1, cursor: "pointer", padding: "9px 10px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{q.symbol}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: up ? C.green : C.red }}>{up ? "+" : ""}{(q.changesPercentage || 0).toFixed(2)}%</span>
+                    </div>
+                    <div style={{ marginTop: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>${q.price?.toFixed(2)}</span>
+                      {extChg !== null && extChg !== 0 && (
+                        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: extColor, background: `${extColor}18`, borderRadius: 3, padding: "1px 4px" }}>
+                          {isPreMarket ? "PRE" : "POST"} {extChg >= 0 ? "+" : ""}{extChg.toFixed(2)}%
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div style={{ marginTop: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>${q.price?.toFixed(2)}</span>
-                    {extChg !== null && extChg !== 0 && (
-                      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: extColor, background: `${extColor}18`, borderRadius: 3, padding: "1px 4px" }}>
-                        {isPreMarket ? "PRE" : "POST"} {extChg >= 0 ? "+" : ""}{extChg.toFixed(2)}%
-                      </span>
-                    )}
-                  </div>
-                </button>
+                  {onQuickLog && (
+                    <button
+                      onClick={() => onQuickLog({ symbol: q.symbol, price: q.price || 0, entry: (q.price || 0).toFixed(2), stopLoss: "", target: "", size: "", side: "BUY", timeframe: "1D", style: "Breakout", notes: `WL entry · CHG ${up ? "+" : ""}${(q.changesPercentage || 0).toFixed(2)}%`, score: 0, chg: q.changesPercentage || 0, rvol: 0 })}
+                      title="Quick log to journal"
+                      style={{ border: "none", borderLeft: `1px solid ${C.border}`, background: "transparent", color: C.textDim, fontFamily: MONO, fontSize: 9, cursor: "pointer", padding: "0 7px", flexShrink: 0 }}
+                    >LOG</button>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -5353,6 +5363,7 @@ export default function App() {
             panelCandleMap={terminalPanelCandles}
             fundamentals={terminalFundamentals}
             marketSession={marketSession}
+            onQuickLog={setQuickLogModal}
           />
         )}
 
@@ -6055,6 +6066,16 @@ export default function App() {
                                 style={{ border: `1px solid ${onWatchlist ? C.red : C.green}55`, background: onWatchlist ? C.redBg : C.greenBg, color: onWatchlist ? C.red : C.green, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>
                                 {onWatchlist ? "−WL" : "+WL"}
                               </button>
+                              <button
+                                onClick={async () => {
+                                  const icon = sent === "bullish" ? "🟢" : sent === "bearish" ? "🔴" : "⚪";
+                                  const msg = `${icon} *${n.ticker}* — ${sent.toUpperCase()} News\n_${(n.title || "").slice(0, 120)}_\n${n.publisher || ""}`;
+                                  try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
+                                }}
+                                title="Push to Telegram"
+                                style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>
+                                PUSH
+                              </button>
                             </React.Fragment>
                           )}
                         </div>
@@ -6136,7 +6157,7 @@ export default function App() {
                   const px = Number(e.price || 0);
                   return (
                     <div key={`earn-row-${e.symbol}`} style={{ display: "grid", gridTemplateColumns: "130px 160px 130px 120px 120px 1fr auto", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${C.border}`, background: isSoon ? `${C.amber}0D` : C.card, alignItems: "center" }}>
-                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{e.symbol}</span>
+                      <button onClick={() => { setTerminalSymbol(e.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", padding: 0, textAlign: "left" }}>{e.symbol}</button>
                       <span style={{ fontSize: 12, color: C.textSec }}>{dateLabel}</span>
                       <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: isSoon ? C.amber : C.textSec }}>{e.timing}</span>
                       <span style={{ fontFamily: MONO, fontSize: 11, color: chg >= 0 ? C.green : C.red, fontWeight: 700 }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span>
@@ -6152,8 +6173,11 @@ export default function App() {
                           {onWl ? "−WL" : "+WL"}
                         </button>
                         <button
-                          onClick={() => { setTerminalSymbol(e.symbol); setActiveTab("terminal"); }}
-                          style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", whiteSpace: "nowrap" }}>CHART</button>
+                          onClick={async () => {
+                            const msg = `📅 *${e.symbol}* Earnings ${e.timing ? e.timing : dateLabel}\nPrice: $${px.toFixed(2)}  CHG: ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%  Score: ${Math.round(Number(e.score || 0))}`;
+                            try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
+                          }}
+                          style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }} title="Push to Telegram">PUSH</button>
                       </div>
                     </div>
                   );
@@ -6219,8 +6243,26 @@ export default function App() {
 
         {activeTab === "sectors" && (
           <div>
-            <div style={{ fontSize: 10, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em", marginBottom: 14 }}>
-              SECTOR PERFORMANCE — LIVE
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
+                SECTOR PERFORMANCE — LIVE
+              </div>
+              {sectorData.length > 0 && (
+                <button
+                  onClick={async () => {
+                    const sorted = [...sectorData].sort((a, b) => (b.changesPercentage || 0) - (a.changesPercentage || 0));
+                    const lines = ["🏭 *Sector Snapshot*\n"];
+                    sorted.forEach((q, i) => {
+                      const chg = q.changesPercentage || 0;
+                      const icon = chg >= 0 ? "🟢" : "🔴";
+                      const tag = i < 3 ? " ▲ LEADING" : i >= sorted.length - 3 ? " ▼ LAGGING" : "";
+                      lines.push(`${icon} *${q.symbol}* ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%${tag}`);
+                    });
+                    try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: lines.join("\n") }) }); } catch {}
+                  }}
+                  style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "5px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                >PUSH BRIEF</button>
+              )}
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
               <div style={{ minWidth: 420, maxWidth: 560, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px" }}>
@@ -6284,6 +6326,14 @@ export default function App() {
                           onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
                           style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 3, cursor: "pointer" }}
                         >CHART</button>
+                        <button
+                          onClick={async () => {
+                            const msg = `🏭 *${q.symbol}* ${q._sectorName || ""}\n${chg >= 0 ? "🟢" : "🔴"} ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%  $${q.price?.toFixed(2)}${isLeader ? "  ▲ LEADING" : isLagger ? "  ▼ LAGGING" : ""}`;
+                            try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
+                          }}
+                          style={{ fontFamily: MONO, fontSize: 9, padding: "3px 5px", background: C.surface, color: C.textDim, border: `1px solid ${C.textDim}44`, borderRadius: 3, cursor: "pointer" }}
+                          title="Push to Telegram"
+                        >PUSH</button>
                       </div>
                     </div>
                   );
@@ -6300,7 +6350,26 @@ export default function App() {
               <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
                 MACRO DASHBOARD V2 — {macroTone.toUpperCase()}
               </div>
-              <Badge color={macroTone.includes("Risk-On") ? C.green : macroTone.includes("Risk-Off") ? C.red : C.amber}>{macroTone}</Badge>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <Badge color={macroTone.includes("Risk-On") ? C.green : macroTone.includes("Risk-Off") ? C.red : C.amber}>{macroTone}</Badge>
+                <button
+                  onClick={async () => {
+                    const spy = macroData.find(m => m.symbol === "SPY");
+                    const qqq = macroData.find(m => m.symbol === "QQQ");
+                    const vix = macroData.find(m => m._label === "VIX" || m.symbol === "VIXY");
+                    const usd = macroData.find(m => m.symbol === "UUP");
+                    const lines = [
+                      `📊 *Macro Snapshot*  — ${macroTone}`,
+                      `SPY ${spy ? (spy.changesPercentage >= 0 ? "+" : "") + spy.changesPercentage.toFixed(2) + "%" : "—"}  QQQ ${qqq ? (qqq.changesPercentage >= 0 ? "+" : "") + qqq.changesPercentage.toFixed(2) + "%" : "—"}`,
+                      `VIX ${vix ? (vix.changesPercentage >= 0 ? "+" : "") + vix.changesPercentage.toFixed(2) + "%" : "—"}  USD ${usd ? (usd.changesPercentage >= 0 ? "+" : "") + usd.changesPercentage.toFixed(2) + "%" : "—"}`,
+                    ];
+                    const nextEvt = macroEventCalendar[0];
+                    if (nextEvt) lines.push(`Next: ${nextEvt.title} — ${formatCountdown(nextEvt.tteMs)}`);
+                    try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: lines.join("\n") }) }); } catch {}
+                  }}
+                  style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "5px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                >PUSH BRIEF</button>
+              </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 10, marginBottom: 12 }}>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
@@ -6589,7 +6658,7 @@ export default function App() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ background: C.surface }}>
-                      {["SYMBOL", "DIRECTION", "TARGET", "NOTE", "STATUS", "CREATED", "ACTION"].map(h => (
+                      {["SYMBOL", "DIRECTION", "TARGET", "LIVE", "DISTANCE", "NOTE", "STATUS", "CREATED", "ACTION"].map(h => (
                         <th key={h} style={{ padding: "7px 10px", textAlign: h === "NOTE" ? "left" : "center", fontFamily: MONO, fontSize: 10, color: C.textDim }}>{h}</th>
                       ))}
                     </tr>
@@ -6603,6 +6672,28 @@ export default function App() {
                         </td>
                         <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: a.direction === "above" ? C.green : C.red }}>{a.direction.toUpperCase()}</td>
                         <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>${a.targetPrice.toLocaleString()}</td>
+                        {(() => {
+                          const liveQ = watchlistData.find(q => q.symbol === a.symbol);
+                          const livePrice = liveQ?.price || null;
+                          if (!livePrice || a.status !== "active") return (
+                            <>
+                              <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.textDim }}>—</td>
+                              <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.textDim }}>—</td>
+                            </>
+                          );
+                          const dist = ((a.targetPrice - livePrice) / livePrice) * 100;
+                          const away = Math.abs(dist).toFixed(1);
+                          const isBull = a.direction === "above";
+                          const isClose = Math.abs(dist) < 1.5;
+                          const distColor = isClose ? C.amber : (isBull ? (dist > 0 ? C.green : C.red) : (dist < 0 ? C.green : C.red));
+                          const label = isBull ? (dist > 0 ? `${away}% away ▲` : `BREACHED ✓`) : (dist < 0 ? `${away}% away ▼` : `BREACHED ✓`);
+                          return (
+                            <>
+                              <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.text }}>${livePrice.toFixed(2)}</td>
+                              <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 10, fontWeight: 700, color: distColor }}>{label}</td>
+                            </>
+                          );
+                        })()}
                         <td style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textSec, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.note || "—"}</td>
                         <td style={{ padding: "7px 10px", textAlign: "center" }}>
                           <span style={{ background: a.status === "active" ? `${C.green}22` : a.status === "triggered" ? `${C.accent}22` : `${C.amber}22`, color: a.status === "active" ? C.green : a.status === "triggered" ? C.accent : C.amber, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>{a.status}</span>
@@ -7407,6 +7498,14 @@ export default function App() {
                                 style={{ border: `1px solid ${C.accent}55`, background: C.surface, color: C.accent, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
                                 title="Quick log to journal"
                               >LOG</button>
+                              <button
+                                onClick={async () => {
+                                  const msg = `🔍 *${q.symbol}* Scanner Hit\nPrice: $${q.price.toFixed(2)}  CHG: ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%\nRVOL: ${q.rvol.toFixed(2)}x  Score: ${q.scannerScore}${q.sectorEtf ? "\nSector: " + q.sectorEtf : ""}`;
+                                  try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
+                                }}
+                                style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                title="Send to Telegram"
+                              >PUSH</button>
                             </div>
                           </td>
                           <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, color: C.text }}>${q.price.toFixed(2)}</td>
@@ -7462,6 +7561,10 @@ export default function App() {
                                 <a href={`/workstation#${q.symbol}`} target="_blank" rel="noopener" style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.purple, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer", textDecoration: "none" }}>WS</a>
                                 <button onClick={() => setWatchlistSymbols((prev) => Array.from(new Set([...prev, q.symbol])))} style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>+WL</button>
                                 <button onClick={() => setQuickLogModal({ symbol: q.symbol, price: Number(q.price) || 0, entry: (Number(q.price) || 0).toFixed(2), stopLoss: "", target: "", size: "", side: chg >= 0 ? "BUY" : "SELL", timeframe: "1D", style: "Breakout", notes: `Server scan · RVOL ${Number(q.rvol || 0).toFixed(2)}x · Score ${q.composite}`, score: Number(q.composite || 0), chg, rvol: Number(q.rvol || 0) })} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>LOG</button>
+                                <button onClick={async () => {
+                                  const msg = `🔍 *${q.symbol}* Server Screen Hit\nPrice: $${Number(q.price || 0).toFixed(2)}  CHG: ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%\nRVOL: ${Number(q.rvol || 0).toFixed(2)}x  Score: ${q.composite}`;
+                                  try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
+                                }} style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }} title="Send to Telegram">PUSH</button>
                               </div>
                             </td>
                             <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, color: C.text }}>${Number(q.price || 0).toFixed(2)}</td>
@@ -7724,8 +7827,37 @@ export default function App() {
 
         {activeTab === "rotation" && (
           <div>
-            <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em", marginBottom: 14 }}>
-              ROTATION ENGINE — CAPITAL FLOW RANKING
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
+                ROTATION ENGINE — CAPITAL FLOW RANKING
+              </div>
+              {rotationRank.length > 0 && (
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    onClick={async () => {
+                      const msg = rotationRank.slice(0, 10).map((q, i) =>
+                        `${i + 1}. *${q.symbol}* RS ${q.relVsSpy >= 0 ? "+" : ""}${q.relVsSpy.toFixed(2)}% RVOL ${q.rvol.toFixed(2)}x`
+                      ).join("\n");
+                      try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `📊 *Rotation Top 10*\n\n${msg}` }) }); } catch {}
+                    }}
+                    style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "5px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  >PUSH TOP 10</button>
+                  <button
+                    onClick={() => {
+                      const header = "Rank,Symbol,Name,RS vs SPY %,RVOL,Price,Tag\n";
+                      const rows = rotationRank.slice(0, 20).map((q, i) =>
+                        `${i + 1},${q.symbol},"${q.name || ""}",${q.relVsSpy.toFixed(2)},${q.rvol.toFixed(2)},${q.price || ""},${i < 3 ? "LEADER" : i > 8 ? "LAGGER" : "NEUTRAL"}`
+                      ).join("\n");
+                      const blob = new Blob([header + rows], { type: "text/csv" });
+                      const a = document.createElement("a");
+                      a.href = URL.createObjectURL(blob);
+                      a.download = `rotation-${new Date().toISOString().slice(0, 10)}.csv`;
+                      a.click();
+                    }}
+                    style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}10`, color: C.accent, borderRadius: 4, padding: "5px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  >EXPORT CSV</button>
+                </div>
+              )}
             </div>
             {rotationRank.length > 0 && (() => {
               const leaders = rotationRank.filter(q => q.relVsSpy >= 1).length;
@@ -7793,6 +7925,14 @@ export default function App() {
                       }}
                       style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "5px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
                     >LOG</button>
+                    <button
+                      onClick={async () => {
+                        const msg = `🔄 *${q.symbol}* Rotation #${idx + 1}\nRS vs SPY: ${q.relVsSpy >= 0 ? "+" : ""}${q.relVsSpy.toFixed(2)}%  RVOL: ${q.rvol.toFixed(2)}x\nStatus: ${idx < 3 ? "LEADER" : idx > 8 ? "LAGGER" : "NEUTRAL"}`;
+                        try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
+                      }}
+                      style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "5px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                      title="Send to Telegram"
+                    >PUSH</button>
                   </div>
                 </div>
               ))}

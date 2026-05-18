@@ -60,6 +60,33 @@ async def job_morning_brief(bot, chat_id: str) -> None:
         except Exception:
             pass
 
+        # Append earnings today / this week
+        try:
+            from market_data import fetch_ticker_data
+            from datetime import datetime, timezone
+            today_str = datetime.now(timezone.utc).strftime("%b %d, %Y")
+            today_syms, week_syms = [], []
+            for sym in wl[:20]:
+                try:
+                    d = fetch_ticker_data(sym)
+                    ed = d.get("earnings_date", "")
+                    if not ed or ed == "Unknown":
+                        continue
+                    dt = datetime.strptime(ed, "%b %d, %Y").replace(tzinfo=timezone.utc)
+                    days_away = (dt - datetime.now(timezone.utc)).days
+                    if days_away == 0:
+                        today_syms.append(sym)
+                    elif 1 <= days_away <= 5:
+                        week_syms.append(f"{sym} ({ed})")
+                except Exception:
+                    pass
+            if today_syms:
+                text += f"\n\n⚡ *EARNINGS TODAY:* {', '.join(today_syms)}"
+            elif week_syms:
+                text += f"\n\n📅 *Earnings this week:* {', '.join(week_syms[:5])}"
+        except Exception:
+            pass
+
         # Append AI market read if available
         ai_note = analyze_market(macro)
         if ai_note and not ai_note.startswith("["):

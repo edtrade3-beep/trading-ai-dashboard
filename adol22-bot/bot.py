@@ -103,6 +103,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "  `NVDA` — full quote + score for any ticker\n"
         "  `/q NVDA` — quick quote\n"
         "  `/score NVDA` — A+ score breakdown\n"
+        "  `/levels NVDA` — support, resistance, VWAP, 52W range\n"
         "  `/ai NVDA` — AI trade narrative\n"
         "  `/news NVDA` — recent news\n\n"
         "*Watchlist*\n"
@@ -116,11 +117,14 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "  `/scan rvol_spike` — RVOL 3x+ spike\n"
         "  `/movers` — top % movers\n\n"
         "*Market*\n"
+        "  `/earnings` — upcoming earnings dates for all watchlist symbols\n"
         "  `/macro` — SPY/QQQ/VIX/BTC overview\n"
         "  `/sectors` — sector performance\n"
         "  `/econ` — upcoming macro events (CPI, NFP, Fed, PCE)\n"
         "  `/flow` — watchlist options flow (calls/puts, notional)\n"
-        "  `/flow unusual` — unusual options activity only\n\n"
+        "  `/flow unusual` — unusual options activity only\n"
+        "  `/tvhits` — recent TradingView webhook alerts\n"
+        "  `/tvhits NVDA` — filter TV hits by symbol\n\n"
         "*Alerts*\n"
         "  `/alert NVDA above 900` — set price alert on platform\n"
         "  `/alert NVDA below 400 breakdown` — alert with note\n"
@@ -151,6 +155,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "  `/plan SPY above 590 is bullish…` — save/update today's plan\n\n"
         "*Portfolio*\n"
         "  `/holdings` (or `/port`) — show portfolio with live P/L\n"
+        "  `/position NVDA` (or `/pos NVDA`) — single position P/L snapshot\n"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
 
@@ -929,6 +934,58 @@ async def cmd_holdings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
+# ── /position — quick live check on a single position ────────────────────────
+
+async def cmd_position(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Usage: /position NVDA — live P/L snapshot for a single holding."""
+    if not await _auth_guard(update, context): return
+    if not context.args:
+        await update.message.reply_text("Usage: `/position NVDA`", parse_mode="Markdown")
+        return
+
+    sym = context.args[0].upper()
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{SERVER_URL}/api/portfolio", timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                data = await resp.json()
+        holdings = data.get("holdings", [])
+    except Exception as e:
+        await update.message.reply_text(f"❌ Portfolio fetch error: {e}")
+        return
+
+    holding = next((h for h in holdings if str(h.get("symbol", "")).upper() == sym), None)
+    if not holding:
+        await update.message.reply_text(f"*{sym}* is not in your portfolio.\n\nFor a live quote use: `{sym}`", parse_mode="Markdown")
+        return
+
+    import yfinance as yf
+    shares = float(holding.get("shares", 0))
+    cost = float(holding.get("costBasis", 0) or holding.get("avgCost", 0) or 0)
+    try:
+        info = yf.Ticker(sym).fast_info
+        price = float(info.last_price or info.regular_market_price or 0)
+    except Exception:
+        price = 0.0
+
+    value = price * shares
+    basis = cost * shares
+    pnl = value - basis
+    pnl_pct = (pnl / basis * 100) if basis > 0 else 0
+    icon = "🟢" if pnl >= 0 else "🔴"
+    arrow = "▲" if price >= cost else "▼"
+
+    text = (
+        f"{icon} *{sym}* Position\n\n"
+        f"Shares: *{shares:.0f}*\n"
+        f"Avg cost: *${cost:.2f}*\n"
+        f"Live price: *${price:.2f}* {arrow}\n"
+        f"Market value: *${value:,.0f}*\n"
+        f"P/L: *{pnl:+,.0f}* ({pnl_pct:+.1f}%)"
+    )
+    await update.message.reply_text(text, parse_mode="Markdown")
+
+
 # ── /plan ─────────────────────────────────────────────────────────────────────
 
 async def cmd_plan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1171,6 +1228,107 @@ async def _cmd_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_text(text, parse_mode="Markdown")
 
 
+# ── /levels — key S/R levels for a symbol ────────────────────────────────────
+
+async def cmd_levels(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show key support/resistance levels and 52-week range for a symbol."""
+    if not await _auth_guard(update, context): return
+    if not context.args:
+        await update.message.reply_text("Usage: `/levels NVDA`", parse_mode="Markdown")
+        return
+    sym = context.args[0].upper()
+    await update.message.reply_text(f"📐 Fetching levels for {sym}...")
+    try:
+        data = fetch_ticker_data(sym)
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error: {e}")
+        return
+
+    price    = data.get("price", 0)
+    support  = data.get("support", 0)
+    resist   = data.get("resistance", 0)
+    w52h     = data.get("week52_high", 0)
+    w52l     = data.get("week52_low", 0)
+    vwap     = data.get("vwap", 0)
+    chg      = data.get("change_pct", 0)
+
+    dist_sup = ((price - support) / price * 100) if price else 0
+    dist_res = ((resist - price) / price * 100) if price else 0
+    pct_52h  = ((price / w52h - 1) * 100) if w52h else 0
+    pct_52l  = ((price / w52l - 1) * 100) if w52l else 0
+
+    arrow = "▲" if chg >= 0 else "▼"
+    text = (
+        f"📐 *{sym}* Key Levels\n\n"
+        f"Live:  *${price:.2f}* {arrow} {chg:+.2f}%\n"
+        f"VWAP:  *${vwap:.2f}*{'  ↑ above' if price > vwap else '  ↓ below'}\n\n"
+        f"🛡 Support:    *${support:.2f}*  ({dist_sup:.1f}% below)\n"
+        f"🎯 Resistance: *${resist:.2f}*  ({dist_res:.1f}% above)\n\n"
+        f"52W High: *${w52h:.2f}*  ({pct_52h:+.1f}% from price)\n"
+        f"52W Low:  *${w52l:.2f}*  ({pct_52l:+.1f}% from price)\n"
+    )
+    await update.message.reply_text(text, parse_mode="Markdown")
+
+
+# ── /earnings — upcoming earnings for watchlist ───────────────────────────────
+
+async def cmd_earnings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show upcoming earnings dates for all watchlist symbols."""
+    if not await _auth_guard(update, context): return
+    wl = wl_store.get_watchlist()
+    if not wl:
+        await update.message.reply_text("Watchlist is empty.")
+        return
+
+    await update.message.reply_text(f"📅 Fetching earnings for {len(wl)} symbols...")
+
+    from datetime import datetime, timezone
+    from market_data import fetch_ticker_data
+    rows = []
+    for sym in wl:
+        try:
+            data = fetch_ticker_data(sym)
+            ed = data.get("earnings_date", "Unknown")
+            if ed and ed != "Unknown":
+                try:
+                    dt = datetime.strptime(ed, "%b %d, %Y").replace(tzinfo=timezone.utc)
+                    days_away = (dt - datetime.now(timezone.utc)).days
+                    rows.append((sym, ed, days_away))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    if not rows:
+        await update.message.reply_text("No upcoming earnings found for watchlist symbols.")
+        return
+
+    rows.sort(key=lambda x: x[2])
+    upcoming = [r for r in rows if r[2] >= 0]
+    past = [r for r in rows if r[2] < 0]
+
+    lines = ["📅 *Earnings Calendar — Watchlist*\n"]
+    if upcoming:
+        lines.append("*Upcoming:*")
+        for sym, ed, d in upcoming[:10]:
+            if d == 0:
+                tag = " ⚡ *TODAY*"
+            elif d == 1:
+                tag = " ⚡ Tomorrow"
+            elif d <= 7:
+                tag = f" — in {d}d"
+            else:
+                tag = f" — in {d}d"
+            lines.append(f"  📌 *{sym}*  {ed}{tag}")
+    if past:
+        lines.append("\n*Recent (past):*")
+        for sym, ed, d in past[:5]:
+            lines.append(f"  ✅ *{sym}*  {ed}")
+
+    lines.append(f"\n_{len(rows)} of {len(wl)} symbols have known dates._")
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
 # ── /flow — top options flow from platform ────────────────────────────────────
 
 async def cmd_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1228,6 +1386,65 @@ async def cmd_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
+# ── /tvhits — recent TradingView webhook alerts ───────────────────────────────
+
+async def cmd_tvhits(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show recent TradingView webhook alerts received by the platform."""
+    if not await _auth_guard(update, context): return
+    limit = 8
+    symbol_filter = ""
+    for arg in (context.args or []):
+        if arg.isdigit():
+            limit = max(1, min(20, int(arg)))
+        elif arg.isalpha() and len(arg) <= 6:
+            symbol_filter = arg.upper()
+
+    params = f"limit={limit}"
+    if symbol_filter:
+        params += f"&symbol={symbol_filter}"
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"{SERVER_URL}/api/market/tv-alerts?{params}",
+                timeout=aiohttp.ClientTimeout(total=8)
+            ) as resp:
+                data = await resp.json()
+    except Exception as e:
+        await update.message.reply_text(f"❌ Could not reach platform: {e}")
+        return
+
+    rows = data.get("rows", [])
+    total = data.get("total", 0)
+
+    if not rows:
+        msg = f"No TradingView webhook alerts"
+        if symbol_filter:
+            msg += f" for {symbol_filter}"
+        msg += " yet."
+        await update.message.reply_text(msg)
+        return
+
+    header = f"📡 *TV Webhook Hits* (showing {len(rows)} of {total})\n"
+    if symbol_filter:
+        header += f"_Filtered: {symbol_filter}_\n"
+    lines = [header]
+    for r in rows:
+        side = r.get("side", "INFO")
+        sym = r.get("symbol", "?")
+        price = r.get("price")
+        msg_text = (r.get("message") or "")[:60]
+        tf = r.get("timeframe", "")
+        ts = str(r.get("at", ""))[:16].replace("T", " ")
+        side_icon = "🟢" if side == "BUY" else ("🔴" if side == "SELL" else "ℹ️")
+        price_str = f" @ ${price}" if price else ""
+        tf_str = f" [{tf}]" if tf else ""
+        lines.append(f"{side_icon} *{sym}*{price_str}{tf_str} `{ts}`\n   _{msg_text}_")
+
+    lines.append(f"\n_Use /tvhits NVDA to filter by symbol._")
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -1269,8 +1486,13 @@ def main() -> None:
     app.add_handler(CommandHandler("plan",     cmd_plan))
     app.add_handler(CommandHandler("holdings", cmd_holdings))
     app.add_handler(CommandHandler("port",     cmd_holdings))
+    app.add_handler(CommandHandler("position", cmd_position))
+    app.add_handler(CommandHandler("pos",      cmd_position))
     app.add_handler(CommandHandler("econ",     cmd_econ))
+    app.add_handler(CommandHandler("levels",    cmd_levels))
+    app.add_handler(CommandHandler("earnings",  cmd_earnings))
     app.add_handler(CommandHandler("flow",     cmd_flow))
+    app.add_handler(CommandHandler("tvhits",   cmd_tvhits))
 
     # Free-text (ticker lookup)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
