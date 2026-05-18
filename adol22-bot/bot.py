@@ -144,7 +144,9 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "  `/chart NVDA 3mo` — 3-month chart\n\n"
         "*Game Plan*\n"
         "  `/plan` — show today's game plan from the platform\n"
-        "  `/plan SPY above 590 is bullish…` — save/update today's plan\n"
+        "  `/plan SPY above 590 is bullish…` — save/update today's plan\n\n"
+        "*Portfolio*\n"
+        "  `/holdings` (or `/port`) — show portfolio with live P/L\n"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
 
@@ -827,6 +829,61 @@ async def cmd_midday_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await update.message.reply_text(text, parse_mode="Markdown")
 
 
+# ── /holdings ─────────────────────────────────────────────────────────────────
+
+async def cmd_holdings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show portfolio holdings with live P/L."""
+    if not await _auth_guard(update, context): return
+    await update.message.reply_text("📊 Fetching portfolio…")
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{SERVER_URL}/api/portfolio", timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                data = await resp.json()
+        holdings = data.get("holdings", [])
+    except Exception as e:
+        await update.message.reply_text(f"Error fetching portfolio: {e}")
+        return
+
+    if not holdings:
+        await update.message.reply_text("No holdings saved. Add positions in the Portfolio tab.")
+        return
+
+    import yfinance as yf
+    lines = ["📊 *Portfolio Holdings*\n"]
+    total_value = 0.0
+    total_cost = 0.0
+
+    for h in holdings:
+        sym = h.get("symbol", "?")
+        shares = float(h.get("shares", 0))
+        cost = float(h.get("costBasis", 0) or h.get("avgCost", 0) or 0)
+        try:
+            info = yf.Ticker(sym).fast_info
+            price = float(info.last_price or info.regular_market_price or 0)
+        except Exception:
+            price = 0.0
+        value = price * shares
+        basis = cost * shares
+        pnl = value - basis
+        pnl_pct = (pnl / basis * 100) if basis > 0 else 0
+        arrow = "▲" if pnl >= 0 else "▼"
+        total_value += value
+        total_cost += basis
+        lines.append(
+            f"`{sym:6}` {shares:.0f}sh @ ${cost:.2f}\n"
+            f"        ${price:.2f} {arrow} *{pnl:+.0f}* ({pnl_pct:+.1f}%)"
+        )
+
+    total_pnl = total_value - total_cost
+    total_pnl_pct = (total_pnl / total_cost * 100) if total_cost > 0 else 0
+    color = "🟢" if total_pnl >= 0 else "🔴"
+    lines.append(
+        f"\n{color} *Total: ${total_value:,.0f}* | P/L *{total_pnl:+,.0f}* ({total_pnl_pct:+.1f}%)"
+    )
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
 # ── /plan ─────────────────────────────────────────────────────────────────────
 
 async def cmd_plan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1041,6 +1098,8 @@ def main() -> None:
     app.add_handler(CommandHandler("close",    cmd_close_trade))
     app.add_handler(CommandHandler("chart",    cmd_chart))
     app.add_handler(CommandHandler("plan",     cmd_plan))
+    app.add_handler(CommandHandler("holdings", cmd_holdings))
+    app.add_handler(CommandHandler("port",     cmd_holdings))
 
     # Free-text (ticker lookup)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
