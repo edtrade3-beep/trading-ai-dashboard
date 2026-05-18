@@ -6126,6 +6126,8 @@ export default function App() {
                   const isSoon = Number.isFinite(e.dayDiff) && e.dayDiff >= 0 && e.dayDiff <= 7;
                   const dateLabel = e.earningsDate ? new Date(e.earningsDate).toLocaleDateString() : "TBD";
                   const chg = Number(e.chg || 0);
+                  const onWl = watchlistSymbols.includes(e.symbol);
+                  const px = Number(e.price || 0);
                   return (
                     <div key={`earn-row-${e.symbol}`} style={{ display: "grid", gridTemplateColumns: "130px 160px 130px 120px 120px 1fr auto", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${C.border}`, background: isSoon ? `${C.amber}0D` : C.card, alignItems: "center" }}>
                       <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{e.symbol}</span>
@@ -6133,11 +6135,20 @@ export default function App() {
                       <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: isSoon ? C.amber : C.textSec }}>{e.timing}</span>
                       <span style={{ fontFamily: MONO, fontSize: 11, color: chg >= 0 ? C.green : C.red, fontWeight: 700 }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span>
                       <span style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700 }}>{Math.round(Number(e.score || 0))}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>${Number(e.price || 0).toFixed(2)}</span>
-                      <button
-                        onClick={() => { setTerminalSymbol(e.symbol); setActiveTab("terminal"); }}
-                        style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", whiteSpace: "nowrap" }}
-                      >CHART</button>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>${px.toFixed(2)}</span>
+                      <div style={{ display: "flex", gap: 5 }}>
+                        <button
+                          onClick={() => setQuickLogModal({ symbol: e.symbol, price: px, entry: px.toFixed(2), stopLoss: "", target: "", size: "", side: chg >= 0 ? "BUY" : "SELL", timeframe: "1D", style: "Earnings", notes: `Earnings ${dateLabel}${e.timing ? " " + e.timing : ""}`, score: Math.round(Number(e.score || 65)), chg, rvol: 0 })}
+                          style={{ border: `1px solid ${C.accent}44`, background: C.surface, color: C.accent, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>LOG</button>
+                        <button
+                          onClick={() => setWatchlistSymbols(prev => onWl ? prev.filter(s => s !== e.symbol) : Array.from(new Set([...prev, e.symbol])))}
+                          style={{ border: `1px solid ${onWl ? C.red : C.green}55`, background: C.surface, color: onWl ? C.red : C.green, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>
+                          {onWl ? "−WL" : "+WL"}
+                        </button>
+                        <button
+                          onClick={() => { setTerminalSymbol(e.symbol); setActiveTab("terminal"); }}
+                          style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", whiteSpace: "nowrap" }}>CHART</button>
+                      </div>
                     </div>
                   );
                 })}
