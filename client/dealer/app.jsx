@@ -2,7 +2,7 @@ const { useMemo, useState, useEffect, useRef, useCallback } = React;
 
 // App password is validated server-side via POST /api/auth/check (never stored in source)
 const PDF_SLOTS = 3;
-const TABS = ["Overview", "Vehicle", "Finance", "Facebook", "Inventory"];
+const TABS = ["Overview", "Vehicle", "Finance", "Facebook", "Inventory", "Leads"];
 
 const THEMES = {
   dark: {
@@ -308,6 +308,10 @@ function App() {
   const [vinSource, setVinSource] = useState("");
   const [finance, setFinance] = useState({ apr: 9.9, downPayment: 3000, termMonths: 72 });
   const [deal, setDeal] = useState({ salePrice: "", tradeValue: "", tradeOwed: "", salesTaxPct: "6.25", docFee: "299", titleFee: "75", tagFee: "50" });
+  const [leads, setLeads] = useState(() => { try { return JSON.parse(localStorage.getItem("dixie_leads") || "[]"); } catch { return []; } });
+  const [leadForm, setLeadForm] = useState({ name: "", phone: "", email: "", source: "Walk-In", vin: "", status: "New", notes: "" });
+  const [leadSearch, setLeadSearch] = useState("");
+  useEffect(() => { try { localStorage.setItem("dixie_leads", JSON.stringify(leads)); } catch {} }, [leads]);
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [siteStatus, setSiteStatus] = useState("");
   const [siteResult, setSiteResult] = useState(null);
@@ -1901,6 +1905,114 @@ ${tradeValue > 0 ? `<tr><td>Net Trade</td><td>${netTrade >= 0 ? money(netTrade) 
                 )}
               </Panel>
             )}
+
+            {tab === "Leads" && (() => {
+              const STATUS_COLORS = { New: "#3b82f6", Contacted: "#8b5cf6", Hot: "#f59e0b", Closed: "#16a34a", Lost: "#94a3b8" };
+              const SOURCES = ["Walk-In", "Phone", "Facebook", "Website", "Referral", "Craigslist", "OfferUp", "Other"];
+              const STATUSES = ["New", "Contacted", "Hot", "Closed", "Lost"];
+              const filtered = leads.filter(l => {
+                if (!leadSearch) return true;
+                const s = leadSearch.toLowerCase();
+                return (l.name || "").toLowerCase().includes(s) || (l.phone || "").includes(s) || (l.vin || "").toUpperCase().includes(s.toUpperCase());
+              });
+              const byStatus = STATUSES.map(s => ({ status: s, count: leads.filter(l => l.status === s).length }));
+
+              function addLead() {
+                if (!leadForm.name.trim() && !leadForm.phone.trim()) return;
+                const newLead = { ...leadForm, id: Date.now().toString(), createdAt: new Date().toISOString() };
+                setLeads(prev => [newLead, ...prev]);
+                setLeadForm({ name: "", phone: "", email: "", source: "Walk-In", vin: "", status: "New", notes: "" });
+              }
+
+              return (
+                <Panel title="Lead Tracker" badge={`${leads.filter(l => l.status === "New" || l.status === "Hot").length} Active`} styles={styles}>
+                  {/* Summary chips */}
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+                    {byStatus.map(({ status, count }) => (
+                      <div key={status} style={{ padding: "4px 12px", borderRadius: 999, background: `${STATUS_COLORS[status]}15`, border: `1px solid ${STATUS_COLORS[status]}40`, color: STATUS_COLORS[status], fontSize: 12, fontWeight: 700 }}>
+                        {status}: {count}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add lead form */}
+                  <div style={{ background: theme.soft, border: `1px solid ${theme.border}`, borderRadius: 12, padding: 14, marginBottom: 16 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: theme.muted, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>Add Lead</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8, marginBottom: 8 }}>
+                      {[
+                        { label: "Name *", key: "name", placeholder: "Customer name" },
+                        { label: "Phone", key: "phone", placeholder: "(555) 555-5555" },
+                        { label: "Email", key: "email", placeholder: "email@example.com" },
+                        { label: "VIN Interested In", key: "vin", placeholder: "VIN or vehicle" },
+                      ].map(({ label, key, placeholder }) => (
+                        <div key={key}>
+                          <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 3 }}>{label}</div>
+                          <input value={leadForm[key]} onChange={e => setLeadForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
+                            style={{ ...styles.input, height: 36, padding: "0 10px", fontSize: 12 }} />
+                        </div>
+                      ))}
+                      <div>
+                        <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 3 }}>Source</div>
+                        <select value={leadForm.source} onChange={e => setLeadForm(f => ({ ...f, source: e.target.value }))} style={{ ...styles.input, height: 36, padding: "0 10px", fontSize: 12 }}>
+                          {SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 3 }}>Status</div>
+                        <select value={leadForm.status} onChange={e => setLeadForm(f => ({ ...f, status: e.target.value }))} style={{ ...styles.input, height: 36, padding: "0 10px", fontSize: 12 }}>
+                          {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <textarea value={leadForm.notes} onChange={e => setLeadForm(f => ({ ...f, notes: e.target.value }))} placeholder="Notes — vehicle preferences, timeline, financing situation…"
+                      rows={2} style={{ ...styles.input, width: "100%", height: "auto", padding: "8px 10px", fontSize: 12, resize: "vertical", marginBottom: 8 }} />
+                    <button onClick={addLead} style={{ ...styles.buttonPrimary, height: 38, padding: "0 20px", fontSize: 13 }}>+ Add Lead</button>
+                  </div>
+
+                  {/* Search */}
+                  <div style={{ marginBottom: 12 }}>
+                    <input value={leadSearch} onChange={e => setLeadSearch(e.target.value)} placeholder="Search by name, phone, or VIN…"
+                      style={{ ...styles.input, height: 38, fontSize: 13 }} />
+                  </div>
+
+                  {/* Lead list */}
+                  {filtered.length === 0 ? (
+                    <div style={{ color: theme.muted, fontSize: 13, padding: "14px 0" }}>No leads yet. Add your first lead above.</div>
+                  ) : (
+                    <div style={{ display: "grid", gap: 10 }}>
+                      {filtered.map(lead => (
+                        <div key={lead.id} style={{ background: theme.soft, border: `1px solid ${theme.border}`, borderRadius: 12, padding: 12 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+                            <div>
+                              <div style={{ fontWeight: 800, fontSize: 14 }}>{lead.name || "—"}</div>
+                              <div style={{ fontSize: 12, color: theme.muted, marginTop: 2 }}>
+                                {lead.phone && <span style={{ marginRight: 10 }}>📞 {lead.phone}</span>}
+                                {lead.email && <span style={{ marginRight: 10 }}>✉️ {lead.email}</span>}
+                                {lead.vin && <span>🚗 {lead.vin}</span>}
+                              </div>
+                              <div style={{ fontSize: 11, color: theme.muted, marginTop: 3 }}>{lead.source} · {new Date(lead.createdAt).toLocaleDateString()}</div>
+                              {lead.notes && <div style={{ fontSize: 12, color: theme.text, marginTop: 6, fontStyle: "italic" }}>{lead.notes}</div>}
+                            </div>
+                            <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
+                              <select value={lead.status} onChange={e => setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: e.target.value } : l))}
+                                style={{ height: 30, borderRadius: 8, border: `1px solid ${STATUS_COLORS[lead.status]}`, background: `${STATUS_COLORS[lead.status]}18`, color: STATUS_COLORS[lead.status], fontWeight: 700, fontSize: 12, padding: "0 8px", cursor: "pointer" }}>
+                                {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                              </select>
+                              {lead.phone && (
+                                <button onClick={() => navigator.clipboard.writeText(lead.phone).catch(() => {})}
+                                  style={{ height: 30, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.soft, color: theme.muted, fontSize: 11, padding: "0 8px", cursor: "pointer" }}>COPY #</button>
+                              )}
+                              <button onClick={() => setLeads(prev => prev.filter(l => l.id !== lead.id))}
+                                style={{ height: 30, borderRadius: 8, border: "1px solid #dc262644", background: "#dc262614", color: "#dc2626", fontSize: 11, padding: "0 8px", cursor: "pointer" }}>✕</button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Panel>
+              );
+            })()}
           </main>
         </div>
       </div>
