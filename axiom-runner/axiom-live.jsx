@@ -2064,8 +2064,8 @@ function TerminalWorkspace({
                       <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface }}>
                         <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 6 }}>NEXT NAMES</div>
                         {(executionRows.slice(0, 3)).map((r) => (
-                          <div key={`aq-${r.symbol}`} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, padding: "3px 0" }}>
-                            <span style={{ fontFamily: MONO, color: C.text }}>{r.symbol}</span>
+                          <div key={`aq-${r.symbol}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, padding: "3px 0" }}>
+                            <button onClick={() => onSelectSymbol(r.symbol)} style={{ background: "none", border: "none", fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", padding: 0, fontWeight: 700 }}>{r.symbol}</button>
                             <span style={{ fontFamily: MONO, color: r.status === "TRIGGERED" ? C.green : r.status === "STALK" ? C.amber : C.textDim }}>
                               {r.status}
                             </span>
@@ -2089,17 +2089,17 @@ function TerminalWorkspace({
                       MARKET PULSE
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                      <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface }}>
+                      <div onClick={() => { const s = terminalRankRows[0]?.symbol; if (s) onSelectSymbol(s); }} style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface, cursor: "pointer" }}>
                         <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Top Gainer</div>
                         <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, fontWeight: 700 }}>{terminalRankRows[0]?.symbol || "N/A"}</div>
                         <div style={{ fontFamily: MONO, fontSize: 10, color: C.green }}>{(terminalRankRows[0]?.changesPercentage || 0) >= 0 ? "+" : ""}{Number(terminalRankRows[0]?.changesPercentage || 0).toFixed(2)}%</div>
                       </div>
-                      <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface }}>
+                      <div onClick={() => { const s = terminalRankRows[terminalRankRows.length - 1]?.symbol; if (s) onSelectSymbol(s); }} style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface, cursor: "pointer" }}>
                         <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Weakest Name</div>
                         <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, fontWeight: 700 }}>{terminalRankRows[terminalRankRows.length - 1]?.symbol || "N/A"}</div>
                         <div style={{ fontFamily: MONO, fontSize: 10, color: C.red }}>{(terminalRankRows[terminalRankRows.length - 1]?.changesPercentage || 0) >= 0 ? "+" : ""}{Number(terminalRankRows[terminalRankRows.length - 1]?.changesPercentage || 0).toFixed(2)}%</div>
                       </div>
-                      <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface }}>
+                      <div onClick={() => { const s = [...terminalRankRows].sort((a, b) => (b.rel || 0) - (a.rel || 0))[0]?.symbol; if (s) onSelectSymbol(s); }} style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface, cursor: "pointer" }}>
                         <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Best RS vs SPY</div>
                         <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700 }}>
                           {[...terminalRankRows].sort((a, b) => (b.rel || 0) - (a.rel || 0))[0]?.symbol || "N/A"}
