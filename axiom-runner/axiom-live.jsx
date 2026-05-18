@@ -5485,8 +5485,14 @@ export default function App() {
                               <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.name}</div>
                               <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
                                 <button
+                                  onClick={(e) => { e.stopPropagation(); setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
+                                  style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}
+                                >
+                                  CHART
+                                </button>
+                                <button
                                   onClick={(e) => { e.stopPropagation(); openTradingView(q.symbol); }}
-                                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
                                 >
                                   TV
                                 </button>
@@ -7372,8 +7378,12 @@ export default function App() {
                             <div>{q.symbol}</div>
                             <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
                               <button
+                                onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
+                                style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                              >CHART</button>
+                              <button
                                 onClick={() => openTradingView(q.symbol)}
-                                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
                               >TV</button>
                               <a
                                 href={`/workstation#${q.symbol}`}
