@@ -118,7 +118,9 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "*Market*\n"
         "  `/macro` — SPY/QQQ/VIX/BTC overview\n"
         "  `/sectors` — sector performance\n"
-        "  `/econ` — upcoming macro events (CPI, NFP, Fed, PCE)\n\n"
+        "  `/econ` — upcoming macro events (CPI, NFP, Fed, PCE)\n"
+        "  `/flow` — watchlist options flow (calls/puts, notional)\n"
+        "  `/flow unusual` — unusual options activity only\n\n"
         "*Alerts*\n"
         "  `/alert NVDA above 900` — set price alert on platform\n"
         "  `/alert NVDA below 400 breakdown` — alert with note\n"
@@ -1159,6 +1161,63 @@ async def _cmd_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_text(text, parse_mode="Markdown")
 
 
+# ── /flow — top options flow from platform ────────────────────────────────────
+
+async def cmd_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show top options flow. Optional arg: unusual (only unusual alerts)."""
+    if not await _auth_guard(update, context): return
+    unusual_only = "unusual" in " ".join(context.args or []).lower()
+    try:
+        import watchlist as wl_store
+        symbols = wl_store.get_watchlist()
+        if not symbols:
+            await update.message.reply_text("Watchlist is empty — add symbols first.")
+            return
+        params = f"symbols={','.join(symbols[:20])}&limit=20"
+        if unusual_only:
+            params += "&unusualOnly=true"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"{SERVER_URL}/api/market/options-flow?{params}",
+                timeout=aiohttp.ClientTimeout(total=15)
+            ) as resp:
+                data = await resp.json()
+    except Exception as e:
+        await update.message.reply_text(f"❌ Flow fetch error: {e}")
+        return
+
+    rows = data.get("flow", [])
+    if not rows:
+        await update.message.reply_text("No options flow data available right now.")
+        return
+
+    bias = data.get("bias", "NEUTRAL")
+    call_notional = data.get("callNotional", 0)
+    put_notional = data.get("putNotional", 0)
+
+    def fmt_notional(n):
+        if n >= 1_000_000: return f"${n/1_000_000:.1f}M"
+        if n >= 1_000: return f"${n/1_000:.0f}K"
+        return f"${n:.0f}"
+
+    header = f"📊 *Options Flow* — {bias}\nCalls {fmt_notional(call_notional)} · Puts {fmt_notional(put_notional)}\n"
+    lines = [header]
+    for row in rows[:10]:
+        sym = row.get("symbol", "?")
+        side = row.get("side", "?")
+        raw_strike = row.get("strike", 0)
+        strike = int(float(raw_strike)) if raw_strike else "?"
+        expiry = str(row.get("expiry") or row.get("expiration") or "—")[:10]
+        notional = row.get("notional", 0)
+        unusual = row.get("unusual", False)
+        flag = " ⚡" if unusual else ""
+        side_icon = "🟢" if side == "CALL" else "🔴"
+        lines.append(f"{side_icon} *{sym}* {side} K{strike} {expiry} · {fmt_notional(notional)}{flag}")
+
+    lines.append(f"\n_Showing {min(10, len(rows))} of {len(rows)} rows. /flow unusual for unusual only._")
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -1201,6 +1260,7 @@ def main() -> None:
     app.add_handler(CommandHandler("holdings", cmd_holdings))
     app.add_handler(CommandHandler("port",     cmd_holdings))
     app.add_handler(CommandHandler("econ",     cmd_econ))
+    app.add_handler(CommandHandler("flow",     cmd_flow))
 
     # Free-text (ticker lookup)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))

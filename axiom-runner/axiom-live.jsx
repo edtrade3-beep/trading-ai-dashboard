@@ -5416,8 +5416,8 @@ export default function App() {
                       {top3.map((q) => {
                         const chg = getChg(q);
                         return (
-                          <div key={`mv-t-${q.symbol}`} style={{ background: `${C.green}18`, border: `1px solid ${C.green}44`, borderRadius: 6, padding: "6px 10px" }}>
-                            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text }}>{q.symbol}</div>
+                          <div key={`mv-t-${q.symbol}`} onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: `${C.green}18`, border: `1px solid ${C.green}44`, borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
+                            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent }}>{q.symbol}</div>
                             <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, fontWeight: 700 }}>+{chg.toFixed(2)}%</div>
                             <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{isExt ? <span style={{ color: extColor, fontWeight: 700 }}>{extLabel} </span> : null}${(q.price || 0).toFixed(2)}</div>
                           </div>
@@ -5426,8 +5426,8 @@ export default function App() {
                       {bot3.map((q) => {
                         const chg = getChg(q);
                         return (
-                          <div key={`mv-b-${q.symbol}`} style={{ background: `${C.red}18`, border: `1px solid ${C.red}44`, borderRadius: 6, padding: "6px 10px" }}>
-                            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text }}>{q.symbol}</div>
+                          <div key={`mv-b-${q.symbol}`} onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: `${C.red}18`, border: `1px solid ${C.red}44`, borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
+                            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent }}>{q.symbol}</div>
                             <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, fontWeight: 700 }}>{chg.toFixed(2)}%</div>
                             <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{isExt ? <span style={{ color: extColor, fontWeight: 700 }}>{extLabel} </span> : null}${(q.price || 0).toFixed(2)}</div>
                           </div>
