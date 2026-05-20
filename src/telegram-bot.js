@@ -74,46 +74,61 @@ async function fetchLiveQuote(symbol) {
 
 async function cmdHelp() {
   return reply(
-    "Dixie AM Trading Bot\n\n" +
-    "MARKET\n" +
-    "/market      — macro snapshot (Risk On/Off, SPY QQQ VIX)\n" +
-    "/scan        — run full market scan now\n" +
-    "/top         — top BUY signals from last scan\n" +
-    "/worst       — top SELL signals from last scan\n" +
-    "/status      — scanner status + last run\n" +
-    "\nPRICES\n" +
-    "/price AAPL  — live quote  (or /p AAPL MSFT NVDA)\n" +
-    "/watchlist   — live quotes for your watchlist  (/wl)\n" +
-    "\nALERTS\n" +
-    "/alert AAPL above 200    — set price alert\n" +
-    "/alert NVDA below 500 stop loss\n" +
-    "/alerts      — list active price alerts  (/pa)\n" +
-    "/cancel <id> — cancel an alert\n" +
-    "\nDEALS\n" +
-    "/deals [query] — top deals (Reddit + SlickDeals + more)\n" +
-    "\nSCANNER CONTROL\n" +
-    "/scanner on          — enable auto-scan\n" +
-    "/scanner off         — disable auto-scan\n" +
-    "/scanner interval 5  — set scan interval (minutes)\n" +
-    "/scanner symbols     — list scanned symbols\n" +
-    "\nAuto-scans M-F ET: 7:00, 9:45, 12:30, 14:45, 15:45\n" +
-    "\nREDDIT NEWS\n" +
-    "/news     — top posts from all finance + tech subs\n" +
-    "/wsb      — r/wallstreetbets (meme stocks, DD, hype)\n" +
-    "/stocks   — r/stocks (earnings, analysis, news)\n" +
-    "/invest   — r/investing (macro, fundamentals)\n" +
-    "/dd       — r/SecurityAnalysis (deep research)\n" +
-    "/options  — r/options (options plays)\n" +
-    "/tech     — r/technology (big tech news)\n" +
-    "/ai       — r/artificial (AI/ML news)\n" +
-    "/finance  — r/finance (broader finance news)\n" +
-    "\nSTOCKTWITS\n" +
-    "/twits           — top 10 trending tickers + crowd sentiment\n" +
-    "/twits NVDA      — bullish/bearish% + recent messages for a symbol\n" +
-    "\nDEEP DIVE\n" +
-    "/deep AAPL   — full fundamental + technical + projection\n" +
-    "AAPL         — just type a ticker symbol\n" +
-    "\n/help — this message"
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+    "   DIXIE AM TRADING BOT\n" +
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+    "\n📊 MARKET & SCANNER\n" +
+    "/market       macro snapshot — Risk On/Off, SPY QQQ VIX\n" +
+    "/scan         run full market scan right now\n" +
+    "/top          top BUY signals from last scan\n" +
+    "/worst        top SELL/EXIT signals from last scan\n" +
+    "/status       scanner status, last run, regime\n" +
+    "/scanner on   enable auto-scan\n" +
+    "/scanner off  disable auto-scan\n" +
+    "/scanner interval 5   set interval (minutes)\n" +
+    "/scanner symbols      list all scanned symbols\n" +
+    "\n🕐 AUTO-SCAN SCHEDULE (M–F ET)\n" +
+    "  6:45  Macro Pre-Market\n" +
+    "  7:30  Pre-Market Watchlist\n" +
+    "  9:20  Opening Plan\n" +
+    "  9:45  Opening Range Scan\n" +
+    " 10:30  A+ Setup Scan\n" +
+    " 12:00  Midday Reset\n" +
+    "  1:30  Continuation Scan\n" +
+    "  2:45  Institutional Scan\n" +
+    "  3:45  Power Hour + Next-Day\n" +
+    "  4:15  After-Close Report\n" +
+    "\n💲 PRICES & QUOTES\n" +
+    "/price AAPL           live quote  (alias: /p)\n" +
+    "/p AAPL MSFT NVDA     multi-quote up to 5\n" +
+    "/watchlist            live quotes for saved watchlist  (/wl)\n" +
+    "\n🔔 PRICE ALERTS\n" +
+    "/alert AAPL above 200         set alert\n" +
+    "/alert NVDA below 500 note    set alert with note\n" +
+    "/alerts               list active alerts  (/pa)\n" +
+    "/cancel <id>          cancel an alert\n" +
+    "\n🔍 DEEP DIVE (Fundamentals + Technicals + Projection)\n" +
+    "/deep AAPL            full analysis  (alias: /dive, /analyze)\n" +
+    "AAPL                  just type any ticker — auto deep dive\n" +
+    "\n📈 STOCKTWITS SENTIMENT\n" +
+    "/twits                top 10 trending + crowd sentiment\n" +
+    "/twits NVDA           bullish/bearish% + message previews\n" +
+    "\n📰 REDDIT NEWS\n" +
+    "/news                 all finance + tech subs combined\n" +
+    "/wsb                  r/wallstreetbets — meme stocks & DD\n" +
+    "/stocks               r/stocks — earnings & analysis\n" +
+    "/invest               r/investing — macro & fundamentals\n" +
+    "/dd                   r/SecurityAnalysis — deep research\n" +
+    "/options              r/options — options plays\n" +
+    "/finance              r/finance — broader finance news\n" +
+    "/tech                 r/technology — big tech news\n" +
+    "/ai                   r/artificial — AI & ML news\n" +
+    "/ml                   r/MachineLearning\n" +
+    "\n🛒 DEALS\n" +
+    "/deals                top deals from Reddit + SlickDeals\n" +
+    "/deals laptop         search specific product\n" +
+    "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+    "/help — show this page"
   );
 }
 
