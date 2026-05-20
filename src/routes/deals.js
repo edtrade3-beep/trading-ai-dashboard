@@ -19,10 +19,11 @@ const SUBS = {
   luxury:      "Watches+malefashionadvice+frugalmalefashion",
 };
 
-// ─── Tiny RSS parser ─────────────────────────────────────────────────────────
+// ─── Tiny RSS/Atom parser ─────────────────────────────────────────────────────
 function parseRSS(xml) {
   const out = [];
-  const re  = /<item>([\s\S]*?)<\/item>/gi;
+  // Support both RSS <item> and Atom <entry>
+  const re = /<(?:item|entry)>([\s\S]*?)<\/(?:item|entry)>/gi;
   let m;
   while ((m = re.exec(xml)) !== null) {
     const b = m[1];
@@ -30,16 +31,18 @@ function parseRSS(xml) {
       const r = new RegExp(`<${tag}[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${tag}>`, "i").exec(b);
       return r ? r[1].trim() : "";
     };
-    const imgAttr = tag => {
-      const r = new RegExp(`<${tag}[^>]+url="([^"]+)"`, "i").exec(b);
+    const getAttr = (tag, attr) => {
+      const r = new RegExp(`<${tag}[^>]+${attr}="([^"]+)"`, "i").exec(b);
       return r ? r[1] : null;
     };
     const title = get("title");
     if (!title) continue;
-    const link  = get("link") || get("guid");
-    const desc  = get("description") || get("content:encoded") || "";
-    const pub   = get("pubDate") || get("published") || null;
-    let   img   = imgAttr("media:thumbnail") || imgAttr("media:content") || imgAttr("enclosure");
+    // Atom uses <link href="..."/> or <link>url</link>; RSS uses <link>url</link>
+    const linkHref = getAttr("link", "href");
+    const link     = linkHref || get("link") || get("guid") || get("id");
+    const desc     = get("description") || get("content:encoded") || get("content") || get("summary") || "";
+    const pub      = get("pubDate") || get("published") || get("updated") || null;
+    let   img      = getAttr("media:thumbnail", "url") || getAttr("media:content", "url") || getAttr("enclosure", "url");
     if (!img) {
       const im = /<img[^>]+src="([^"]+)"/i.exec(desc);
       if (im) img = im[1].replace(/&amp;/g, "&");
@@ -79,51 +82,77 @@ async function safeFetch(url, opts, timeoutMs = 7000) {
   }
 }
 
-// ─── Source: Reddit ───────────────────────────────────────────────────────────
+// ─── Source: Reddit (JSON API with RSS Atom fallback) ─────────────────────────
 async function fromReddit(query, category) {
   const subs = SUBS[category] || SUBS.general;
-  const url  = query && query.trim()
-    ? `https://www.reddit.com/r/${subs}/search.json?q=${encodeURIComponent(query.trim())}&restrict_sr=1&sort=relevance&t=month&limit=25&type=link`
+  const q    = query && query.trim();
+
+  // ── Try JSON API first ────────────────────────────────────────────────────
+  const jsonUrl = q
+    ? `https://www.reddit.com/r/${subs}/search.json?q=${encodeURIComponent(q)}&restrict_sr=1&sort=relevance&t=month&limit=25&type=link`
     : `https://www.reddit.com/r/${subs}/hot.json?limit=25`;
 
-  const res = await safeFetch(url, {
+  const jsonRes = await safeFetch(jsonUrl, {
     headers: { "User-Agent": "AMTradingPlatform/1.0 (deals finder)", Accept: "application/json" }
   }, 10000);
-  if (!res) return [];
 
-  const data  = await res.json().catch(() => null);
-  if (!data)  return [];
+  if (jsonRes) {
+    const data = await jsonRes.json().catch(() => null);
+    const posts = (data?.data?.children || []).map(c => c.data).filter(p => p?.title && !p.stickied);
+    if (posts.length > 0) {
+      return posts.map(p => {
+        const { price, rawPrice } = priceOf(p.title);
+        let image = null;
+        try {
+          const prev = p.preview?.images?.[0];
+          if (prev) {
+            const arr  = prev.resolutions || [];
+            const pick = arr.find(r => r.width >= 320) || arr[arr.length - 1] || prev.source;
+            if (pick?.url) image = pick.url.replace(/&amp;/g, "&");
+          }
+        } catch {}
+        const thumb = p.thumbnail && !["self","nsfw","default","image","spoiler",""].includes(p.thumbnail) && p.thumbnail.startsWith("http") ? p.thumbnail : null;
+        return {
+          id: `reddit_${p.id}`, title: p.title,
+          description: (p.selftext || "").slice(0, 160),
+          price, rawPrice,
+          link:       p.url || `https://reddit.com${p.permalink}`,
+          redditLink: `https://reddit.com${p.permalink}`,
+          source: `r/${p.subreddit}`, sourceKey: "reddit",
+          image: image || thumb,
+          score: p.score || 0, comments: p.num_comments || 0,
+          age: p.created_utc ? Math.floor((Date.now() / 1000 - p.created_utc) / 3600) : null,
+          category,
+        };
+      });
+    }
+  }
 
-  const posts = (data?.data?.children || []).map(c => c.data).filter(p => p?.title && !p.stickied);
+  // ── Fallback: Reddit Atom/RSS feed ────────────────────────────────────────
+  console.log("[Deals] Reddit JSON failed/empty — trying RSS fallback");
+  const rssUrl = q
+    ? `https://www.reddit.com/r/${subs}/search.rss?q=${encodeURIComponent(q)}&restrict_sr=1&sort=relevance&t=month`
+    : `https://www.reddit.com/r/${subs}/hot.rss`;
 
-  return posts.map(p => {
-    const { price, rawPrice } = priceOf(p.title);
+  const rssRes = await safeFetch(rssUrl, {
+    headers: { "User-Agent": "AMTradingPlatform/1.0 (deals finder)", Accept: "application/rss+xml, application/atom+xml, text/xml" }
+  }, 10000);
+  if (!rssRes) return [];
 
-    // Best available image
-    let image = null;
-    try {
-      const prev = p.preview?.images?.[0];
-      if (prev) {
-        const arr = prev.resolutions || [];
-        const pick = arr.find(r => r.width >= 320) || arr[arr.length - 1] || prev.source;
-        if (pick?.url) image = pick.url.replace(/&amp;/g, "&");
-      }
-    } catch {}
-    const thumb = p.thumbnail && !["self","nsfw","default","image","spoiler",""].includes(p.thumbnail) && p.thumbnail.startsWith("http") ? p.thumbnail : null;
-
+  const xml = await rssRes.text().catch(() => "");
+  return parseRSS(xml).slice(0, 20).map(item => {
+    const { price, rawPrice } = priceOf(item.title + " " + item.description);
+    // Reddit Atom links often have the permalink in <link href="..."/>
+    const redditLink = item.link?.includes("reddit.com") ? item.link : null;
     return {
-      id:          `reddit_${p.id}`,
-      title:       p.title,
-      description: (p.selftext || "").slice(0, 160),
+      id: hashId("rr", item.title + (item.link || "")),
+      title: item.title, description: item.description,
       price, rawPrice,
-      link:        p.url || `https://reddit.com${p.permalink}`,
-      redditLink:  `https://reddit.com${p.permalink}`,
-      source:      `r/${p.subreddit}`,
-      sourceKey:   "reddit",
-      image:       image || thumb,
-      score:       p.score  || 0,
-      comments:    p.num_comments || 0,
-      age:         p.created_utc ? Math.floor((Date.now() / 1000 - p.created_utc) / 3600) : null,
+      link: item.link || `https://reddit.com/r/${subs}`,
+      redditLink,
+      source: `r/${subs.split("+")[0]}`, sourceKey: "reddit",
+      image: item.image,
+      score: 0, comments: 0, age: hoursAgo(item.pubDate),
       category,
     };
   });
@@ -204,6 +233,7 @@ async function fromDealsList(query) {
 async function searchDeals(query, category = "general", maxPrice = null) {
   const t0 = Date.now();
   let results = [];
+  let sourceStatus = {};
 
   try {
     const [r, sd, dn, gn, dl] = await Promise.allSettled([
@@ -214,8 +244,24 @@ async function searchDeals(query, category = "general", maxPrice = null) {
       fromDealsList(query),
     ]);
 
-    const ok = p => p.status === "fulfilled" ? (p.value || []) : [];
-    results = [...ok(r), ...ok(sd), ...ok(dn), ...ok(gn), ...ok(dl)];
+    const ok = (p, name) => {
+      if (p.status === "fulfilled") {
+        const arr = p.value || [];
+        sourceStatus[name] = arr.length;
+        return arr;
+      }
+      sourceStatus[name] = -1; // -1 = error
+      console.warn(`[Deals] ${name} rejected:`, p.reason?.message);
+      return [];
+    };
+
+    results = [
+      ...ok(r,  "reddit"),
+      ...ok(sd, "slickdeals"),
+      ...ok(dn, "dealnews"),
+      ...ok(gn, "google"),
+      ...ok(dl, "dealslist"),
+    ];
 
     if (maxPrice) {
       const cap = Number(maxPrice);
@@ -224,13 +270,14 @@ async function searchDeals(query, category = "general", maxPrice = null) {
 
     results.sort((a, b) => (b.score - a.score) || ((a.age ?? 9999) - (b.age ?? 9999)));
 
-    console.log(`[Deals] "${query}" (${category}) → ${results.length} results in ${Date.now()-t0}ms` +
-      ` reddit:${ok(r).length} sd:${ok(sd).length} dn:${ok(dn).length} gn:${ok(gn).length} dl:${ok(dl).length}`);
+    const ms = Date.now() - t0;
+    console.log(`[Deals] "${query}" (${category}) → ${results.length} results in ${ms}ms |`,
+      Object.entries(sourceStatus).map(([k,v]) => `${k}:${v}`).join(" "));
   } catch (err) {
     console.error("[Deals] crash:", err.message);
   }
 
-  return { results, query };
+  return { results, query, sourceStatus };
 }
 
 // ─── Telegram helper ──────────────────────────────────────────────────────────
@@ -279,9 +326,31 @@ async function checkDealWatches() {
 async function handleDeals(req, res, requestUrl) {
   const { pathname, searchParams } = requestUrl;
 
-  // Debug endpoint — quick test that the route is alive
+  // Ping — quick health check
   if (pathname === "/api/deals/ping") {
     return writeJson(res, 200, { ok: true, ts: Date.now() });
+  }
+
+  // Debug — test each source individually and report status
+  if (pathname === "/api/deals/debug") {
+    const t0 = Date.now();
+    const [r, sd, dn, gn, dl] = await Promise.allSettled([
+      fromReddit("", "electronics"),
+      fromSlickDeals(""),
+      fromDealNews("", "electronics"),
+      fromGoogle("", "electronics"),
+      fromDealsList(""),
+    ]);
+    const status = {
+      reddit:     r.status  === "fulfilled" ? r.value.length  : `ERROR: ${r.reason?.message}`,
+      slickdeals: sd.status === "fulfilled" ? sd.value.length : `ERROR: ${sd.reason?.message}`,
+      dealnews:   dn.status === "fulfilled" ? dn.value.length : `ERROR: ${dn.reason?.message}`,
+      google:     gn.status === "fulfilled" ? gn.value.length : `ERROR: ${gn.reason?.message}`,
+      dealslist:  dl.status === "fulfilled" ? dl.value.length : `ERROR: ${dl.reason?.message}`,
+      ms: Date.now() - t0,
+    };
+    console.log("[Deals] /debug →", status);
+    return writeJson(res, 200, { ok: true, status });
   }
 
   if (pathname === "/api/deals/search") {
@@ -289,8 +358,8 @@ async function handleDeals(req, res, requestUrl) {
     const category = searchParams.get("category")  || "general";
     const maxPrice = searchParams.get("maxPrice")  || null;
     try {
-      const { results, query } = await searchDeals(q, category, maxPrice);
-      return writeJson(res, 200, { ok: true, results, query });
+      const { results, query, sourceStatus } = await searchDeals(q, category, maxPrice);
+      return writeJson(res, 200, { ok: true, results, query, sourceStatus });
     } catch (err) {
       console.error("[Deals] handler crash:", err.message);
       return writeJson(res, 500, { ok: false, results: [], error: err.message });

@@ -4309,10 +4309,8 @@ export default function App() {
         setDealsSearched(true);
         if (d.ok) {
           setDealsResults(d.results || []);
-          // Count by source for the chips
-          const counts = {};
-          (d.results || []).forEach(r => { counts[r.sourceKey] = (counts[r.sourceKey] || 0) + 1; });
-          setDealsSources(counts);
+          // Use server-reported sourceStatus (includes 0s and -1 errors)
+          setDealsSources(d.sourceStatus || {});
         } else {
           setDealsError(d.error || "Search failed");
         }
@@ -4321,7 +4319,7 @@ export default function App() {
         clearTimeout(timer);
         setDealsLoading(false);
         setDealsSearched(true);
-        setDealsError(e.name === "AbortError" ? "Search timed out — try again" : e.message);
+        setDealsError(e.name === "AbortError" ? "Search timed out (35s) — server may be overloaded, try again" : e.message);
       });
   }, [dealsQuery, dealsCategory, dealsMaxPrice, dealsLocation]);
 
@@ -10755,6 +10753,10 @@ export default function App() {
                   style={{ background: `${C.green}14`, border: `1px solid ${C.green}44`, color: C.green, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "6px 12px", borderRadius: 5, cursor: "pointer" }}
                 >🔌 PING</button>
                 <button
+                  onClick={() => fetch("/api/deals/debug").then(r => r.json()).then(d => alert("Source test:\n" + Object.entries(d.status || {}).map(([k,v]) => `${k}: ${v}`).join("\n"))).catch(e => alert("❌ " + e.message))}
+                  style={{ background: "#7c3aed18", border: "1px solid #7c3aed44", color: "#7c3aed", fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "6px 12px", borderRadius: 5, cursor: "pointer" }}
+                >🔬 DEBUG</button>
+                <button
                   onClick={() => fetch("/api/deals/test-alert", { method: "POST" }).then(() => alert("Test Telegram alert sent!"))}
                   style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}44`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "6px 12px", borderRadius: 5, cursor: "pointer" }}
                 >📱 TEST TELEGRAM</button>
@@ -10827,29 +10829,53 @@ export default function App() {
                     </span>
                   </div>
                 )}
-                {!dealsLoading && dealsResults.length === 0 && !dealsError && dealsSearched && (
-                  <div style={{ textAlign: "center", padding: 40, fontFamily: MONO, fontSize: 11, color: C.textDim }}>
-                    <div style={{ fontSize: 24, marginBottom: 8 }}>🔍</div>
-                    No deals found for that search.<br/>
-                    <span style={{ fontSize: 10, marginTop: 4, display: "block" }}>Try a broader term or leave the search blank to see hot deals.</span>
-                    <button onClick={runDealsSearch} style={{ marginTop: 12, background: C.accent, border: "none", color: "#fff", borderRadius: 6, padding: "8px 18px", fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                      TRY AGAIN
-                    </button>
-                  </div>
-                )}
+                {!dealsLoading && dealsResults.length === 0 && !dealsError && dealsSearched && (() => {
+                  const ss = dealsSources;
+                  const allBlocked = Object.keys(ss).length > 0 && Object.values(ss).every(v => v === 0 || v === -1);
+                  return (
+                    <div style={{ textAlign: "center", padding: 40, fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                      <div style={{ fontSize: 24, marginBottom: 8 }}>{allBlocked ? "🚫" : "🔍"}</div>
+                      {allBlocked
+                        ? <><span style={{ color: C.red, fontWeight: 700 }}>All deal sources blocked or unreachable.</span><br/>
+                            <span style={{ fontSize: 10, marginTop: 4, display: "block" }}>The server could not reach Reddit, SlickDeals, DealNews, Google or DealsList.<br/>This is common on cloud servers. Click 🔬 DEBUG to see which sources are blocked.</span>
+                          </>
+                        : <><span>No deals found for that search.</span><br/>
+                            <span style={{ fontSize: 10, marginTop: 4, display: "block" }}>Try a broader term or leave blank for hot deals.</span>
+                          </>
+                      }
+                      {Object.keys(ss).length > 0 && (
+                        <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 4, justifyContent: "center" }}>
+                          {[["reddit","Reddit","#ff4500"],["slickdeals","SlickDeals","#e31c23"],["dealnews","DealNews","#0066cc"],["google","Google","#4285f4"],["dealslist","DealsList","#16a34a"]].map(([key,label,color]) => {
+                            const v = ss[key];
+                            const blocked = v === 0 || v === -1;
+                            return <span key={key} style={{ background: blocked ? C.surface : color, color: blocked ? C.textDim : "#fff", border: `1px solid ${blocked ? C.border : color}`, borderRadius: 4, padding: "2px 7px", fontSize: 9, fontWeight: 700 }}>
+                              {blocked ? "✕" : "✓"} {label} {v > 0 ? v : ""}
+                            </span>;
+                          })}
+                        </div>
+                      )}
+                      <button onClick={runDealsSearch} style={{ marginTop: 12, background: C.accent, border: "none", color: "#fff", borderRadius: 6, padding: "8px 18px", fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                        TRY AGAIN
+                      </button>
+                    </div>
+                  );
+                })()}
                 {!dealsLoading && dealsResults.length > 0 && (
                   <div>
                     <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 10, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                       <span style={{ color: C.text, fontWeight: 700 }}>{dealsResults.length} RESULTS</span>
                       {dealsQuery && <span style={{ color: C.textDim }}>for "{dealsQuery}"</span>}
                       {Object.keys(dealsSources).length > 0 && <span>·</span>}
-                      {[["reddit","Reddit","#ff4500"],["slickdeals","SlickDeals","#e31c23"],["dealnews","DealNews","#0066cc"],["google","Google","#4285f4"],["dealslist","DealsList","#16a34a"]].map(([key, label, color]) =>
-                        dealsSources[key] ? (
-                          <span key={key} style={{ background: color, color: "#fff", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700 }}>
-                            {label} {dealsSources[key]}
+                      {[["reddit","Reddit","#ff4500"],["slickdeals","SlickDeals","#e31c23"],["dealnews","DealNews","#0066cc"],["google","Google","#4285f4"],["dealslist","DealsList","#16a34a"]].map(([key, label, color]) => {
+                        const v = dealsSources[key];
+                        if (v === undefined) return null;
+                        const blocked = v === 0 || v === -1;
+                        return (
+                          <span key={key} style={{ background: blocked ? C.surface : color, color: blocked ? C.textDim : "#fff", border: `1px solid ${blocked ? C.border : "transparent"}`, borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700 }}>
+                            {blocked ? `✕ ${label}` : `${label} ${v}`}
                           </span>
-                        ) : null
-                      )}
+                        );
+                      })}
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10 }}>
                       {dealsResults.map(deal => {
