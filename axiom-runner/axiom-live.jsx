@@ -10718,6 +10718,7 @@ export default function App() {
           { id: "cars",        label: "🚗 Cars" },
           { id: "furniture",   label: "🛋️ Furniture" },
           { id: "general",     label: "🛒 General" },
+          { id: "jobs",        label: "💼 Jobs" },
         ];
         const catLabel = DEAL_CATS.find(c => c.id === dealsCategory)?.label || dealsCategory;
         const showLocation = dealsCategory === "realestate" || dealsCategory === "cars";
@@ -10727,7 +10728,7 @@ export default function App() {
             <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
               <div>
                 <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>🛒 DEALS FINDER</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>Search for deals · Set Telegram alerts for any search</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>Powered by Reddit deal communities — 100% free · Set Telegram alerts</div>
               </div>
               <button
                 onClick={() => fetch("/api/deals/test-alert", { method: "POST" }).then(() => alert("Test Telegram alert sent!"))}
@@ -10756,24 +10757,16 @@ export default function App() {
                       value={dealsQuery}
                       onChange={e => setDealsQuery(e.target.value)}
                       onKeyDown={e => e.key === "Enter" && runDealsSearch()}
-                      placeholder={`Search ${catLabel} deals…`}
+                      placeholder={`Search ${catLabel} deals… (leave blank for hot deals)`}
                       style={{ flex: "2 1 200px", border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "9px 12px", fontFamily: MONO, fontSize: 12, outline: "none" }}
                     />
                     <input
                       value={dealsMaxPrice}
                       onChange={e => setDealsMaxPrice(e.target.value)}
-                      placeholder="Max price $"
+                      placeholder="Max $ price"
                       type="number"
                       style={{ flex: "0 1 110px", border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "9px 12px", fontFamily: MONO, fontSize: 12, outline: "none" }}
                     />
-                    {showLocation && (
-                      <input
-                        value={dealsLocation}
-                        onChange={e => setDealsLocation(e.target.value)}
-                        placeholder="City / ZIP"
-                        style={{ flex: "1 1 130px", border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "9px 12px", fontFamily: MONO, fontSize: 12, outline: "none" }}
-                      />
-                    )}
                     <button onClick={runDealsSearch} disabled={dealsLoading}
                       style={{ background: C.accent, border: "none", color: "#fff", borderRadius: 6, padding: "9px 18px", fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", opacity: dealsLoading ? 0.7 : 1, flexShrink: 0 }}>
                       {dealsLoading ? "SEARCHING…" : "SEARCH"}
@@ -10827,19 +10820,27 @@ export default function App() {
                                 {deal.description.slice(0, 100)}{deal.description.length > 100 ? "…" : ""}
                               </div>
                             )}
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "auto", paddingTop: 6 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "auto", paddingTop: 6, flexWrap: "wrap" }}>
                               {deal.price && (
-                                <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.green }}>{deal.price}</span>
+                                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.green }}>{deal.price}</span>
                               )}
-                              {deal.rating && (
-                                <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber }}>★ {deal.rating} ({deal.reviews})</span>
-                              )}
-                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginLeft: "auto" }}>{deal.source}</span>
+                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.amber }}>▲ {deal.score?.toLocaleString()}</span>
+                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>💬 {deal.comments}</span>
+                              {deal.age !== null && <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{deal.age < 24 ? `${deal.age}h ago` : `${Math.floor(deal.age/24)}d ago`}</span>}
+                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.accent, marginLeft: "auto" }}>{deal.source}</span>
                             </div>
-                            <a href={deal.link} target="_blank" rel="noopener noreferrer"
-                              style={{ background: C.accent, color: "#fff", textDecoration: "none", borderRadius: 5, padding: "6px 0", fontFamily: MONO, fontSize: 10, fontWeight: 700, textAlign: "center", display: "block", marginTop: 4 }}>
-                              VIEW DEAL →
-                            </a>
+                            <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
+                              <a href={deal.link} target="_blank" rel="noopener noreferrer"
+                                style={{ flex: 1, background: C.accent, color: "#fff", textDecoration: "none", borderRadius: 5, padding: "6px 0", fontFamily: MONO, fontSize: 10, fontWeight: 700, textAlign: "center", display: "block" }}>
+                                VIEW DEAL →
+                              </a>
+                              {deal.redditLink && deal.redditLink !== deal.link && (
+                                <a href={deal.redditLink} target="_blank" rel="noopener noreferrer"
+                                  style={{ background: `#ff4500`, color: "#fff", textDecoration: "none", borderRadius: 5, padding: "6px 8px", fontFamily: MONO, fontSize: 10, fontWeight: 700, textAlign: "center", display: "block" }}>
+                                  Reddit
+                                </a>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -10908,11 +10909,14 @@ export default function App() {
                 <div style={{ background: `${C.accent}08`, border: `1px solid ${C.accent}22`, borderRadius: 10, padding: 12 }}>
                   <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, marginBottom: 6 }}>HOW DEAL ALERTS WORK</div>
                   <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.6 }}>
-                    1. Search for any product, property, or deal<br/>
+                    1. Search or browse hot deals by category<br/>
                     2. Click 🔔 WATCH to save the search<br/>
-                    3. Server checks every 30 min automatically<br/>
-                    4. New deals → instant Telegram message<br/>
-                    5. Works 24/7 even when you close the browser
+                    3. Server checks Reddit every 30 min<br/>
+                    4. New posts → instant Telegram message<br/>
+                    5. Works 24/7 even when browser is closed<br/><br/>
+                    <span style={{ color: C.accent, fontWeight: 700 }}>✓ 100% Free — no API key needed</span><br/>
+                    Sources: r/deals, r/buildapcsales, r/frugal,<br/>
+                    r/realestate, r/cardeals, r/techdeals + more
                   </div>
                 </div>
               </div>
