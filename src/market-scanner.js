@@ -118,6 +118,9 @@ function saveConfig(updates) {
 const cooldownMap   = new Map(); // "NVDA:BUY" → timestamp
 const lastSignalMap = new Map(); // "NVDA"     → "BUY"|"SELL"
 
+// Hard minimum gap between alerts for the same symbol:signal — no duplicates within 15 min
+const MIN_ALERT_GAP_MS = 15 * 60_000;
+
 let lastRunAt      = null;
 let lastRunResults = [];
 let scanCount      = 0;
@@ -363,9 +366,20 @@ function determineSignal(a, cfg) {
 // ── Duplicate guard ───────────────────────────────────────────────────────────
 
 function isDuplicate(symbol, signal, cooldownHours) {
-  const last = cooldownMap.get(`${symbol}:${signal}`);
-  if (last && Date.now() - last < cooldownHours * 3600_000) return true;
-  if (lastSignalMap.get(symbol) === signal) return true;
+  const key  = `${symbol}:${signal}`;
+  const last = cooldownMap.get(key);
+  if (last) {
+    const elapsed   = Date.now() - last;
+    const minGap    = MIN_ALERT_GAP_MS;                    // 15 min hard floor
+    const configured = cooldownHours * 3600_000;           // configured cooldown
+    if (elapsed < Math.max(minGap, configured)) return true;
+  }
+  // Same-direction block: only applies within 4× the cooldown window
+  // (prevents re-alert while signal is still active, but clears eventually)
+  if (lastSignalMap.get(symbol) === signal) {
+    const last2 = cooldownMap.get(key);
+    if (last2 && Date.now() - last2 < cooldownHours * 4 * 3600_000) return true;
+  }
   return false;
 }
 
@@ -516,7 +530,9 @@ async function runScan(options = {}) {
     }
 
     // ── FIRE: individual alerts for HIGH-CONVICTION signals ─────────────────
-    // Score >= 75 BUY or <= 25 SELL = strong signal, send immediately + standalone
+    // Score >= 75 BUY or <= 25 SELL = strong signal, send immediately as standalone
+    // Track fired symbols so they are NOT repeated in the grouped summary below
+    const firedSymbols = new Set();
     if (telegramConfigured()) {
       const fireNow = hits.filter(h =>
         (h.signal === "BUY"  && h.composite >= 75) ||
@@ -524,19 +540,25 @@ async function runScan(options = {}) {
       );
       for (const h of fireNow) {
         const a = analysisMap.get(h.symbol);
-        if (a) sendTelegramMessage(formatScanAlert(a, h.signal)).catch(() => {});
+        if (a) {
+          sendTelegramMessage(formatScanAlert(a, h.signal)).catch(() => {});
+          firedSymbols.add(h.symbol); // mark as already alerted this run
+        }
       }
     }
 
-    // ── Grouped scan summary (top 5 buys + top 5 sells) ─────────────────────
-    if (hits.length > 0 && telegramConfigured()) {
+    // ── Grouped scan summary — exclude symbols already sent as individual alerts
+    // This prevents the same ticker appearing twice in one scan run
+    const summaryHits = hits.filter(h => !firedSymbols.has(h.symbol));
+    if (summaryHits.length > 0 && telegramConfigured()) {
       const time  = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
-      const buys  = hits.filter(h => h.signal === "BUY")
+      const buys  = summaryHits.filter(h => h.signal === "BUY")
                         .sort((a,b) => b.composite - a.composite).slice(0, 5);
-      const sells = hits.filter(h => h.signal === "SELL")
+      const sells = summaryHits.filter(h => h.signal === "SELL")
                         .sort((a,b) => a.composite - b.composite).slice(0, 5);
 
       let msg = `📡 SCAN RESULTS — ${time} ET  (${symbols.length} checked)\n`;
+      if (firedSymbols.size > 0) msg += `(${firedSymbols.size} high-conviction already alerted individually)\n`;
 
       if (buys.length) {
         msg += `\n🟢 ENTRY SIGNALS (${buys.length})\n`;
@@ -559,10 +581,13 @@ async function runScan(options = {}) {
       sendTelegramMessage(msg.trim()).catch(() => {});
 
     } else if (scheduledLabel && telegramConfigured()) {
-      // For scheduled scans only — confirm the scan ran even when nothing fired
+      // Scheduled scan — confirm it ran even when nothing new fired
       const time = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+      const note = firedSymbols.size > 0
+        ? `${firedSymbols.size} high-conviction alert${firedSymbols.size > 1 ? "s" : ""} sent individually`
+        : `no new signals`;
       sendTelegramMessage(
-        `✅ ${scheduledLabel} scan complete — no new signals\n${symbols.length} symbols checked  ${time} ET`
+        `✅ ${scheduledLabel} scan complete — ${note}\n${symbols.length} symbols checked  ${time} ET`
       ).catch(() => {});
     }
 
