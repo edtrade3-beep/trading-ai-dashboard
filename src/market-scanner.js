@@ -376,14 +376,28 @@ function recordSignal(symbol, signal) {
 // ── Telegram alert formatter ──────────────────────────────────────────────────
 
 function formatScanAlert(a, signal) {
-  const e    = signal === "BUY" ? "🟢" : "🔴";
-  const chg  = `${a.chgPct >= 0 ? "+" : ""}${a.chgPct.toFixed(2)}%`;
-  const time = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+  const e      = signal === "BUY" ? "🟢" : "🔴";
+  const action = signal === "BUY" ? "ENTRY" : "EXIT";
+  const chg    = `${a.chgPct >= 0 ? "+" : ""}${a.chgPct.toFixed(2)}%`;
+  const time   = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+
+  let levelLine;
+  if (signal === "BUY") {
+    const risk   = round2(Math.max(a.price - a.support, 0.01));
+    const target = round2(a.price + risk * 2);
+    levelLine = `Entry $${a.price}  Stop $${a.support}  Target $${target}  (R:R 1:2)`;
+  } else {
+    const risk   = round2(Math.max(a.resistance - a.price, 0.01));
+    const target = round2(a.price - risk * 2);
+    levelLine = `Exit $${a.price}  Stop $${a.resistance}  Target $${target}  (R:R 1:2)`;
+  }
+
   return [
-    `${e} ${signal} — ${a.symbol} @ $${a.price}`,
-    `Score: ${a.composite}/100  RSI: ${a.rsi}  RVOL: ${a.rvol}x`,
-    `Trend: ${a.trend}  Change: ${chg}`,
-    `EMA9/21: ${a.emaAligned}  Support: $${a.support}  Res: $${a.resistance}`,
+    `${e} ${action} ALERT — ${a.symbol}`,
+    levelLine,
+    `Score ${a.composite}/100  RSI ${a.rsi}  RVOL ${a.rvol}x`,
+    `Trend: ${a.trend}  ${chg}`,
+    `EMA9 $${a.ema9} / EMA21 $${a.ema21}  ${a.emaAligned}`,
     `${time} ET`,
   ].join("\n");
 }
@@ -405,7 +419,8 @@ async function runWithConcurrency(tasks, limit) {
 
 // ── Core scan ─────────────────────────────────────────────────────────────────
 
-async function runScan() {
+async function runScan(options = {}) {
+  const { scheduledLabel = null } = options;
   if (isRunning) return { skipped: true, reason: "scan already in progress" };
   const cfg = loadConfig();
   if (!cfg.enabled) return { skipped: true, reason: "scanner disabled" };
@@ -493,10 +508,25 @@ async function runScan() {
         symbol: sym, signal,
         composite: a.composite, price: a.price,
         rsi: a.rsi, rvol: a.rvol, chgPct: a.chgPct, trend: a.trend,
+        support: a.support, resistance: a.resistance,
+        ema9: a.ema9, ema21: a.ema21,
       });
     }
 
-    // ── Send one grouped Telegram summary (not one msg per signal) ──────────
+    // ── FIRE: individual alerts for HIGH-CONVICTION signals ─────────────────
+    // Score >= 75 BUY or <= 25 SELL = strong signal, send immediately + standalone
+    if (telegramConfigured()) {
+      const fireNow = hits.filter(h =>
+        (h.signal === "BUY"  && h.composite >= 75) ||
+        (h.signal === "SELL" && h.composite <= 25)
+      );
+      for (const h of fireNow) {
+        const a = analysisMap.get(h.symbol);
+        if (a) sendTelegramMessage(formatScanAlert(a, h.signal)).catch(() => {});
+      }
+    }
+
+    // ── Grouped scan summary (top 5 buys + top 5 sells) ─────────────────────
     if (hits.length > 0 && telegramConfigured()) {
       const time  = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
       const buys  = hits.filter(h => h.signal === "BUY")
@@ -504,23 +534,34 @@ async function runScan() {
       const sells = hits.filter(h => h.signal === "SELL")
                         .sort((a,b) => a.composite - b.composite).slice(0, 5);
 
-      let msg = `📡 SCAN — ${time} ET  (${symbols.length} symbols)\n`;
+      let msg = `📡 SCAN RESULTS — ${time} ET  (${symbols.length} checked)\n`;
 
       if (buys.length) {
-        msg += `\n🟢 TOP BUY (${buys.length} new)\n`;
+        msg += `\n🟢 ENTRY SIGNALS (${buys.length})\n`;
         for (const h of buys) {
-          const chg = `${h.chgPct >= 0 ? "+" : ""}${h.chgPct.toFixed(2)}%`;
-          msg += `${h.symbol}  $${h.price}  ${chg}  Score ${h.composite}  RSI ${h.rsi}  RVOL ${h.rvol}x\n`;
+          const chg  = `${h.chgPct >= 0 ? "+" : ""}${h.chgPct.toFixed(2)}%`;
+          const risk = round2(Math.max(h.price - h.support, 0.01));
+          const tgt  = round2(h.price + risk * 2);
+          msg += `${h.symbol}  $${h.price}  ${chg}  Score ${h.composite}  Stop $${h.support}  Tgt $${tgt}\n`;
         }
       }
       if (sells.length) {
-        msg += `\n🔴 TOP SELL (${sells.length} new)\n`;
+        msg += `\n🔴 EXIT SIGNALS (${sells.length})\n`;
         for (const h of sells) {
-          const chg = `${h.chgPct >= 0 ? "+" : ""}${h.chgPct.toFixed(2)}%`;
-          msg += `${h.symbol}  $${h.price}  ${chg}  Score ${h.composite}  RSI ${h.rsi}  RVOL ${h.rvol}x\n`;
+          const chg  = `${h.chgPct >= 0 ? "+" : ""}${h.chgPct.toFixed(2)}%`;
+          const risk = round2(Math.max(h.resistance - h.price, 0.01));
+          const tgt  = round2(h.price - risk * 2);
+          msg += `${h.symbol}  $${h.price}  ${chg}  Score ${h.composite}  Stop $${h.resistance}  Tgt $${tgt}\n`;
         }
       }
       sendTelegramMessage(msg.trim()).catch(() => {});
+
+    } else if (scheduledLabel && telegramConfigured()) {
+      // For scheduled scans only — confirm the scan ran even when nothing fired
+      const time = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+      sendTelegramMessage(
+        `✅ ${scheduledLabel} scan complete — no new signals\n${symbols.length} symbols checked  ${time} ET`
+      ).catch(() => {});
     }
 
   } finally {
@@ -747,12 +788,13 @@ function startMarketScanner() {
       "14:45": "Late Session",
       "15:45": "Power Hour",
     };
-    console.log(`[Scanner] Scheduled scan: ${labelMap[time] || time} ET`);
+    const label = labelMap[time] || time;
+    console.log(`[Scanner] Scheduled scan: ${label} ET`);
     // Send a header message before the scan so you know which session it is
     if (telegramConfigured()) {
-      sendTelegramMessage(`⏰ ${labelMap[time] || time} Scan — ${time} ET`).catch(() => {});
+      sendTelegramMessage(`⏰ ${label} Scan — ${time} ET`).catch(() => {});
     }
-    runScan().catch(() => {});
+    runScan({ scheduledLabel: label }).catch(() => {});
   }, 30_000); // check every 30s so we never miss a minute
   if (tv.unref) tv.unref();
 
