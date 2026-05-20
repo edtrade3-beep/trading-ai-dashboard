@@ -26,6 +26,7 @@ const { loadPriceAlerts, savePriceAlerts }       = require("./price-alert-store"
 const { loadSettings }                           = require("./settings-store");
 const { fetchYahooBars, fetchYahooChartMeta, fetchYahooQuoteBatch } = require("./providers/yahoo");
 const { fetchTrending: stTrending, fetchSentiment: stSentiment }    = require("./providers/stocktwits");
+const { fetchFinanceNews, fetchTechNews, fetchAllNews, fetchSubreddit: fetchRedditSub, FINANCE_SUBS, TECH_SUBS } = require("./providers/reddit-news");
 const { withTimeout, round2 }                    = require("./utils");
 
 const API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
@@ -96,6 +97,11 @@ async function cmdHelp() {
     "/scanner interval 5  — set scan interval (minutes)\n" +
     "/scanner symbols     — list scanned symbols\n" +
     "\nAuto-scans M-F ET: 7:00, 9:45, 12:30, 14:45, 15:45\n" +
+    "\nREDDIT NEWS\n" +
+    "/news            — top posts: finance + stocks + tech\n" +
+    "/news wsb        — r/wallstreetbets hot posts\n" +
+    "/news stocks     — r/stocks  |  /news tech — r/technology\n" +
+    "/news ai         — r/artificial  |  /news dd — r/SecurityAnalysis\n" +
     "\nSTOCKTWITS\n" +
     "/twits           — top 10 trending tickers + crowd sentiment\n" +
     "/twits NVDA      — bullish/bearish% + recent messages for a symbol\n" +
@@ -436,6 +442,83 @@ async function cmdDeals(args) {
   } catch (err) { return reply("Deals error: " + err.message); }
 }
 
+// ── Reddit Finance / Stock / Tech News ───────────────────────────────────────
+
+async function cmdNews(args) {
+  const sub = (args[0] || "").toLowerCase();
+
+  // Map shorthand aliases to subreddit names
+  const aliases = {
+    wsb:    "wallstreetbets",
+    stocks: "stocks",
+    invest: "investing",
+    market: "StockMarket",
+    finance:"finance",
+    dd:     "SecurityAnalysis",
+    options:"options",
+    tech:   "technology",
+    ai:     "artificial",
+    ml:     "MachineLearning",
+  };
+  const resolvedSub = aliases[sub] || sub;
+
+  await reply(resolvedSub ? `Fetching r/${resolvedSub} news…` : "Fetching Reddit finance + tech news…");
+
+  try {
+    let posts;
+
+    if (resolvedSub) {
+      // Single subreddit
+      posts = await withTimeout(fetchRedditSub(resolvedSub, "hot", 10), 20_000, []);
+    } else if (sub === "finance" || sub === "f") {
+      posts = await withTimeout(fetchFinanceNews({ postsPerSub: 3 }), 25_000, []);
+    } else if (sub === "tech" || sub === "t") {
+      posts = await withTimeout(fetchTechNews({ postsPerSub: 4 }), 25_000, []);
+    } else {
+      // Default: top posts from all finance + tech subs
+      posts = await withTimeout(fetchAllNews({ postsPerSub: 3 }), 30_000, []);
+    }
+
+    if (!posts?.length) {
+      return reply(
+        "Could not fetch Reddit news — Reddit sometimes blocks cloud servers.\n" +
+        "Try again in a few minutes, or use a specific sub:\n" +
+        "/news wsb  /news stocks  /news tech  /news ai"
+      );
+    }
+
+    // De-duplicate by title similarity and cap at 12
+    const seen  = new Set();
+    const dedup = [];
+    for (const p of posts) {
+      const key = p.title.slice(0, 40).toLowerCase();
+      if (!seen.has(key)) { seen.add(key); dedup.push(p); }
+      if (dedup.length >= 12) break;
+    }
+
+    // Build message
+    const time = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+    let msg = resolvedSub
+      ? `📰 r/${resolvedSub} — ${time} ET\n\n`
+      : `📰 Reddit Finance + Tech News — ${time} ET\n\n`;
+
+    for (const p of dedup) {
+      const score    = p.score > 0 ? ` ⬆️${p.score > 999 ? (p.score/1000).toFixed(1)+"k" : p.score}` : "";
+      const comments = p.comments > 0 ? ` 💬${p.comments}` : "";
+      const flair    = p.flair ? ` [${p.flair.slice(0,15)}]` : "";
+      msg += `[${p.label}]${flair}${score}${comments}\n`;
+      msg += `${p.title.slice(0, 120)}\n`;
+      msg += `${p.url.slice(0, 80)}\n\n`;
+    }
+
+    msg += "── Subs: /news wsb  /news stocks  /news tech  /news ai  /news dd";
+    return reply(msg.trim());
+
+  } catch (err) {
+    return reply(`Reddit news error: ${err.message}`);
+  }
+}
+
 // ── StockTwits: trending + per-symbol sentiment ───────────────────────────────
 
 async function cmdTwits(args) {
@@ -537,6 +620,10 @@ const COMMANDS = {
   twits:     (a) => cmdTwits(a),
   trending:  (a) => cmdTwits(a),
   sentiment: (a) => cmdTwits(a),
+  news:      (a) => cmdNews(a),
+  reddit:    (a) => cmdNews(a),
+  wsb:       (a) => cmdNews(["wallstreetbets"]),
+  r:         (a) => cmdNews(a),
 };
 
 async function dispatch(text) {

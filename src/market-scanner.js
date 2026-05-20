@@ -4,7 +4,8 @@ const { ROOT } = require("./config");
 const { fetchYahooBars } = require("./providers/yahoo");
 const { computeEMA, computeRSI } = require("./indicators");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
-const { fetchTrending: stTrending } = require("./providers/stocktwits");
+const { fetchTrending: stTrending }  = require("./providers/stocktwits");
+const { fetchAllNews, fetchFinanceNews } = require("./providers/reddit-news");
 const { round2, withTimeout } = require("./utils");
 
 const CONFIG_PATH = path.join(ROOT, "data", "scanner-config.json");
@@ -816,7 +817,21 @@ async function sendMacroPreMarket() {
     vix && vix.price > 25 ? "\nVIX > 25 — reduce position size today" : null,
   ].filter(s => s !== null).join("\n");
 
-  await sendTelegramMessage(lines);
+  // Append overnight Reddit finance headlines (best-effort)
+  let fullMsg = lines;
+  try {
+    const news = await withTimeout(fetchFinanceNews({ postsPerSub: 2 }), 15_000, null);
+    if (news?.length) {
+      const top = news.slice(0, 6);
+      fullMsg += "\n\n── OVERNIGHT REDDIT HEADLINES ───────\n";
+      for (const p of top) {
+        const score = p.score > 0 ? ` ⬆️${p.score > 999 ? (p.score/1000).toFixed(1)+"k" : p.score}` : "";
+        fullMsg += `[${p.label}]${score} ${p.title.slice(0, 90)}\n`;
+      }
+    }
+  } catch { /* ignore */ }
+
+  await sendTelegramMessage(fullMsg);
   console.log(`[Scanner] Macro Pre-Market report sent`);
 }
 
@@ -872,9 +887,29 @@ async function sendPreMarketWatchlist() {
       for (const t of twits.slice(0, 10)) {
         msg += `${t.symbol.padEnd(8)} ${t.title.slice(0, 28)}\n`;
       }
-      msg += "Full sentiment: /twits  or  /twits NVDA";
+      msg += "Full sentiment: /twits  or  /twits NVDA\n";
     }
-  } catch { /* ignore if StockTwits is down */ }
+  } catch { /* ignore */ }
+
+  // Reddit pre-market headlines — finance + tech
+  try {
+    const news = await withTimeout(fetchAllNews({ postsPerSub: 2 }), 15_000, null);
+    if (news?.length) {
+      msg += "\n── REDDIT PRE-MARKET HEADLINES ──────\n";
+      const dedup = [];
+      const seen  = new Set();
+      for (const p of news) {
+        const key = p.title.slice(0, 35).toLowerCase();
+        if (!seen.has(key)) { seen.add(key); dedup.push(p); }
+        if (dedup.length >= 8) break;
+      }
+      for (const p of dedup) {
+        const score = p.score > 0 ? ` ⬆️${p.score > 999 ? (p.score/1000).toFixed(1)+"k" : p.score}` : "";
+        msg += `[${p.label}]${score} ${p.title.slice(0, 85)}\n`;
+      }
+      msg += "Full feed: /news  |  /news wsb  |  /news tech";
+    }
+  } catch { /* ignore */ }
 
   await sendTelegramMessage(msg.trim());
   console.log(`[Scanner] Pre-Market Watchlist sent`);
@@ -1122,7 +1157,7 @@ async function sendAfterCloseReport() {
                :                               "Outlook: Mixed. Wait for open direction before committing.";
   msg += "\n" + outlook;
 
-  // StockTwits end-of-day trending — what the crowd is focused on tonight
+  // StockTwits end-of-day trending
   try {
     const twits = await withTimeout(stTrending(12), 8_000, null);
     if (twits?.length) {
@@ -1130,7 +1165,27 @@ async function sendAfterCloseReport() {
       for (const t of twits.slice(0, 8)) {
         msg += `${t.symbol.padEnd(8)} ${t.title.slice(0, 28)}\n`;
       }
-      msg += "Use /twits SYMBOL for crowd sentiment";
+      msg += "/twits SYMBOL for crowd sentiment\n";
+    }
+  } catch { /* ignore */ }
+
+  // Reddit EOD discussion — what the community is talking about after close
+  try {
+    const news = await withTimeout(fetchAllNews({ postsPerSub: 2 }), 15_000, null);
+    if (news?.length) {
+      msg += "\n── REDDIT EOD DISCUSSION ────────────\n";
+      const dedup = [];
+      const seen  = new Set();
+      for (const p of news) {
+        const key = p.title.slice(0, 35).toLowerCase();
+        if (!seen.has(key)) { seen.add(key); dedup.push(p); }
+        if (dedup.length >= 6) break;
+      }
+      for (const p of dedup) {
+        const score = p.score > 0 ? ` ⬆️${p.score > 999 ? (p.score/1000).toFixed(1)+"k" : p.score}` : "";
+        msg += `[${p.label}]${score} ${p.title.slice(0, 85)}\n`;
+      }
+      msg += "/news wsb  /news stocks  /news tech  /news ai";
     }
   } catch { /* ignore */ }
 
