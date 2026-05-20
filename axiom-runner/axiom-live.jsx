@@ -10739,6 +10739,8 @@ export default function App() {
         ];
         const catLabel = DEAL_CATS.find(c => c.id === dealsCategory)?.label || dealsCategory;
         const showLocation = dealsCategory === "realestate" || dealsCategory === "cars";
+        const SOURCE_META = [["reddit","Reddit","#ff4500"],["slickdeals","SlickDeals","#e31c23"],["dealnews","DealNews","#0066cc"],["google","Google","#4285f4"],["dealslist","DealsList","#16a34a"]];
+        const allSourcesBlocked = Object.keys(dealsSources).length > 0 && Object.values(dealsSources).every(v => v === 0 || v === -1);
         return (
           <div style={{ maxWidth: 1400, margin: "0 auto" }}>
             {/* Header */}
@@ -10829,50 +10831,51 @@ export default function App() {
                     </span>
                   </div>
                 )}
-                {!dealsLoading && dealsResults.length === 0 && !dealsError && dealsSearched && (() => {
-                  const ss = dealsSources;
-                  const allBlocked = Object.keys(ss).length > 0 && Object.values(ss).every(v => v === 0 || v === -1);
-                  return (
-                    <div style={{ textAlign: "center", padding: 40, fontFamily: MONO, fontSize: 11, color: C.textDim }}>
-                      <div style={{ fontSize: 24, marginBottom: 8 }}>{allBlocked ? "🚫" : "🔍"}</div>
-                      {allBlocked
-                        ? <><span style={{ color: C.red, fontWeight: 700 }}>All deal sources blocked or unreachable.</span><br/>
-                            <span style={{ fontSize: 10, marginTop: 4, display: "block" }}>The server could not reach Reddit, SlickDeals, DealNews, Google or DealsList.<br/>This is common on cloud servers. Click 🔬 DEBUG to see which sources are blocked.</span>
-                          </>
-                        : <><span>No deals found for that search.</span><br/>
-                            <span style={{ fontSize: 10, marginTop: 4, display: "block" }}>Try a broader term or leave blank for hot deals.</span>
-                          </>
-                      }
-                      {Object.keys(ss).length > 0 && (
-                        <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 4, justifyContent: "center" }}>
-                          {[["reddit","Reddit","#ff4500"],["slickdeals","SlickDeals","#e31c23"],["dealnews","DealNews","#0066cc"],["google","Google","#4285f4"],["dealslist","DealsList","#16a34a"]].map(([key,label,color]) => {
-                            const v = ss[key];
-                            const blocked = v === 0 || v === -1;
-                            return <span key={key} style={{ background: blocked ? C.surface : color, color: blocked ? C.textDim : "#fff", border: `1px solid ${blocked ? C.border : color}`, borderRadius: 4, padding: "2px 7px", fontSize: 9, fontWeight: 700 }}>
-                              {blocked ? "✕" : "✓"} {label} {v > 0 ? v : ""}
-                            </span>;
-                          })}
-                        </div>
-                      )}
-                      <button onClick={runDealsSearch} style={{ marginTop: 12, background: C.accent, border: "none", color: "#fff", borderRadius: 6, padding: "8px 18px", fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                        TRY AGAIN
-                      </button>
-                    </div>
-                  );
-                })()}
+                {!dealsLoading && dealsResults.length === 0 && !dealsError && dealsSearched && (
+                  <div style={{ textAlign: "center", padding: 40, fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                    <div style={{ fontSize: 24, marginBottom: 8 }}>{allSourcesBlocked ? "🚫" : "🔍"}</div>
+                    {allSourcesBlocked ? (
+                      <div>
+                        <span style={{ color: C.red, fontWeight: 700 }}>All deal sources blocked or unreachable.</span><br/>
+                        <span style={{ fontSize: 10, marginTop: 4, display: "block" }}>The server could not reach any deal site. Common on cloud servers.<br/>Click DEBUG above to see which sources work.</span>
+                      </div>
+                    ) : (
+                      <div>
+                        <span>No deals found for that search.</span><br/>
+                        <span style={{ fontSize: 10, marginTop: 4, display: "block" }}>Try a broader term or leave blank for hot deals.</span>
+                      </div>
+                    )}
+                    {Object.keys(dealsSources).length > 0 && (
+                      <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 4, justifyContent: "center" }}>
+                        {SOURCE_META.map(([key, label, color]) => {
+                          const v = dealsSources[key];
+                          const bad = v === 0 || v === -1;
+                          return (
+                            <span key={key} style={{ background: bad ? C.surface : color, color: bad ? C.textDim : "#fff", border: `1px solid ${bad ? C.border : color}`, borderRadius: 4, padding: "2px 7px", fontSize: 9, fontWeight: 700 }}>
+                              {bad ? "✕" : "✓"} {label}{v > 0 ? " " + v : ""}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <button onClick={runDealsSearch} style={{ marginTop: 12, background: C.accent, border: "none", color: "#fff", borderRadius: 6, padding: "8px 18px", fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                      TRY AGAIN
+                    </button>
+                  </div>
+                )}
                 {!dealsLoading && dealsResults.length > 0 && (
                   <div>
                     <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 10, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                       <span style={{ color: C.text, fontWeight: 700 }}>{dealsResults.length} RESULTS</span>
                       {dealsQuery && <span style={{ color: C.textDim }}>for "{dealsQuery}"</span>}
                       {Object.keys(dealsSources).length > 0 && <span>·</span>}
-                      {[["reddit","Reddit","#ff4500"],["slickdeals","SlickDeals","#e31c23"],["dealnews","DealNews","#0066cc"],["google","Google","#4285f4"],["dealslist","DealsList","#16a34a"]].map(([key, label, color]) => {
+                      {SOURCE_META.map(([key, label, color]) => {
                         const v = dealsSources[key];
                         if (v === undefined) return null;
-                        const blocked = v === 0 || v === -1;
+                        const bad = v === 0 || v === -1;
                         return (
-                          <span key={key} style={{ background: blocked ? C.surface : color, color: blocked ? C.textDim : "#fff", border: `1px solid ${blocked ? C.border : "transparent"}`, borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700 }}>
-                            {blocked ? `✕ ${label}` : `${label} ${v}`}
+                          <span key={key} style={{ background: bad ? C.surface : color, color: bad ? C.textDim : "#fff", border: `1px solid ${bad ? C.border : "transparent"}`, borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700 }}>
+                            {bad ? ("✕ " + label) : (label + " " + v)}
                           </span>
                         );
                       })}
