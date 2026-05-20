@@ -98,10 +98,15 @@ async function cmdHelp() {
     "/scanner symbols     — list scanned symbols\n" +
     "\nAuto-scans M-F ET: 7:00, 9:45, 12:30, 14:45, 15:45\n" +
     "\nREDDIT NEWS\n" +
-    "/news            — top posts: finance + stocks + tech\n" +
-    "/news wsb        — r/wallstreetbets hot posts\n" +
-    "/news stocks     — r/stocks  |  /news tech — r/technology\n" +
-    "/news ai         — r/artificial  |  /news dd — r/SecurityAnalysis\n" +
+    "/news     — top posts from all finance + tech subs\n" +
+    "/wsb      — r/wallstreetbets (meme stocks, DD, hype)\n" +
+    "/stocks   — r/stocks (earnings, analysis, news)\n" +
+    "/invest   — r/investing (macro, fundamentals)\n" +
+    "/dd       — r/SecurityAnalysis (deep research)\n" +
+    "/options  — r/options (options plays)\n" +
+    "/tech     — r/technology (big tech news)\n" +
+    "/ai       — r/artificial (AI/ML news)\n" +
+    "/finance  — r/finance (broader finance news)\n" +
     "\nSTOCKTWITS\n" +
     "/twits           — top 10 trending tickers + crowd sentiment\n" +
     "/twits NVDA      — bullish/bearish% + recent messages for a symbol\n" +
@@ -622,7 +627,17 @@ const COMMANDS = {
   sentiment: (a) => cmdTwits(a),
   news:      (a) => cmdNews(a),
   reddit:    (a) => cmdNews(a),
-  wsb:       (a) => cmdNews(["wallstreetbets"]),
+  // ── Direct news shortcut commands ──────────────────────────────────────────
+  wsb:       ()  => cmdNews(["wallstreetbets"]),
+  stocks:    ()  => cmdNews(["stocks"]),
+  invest:    ()  => cmdNews(["investing"]),
+  investing: ()  => cmdNews(["investing"]),
+  dd:        ()  => cmdNews(["SecurityAnalysis"]),
+  options:   ()  => cmdNews(["options"]),
+  tech:      ()  => cmdNews(["technology"]),
+  ai:        ()  => cmdNews(["artificial"]),
+  ml:        ()  => cmdNews(["MachineLearning"]),
+  finance:   ()  => cmdNews(["finance"]),
   r:         (a) => cmdNews(a),
 };
 
