@@ -3612,13 +3612,42 @@ Risk small and follow the stop.`
     <div style={{ display: "grid", gap: 14 }}>
 
       {/* ── Summary Cards ── */}
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "stretch" }}>
         <SummaryCard label="MARKET BIAS"       value={marketBias.label}                 color={marketBias.color}  sub={`SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}%  QQQ ${qqqChg >= 0 ? "+" : ""}${qqqChg.toFixed(2)}%`} />
         <SummaryCard label="BEST EARLY ENTRY"  value={bestEntry?.q.symbol || "—"}       color={C.accent}          sub={bestEntry ? `Score ${bestEntry.scored.score} · ${bestEntry.setup}` : "No setups yet"} onClick={() => bestEntry && onSelectSymbol(bestEntry.q.symbol)} />
         <SummaryCard label="STRONGEST SECTOR"  value={bestSector.split(" ")[0] || "—"}  color={C.cyan}            sub={bestSector} />
         <SummaryCard label="A+ EARLY SETUPS"   value={aPlusCount}                        color={aPlusCount > 0 ? C.green : C.textDim}  sub="Score ≥ 85 — act now" />
         <SummaryCard label="NEAR BREAKOUT"     value={nearBreakout}                      color={C.amber}           sub="Within 3% of 52W high" />
         <SummaryCard label="TRAP / AVOID"      value={trapZones.length}                  color={trapZones.length > 0 ? C.red : C.textDim}  sub="Flagged — do not chase" />
+        <button
+          onClick={async () => {
+            const bias = marketBias.label;
+            const biasIcon = bias === "Risk-On" ? "🟢" : bias === "Risk-Off" ? "🔴" : "⚪";
+            const top3 = filteredEntries.slice(0, 3).map(r =>
+              `${r.scored.score >= 85 ? "🌟" : r.scored.score >= 75 ? "⭐" : "•"} ${r.q.symbol}  Score ${r.scored.score}  ${r.setup}  Entry $${r.entry.toFixed(2)}  Stop $${r.stop.toFixed(2)}  T1 $${r.t1.toFixed(2)}  RR ${r.rr.toFixed(1)}R`
+            ).join("\n");
+            const brk3 = preBreakout.slice(0, 3).map(r => `• ${r.q.symbol}  $${Number(r.q.price||0).toFixed(2)}  Score ${r.scored.score}  ${r.scored.distToHigh.toFixed(1)}% to breakout`).join("\n");
+            const traps = trapZones.slice(0, 3).map(r => `⚠ ${r.q.symbol}`).join("  ");
+            const msg = [
+              `${biasIcon} MARKET BRIEF`,
+              `Bias: ${bias}  |  SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}%  QQQ ${qqqChg >= 0 ? "+" : ""}${qqqChg.toFixed(2)}%`,
+              `Sector: ${bestSector || "—"}`,
+              "",
+              `TOP EARLY ENTRIES (${aPlusCount} A+ / ${filteredEntries.length} total)`,
+              top3 || "None",
+              "",
+              `PRE-BREAKOUT WATCH`,
+              brk3 || "None",
+              traps ? "\nAVOID: " + traps : "",
+            ].filter(x => x !== undefined).join("\n").trim();
+            try {
+              const r = await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) });
+              const d = await r.json().catch(() => ({}));
+              if (d.ok === false) alert("Telegram error: " + (d.error || "unknown"));
+            } catch(e) { alert("Send failed: " + e.message); }
+          }}
+          style={{ background: "#2563eb18", border: "1px solid #2563eb55", color: "#2563eb", borderRadius: 8, padding: "10px 16px", fontFamily: MONO, fontSize: 10, fontWeight: 800, cursor: "pointer", alignSelf: "stretch", display: "flex", alignItems: "center", gap: 6 }}
+        >📱 PUSH BRIEF</button>
       </div>
 
       {/* ── Filter bar ── */}
@@ -3739,9 +3768,9 @@ Risk small and follow the stop.`
             <SectionHeader title="VWAP RECLAIM SCANNER" count={vwapReclaims.length} color={C.cyan} badge="price reclaimed above open" />
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr><TH>TICKER</TH><TH right>PRICE</TH><TH right>CHG%</TH><TH right>RVOL</TH><TH right>SCORE</TH></tr></thead>
+            <thead><tr><TH>TICKER</TH><TH right>PRICE</TH><TH right>CHG%</TH><TH right>RVOL</TH><TH right>SCORE</TH><TH>SEND</TH></tr></thead>
             <tbody>
-              {vwapReclaims.length === 0 && <tr><td colSpan={5} style={{ padding: 12, fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>No VWAP reclaims detected.</td></tr>}
+              {vwapReclaims.length === 0 && <tr><td colSpan={6} style={{ padding: 12, fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>No VWAP reclaims detected.</td></tr>}
               {vwapReclaims.slice(0, 8).map(row => {
                 const chg = Number(row.q.changesPercentage || 0);
                 return (
@@ -3753,6 +3782,10 @@ Risk small and follow the stop.`
                     <TD right color={chg >= 0 ? C.green : C.red}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</TD>
                     <TD right color={row.scored.rvol >= 1.5 ? C.green : C.textDim}>{row.scored.rvol.toFixed(2)}x</TD>
                     <TD right><ScoreBadge score={row.scored.score} /></TD>
+                    <TD><button onClick={async () => {
+                      const msg = `📈 VWAP RECLAIM — ${row.q.symbol}\nPrice: $${Number(row.q.price||0).toFixed(2)}  CHG: ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%\nRVOL: ${row.scored.rvol.toFixed(2)}x  Score: ${row.scored.score}\nSetup: VWAP Reclaim — price closed above open with volume`;
+                      await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+                    }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 3, padding: "2px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>📱</button></TD>
                   </tr>
                 );
               })}
@@ -3772,9 +3805,9 @@ Risk small and follow the stop.`
             <SectionHeader title="21 EMA PULLBACK SCANNER" count={emaPullbacks.length} color={C.green} badge="near 50sma support · trending" />
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr><TH>TICKER</TH><TH right>PRICE</TH><TH right>vs 50D</TH><TH right>RVOL</TH><TH right>SCORE</TH></tr></thead>
+            <thead><tr><TH>TICKER</TH><TH right>PRICE</TH><TH right>vs 50D</TH><TH right>RVOL</TH><TH right>SCORE</TH><TH>SEND</TH></tr></thead>
             <tbody>
-              {emaPullbacks.length === 0 && <tr><td colSpan={5} style={{ padding: 12, fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>No EMA pullbacks detected.</td></tr>}
+              {emaPullbacks.length === 0 && <tr><td colSpan={6} style={{ padding: 12, fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>No EMA pullbacks detected.</td></tr>}
               {emaPullbacks.slice(0, 8).map(row => {
                 const avg50 = Number(row.q.priceAvg50 || 0);
                 const price = Number(row.q.price || 0);
@@ -3790,6 +3823,11 @@ Risk small and follow the stop.`
                     </TD>
                     <TD right color={row.scored.rvol >= 1.5 ? C.green : C.textDim}>{row.scored.rvol.toFixed(2)}x</TD>
                     <TD right><ScoreBadge score={row.scored.score} /></TD>
+                    <TD><button onClick={async () => {
+                      const d50str = distTo50 != null ? `${distTo50 >= 0 ? "+" : ""}${distTo50.toFixed(1)}% vs 50D` : "";
+                      const msg = `🔄 21 EMA PULLBACK — ${row.q.symbol}\nPrice: $${price.toFixed(2)}  ${d50str}\nRVOL: ${row.scored.rvol.toFixed(2)}x  Score: ${row.scored.score}\nSetup: Pulling back to 21 EMA / 50D support — watch for green bounce`;
+                      await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+                    }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 3, padding: "2px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>📱</button></TD>
                   </tr>
                 );
               })}
@@ -3806,8 +3844,17 @@ Risk small and follow the stop.`
 
       {/* ── Pre-Breakout Watchlist ── */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-        <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface }}>
+        <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <SectionHeader title="PRE-BREAKOUT WATCHLIST" count={preBreakout.length} color={C.amber} badge="within 5% of 52W high · compression building" />
+          {preBreakout.length > 0 && (
+            <button onClick={async () => {
+              const lines = preBreakout.slice(0, 8).map(r =>
+                `• ${r.q.symbol}  $${Number(r.q.price||0).toFixed(2)}  Score ${r.scored.score}  ${r.scored.distToHigh.toFixed(1)}% to ${r.yHigh > 0 ? "$" + r.yHigh.toFixed(2) : "52W high"}  RVOL ${r.scored.rvol.toFixed(2)}x`
+              ).join("\n");
+              const msg = `🚀 PRE-BREAKOUT WATCHLIST (${preBreakout.length})\nStocks within 5% of 52W high with compression building:\n\n${lines}`;
+              await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+            }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 4, padding: "4px 12px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 800 }}>📱 PUSH LIST</button>
+          )}
         </div>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -3815,12 +3862,12 @@ Risk small and follow the stop.`
               <tr>
                 <TH>TICKER</TH><TH right>PRICE</TH><TH right>BREAKOUT LEVEL</TH>
                 <TH right>DIST %</TH><TH right>RVOL</TH><TH right>ATR%</TH>
-                <TH right>REL STR</TH><TH right>SCORE</TH><TH>PLAN</TH>
+                <TH right>REL STR</TH><TH right>SCORE</TH><TH>PLAN</TH><TH>SEND</TH>
               </tr>
             </thead>
             <tbody>
               {preBreakout.length === 0 && (
-                <tr><td colSpan={9} style={{ padding: 16, fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>No pre-breakout candidates in watchlist.</td></tr>
+                <tr><td colSpan={10} style={{ padding: 16, fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>No pre-breakout candidates in watchlist.</td></tr>
               )}
               {preBreakout.slice(0, 10).map(row => {
                 const { q, scored, setup, atr, yHigh, rr } = row;
@@ -3846,6 +3893,10 @@ Risk small and follow the stop.`
                     <TD right color={relStr >= 0 ? C.green : C.red}>{relStr >= 0 ? "+" : ""}{relStr.toFixed(2)}%</TD>
                     <TD right><ScoreBadge score={scored.score} /></TD>
                     <TD mono={false}><span style={{ fontSize: 10, color: scored.distToHigh <= 1.5 ? C.green : scored.distToHigh <= 3 ? C.amber : C.textDim }}>{plan}</span></TD>
+                    <TD><button onClick={async () => {
+                      const msg = `🚀 PRE-BREAKOUT — ${q.symbol}\nPrice: $${price.toFixed(2)}  Score: ${scored.score}\nBreakout level: ${yHigh > 0 ? "$" + yHigh.toFixed(2) : "—"}  Dist: ${scored.distToHigh.toFixed(1)}%\nRVOL: ${scored.rvol.toFixed(2)}x  Rel Str: ${relStr >= 0 ? "+" : ""}${relStr.toFixed(2)}%\nPlan: ${plan}`;
+                      await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+                    }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 3, padding: "2px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>📱</button></TD>
                   </tr>
                 );
               })}
