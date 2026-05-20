@@ -10382,42 +10382,48 @@ export default function App() {
                 try {
                   const res = await fetch("/api/telegram/test", { method: "POST" });
                   const data = await res.json();
-                  if (data.ok) { setTgStatus("ok"); setTgMsg("Message delivered to Telegram."); }
+                  if (data.ok) { setTgStatus("ok"); setTgMsg("✓ Message delivered!"); }
                   else { setTgStatus(res.status === 503 ? "unconfigured" : "error"); setTgMsg(data.error || "Unknown error"); }
                 } catch (e) { setTgStatus("error"); setTgMsg(String(e.message || e)); }
               };
+              const getChatId = async () => {
+                try {
+                  const r = await fetch("/api/telegram/getchatid");
+                  const d = await r.json();
+                  if (!d.ok) { alert("❌ " + d.error); return; }
+                  if (d.hint) { alert("⚠ " + d.hint); return; }
+                  const lines = d.chats.map(c =>
+                    `Chat ID: ${c.id}\nType: ${c.type}${c.title ? "\nTitle: " + c.title : ""}${c.username ? "\nUsername: @" + c.username : ""}${c.firstName ? "\nName: " + c.firstName : ""}`
+                  ).join("\n\n---\n\n");
+                  alert("Found chats (use the ID that matches your group/channel):\n\n" + lines + "\n\n→ Copy the correct Chat ID and paste it into Render env vars as TELEGRAM_CHAT_ID");
+                } catch(e) { alert("❌ " + e.message); }
+              };
               const statusColor = tgStatus === "ok" ? C.green : tgStatus === "unconfigured" ? C.amber : tgStatus === "error" ? C.red : C.textDim;
-              const statusText = tgStatus === "sending" ? "Sending…" : tgStatus === "ok" ? "✓ Connected" : tgStatus === "unconfigured" ? "⚠ Not configured" : tgStatus === "error" ? "✕ Error" : "Not tested";
+              const statusText  = tgStatus === "sending" ? "Sending…" : tgStatus === "ok" ? "✓ Connected" : tgStatus === "unconfigured" ? "⚠ Not configured" : tgStatus === "error" ? "✕ Error" : "Not tested";
+              const isError     = tgStatus === "error" || tgStatus === "unconfigured";
               return (
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, padding: "8px 12px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 6 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.06em" }}>TELEGRAM BOT</span>
-                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: statusColor }}>{statusText}</span>
-                  {tgMsg && <span style={{ fontFamily: MONO, fontSize: 10, color: statusColor, flex: 1 }}>{tgMsg}</span>}
-                  <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-                    <button
-                      onClick={async () => {
-                        try {
-                          const r = await fetch("/api/telegram/status");
-                          const d = await r.json();
-                          if (d.ok) {
-                            alert(`✅ Telegram OK\nBot: @${d.botUsername} (${d.botName})\nToken: ${d.tokenMasked}\nChat ID: ${d.chatId}`);
-                          } else {
-                            alert(`❌ Telegram Error\n${d.telegramError || d.error}\n\nToken set: ${d.tokenSet ? "YES" : "NO"}\nChat ID set: ${d.chatIdSet ? "YES" : "NO"}\n\nFix: Go to Render.com → Your service → Environment → Add:\nTELEGRAM_BOT_TOKEN=your_bot_token\nTELEGRAM_CHAT_ID=your_chat_id`);
-                          }
-                        } catch(e) { alert("Status check failed: " + e.message); }
-                      }}
-                      style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 4, padding: "5px 12px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
-                    >CHECK</button>
-                    <button
-                      onClick={sendTest}
-                      disabled={tgStatus === "sending"}
-                      style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 4, padding: "5px 12px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
-                    >{tgStatus === "sending" ? "SENDING…" : "SEND TEST"}</button>
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: C.card, border: `1px solid ${isError ? C.red + "55" : C.border}`, borderRadius: 6, flexWrap: "wrap" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.06em" }}>TELEGRAM BOT</span>
+                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: statusColor }}>{statusText}</span>
+                    {tgMsg && <span style={{ fontFamily: MONO, fontSize: 10, color: statusColor }}>{tgMsg}</span>}
+                    <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                      <button onClick={getChatId}
+                        style={{ border: "1px solid #7c3aed55", background: "#7c3aed12", color: "#7c3aed", borderRadius: 4, padding: "5px 12px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                      >GET CHAT ID</button>
+                      <button onClick={sendTest} disabled={tgStatus === "sending"}
+                        style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 4, padding: "5px 12px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                      >{tgStatus === "sending" ? "SENDING…" : "SEND TEST"}</button>
+                    </div>
                   </div>
-                  {tgStatus === "unconfigured" && (
-                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.amber, borderLeft: `2px solid ${C.amber}44`, paddingLeft: 8 }}>
-                      Set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID in Render.com env vars
-                    </span>
+                  {isError && (
+                    <div style={{ marginTop: 6, padding: "8px 12px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 6, fontFamily: MONO, fontSize: 10, color: "#dc2626" }}>
+                      <strong>Fix: </strong>
+                      {tgStatus === "unconfigured"
+                        ? 'Go to Render.com → your service → Environment → set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID'
+                        : 'Your TELEGRAM_CHAT_ID is wrong ("chat not found"). Click GET CHAT ID above, copy the correct ID, then update it in Render → Environment → TELEGRAM_CHAT_ID'
+                      }
+                    </div>
                   )}
                 </div>
               );

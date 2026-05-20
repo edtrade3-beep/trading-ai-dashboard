@@ -115,6 +115,29 @@ async function handleRequest(req, res) {
       return writeJson(res, 200, { ok: true });
     }
 
+    // GET /api/telegram/getchatid — call getUpdates to find who messaged the bot recently
+    if (pathname === "/api/telegram/getchatid" && req.method === "GET") {
+      const token = process.env.TELEGRAM_BOT_TOKEN || "";
+      if (!token) return writeJson(res, 200, { ok: false, error: "TELEGRAM_BOT_TOKEN not set" });
+      try {
+        const r = await fetch(`https://api.telegram.org/bot${token}/getUpdates?limit=20&offset=-20`);
+        const d = await r.json().catch(() => ({}));
+        if (!d.ok) return writeJson(res, 200, { ok: false, error: d.description || "getUpdates failed" });
+        const chats = [];
+        const seen  = new Set();
+        for (const upd of (d.result || [])) {
+          const chat = upd.message?.chat || upd.channel_post?.chat || upd.my_chat_member?.chat;
+          if (chat && !seen.has(chat.id)) {
+            seen.add(chat.id);
+            chats.push({ id: String(chat.id), type: chat.type, title: chat.title || null, username: chat.username || null, firstName: chat.first_name || null });
+          }
+        }
+        return writeJson(res, 200, { ok: true, chats, hint: chats.length === 0 ? "No recent messages found. Send /start or any message to your bot first, then click GET CHAT ID again." : null });
+      } catch (err) {
+        return writeJson(res, 200, { ok: false, error: err.message });
+      }
+    }
+
     // GET /api/telegram/status — diagnose token + chat ID without sending
     if (pathname === "/api/telegram/status" && req.method === "GET") {
       const token  = process.env.TELEGRAM_BOT_TOKEN || "";
