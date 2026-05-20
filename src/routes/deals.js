@@ -131,10 +131,11 @@ async function fromReddit(query, category) {
     : `https://www.reddit.com/r/${subs}/hot.json?limit=25`;
 
   const res  = await fetch(url, {
-    headers: { "User-Agent": "AMTradingPlatform/1.0", Accept: "application/json" },
-    signal: AbortSignal.timeout(12000),
+    // Use the original User-Agent that was working before the multi-source rewrite
+    headers: { "User-Agent": "AMTradingPlatform/1.0 (deals finder)", Accept: "application/json" },
+    signal: AbortSignal.timeout(10000),
   });
-  if (!res.ok) return [];
+  if (!res.ok) { console.warn(`[Deals] Reddit ${res.status}`); return []; }
 
   const data  = await res.json();
   const posts = (data?.data?.children || []).map(c => c.data);
@@ -182,9 +183,9 @@ async function fromSlickDeals(query, category) {
 
   const res = await fetch(`https://slickdeals.net/newsearch.php?${params}`, {
     headers: HEADERS,
-    signal: AbortSignal.timeout(12000),
+    signal: AbortSignal.timeout(8000),
   });
-  if (!res.ok) return [];
+  if (!res.ok) { console.warn(`[Deals] SlickDeals ${res.status}`); return []; }
 
   const xml   = await res.text();
   const items = parseRSS(xml);
@@ -212,8 +213,8 @@ async function fromSlickDeals(query, category) {
 // ── Source 3: DealNews RSS ────────────────────────────────────────────────────
 async function fromDealNews(query, category) {
   const feedUrl = DEALNEWS_FEEDS[category] || DEALNEWS_FEEDS.general;
-  const res     = await fetch(feedUrl, { headers: HEADERS, signal: AbortSignal.timeout(12000) });
-  if (!res.ok) return [];
+  const res     = await fetch(feedUrl, { headers: HEADERS, signal: AbortSignal.timeout(8000) });
+  if (!res.ok) { console.warn(`[Deals] DealNews ${res.status}`); return []; }
 
   const xml   = await res.text();
   const items = parseRSS(xml);
@@ -252,8 +253,8 @@ async function fromGoogle(query, category) {
     : `best deals ${category} sale`;
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-US&gl=US&ceid=US:en`;
 
-  const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(12000) });
-  if (!res.ok) return [];
+  const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(8000) });
+  if (!res.ok) { console.warn(`[Deals] Google ${res.status}`); return []; }
 
   const xml   = await res.text();
   const items = parseRSS(xml);
@@ -285,8 +286,8 @@ async function fromDealsList(query) {
     ? `https://www.dealslist.com/search/?q=${encodeURIComponent(query.trim())}&feed=rss`
     : "https://www.dealslist.com/feed/";
 
-  const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(12000) });
-  if (!res.ok) return [];
+  const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(8000) });
+  if (!res.ok) { console.warn(`[Deals] DealsList ${res.status}`); return []; }
 
   const xml   = await res.text();
   const items = parseRSS(xml);
@@ -313,39 +314,48 @@ async function fromDealsList(query) {
 
 // ── Multi-source aggregator ───────────────────────────────────────────────────
 async function searchDeals(query, category = "general", maxPrice = null) {
-  // Run all sources in parallel; failures are isolated
-  const [reddit, slickdeals, dealnews, google, dealslist] = await Promise.allSettled([
-    fromReddit(query, category).catch(() => []),
-    fromSlickDeals(query, category).catch(() => []),
-    fromDealNews(query, category).catch(() => []),
-    fromGoogle(query, category).catch(() => []),
-    fromDealsList(query).catch(() => []),
-  ]);
+  const t0 = Date.now();
+  try {
+    // Run all sources in parallel; each failure is isolated
+    const [reddit, slickdeals, dealnews, google, dealslist] = await Promise.allSettled([
+      fromReddit(query, category).catch(e => { console.warn("[Deals] Reddit err:", e.message); return []; }),
+      fromSlickDeals(query, category).catch(e => { console.warn("[Deals] SlickDeals err:", e.message); return []; }),
+      fromDealNews(query, category).catch(e => { console.warn("[Deals] DealNews err:", e.message); return []; }),
+      fromGoogle(query, category).catch(e => { console.warn("[Deals] Google err:", e.message); return []; }),
+      fromDealsList(query).catch(e => { console.warn("[Deals] DealsList err:", e.message); return []; }),
+    ]);
 
-  const get = r => (r.status === "fulfilled" ? r.value || [] : []);
+    const get = r => (r.status === "fulfilled" ? r.value || [] : []);
 
-  let results = [
-    ...get(reddit),
-    ...get(slickdeals),
-    ...get(dealnews),
-    ...get(google),
-    ...get(dealslist),
-  ];
+    let results = [
+      ...get(reddit),
+      ...get(slickdeals),
+      ...get(dealnews),
+      ...get(google),
+      ...get(dealslist),
+    ];
 
-  // Filter by max price
-  if (maxPrice) {
-    const cap = Number(maxPrice);
-    results = results.filter(r => r.rawPrice === null || r.rawPrice <= cap);
+    // Filter by max price
+    if (maxPrice) {
+      const cap = Number(maxPrice);
+      results = results.filter(r => r.rawPrice === null || r.rawPrice <= cap);
+    }
+
+    // Sort: Reddit by upvote score, everything else by freshness
+    results.sort((a, b) => {
+      const scoreDiff = b.score - a.score;
+      if (scoreDiff !== 0) return scoreDiff;
+      return (a.age ?? 9999) - (b.age ?? 9999);
+    });
+
+    console.log(`[Deals] search "${query}" (${category}) → ${results.length} results in ${Date.now()-t0}ms` +
+      ` [reddit:${get(reddit).length} sd:${get(slickdeals).length} dn:${get(dealnews).length} gn:${get(google).length} dl:${get(dealslist).length}]`);
+
+    return { results, query };
+  } catch (err) {
+    console.error("[Deals] searchDeals crashed:", err.message);
+    return { results: [], query, error: err.message };
   }
-
-  // Sort: Reddit by upvote score, everything else by freshness
-  results.sort((a, b) => {
-    const scoreDiff = b.score - a.score;
-    if (scoreDiff !== 0) return scoreDiff;
-    return (a.age ?? 9999) - (b.age ?? 9999);
-  });
-
-  return { results, query };
 }
 
 // ── Telegram helper ───────────────────────────────────────────────────────────
