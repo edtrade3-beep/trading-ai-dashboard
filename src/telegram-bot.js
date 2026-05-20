@@ -25,6 +25,7 @@ const { runScan, getScannerStatus, sendMacroReport, saveConfig, analyzeSymbol, c
 const { loadPriceAlerts, savePriceAlerts }       = require("./price-alert-store");
 const { loadSettings }                           = require("./settings-store");
 const { fetchYahooBars, fetchYahooChartMeta, fetchYahooQuoteBatch } = require("./providers/yahoo");
+const { fetchTrending: stTrending, fetchSentiment: stSentiment }    = require("./providers/stocktwits");
 const { withTimeout, round2 }                    = require("./utils");
 
 const API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
@@ -95,6 +96,9 @@ async function cmdHelp() {
     "/scanner interval 5  — set scan interval (minutes)\n" +
     "/scanner symbols     — list scanned symbols\n" +
     "\nAuto-scans M-F ET: 7:00, 9:45, 12:30, 14:45, 15:45\n" +
+    "\nSTOCKTWITS\n" +
+    "/twits           — top 10 trending tickers + crowd sentiment\n" +
+    "/twits NVDA      — bullish/bearish% + recent messages for a symbol\n" +
     "\nDEEP DIVE\n" +
     "/deep AAPL   — full fundamental + technical + projection\n" +
     "AAPL         — just type a ticker symbol\n" +
@@ -432,6 +436,73 @@ async function cmdDeals(args) {
   } catch (err) { return reply("Deals error: " + err.message); }
 }
 
+// ── StockTwits: trending + per-symbol sentiment ───────────────────────────────
+
+async function cmdTwits(args) {
+  const sym = (args[0] || "").toUpperCase().replace(/[^A-Z0-9.\-^]/g, "");
+
+  if (sym) {
+    // ── Per-symbol deep sentiment ──────────────────────────────────────────
+    await reply(`Fetching StockTwits sentiment for ${sym}…`);
+    try {
+      const s = await withTimeout(stSentiment(sym), 15_000, null);
+      if (!s) return reply(`No StockTwits data for ${sym} — try again.`);
+
+      const e       = s.sentiment === "BULLISH" ? "🟢" : s.sentiment === "BEARISH" ? "🔴" : "⚪";
+      const filled  = Math.round(s.bullPct / 10);
+      const bar     = "█".repeat(filled) + "░".repeat(10 - filled);
+      const biasMsg = s.sentiment === "BULLISH" ? "Crowd is bullish — aligned with momentum plays."
+                    : s.sentiment === "BEARISH" ? "Crowd is bearish — watch for short setups or avoid longs."
+                    : "Crowd is split — mixed conviction, wait for confirmation.";
+
+      let msg = `${e} StockTwits — ${sym}\n`;
+      msg += `Sentiment: ${s.sentiment}\n`;
+      msg += `🟢 Bullish: ${s.bullish} (${s.bullPct}%)  🔴 Bearish: ${s.bearish} (${s.bearPct}%)\n`;
+      msg += `⚪ Neutral: ${s.neutral}  |  Total: ${s.total} messages\n`;
+      msg += `[${bar}] ${s.bullPct}% Bulls\n\n`;
+      msg += `Signal: ${biasMsg}\n`;
+
+      if (s.previews.length) {
+        msg += "\nRecent messages:\n" + s.previews.join("\n");
+      }
+
+      return reply(msg.trim());
+    } catch (err) {
+      return reply(`StockTwits error for ${sym}: ${err.message}`);
+    }
+
+  } else {
+    // ── Trending list + quick sentiment for top 10 ─────────────────────────
+    await reply("Fetching StockTwits trending…");
+    try {
+      const trending = await withTimeout(stTrending(20), 12_000, null);
+      if (!trending?.length) return reply("StockTwits trending unavailable — try again later.");
+
+      // Grab sentiment for top 10 in parallel (each is cached 3 min)
+      const top10  = trending.slice(0, 10);
+      const sentArr = await Promise.allSettled(
+        top10.map(t => withTimeout(stSentiment(t.symbol), 10_000, null))
+      );
+
+      let msg = "📈 StockTwits Trending\n\n";
+      for (let i = 0; i < top10.length; i++) {
+        const t = top10[i];
+        const s = sentArr[i].status === "fulfilled" ? sentArr[i].value : null;
+        const e = !s ? "⚪"
+                : s.sentiment === "BULLISH" ? "🟢"
+                : s.sentiment === "BEARISH" ? "🔴" : "⚪";
+        const sentStr = s && s.total > 0 ? ` ${e} ${s.bullPct}%🟢 ${s.bearPct}%🔴` : ` ${e} no sentiment`;
+        msg += `${String(i + 1).padStart(2)}. ${t.symbol.padEnd(8)} ${t.title.slice(0, 22).padEnd(22)}${sentStr}\n`;
+      }
+
+      msg += "\nTip: /twits NVDA — detailed sentiment + recent messages";
+      return reply(msg.trim());
+    } catch (err) {
+      return reply(`StockTwits error: ${err.message}`);
+    }
+  }
+}
+
 // ── Command dispatcher ────────────────────────────────────────────────────────
 const COMMANDS = {
   start:     () => cmdHelp(),
@@ -463,6 +534,9 @@ const COMMANDS = {
   scanner:   (a) => cmdScanner(a),
   deals:     (a) => cmdDeals(a),
   d:         (a) => cmdDeals(a),
+  twits:     (a) => cmdTwits(a),
+  trending:  (a) => cmdTwits(a),
+  sentiment: (a) => cmdTwits(a),
 };
 
 async function dispatch(text) {

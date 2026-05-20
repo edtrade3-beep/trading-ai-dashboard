@@ -4,6 +4,7 @@ const { ROOT } = require("./config");
 const { fetchYahooBars } = require("./providers/yahoo");
 const { computeEMA, computeRSI } = require("./indicators");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
+const { fetchTrending: stTrending } = require("./providers/stocktwits");
 const { round2, withTimeout } = require("./utils");
 
 const CONFIG_PATH = path.join(ROOT, "data", "scanner-config.json");
@@ -863,6 +864,18 @@ async function sendPreMarketWatchlist() {
   if (spy) msg += `SPY  $${spy.price}  Sup $${spy.support} / Res $${spy.resistance}\n`;
   if (qqq) msg += `QQQ  $${qqq.price}  Sup $${qqq.support} / Res $${qqq.resistance}\n`;
 
+  // StockTwits trending — best effort, never blocks the report
+  try {
+    const twits = await withTimeout(stTrending(12), 8_000, null);
+    if (twits?.length) {
+      msg += "\n── STOCKTWITS TRENDING ──────────────\n";
+      for (const t of twits.slice(0, 10)) {
+        msg += `${t.symbol.padEnd(8)} ${t.title.slice(0, 28)}\n`;
+      }
+      msg += "Full sentiment: /twits  or  /twits NVDA";
+    }
+  } catch { /* ignore if StockTwits is down */ }
+
   await sendTelegramMessage(msg.trim());
   console.log(`[Scanner] Pre-Market Watchlist sent`);
 }
@@ -1108,6 +1121,18 @@ async function sendAfterCloseReport() {
                : macro.regime === "RISK-OFF" ? "Outlook: Cautious. Watch for gap-down, reduce exposure."
                :                               "Outlook: Mixed. Wait for open direction before committing.";
   msg += "\n" + outlook;
+
+  // StockTwits end-of-day trending — what the crowd is focused on tonight
+  try {
+    const twits = await withTimeout(stTrending(12), 8_000, null);
+    if (twits?.length) {
+      msg += "\n\n── STOCKTWITS EOD TRENDING ──────────\n";
+      for (const t of twits.slice(0, 8)) {
+        msg += `${t.symbol.padEnd(8)} ${t.title.slice(0, 28)}\n`;
+      }
+      msg += "Use /twits SYMBOL for crowd sentiment";
+    }
+  } catch { /* ignore */ }
 
   await sendTelegramMessage(msg.trim());
   console.log(`[Scanner] After-Close Report sent`);
