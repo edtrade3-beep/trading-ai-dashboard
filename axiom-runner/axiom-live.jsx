@@ -10799,19 +10799,53 @@ export default function App() {
                 )}
                 {!dealsLoading && dealsResults.length > 0 && (
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 10 }}>
-                      {dealsResults.length} RESULTS · {dealsCategory.toUpperCase()} · {dealsQuery && `"${dealsQuery}"`}
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 10, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                      <span style={{ color: C.text, fontWeight: 700 }}>{dealsResults.length} RESULTS</span>
+                      {dealsQuery && <span>"{dealsQuery}"</span>}
+                      <span>·</span>
+                      {["reddit","slickdeals","dealnews","google","dealslist"].map(key => {
+                        const n = dealsResults.filter(d => d.sourceKey === key).length;
+                        if (!n) return null;
+                        const colors = { reddit:"#ff4500", slickdeals:"#e31c23", dealnews:"#0066cc", google:"#4285f4", dealslist:"#16a34a" };
+                        const labels = { reddit:"Reddit", slickdeals:"SlickDeals", dealnews:"DealNews", google:"Google", dealslist:"DealsList" };
+                        return (
+                          <span key={key} style={{ background: colors[key], color: "#fff", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700 }}>
+                            {labels[key]} {n}
+                          </span>
+                        );
+                      })}
                     </div>
+                    {(() => {
+                      // Source badge colour map
+                      const SRC_COLOR = {
+                        reddit:     "#ff4500",
+                        slickdeals: "#e31c23",
+                        dealnews:   "#0066cc",
+                        google:     "#4285f4",
+                        dealslist:  "#16a34a",
+                      };
+                      const SRC_LABEL = {
+                        reddit:     "Reddit",
+                        slickdeals: "SlickDeals",
+                        dealnews:   "DealNews",
+                        google:     "Google",
+                        dealslist:  "DealsList",
+                      };
+                      const CAT_ICON = { electronics:"💻", realestate:"🏠", cars:"🚗", furniture:"🛋️", jobs:"💼", luxury:"💎", general:"🛒" };
+
+                      return (
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10 }}>
-                      {dealsResults.map(deal => (
+                      {dealsResults.map(deal => {
+                        const srcColor = SRC_COLOR[deal.sourceKey] || C.accent;
+                        const srcLabel = SRC_LABEL[deal.sourceKey] || deal.source;
+                        return (
                         <div key={deal.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column", transition: "border-color 0.15s" }}>
-                          {/* Product image — high-res preview or thumbnail */}
+                          {/* Product image area */}
                           <div style={{ width: "100%", height: 160, background: theme === "dark" ? "#111827" : "#f3f4f6", borderBottom: `1px solid ${C.border}`, position: "relative", overflow: "hidden", flexShrink: 0 }}>
                             {deal.image ? (
                               <img src={deal.image} alt={deal.title}
                                 style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                                 onError={e => {
-                                  // Fallback to thumbnail if preview fails
                                   if (deal.thumbnail && e.target.src !== deal.thumbnail) {
                                     e.target.src = deal.thumbnail;
                                     e.target.style.objectFit = "contain";
@@ -10822,25 +10856,29 @@ export default function App() {
                                 }}
                               />
                             ) : (
-                              /* No image — show category icon placeholder */
                               <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                                <span style={{ fontSize: 32 }}>
-                                  {deal.category === "electronics" ? "💻" : deal.category === "realestate" ? "🏠" : deal.category === "cars" ? "🚗" : deal.category === "furniture" ? "🛋️" : deal.category === "jobs" ? "💼" : deal.category === "luxury" ? "💎" : "🛒"}
-                                </span>
-                                <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{deal.source}</span>
+                                <span style={{ fontSize: 36 }}>{CAT_ICON[deal.category] || "🛒"}</span>
+                                <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{srcLabel}</span>
                               </div>
                             )}
-                            {/* Score badge */}
-                            <div style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.65)", borderRadius: 5, padding: "2px 6px", display: "flex", alignItems: "center", gap: 4 }}>
-                              <span style={{ fontFamily: MONO, fontSize: 9, color: "#f59e0b", fontWeight: 700 }}>▲ {deal.score?.toLocaleString()}</span>
+                            {/* Source badge — top left */}
+                            <div style={{ position: "absolute", top: 8, left: 8, background: srcColor, borderRadius: 5, padding: "2px 7px" }}>
+                              <span style={{ fontFamily: MONO, fontSize: 9, color: "#fff", fontWeight: 700 }}>{srcLabel}</span>
                             </div>
-                            {/* Age badge */}
+                            {/* Age badge — top right */}
                             {deal.age !== null && (
                               <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.65)", borderRadius: 5, padding: "2px 6px" }}>
-                                <span style={{ fontFamily: MONO, fontSize: 9, color: "#d1d5db" }}>{deal.age < 24 ? `${deal.age}h ago` : `${Math.floor(deal.age/24)}d ago`}</span>
+                                <span style={{ fontFamily: MONO, fontSize: 9, color: "#e5e7eb" }}>{deal.age < 24 ? `${deal.age}h ago` : `${Math.floor(deal.age/24)}d ago`}</span>
+                              </div>
+                            )}
+                            {/* Upvote score — bottom left (Reddit only) */}
+                            {deal.score > 0 && (
+                              <div style={{ position: "absolute", bottom: 8, left: 8, background: "rgba(0,0,0,0.65)", borderRadius: 5, padding: "2px 6px" }}>
+                                <span style={{ fontFamily: MONO, fontSize: 9, color: "#f59e0b", fontWeight: 700 }}>▲ {deal.score?.toLocaleString()}</span>
                               </div>
                             )}
                           </div>
+                          {/* Card body */}
                           <div style={{ padding: "10px 12px", flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
                             <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.text, lineHeight: 1.35 }}>
                               {deal.title}
@@ -10850,28 +10888,34 @@ export default function App() {
                                 {deal.description.slice(0, 100)}{deal.description.length > 100 ? "…" : ""}
                               </div>
                             )}
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "auto", paddingTop: 6, flexWrap: "wrap" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "auto", paddingTop: 6 }}>
                               {deal.price && (
                                 <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.green }}>{deal.price}</span>
                               )}
-                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>💬 {deal.comments}</span>
-                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.accent, marginLeft: "auto" }}>{deal.source}</span>
+                              {deal.comments > 0 && (
+                                <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>💬 {deal.comments}</span>
+                              )}
                             </div>
                             <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
                               <a href={deal.link} target="_blank" rel="noopener noreferrer"
-                                style={{ flex: 1, background: C.accent, color: "#fff", textDecoration: "none", borderRadius: 5, padding: "6px 0", fontFamily: MONO, fontSize: 10, fontWeight: 700, textAlign: "center", display: "block" }}>
+                                style={{ flex: 1, background: srcColor, color: "#fff", textDecoration: "none", borderRadius: 5, padding: "6px 0", fontFamily: MONO, fontSize: 10, fontWeight: 700, textAlign: "center", display: "block" }}>
                                 VIEW DEAL →
                               </a>
-                              {deal.redditLink && deal.redditLink !== deal.link && (
+                              {/* Reddit discussion link — only for Reddit results */}
+                              {deal.sourceKey === "reddit" && deal.redditLink && deal.redditLink !== deal.link && (
                                 <a href={deal.redditLink} target="_blank" rel="noopener noreferrer"
-                                  style={{ background: `#ff4500`, color: "#fff", textDecoration: "none", borderRadius: 5, padding: "6px 8px", fontFamily: MONO, fontSize: 10, fontWeight: 700, textAlign: "center", display: "block" }}>
-                                  Reddit
+                                  style={{ background: "#ff4500", color: "#fff", textDecoration: "none", borderRadius: 5, padding: "6px 8px", fontFamily: MONO, fontSize: 10, fontWeight: 700, textAlign: "center", display: "block" }}>
+                                  💬
                                 </a>
                               )}
                             </div>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
+                    </div>
+                      );
+                    })()}
                     </div>
                   </div>
                 )}
