@@ -3935,7 +3935,7 @@ Risk small and follow the stop.`
 // MAIN APP
 // ═══════════════════════════════════════════════════════════════
 export default function App() {
-  const [appUnlocked, setAppUnlocked] = useState(false);
+  const [appUnlocked, setAppUnlocked] = useState(true);
   const [unlockInput, setUnlockInput] = useState("");
   const [unlockError, setUnlockError] = useState("");
   const [apiKey, setApiKey] = useState("YAHOO_LOCAL");
