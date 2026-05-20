@@ -98,8 +98,8 @@ const DEFAULT_CONFIG = {
 
 // ── Alert tiers ──────────────────────────────────────────────────────────────
 // Tier 1 — FIRE ALERT (standalone immediate message): very high conviction
-const FIRE_BUY_SCORE  = 78;   // score ≥ 78 + good RVOL
-const FIRE_SELL_SCORE = 22;   // score ≤ 22
+const FIRE_BUY_SCORE  = 75;   // score ≥ 75 → standalone fire alert
+const FIRE_SELL_SCORE = 25;   // score ≤ 25 → standalone fire alert
 const FIRE_MAX_PER_SCAN = 3;  // never more than 3 standalone fire alerts per scan run
 
 // Tier 2 — SUMMARY SIGNAL (appears in scheduled scan summary): standard entry/exit
