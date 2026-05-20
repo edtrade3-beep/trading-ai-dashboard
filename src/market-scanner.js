@@ -727,8 +727,393 @@ async function sendMacroReport() {
 
 
 // ── Scheduled scan times (ET, M–F) ───────────────────────────────────────────
-// These fire a full scan + Telegram summary at exact clock times every weekday.
-const SCHEDULED_SCAN_TIMES_ET = ["07:00", "09:45", "12:30", "14:45", "15:45"];
+const SCHEDULED_SCAN_TIMES_ET = [
+  "06:45",  // Macro Pre-Market
+  "07:30",  // Pre-Market Watchlist
+  "09:20",  // Opening Plan
+  "09:45",  // Opening Range Scan
+  "10:30",  // A+ Setup Scan
+  "12:00",  // Midday Market Reset
+  "13:30",  // Continuation Scan
+  "14:45",  // Institutional / Late-Day Scan
+  "15:45",  // Power Hour + Next-Day Watchlist
+  "16:15",  // After-Close Report
+];
+
+const SCHEDULED_LABEL_MAP = {
+  "06:45": "Macro Pre-Market",
+  "07:30": "Pre-Market Watchlist",
+  "09:20": "Opening Plan",
+  "09:45": "Opening Range",
+  "10:30": "A+ Setup",
+  "12:00": "Midday Reset",
+  "13:30": "Continuation",
+  "14:45": "Institutional/Late-Day",
+  "15:45": "Power Hour",
+  "16:15": "After-Close Report",
+};
+
+// ── Specialized scheduled report helpers ──────────────────────────────────────
+
+async function fetchAnalysisMap(symbols) {
+  const settled = await Promise.allSettled(symbols.map(s => analyzeSymbol(s)));
+  const aMap = new Map();
+  symbols.forEach((s, i) => {
+    if (settled[i].status === "fulfilled" && settled[i].value) aMap.set(s, settled[i].value);
+  });
+  return aMap;
+}
+
+function symRow(a, lbl) {
+  if (!a) return null;
+  const arrow = a.chgPct >= 0 ? "+" : "";
+  const bar   = a.composite >= 65 ? "strong" : a.composite <= 35 ? "weak" : "neutral";
+  return `${(lbl || a.symbol).padEnd(6)} $${String(a.price).padStart(9)}  ${(arrow + a.chgPct.toFixed(2) + "%").padStart(7)}  Score ${a.composite}  ${bar}`;
+}
+
+// 6:45 AM ─ Macro Pre-Market: futures proxies, VIX, bonds, commodities, BTC
+async function sendMacroPreMarket() {
+  if (!telegramConfigured()) return;
+  const syms = ["SPY","QQQ","IWM","^VIX","TLT","GLD","UUP","USO","BTC-USD","HYG","UVXY","EEM"];
+  const aMap  = await fetchAnalysisMap(syms);
+  const macro = computeMacroRegime(aMap);
+  const e     = macro.regime === "RISK-ON" ? "🟢" : macro.regime === "RISK-OFF" ? "🔴" : "⚪";
+  const time  = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+
+  const spy = aMap.get("SPY"), qqq = aMap.get("QQQ"), iwm = aMap.get("IWM");
+  const vix = aMap.get("^VIX"), tlt = aMap.get("TLT"), gld = aMap.get("GLD");
+  const uup = aMap.get("UUP"), uso = aMap.get("USO"), btc = aMap.get("BTC-USD");
+  const hyg = aMap.get("HYG"), eem = aMap.get("EEM");
+
+  const yieldDir = tlt ? (tlt.chgPct < -0.2 ? "yields RISING" : tlt.chgPct > 0.2 ? "yields FALLING" : "yields flat") : "";
+  const vixMood  = !vix ? "" : vix.price > 30 ? "HIGH FEAR — size down" : vix.price > 22 ? "elevated" : vix.price < 15 ? "calm, breakouts work" : "normal";
+
+  const bias = macro.regime === "RISK-ON"  ? "Lean LONG. Buy dips on leading sectors."
+             : macro.regime === "RISK-OFF" ? "Lean DEFENSIVE. Tighten stops, avoid chasing."
+             :                               "NEUTRAL. Wait for open confirmation before sizing up.";
+
+  const lines = [
+    `🌅 MACRO PRE-MARKET — ${time} ET`,
+    `${e} Regime: ${macro.regime}  (score ${macro.score > 0 ? "+" : ""}${macro.score})`,
+    `Bias: ${bias}`,
+    "",
+    "── OVERNIGHT SNAPSHOT ───────────────",
+    symRow(spy, "SPY"),
+    symRow(qqq, "QQQ"),
+    symRow(iwm, "IWM"),
+    vix  ? `VIX    $${vix.price}  ${vix.chgPct >= 0 ? "+" : ""}${vix.chgPct.toFixed(2)}%  ${vixMood}`  : null,
+    tlt  ? `TLT    $${tlt.price}  ${tlt.chgPct >= 0 ? "+" : ""}${tlt.chgPct.toFixed(2)}%  ${yieldDir}` : null,
+    symRow(hyg, "HYG"),
+    symRow(gld, "GOLD"),
+    symRow(uup, "DXY"),
+    symRow(uso, "OIL"),
+    symRow(btc, "BTC"),
+    symRow(eem, "EM"),
+    "",
+    macro.bullFactors.length ? "Bull: " + macro.bullFactors.slice(0, 4).join(", ") : null,
+    macro.bearFactors.length ? "Bear: " + macro.bearFactors.slice(0, 4).join(", ") : null,
+    vix && vix.price > 25 ? "\nVIX > 25 — reduce position size today" : null,
+  ].filter(s => s !== null).join("\n");
+
+  await sendTelegramMessage(lines);
+  console.log(`[Scanner] Macro Pre-Market report sent`);
+}
+
+// 7:30 AM ─ Pre-Market Watchlist: top gappers, key levels, news movers
+async function sendPreMarketWatchlist() {
+  if (!telegramConfigured()) return;
+  const syms = [
+    "SPY","QQQ","IWM",
+    "NVDA","TSLA","AAPL","META","AMZN","MSFT","GOOGL","AMD",
+    "PLTR","COIN","MSTR","SMCI","ARM","HOOD","SOFI","CRWD","NET",
+    "BTC-USD","ETH-USD","IBIT",
+  ];
+  const aMap = await fetchAnalysisMap(syms);
+  const time = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+
+  const all      = [...aMap.values()];
+  const topRvol  = [...all].sort((a, b) => b.rvol - a.rvol).slice(0, 6);
+  const topBull  = [...all].filter(a => a.composite >= 58).sort((a, b) => b.composite - a.composite).slice(0, 5);
+  const topBear  = [...all].filter(a => a.composite <= 42).sort((a, b) => a.composite - b.composite).slice(0, 3);
+  const spy = aMap.get("SPY"), qqq = aMap.get("QQQ");
+
+  let msg = `📋 PRE-MARKET WATCHLIST — ${time} ET\n\n`;
+
+  msg += "── HIGH ACTIVITY (RVOL) ─────────────\n";
+  for (const a of topRvol) {
+    const chg = `${a.chgPct >= 0 ? "+" : ""}${a.chgPct.toFixed(2)}%`;
+    msg += `${a.symbol.padEnd(8)} $${a.price}  ${chg}  RVOL ${a.rvol}x\n`;
+  }
+
+  msg += "\n── BULLISH SETUPS ───────────────────\n";
+  for (const a of topBull) {
+    const chg = `${a.chgPct >= 0 ? "+" : ""}${a.chgPct.toFixed(2)}%`;
+    msg += `${a.symbol.padEnd(8)} $${a.price}  ${chg}  Score ${a.composite}  Res $${a.resistance}\n`;
+  }
+
+  if (topBear.length) {
+    msg += "\n── BEARISH / AVOID ──────────────────\n";
+    for (const a of topBear) {
+      const chg = `${a.chgPct >= 0 ? "+" : ""}${a.chgPct.toFixed(2)}%`;
+      msg += `${a.symbol.padEnd(8)} $${a.price}  ${chg}  Score ${a.composite}  Sup $${a.support}\n`;
+    }
+  }
+
+  msg += "\n── KEY LEVELS ───────────────────────\n";
+  if (spy) msg += `SPY  $${spy.price}  Sup $${spy.support} / Res $${spy.resistance}\n`;
+  if (qqq) msg += `QQQ  $${qqq.price}  Sup $${qqq.support} / Res $${qqq.resistance}\n`;
+
+  await sendTelegramMessage(msg.trim());
+  console.log(`[Scanner] Pre-Market Watchlist sent`);
+}
+
+// 9:20 AM ─ Opening Plan: final bias, top 5, no-trade zones, key levels
+async function sendOpeningPlan() {
+  if (!telegramConfigured()) return;
+  const syms = [
+    "SPY","QQQ","IWM","^VIX",
+    "NVDA","TSLA","AAPL","META","AMZN","MSFT","GOOGL","AMD",
+    "PLTR","COIN","MSTR","SMCI","ARM","HOOD","SOFI","CRWD",
+    "XLK","XLF","XLE",
+  ];
+  const aMap  = await fetchAnalysisMap(syms);
+  const macro = computeMacroRegime(aMap);
+  const e     = macro.regime === "RISK-ON" ? "🟢" : macro.regime === "RISK-OFF" ? "🔴" : "⚪";
+  const time  = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+  const vix   = aMap.get("^VIX");
+  const spy   = aMap.get("SPY"), qqq = aMap.get("QQQ");
+
+  const all      = [...aMap.values()];
+  const top5     = [...all].filter(a => a.composite >= 60 && a.trend !== "Downtrend")
+                            .sort((a, b) => b.composite - a.composite).slice(0, 5);
+  const noTrade  = [...all]
+    .filter(a => (a.rsi > 73 && a.rvol < 1.2) || (a.composite > 52 && a.composite < 62 && a.rvol < 0.9))
+    .slice(0, 3);
+
+  const biasText = macro.regime === "RISK-ON"  ? "BULLISH — buy dips, hold winners"
+                 : macro.regime === "RISK-OFF" ? "BEARISH — reduce longs, short bounces"
+                 :                               "NEUTRAL — range trade, no chasing";
+
+  const vixNote = !vix ? "" : vix.price > 25 ? `VIX ${vix.price} — choppy, size DOWN` :
+                               vix.price < 15 ? `VIX ${vix.price} — calm, breakouts reliable` :
+                               `VIX ${vix.price}`;
+
+  let msg = `📌 OPENING PLAN — ${time} ET\n`;
+  msg += `${e} Bias: ${biasText}\n`;
+  if (vixNote) msg += `${vixNote}\n`;
+
+  msg += "\n── TOP 5 TO WATCH ───────────────────\n";
+  if (top5.length) {
+    for (const a of top5) {
+      const chg = `${a.chgPct >= 0 ? "+" : ""}${a.chgPct.toFixed(2)}%`;
+      msg += `${a.symbol.padEnd(8)} $${a.price}  ${chg}  Score ${a.composite}  Entry > $${a.resistance}\n`;
+    }
+  } else {
+    msg += "No high-conviction setups — wait for open confirmation\n";
+  }
+
+  if (noTrade.length) {
+    msg += "\n── NO-TRADE ZONES ───────────────────\n";
+    for (const a of noTrade) {
+      msg += `${a.symbol.padEnd(8)} RSI ${a.rsi}  RVOL ${a.rvol}x — wait for pullback\n`;
+    }
+  }
+
+  msg += "\n── KEY LEVELS ───────────────────────\n";
+  if (spy) msg += `SPY  $${spy.price}  Sup $${spy.support} / Res $${spy.resistance}\n`;
+  if (qqq) msg += `QQQ  $${qqq.price}  Sup $${qqq.support} / Res $${qqq.resistance}\n`;
+
+  await sendTelegramMessage(msg.trim());
+  console.log(`[Scanner] Opening Plan sent`);
+}
+
+// 12:00 PM ─ Midday Reset: trend strength, sector rotation, reversal risk
+async function sendMiddayReset() {
+  if (!telegramConfigured()) return;
+  const syms = ["SPY","QQQ","IWM","^VIX","HYG","TLT","XLK","XLF","XLE","XLV","XLI","XLY","XLP","XLU"];
+  const aMap = await fetchAnalysisMap(syms);
+  const time = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+
+  const spy = aMap.get("SPY"), qqq = aMap.get("QQQ"), iwm = aMap.get("IWM");
+  const vix = aMap.get("^VIX"), hyg = aMap.get("HYG"), tlt = aMap.get("TLT");
+
+  const trendStr = !spy ? "N/A"
+    : spy.composite >= 70 ? "STRONG UPTREND"
+    : spy.composite >= 55 ? "Moderate Uptrend"
+    : spy.composite <= 30 ? "STRONG DOWNTREND"
+    : spy.composite <= 45 ? "Moderate Downtrend" : "CHOPPY / RANGE";
+
+  const revRisk = (vix && vix.chgPct > 10) ? "HIGH"
+               : (spy && Math.abs(spy.chgPct) > 1.8) ? "HIGH"
+               : (vix && vix.price > 22) ? "MEDIUM" : "LOW";
+
+  const sectorMeta = [
+    ["XLK","Tech"],["XLF","Finance"],["XLE","Energy"],["XLV","Health"],
+    ["XLI","Industrial"],["XLY","Cyclicals"],["XLP","Staples"],["XLU","Utilities"],
+  ];
+  const sectors = sectorMeta
+    .map(([sym, name]) => ({ name, a: aMap.get(sym) }))
+    .filter(s => s.a)
+    .sort((a, b) => b.a.chgPct - a.a.chgPct);
+
+  // Failed move: was strong morning then fading (RSI dropped, rvol fading)
+  const failedMoves = [...aMap.values()]
+    .filter(a => a.composite >= 60 && a.chgPct < 0 && a.rvol > 1.2)
+    .slice(0, 3);
+
+  let msg = `🔄 MIDDAY RESET — ${time} ET\n`;
+  msg += `Trend: ${trendStr}  |  Reversal Risk: ${revRisk}\n`;
+  if (spy) msg += `SPY ${spy.chgPct >= 0 ? "+" : ""}${spy.chgPct.toFixed(2)}%`;
+  if (qqq) msg += `  QQQ ${qqq.chgPct >= 0 ? "+" : ""}${qqq.chgPct.toFixed(2)}%`;
+  if (iwm) msg += `  IWM ${iwm.chgPct >= 0 ? "+" : ""}${iwm.chgPct.toFixed(2)}%`;
+  msg += "\n";
+
+  msg += "\n── SECTOR ROTATION ──────────────────\n";
+  for (const s of sectors) {
+    const d   = s.a.chgPct >= 0 ? "+" : "";
+    const lbl = s.a.composite >= 65 ? "LEADING" : s.a.composite <= 35 ? "LAGGING" : "neutral";
+    msg += `${s.name.padEnd(12)} ${d}${s.a.chgPct.toFixed(2)}%  Score ${s.a.composite}  ${lbl}\n`;
+  }
+
+  if (hyg && tlt) {
+    msg += "\n── CREDIT / BONDS ───────────────────\n";
+    msg += `HYG ${hyg.chgPct >= 0 ? "+" : ""}${hyg.chgPct.toFixed(2)}%  TLT ${tlt.chgPct >= 0 ? "+" : ""}${tlt.chgPct.toFixed(2)}%`;
+    if (hyg.chgPct > 0.3 && tlt.chgPct < 0) msg += "  → Risk-on rotation";
+    else if (hyg.chgPct < -0.3 && tlt.chgPct > 0.3) msg += "  → Flight to safety";
+    msg += "\n";
+  }
+
+  if (failedMoves.length) {
+    msg += "\n── FAILED MOVES (reversal risk) ─────\n";
+    for (const a of failedMoves) {
+      msg += `${a.symbol.padEnd(8)} $${a.price}  ${a.chgPct.toFixed(2)}%  Score ${a.composite} but fading\n`;
+    }
+  }
+
+  if (revRisk === "HIGH") msg += "\nALERT: High reversal risk — tighten stops, avoid new entries";
+
+  await sendTelegramMessage(msg.trim());
+  console.log(`[Scanner] Midday Reset sent`);
+}
+
+// 3:45 PM ─ Power Hour + Next-Day Watchlist
+async function sendPowerHourWatchlist() {
+  if (!telegramConfigured()) return;
+  const syms = [
+    "SPY","QQQ","IWM",
+    "NVDA","TSLA","AAPL","META","AMZN","MSFT","GOOGL","AMD",
+    "PLTR","COIN","MSTR","SMCI","ARM","HOOD","SOFI","CRWD","NET","DDOG",
+  ];
+  const aMap  = await fetchAnalysisMap(syms);
+  const macro = computeMacroRegime(aMap);
+  const time  = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+
+  const all         = [...aMap.values()];
+  const strongClose = [...all].filter(a => a.composite >= 65 && a.trend !== "Downtrend" && a.rvol >= 1.0)
+                              .sort((a, b) => b.composite - a.composite).slice(0, 5);
+  const weakClose   = [...all].filter(a => a.composite <= 35 && a.rvol >= 1.0)
+                              .sort((a, b) => a.composite - b.composite).slice(0, 3);
+  const spy = aMap.get("SPY"), qqq = aMap.get("QQQ");
+
+  let msg = `⚡ POWER HOUR + NEXT-DAY WATCHLIST — ${time} ET\n\n`;
+
+  msg += "── STRONG CLOSES (swing long ideas) ─\n";
+  if (strongClose.length) {
+    for (const a of strongClose) {
+      const chg  = `${a.chgPct >= 0 ? "+" : ""}${a.chgPct.toFixed(2)}%`;
+      const risk = round2(Math.max(a.price - a.support, 0.01));
+      const tgt  = round2(a.price + risk * 2);
+      msg += `${a.symbol.padEnd(8)} $${a.price}  ${chg}  Score ${a.composite}  Tgt $${tgt}  Stop $${a.support}\n`;
+    }
+  } else { msg += "No strong closes — choppy session\n"; }
+
+  if (weakClose.length) {
+    msg += "\n── WEAK CLOSES (avoid / watch short) ─\n";
+    for (const a of weakClose) {
+      const chg = `${a.chgPct >= 0 ? "+" : ""}${a.chgPct.toFixed(2)}%`;
+      msg += `${a.symbol.padEnd(8)} $${a.price}  ${chg}  Score ${a.composite}  avoid tomorrow\n`;
+    }
+  }
+
+  msg += "\n── TOMORROW KEY LEVELS ──────────────\n";
+  if (spy) msg += `SPY  $${spy.price}  Sup $${spy.support} / Res $${spy.resistance}\n`;
+  if (qqq) msg += `QQQ  $${qqq.price}  Sup $${qqq.support} / Res $${qqq.resistance}\n`;
+
+  const e = macro.regime === "RISK-ON" ? "🟢" : macro.regime === "RISK-OFF" ? "🔴" : "⚪";
+  msg += `\nOverall regime: ${e} ${macro.regime}`;
+
+  await sendTelegramMessage(msg.trim());
+  console.log(`[Scanner] Power Hour Watchlist sent`);
+}
+
+// 4:15 PM ─ After-Close Report: full recap + tomorrow setup
+async function sendAfterCloseReport() {
+  if (!telegramConfigured()) return;
+  const syms = [
+    "SPY","QQQ","IWM","DIA",
+    "XLK","XLF","XLE","XLV","XLY","XLP",
+    "^VIX","TLT","HYG","GLD","UUP","BTC-USD",
+  ];
+  const aMap  = await fetchAnalysisMap(syms);
+  const macro = computeMacroRegime(aMap);
+  const e     = macro.regime === "RISK-ON" ? "🟢" : macro.regime === "RISK-OFF" ? "🔴" : "⚪";
+  const time  = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+
+  const spy = aMap.get("SPY"), qqq = aMap.get("QQQ"), iwm = aMap.get("IWM"), dia = aMap.get("DIA");
+  const vix = aMap.get("^VIX"), tlt = aMap.get("TLT"), hyg = aMap.get("HYG");
+  const gld = aMap.get("GLD"), btc = aMap.get("BTC-USD");
+
+  const sectorMeta = [["XLK","Tech"],["XLF","Finance"],["XLE","Energy"],["XLV","Health"],["XLY","Cyclicals"],["XLP","Staples"]];
+  const sectors = sectorMeta.map(([s, n]) => ({ name: n, a: aMap.get(s) })).filter(s => s.a)
+                             .sort((a, b) => b.a.chgPct - a.a.chgPct);
+
+  const recentBuys  = lastRunResults.filter(h => h.signal === "BUY").slice(0, 4);
+  const recentSells = lastRunResults.filter(h => h.signal === "SELL").slice(0, 4);
+
+  let msg = `📊 AFTER-CLOSE REPORT — ${time} ET\n`;
+  msg += `${e} Regime: ${macro.regime}  (score ${macro.score > 0 ? "+" : ""}${macro.score})\n`;
+
+  msg += "\n── TODAY'S CLOSE ────────────────────\n";
+  if (spy) msg += `SPY  ${spy.chgPct >= 0 ? "+" : ""}${spy.chgPct.toFixed(2)}%`;
+  if (qqq) msg += `  QQQ  ${qqq.chgPct >= 0 ? "+" : ""}${qqq.chgPct.toFixed(2)}%`;
+  if (iwm) msg += `  IWM  ${iwm.chgPct >= 0 ? "+" : ""}${iwm.chgPct.toFixed(2)}%`;
+  if (dia) msg += `  DIA  ${dia.chgPct >= 0 ? "+" : ""}${dia.chgPct.toFixed(2)}%`;
+  msg += "\n";
+  if (vix) msg += `VIX ${vix.price}  ${vix.chgPct >= 0 ? "+" : ""}${vix.chgPct.toFixed(2)}%\n`;
+
+  msg += "\n── SECTOR PERFORMANCE ───────────────\n";
+  for (const s of sectors) {
+    const d   = s.a.chgPct >= 0 ? "+" : "";
+    const lbl = s.a.composite >= 65 ? "LEADING" : s.a.composite <= 35 ? "LAGGING" : "neutral";
+    msg += `${s.name.padEnd(12)} ${d}${s.a.chgPct.toFixed(2)}%  ${lbl}\n`;
+  }
+
+  if (recentBuys.length || recentSells.length) {
+    msg += "\n── TODAY'S BEST SIGNALS ─────────────\n";
+    for (const h of recentBuys)  msg += `🟢 ${h.symbol}  $${h.price}  BUY  Score ${h.composite}\n`;
+    for (const h of recentSells) msg += `🔴 ${h.symbol}  $${h.price}  EXIT  Score ${h.composite}\n`;
+  }
+
+  msg += "\n── TOMORROW KEY LEVELS ──────────────\n";
+  if (spy) msg += `SPY  $${spy.price}  Sup $${spy.support} / Res $${spy.resistance}\n`;
+  if (qqq) msg += `QQQ  $${qqq.price}  Sup $${qqq.support} / Res $${qqq.resistance}\n`;
+  if (btc) msg += `BTC  $${btc.price}  ${btc.chgPct >= 0 ? "+" : ""}${btc.chgPct.toFixed(2)}%\n`;
+
+  msg += "\n── OVERNIGHT WATCH ──────────────────\n";
+  if (tlt) msg += `Bonds (TLT)  $${tlt.price}  ${tlt.chgPct >= 0 ? "+" : ""}${tlt.chgPct.toFixed(2)}%  ${tlt.chgPct < -0.2 ? "(yields rising)" : "(yields falling)"}\n`;
+  if (hyg) msg += `Credit (HYG) $${hyg.price}  ${hyg.chgPct >= 0 ? "+" : ""}${hyg.chgPct.toFixed(2)}%\n`;
+  if (gld) msg += `Gold         $${gld.price}  ${gld.chgPct >= 0 ? "+" : ""}${gld.chgPct.toFixed(2)}%\n`;
+
+  const outlook = macro.regime === "RISK-ON"  ? "Outlook: Bullish bias tomorrow. Focus on longs off support."
+               : macro.regime === "RISK-OFF" ? "Outlook: Cautious. Watch for gap-down, reduce exposure."
+               :                               "Outlook: Mixed. Wait for open direction before committing.";
+  msg += "\n" + outlook;
+
+  await sendTelegramMessage(msg.trim());
+  console.log(`[Scanner] After-Close Report sent`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function getEtTime() {
   try {
@@ -769,11 +1154,6 @@ function startMarketScanner() {
   if (iv.unref) iv.unref();
 
   // ── Time-based scan: fire at specific ET clock times M-F ──────────────────
-  // 7:00 AM  — Pre-market overview
-  // 9:45 AM  — First 15 min settled, real price discovery
-  // 12:30 PM — Midday momentum check
-  // 2:45 PM  — Late-session positioning
-  // 3:45 PM  — Power hour final scan
   const tv = setInterval(() => {
     const { wd, time } = getEtTime();
     if (wd === "Sat" || wd === "Sun") return;
@@ -781,20 +1161,42 @@ function startMarketScanner() {
     if (time === lastScheduledTimeLabel) return; // already fired this minute
     lastScheduledTimeLabel = time;
     lastScheduledRunAt = Date.now();
-    const labelMap = {
-      "07:00": "Pre-Market",
-      "09:45": "Open + 15min",
-      "12:30": "Midday",
-      "14:45": "Late Session",
-      "15:45": "Power Hour",
-    };
-    const label = labelMap[time] || time;
-    console.log(`[Scanner] Scheduled scan: ${label} ET`);
-    // Send a header message before the scan so you know which session it is
-    if (telegramConfigured()) {
-      sendTelegramMessage(`⏰ ${label} Scan — ${time} ET`).catch(() => {});
+
+    const label = SCHEDULED_LABEL_MAP[time] || time;
+    console.log(`[Scanner] Scheduled: ${label} — ${time} ET`);
+
+    // Dispatch to specialized report or standard entry/exit scan
+    if (time === "06:45") {
+      // 6:45 AM — Macro Pre-Market: futures, VIX, bonds, gold, BTC
+      sendMacroPreMarket().catch(() => {});
+
+    } else if (time === "07:30") {
+      // 7:30 AM — Pre-Market Watchlist: gappers, volume, key levels
+      sendPreMarketWatchlist().catch(() => {});
+
+    } else if (time === "09:20") {
+      // 9:20 AM — Opening Plan: final bias, top 5, no-trade zones
+      sendOpeningPlan().catch(() => {});
+
+    } else if (time === "12:00") {
+      // 12:00 PM — Midday Reset: trend, sector rotation, reversal risk
+      sendMiddayReset().catch(() => {});
+
+    } else if (time === "15:45") {
+      // 3:45 PM — Power Hour + Next-Day Watchlist
+      sendPowerHourWatchlist().catch(() => {});
+
+    } else if (time === "16:15") {
+      // 4:15 PM — After-Close Report: full recap + tomorrow levels
+      sendAfterCloseReport().catch(() => {});
+
+    } else {
+      // 9:45, 10:30, 13:30, 14:45 — Full entry/exit signal scan
+      if (telegramConfigured()) {
+        sendTelegramMessage(`⏰ ${label} Scan — ${time} ET`).catch(() => {});
+      }
+      runScan({ scheduledLabel: label }).catch(() => {});
     }
-    runScan({ scheduledLabel: label }).catch(() => {});
   }, 30_000); // check every 30s so we never miss a minute
   if (tv.unref) tv.unref();
 
