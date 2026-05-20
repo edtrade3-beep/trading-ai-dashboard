@@ -259,22 +259,8 @@ function App() {
   const styles = createStyles(theme);
 
   const [password, setPassword] = useState("");
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(true);   // password lock removed
   const [loginLoading, setLoginLoading] = useState(false);
-
-  // Restore session if within 8-hour window
-  const SESSION_KEY = "dixie_dealer_session";
-  const SESSION_TTL = 8 * 60 * 60 * 1000;
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(SESSION_KEY);
-      if (raw) {
-        const { ts } = JSON.parse(raw);
-        if (Date.now() - ts < SESSION_TTL) setUnlocked(true);
-        else sessionStorage.removeItem(SESSION_KEY);
-      }
-    } catch {}
-  }, []);
   const [tab, setTab] = useState("Overview");
   const [vin, setVin] = useState("");
   const [vehicle, setVehicle] = useState(null);
