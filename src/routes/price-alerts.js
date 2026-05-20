@@ -1,5 +1,6 @@
 const { writeJson, readRequestBody } = require("../utils");
 const { loadPriceAlerts, savePriceAlerts } = require("../price-alert-store");
+const { sendTelegramMessage, isConfigured: telegramConfigured } = require("../telegram");
 
 async function handlePriceAlerts(req, res, requestUrl) {
   const { pathname } = requestUrl;
@@ -51,6 +52,13 @@ async function handlePriceAlerts(req, res, requestUrl) {
     }
     alerts.unshift(alert);
     savePriceAlerts(alerts);
+
+    if (telegramConfigured()) {
+      const dirEmoji = direction === "above" ? "📈" : "📉";
+      const noteStr = alert.note ? ` — ${alert.note}` : "";
+      sendTelegramMessage(`${dirEmoji} *Price Alert Set*: ${symbol} ${direction} $${targetPrice}${noteStr}`).catch(() => {});
+    }
+
     return writeJson(res, 200, { ok: true, alert });
   }
 

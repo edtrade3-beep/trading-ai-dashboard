@@ -27,25 +27,25 @@ const THEME_LIGHT = {
   purple: "#9a6ae0",
 };
 const THEME_DARK = {
-  bg: "#0b1220",
-  surface: "#111a2d",
-  card: "#131f35",
-  cardHover: "#1a2942",
-  border: "#223452",
-  borderLit: "#2a4063",
-  text: "#e8eefb",
-  textSec: "#c5d2ea",
-  textDim: "#93a7c8",
-  accent: "#4a8dff",
-  accentGlow: "rgba(74,141,255,0.20)",
-  green: "#1fbd87",
-  greenBg: "rgba(31,189,135,0.14)",
-  red: "#ef6f83",
-  redBg: "rgba(239,111,131,0.14)",
-  amber: "#e4ab45",
-  amberBg: "rgba(228,171,69,0.16)",
-  cyan: "#3fb1df",
-  purple: "#b086ff",
+  bg: "#060d1a",
+  surface: "#0c1525",
+  card: "#0f1c30",
+  cardHover: "#152336",
+  border: "#1a2e4a",
+  borderLit: "#20395e",
+  text: "#e4eeff",
+  textSec: "#b0c6e8",
+  textDim: "#607494",
+  accent: "#2b90ff",
+  accentGlow: "rgba(43,144,255,0.25)",
+  green: "#00c97a",
+  greenBg: "rgba(0,201,122,0.12)",
+  red: "#ff4d63",
+  redBg: "rgba(255,77,99,0.12)",
+  amber: "#ffb340",
+  amberBg: "rgba(255,179,64,0.14)",
+  cyan: "#00d4ff",
+  purple: "#a97aff",
 };
 const C = { ...THEME_LIGHT };
 
@@ -61,25 +61,17 @@ const LAYOUT = {
 const WEATHER_ZIP = "45014";
 
 // ── Islamic Module Constants ──
+// CDN: cdn.islamic.network/quran/audio-surah/128/{edition}/{surahNum}.mp3
+const QURAN_CDN = "https://cdn.islamic.network/quran/audio-surah/128";
 const QURAN_RECITERS = [
-  { id: "Alafasy_128kbps", label: "مشاري العفاسي", server: "server8.mp3quran.net/afs" },
-  { id: "Abdurrahmaan_As-Sudais_192kbps", label: "عبد الرحمن السديس", server: "server11.mp3quran.net/sds" },
-  { id: "Saood_ash-Shuraym_128kbps", label: "سعود الشريم", server: "server7.mp3quran.net/shur" },
-  { id: "Maher_AlMuaiqly_128kbps", label: "ماهر المعيقلي", server: "server12.mp3quran.net/maher" },
-  { id: "Yasser_Ad-Dussary_128kbps", label: "ياسر الدوسري", server: "server11.mp3quran.net/yasser" },
-  { id: "Saad_Al-Ghamdi_128kbps", label: "سعد الغامدي", server: "server7.mp3quran.net/s_gmd" },
-  { id: "Abdul_Basit_Murattal_192kbps", label: "عبد الباسط (مرتل)", server: "server7.mp3quran.net/basit" },
-  { id: "Minshawi_Murattal_128kbps", label: "محمد المنشاوي", server: "server10.mp3quran.net/minsh" },
-  { id: "Husary_128kbps", label: "محمود خليل الحصري", server: "server13.mp3quran.net/husr" },
-  { id: "Abu_Bakr_Ash-Shaatree_128kbps", label: "أبو بكر الشاطري", server: "server11.mp3quran.net/shr" },
-  { id: "Nasser_Alqatami_128kbps", label: "ناصر القطامي", server: "server6.mp3quran.net/qtm" },
-  { id: "Islam_Sobhi_128kbps", label: "إسلام صبحي", server: "server10.mp3quran.net/islam_sobhi" },
-  { id: "Raad_Muhammad_al-Kurdi_128kbps", label: "رعد محمد الكردي", server: "server6.mp3quran.net/kurdi" },
-  { id: "Fares_Abbad_64kbps", label: "فارس عباد", server: "server7.mp3quran.net/frs" },
-  { id: "Ali_Jaber_128kbps", label: "علي جابر", server: "server8.mp3quran.net/jbr" },
-  { id: "Ahmed_ibn_Ali_al-Ajamy_128kbps", label: "أحمد العجمي", server: "server9.mp3quran.net/ajm" },
-  { id: "Idrees_Abkar_128kbps", label: "إدريس أبكر", server: "server10.mp3quran.net/edriss" },
-  { id: "Bandar_Baleela_128kbps", label: "بندر بليلة", server: "server11.mp3quran.net/baleelah" },
+  { id: "ar.alafasy",               label: "مشاري العفاسي" },
+  { id: "ar.abdurrahmaanas-sudais", label: "عبد الرحمن السديس" },
+  { id: "ar.husary",                label: "محمود خليل الحصري" },
+  { id: "ar.minshawi",              label: "محمد المنشاوي" },
+  { id: "ar.ahmedajamy",            label: "أحمد العجمي" },
+  { id: "ar.abdullahbasfar",        label: "عبد الله بصفر" },
+  { id: "ar.hanirifai",             label: "هاني الرفاعي" },
+  { id: "ar.shaatree",              label: "أبو بكر الشاطري" },
 ];
 const SURAH_LIST = [
   [1,"الفاتحة","Al-Fatiha"],
@@ -371,7 +363,7 @@ const DEFAULT_SETTINGS = {
   refreshMs: 180000,
   terminalLayout: "1",
   hotkeyProfile: "classic",
-  themeMode: "light",
+  themeMode: "dark",
   econCalendarView: "today",
   econCalendarRegion: "US",
   econAutoRisk30m: true,
@@ -1519,65 +1511,84 @@ function ApiKeyScreen({ onSubmit }) {
 // ── Macro Tape ──
 function MacroTape({ data, cryptoSnapshot }) {
   if (!data.length) return null;
-  const tapeRows = [...data];
-  if (cryptoSnapshot && Number(cryptoSnapshot.btc || 0) > 0) {
-    tapeRows.push({
-      symbol: "BTCDOM",
-      _label: "BTC DOM (Proxy)",
-      price: Number(cryptoSnapshot.btcDomProxy || 0),
-      changesPercentage: Number(cryptoSnapshot.altStrength || 0),
-      _isPercentValue: true,
-      _isDominance: true,
-    });
+
+  // Priority index slots matching the screenshot layout
+  const SLOTS = [
+    { sym: "SPY",   label: "S&P 500",        shortLabel: "S&P 500" },
+    { sym: "QQQ",   label: "Nasdaq 100",      shortLabel: "Nasdaq 100" },
+    { sym: "IWM",   label: "Russell 2000",    shortLabel: "Russell 2000" },
+    { sym: "DIA",   label: "Dow 30",          shortLabel: "Dow 30" },
+    { sym: "VIXY",  label: "Volatility",      shortLabel: "Volatility", isVix: true },
+    { sym: "GLD",   label: "Gold",            shortLabel: "Gold" },
+    { sym: "BNO",   label: "Brent Oil",       shortLabel: "Brent Oil (l)" },
+    { sym: "USO",   label: "Crude Oil",       shortLabel: "Crude Oil" },
+    { sym: "SHY",   label: "2Y Treasury",     shortLabel: "2Y Treasury" },
+    { sym: "BTCUSD",label: "Bitcoin",         shortLabel: "BTC" },
+  ];
+
+  const vixyRow = data.find(q => q.symbol === "VIXY");
+  const spyRow  = data.find(q => q.symbol === "SPY");
+  const vixChg  = vixyRow?.changesPercentage || 0;
+  const spyChg  = spyRow?.changesPercentage || 0;
+  let regime, regimeColor, regimeBg;
+  if (vixChg >= 3 || (vixChg >= 1 && spyChg <= -1)) {
+    regime = "FEAR 🔴"; regimeColor = C.red; regimeBg = `${C.red}14`;
+  } else if (vixChg <= -2 || (vixChg < 0 && spyChg >= 0.5)) {
+    regime = "CALM 🟢"; regimeColor = C.green; regimeBg = `${C.green}14`;
+  } else {
+    regime = "NEUTRAL 🟡"; regimeColor = C.amber; regimeBg = `${C.amber}14`;
   }
+
   return (
     <div style={{
-      display: "flex", gap: 1, background: C.bg, borderBottom: `1px solid ${C.border}`,
+      display: "flex", alignItems: "stretch",
+      background: C.surface, borderBottom: `1px solid ${C.border}`,
       overflowX: "auto", scrollbarWidth: "none",
+      flexShrink: 0,
     }}>
-      {tapeRows.map(q => {
-        const chg = q.changesPercentage || 0;
+      {SLOTS.map(slot => {
+        const q = data.find(d => d.symbol === slot.sym);
+        const chg = q?.changesPercentage || 0;
+        const price = q?.price || 0;
         const isUp = chg >= 0;
-        const col = q._isDominance ? C.accent : (q._label === "VIX" ? (isUp ? C.red : C.green) : (isUp ? C.green : C.red));
+        const col = slot.isVix
+          ? (isUp ? C.red : C.green)
+          : (isUp ? C.green : C.red);
         return (
-          <div key={q.symbol} style={{
-            padding: "7px 16px", background: C.surface, display: "flex",
-            alignItems: "center", gap: 10, minWidth: "fit-content",
+          <div key={slot.sym} style={{
+            padding: "6px 18px", display: "flex", flexDirection: "column",
+            justifyContent: "center", minWidth: "fit-content",
             borderRight: `1px solid ${C.border}`,
           }}>
-            <span style={{ fontSize: 11, fontFamily: MONO, color: C.textDim, fontWeight: 700 }}>
-              {q._label || q.symbol}
+            <span style={{ fontSize: 9, fontFamily: MONO, color: C.textDim, fontWeight: 600, letterSpacing: "0.07em", marginBottom: 2, whiteSpace: "nowrap" }}>
+              {slot.shortLabel}
             </span>
-            <span style={{ fontSize: 15, fontFamily: MONO, color: C.text, fontWeight: 700 }}>
-              {q._isPercentValue ? `${Number(q.price || 0).toFixed(1)}%` : (q.price >= 10000 ? q.price.toLocaleString(undefined, { maximumFractionDigits: 0 }) : q.price?.toFixed(2))}
-            </span>
-            <span style={{ fontSize: 13, fontFamily: MONO, color: col, fontWeight: 700 }}>
-              {isUp ? "+" : ""}{chg.toFixed(2)}%
-            </span>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+              <span style={{ fontSize: 14, fontFamily: MONO, color: C.text, fontWeight: 800 }}>
+                {price > 0
+                  ? (price >= 10000 ? price.toLocaleString(undefined, { maximumFractionDigits: 0 })
+                     : price >= 1000 ? price.toLocaleString(undefined, { maximumFractionDigits: 2 })
+                     : price.toFixed(2))
+                  : "—"}
+              </span>
+              <span style={{ fontSize: 11, fontFamily: MONO, color: col, fontWeight: 700 }}>
+                {price > 0 ? `${isUp ? "+" : ""}${chg.toFixed(2)}%` : "—"}
+              </span>
+            </div>
           </div>
         );
       })}
-      {(() => {
-        const vixyRow = tapeRows.find(q => q.symbol === "VIXY" || q._label === "VIX");
-        if (!vixyRow) return null;
-        const vixChg = vixyRow.changesPercentage || 0;
-        const spyRow = tapeRows.find(q => q.symbol === "SPY");
-        const spyChg = spyRow ? (spyRow.changesPercentage || 0) : 0;
-        let regime, regimeColor, regimeBg;
-        if (vixChg >= 3 || (vixChg >= 1 && spyChg <= -1)) {
-          regime = "FEAR"; regimeColor = C.red; regimeBg = `${C.red}18`;
-        } else if (vixChg <= -2 || (vixChg < 0 && spyChg >= 0.5)) {
-          regime = "CALM"; regimeColor = C.green; regimeBg = `${C.green}18`;
-        } else {
-          regime = "NEUTRAL"; regimeColor = C.amber; regimeBg = `${C.amber}18`;
-        }
-        return (
-          <div style={{ padding: "7px 14px", background: regimeBg, display: "flex", alignItems: "center", gap: 6, minWidth: "fit-content", borderRight: `1px solid ${C.border}`, marginLeft: "auto", flexShrink: 0 }}>
-            <span style={{ width: 7, height: 7, borderRadius: "50%", background: regimeColor, display: "inline-block", boxShadow: `0 0 6px ${regimeColor}` }} />
-            <span style={{ fontFamily: MONO, fontSize: 10, color: regimeColor, fontWeight: 800, letterSpacing: "0.1em" }}>VIX REGIME: {regime}</span>
-          </div>
-        );
-      })()}
+      {/* VIX regime badge pinned right */}
+      <div style={{
+        marginLeft: "auto", padding: "6px 16px", display: "flex",
+        alignItems: "center", gap: 7, background: regimeBg,
+        borderLeft: `1px solid ${regimeColor}33`, flexShrink: 0,
+      }}>
+        <span style={{ width: 7, height: 7, borderRadius: "50%", background: regimeColor, flexShrink: 0, boxShadow: `0 0 7px ${regimeColor}` }} />
+        <span style={{ fontFamily: MONO, fontSize: 10, color: regimeColor, fontWeight: 800, letterSpacing: "0.1em", whiteSpace: "nowrap" }}>
+          VIX REGIME: {regime}
+        </span>
+      </div>
     </div>
   );
 }
@@ -1619,101 +1630,334 @@ function SectorHeatmap({ data }) {
   );
 }
 
-// ── Deep Dive Modal ──
-function CandlePanel({ candleData, drawTools }) {
-  const bars = candleData?.bars || [];
-  const ind = candleData?.indicators || {};
-  if (!bars.length) {
-    return <div style={{ padding: 16, color: C.textDim, fontFamily: MONO, fontSize: 11 }}>Loading candles...</div>;
+// ── Canvas Chart ─────────────────────────────────────────────────────────────
+function drawChart(ctx, W, H, candleData, drawTools, hover) {
+  ctx.save();
+  const bars     = (candleData?.bars || []).slice(-120);
+  const ind      = candleData?.indicators || {};
+  const ema9arr  = (ind.ema9  || []).slice(-120);
+  const ema21arr = (ind.ema21 || []).slice(-120);
+  const vwapArr  = (ind.vwap  || []).slice(-120);
+  const rsiArr   = (ind.rsi   || []).slice(-120);
+  const macdLine = (ind.macd?.line      || []).slice(-120);
+  const macdSig  = (ind.macd?.signal    || []).slice(-120);
+  const macdHist = (ind.macd?.histogram || []).slice(-120);
+  const n = bars.length;
+
+  const PL = 8, PR = 68, PT = 14, PB = 26, GAP = 5;
+  const cH  = H - PT - PB;
+  const cW  = W - PL - PR;
+  const pH  = Math.floor(cH * 0.56);
+  const vH  = Math.floor(cH * 0.10);
+  const rH  = Math.floor(cH * 0.17);
+  const mH  = cH - pH - vH - rH - GAP * 3;
+  const pY  = PT;
+  const vY  = pY + pH + GAP;
+  const rY  = vY + vH + GAP;
+  const mY  = rY + rH + GAP;
+
+  ctx.fillStyle = C.surface;
+  ctx.fillRect(0, 0, W, H);
+
+  if (!n) {
+    ctx.fillStyle = C.textDim;
+    ctx.font = "11px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("No chart data", W / 2, H / 2);
+    ctx.restore();
+    return;
   }
 
-  const recent = bars.slice(-120);
-  const ema9 = (ind.ema9 || []).slice(-120);
-  const ema21 = (ind.ema21 || []).slice(-120);
-  const vwap = (ind.vwap || []).slice(-120);
-  const rsi = (ind.rsi || []).slice(-120);
-  const macdLine = (ind.macd?.line || []).slice(-120);
-  const macdSignal = (ind.macd?.signal || []).slice(-120);
-  const macdHist = (ind.macd?.histogram || []).slice(-120);
+  const allPx = bars.flatMap(b => [b.high, b.low])
+    .concat(ema9arr.map(v => v.value), ema21arr.map(v => v.value), vwapArr.map(v => v.value))
+    .filter(Number.isFinite);
+  const hiRaw = Math.max(...allPx);
+  const loRaw = Math.min(...allPx);
+  const span  = Math.max(hiRaw - loRaw, hiRaw * 0.001, 0.01);
+  const hiP   = hiRaw + span * 0.04;
+  const loP   = loRaw - span * 0.04;
+  const pSpan = hiP - loP;
 
-  const highs = recent.map((b) => b.high).concat(ema9.map((x) => x.value), ema21.map((x) => x.value), vwap.map((x) => x.value));
-  const lows = recent.map((b) => b.low).concat(ema9.map((x) => x.value), ema21.map((x) => x.value), vwap.map((x) => x.value));
-  const hi = Math.max(...highs);
-  const lo = Math.min(...lows);
-  const priceRange = Math.max(hi - lo, 0.0001);
+  const barW  = cW / n;
+  const candW = Math.max(1, barW * 0.65);
+  const toX   = (i) => PL + (i + 0.5) * barW;
+  const toYP  = (p) => pY + pH - ((p - loP) / pSpan) * pH;
+  const decs  = hiP >= 1000 ? 1 : hiP >= 100 ? 2 : hiP >= 10 ? 3 : 4;
 
-  const macdMax = Math.max(...macdHist.map((m) => Math.abs(m.value)), ...macdLine.map((m) => Math.abs(m.value)), ...macdSignal.map((m) => Math.abs(m.value)), 0.1);
-  const toX = (i, n = recent.length) => (n <= 1 ? 0 : (i / (n - 1)) * 100);
-  const toYPrice = (p) => 100 - ((p - lo) / priceRange) * 100;
-  const candleW = Math.max(0.35, 80 / Math.max(recent.length, 1));
-  const makePath = (arr, yMap) => arr.map((p, i) => `${toX(i, arr.length)},${yMap(p.value)}`).join(" ");
-  const fibLow = Number(drawTools?.fibLow);
-  const fibHigh = Number(drawTools?.fibHigh);
-  const hasFib = Number.isFinite(fibLow) && Number.isFinite(fibHigh) && fibHigh > fibLow;
-  const trendStart = Number(drawTools?.trendStart);
-  const trendEnd = Number(drawTools?.trendEnd);
-  const hasTrend = Number.isFinite(trendStart) && Number.isFinite(trendEnd);
-  const fibLevels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+  // ── Price gridlines + Y labels ──────────────────────────────────────────
+  ctx.font = "9px monospace";
+  ctx.textAlign = "left";
+  for (let i = 0; i <= 5; i++) {
+    const p = loP + (pSpan / 5) * i;
+    const y = toYP(p);
+    ctx.strokeStyle = C.border;
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([3, 4]);
+    ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W - PR, y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = C.textDim;
+    ctx.fillText(`$${p.toFixed(decs)}`, W - PR + 4, y + 3);
+  }
+
+  // ── Volume ───────────────────────────────────────────────────────────────
+  const maxV = Math.max(...bars.map(b => b.volume || 0), 1);
+  bars.forEach((b, i) => {
+    const up = b.close >= b.open;
+    const bh = ((b.volume || 0) / maxV) * vH;
+    ctx.fillStyle = up ? `${C.green}55` : `${C.red}55`;
+    ctx.fillRect(toX(i) - candW / 2, vY + vH - bh, candW, bh);
+  });
+  ctx.fillStyle = C.textDim; ctx.font = "8px monospace"; ctx.textAlign = "left";
+  ctx.fillText("VOL", W - PR + 4, vY + 9);
+
+  // ── RSI ──────────────────────────────────────────────────────────────────
+  [30, 50, 70].forEach(lv => {
+    const y = rY + rH * (1 - lv / 100);
+    ctx.strokeStyle = lv === 50 ? C.border : `${C.textDim}55`;
+    ctx.lineWidth = 0.4;
+    ctx.setLineDash(lv === 50 ? [] : [3, 4]);
+    ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W - PR, y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = C.textDim; ctx.font = "8px monospace"; ctx.textAlign = "left";
+    ctx.fillText(`${lv}`, W - PR + 4, y + 3);
+  });
+  if (rsiArr.length > 1) {
+    const rW = cW / rsiArr.length;
+    ctx.strokeStyle = C.accent; ctx.lineWidth = 1.2; ctx.beginPath();
+    rsiArr.forEach((r, i) => {
+      const x = PL + (i + 0.5) * rW;
+      const y = rY + rH * (1 - Math.max(0, Math.min(100, r.value)) / 100);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    const lr = rsiArr[rsiArr.length - 1]?.value;
+    if (lr !== undefined) {
+      ctx.fillStyle = C.accent; ctx.font = "8px monospace"; ctx.textAlign = "left";
+      ctx.fillText(`RSI ${lr.toFixed(0)}`, W - PR + 4, rY + 9);
+    }
+  }
+
+  // ── MACD ─────────────────────────────────────────────────────────────────
+  const macdAbsMax = Math.max(
+    ...macdHist.map(m => Math.abs(m.value)),
+    ...macdLine.map(m => Math.abs(m.value)),
+    ...macdSig.map(m => Math.abs(m.value)), 0.001
+  );
+  const mMid = mY + mH / 2;
+  const toYM = (v) => mMid - (v / macdAbsMax) * (mH / 2 * 0.88);
+  ctx.strokeStyle = C.border; ctx.lineWidth = 0.4; ctx.setLineDash([3, 4]);
+  ctx.beginPath(); ctx.moveTo(PL, mMid); ctx.lineTo(W - PR, mMid); ctx.stroke();
+  ctx.setLineDash([]);
+  if (macdHist.length) {
+    const hW = cW / macdHist.length;
+    const hBW = Math.max(1, hW * 0.65);
+    macdHist.forEach((m, i) => {
+      const x = PL + (i + 0.5) * hW, y = toYM(m.value);
+      ctx.fillStyle = m.value >= 0 ? `${C.green}88` : `${C.red}88`;
+      if (m.value >= 0) ctx.fillRect(x - hBW / 2, y, hBW, mMid - y);
+      else              ctx.fillRect(x - hBW / 2, mMid, hBW, y - mMid);
+    });
+  }
+  if (macdLine.length > 1) {
+    const mLW = cW / macdLine.length;
+    ctx.strokeStyle = C.cyan; ctx.lineWidth = 1.2; ctx.beginPath();
+    macdLine.forEach((m, i) => { const x = PL + (i + 0.5) * mLW, y = toYM(m.value); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+    ctx.stroke();
+  }
+  if (macdSig.length > 1) {
+    const mSW = cW / macdSig.length;
+    ctx.strokeStyle = C.purple; ctx.lineWidth = 1; ctx.beginPath();
+    macdSig.forEach((m, i) => { const x = PL + (i + 0.5) * mSW, y = toYM(m.value); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+    ctx.stroke();
+  }
+  ctx.fillStyle = C.textDim; ctx.font = "8px monospace"; ctx.textAlign = "left";
+  ctx.fillText("MACD", W - PR + 4, mY + 9);
+
+  // ── Candles ───────────────────────────────────────────────────────────────
+  bars.forEach((b, i) => {
+    const up = b.close >= b.open;
+    const x  = toX(i);
+    const by = Math.min(toYP(b.open), toYP(b.close));
+    const bh = Math.max(Math.abs(toYP(b.close) - toYP(b.open)), 1);
+    ctx.strokeStyle = up ? C.green : C.red; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, toYP(b.high)); ctx.lineTo(x, toYP(b.low)); ctx.stroke();
+    ctx.fillStyle = up ? `${C.green}44` : `${C.red}44`;
+    ctx.fillRect(x - candW / 2, by, candW, bh);
+    ctx.strokeRect(x - candW / 2, by, candW, bh);
+  });
+
+  // ── Overlays ──────────────────────────────────────────────────────────────
+  const drawLine = (arr, color, lw) => {
+    if (arr.length < 2) return;
+    const aW = cW / arr.length;
+    ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.setLineDash([]); ctx.beginPath();
+    arr.forEach((p, i) => { const x = PL + (i + 0.5) * aW, y = toYP(p.value); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+    ctx.stroke();
+  };
+  drawLine(ema9arr,  C.cyan,   1.2);
+  drawLine(ema21arr, C.purple, 1.2);
+  drawLine(vwapArr,  C.amber,  1.5);
+
+  // ── Draw tools ────────────────────────────────────────────────────────────
+  const fibLo = Number(drawTools?.fibLow), fibHi = Number(drawTools?.fibHigh);
+  if (Number.isFinite(fibLo) && Number.isFinite(fibHi) && fibHi > fibLo) {
+    ctx.font = "8px monospace"; ctx.textAlign = "right";
+    [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1].forEach(f => {
+      const y = toYP(fibLo + (fibHi - fibLo) * f);
+      if (y < pY || y > pY + pH) return;
+      ctx.strokeStyle = "#2c7be5"; ctx.lineWidth = 0.6; ctx.setLineDash([3, 4]);
+      ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W - PR, y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#2c7be5";
+      ctx.fillText(f.toFixed(3), W - PR - 2, y - 2);
+    });
+  }
+  const tS = Number(drawTools?.trendStart), tE = Number(drawTools?.trendEnd);
+  if (Number.isFinite(tS) && Number.isFinite(tE)) {
+    ctx.strokeStyle = "#805ad5"; ctx.lineWidth = 1.2; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(PL, toYP(tS)); ctx.lineTo(W - PR, toYP(tE)); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // ── Legend ────────────────────────────────────────────────────────────────
+  ctx.font = "9px monospace"; ctx.textAlign = "left";
+  const le9  = ema9arr.length  ? ema9arr[ema9arr.length - 1].value.toFixed(decs)   : "";
+  const le21 = ema21arr.length ? ema21arr[ema21arr.length - 1].value.toFixed(decs) : "";
+  const lv   = vwapArr.length  ? vwapArr[vwapArr.length - 1].value.toFixed(decs)   : "";
+  [[C.cyan, `EMA9 ${le9}`], [C.purple, `EMA21 ${le21}`], [C.amber, `VWAP ${lv}`]].forEach(([col, lbl], i) => {
+    ctx.fillStyle = col;
+    ctx.fillText(lbl, PL + 4 + i * 115, PT + 11);
+  });
+
+  // ── X-axis labels ─────────────────────────────────────────────────────────
+  ctx.fillStyle = C.textDim; ctx.font = "9px monospace"; ctx.textAlign = "center";
+  const xStep = Math.max(1, Math.floor(n / 8));
+  for (let i = 0; i < n; i += xStep) {
+    const b = bars[i];
+    if (!b?.time) continue;
+    const d = new Date(b.time);
+    ctx.fillText(`${d.getMonth() + 1}/${d.getDate()}`, toX(i), H - 8);
+  }
+
+  // ── Crosshair ─────────────────────────────────────────────────────────────
+  if (hover) {
+    const cx = toX(hover.idx);
+    ctx.strokeStyle = `${C.textDim}88`;
+    ctx.lineWidth = 0.8;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(cx, PT); ctx.lineTo(cx, H - PB); ctx.stroke();
+    if (hover.y >= pY && hover.y <= pY + pH) {
+      ctx.beginPath(); ctx.moveTo(PL, hover.y); ctx.lineTo(W - PR, hover.y); ctx.stroke();
+      const pTag = loP + ((pY + pH - hover.y) / pH) * pSpan;
+      ctx.setLineDash([]);
+      ctx.fillStyle = C.accent;
+      ctx.fillRect(W - PR, hover.y - 9, PR - 1, 18);
+      ctx.fillStyle = "#fff"; ctx.font = "9px monospace"; ctx.textAlign = "left";
+      ctx.fillText(`$${pTag.toFixed(decs)}`, W - PR + 3, hover.y + 3);
+    }
+    ctx.setLineDash([]);
+    if (bars[hover.idx]?.time) {
+      const d = new Date(bars[hover.idx].time);
+      const ts = `${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+      const tw = ts.length * 5.4;
+      const tx = Math.max(PL + tw / 2 + 2, Math.min(cx, W - PR - tw / 2 - 2));
+      ctx.fillStyle = C.accent;
+      ctx.fillRect(tx - tw / 2 - 2, H - PB - 1, tw + 4, PB);
+      ctx.fillStyle = "#fff"; ctx.textAlign = "center";
+      ctx.fillText(ts, tx, H - 8);
+    }
+  }
+
+  ctx.restore();
+}
+
+function CanvasChart({ candleData, drawTools, loading }) {
+  const containerRef = useRef(null);
+  const canvasRef    = useRef(null);
+  const [cvSize, setCvSize] = useState({ w: 600, h: 360 });
+  const [hover, setHover]   = useState(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setCvSize({ w: Math.max(100, Math.floor(width)), h: Math.max(60, Math.floor(height)) });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width  = cvSize.w * dpr;
+    canvas.height = cvSize.h * dpr;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+    drawChart(ctx, cvSize.w, cvSize.h, candleData, drawTools, hover);
+  }, [candleData, drawTools, cvSize, hover]);
+
+  const handleMouseMove = useCallback((e) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !candleData?.bars?.length) { setHover(null); return; }
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (cvSize.w / rect.width);
+    const my = (e.clientY - rect.top)  * (cvSize.h / rect.height);
+    const n    = Math.min(candleData.bars.length, 120);
+    const barW = (cvSize.w - 8 - 68) / n;
+    const idx  = Math.max(0, Math.min(n - 1, Math.floor((mx - 8) / barW)));
+    setHover({ x: mx, y: my, bar: candleData.bars.slice(-n)[idx] || null, idx });
+  }, [candleData, cvSize]);
+
+  const handleMouseLeave = useCallback(() => setHover(null), []);
 
   return (
-    <div style={{ height: "100%", border: `1px solid ${C.border}`, borderRadius: 8, padding: 10, background: "#fff", display: "grid", gridTemplateRows: "1fr 72px 72px", gap: 8 }}>
-      <div style={{ position: "relative" }}>
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: "100%", height: "100%", display: "block" }}>
-          {[20, 40, 60, 80].map((g) => <line key={g} x1="0" y1={g} x2="100" y2={g} stroke={C.border} strokeWidth="0.35" />)}
-          {recent.map((b, i) => {
-            const x = toX(i);
-            const yO = toYPrice(b.open);
-            const yC = toYPrice(b.close);
-            const yH = toYPrice(b.high);
-            const yL = toYPrice(b.low);
-            const up = b.close >= b.open;
-            const bodyY = Math.min(yO, yC);
-            const bodyH = Math.max(Math.abs(yC - yO), 0.7);
-            return (
-              <g key={`${b.time}-${i}`}>
-                <line x1={x} y1={yH} x2={x} y2={yL} stroke={up ? C.green : C.red} strokeWidth="0.35" />
-                <rect x={x - candleW / 2} y={bodyY} width={candleW} height={bodyH} fill={up ? "#d9f4e9" : "#fde4e8"} stroke={up ? C.green : C.red} strokeWidth="0.35" />
-              </g>
-            );
-          })}
-          <polyline fill="none" stroke={C.cyan} strokeWidth="0.45" points={makePath(ema9, toYPrice)} />
-          <polyline fill="none" stroke={C.purple} strokeWidth="0.45" points={makePath(ema21, toYPrice)} />
-          <polyline fill="none" stroke={C.amber} strokeWidth="0.45" points={makePath(vwap, toYPrice)} />
-          {hasTrend && <line x1="0" y1={toYPrice(trendStart)} x2="100" y2={toYPrice(trendEnd)} stroke="#805ad5" strokeDasharray="1.2 1.2" strokeWidth="0.45" />}
-          {hasFib && fibLevels.map((f) => {
-            const level = fibLow + (fibHigh - fibLow) * f;
-            const y = toYPrice(level);
-            return (
-              <g key={`fib-${f}`}>
-                <line x1="0" y1={y} x2="100" y2={y} stroke="#2c7be5" strokeDasharray="0.8 1.2" strokeWidth="0.35" />
-                <text x="98" y={Math.max(3, y - 0.8)} textAnchor="end" fontSize="2.4" fill="#2c7be5">{f.toFixed(3)}</text>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 6 }}>
-        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 3 }}>RSI(14)</div>
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: "100%", height: "calc(100% - 16px)", display: "block" }}>
-          <line x1="0" y1="30" x2="100" y2="30" stroke={C.border} strokeWidth="0.3" />
-          <line x1="0" y1="70" x2="100" y2="70" stroke={C.border} strokeWidth="0.3" />
-          <polyline fill="none" stroke={C.accent} strokeWidth="0.7" points={rsi.map((p, i) => `${toX(i, rsi.length)},${100 - p.value}`).join(" ")} />
-        </svg>
-      </div>
-      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 6 }}>
-        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 3 }}>MACD</div>
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: "100%", height: "calc(100% - 16px)", display: "block" }}>
-          <line x1="0" y1="50" x2="100" y2="50" stroke={C.border} strokeWidth="0.3" />
-          {macdHist.map((m, i) => {
-            const x = toX(i, macdHist.length);
-            const h = Math.min(48, (Math.abs(m.value) / macdMax) * 48);
-            const y = m.value >= 0 ? 50 - h : 50;
-            return <rect key={`${m.time}-${i}`} x={x - 0.2} y={y} width={0.4} height={h} fill={m.value >= 0 ? "#8dd9ba" : "#efb1ba"} />;
-          })}
-          <polyline fill="none" stroke={C.cyan} strokeWidth="0.6" points={macdLine.map((m, i) => `${toX(i, macdLine.length)},${50 - ((m.value / macdMax) * 45)}`).join(" ")} />
-          <polyline fill="none" stroke={C.purple} strokeWidth="0.6" points={macdSignal.map((m, i) => `${toX(i, macdSignal.length)},${50 - ((m.value / macdMax) * 45)}`).join(" ")} />
-        </svg>
-      </div>
+    <div ref={containerRef} style={{ position: "relative", width: "100%", height: "100%", background: C.surface, overflow: "hidden" }}>
+      {(loading || !candleData?.bars?.length) ? (
+        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+            {loading ? "Loading chart…" : "Select a symbol — chart loads automatically"}
+          </span>
+        </div>
+      ) : (
+        <canvas
+          ref={canvasRef}
+          style={{ display: "block", width: "100%", height: "100%" }}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+        />
+      )}
+      {hover?.bar && !loading && (
+        <div style={{
+          position: "absolute",
+          left: Math.min(hover.x + 14, cvSize.w - 160),
+          top: Math.max(6, hover.y - 92),
+          background: C.card,
+          border: `1px solid ${C.borderLit}`,
+          borderRadius: 6,
+          padding: "7px 10px",
+          fontFamily: MONO,
+          fontSize: 10,
+          color: C.text,
+          pointerEvents: "none",
+          zIndex: 10,
+          minWidth: 148,
+          boxShadow: "0 4px 14px rgba(0,0,0,0.14)",
+        }}>
+          <div style={{ color: C.textDim, marginBottom: 5, fontSize: 9 }}>
+            {new Date(hover.bar.time).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "2px 10px" }}>
+            <span style={{ color: C.textDim }}>O</span><span>${Number(hover.bar.open  || 0).toFixed(2)}</span>
+            <span style={{ color: C.textDim }}>H</span><span style={{ color: C.green }}>${Number(hover.bar.high  || 0).toFixed(2)}</span>
+            <span style={{ color: C.textDim }}>L</span><span style={{ color: C.red   }}>${Number(hover.bar.low   || 0).toFixed(2)}</span>
+            <span style={{ color: C.textDim }}>C</span><span style={{ color: hover.bar.close >= hover.bar.open ? C.green : C.red }}>${Number(hover.bar.close || 0).toFixed(2)}</span>
+            <span style={{ color: C.textDim }}>Vol</span><span>{hover.bar.volume ? `${(hover.bar.volume / 1e6).toFixed(2)}M` : "—"}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1736,6 +1980,73 @@ function TerminalWorkspace({
   const [alertTarget, setAlertTarget] = useState("");
   const [alertDir, setAlertDir] = useState("above");
   const [alertSaving, setAlertSaving] = useState(false);
+  const [orderType, setOrderType] = useState("market");
+  const [orderSide, setOrderSide] = useState("buy");
+  const [orderQty, setOrderQty] = useState("100");
+  const [orderPrice, setOrderPrice] = useState("");
+  const [orderTp, setOrderTp] = useState("");
+  const [orderSl, setOrderSl] = useState("");
+  const [orderTrailPct, setOrderTrailPct] = useState("2");
+  const [orderSubmitting, setOrderSubmitting] = useState(false);
+  const [orderConfirmed, setOrderConfirmed] = useState(null);
+
+  // ── Chart mode (canvas = interactive / finviz = image) ───────────────────
+  const [chartMode, setChartMode] = useState("canvas");
+  const [fvPeriod, setFvPeriod]   = useState("d");
+  const [fvStats,  setFvStats]    = useState(null);
+  const [fvLoading, setFvLoading] = useState(false);
+
+  const loadFvStats = useCallback(async (sym) => {
+    if (!sym) return;
+    setFvLoading(true);
+    try {
+      const res  = await fetch(`/api/finviz/quote?symbol=${encodeURIComponent(sym)}`);
+      const data = await res.json();
+      if (res.ok) setFvStats(data);
+    } catch {}
+    finally { setFvLoading(false); }
+  }, []);
+
+  // Auto-load Finviz stats when switching to FV mode or symbol changes
+  useEffect(() => {
+    if (chartMode === "finviz" && selected?.symbol) loadFvStats(selected.symbol);
+  }, [chartMode, selected?.symbol]); // eslint-disable-line
+
+  // ── AI Insight ──────────────────────────────────────────────────────────────
+  const [insightText, setInsightText]       = useState(null);
+  const [insightLoading, setInsightLoading] = useState(false);
+  const [insightSymbol, setInsightSymbol]   = useState(null);
+  const [insightAt, setInsightAt]           = useState(null);
+  const insightPrevRef                       = useRef(null);
+
+  const runInsight = useCallback(async (sym, price, change, scores) => {
+    if (!sym || price <= 0) return;
+    setInsightLoading(true);
+    setInsightSymbol(sym);
+    const priceFmt = price.toFixed(2);
+    const chgFmt   = `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`;
+    const score    = Number(scores?.composite || 50);
+    const prompt   = `Give me a 2-3 sentence technical snapshot of ${sym} at $${priceFmt} (${chgFmt}). Composite score: ${score}/100. Include: current trend status, the single most critical price level right now, and a specific near-term target or support. Be direct and specific. No filler. End with one action bias word: BULLISH / BEARISH / NEUTRAL.`;
+    try {
+      const res  = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt }) });
+      const data = await res.json();
+      if (res.ok && data.output) {
+        setInsightText(data.output.trim());
+      } else {
+        throw new Error("no output");
+      }
+    } catch {
+      // Heuristic fallback when AI not configured
+      const dir  = change > 1.5 ? "bullish momentum" : change < -1.5 ? "bearish pressure" : "range consolidation";
+      const bias = score >= 72 ? "BULLISH" : score <= 38 ? "BEARISH" : "NEUTRAL";
+      const tgt  = (price * (change >= 0 ? 1.028 : 0.972)).toFixed(2);
+      const sup  = (price * 0.968).toFixed(2);
+      setInsightText(`${sym} in ${dir}, score ${score}/100. Key level: $${sup} support. Near-term target: $${tgt}. ${bias}`);
+    } finally {
+      setInsightAt(new Date().toLocaleTimeString());
+      setInsightLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!drag) return;
@@ -1751,6 +2062,15 @@ function TerminalWorkspace({
       window.removeEventListener("mouseup", onUp);
     };
   }, [drag]);
+
+  // Auto-run AI Insight whenever the selected symbol changes
+  useEffect(() => {
+    if (!selected || selected.symbol === insightPrevRef.current) return;
+    insightPrevRef.current = selected.symbol;
+    const price = Number(selected.price || 0);
+    const change = Number(selected.changesPercentage || 0);
+    if (price > 0) runInsight(selected.symbol, price, change, computeScores(selected));
+  }, [selected?.symbol]); // eslint-disable-line
 
   if (!selected) return null;
   const chg = selected.changesPercentage || 0;
@@ -1930,10 +2250,28 @@ function TerminalWorkspace({
                 <option value="scalper">HK Scalper</option>
               </select>
               {["5M", "15M", "1H", "1D", "1W"].map((tf) => (
-                <button key={tf} onClick={() => onTimeframeChange(tf)} style={{ border: `1px solid ${timeframe === tf ? C.accent : C.border}`, background: timeframe === tf ? `${C.accent}12` : C.surface, color: timeframe === tf ? C.accent : C.textDim, fontFamily: MONO, fontSize: 10, padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}>
+                <button key={tf} onClick={() => onTimeframeChange(tf)} style={{ border: `1px solid ${timeframe === tf && chartMode === "canvas" ? C.accent : C.border}`, background: timeframe === tf && chartMode === "canvas" ? `${C.accent}12` : C.surface, color: timeframe === tf && chartMode === "canvas" ? C.accent : C.textDim, fontFamily: MONO, fontSize: 10, padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}>
                   {tf}
                 </button>
               ))}
+              {/* Chart source toggle */}
+              <div style={{ display: "flex", gap: 2, marginLeft: 4, borderLeft: `1px solid ${C.border}`, paddingLeft: 6 }}>
+                <button onClick={() => setChartMode("canvas")} style={{ border: `1px solid ${chartMode === "canvas" ? C.accent : C.border}`, background: chartMode === "canvas" ? `${C.accent}18` : C.surface, color: chartMode === "canvas" ? C.accent : C.textDim, fontFamily: MONO, fontSize: 9, padding: "4px 7px", borderRadius: 4, cursor: "pointer", fontWeight: chartMode === "canvas" ? 800 : 400 }}>
+                  CHART
+                </button>
+                <button onClick={() => setChartMode("finviz")} style={{ border: `1px solid ${chartMode === "finviz" ? C.purple : C.border}`, background: chartMode === "finviz" ? `${C.purple}18` : C.surface, color: chartMode === "finviz" ? C.purple : C.textDim, fontFamily: MONO, fontSize: 9, padding: "4px 7px", borderRadius: 4, cursor: "pointer", fontWeight: chartMode === "finviz" ? 800 : 400 }}>
+                  FV
+                </button>
+              </div>
+              {chartMode === "finviz" && (
+                <div style={{ display: "flex", gap: 2 }}>
+                  {[["d","D"],["w","W"],["m","M"]].map(([val, lbl]) => (
+                    <button key={val} onClick={() => setFvPeriod(val)} style={{ border: `1px solid ${fvPeriod === val ? C.purple : C.border}`, background: fvPeriod === val ? `${C.purple}18` : C.surface, color: fvPeriod === val ? C.purple : C.textDim, fontFamily: MONO, fontSize: 9, padding: "4px 6px", borderRadius: 4, cursor: "pointer" }}>
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              )}
               <button onClick={() => { setAlertFormOpen(v => !v); setAlertTarget(selected.price ? selected.price.toFixed(2) : ""); }} style={{ border: `1px solid ${alertFormOpen ? C.amber : C.border}`, background: alertFormOpen ? `${C.amber}14` : C.surface, color: alertFormOpen ? C.amber : C.textDim, fontFamily: MONO, fontSize: 10, padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}>
                 + ALERT
               </button>
@@ -1962,6 +2300,58 @@ function TerminalWorkspace({
               <button onClick={() => setAlertFormOpen(false)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "5px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>✕</button>
             </div>
           )}
+          <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+          <div style={{ height: 340, flexShrink: 0, borderBottom: `1px solid ${C.border}`, position: "relative" }}>
+            {chartMode === "finviz" ? (
+              <div style={{ width: "100%", height: "100%", background: "#111418", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                <img
+                  key={`fv-${selected.symbol}-${fvPeriod}`}
+                  src={`/api/finviz/chart?symbol=${encodeURIComponent(selected.symbol)}&period=${fvPeriod}`}
+                  alt={`${selected.symbol} Finviz chart`}
+                  style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }}
+                  onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.nextElementSibling.style.display = "flex"; }}
+                />
+                <div style={{ display: "none", position: "absolute", inset: 0, alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 6 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: "#888" }}>Finviz chart unavailable</span>
+                  <button onClick={() => setChartMode("canvas")} style={{ border: "1px solid #444", background: "#222", color: "#aaa", fontFamily: MONO, fontSize: 10, padding: "4px 10px", borderRadius: 4, cursor: "pointer" }}>Switch to Canvas</button>
+                </div>
+              </div>
+            ) : (
+              <CanvasChart candleData={candleData} drawTools={drawTools} loading={loadingCandles} />
+            )}
+          </div>
+          {chartMode === "finviz" && (
+            <div style={{ flexShrink: 0, borderBottom: `1px solid ${C.border}`, background: C.surface, padding: "8px 12px" }}>
+              {fvLoading ? (
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Loading Finviz stats…</span>
+              ) : fvStats ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px" }}>
+                  {[
+                    ["RSI(14)",  fvStats.rsi14   != null ? fvStats.rsi14.toFixed(1)                             : "—"],
+                    ["ATR",      fvStats.atr      != null ? fvStats.atr.toFixed(2)                              : "—"],
+                    ["Beta",     fvStats.beta     != null ? fvStats.beta.toFixed(2)                             : "—"],
+                    ["SMA20",    fvStats.sma20    != null ? `${fvStats.sma20 >= 0 ? "+" : ""}${fvStats.sma20.toFixed(2)}%` : "—"],
+                    ["SMA50",    fvStats.sma50    != null ? `${fvStats.sma50 >= 0 ? "+" : ""}${fvStats.sma50.toFixed(2)}%` : "—"],
+                    ["SMA200",   fvStats.sma200   != null ? `${fvStats.sma200 >= 0 ? "+" : ""}${fvStats.sma200.toFixed(2)}%` : "—"],
+                    ["Short%",   fvStats.shortFloat != null ? `${fvStats.shortFloat.toFixed(1)}%`               : "—"],
+                    ["Target",   fvStats.targetPrice != null ? `$${fvStats.targetPrice.toFixed(2)}`             : "—"],
+                    ["Recom",    fvStats.recom    || "—"],
+                    ["Earnings", fvStats.earnings || "—"],
+                    ["P/E",      fvStats.pe       != null ? fvStats.pe.toFixed(1)                               : "—"],
+                    ["EPS",      fvStats.eps      != null ? fvStats.eps.toFixed(2)                              : "—"],
+                  ].map(([label, val]) => (
+                    <div key={label} style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
+                      <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{label}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text }}>{val}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>No Finviz data</span>
+              )}
+            </div>
+          )}
+          <div style={{ overflow: "auto" }}>
           <div style={{ padding: 10, background: "linear-gradient(180deg,#ffffff 0%,#f8fbff 100%)", display: "grid", gap: 10, gridTemplateColumns: "1.15fr 1fr" }}>
             <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, background: C.surface, overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr" }}>
               <div style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -2193,6 +2583,8 @@ function TerminalWorkspace({
               </div>
             </div>
           </div>
+          </div>
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 1, background: C.border }}>
             {[["Composite", scores.composite, C.accent], ["Technical", scores.tech, C.cyan], ["Fundamental", scores.fund, C.purple], ["Macro Fit", scores.macro, C.amber], ["RVOL", `${rvol.toFixed(2)}x`, rvol > 1.2 ? C.green : C.textDim]].map(([k, v, col]) => (
               <div key={k} style={{ background: C.surface, padding: "8px 10px" }}>
@@ -2224,7 +2616,45 @@ function TerminalWorkspace({
 
       {showRight && <div onMouseDown={() => setDrag("right")} style={{ cursor: "col-resize", background: C.border, borderRadius: 6 }} />}
       {showRight && (
-        <div style={{ display: "grid", gridTemplateRows: "auto auto auto 1fr", gap: 10, marginLeft: 4 }}>
+        <div style={{ display: "grid", gridTemplateRows: "auto auto auto auto auto 1fr", gap: 10, marginLeft: 4, overflowY: "auto" }}>
+
+          {/* ── AI INSIGHT card ──────────────────────────────────────── */}
+          <div style={{ background: C.card, border: `1px solid ${insightLoading ? C.accent + "66" : C.border}`, borderRadius: 8, overflow: "hidden", transition: "border-color 0.3s" }}>
+            {/* Header */}
+            <div style={{ padding: "8px 12px", background: C.surface, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 20, height: 20, borderRadius: "50%", background: `linear-gradient(135deg, ${C.accent}, ${C.purple})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 900, color: "#fff" }}>AI</span>
+              </div>
+              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", flex: 1 }}>AI INSIGHT</span>
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.text }}>{insightSymbol || selected.symbol}</span>
+              <button
+                onClick={() => runInsight(selected.symbol, Number(selected.price || 0), Number(selected.changesPercentage || 0), scores)}
+                disabled={insightLoading}
+                style={{ border: `1px solid ${C.border}`, borderRadius: 3, background: "transparent", color: insightLoading ? C.textDim : C.accent, fontFamily: MONO, fontSize: 9, cursor: insightLoading ? "default" : "pointer", padding: "2px 7px", letterSpacing: "0.04em" }}
+              >{insightLoading ? "…" : "↻"}</button>
+            </div>
+            {/* Body */}
+            <div style={{ padding: "10px 12px", minHeight: 64 }}>
+              {insightLoading ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", border: `2px solid ${C.accent}`, borderTopColor: "transparent", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Analyzing {selected.symbol}…</span>
+                </div>
+              ) : insightText ? (
+                <>
+                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.text, lineHeight: 1.6, marginBottom: 6 }}>
+                    {insightText}
+                  </div>
+                  {insightAt && (
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Updated {insightAt}</div>
+                  )}
+                </>
+              ) : (
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Select a symbol to generate insight.</div>
+              )}
+            </div>
+          </div>
+
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
             <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
               <span>MACRO / REGIME</span>
@@ -2249,6 +2679,208 @@ function TerminalWorkspace({
               <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 11, color: C.textDim }}>Earnings</span><span style={{ fontFamily: MONO, fontSize: 11, color: C.text }}>{fundamentals?.earningsDate ? new Date(fundamentals.earningsDate).toLocaleDateString() : "TBD"}</span></div>
             </div>
           </div>
+          {/* ── ORDER ENTRY PANEL ── */}
+          {(() => {
+            const price = Number(selected?.price || 0);
+            const spread = Math.max(0.01, price * 0.0003);
+            const bid = price > 0 ? (price - spread / 2).toFixed(2) : "—";
+            const ask = price > 0 ? (price + spread / 2).toFixed(2) : "—";
+            const entryPrice = orderType === "market" ? price : (Number(orderPrice) || price);
+            const tpNum = Number(orderTp) || 0;
+            const slNum = Number(orderSl) || 0;
+            const rr = tpNum > 0 && slNum > 0 && entryPrice > 0 && orderSide === "buy"
+              ? ((tpNum - entryPrice) / Math.max(0.01, entryPrice - slNum)).toFixed(2)
+              : tpNum > 0 && slNum > 0 && entryPrice > 0 && orderSide === "sell"
+              ? ((entryPrice - tpNum) / Math.max(0.01, slNum - entryPrice)).toFixed(2)
+              : null;
+            const posValue = (Number(orderQty) || 0) * entryPrice;
+            const riskAmt = slNum > 0 && entryPrice > 0 && Number(orderQty) > 0
+              ? Math.abs(entryPrice - slNum) * Number(orderQty)
+              : 0;
+
+            // Simulated order book — 5 levels each side
+            const levels = Array.from({ length: 5 }, (_, i) => {
+              const bidPx = price > 0 ? (price - spread / 2 - i * spread * 1.2).toFixed(2) : 0;
+              const askPx = price > 0 ? (price + spread / 2 + i * spread * 1.2).toFixed(2) : 0;
+              const bidSz = Math.floor(200 + Math.random() * 800 + (4 - i) * 200);
+              const askSz = Math.floor(200 + Math.random() * 800 + (4 - i) * 200);
+              return { bidPx, askPx, bidSz, askSz };
+            });
+            const maxSz = Math.max(...levels.map(l => Math.max(l.bidSz, l.askSz)));
+
+            const handlePlaceOrder = async () => {
+              if (!Number(orderQty) || Number(orderQty) <= 0) return;
+              setOrderSubmitting(true);
+              try {
+                const notes = [
+                  `${orderType.toUpperCase()} order`,
+                  orderType !== "market" && orderPrice ? `@ $${orderPrice}` : `@ market $${price.toFixed(2)}`,
+                  orderTrailPct && orderType === "trailing" ? `trail ${orderTrailPct}%` : "",
+                  rr ? `R:R ${rr}` : "",
+                ].filter(Boolean).join(" · ");
+                await fetch("/api/journal", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    ticker: selected.symbol,
+                    side: orderSide === "buy" ? "BUY" : "SELL",
+                    entry: entryPrice,
+                    stopLoss: slNum || undefined,
+                    target: tpNum || undefined,
+                    size: Number(orderQty),
+                    timeframe: "1D",
+                    style: "Order Entry",
+                    score: scores.composite,
+                    notes,
+                  }),
+                });
+                setOrderConfirmed({ side: orderSide, qty: orderQty, price: entryPrice.toFixed(2), symbol: selected.symbol });
+                setTimeout(() => setOrderConfirmed(null), 4000);
+              } finally {
+                setOrderSubmitting(false);
+              }
+            };
+
+            return (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+                {/* Header */}
+                <div style={{ padding: "9px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface }}>
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em" }}>ORDER ENTRY</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text }}>{selected.symbol}</span>
+                </div>
+
+                {/* Bid/Ask strip */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1px 1fr", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{ padding: "8px 12px" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 2 }}>BID</div>
+                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.green }}>{bid}</div>
+                  </div>
+                  <div style={{ background: C.border }} />
+                  <div style={{ padding: "8px 12px" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 2 }}>ASK</div>
+                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.red }}>{ask}</div>
+                  </div>
+                </div>
+
+                {/* Order book depth */}
+                <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}`, background: C.surface }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>ORDER BOOK DEPTH</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto 1fr", gap: "2px 6px", alignItems: "center" }}>
+                    {levels.map((l, i) => (
+                      <React.Fragment key={`ob-${i}`}>
+                        {/* Bid bar */}
+                        <div style={{ position: "relative", height: 14, background: `${C.green}18`, borderRadius: 2, overflow: "hidden" }}>
+                          <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: `${(l.bidSz / maxSz) * 100}%`, background: `${C.green}44`, borderRadius: 2 }} />
+                          <span style={{ position: "absolute", right: 4, top: 0, bottom: 0, display: "flex", alignItems: "center", fontFamily: MONO, fontSize: 9, color: C.green }}>{l.bidSz}</span>
+                        </div>
+                        {/* Bid price */}
+                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.green, textAlign: "right", whiteSpace: "nowrap" }}>${l.bidPx}</div>
+                        {/* Ask price */}
+                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.red, textAlign: "left", whiteSpace: "nowrap" }}>${l.askPx}</div>
+                        {/* Ask bar */}
+                        <div style={{ position: "relative", height: 14, background: `${C.red}18`, borderRadius: 2, overflow: "hidden" }}>
+                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${(l.askSz / maxSz) * 100}%`, background: `${C.red}44`, borderRadius: 2 }} />
+                          <span style={{ position: "absolute", left: 4, top: 0, bottom: 0, display: "flex", alignItems: "center", fontFamily: MONO, fontSize: 9, color: C.red }}>{l.askSz}</span>
+                        </div>
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ padding: "10px 12px" }}>
+                  {/* Order type tabs */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 3, marginBottom: 10 }}>
+                    {[["market", "Market"], ["limit", "Limit"], ["stop", "Stop"], ["trailing", "Trail"]].map(([v, lbl]) => (
+                      <button key={v} onClick={() => setOrderType(v)} style={{ padding: "5px 0", border: `1px solid ${orderType === v ? C.accent : C.border}`, borderRadius: 4, background: orderType === v ? `${C.accent}18` : C.surface, color: orderType === v ? C.accent : C.textDim, fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: orderType === v ? 800 : 400, letterSpacing: "0.04em" }}>
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* BUY / SELL */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 10 }}>
+                    <button onClick={() => setOrderSide("buy")} style={{ padding: "9px 0", border: `2px solid ${orderSide === "buy" ? C.green : C.border}`, borderRadius: 5, background: orderSide === "buy" ? `${C.green}22` : C.surface, color: orderSide === "buy" ? C.green : C.textDim, fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", letterSpacing: "0.06em" }}>
+                      BUY
+                    </button>
+                    <button onClick={() => setOrderSide("sell")} style={{ padding: "9px 0", border: `2px solid ${orderSide === "sell" ? C.red : C.border}`, borderRadius: 5, background: orderSide === "sell" ? `${C.red}22` : C.surface, color: orderSide === "sell" ? C.red : C.textDim, fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", letterSpacing: "0.06em" }}>
+                      SELL
+                    </button>
+                  </div>
+
+                  {/* Quantity */}
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>QUANTITY (SHARES)</div>
+                    <input type="number" min="1" step="1" value={orderQty} onChange={e => setOrderQty(e.target.value)}
+                      style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 4 }} />
+                  </div>
+
+                  {/* Limit/Stop price */}
+                  {(orderType === "limit" || orderType === "stop") && (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>{orderType === "limit" ? "LIMIT PRICE" : "STOP TRIGGER"}</div>
+                      <input type="number" step="0.01" value={orderPrice} onChange={e => setOrderPrice(e.target.value)} placeholder={price.toFixed(2)}
+                        style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 4 }} />
+                    </div>
+                  )}
+
+                  {/* Trailing % */}
+                  {orderType === "trailing" && (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>TRAIL DISTANCE (%)</div>
+                      <input type="number" step="0.1" min="0.1" value={orderTrailPct} onChange={e => setOrderTrailPct(e.target.value)}
+                        style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 4 }} />
+                    </div>
+                  )}
+
+                  {/* TP / SL row */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.green, marginBottom: 4 }}>TAKE PROFIT</div>
+                      <input type="number" step="0.01" value={orderTp} onChange={e => setOrderTp(e.target.value)} placeholder="Price"
+                        style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.green}44`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "6px 8px", borderRadius: 4 }} />
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.red, marginBottom: 4 }}>STOP LOSS</div>
+                      <input type="number" step="0.01" value={orderSl} onChange={e => setOrderSl(e.target.value)} placeholder="Price"
+                        style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.red}44`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "6px 8px", borderRadius: 4 }} />
+                    </div>
+                  </div>
+
+                  {/* Position summary */}
+                  {(posValue > 0 || rr) && (
+                    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, padding: "7px 10px", marginBottom: 10, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                      <div>
+                        <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim }}>VALUE</div>
+                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.text, fontWeight: 700 }}>${posValue > 0 ? posValue.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "—"}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim }}>RISK $</div>
+                        <div style={{ fontFamily: MONO, fontSize: 10, color: riskAmt > 0 ? C.red : C.textDim, fontWeight: 700 }}>{riskAmt > 0 ? `$${riskAmt.toFixed(0)}` : "—"}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim }}>R:R</div>
+                        <div style={{ fontFamily: MONO, fontSize: 10, color: rr && Number(rr) >= 2 ? C.green : rr && Number(rr) >= 1 ? C.amber : C.red, fontWeight: 700 }}>{rr ? `${rr}R` : "—"}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Confirmed banner */}
+                  {orderConfirmed && (
+                    <div style={{ background: `${C.green}18`, border: `1px solid ${C.green}55`, borderRadius: 4, padding: "7px 10px", marginBottom: 8, fontFamily: MONO, fontSize: 10, color: C.green, textAlign: "center" }}>
+                      ✓ {orderConfirmed.side.toUpperCase()} {orderConfirmed.qty}×{orderConfirmed.symbol} @ ${orderConfirmed.price} — Logged to Journal
+                    </div>
+                  )}
+
+                  {/* Place Order button */}
+                  <button onClick={handlePlaceOrder} disabled={orderSubmitting || !Number(orderQty)}
+                    style={{ width: "100%", padding: "10px 0", border: "none", borderRadius: 5, background: orderSide === "buy" ? C.green : C.red, color: "#fff", fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: orderSubmitting || !Number(orderQty) ? "default" : "pointer", opacity: orderSubmitting || !Number(orderQty) ? 0.5 : 1, letterSpacing: "0.06em" }}>
+                    {orderSubmitting ? "PLACING…" : `PLACE ${orderSide.toUpperCase()} ORDER`}
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
             <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>ALERT PRIORITY</div>
             {alerts.slice(0, 4).map((a, i) => (
@@ -2684,6 +3316,622 @@ function DeepDive({ stock, fundamentals, onClose, onExit, onOpenTradingView }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// EARLY ENTRY SCANNER
+// ═══════════════════════════════════════════════════════════════
+
+function computeEarlyScore(q, spyChg, qqqChg) {
+  if (!q || !q.price) return { score: 0, breakdown: {}, reasons: [], flags: [] };
+  const price  = Number(q.price || 0);
+  const open   = Number(q.open  || price);
+  const avg50  = Number(q.priceAvg50  || 0);
+  const avg200 = Number(q.priceAvg200 || 0);
+  const yHigh  = Number(q.yearHigh || 0);
+  const yLow   = Number(q.yearLow  || 0);
+  const vol    = Number(q.volume    || 0);
+  const avgVol = Number(q.avgVolume || 1);
+  const chg    = Number(q.changesPercentage || 0);
+  const rvol   = avgVol > 0 ? vol / avgVol : 0;
+  const relSpy = chg - spyChg;
+  const relQqq = chg - qqqChg;
+  const relRS  = (relSpy + relQqq) / 2;
+
+  const bd = {};
+  const reasons = [];
+  const flags   = [];
+
+  // 1. Above VWAP (15 pts) — proxy: price vs open
+  if (open > 0 && price >= open * 1.001) {
+    bd.vwap = 15; reasons.push("Above VWAP");
+  } else if (open > 0 && price >= open * 0.997) {
+    bd.vwap = 7;  reasons.push("Near VWAP");
+  } else {
+    bd.vwap = 0;  flags.push("Below VWAP");
+  }
+
+  // 2. Bullish EMA alignment (15 pts)
+  if (avg50 > 0 && avg200 > 0 && price > avg50 && avg50 > avg200) {
+    bd.ema = 15; reasons.push("Bullish EMA alignment");
+  } else if (avg50 > 0 && price > avg50) {
+    bd.ema = 8;  reasons.push("Above 50 EMA");
+  } else if (avg200 > 0 && price > avg200) {
+    bd.ema = 4;  reasons.push("Above 200 EMA");
+  } else {
+    bd.ema = 0;  flags.push("Below key EMAs");
+  }
+
+  // 3. Near breakout level (15 pts) — within 1-3% of 52wk high
+  let distToHigh = 100;
+  if (yHigh > 0) {
+    distToHigh = ((yHigh - price) / yHigh) * 100;
+    if (distToHigh >= 0.3 && distToHigh <= 3)       { bd.breakout = 15; reasons.push("Near 52W breakout zone"); }
+    else if (distToHigh > 3 && distToHigh <= 6)     { bd.breakout = 8; }
+    else if (distToHigh < 0.3 && distToHigh >= -2)  { bd.breakout = 5;  flags.push("Just broke out — extended"); }
+    else                                              { bd.breakout = 0; }
+  } else { bd.breakout = 0; }
+
+  // 4. RVOL (15 pts)
+  if (rvol >= 2.5)      { bd.rvol = 15; reasons.push(`RVOL ${rvol.toFixed(1)}x — institutional volume`); }
+  else if (rvol >= 1.5) { bd.rvol = 12; reasons.push(`RVOL ${rvol.toFixed(1)}x — above average`); }
+  else if (rvol >= 1.2) { bd.rvol = 7; }
+  else if (rvol >= 0.8) { bd.rvol = 3; }
+  else                   { bd.rvol = 0; flags.push("Low volume"); }
+
+  // 5. Relative strength vs SPY/QQQ (15 pts)
+  if (relRS >= 2)       { bd.rs = 15; reasons.push("Stronger than SPY/QQQ"); }
+  else if (relRS >= 1)  { bd.rs = 10; reasons.push("Outperforming market"); }
+  else if (relRS >= 0)  { bd.rs = 6; }
+  else if (relRS >= -1) { bd.rs = 2; }
+  else                  { bd.rs = 0; flags.push("Weaker than market"); }
+
+  // 6. Pullback held support (10 pts)
+  if (avg50 > 0) {
+    const distTo50 = Math.abs(price - avg50) / avg50 * 100;
+    if (distTo50 <= 2 && chg > 0)      { bd.pullback = 10; reasons.push("Bouncing off 50 EMA support"); }
+    else if (distTo50 <= 4 && chg > 0) { bd.pullback = 5; }
+    else if (distTo50 <= 1.5 && chg < 0) { bd.pullback = 2; flags.push("Testing support — watch closely"); }
+    else { bd.pullback = 0; }
+  } else { bd.pullback = 0; }
+
+  // 7. OBV / accumulation rising (10 pts)
+  if (rvol >= 1.5 && chg > 0)      { bd.obv = 10; reasons.push("Volume confirming move"); }
+  else if (rvol >= 1.0 && chg > 0) { bd.obv = 5; }
+  else if (rvol >= 1.5 && chg < 0) { bd.obv = 0; flags.push("High volume selling"); }
+  else                              { bd.obv = 0; }
+
+  // 8. Catalyst awareness (5 pts)
+  if (rvol >= 2.5)      { bd.catalyst = 5; reasons.push("Unusual volume — possible catalyst"); }
+  else if (rvol >= 1.8) { bd.catalyst = 3; }
+  else                  { bd.catalyst = 0; }
+
+  const score = Math.min(100, Object.values(bd).reduce((s, v) => s + v, 0));
+
+  // Extra trap flags
+  if (yHigh > 0 && yLow > 0) {
+    const rng = yHigh - yLow;
+    const yPos = rng > 0 ? (price - yLow) / rng : 0.5;
+    if (yPos < 0.25) flags.push("Near 52W low — downtrend");
+  }
+  if (rvol >= 1.5 && chg < -1.5) flags.push("High-volume sell-off — trap risk");
+  if (distToHigh < -2)            flags.push("Extended above breakout");
+
+  return { score, breakdown: bd, reasons, flags, rvol, relRS, distToHigh };
+}
+
+function classifyEarlySetup(q, scored) {
+  const { score, breakdown: bd, rvol, distToHigh } = scored;
+  const chg   = Number(q.changesPercentage || 0);
+  const price = Number(q.price || 0);
+  const open  = Number(q.open  || price);
+  const avg50 = Number(q.priceAvg50 || 0);
+
+  if (score < 50 || (bd.vwap === 0 && bd.ema === 0)) return "Avoid / Trap Zone";
+  if (bd.vwap === 15 && rvol >= 1.5 && chg > 0 && price > open * 1.001)       return "VWAP Reclaim";
+  if (bd.ema >= 15 && avg50 > 0 && Math.abs(price - avg50) / avg50 * 100 <= 3) return "21 EMA Pullback";
+  if (distToHigh >= 0.3 && distToHigh <= 3 && bd.breakout >= 15)               return "Pre-Breakout Compression";
+  if (bd.rs >= 10 && score >= 65)                                               return "Relative Strength Leader";
+  if (rvol >= 2.0 && bd.obv >= 5 && score >= 60)                               return "Volume Before Price";
+  if (distToHigh >= -1 && distToHigh <= 1 && bd.vwap > 0)                      return "Breakout Retest";
+  return "Setup Forming";
+}
+
+function earlyScoreLabel(score) {
+  if (score >= 85) return { label: "A+ Early Entry", color: "#00c97a" };
+  if (score >= 75) return { label: "Watch Closely",  color: "#ffb340" };
+  if (score >= 65) return { label: "Setup Forming",  color: "#607494" };
+  return                  { label: "Ignore / Avoid", color: "#ff4d63" };
+}
+
+function EarlyEntryScanner({ watchlistData, macroData, sectorData, onSelectSymbol }) {
+  const [alertPreview, setAlertPreview] = useState(null);
+  const [sentAlerts, setSentAlerts]     = useState({});   // symbol → timestamp ms
+  const [alertStatus, setAlertStatus]   = useState("");
+  const [filterSetup, setFilterSetup]   = useState("ALL");
+  const [minScoreFilter, setMinScoreFilter] = useState(0);
+  const sentRef = useRef({});
+
+  const spy = (macroData || []).find(q => q.symbol === "SPY");
+  const qqq = (macroData || []).find(q => q.symbol === "QQQ");
+  const spyChg = Number(spy?.changesPercentage || 0);
+  const qqqChg = Number(qqq?.changesPercentage || 0);
+
+  // Determine market bias
+  const marketBias = useMemo(() => {
+    if (spyChg > 0.5 && qqqChg > 0.5) return { label: "Risk-On",  color: "#00c97a" };
+    if (spyChg < -0.5 || qqqChg < -0.5) return { label: "Risk-Off", color: "#ff4d63" };
+    return { label: "Neutral", color: "#ffb340" };
+  }, [spyChg, qqqChg]);
+
+  // Score every watchlist symbol
+  const scoredRows = useMemo(() => {
+    if (!watchlistData || !watchlistData.length) return [];
+    return watchlistData.map(q => {
+      const scored  = computeEarlyScore(q, spyChg, qqqChg);
+      const setup   = classifyEarlySetup(q, scored);
+      const lbl     = earlyScoreLabel(scored.score);
+      const price   = Number(q.price || 0);
+      const avg50   = Number(q.priceAvg50 || 0);
+      const yHigh   = Number(q.yearHigh   || 0);
+      const atr     = price > 0 ? ((Number(q.dayHigh || price) - Number(q.dayLow || price)) / price) * 100 : 1;
+      const entry   = avg50 > 0 && Math.abs(price - avg50) / avg50 * 100 <= 3 ? avg50 * 1.005 : price * 1.003;
+      const stop    = entry * (setup === "VWAP Reclaim" ? 0.977 : 0.972);
+      const t1      = entry * (setup === "Pre-Breakout Compression" ? 1.045 : 1.055);
+      const t2      = entry * (setup === "Pre-Breakout Compression" ? 1.085 : 1.10);
+      const rr      = entry > stop ? (t1 - entry) / Math.max(0.01, entry - stop) : 0;
+      return { q, scored, setup, lbl, entry, stop, t1, t2, rr, atr, yHigh };
+    }).sort((a, b) => b.scored.score - a.scored.score);
+  }, [watchlistData, spyChg, qqqChg]);
+
+  const earlyEntries    = useMemo(() => scoredRows.filter(r => r.scored.score >= 65 && r.setup !== "Avoid / Trap Zone"), [scoredRows]);
+  const preBreakout     = useMemo(() => scoredRows.filter(r => r.setup === "Pre-Breakout Compression" || (r.scored.distToHigh >= 0 && r.scored.distToHigh <= 5)), [scoredRows]);
+  const vwapReclaims    = useMemo(() => scoredRows.filter(r => r.setup === "VWAP Reclaim"), [scoredRows]);
+  const emaPullbacks    = useMemo(() => scoredRows.filter(r => r.setup === "21 EMA Pullback"), [scoredRows]);
+  const trapZones       = useMemo(() => scoredRows.filter(r => r.setup === "Avoid / Trap Zone" || r.scored.score < 50 || r.scored.flags.length >= 2), [scoredRows]);
+  const aPlusCount      = useMemo(() => scoredRows.filter(r => r.scored.score >= 85).length, [scoredRows]);
+  const nearBreakout    = useMemo(() => scoredRows.filter(r => r.scored.distToHigh >= 0 && r.scored.distToHigh <= 3).length, [scoredRows]);
+
+  const bestSector = useMemo(() => {
+    if (!sectorData || !sectorData.length) return "—";
+    const top = [...sectorData].sort((a, b) => (b.changesPercentage || 0) - (a.changesPercentage || 0))[0];
+    return top ? `${top.symbol} +${Number(top.changesPercentage || 0).toFixed(2)}%` : "—";
+  }, [sectorData]);
+
+  const bestEntry = scoredRows[0] || null;
+
+  const setupOptions = ["ALL", "VWAP Reclaim", "21 EMA Pullback", "Pre-Breakout Compression", "Relative Strength Leader", "Volume Before Price", "Breakout Retest"];
+
+  const filteredEntries = useMemo(() => earlyEntries.filter(r => {
+    if (filterSetup !== "ALL" && r.setup !== filterSetup) return false;
+    if (r.scored.score < minScoreFilter) return false;
+    return true;
+  }), [earlyEntries, filterSetup, minScoreFilter]);
+
+  const buildAlertText = (row) => {
+    const { q, scored, setup, lbl, entry, stop, t1, t2, rr } = row;
+    const whys = scored.reasons.slice(0, 5).map(r => `✅ ${r}`).join("\n");
+    return (
+`🚨 EARLY ${lbl.label.toUpperCase()} ALERT
+
+Ticker: ${q.symbol}
+Score: ${scored.score}/100
+Setup: ${setup}
+
+Entry:   $${entry.toFixed(2)}
+Stop:    $${stop.toFixed(2)}
+Target 1: $${t1.toFixed(2)}
+Target 2: $${t2.toFixed(2)}
+Risk/Reward: ${rr.toFixed(1)}R
+
+Why this is early:
+${whys || "✅ Multiple early signals confirmed"}
+
+Action Plan:
+Enter only if candle closes above entry.
+Do not chase if price is extended.
+Risk small and follow the stop.`
+    );
+  };
+
+  const sendAlert = async (row) => {
+    const now = Date.now();
+    const last = sentRef.current[row.q.symbol] || 0;
+    if (now - last < 30 * 60 * 1000) {
+      setAlertStatus(`⏱ Alert for ${row.q.symbol} already sent < 30 min ago`);
+      setTimeout(() => setAlertStatus(""), 3000);
+      return;
+    }
+    const text = buildAlertText(row);
+    try {
+      setAlertStatus("Sending…");
+      await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+      sentRef.current[row.q.symbol] = now;
+      setSentAlerts(s => ({ ...s, [row.q.symbol]: now }));
+      setAlertStatus(`✅ Alert sent for ${row.q.symbol}`);
+    } catch {
+      setAlertStatus("❌ Notify endpoint unavailable — check /api/notify");
+    }
+    setTimeout(() => setAlertStatus(""), 4000);
+  };
+
+  const TH = ({ children, right }) => (
+    <th style={{ padding: "8px 10px", textAlign: right ? "right" : "left", fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.07em", borderBottom: `1px solid ${C.border}`, background: C.surface, fontWeight: 700, whiteSpace: "nowrap" }}>
+      {children}
+    </th>
+  );
+  const TD = ({ children, right, color, mono }) => (
+    <td style={{ padding: "7px 10px", textAlign: right ? "right" : "left", fontFamily: mono !== false ? MONO : SANS, fontSize: 11, color: color || C.text, borderTop: `1px solid ${C.border}`, whiteSpace: "nowrap" }}>
+      {children}
+    </td>
+  );
+
+  const ScoreBadge = ({ score }) => {
+    const lbl = earlyScoreLabel(score);
+    return (
+      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: lbl.color, background: `${lbl.color}18`, padding: "2px 7px", borderRadius: 4 }}>
+        {score}
+      </span>
+    );
+  };
+
+  const SetupBadge = ({ setup }) => {
+    const col = setup === "VWAP Reclaim" ? C.cyan :
+                setup === "21 EMA Pullback" ? C.green :
+                setup === "Pre-Breakout Compression" ? C.amber :
+                setup === "Relative Strength Leader" ? C.accent :
+                setup === "Volume Before Price" ? C.purple :
+                setup === "Breakout Retest" ? "#f0c040" :
+                setup === "Avoid / Trap Zone" ? C.red : C.textDim;
+    return (
+      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: col, background: `${col}18`, padding: "2px 6px", borderRadius: 3, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
+        {setup}
+      </span>
+    );
+  };
+
+  const SummaryCard = ({ label, value, sub, color, onClick }) => (
+    <div onClick={onClick} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", cursor: onClick ? "pointer" : "default", minWidth: 130, flex: "1 1 130px" }}>
+      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.07em", marginBottom: 4 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: color || C.text, lineHeight: 1.1 }}>{value}</div>
+      {sub && <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 3 }}>{sub}</div>}
+    </div>
+  );
+
+  const SectionHeader = ({ title, count, color, badge }) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+      <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.09em", fontWeight: 700 }}>{title}</span>
+      {count != null && <span style={{ fontFamily: MONO, fontSize: 9, color: color || C.green, background: `${color || C.green}18`, padding: "1px 7px", borderRadius: 10 }}>{count}</span>}
+      {badge && <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{badge}</span>}
+    </div>
+  );
+
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+
+      {/* ── Summary Cards ── */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <SummaryCard label="MARKET BIAS"       value={marketBias.label}                 color={marketBias.color}  sub={`SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}%  QQQ ${qqqChg >= 0 ? "+" : ""}${qqqChg.toFixed(2)}%`} />
+        <SummaryCard label="BEST EARLY ENTRY"  value={bestEntry?.q.symbol || "—"}       color={C.accent}          sub={bestEntry ? `Score ${bestEntry.scored.score} · ${bestEntry.setup}` : "No setups yet"} onClick={() => bestEntry && onSelectSymbol(bestEntry.q.symbol)} />
+        <SummaryCard label="STRONGEST SECTOR"  value={bestSector.split(" ")[0] || "—"}  color={C.cyan}            sub={bestSector} />
+        <SummaryCard label="A+ EARLY SETUPS"   value={aPlusCount}                        color={aPlusCount > 0 ? C.green : C.textDim}  sub="Score ≥ 85 — act now" />
+        <SummaryCard label="NEAR BREAKOUT"     value={nearBreakout}                      color={C.amber}           sub="Within 3% of 52W high" />
+        <SummaryCard label="TRAP / AVOID"      value={trapZones.length}                  color={trapZones.length > 0 ? C.red : C.textDim}  sub="Flagged — do not chase" />
+      </div>
+
+      {/* ── Filter bar ── */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.07em" }}>SETUP:</span>
+        {setupOptions.map(s => (
+          <button key={s} onClick={() => setFilterSetup(s)} style={{ border: `1px solid ${filterSetup === s ? C.accent : C.border}`, background: filterSetup === s ? `${C.accent}18` : C.surface, color: filterSetup === s ? C.accent : C.textDim, fontFamily: MONO, fontSize: 9, padding: "4px 10px", borderRadius: 12, cursor: "pointer", fontWeight: filterSetup === s ? 800 : 400, letterSpacing: "0.04em" }}>
+            {s}
+          </button>
+        ))}
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+          <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>MIN SCORE:</span>
+          {[0, 65, 75, 85].map(v => (
+            <button key={v} onClick={() => setMinScoreFilter(v)} style={{ border: `1px solid ${minScoreFilter === v ? C.accent : C.border}`, background: minScoreFilter === v ? `${C.accent}18` : C.surface, color: minScoreFilter === v ? C.accent : C.textDim, fontFamily: MONO, fontSize: 9, padding: "4px 9px", borderRadius: 12, cursor: "pointer", fontWeight: minScoreFilter === v ? 800 : 400 }}>
+              {v === 0 ? "ALL" : `${v}+`}
+            </button>
+          ))}
+        </div>
+        {alertStatus && (
+          <span style={{ fontFamily: MONO, fontSize: 10, color: alertStatus.startsWith("✅") ? C.green : alertStatus.startsWith("❌") ? C.red : C.amber, marginLeft: 8 }}>{alertStatus}</span>
+        )}
+      </div>
+
+      {/* ── Best Early Entries Table ── */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+        <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <SectionHeader title="BEST EARLY ENTRIES" count={filteredEntries.length} color={C.green} />
+          <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Scored from watchlist · modular — plug in live data to refine</span>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <TH>TICKER</TH><TH right>PRICE</TH><TH right>SCORE</TH><TH>SETUP TYPE</TH>
+                <TH right>ENTRY</TH><TH right>STOP</TH><TH right>T1</TH><TH right>T2</TH>
+                <TH right>R:R</TH><TH>STATUS</TH><TH>ALERT</TH>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredEntries.length === 0 && (
+                <tr><td colSpan={11} style={{ padding: 16, fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>No early entries match the current filters.</td></tr>
+              )}
+              {filteredEntries.map(row => {
+                const { q, scored, setup, lbl, entry, stop, t1, t2, rr } = row;
+                const chg = Number(q.changesPercentage || 0);
+                const recentlySent = sentAlerts[q.symbol] && (Date.now() - sentAlerts[q.symbol] < 30 * 60 * 1000);
+                return (
+                  <tr key={q.symbol} style={{ background: "transparent" }}
+                      onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <TD>
+                      <button onClick={() => onSelectSymbol(q.symbol)} style={{ background: "none", border: "none", fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, cursor: "pointer", padding: 0 }}>
+                        {q.symbol}
+                      </button>
+                    </TD>
+                    <TD right mono color={chg >= 0 ? C.green : C.red}>${Number(q.price || 0).toFixed(2)}</TD>
+                    <TD right><ScoreBadge score={scored.score} /></TD>
+                    <TD><SetupBadge setup={setup} /></TD>
+                    <TD right mono color={C.text}>${entry.toFixed(2)}</TD>
+                    <TD right mono color={C.red}>${stop.toFixed(2)}</TD>
+                    <TD right mono color={C.green}>${t1.toFixed(2)}</TD>
+                    <TD right mono color={C.green}>${t2.toFixed(2)}</TD>
+                    <TD right mono color={rr >= 2 ? C.green : rr >= 1.5 ? C.amber : C.red}>{rr.toFixed(1)}R</TD>
+                    <TD><span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: lbl.color, background: `${lbl.color}15`, padding: "2px 6px", borderRadius: 3 }}>{lbl.label}</span></TD>
+                    <TD>
+                      <div style={{ display: "flex", gap: 5 }}>
+                        <button onClick={() => setAlertPreview(alertPreview?.q?.symbol === q.symbol ? null : row)}
+                          style={{ border: `1px solid ${alertPreview?.q?.symbol === q.symbol ? C.amber : C.border}`, background: alertPreview?.q?.symbol === q.symbol ? `${C.amber}18` : C.surface, color: alertPreview?.q?.symbol === q.symbol ? C.amber : C.textDim, fontFamily: MONO, fontSize: 9, padding: "3px 7px", borderRadius: 3, cursor: "pointer" }}>
+                          PREVIEW
+                        </button>
+                        {scored.score >= 75 && (
+                          <button onClick={() => sendAlert(row)} disabled={recentlySent}
+                            style={{ border: `1px solid ${recentlySent ? C.border : C.green + "88"}`, background: recentlySent ? C.surface : `${C.green}14`, color: recentlySent ? C.textDim : C.green, fontFamily: MONO, fontSize: 9, padding: "3px 7px", borderRadius: 3, cursor: recentlySent ? "default" : "pointer", opacity: recentlySent ? 0.5 : 1 }}>
+                            {recentlySent ? "SENT" : "SEND"}
+                          </button>
+                        )}
+                      </div>
+                    </TD>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Alert Preview Panel ── */}
+      {alertPreview && (
+        <div style={{ background: C.card, border: `2px solid ${C.amber}66`, borderRadius: 8, padding: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <SectionHeader title={`TELEGRAM ALERT PREVIEW — ${alertPreview.q.symbol}`} color={C.amber} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => sendAlert(alertPreview)}
+                style={{ border: `1px solid ${C.green}88`, background: `${C.green}18`, color: C.green, fontFamily: MONO, fontSize: 10, padding: "5px 14px", borderRadius: 4, cursor: "pointer", fontWeight: 700 }}>
+                SEND TO TELEGRAM
+              </button>
+              <button onClick={() => setAlertPreview(null)}
+                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 10, padding: "5px 10px", borderRadius: 4, cursor: "pointer" }}>
+                CLOSE
+              </button>
+            </div>
+          </div>
+          <pre style={{ fontFamily: MONO, fontSize: 11, color: C.text, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 14, margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.65 }}>
+            {buildAlertText(alertPreview)}
+          </pre>
+          <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+            Alert rules: Score ≥85 = A+ Early Entry Alert · Score 75–84 = Watch Closely · Duplicate suppressed for 30 min per ticker
+          </div>
+        </div>
+      )}
+
+      {/* ── Two-column: VWAP Reclaim + EMA Pullback ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+
+        {/* VWAP Reclaim */}
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+          <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface }}>
+            <SectionHeader title="VWAP RECLAIM SCANNER" count={vwapReclaims.length} color={C.cyan} badge="price reclaimed above open" />
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr><TH>TICKER</TH><TH right>PRICE</TH><TH right>CHG%</TH><TH right>RVOL</TH><TH right>SCORE</TH></tr></thead>
+            <tbody>
+              {vwapReclaims.length === 0 && <tr><td colSpan={5} style={{ padding: 12, fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>No VWAP reclaims detected.</td></tr>}
+              {vwapReclaims.slice(0, 8).map(row => {
+                const chg = Number(row.q.changesPercentage || 0);
+                return (
+                  <tr key={row.q.symbol}
+                      onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <TD><button onClick={() => onSelectSymbol(row.q.symbol)} style={{ background: "none", border: "none", fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, cursor: "pointer", padding: 0 }}>{row.q.symbol}</button></TD>
+                    <TD right>${Number(row.q.price || 0).toFixed(2)}</TD>
+                    <TD right color={chg >= 0 ? C.green : C.red}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</TD>
+                    <TD right color={row.scored.rvol >= 1.5 ? C.green : C.textDim}>{row.scored.rvol.toFixed(2)}x</TD>
+                    <TD right><ScoreBadge score={row.scored.score} /></TD>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <div style={{ padding: "8px 14px", borderTop: `1px solid ${C.border}`, background: C.surface }}>
+            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, lineHeight: 1.6 }}>
+              Qualifies: price above open · volume confirming · SPY/QQQ stable<br />
+              EMA aligned · candle closed above reclaim level
+            </div>
+          </div>
+        </div>
+
+        {/* EMA Pullback */}
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+          <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface }}>
+            <SectionHeader title="21 EMA PULLBACK SCANNER" count={emaPullbacks.length} color={C.green} badge="near 50sma support · trending" />
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr><TH>TICKER</TH><TH right>PRICE</TH><TH right>vs 50D</TH><TH right>RVOL</TH><TH right>SCORE</TH></tr></thead>
+            <tbody>
+              {emaPullbacks.length === 0 && <tr><td colSpan={5} style={{ padding: 12, fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>No EMA pullbacks detected.</td></tr>}
+              {emaPullbacks.slice(0, 8).map(row => {
+                const avg50 = Number(row.q.priceAvg50 || 0);
+                const price = Number(row.q.price || 0);
+                const distTo50 = avg50 > 0 ? ((price - avg50) / avg50 * 100) : null;
+                return (
+                  <tr key={row.q.symbol}
+                      onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <TD><button onClick={() => onSelectSymbol(row.q.symbol)} style={{ background: "none", border: "none", fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, cursor: "pointer", padding: 0 }}>{row.q.symbol}</button></TD>
+                    <TD right>${price.toFixed(2)}</TD>
+                    <TD right color={distTo50 != null ? (distTo50 >= 0 ? C.green : C.red) : C.textDim}>
+                      {distTo50 != null ? `${distTo50 >= 0 ? "+" : ""}${distTo50.toFixed(1)}%` : "—"}
+                    </TD>
+                    <TD right color={row.scored.rvol >= 1.5 ? C.green : C.textDim}>{row.scored.rvol.toFixed(2)}x</TD>
+                    <TD right><ScoreBadge score={row.scored.score} /></TD>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <div style={{ padding: "8px 14px", borderTop: `1px solid ${C.border}`, background: C.surface }}>
+            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, lineHeight: 1.6 }}>
+              Qualifies: price above 200 EMA · EMA 9 &gt; 21 &gt; 50 · pulling near 50D<br />
+              low selling volume · green bounce from support
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Pre-Breakout Watchlist ── */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+        <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface }}>
+          <SectionHeader title="PRE-BREAKOUT WATCHLIST" count={preBreakout.length} color={C.amber} badge="within 5% of 52W high · compression building" />
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <TH>TICKER</TH><TH right>PRICE</TH><TH right>BREAKOUT LEVEL</TH>
+                <TH right>DIST %</TH><TH right>RVOL</TH><TH right>ATR%</TH>
+                <TH right>REL STR</TH><TH right>SCORE</TH><TH>PLAN</TH>
+              </tr>
+            </thead>
+            <tbody>
+              {preBreakout.length === 0 && (
+                <tr><td colSpan={9} style={{ padding: 16, fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>No pre-breakout candidates in watchlist.</td></tr>
+              )}
+              {preBreakout.slice(0, 10).map(row => {
+                const { q, scored, setup, atr, yHigh, rr } = row;
+                const price = Number(q.price || 0);
+                const relStr = scored.relRS;
+                const plan = scored.distToHigh <= 1.5
+                  ? "Ready to break — watch for volume surge"
+                  : scored.distToHigh <= 3
+                  ? "Building base — wait for catalyst"
+                  : "Stalk — not ready yet";
+                return (
+                  <tr key={q.symbol}
+                      onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <TD><button onClick={() => onSelectSymbol(q.symbol)} style={{ background: "none", border: "none", fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, cursor: "pointer", padding: 0 }}>{q.symbol}</button></TD>
+                    <TD right>${price.toFixed(2)}</TD>
+                    <TD right color={C.amber}>{yHigh > 0 ? `$${yHigh.toFixed(2)}` : "—"}</TD>
+                    <TD right color={scored.distToHigh <= 2 ? C.green : scored.distToHigh <= 4 ? C.amber : C.textDim}>
+                      {yHigh > 0 ? `${scored.distToHigh.toFixed(1)}%` : "—"}
+                    </TD>
+                    <TD right color={scored.rvol >= 1.5 ? C.green : C.textDim}>{scored.rvol.toFixed(2)}x</TD>
+                    <TD right color={atr <= 1.5 ? C.green : atr <= 3 ? C.amber : C.textDim}>{atr.toFixed(2)}%</TD>
+                    <TD right color={relStr >= 0 ? C.green : C.red}>{relStr >= 0 ? "+" : ""}{relStr.toFixed(2)}%</TD>
+                    <TD right><ScoreBadge score={scored.score} /></TD>
+                    <TD mono={false}><span style={{ fontSize: 10, color: scored.distToHigh <= 1.5 ? C.green : scored.distToHigh <= 3 ? C.amber : C.textDim }}>{plan}</span></TD>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Avoid / Trap Zone ── */}
+      <div style={{ background: C.card, border: `1px solid ${C.red}33`, borderRadius: 8, overflow: "hidden" }}>
+        <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <SectionHeader title="AVOID / TRAP ZONE" count={trapZones.length} color={C.red} badge="do not chase these" />
+          <span style={{ fontFamily: MONO, fontSize: 9, color: C.red }}>⚠ Extended · weak · below VWAP · score &lt; 50</span>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr><TH>TICKER</TH><TH right>PRICE</TH><TH right>CHG%</TH><TH right>SCORE</TH><TH>FLAGS</TH></tr>
+            </thead>
+            <tbody>
+              {trapZones.length === 0 && (
+                <tr><td colSpan={5} style={{ padding: 14, fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>No trap zones — market looks clean.</td></tr>
+              )}
+              {trapZones.slice(0, 8).map(row => {
+                const chg = Number(row.q.changesPercentage || 0);
+                return (
+                  <tr key={row.q.symbol}
+                      onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <TD mono><span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.textSec }}>{row.q.symbol}</span></TD>
+                    <TD right>${Number(row.q.price || 0).toFixed(2)}</TD>
+                    <TD right color={chg >= 0 ? C.textSec : C.red}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</TD>
+                    <TD right><span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.red }}>{row.scored.score}</span></TD>
+                    <TD mono={false}>
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {row.scored.flags.map((f, i) => (
+                          <span key={i} style={{ fontFamily: MONO, fontSize: 8, color: C.red, background: `${C.red}14`, padding: "1px 5px", borderRadius: 3 }}>{f}</span>
+                        ))}
+                      </div>
+                    </TD>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Scoring Legend ── */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px" }}>
+        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.07em", marginBottom: 10 }}>EARLY ENTRY SCORING MODEL</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 12 }}>
+          {[
+            { label: "A+ Early Entry", range: "85–100", color: "#00c97a" },
+            { label: "Watch Closely",  range: "75–84",  color: "#ffb340" },
+            { label: "Setup Forming",  range: "65–74",  color: "#607494" },
+            { label: "Ignore / Avoid", range: "0–64",   color: "#ff4d63" },
+          ].map(({ label, range, color }) => (
+            <div key={label} style={{ border: `1px solid ${color}44`, borderRadius: 6, padding: "8px 12px", background: `${color}0a` }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, color, fontWeight: 800 }}>{label}</div>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>Score {range}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+          {[
+            ["Above VWAP", "15 pts"],
+            ["EMA Alignment", "15 pts"],
+            ["Near Breakout", "15 pts"],
+            ["RVOL ≥ 1.5x", "15 pts"],
+            ["Relative Strength", "15 pts"],
+            ["Pullback Support", "10 pts"],
+            ["OBV Accumulation", "10 pts"],
+            ["Catalyst Awareness", "5 pts"],
+          ].map(([k, v]) => (
+            <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "4px 8px", background: C.surface, borderRadius: 4, border: `1px solid ${C.border}` }}>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textSec }}>{k}</span>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.accent, fontWeight: 700 }}>{v}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+          Data source: watchlist live quotes · VWAP proxy = price vs open · EMA proxy = 50D/200D SMA · Plug in TradingView/Polygon webhooks to upgrade to real VWAP + EMA values
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
 // MAIN APP
 // ═══════════════════════════════════════════════════════════════
 export default function App() {
@@ -2695,6 +3943,9 @@ export default function App() {
   const [watchlistInput, setWatchlistInput] = useState(WATCHLIST_SYMBOLS.join(","));
   const [watchlistNotes, setWatchlistNotes] = useState(() => { try { return JSON.parse(localStorage.getItem("ax_wl_notes") || "{}"); } catch { return {}; } });
   const [openNoteSymbol, setOpenNoteSymbol] = useState(null);
+  const [openAlertSymbol, setOpenAlertSymbol] = useState(null);
+  const [wlAlertPrice, setWlAlertPrice] = useState("");
+  const [wlAlertDir, setWlAlertDir] = useState("above");
   const [customAlertSymbol, setCustomAlertSymbol] = useState("");
   const [customAlertMin, setCustomAlertMin] = useState("70");
   const [customAlerts, setCustomAlerts] = useState([]);
@@ -2825,13 +4076,18 @@ export default function App() {
 
   // ── Quran Player State ──
   const [quranReciter, setQuranReciter] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("quran_reciter") || "null") || QURAN_RECITERS[0]; } catch { return QURAN_RECITERS[0]; }
+    try {
+      const saved = JSON.parse(localStorage.getItem("quran_reciter") || "null");
+      // Validate saved reciter still exists in the current list (CDN may have changed)
+      return (saved && QURAN_RECITERS.find(r => r.id === saved.id)) || QURAN_RECITERS[0];
+    } catch { return QURAN_RECITERS[0]; }
   });
   const [quranSurah, setQuranSurah] = useState(() => {
     try { return Number(localStorage.getItem("quran_surah") || "1"); } catch { return 1; }
   });
   const [quranPlaying, setQuranPlaying] = useState(false);
   const [quranAutoNext, setQuranAutoNext] = useState(true);
+  const [quranAudioError, setQuranAudioError] = useState(false);
   const quranAudioRef = useRef(null);
 
   // ── Athan State ──
@@ -2972,10 +4228,11 @@ export default function App() {
   useEffect(() => {
     if (!quranAudioRef.current) return;
     const shouldPlay = quranWasPlaying.current;
-    quranWasPlaying.current = false; // consume the flag
+    quranWasPlaying.current = false;
+    setQuranAudioError(false);
     quranAudioRef.current.load();
     if (shouldPlay) {
-      quranAudioRef.current.play().catch(() => {});
+      quranAudioRef.current.play().catch(() => setQuranAudioError(true));
     }
   }, [quranSurah, quranReciter]);
 
@@ -3010,6 +4267,8 @@ export default function App() {
   const [tasbihCompleted, setTasbihCompleted] = useState(false);
 
   const themeMode = String(settings.themeMode || "light").toLowerCase() === "dark" ? "dark" : "light";
+  // Sync module-level C on every render so all components see the current theme immediately
+  Object.assign(C, themeMode === "dark" ? THEME_DARK : THEME_LIGHT);
 
   const SESSION_TTL = 8 * 60 * 60 * 1000;
   useEffect(() => {
@@ -3186,11 +4445,9 @@ export default function App() {
   }, [watchlistSymbols, scannerFilters]);
 
   useEffect(() => {
-    const themeObj = themeMode === "dark" ? THEME_DARK : THEME_LIGHT;
-    Object.assign(C, themeObj);
     try {
-      document.body.style.background = themeObj.bg;
-      document.body.style.color = themeObj.text;
+      document.body.style.background = C.bg;
+      document.body.style.color = C.text;
     } catch {}
   }, [themeMode]);
 
@@ -5050,257 +6307,225 @@ export default function App() {
       {/* Top Bar */}
       <div style={{
         display: "flex", justifyContent: "space-between", alignItems: "center",
-        padding: "12px 22px", borderBottom: `1px solid ${C.border}`, background: C.surface, flexWrap: "wrap", rowGap: 10,
+        padding: "8px 18px", borderBottom: `1px solid ${C.border}`,
+        background: themeMode === "dark" ? "#070d1b" : C.surface,
+        flexWrap: "wrap", rowGap: 8,
         position: "sticky", top: 0, zIndex: 40,
+        boxShadow: themeMode === "dark" ? "0 1px 0 #1a2e4a, 0 2px 12px rgba(0,0,0,0.5)" : "0 1px 4px rgba(0,0,0,0.06)",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0, flex: "1 1 auto", overflow: "hidden" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: "1 1 auto", overflow: "hidden" }}>
+          {/* Logo + brand */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             <img
               src="/axiom-runner/assets/am-trading-logo.png?v=2"
               alt="AM Trading Platform"
-              style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface }}
+              style={{ width: 40, height: 40, objectFit: "contain", borderRadius: 7, border: `1px solid ${C.border}`, background: C.surface, flexShrink: 0 }}
             />
-            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.05 }}>
-              <span style={{ fontFamily: MONO, fontWeight: 800, fontSize: 20, color: C.text, letterSpacing: "-0.02em" }}>AM TRADING</span>
-              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em" }}>PLATFORM</span>
+            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
+              <span style={{ fontFamily: MONO, fontWeight: 900, fontSize: 16, color: C.text, letterSpacing: "-0.01em" }}>AM TRADING</span>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.1em" }}>PLATFORM</span>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 4, overflowX: "auto", maxWidth: "100%", paddingBottom: 2, scrollbarWidth: "thin", flexWrap: "nowrap" }}>
-            {[
-              { id: "dashboard", label: "MONITOR" },
-              { id: "terminal", label: "TERMINAL" },
-                { id: "macro", label: "MACRO" },
-                { id: "news", label: "NEWS" },
-                { id: "earnings", label: "EARNINGS" },
-                { id: "tv", label: "LIVE TV" },
-              { id: "alerts", label: "ALERTS" },
-              { id: "agent", label: "AI AGENT" },
-              { id: "workflow", label: "WORKFLOW" },
-              { id: "flow", label: "FLOW" },
-              { id: "portfolio", label: "PORTFOLIO" },
-              { id: "scanner", label: "SCANNER", badge: scannerRows.filter(r => r.scannerScore >= 70).length || null },
-              { id: "backtest", label: "BACKTEST" },
-              { id: "rotation", label: "ROTATION" },
-              { id: "tools", label: "TOOLS" },
-              { id: "sectors", label: "SECTORS" },
-              { id: "journal", label: "JOURNAL" },
-              { id: "analyzer", label: "ANALYZER" },
-              { id: "quran", label: "قرآن" },
-              { id: "athan", label: "أوقات الصلاة" },
-              { id: "athkar", label: "أذكار" },
-              { id: "tasbih", label: "تسبيح" },
-            ].map(t => (
-              <Pill key={t.id} active={activeTab === t.id} onClick={() => setActiveTab(t.id)}>
-                {t.label}{t.id === "alerts" && triggeredAlertBadge > 0 && (
-                  <span style={{ marginLeft: 5, background: C.red, color: "#fff", borderRadius: 10, padding: "1px 5px", fontSize: 9, fontWeight: 800, verticalAlign: "middle" }}>{triggeredAlertBadge}</span>
-                )}{t.badge != null && (
-                  <span style={{ marginLeft: 5, background: C.green, color: "#fff", borderRadius: 10, padding: "1px 5px", fontSize: 9, fontWeight: 800, verticalAlign: "middle" }}>{t.badge}</span>
-                )}
-              </Pill>
-            ))}
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "1 1 640px", minWidth: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {/* User pill */}
           <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            border: `1px solid ${C.accent}55`,
-            background: `linear-gradient(120deg, ${C.accent}10 0%, ${C.cyan}14 52%, ${C.green}10 100%)`,
-            borderRadius: 6,
-            padding: "6px 10px",
-            flex: "1 1 220px",
-            minWidth: 170,
-            maxWidth: 360,
-            boxShadow: `inset 0 0 0 1px ${C.surface}`,
-            overflow: "hidden",
+            display: "flex", alignItems: "center", gap: 6,
+            background: C.card, border: `1px solid ${C.border}`,
+            borderRadius: 999, padding: "4px 10px 4px 4px", flexShrink: 0,
           }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, color: C.accent, letterSpacing: "0.06em", fontWeight: 700 }}>
-              WEATHER {WEATHER_ZIP}
-            </span>
-            {weatherData ? (
-              <>
-                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: weatherData.temp >= 85 ? C.red : weatherData.temp <= 40 ? C.cyan : C.text }}>
-                  {weatherData.temp.toFixed(0)}°F
-                </span>
-                <span style={{ fontFamily: SANS, fontSize: 10, color: C.text, maxWidth: 72, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", background: `${C.surface}C9`, border: `1px solid ${C.border}`, borderRadius: 999, padding: "1px 7px", fontWeight: 600 }}>
-                  {weatherCodeLabel(weatherData.code)}
-                </span>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.text, background: `${C.green}1A`, border: `1px solid ${C.green}45`, borderRadius: 999, padding: "1px 7px", fontWeight: 700 }}>
-                  H/L {weatherData.high.toFixed(0)}°/{weatherData.low.toFixed(0)}°
-                </span>
-              </>
-            ) : (
-              <span style={{ fontFamily: SANS, fontSize: 10, color: weatherError ? C.red : C.textSec, fontWeight: 600 }}>
-                {weatherError ? "Unavailable" : "Loading..."}
-              </span>
-            )}
-            <button
-              onClick={fetchWeather}
-              style={{ border: `1px solid ${C.accent}66`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 9, fontWeight: 700, cursor: "pointer", marginLeft: "auto" }}
-            >
-              {weatherLoading ? "..." : "↻"}
-            </button>
+            <div style={{
+              width: 22, height: 22, borderRadius: "50%",
+              background: `linear-gradient(135deg, ${C.accent}, ${C.cyan})`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 11, fontWeight: 800, color: "#fff", fontFamily: MONO, flexShrink: 0,
+            }}>D</div>
+            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textSec, fontWeight: 700 }}>Dixie</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "1 1 270px", minWidth: 0 }}>
-            <input
-              value={symbolSearch}
-              onChange={(e) => setSymbolSearch(e.target.value.toUpperCase())}
-              onKeyDown={(e) => { if (e.key === "Enter") handleSymbolSearch(); }}
-              placeholder="Search ticker (NVDA)"
-              style={{ width: "min(220px, 42vw)", minWidth: 120, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "7px 10px", fontFamily: MONO, fontSize: 11 }}
-            />
-              <button onClick={handleSymbolSearch} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 4, padding: "7px 10px", fontFamily: MONO, fontSize: 11, cursor: "pointer" }}>
-                SEARCH
-              </button>
-              <button onClick={() => openTradingView(symbolSearch || terminalSymbol)} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.accent, borderRadius: 4, padding: "7px 10px", fontFamily: MONO, fontSize: 11, cursor: "pointer" }}>
-                TV
-              </button>
-            </div>
-          <div style={{
-            display: "flex", alignItems: "center", gap: 8, padding: "4px 12px",
-            background: `${regimeColor[regime]}12`, borderRadius: 3, border: `1px solid ${regimeColor[regime]}30`,
-          }}>
-            <span style={{ fontSize: 11, fontFamily: MONO, color: regimeColor[regime], fontWeight: 700, letterSpacing: "0.06em" }}>
-              {regime.toUpperCase()}
-            </span>
-          </div>
+          {/* Nav tabs — grouped */}
           {(() => {
-            const cdColor = sessionCountdown.session === "REGULAR" ? C.green
-              : sessionCountdown.session === "PREMARKET" ? C.accent
-              : sessionCountdown.session === "AFTERMARKET" ? C.amber
-              : C.textDim;
+            const NAV_GROUPS = [
+              { id: "dashboard", label: "MONITOR",   tabs: ["dashboard"] },
+              { id: "terminal",  label: "TERMINAL",  tabs: ["terminal"] },
+              { id: "scanner",   label: "SCANNER",   tabs: ["scanner", "early", "analyzer"] },
+              { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "tv", "flow"] },
+              { id: "portfolio", label: "PORTFOLIO", tabs: ["portfolio", "journal", "alerts"] },
+              { id: "tools",     label: "TOOLS",     tabs: ["tools", "backtest", "workflow", "agent"] },
+              { id: "islamic",   label: "☪",         tabs: ["quran", "athan", "athkar", "tasbih"] },
+            ];
+            const scannerBadge = scannerRows.filter(r => r.scannerScore >= 70).length || null;
             return (
-              <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", background: `${cdColor}0f`, borderRadius: 3, border: `1px solid ${cdColor}30` }}>
-                <span style={{ fontSize: 9, fontFamily: MONO, color: C.textDim, letterSpacing: "0.06em" }}>{sessionCountdown.label}</span>
-                <span style={{ fontSize: 11, fontFamily: MONO, color: cdColor, fontWeight: 700, letterSpacing: "0.04em" }}>{fmtCountdownShort(sessionCountdown.secs)}</span>
+              <div style={{ display: "flex", gap: 2, overflowX: "auto", maxWidth: "100%", paddingBottom: 0, scrollbarWidth: "none", flexWrap: "nowrap", alignItems: "center" }}>
+                {NAV_GROUPS.map(g => {
+                  const isActive = g.tabs.includes(activeTab);
+                  const hasAlertBadge = g.id === "portfolio" && triggeredAlertBadge > 0;
+                  const hasScanBadge  = g.id === "scanner" && scannerBadge;
+                  return (
+                    <button
+                      key={g.id}
+                      onClick={() => setActiveTab(g.tabs[0])}
+                      style={{
+                        border: "none",
+                        background: isActive
+                          ? (themeMode === "dark" ? `${C.accent}22` : `${C.accent}14`)
+                          : "transparent",
+                        color: isActive ? C.accent : C.textDim,
+                        fontFamily: MONO, fontSize: 10, fontWeight: isActive ? 800 : 600,
+                        padding: "6px 9px", borderRadius: 4, cursor: "pointer",
+                        borderBottom: isActive ? `2px solid ${C.accent}` : "2px solid transparent",
+                        letterSpacing: "0.04em", whiteSpace: "nowrap",
+                        transition: "color 0.15s, background 0.15s",
+                        display: "inline-flex", alignItems: "center", gap: 4,
+                      }}
+                    >
+                      {g.label}
+                      {hasAlertBadge && (
+                        <span style={{ background: C.red, color: "#fff", borderRadius: 10, padding: "1px 5px", fontSize: 8, fontWeight: 800 }}>{triggeredAlertBadge}</span>
+                      )}
+                      {hasScanBadge && (
+                        <span style={{ background: C.green, color: "#fff", borderRadius: 10, padding: "1px 5px", fontSize: 8, fontWeight: 800 }}>{scannerBadge}</span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             );
           })()}
+        </div>
+        {/* Right side: weather, search, status, action buttons */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", flexShrink: 0 }}>
+          {/* Weather chip */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 6,
+            border: `1px solid ${C.border}`,
+            background: C.card, borderRadius: 5, padding: "4px 10px",
+            fontSize: 10, fontFamily: MONO, color: C.textSec, whiteSpace: "nowrap",
+          }}>
+            <span style={{ color: C.accent, fontWeight: 700 }}>WEATHER {WEATHER_ZIP}</span>
+            {weatherData ? (
+              <>
+                <span style={{ fontWeight: 800, color: weatherData.temp >= 85 ? C.red : weatherData.temp <= 40 ? C.cyan : C.text }}>
+                  {weatherData.temp.toFixed(0)}°F
+                </span>
+                <span style={{ color: C.textDim }}>{weatherCodeLabel(weatherData.code)}</span>
+              </>
+            ) : (
+              <span style={{ color: C.textDim }}>—</span>
+            )}
+          </div>
+          {/* Session countdown */}
+          {(() => {
+            const cdColor = sessionCountdown.session === "REGULAR" ? C.green
+              : sessionCountdown.session === "PREMARKET" ? C.accent
+              : sessionCountdown.session === "AFTERMARKET" ? C.amber : C.textDim;
+            return (
+              <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", background: `${cdColor}0e`, borderRadius: 4, border: `1px solid ${cdColor}2a` }}>
+                <span style={{ fontSize: 9, fontFamily: MONO, color: C.textDim }}>{sessionCountdown.label}</span>
+                <span style={{ fontSize: 10, fontFamily: MONO, color: cdColor, fontWeight: 800 }}>{fmtCountdownShort(sessionCountdown.secs)}</span>
+              </div>
+            );
+          })()}
+          {/* Hijri date */}
           {athanHijri && (
-            <div
-              onClick={() => setActiveTab("athan")}
-              style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", background: "#c9a84c0f", borderRadius: 3, border: "1px solid #c9a84c30", cursor: "pointer", direction: "rtl" }}
-              title="Go to prayer times"
-            >
+            <div onClick={() => setActiveTab("athan")} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: "#c9a84c0e", borderRadius: 4, border: "1px solid #c9a84c2a", cursor: "pointer", direction: "rtl" }}>
               <span style={{ fontSize: 10, fontFamily: "Arial, sans-serif", color: "#c9a84c", fontWeight: 700 }}>
                 {athanHijri.day} {athanHijri.month?.ar} {athanHijri.year} هـ
               </span>
             </div>
           )}
+          {/* Portfolio P/L chip */}
           {portfolioSummary.totalCost > 0 && portfolioSummary.totalValue > 0 && (
-            <div
-              onClick={() => setActiveTab("portfolio")}
-              style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 3, border: `1px solid ${portfolioSummary.totalPnl >= 0 ? C.green : C.red}44`, background: portfolioSummary.totalPnl >= 0 ? `${C.green}0f` : `${C.red}0f`, cursor: "pointer" }}
-              title={`Portfolio: ${portfolioSummary.winners}W / ${portfolioSummary.losers}L — click to view`}
-            >
+            <div onClick={() => setActiveTab("portfolio")} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 4, border: `1px solid ${portfolioSummary.totalPnl >= 0 ? C.green : C.red}44`, background: portfolioSummary.totalPnl >= 0 ? `${C.green}0e` : `${C.red}0e`, cursor: "pointer" }}>
               <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>PORT</span>
-              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red }}>
                 {portfolioSummary.totalPnl >= 0 ? "+" : ""}{portfolioSummary.totalPnlPct.toFixed(2)}%
               </span>
             </div>
           )}
+          {/* Today P/L chip */}
           {(() => {
             const today = new Date().toISOString().slice(0, 10);
             const todayClosed = journalEntries.filter(e => e.status === "closed" && e.pnl != null && (e.closedAt || "").slice(0, 10) === today);
             if (!todayClosed.length) return null;
             const todayPnl = todayClosed.reduce((s, e) => s + e.pnl, 0);
-            const todayWins = todayClosed.filter(e => e.pnl > 0).length;
             const color = todayPnl >= 0 ? C.green : C.red;
             return (
-              <div
-                onClick={() => setActiveTab("journal")}
-                style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 3, border: `1px solid ${color}44`, background: `${color}0f`, cursor: "pointer" }}
-                title={`Today: ${todayClosed.length} trades · ${todayWins}W — click to view journal`}
-              >
+              <div onClick={() => setActiveTab("journal")} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 4, border: `1px solid ${color}44`, background: `${color}0e`, cursor: "pointer" }}>
                 <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>TODAY</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color }}>
                   {todayPnl >= 0 ? "+" : ""}${Math.round(todayPnl)}
                 </span>
-                <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{todayClosed.length}T</span>
               </div>
             );
           })()}
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{
-              width: 7, height: 7, borderRadius: "50%", background: C.green,
-              boxShadow: `0 0 6px ${C.green}`, animation: "pulse 2s infinite",
-            }} />
-            <span style={{ fontSize: 10, fontFamily: MONO, color: C.textDim }}>
-              {lastUpdate ? `Updated ${lastUpdate.toLocaleTimeString()}` : "CONNECTING…"}
+          {/* Live dot + timestamp */}
+          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: C.card, borderRadius: 4, border: `1px solid ${C.border}` }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: dataBadge === "LIVE" ? C.green : dataBadge === "STALE" ? C.amber : C.red, boxShadow: `0 0 5px ${dataBadge === "LIVE" ? C.green : C.amber}`, animation: "pulse 2s infinite", flexShrink: 0 }} />
+            <span style={{ fontSize: 9, fontFamily: MONO, color: C.textDim, whiteSpace: "nowrap" }}>
+              {lastUpdate ? `Updated ${lastUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "CONNECTING…"}
             </span>
           </div>
-          <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{
-            background: C.card, border: `1px solid ${C.border}`, color: C.textSec,
-            fontFamily: MONO, fontSize: 10, padding: "6px 11px", borderRadius: 3, cursor: "pointer",
-          }}>
-            {themeMode === "dark" ? "LIGHT" : "DARK"}
-          </button>
-          <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }} style={{
-            background: C.card, border: `1px solid ${C.border}`, color: C.textSec,
-            fontFamily: MONO, fontSize: 10, padding: "6px 11px", borderRadius: 3, cursor: "pointer",
-          }}>
-            {loading ? "⟳" : "REFRESH"}
-          </button>
-          <a href="/dealer" target="_blank" rel="noopener" style={{
-            background: C.card, border: `1px solid ${C.border}`, color: C.textSec,
-            fontFamily: MONO, fontSize: 10, padding: "6px 11px", borderRadius: 3, cursor: "pointer", textDecoration: "none", display: "inline-block",
-          }}>
-            DEALER
-          </a>
-          <a href="/workstation" target="_blank" rel="noopener" style={{
-            background: C.card, border: `1px solid ${C.border}`, color: C.textSec,
-            fontFamily: MONO, fontSize: 10, padding: "6px 11px", borderRadius: 3, cursor: "pointer", textDecoration: "none", display: "inline-block",
-          }}>
-            WS
-          </a>
-          <button onClick={generateMarketReport} style={{
-            background: `${C.accent}12`, border: `1px solid ${C.accent}55`, color: C.accent,
-            fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "6px 11px", borderRadius: 3, cursor: "pointer",
-          }}>
-            MARKET REPORT
-          </button>
+          {/* Search bar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <input
+              value={symbolSearch}
+              onChange={(e) => setSymbolSearch(e.target.value.toUpperCase())}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSymbolSearch(); }}
+              placeholder="Search ticker (NVDA)"
+              style={{ width: 160, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, outline: "none" }}
+            />
+            <button onClick={handleSymbolSearch} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 4, padding: "6px 9px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>SEARCH</button>
+            <button onClick={() => openTradingView(symbolSearch || terminalSymbol)} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.accent, borderRadius: 4, padding: "6px 9px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>TV</button>
+          </div>
+          {/* Quran playing indicator */}
           {quranPlaying && (
             <button
               onClick={() => { if (quranAudioRef.current) quranAudioRef.current.pause(); }}
-              style={{ background: `#c9a84c18`, border: `1px solid #c9a84c55`, color: "#c9a84c", fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "6px 10px", borderRadius: 3, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, maxWidth: 160 }}
-              title="Quran playing — click to pause"
+              style={{ background: `#c9a84c18`, border: `1px solid #c9a84c55`, color: "#c9a84c", fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "5px 9px", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, maxWidth: 140 }}
             >
               <span>▐▌</span>
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 110 }}>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 90 }}>
                 {SURAH_LIST.find(s => s[0] === quranSurah)?.[1] || `سورة ${quranSurah}`}
               </span>
             </button>
           )}
-          <button onClick={handleLock} style={{
-            background: `${C.red}12`, border: `1px solid ${C.red}55`, color: C.red,
-            fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "6px 11px", borderRadius: 3, cursor: "pointer",
-          }}>
-            LOCK
-          </button>
-          <button onClick={() => setPaletteOpen(true)} style={{
-            background: C.card, border: `1px solid ${C.border}`, color: C.textSec,
-            fontFamily: MONO, fontSize: 10, padding: "6px 11px", borderRadius: 3, cursor: "pointer",
-          }}>
-            CMD
-          </button>
+          {/* Action buttons matching screenshot */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, borderLeft: `1px solid ${C.border}`, paddingLeft: 8, marginLeft: 2 }}>
+            <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>
+              {loading ? "⟳" : "REFRESH"}
+            </button>
+            <a href="/dealer" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "5px 9px", borderRadius: 4, cursor: "pointer", textDecoration: "none", display: "inline-block" }}>DEALER</a>
+            <a href="/workstation" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "5px 9px", borderRadius: 4, cursor: "pointer", textDecoration: "none", display: "inline-block" }}>WS</a>
+            <button onClick={generateMarketReport} style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>MARKET RESET</button>
+            <button onClick={handleLock} style={{ background: `${C.red}12`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>LOCK</button>
+            <button onClick={() => setPaletteOpen(true)} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>CMD</button>
+            <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 9, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>
+              {themeMode === "dark" ? "☀" : "●"}
+            </button>
+          </div>
         </div>
       </div>
 
-      <div style={{ padding: "6px 18px", borderBottom: `1px solid ${C.border}`, background: C.surface, display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>DATA SOURCE</span>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: C.text }}>Multi-Provider (Finnhub + FMP + Yahoo fallback)</span>
+      {/* Data source info bar */}
+      <div style={{ padding: "4px 18px", borderBottom: `1px solid ${C.border}`, background: themeMode === "dark" ? "#080e1c" : C.surface, display: "flex", alignItems: "center", gap: 12 }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>DATA SOURCE:</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textSec }}>Multi Provider (Finnhub + FMP + Yahoo Fallback)</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>+</span>
+        <span onClick={() => setActiveTab("tools")} style={{ fontFamily: MONO, fontSize: 9, color: C.accent, cursor: "pointer", fontWeight: 700 }}>LOG</span>
+        <span style={{ width: 1, height: 10, background: C.border, flexShrink: 0 }} />
         <Badge color={dataBadgeColor}>{dataBadge}</Badge>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
-          {providersConfigured > 0 ? `${providersConfigured} key${providersConfigured > 1 ? "s" : ""} configured` : "No provider keys configured"}
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+          {providersConfigured > 0 ? `${providersConfigured} key${providersConfigured > 1 ? "s" : ""} configured` : "No API keys"}
         </span>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
-          {lastUpdate ? `Last tick ${lastUpdate.toLocaleTimeString()}` : "Awaiting first tick"}
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+          {lastUpdate ? `Last tick ${lastUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Awaiting first tick"}
           {dataFreshSec !== null ? ` · ${dataFreshSec}s ago` : ""}
         </span>
       </div>
-      <div style={{ borderBottom: `1px solid ${C.border}`, background: themeMode === "dark" ? "#0f1a2d" : "#f7faff", overflow: "hidden", whiteSpace: "nowrap" }}>
-        <div className="axiom-ticker-track" style={{ display: "inline-flex", alignItems: "center", gap: 26, padding: "7px 0", animation: "axiomTickerLTR 320s linear infinite" }}>
+      {/* Market Index Strip — matches screenshot layout */}
+      <MacroTape data={macroData} cryptoSnapshot={cryptoSnapshot} />
+
+      {/* News / Alert Tape */}
+      <div style={{ borderBottom: `1px solid ${C.border}`, background: themeMode === "dark" ? "#080f1e" : "#f7faff", overflow: "hidden", whiteSpace: "nowrap" }}>
+        <div className="axiom-ticker-track" style={{ display: "inline-flex", alignItems: "center", gap: 26, padding: "5px 0", animation: "axiomTickerLTR 320s linear infinite" }}>
           {[...topHeadlineTape, ...topHeadlineTape].map((item, i) => {
             const isDarkNews = themeMode === "dark" && item.kind === "NEWS";
             const toneColor = isDarkNews ? "#2a2100" : (item.tone === "red" ? C.red : item.tone === "green" ? C.green : item.tone === "amber" ? C.amber : C.accent);
@@ -5312,7 +6537,7 @@ export default function App() {
                   {item.kind}
                 </span>
                 <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text }}>{item.symbol}</span>
-                <span style={{ fontSize: 11, color: themeMode === "dark" ? "#d6e2fa" : C.textSec, maxWidth: 420, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block", verticalAlign: "bottom" }}>
+                <span style={{ fontSize: 11, color: themeMode === "dark" ? "#b8ccec" : C.textSec, maxWidth: 420, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block", verticalAlign: "bottom" }}>
                   {item.text}
                 </span>
               </span>
@@ -5321,8 +6546,81 @@ export default function App() {
         </div>
       </div>
 
-      {/* Macro Tape */}
-      <MacroTape data={macroData} cryptoSnapshot={cryptoSnapshot} />
+      {/* Sub-nav bar — shown when active tab belongs to a multi-tab group */}
+      {(() => {
+        const SUB_GROUPS = {
+          scanner:   [
+            { id: "scanner",  label: "SCANNER" },
+            { id: "early",    label: "EARLY ENTRY" },
+            { id: "analyzer", label: "ANALYZER" },
+          ],
+          markets: [
+            { id: "news",     label: "NEWS" },
+            { id: "earnings", label: "EARNINGS" },
+            { id: "macro",    label: "MACRO" },
+            { id: "sectors",  label: "SECTORS" },
+            { id: "rotation", label: "ROTATION" },
+            { id: "flow",     label: "FLOW" },
+            { id: "tv",       label: "TV LIVE" },
+          ],
+          portfolio: [
+            { id: "portfolio", label: "POSITIONS" },
+            { id: "journal",   label: "JOURNAL" },
+            { id: "alerts",    label: "ALERTS" },
+          ],
+          tools: [
+            { id: "tools",     label: "TOOLS" },
+            { id: "backtest",  label: "BACKTEST" },
+            { id: "workflow",  label: "WORKFLOW" },
+            { id: "agent",     label: "AI AGENT" },
+          ],
+          islamic: [
+            { id: "quran",  label: "قرآن" },
+            { id: "athan",  label: "الصلاة" },
+            { id: "athkar", label: "أذكار" },
+            { id: "tasbih", label: "تسبيح" },
+          ],
+        };
+        const activeGroup = Object.entries(SUB_GROUPS).find(([, tabs]) =>
+          tabs.some(t => t.id === activeTab)
+        );
+        if (!activeGroup) return null;
+        const [, subTabs] = activeGroup;
+        return (
+          <div style={{
+            borderBottom: `1px solid ${C.border}`,
+            background: themeMode === "dark" ? "#070d1b" : "#f2f5fb",
+            padding: "0 18px",
+            display: "flex", alignItems: "center", gap: 1,
+          }}>
+            {subTabs.map(t => {
+              const isActive = activeTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveTab(t.id)}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    color: isActive ? C.accent : C.textDim,
+                    fontFamily: MONO, fontSize: 9, fontWeight: isActive ? 800 : 500,
+                    padding: "5px 10px", cursor: "pointer",
+                    borderBottom: isActive ? `2px solid ${C.accent}` : "2px solid transparent",
+                    letterSpacing: "0.06em", whiteSpace: "nowrap",
+                    transition: "color 0.12s",
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                  }}
+                >
+                  {t.label}
+                  {t.id === "alerts" && triggeredAlertBadge > 0 && (
+                    <span style={{ background: C.red, color: "#fff", borderRadius: 10, padding: "1px 4px", fontSize: 7, fontWeight: 800 }}>{triggeredAlertBadge}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {error && (
         <div style={{ padding: "8px 18px", fontSize: 11, fontFamily: MONO, color: C.red, background: C.redBg }}>
@@ -5393,6 +6691,31 @@ export default function App() {
                   }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "6px 8px", cursor: "pointer" }}>
                     SAVE LIST
                   </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbols: watchlistSymbols }) });
+                        alert(`✅ Pushed ${watchlistSymbols.length} symbols to bot watchlist.`);
+                      } catch (e) { alert("Push failed: " + e.message); }
+                    }}
+                    style={{ background: `${C.green}12`, border: `1px solid ${C.green}44`, color: C.green, fontFamily: MONO, fontSize: 10, padding: "6px 8px", cursor: "pointer", borderRadius: 3 }}
+                    title="Push current watchlist to the bot"
+                  >↑ BOT</button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const data = await fetch("/api/watchlist").then(r => r.json());
+                        if (data.symbols && data.symbols.length) {
+                          setWatchlistSymbols(data.symbols);
+                          setWatchlistInput(data.symbols.join(","));
+                          setLoading(true);
+                          fetchAll(apiKey).finally(() => setLoading(false));
+                        } else { alert("Bot watchlist is empty. Push from bot first."); }
+                      } catch (e) { alert("Pull failed: " + e.message); }
+                    }}
+                    style={{ background: `${C.accent}12`, border: `1px solid ${C.accent}44`, color: C.accent, fontFamily: MONO, fontSize: 10, padding: "6px 8px", cursor: "pointer", borderRadius: 3 }}
+                    title="Load bot watchlist into platform"
+                  >↓ BOT</button>
                   <select
                     value={String(settings.refreshMs)}
                     onChange={(e) => setSettings((s) => ({ ...s, refreshMs: Number(e.target.value) }))}
@@ -5530,6 +6853,13 @@ export default function App() {
                                   NOTE
                                 </button>
                                 <button
+                                  onClick={(e) => { e.stopPropagation(); if (openAlertSymbol === q.symbol) { setOpenAlertSymbol(null); } else { setOpenAlertSymbol(q.symbol); setWlAlertDir("above"); setWlAlertPrice((q.price ? (q.price * 1.02).toFixed(2) : "")); } }}
+                                  style={{ border: `1px solid ${openAlertSymbol === q.symbol ? C.amber + "99" : C.border}`, background: openAlertSymbol === q.symbol ? `${C.amber}18` : C.surface, color: openAlertSymbol === q.symbol ? C.amber : C.textDim, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                  title="Set price alert"
+                                >
+                                  ALERT
+                                </button>
+                                <button
                                   onClick={(e) => { e.stopPropagation(); setWatchlistSymbols(prev => prev.filter(s => s !== q.symbol)); }}
                                   style={{ border: `1px solid ${C.red}44`, background: C.surface, color: C.red, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
                                   title={`Remove ${q.symbol} from watchlist`}
@@ -5621,6 +6951,42 @@ export default function App() {
                                     style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer", flexShrink: 0 }}
                                   >
                                     DONE
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          {openAlertSymbol === q.symbol && (
+                            <tr style={{ background: C.card }}>
+                              <td colSpan={colSpan} style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}` }}>
+                                <div style={{ display: "flex", gap: 8, alignItems: "center" }} onClick={e => e.stopPropagation()}>
+                                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber, fontWeight: 700 }}>🔔 ALERT {q.symbol}</span>
+                                  <select value={wlAlertDir} onChange={e => setWlAlertDir(e.target.value)}
+                                    style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "4px 8px", borderRadius: 4 }}>
+                                    <option value="above">Above</option>
+                                    <option value="below">Below</option>
+                                  </select>
+                                  <input type="number" step="0.01" value={wlAlertPrice} onChange={e => setWlAlertPrice(e.target.value)}
+                                    placeholder="Target price"
+                                    style={{ width: 110, background: C.surface, border: `1px solid ${C.amber}66`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "4px 8px", borderRadius: 4, outline: "none" }}
+                                  />
+                                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>now: ${(q.price || 0).toFixed(2)}</span>
+                                  <button
+                                    onClick={async e => {
+                                      e.stopPropagation();
+                                      if (!wlAlertPrice) return;
+                                      await fetch("/api/price-alerts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol: q.symbol, targetPrice: Number(wlAlertPrice), direction: wlAlertDir }) });
+                                      setOpenAlertSymbol(null);
+                                    }}
+                                    style={{ border: `1px solid ${C.amber}66`, background: `${C.amber}22`, color: C.amber, borderRadius: 4, padding: "4px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700, flexShrink: 0 }}
+                                  >
+                                    SET ALERT
+                                  </button>
+                                  <button
+                                    onClick={e => { e.stopPropagation(); setOpenAlertSymbol(null); }}
+                                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer", flexShrink: 0 }}
+                                  >
+                                    ✕
                                   </button>
                                 </div>
                               </td>
@@ -7512,7 +8878,11 @@ export default function App() {
                           <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, color: chg >= 0 ? C.green : C.red }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</td>
                           <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, color: q.rvol >= 1.2 ? C.green : C.text }}>{q.rvol.toFixed(2)}x</td>
                           <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, fontFamily: MONO, color: C.textSec }}>{q.sectorEtf || "-"}</td>
-                          <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, color: C.text }}>{q.scannerScore}</td>
+                          <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right" }}>
+                            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: q.scannerScore >= 75 ? C.green : q.scannerScore >= 65 ? C.amber : C.red, background: q.scannerScore >= 75 ? `${C.green}18` : q.scannerScore >= 65 ? `${C.amber}18` : `${C.red}12`, padding: "2px 6px", borderRadius: 4 }}>
+                              {q.scannerScore}
+                            </span>
+                          </td>
                           <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "center" }}>
                             {flow ? <Badge color={Number(flow.callPutRatio || 1) >= 1 ? C.green : C.red}>C/P {Number(flow.callPutRatio || 0).toFixed(2)}</Badge> : <span style={{ color: C.textDim, fontSize: 10 }}>-</span>}
                           </td>
@@ -7586,6 +8956,15 @@ export default function App() {
               </div>
             )}
           </div>
+        )}
+
+        {activeTab === "early" && (
+          <EarlyEntryScanner
+            watchlistData={watchlistData}
+            macroData={macroData}
+            sectorData={sectorData}
+            onSelectSymbol={(sym) => { setTerminalSymbol(sym); setActiveTab("terminal"); }}
+          />
         )}
 
         {activeTab === "backtest" && (
@@ -8176,9 +9555,42 @@ export default function App() {
 
         {activeTab === "journal" && (
           <div>
-            <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em", marginBottom: 14 }}>
+            <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>
               TRADE JOURNAL — PERFORMANCE TRACKER
             </div>
+
+            {/* Today / Week P&L strip */}
+            {journalEntries.length > 0 && (() => {
+              const todayStr = new Date().toISOString().slice(0, 10);
+              const weekStart = (() => {
+                const d = new Date(); d.setDate(d.getDate() - d.getDay()); return d.toISOString().slice(0, 10);
+              })();
+              const closed = journalEntries.filter(e => e.status === "closed" && e.pnl != null && e.closedAt);
+              const todayTrades = closed.filter(e => (e.closedAt || "").slice(0, 10) === todayStr);
+              const weekTrades  = closed.filter(e => (e.closedAt || "").slice(0, 10) >= weekStart);
+              const todayPnl = todayTrades.reduce((s, e) => s + e.pnl, 0);
+              const weekPnl  = weekTrades.reduce((s, e) => s + e.pnl, 0);
+              const todayWins = todayTrades.filter(e => e.pnl > 0).length;
+              const curStreak = journalStats?.currentStreak || 0;
+              const streakLabel = curStreak > 0 ? `🔥 ${curStreak}W` : curStreak < 0 ? `❄️ ${Math.abs(curStreak)}L` : "—";
+              const streakColor = curStreak > 0 ? C.green : curStreak < 0 ? C.red : C.textDim;
+              return (
+                <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                  {[
+                    { label: "TODAY P/L", value: todayTrades.length ? `${todayPnl >= 0 ? "+" : ""}$${Math.round(todayPnl)}` : "—", color: todayTrades.length ? (todayPnl >= 0 ? C.green : C.red) : C.textDim, sub: todayTrades.length ? `${todayTrades.length} trade${todayTrades.length !== 1 ? "s" : ""} · ${todayWins}W/${todayTrades.length - todayWins}L` : "no trades today" },
+                    { label: "THIS WEEK", value: weekTrades.length ? `${weekPnl >= 0 ? "+" : ""}$${Math.round(weekPnl)}` : "—", color: weekTrades.length ? (weekPnl >= 0 ? C.green : C.red) : C.textDim, sub: weekTrades.length ? `${weekTrades.length} trades` : "no trades this week" },
+                    { label: "STREAK", value: streakLabel, color: streakColor, sub: `best ${journalStats?.longestWinStreak || 0}W` },
+                    { label: "WIN RATE", value: journalStats?.closed ? `${journalStats.winRate ?? 0}%` : "—", color: (journalStats?.winRate || 0) >= 50 ? C.green : C.amber, sub: journalStats?.closed ? `${journalStats.wins}W / ${journalStats.losses}L` : "" },
+                  ].map(({ label, value, color, sub }) => (
+                    <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 14px", minWidth: 110 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.06em" }}>{label}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color, marginTop: 1 }}>{value}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 1 }}>{sub}</div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
 
             {/* Stats bar */}
             {journalStats && journalEntries.length > 0 && (() => {
@@ -8280,10 +9692,17 @@ export default function App() {
                     <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>MAX DRAWDOWN</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: maxDd > 0 ? C.red : C.textDim }}>{maxDd > 0 ? `-$${maxDd.toFixed(0)}` : "—"}</div></div>
                     <div>
                       <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>STREAKS</div>
-                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>
+                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700 }}>
+                        <span style={{ color: closed.length ? (closed[closed.length-1].pnl > 0 ? C.green : C.red) : C.textDim }}>
+                          {closed.length ? `${closed[closed.length-1].pnl > 0 ? "▲" : "▼"}${curStreak}` : "—"}
+                        </span>
+                        <span style={{ color: C.textDim, fontSize: 9 }}>{" "}NOW</span>
+                      </div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>
                         <span style={{ color: C.green }}>W{maxWinStreak}</span>
-                        <span style={{ color: C.textDim }}> / </span>
+                        <span>{" / "}</span>
                         <span style={{ color: C.red }}>L{maxLossStreak}</span>
+                        <span>{" best"}</span>
                       </div>
                     </div>
                   </div>
@@ -9065,7 +10484,7 @@ export default function App() {
       {activeTab === "quran" && (() => {
         const surahNum = quranSurah;
         const surahPadded = String(surahNum).padStart(3, "0");
-        const audioUrl = `https://${quranReciter.server}/${surahPadded}.mp3`;
+        const audioUrl = `${QURAN_CDN}/${quranReciter.id}/${surahNum}.mp3`;
         const surahInfo = SURAH_LIST[surahNum - 1];
         const gold = "#c9a84c";
         const goldDim = "#c9a84c44";
@@ -9116,6 +10535,28 @@ export default function App() {
                   style={{ background: C.surface, border: `1px solid ${goldDim}`, color: gold, borderRadius: 999, width: 44, height: 44, fontSize: 18, cursor: "pointer" }}
                 >›</button>
               </div>
+
+              {/* Audio error banner */}
+              {quranAudioError && (
+                <div style={{ margin: "10px 0 4px", background: "#2a120a", border: "1px solid #cc4400", borderRadius: 8, padding: "10px 14px", direction: "ltr", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                  <div>
+                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#ff6633" }}>⚠ AUDIO SERVER UNREACHABLE</div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: "#cc7755", marginTop: 3 }}>
+                      Reciter: {quranReciter.id} — try a different reciter or check your connection.
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setQuranAudioError(false);
+                      if (quranAudioRef.current) {
+                        quranAudioRef.current.load();
+                        quranAudioRef.current.play().catch(() => setQuranAudioError(true));
+                      }
+                    }}
+                    style={{ background: "#cc4400", border: "none", color: "#fff", borderRadius: 5, padding: "6px 12px", fontFamily: MONO, fontSize: 9, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
+                  >RETRY</button>
+                </div>
+              )}
 
               {/* Auto-next toggle */}
               <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12, color: C.textSec, direction: "ltr" }}>
@@ -9538,9 +10979,11 @@ export default function App() {
       {/* Global Quran audio element — stays mounted across all tab switches */}
       <audio
         ref={quranAudioRef}
-        src={`https://${quranReciter.server}/${String(quranSurah).padStart(3, "0")}.mp3`}
-        onPlay={() => setQuranPlaying(true)}
+        src={`${QURAN_CDN}/${quranReciter.id}/${quranSurah}.mp3`}
+        onPlay={() => { setQuranPlaying(true); setQuranAudioError(false); }}
         onPause={() => setQuranPlaying(false)}
+        onCanPlay={() => setQuranAudioError(false)}
+        onError={() => { setQuranPlaying(false); setQuranAudioError(true); }}
         onEnded={() => {
           if (quranAutoNext && quranSurah < 114) {
             quranWasPlaying.current = true;

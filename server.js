@@ -22,6 +22,9 @@ const path = require("node:path");
 const { PORT, HOST } = require("./src/config");
 const handleRequest = require("./src/router");
 const { startPriceAlertMonitor } = require("./src/price-alert-monitor");
+const { startFbScheduler } = require("./src/fb-scheduler");
+const { startMarketScanner } = require("./src/market-scanner");
+const { startTelegramBot }  = require("./src/telegram-bot");
 
 const server = http.createServer(handleRequest);
 
@@ -36,4 +39,17 @@ server.listen(PORT, HOST, () => {
     console.log(`LAN access: http://${ip}:${PORT}`);
   }
   startPriceAlertMonitor();
+  startFbScheduler();
+  startMarketScanner();
+  startTelegramBot();
+
+  // Keep-alive: ping own health endpoint every 10 min so Render free tier never idles out
+  const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
+  if (RENDER_URL) {
+    const pingUrl = `${RENDER_URL}/api/health`;
+    setInterval(() => {
+      fetch(pingUrl).catch(() => {});
+    }, 10 * 60 * 1000);
+    console.log(`[Keep-alive] Pinging ${pingUrl} every 10 min`);
+  }
 });

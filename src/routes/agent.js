@@ -1,6 +1,7 @@
 const { writeJson, readRequestBody } = require("../utils");
 const { ANTHROPIC_API_KEY } = require("../config");
 const { callAnthropicApi } = require("../anthropic");
+const { sendTelegramMessage, isConfigured: telegramConfigured } = require("../telegram");
 
 function buildMarketPrompt(ctx) {
   const indexLine = (ctx.indexRows || [])
@@ -66,6 +67,13 @@ async function handleAgent(req, res, requestUrl) {
     const prompt = buildMarketPrompt(body);
     try {
       const text = await callAnthropicApi(prompt, ANTHROPIC_API_KEY);
+
+      if (telegramConfigured()) {
+        const focusSym = body?.focus?.symbol ? ` — ${body.focus.symbol}` : "";
+        const preview = text.length > 1400 ? text.slice(0, 1400) + "…" : text;
+        sendTelegramMessage(`🤖 *AI Market Analysis${focusSym}*\n\n${preview}`).catch(() => {});
+      }
+
       return writeJson(res, 200, {
         output: text,
         generatedAt: new Date().toISOString(),

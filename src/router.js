@@ -16,6 +16,9 @@ const handleDealership = require("./dealership/routes");
 const handlePriceAlerts = require("./routes/price-alerts");
 const handleSettings = require("./routes/settings");
 const handlePlan = require("./routes/plan");
+const handleWatchlist = require("./routes/watchlist");
+const handleFinviz = require("./routes/finviz");
+const handleScanner = require("./routes/scanner");
 const { sendTelegramAlert, sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
 
 async function handleRequest(req, res) {
@@ -41,6 +44,14 @@ async function handleRequest(req, res) {
 
     if (pathname.startsWith("/api/yahoo/")) {
       return handleYahoo(req, res, requestUrl);
+    }
+
+    if (pathname.startsWith("/api/finviz/")) {
+      return handleFinviz(req, res, requestUrl);
+    }
+
+    if (pathname.startsWith("/api/scanner/")) {
+      return handleScanner(req, res, requestUrl);
     }
 
     if (pathname.startsWith("/api/market/") || pathname === "/api/live") {
@@ -82,6 +93,10 @@ async function handleRequest(req, res) {
       return handlePlan(req, res);
     }
 
+    if (pathname === "/api/watchlist") {
+      return handleWatchlist(req, res);
+    }
+
     // POST /api/notify — sends a freeform Telegram message from the platform UI
     if (pathname === "/api/notify" && req.method === "POST") {
       if (!telegramConfigured()) {
@@ -100,19 +115,18 @@ async function handleRequest(req, res) {
       if (!telegramConfigured()) {
         return writeJson(res, 503, { ok: false, error: "Telegram not configured. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID env vars." });
       }
-      try {
-        await sendTelegramAlert({
-          symbol: "AXIOM",
-          side: "BUY",
-          price: null,
-          score: 100,
-          message: "✅ Dixie AM Trading Platform — Telegram connection confirmed. Alerts are live.",
-          at: new Date().toISOString(),
-        });
-        return writeJson(res, 200, { ok: true, message: "Test message sent to Telegram." });
-      } catch (err) {
-        return writeJson(res, 500, { ok: false, error: String(err.message || err) });
+      const result = await sendTelegramAlert({
+        symbol: "AXIOM",
+        side: "BUY",
+        price: null,
+        score: 100,
+        message: "✅ Dixie AM Trading Platform — Telegram connection confirmed. Alerts are live.",
+        at: new Date().toISOString(),
+      });
+      if (result && !result.ok) {
+        return writeJson(res, 500, { ok: false, error: result.body || result.error || "Telegram API rejected the request", status: result.status });
       }
+      return writeJson(res, 200, { ok: true, message: "Test message sent to Telegram." });
     }
 
     // Clean URL aliases
@@ -127,7 +141,7 @@ async function handleRequest(req, res) {
       return;
     }
 
-    return serveStatic(pathname, res);
+    return serveStatic(pathname, res, req);
   } catch (error) {
     return writeJson(res, 500, {
       error: "Server error",
