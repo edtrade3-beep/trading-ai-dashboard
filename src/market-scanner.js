@@ -85,13 +85,13 @@ const DEFAULT_SYMBOLS = [
 const DEFAULT_CONFIG = {
   enabled: true,
   symbols: DEFAULT_SYMBOLS,
-  intervalMinutes: 3,
-  buyScoreMin: 68,       // composite threshold for BUY
-  sellScoreMax: 35,      // composite threshold for SELL
-  minRvol: 1.0,          // min relative volume to confirm signal
-  cooldownHours: 4,      // hours before re-alerting same symbol+side
-  marketHoursOnly: true, // skip outside 9:25-16:05 ET
-  concurrency: 16,       // max parallel bar fetches
+  intervalMinutes: 5,    // scan every 5 min
+  buyScoreMin: 68,
+  sellScoreMax: 35,
+  minRvol: 1.0,
+  cooldownHours: 2,      // re-alert same symbol after 2h
+  marketHoursOnly: true,
+  concurrency: 16,
 };
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -489,20 +489,38 @@ async function runScan() {
       if (isDuplicate(sym, signal, cfg.cooldownHours)) continue;
 
       recordSignal(sym, signal);
-      hits.push({ symbol: sym, signal, composite: a.composite, price: a.price, rsi: a.rsi, rvol: a.rvol });
-
-      if (telegramConfigured()) {
-        sendTelegramMessage(formatScanAlert(a, signal)).catch(() => {});
-      }
+      hits.push({
+        symbol: sym, signal,
+        composite: a.composite, price: a.price,
+        rsi: a.rsi, rvol: a.rvol, chgPct: a.chgPct, trend: a.trend,
+      });
     }
 
-    // Summary if 3+ new signals
-    if (hits.length >= 3 && telegramConfigured()) {
-      const buys  = hits.filter(h => h.signal === "BUY").length;
-      const sells = hits.filter(h => h.signal === "SELL").length;
-      sendTelegramMessage(
-        `📡 Scan complete: 🟢 ${buys} BUY  🔴 ${sells} SELL  (${symbols.length} symbols)`
-      ).catch(() => {});
+    // ── Send one grouped Telegram summary (not one msg per signal) ──────────
+    if (hits.length > 0 && telegramConfigured()) {
+      const time  = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+      const buys  = hits.filter(h => h.signal === "BUY")
+                        .sort((a,b) => b.composite - a.composite).slice(0, 5);
+      const sells = hits.filter(h => h.signal === "SELL")
+                        .sort((a,b) => a.composite - b.composite).slice(0, 5);
+
+      let msg = `📡 SCAN — ${time} ET  (${symbols.length} symbols)\n`;
+
+      if (buys.length) {
+        msg += `\n🟢 TOP BUY (${buys.length} new)\n`;
+        for (const h of buys) {
+          const chg = `${h.chgPct >= 0 ? "+" : ""}${h.chgPct.toFixed(2)}%`;
+          msg += `${h.symbol}  $${h.price}  ${chg}  Score ${h.composite}  RSI ${h.rsi}  RVOL ${h.rvol}x\n`;
+        }
+      }
+      if (sells.length) {
+        msg += `\n🔴 TOP SELL (${sells.length} new)\n`;
+        for (const h of sells) {
+          const chg = `${h.chgPct >= 0 ? "+" : ""}${h.chgPct.toFixed(2)}%`;
+          msg += `${h.symbol}  $${h.price}  ${chg}  Score ${h.composite}  RSI ${h.rsi}  RVOL ${h.rvol}x\n`;
+        }
+      }
+      sendTelegramMessage(msg.trim()).catch(() => {});
     }
 
   } finally {
@@ -538,6 +556,66 @@ function getScannerStatus() {
   };
 }
 
+// ── 30-min macro report ───────────────────────────────────────────────────────
+// Fetches SPY QQQ IWM TLT VIX GLD HYG DXY and sends a full market overview
+
+async function sendMacroReport() {
+  if (!telegramConfigured()) return;
+
+  const KEY_SYMBOLS = ["SPY","QQQ","IWM","TLT","^VIX","GLD","HYG","UUP","XLY","XLP","IWM","UVXY","EEM"];
+  const KEY_LABEL   = { SPY:"SPY", QQQ:"QQQ", IWM:"IWM", TLT:"TLT", "^VIX":"VIX",
+                         GLD:"GLD", HYG:"HYG", UUP:"DXY", XLY:"XLY", XLP:"XLP",
+                         UVXY:"UVXY", EEM:"EEM" };
+
+  // Fetch all in parallel
+  const settled = await Promise.allSettled(KEY_SYMBOLS.map(s => analyzeSymbol(s)));
+  const aMap    = new Map();
+  KEY_SYMBOLS.forEach((s, i) => {
+    if (settled[i].status === "fulfilled" && settled[i].value) aMap.set(s, settled[i].value);
+  });
+
+  const macro = computeMacroRegime(aMap);
+  const e     = macro.regime === "RISK-ON" ? "🟢" : macro.regime === "RISK-OFF" ? "🔴" : "⚪";
+  const time  = new Date().toLocaleTimeString("en-US", {
+    timeZone: "America/New_York", hour: "2-digit", minute: "2-digit"
+  });
+
+  const row = (sym, lbl) => {
+    const a = aMap.get(sym);
+    if (!a) return null;
+    const arrow = a.chgPct >= 0 ? "+" : "";
+    const bar   = a.composite >= 65 ? "strong" : a.composite <= 35 ? "weak" : "neutral";
+    return `${(lbl||sym).padEnd(5)} $${String(a.price).padStart(8)}  ${(arrow+a.chgPct.toFixed(2)+"%").padStart(7)}  Score ${a.composite}  ${bar}`;
+  };
+
+  const lines = [
+    `${e} MACRO REPORT — ${time} ET`,
+    `Regime: ${macro.regime}  (score ${macro.score > 0 ? "+" : ""}${macro.score})`,
+    "",
+    "── EQUITIES ──────────────────",
+    row("SPY"),
+    row("QQQ"),
+    row("IWM"),
+    row("XLY","XLY"), row("XLP","XLP"),
+    "",
+    "── MACRO INSTRUMENTS ─────────",
+    row("TLT"),
+    row("^VIX","VIX"),
+    row("GLD"),
+    row("HYG"),
+    row("UUP","DXY"),
+    row("EEM"),
+    "",
+    macro.bullFactors.length ? "Bull: " + macro.bullFactors.slice(0, 4).join(", ") : null,
+    macro.bearFactors.length ? "Bear: " + macro.bearFactors.slice(0, 4).join(", ") : null,
+  ].filter(s => s !== null).join("\n");
+
+  await sendTelegramMessage(lines);
+  lastMacroRegime    = macro.regime;
+  lastMacroAlertedAt = Date.now();
+  console.log(`[Scanner] Macro report sent: ${macro.regime} score ${macro.score}`);
+}
+
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 
 let lastScheduledRunAt = 0;
@@ -567,4 +645,4 @@ function startMarketScanner() {
   console.log(`[Scanner] Started — ${cfg.intervalMinutes}min interval, ${(cfg.symbols || DEFAULT_SYMBOLS).length} symbols`);
 }
 
-module.exports = { startMarketScanner, runScan, getScannerStatus, loadConfig, saveConfig, DEFAULT_SYMBOLS };
+module.exports = { startMarketScanner, runScan, getScannerStatus, sendMacroReport, loadConfig, saveConfig, DEFAULT_SYMBOLS };

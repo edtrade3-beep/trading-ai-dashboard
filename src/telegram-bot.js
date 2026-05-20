@@ -1,33 +1,52 @@
 /**
- * Telegram Bot — long-polling command handler
- *
- * Security: only processes messages from the configured TELEGRAM_CHAT_ID.
- * Polling: uses getUpdates with timeout=25 (long-poll). Runs as a background
- * loop; errors are caught and logged without crashing the server.
+ * Telegram Bot — command handler with long-polling
  *
  * Commands:
- *   /help              — list all commands
- *   /scan              — run market scan immediately
- *   /status            — scanner status + last hits
+ *   /help              — all commands
+ *   /market            — live macro snapshot (Risk On/Off, SPY QQQ VIX)
+ *   /scan              — run market scan right now
+ *   /status            — scanner status
+ *   /top               — top BUY signals from last scan
+ *   /worst             — top SELL signals from last scan
  *   /price AAPL        — live quote (alias: /p)
- *   /alert AAPL above 200 [note]  — set price alert
+ *   /alert AAPL above 200 [note]
  *   /alerts            — list active price alerts (alias: /pa)
  *   /cancel <id>       — cancel a price alert
- *   /scanner on|off    — enable / disable auto-scanner
- *   /scanner interval 5 — set scan interval in minutes
- *   /top               — top signals from last scan
- *   /watchlist         — show saved watchlist symbols
+ *   /watchlist         — live quotes for saved watchlist (alias: /wl)
+ *   /scanner on|off    — enable/disable auto-scanner
+ *   /scanner interval 5
+ *   /scanner symbols
+ *   /deals [query]     — top deals from the deals finder
  */
 
 const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = require("./config");
 const { sendTelegramMessage, isConfigured }     = require("./telegram");
-const { runScan, getScannerStatus, saveConfig } = require("./market-scanner");
+const { runScan, getScannerStatus, sendMacroReport, saveConfig } = require("./market-scanner");
 const { loadPriceAlerts, savePriceAlerts }       = require("./price-alert-store");
 const { loadSettings }                           = require("./settings-store");
 const { fetchYahooBars, fetchYahooChartMeta }    = require("./providers/yahoo");
 const { withTimeout, round2 }                    = require("./utils");
 
-// Fetch live price data using v8 chart API (v7 quote batch is blocked)
+const API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
+
+// ── Core send ─────────────────────────────────────────────────────────────────
+async function reply(text) {
+  if (!TELEGRAM_CHAT_ID) return;
+  try {
+    const res  = await fetch(`${API}/sendMessage`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: String(text) }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!json.ok) console.error("[TgBot] send failed:", json.description, "| text:", String(text).slice(0,60));
+    return json;
+  } catch (err) {
+    console.error("[TgBot] send error:", err.message);
+  }
+}
+
+// ── Live quote helper ─────────────────────────────────────────────────────────
 async function fetchLiveQuote(symbol) {
   try {
     const [meta, bars] = await Promise.all([
@@ -35,420 +54,383 @@ async function fetchLiveQuote(symbol) {
       fetchYahooBars(symbol, "2mo", "1d").catch(() => []),
     ]);
     if (!meta) return null;
-    const price = Number(meta.regularMarketPrice || 0);
-    const prev  = Number(meta.previousClose || meta.chartPreviousClose || price);
-    const chgPct = prev > 0 ? ((price - prev) / prev * 100) : 0;
-    const vol   = Number(meta.regularMarketVolume || 0);
-    // RVOL from bars if available
+    const price   = Number(meta.regularMarketPrice || 0);
+    const prev    = Number(meta.previousClose || meta.chartPreviousClose || price);
+    const chgPct  = prev > 0 ? (price - prev) / prev * 100 : 0;
+    const vol     = Number(meta.regularMarketVolume || 0);
     let rvol = null;
     if (bars.length >= 22) {
       const vols = bars.map(b => b.volume || 0);
-      const avgVol = vols.slice(-21, -1).reduce((a, b) => a + b, 0) / 20;
-      rvol = avgVol > 0 ? round2(vol / avgVol) : null;
+      const avg  = vols.slice(-21, -1).reduce((a, b) => a + b, 0) / 20;
+      rvol = avg > 0 ? round2(vol / avg) : null;
     }
     return { symbol: symbol.toUpperCase(), price, chgPct, vol, rvol };
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-// ── Telegram API helper ───────────────────────────────────────────────────────
-
-const API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
-
-async function tgCall(method, params = {}) {
-  const res = await fetch(`${API}/${method}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  });
-  return res.json().catch(() => ({ ok: false }));
-}
-
-async function reply(text) {
-  // Send as plain text — no parse_mode so special characters never break delivery
-  const url = `${API}/sendMessage`;
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: String(text) }),
-    });
-    const json = await res.json().catch(() => ({}));
-    if (!json.ok) console.error("[TgBot] sendMessage failed:", json.description || JSON.stringify(json));
-    return json;
-  } catch (err) {
-    console.error("[TgBot] sendMessage error:", err.message);
-  }
-}
-
-// ── Command handlers ──────────────────────────────────────────────────────────
+// ── Commands ──────────────────────────────────────────────────────────────────
 
 async function cmdHelp() {
   return reply(
-    "Dixie AM Trading Bot 🤖\n\n" +
-    "/scan — run market scan now\n" +
-    "/status — scanner status + last signals\n" +
-    "/top — top BUY/SELL from last scan\n" +
-    "/price AAPL — live quote (or /p AAPL MSFT)\n" +
-    "/alert AAPL above 200 — set price alert\n" +
-    "/alert NVDA below 500 stop loss — with note\n" +
-    "/alerts — list active price alerts\n" +
+    "Dixie AM Trading Bot\n\n" +
+    "MARKET\n" +
+    "/market      — macro snapshot (Risk On/Off, SPY QQQ VIX)\n" +
+    "/scan        — run full market scan now\n" +
+    "/top         — top BUY signals from last scan\n" +
+    "/worst       — top SELL signals from last scan\n" +
+    "/status      — scanner status + last run\n" +
+    "\nPRICES\n" +
+    "/price AAPL  — live quote  (or /p AAPL MSFT NVDA)\n" +
+    "/watchlist   — live quotes for your watchlist  (/wl)\n" +
+    "\nALERTS\n" +
+    "/alert AAPL above 200    — set price alert\n" +
+    "/alert NVDA below 500 stop loss\n" +
+    "/alerts      — list active price alerts  (/pa)\n" +
     "/cancel <id> — cancel an alert\n" +
-    "/watchlist — show saved watchlist\n" +
-    "/scanner on — enable auto-scan\n" +
-    "/scanner off — disable auto-scan\n" +
-    "/scanner interval 3 — set scan interval (min)\n" +
-    "/scanner symbols — list scanned symbols\n" +
-    "/help — this message"
+    "\nDEALS\n" +
+    "/deals [query] — top deals (Reddit + SlickDeals + more)\n" +
+    "\nSCANNER CONTROL\n" +
+    "/scanner on          — enable auto-scan\n" +
+    "/scanner off         — disable auto-scan\n" +
+    "/scanner interval 5  — set scan interval (minutes)\n" +
+    "/scanner symbols     — list scanned symbols\n" +
+    "\n/help — this message"
   );
 }
 
+async function cmdMarket() {
+  await reply("Fetching macro snapshot…");
+  try {
+    await withTimeout(sendMacroReport(), 60_000, null);
+  } catch (err) {
+    return reply("Error fetching macro: " + err.message);
+  }
+}
+
 async function cmdScan() {
-  await reply("🔍 Running scan…");
+  await reply("Running scan…");
   try {
     const result = await withTimeout(runScan(), 90_000, null);
-    if (!result) return reply("⚠️ Scan timed out.");
-    if (result.skipped) return reply(`⏭️ Scan skipped: ${result.reason}`);
-    const buys  = (result.hits || []).filter(h => h.signal === "BUY");
-    const sells = (result.hits || []).filter(h => h.signal === "SELL");
-    const errStr = result.errors?.length ? `\n⚠️ ${result.errors.length} error(s)` : "";
-    return reply(
-      `✅ Scan complete\n` +
-      `🟢 ${buys.length} BUY  |  🔴 ${sells.length} SELL\n` +
-      `Checked ${result.symbolsChecked || 0} symbols${errStr}`
-    );
+    if (!result)                return reply("Scan timed out.");
+    if (result.skipped)         return reply(`Scan skipped: ${result.reason}`);
+    const buys  = (result.hits || []).filter(h => h.signal === "BUY").length;
+    const sells = (result.hits || []).filter(h => h.signal === "SELL").length;
+    const errs  = result.errors?.length ? `  (${result.errors.length} errors)` : "";
+    return reply(`Scan done — ${result.symbolsChecked} symbols${errs}\n🟢 ${buys} BUY  🔴 ${sells} SELL`);
   } catch (err) {
-    return reply(`❌ Scan failed: ${err.message}`);
+    return reply("Scan failed: " + err.message);
   }
 }
 
 async function cmdStatus() {
-  const st = getScannerStatus();
+  const st  = getScannerStatus();
   const cfg = st.config;
-  const enabledStr = cfg.enabled ? "✅ Enabled" : "❌ Disabled";
   const lastStr = st.lastRunAt ? new Date(st.lastRunAt).toUTCString() : "Never";
+  const e   = cfg.enabled ? "Enabled" : "Disabled";
 
-  // Show last hits OR remembered signals from lastSignals map
   let hitsStr;
-  if (st.lastHits.length) {
-    hitsStr = st.lastHits.slice(0, 6).map(h =>
+  if (st.lastHits?.length) {
+    hitsStr = st.lastHits.slice(0, 5).map(h =>
       `  ${h.signal === "BUY" ? "🟢" : "🔴"} ${h.symbol} ${h.signal} @ $${Number(h.price).toFixed(2)}  Score ${h.composite}`
     ).join("\n");
   } else {
-    const sigs = Object.entries(st.lastSignals || {});
-    hitsStr = sigs.length
-      ? sigs.slice(0, 6).map(([sym, sig]) => `  ${sig === "BUY" ? "🟢" : "🔴"} ${sym} ${sig}`).join("\n")
-      : "  No signals yet";
+    hitsStr = "  No signals yet";
   }
 
-  const regimeEmoji = st.macroRegime === "RISK-ON" ? "🟢" : st.macroRegime === "RISK-OFF" ? "🔴" : "⚪";
-  const regimeStr   = st.macroRegime ? `${regimeEmoji} ${st.macroRegime}` : "Unknown";
+  const regime = st.macroRegime || "Unknown";
+  const re     = regime === "RISK-ON" ? "🟢" : regime === "RISK-OFF" ? "🔴" : "⚪";
 
   return reply(
-    `📡 Scanner Status\n` +
-    `${enabledStr}  |  Every ${cfg.intervalMinutes} min\n` +
-    `Symbols: ${(cfg.symbols || []).length}  |  Cooldown: ${cfg.cooldownHours}h\n` +
-    `Last run: ${lastStr}\n` +
-    `Scans run: ${st.scanCount}\n\n` +
-    `Macro Regime: ${regimeStr}\n\n` +
-    `Active signals:\n${hitsStr}`
+    `Scanner: ${e}  every ${cfg.intervalMinutes} min\n` +
+    `Symbols: ${(cfg.symbols||[]).length}  |  Cooldown: ${cfg.cooldownHours}h\n` +
+    `Scans run: ${st.scanCount}  |  Last: ${lastStr}\n` +
+    `Macro: ${re} ${regime}\n\n` +
+    `Last signals:\n${hitsStr}`
   );
 }
 
 async function cmdTop() {
-  const st = getScannerStatus();
-  const hits = st.lastHits || [];
-  if (!hits.length) return reply("No signals from last scan yet. Run /scan first.");
-  const lines = hits.slice(0, 10).map(h => {
-    const e = h.signal === "BUY" ? "🟢" : "🔴";
-    const rsi  = h.rsi  != null ? `  RSI ${Number(h.rsi).toFixed(0)}` : "";
-    const rvol = h.rvol != null ? `  RVOL ${Number(h.rvol).toFixed(1)}x` : "";
-    return `${e} ${h.symbol} ${h.signal} @ $${Number(h.price).toFixed(2)}  Score ${h.composite}${rsi}${rvol}`;
+  const { lastHits } = getScannerStatus();
+  const buys = (lastHits || []).filter(h => h.signal === "BUY").slice(0, 8);
+  if (!buys.length) return reply("No BUY signals from last scan. Run /scan first.");
+  const lines = buys.map(h => {
+    const chg = h.chgPct != null ? ` ${h.chgPct >= 0 ? "+" : ""}${Number(h.chgPct).toFixed(2)}%` : "";
+    return `🟢 ${h.symbol} @ $${Number(h.price).toFixed(2)}${chg}  Score ${h.composite}  RSI ${h.rsi}  RVOL ${h.rvol}x`;
   });
-  return reply(`Top Signals — Last Scan\n\n${lines.join("\n")}`);
+  return reply("Top BUY — Last Scan\n\n" + lines.join("\n"));
+}
+
+async function cmdWorst() {
+  const { lastHits } = getScannerStatus();
+  const sells = (lastHits || []).filter(h => h.signal === "SELL").slice(0, 8);
+  if (!sells.length) return reply("No SELL signals from last scan. Run /scan first.");
+  const lines = sells.map(h => {
+    const chg = h.chgPct != null ? ` ${h.chgPct >= 0 ? "+" : ""}${Number(h.chgPct).toFixed(2)}%` : "";
+    return `🔴 ${h.symbol} @ $${Number(h.price).toFixed(2)}${chg}  Score ${h.composite}  RSI ${h.rsi}  RVOL ${h.rvol}x`;
+  });
+  return reply("Top SELL — Last Scan\n\n" + lines.join("\n"));
 }
 
 async function cmdPrice(args) {
-  const symbols = args
-    .slice(0, 5)
-    .map(s => s.toUpperCase())
-    .filter(s => /^[A-Z0-9.\-^]{1,12}$/.test(s));
+  const symbols = args.slice(0, 5).map(s => s.toUpperCase()).filter(s => /^[A-Z0-9.\-^]{1,12}$/.test(s));
   if (!symbols.length) return reply("Usage: /price AAPL  or  /price AAPL MSFT NVDA");
-
   try {
-    const quotes = await withTimeout(
-      Promise.all(symbols.map(sym => fetchLiveQuote(sym))),
-      15000,
-      []
-    );
-    const lines = quotes
-      .filter(Boolean)
-      .map(q => {
-        const arrow = q.chgPct >= 0 ? "▲" : "▼";
-        const rvolStr = q.rvol != null ? `  RVOL ${q.rvol}x` : "";
-        return `${q.symbol}  $${q.price.toFixed(2)}  ${arrow} ${q.chgPct >= 0 ? "+" : ""}${q.chgPct.toFixed(2)}%${rvolStr}`;
-      });
-    if (!lines.length) return reply("⚠️ Could not fetch quotes. Try again shortly.");
+    const quotes = await withTimeout(Promise.all(symbols.map(fetchLiveQuote)), 20000, []);
+    const lines  = (quotes || []).filter(Boolean).map(q => {
+      const arrow  = q.chgPct >= 0 ? "+" : "";
+      const rvolStr = q.rvol != null ? `  RVOL ${q.rvol}x` : "";
+      return `${q.symbol}  $${q.price.toFixed(2)}  ${arrow}${q.chgPct.toFixed(2)}%${rvolStr}`;
+    });
+    if (!lines.length) return reply("Could not fetch quotes. Try again shortly.");
     return reply(lines.join("\n"));
-  } catch (err) {
-    return reply(`❌ Quote error: ${err.message}`);
-  }
+  } catch (err) { return reply("Quote error: " + err.message); }
 }
 
 async function cmdAlert(args) {
-  // /alert AAPL above 200 [optional note...]
-  // /alert AAPL > 200 stop hit
   const sym = (args[0] || "").toUpperCase();
-  if (!sym || !/^[A-Z0-9.\-]{1,10}$/.test(sym)) {
+  if (!sym || !/^[A-Z0-9.\-]{1,10}$/.test(sym))
     return reply("Usage: /alert AAPL above 200\n       /alert NVDA below 500 stop loss");
-  }
-
   let dir = (args[1] || "").toLowerCase();
   if (dir === ">" || dir === "above") dir = "above";
   else if (dir === "<" || dir === "below") dir = "below";
-  else return reply(`Direction must be "above" or "below". Example:\n/alert AAPL above 200`);
-
+  else return reply('Direction must be "above" or "below".\nExample: /alert AAPL above 200');
   const targetPrice = Number(args[2]);
-  if (!targetPrice || targetPrice <= 0) return reply("Price must be a positive number. Example:\n/alert AAPL above 200");
-
-  const note = args.slice(3).join(" ").slice(0, 200).trim();
+  if (!targetPrice || targetPrice <= 0) return reply("Price must be a positive number.");
+  const note  = args.slice(3).join(" ").slice(0, 200).trim();
   const alert = {
     id: `pa-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    symbol: sym,
-    targetPrice,
-    direction: dir,
-    note,
-    status: "active",
-    createdAt: new Date().toISOString(),
-    triggeredAt: null,
+    symbol: sym, targetPrice, direction: dir, note,
+    status: "active", createdAt: new Date().toISOString(), triggeredAt: null,
   };
-
   const alerts = loadPriceAlerts();
-  if (alerts.filter(a => a.status === "active").length >= 50) {
-    return reply("Maximum 50 active alerts reached. Cancel some first with /alerts then /cancel <id>.");
-  }
+  if (alerts.filter(a => a.status === "active").length >= 50)
+    return reply("Max 50 active alerts reached. Cancel some first with /alerts then /cancel <id>.");
   alerts.unshift(alert);
   savePriceAlerts(alerts);
-
-  const dirEmoji = dir === "above" ? "📈" : "📉";
-  const noteStr  = note ? `\n${note}` : "";
-  return reply(`${dirEmoji} Alert set: ${sym} ${dir} $${targetPrice}${noteStr}\nID: ${alert.id}`);
+  const de = dir === "above" ? "📈" : "📉";
+  return reply(`${de} Alert set: ${sym} ${dir} $${targetPrice}${note ? "\n" + note : ""}\nID: ${alert.id}`);
 }
 
 async function cmdAlerts() {
-  const all    = loadPriceAlerts();
-  const active = all.filter(a => a.status === "active");
-  if (!active.length) return reply("No active price alerts. Set one with:\n/alert AAPL above 200");
-
+  const active = loadPriceAlerts().filter(a => a.status === "active");
+  if (!active.length) return reply("No active price alerts.\nSet one with: /alert AAPL above 200");
   const lines = active.slice(0, 15).map(a => {
     const e = a.direction === "above" ? "📈" : "📉";
-    const note = a.note ? `  ${a.note}` : "";
-    return `${e} ${a.symbol} ${a.direction} $${a.targetPrice}${note}\n  ID: ${a.id.slice(0, 20)}`;
+    return `${e} ${a.symbol} ${a.direction} $${a.targetPrice}${a.note ? "  " + a.note : ""}\n  ID: ${a.id.slice(0, 20)}`;
   });
   const extra = active.length > 15 ? `\n...and ${active.length - 15} more` : "";
-  return reply(`Active Price Alerts (${active.length})\n\n${lines.join("\n\n")}${extra}`);
+  return reply(`Active Alerts (${active.length})\n\n${lines.join("\n\n")}${extra}`);
 }
 
 async function cmdCancel(args) {
   const partial = (args[0] || "").trim();
   if (!partial) return reply("Usage: /cancel <id>\nGet IDs from /alerts");
-
   const alerts = loadPriceAlerts();
-  const idx = alerts.findIndex(a => a.id === partial || a.id.startsWith(partial));
-  if (idx === -1) return reply(`No alert found with ID starting with "${partial}"`);
-
-  const a = alerts[idx];
-  if (a.status !== "active") return reply(`Alert "${partial}" is already ${a.status}.`);
-
+  const idx    = alerts.findIndex(a => a.id === partial || a.id.startsWith(partial));
+  if (idx === -1)                    return reply(`No alert found with ID "${partial}"`);
+  if (alerts[idx].status !== "active") return reply(`Alert already ${alerts[idx].status}.`);
   alerts[idx].status = "cancelled";
   savePriceAlerts(alerts);
-  return reply(`✅ Cancelled: ${a.symbol} ${a.direction} $${a.targetPrice}`);
+  return reply(`Cancelled: ${alerts[idx].symbol} ${alerts[idx].direction} $${alerts[idx].targetPrice}`);
 }
 
 async function cmdWatchlist() {
   const settings = loadSettings();
   const symbols  = (settings.watchlistSymbols || []).slice(0, 20);
   if (!symbols.length) return reply("No watchlist saved. Add symbols from the trading platform.");
-
   try {
-    const quotes = await withTimeout(
-      Promise.all(symbols.map(sym => fetchLiveQuote(sym))),
-      20000,
-      []
-    );
-    const lines = symbols.map((sym, i) => {
-      const q = quotes[i];
-      if (!q) return `• ${sym} —`;
-      const arrow = q.chgPct >= 0 ? "▲" : "▼";
-      return `• ${sym}  $${q.price.toFixed(2)}  ${arrow} ${q.chgPct >= 0 ? "+" : ""}${q.chgPct.toFixed(2)}%`;
+    const quotes = await withTimeout(Promise.all(symbols.map(fetchLiveQuote)), 25000, []);
+    const lines  = symbols.map((sym, i) => {
+      const q = (quotes || [])[i];
+      if (!q) return `${sym} —`;
+      const arrow = q.chgPct >= 0 ? "+" : "";
+      return `${q.symbol}  $${q.price.toFixed(2)}  ${arrow}${q.chgPct.toFixed(2)}%`;
     });
     return reply(`Watchlist (${symbols.length})\n\n${lines.join("\n")}`);
-  } catch (err) {
-    return reply(`Watchlist: ${symbols.join(", ")}\n(Price fetch error: ${err.message})`);
-  }
+  } catch (err) { return reply(`Watchlist: ${symbols.join(", ")}\n(Fetch error: ${err.message})`); }
 }
 
 async function cmdScanner(args) {
   const sub = (args[0] || "").toLowerCase();
-
   if (sub === "on" || sub === "off") {
-    const enabled = sub === "on";
-    saveConfig({ enabled });
-    return reply(enabled ? "✅ Auto-scanner enabled" : "❌ Auto-scanner disabled");
+    saveConfig({ enabled: sub === "on" });
+    return reply(sub === "on" ? "Auto-scanner enabled" : "Auto-scanner disabled");
   }
-
   if (sub === "interval") {
-    const mins = Math.max(1, Math.min(1440, Number(args[1]) || 3));
+    const mins = Math.max(1, Math.min(1440, Number(args[1]) || 5));
     saveConfig({ intervalMinutes: mins });
-    return reply(`⏱️ Scan interval set to ${mins} minute${mins === 1 ? "" : "s"}`);
+    return reply(`Scan interval set to ${mins} minute${mins === 1 ? "" : "s"}`);
   }
-
   if (sub === "symbols") {
-    const st = getScannerStatus();
-    const syms = (st.config.symbols || []).join(", ");
-    return reply(`Scan symbols (${(st.config.symbols || []).length}):\n${syms}`);
+    const st   = getScannerStatus();
+    const syms = (st.config.symbols || []);
+    return reply(`Scanned symbols (${syms.length}):\n${syms.slice(0, 60).join(", ")}${syms.length > 60 ? "..." : ""}`);
   }
-
   return reply(
     "Scanner commands:\n" +
-    "• /scanner on — enable\n" +
-    "• /scanner off — disable\n" +
-    "• /scanner interval 3 — set interval\n" +
-    "• /scanner symbols — list symbols"
+    "/scanner on           — enable\n" +
+    "/scanner off          — disable\n" +
+    "/scanner interval 5   — set interval (minutes)\n" +
+    "/scanner symbols      — list all symbols"
   );
 }
 
-// ── Command dispatcher ────────────────────────────────────────────────────────
+async function cmdDeals(args) {
+  const query = args.join(" ").trim();
+  await reply(query ? `Searching deals: "${query}"…` : "Fetching top deals…");
+  try {
+    const params = new URLSearchParams({ q: query, category: "general" });
+    const base   = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const res    = await fetch(`${base}/api/deals/search?${params}`, {
+      signal: AbortSignal.timeout(20000),
+    });
+    const data   = await res.json().catch(() => ({}));
+    const results = (data.results || []).slice(0, 6);
+    if (!results.length) return reply("No deals found. Try: /deals laptop");
+    let msg = `Top Deals${query ? ' for "' + query + '"' : ""} (${results.length})\n\n`;
+    for (const d of results) {
+      msg += `${d.price ? d.price + "  " : ""}${d.title.slice(0, 70)}\n`;
+      msg += `  ${d.source}  ${d.link.slice(0, 60)}\n\n`;
+    }
+    return reply(msg.trim());
+  } catch (err) { return reply("Deals error: " + err.message); }
+}
 
+// ── Command dispatcher ────────────────────────────────────────────────────────
 const COMMANDS = {
   start:     () => cmdHelp(),
   help:      () => cmdHelp(),
+  h:         () => cmdHelp(),
+  market:    () => cmdMarket(),
+  macro:     () => cmdMarket(),
+  m:         () => cmdMarket(),
   scan:      () => cmdScan(),
   run:       () => cmdScan(),
   status:    () => cmdStatus(),
+  st:        () => cmdStatus(),
   top:       () => cmdTop(),
-  price:     (args) => cmdPrice(args),
-  p:         (args) => cmdPrice(args),
-  alert:     (args) => cmdAlert(args),
+  best:      () => cmdTop(),
+  worst:     (a) => cmdWorst(a),
+  sell:      (a) => cmdWorst(a),
+  price:     (a) => cmdPrice(a),
+  p:         (a) => cmdPrice(a),
+  q:         (a) => cmdPrice(a),
+  alert:     (a) => cmdAlert(a),
   alerts:    () => cmdAlerts(),
   pa:        () => cmdAlerts(),
-  cancel:    (args) => cmdCancel(args),
+  cancel:    (a) => cmdCancel(a),
   watchlist: () => cmdWatchlist(),
   wl:        () => cmdWatchlist(),
-  scanner:   (args) => cmdScanner(args),
+  scanner:   (a) => cmdScanner(a),
+  deals:     (a) => cmdDeals(a),
+  d:         (a) => cmdDeals(a),
 };
 
 async function dispatch(text) {
   const clean = String(text || "").trim();
-  if (!clean.startsWith("/")) return; // ignore non-commands
-
-  // Strip bot mention (e.g. /scan@MyBotName → /scan)
+  if (!clean.startsWith("/")) return;
   const withoutAt = clean.replace(/^(\/\w+)@\w+/, "$1");
-  const parts  = withoutAt.slice(1).split(/\s+/);
-  const cmd    = (parts[0] || "").toLowerCase();
-  const args   = parts.slice(1);
-
+  const parts = withoutAt.slice(1).split(/\s+/);
+  const cmd   = (parts[0] || "").toLowerCase();
+  const args  = parts.slice(1);
   const handler = COMMANDS[cmd];
   if (!handler) {
-    return reply(`Unknown command: /${cmd}\nType /help for a list of commands.`);
+    return reply(`Unknown command: /${cmd}\nType /help for a list.`);
   }
-
   try {
     await handler(args);
   } catch (err) {
-    console.error(`[TgBot] Command /${cmd} error:`, err.message);
-    await reply(`❌ Error running /${cmd}: ${err.message}`).catch(() => {});
+    console.error(`[TgBot] /${cmd} error:`, err.message);
+    await reply(`Error running /${cmd}: ${err.message}`).catch(() => {});
   }
 }
 
-// ── Long-poll loop ────────────────────────────────────────────────────────────
-
-let _offset = 0;
-let _polling = false;
+// ── Long-poll ─────────────────────────────────────────────────────────────────
+let _offset   = 0;
+let _polling  = false;
+let _pollFails = 0;
 
 async function deleteWebhook() {
-  try {
-    const res  = await fetch(`${API}/deleteWebhook?drop_pending_updates=false`);
-    const json = await res.json().catch(() => ({}));
-    if (json.ok) console.log("[TgBot] Webhook cleared — polling mode active.");
-    else console.warn("[TgBot] deleteWebhook:", json.description || JSON.stringify(json));
-  } catch (err) {
-    console.warn("[TgBot] deleteWebhook error:", err.message);
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res  = await fetch(`${API}/deleteWebhook?drop_pending_updates=false`);
+      const json = await res.json().catch(() => ({}));
+      if (json.ok) { console.log("[TgBot] Webhook cleared — polling mode active."); return; }
+      console.warn(`[TgBot] deleteWebhook attempt ${attempt}:`, json.description);
+    } catch (err) {
+      console.warn(`[TgBot] deleteWebhook attempt ${attempt} error:`, err.message);
+    }
+    await new Promise(r => setTimeout(r, 2000 * attempt));
   }
 }
 
 async function pollOnce() {
-  let data;
-  try {
-    const res = await fetch(
-      `${API}/getUpdates?offset=${_offset}&timeout=25&allowed_updates=["message"]`,
-      { signal: AbortSignal.timeout(32_000) }
-    );
-    data = await res.json();
-  } catch (err) {
-    console.warn("[TgBot] getUpdates error:", err.message);
-    return;
-  }
+  const res = await fetch(
+    `${API}/getUpdates?offset=${_offset}&timeout=25&allowed_updates=%5B%22message%22%5D`,
+    { signal: AbortSignal.timeout(35_000) }
+  );
+  const data = await res.json();
 
   if (!data?.ok) {
-    console.warn("[TgBot] getUpdates not ok:", data?.description || JSON.stringify(data));
+    console.warn("[TgBot] getUpdates not ok:", data?.description || JSON.stringify(data).slice(0, 100));
+    _pollFails++;
+    // If 409 conflict — another process is polling. Back off, then try deleteWebhook again.
+    if (data?.error_code === 409) {
+      console.warn("[TgBot] 409 conflict — clearing webhook and waiting 10s");
+      await deleteWebhook();
+      await new Promise(r => setTimeout(r, 10_000));
+    }
     return;
   }
-  if (!Array.isArray(data.result) || data.result.length === 0) return;
+  _pollFails = 0;
 
-  console.log(`[TgBot] ${data.result.length} update(s) received`);
+  if (!Array.isArray(data.result) || !data.result.length) return;
+  console.log(`[TgBot] ${data.result.length} update(s)`);
 
   for (const update of data.result) {
     _offset = update.update_id + 1;
-
     const msg = update.message;
     if (!msg) continue;
 
     const incomingChatId = String(msg.chat?.id ?? "");
     const configuredId   = String(TELEGRAM_CHAT_ID || "").trim();
 
-    // Log every message so mismatches are visible in server logs
-    console.log(`[TgBot] msg from chat ${incomingChatId}: ${(msg.text || "").slice(0, 80)}`);
+    console.log(`[TgBot] from ${incomingChatId}: "${(msg.text || "").slice(0, 60)}"`);
 
-    // If TELEGRAM_CHAT_ID is set, only respond to that chat
     if (configuredId && incomingChatId !== configuredId) {
-      console.warn(`[TgBot] Ignored — chat ${incomingChatId} != configured ${configuredId}`);
+      console.warn(`[TgBot] Ignored — from ${incomingChatId}, expected ${configuredId}`);
       continue;
     }
 
-    await dispatch(msg.text || "").catch((err) => {
-      console.error("[TgBot] dispatch error:", err.message);
-    });
+    dispatch(msg.text || "").catch(err => console.error("[TgBot] dispatch:", err.message));
   }
 }
 
-const BOT_COMMANDS = [
-  { command: "scan",     description: "Run market scan now" },
-  { command: "status",   description: "Scanner status + last signals" },
-  { command: "top",      description: "Top BUY/SELL from last scan" },
-  { command: "price",    description: "Live quote — /price AAPL" },
-  { command: "alert",    description: "Set price alert — /alert AAPL above 200" },
-  { command: "alerts",   description: "List active price alerts" },
-  { command: "cancel",   description: "Cancel alert — /cancel <id>" },
-  { command: "watchlist",description: "Show saved watchlist" },
-  { command: "scanner",  description: "Scanner control — on / off / interval 3" },
-  { command: "help",     description: "List all commands" },
-];
-
 async function registerCommands() {
   try {
-    const res = await fetch(`${API}/setMyCommands`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ commands: BOT_COMMANDS }),
+    const cmds = [
+      { command: "market",    description: "Macro snapshot — Risk On/Off, SPY QQQ VIX" },
+      { command: "scan",      description: "Run full market scan now" },
+      { command: "top",       description: "Top BUY signals from last scan" },
+      { command: "worst",     description: "Top SELL signals from last scan" },
+      { command: "status",    description: "Scanner status + last run" },
+      { command: "price",     description: "Live quote — /price AAPL MSFT" },
+      { command: "watchlist", description: "Watchlist with live prices" },
+      { command: "alert",     description: "Set price alert — /alert AAPL above 200" },
+      { command: "alerts",    description: "List active price alerts" },
+      { command: "cancel",    description: "Cancel alert — /cancel <id>" },
+      { command: "deals",     description: "Top deals — /deals laptop" },
+      { command: "scanner",   description: "Scanner control — on / off / interval 5" },
+      { command: "help",      description: "All commands" },
+    ];
+    const res  = await fetch(`${API}/setMyCommands`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ commands: cmds }),
     });
     const json = await res.json().catch(() => ({}));
     if (json.ok) console.log("[TgBot] Commands registered with BotFather.");
-    else console.warn("[TgBot] setMyCommands failed:", json.description || JSON.stringify(json));
-  } catch (err) {
-    console.warn("[TgBot] setMyCommands error:", err.message);
-  }
+    else console.warn("[TgBot] setMyCommands failed:", json.description);
+  } catch (err) { console.warn("[TgBot] setMyCommands error:", err.message); }
 }
 
 function startTelegramBot() {
@@ -456,36 +438,32 @@ function startTelegramBot() {
     console.log("[TgBot] Telegram not configured — bot polling disabled.");
     return;
   }
-
   _polling = true;
 
   async function loop() {
     if (!_polling) return;
     try {
       await pollOnce();
-    } catch {
-      // absorb all errors — never crash the server
+    } catch (err) {
+      console.warn("[TgBot] poll error:", err.message);
+      _pollFails++;
     }
-    // getUpdates already waited up to 25s; pause 1s then re-poll
-    if (_polling) setTimeout(loop, 1000);
+    // Back off if repeated failures
+    const delay = _pollFails >= 5 ? 15_000 : _pollFails >= 2 ? 5_000 : 1_000;
+    if (_polling) setTimeout(loop, delay);
   }
 
-  // 1. Delete any existing webhook so getUpdates works
-  // 2. Register slash commands with BotFather
-  // 3. Start polling loop
   deleteWebhook()
     .then(() => registerCommands())
     .then(() => {
       loop().catch(() => {});
-      console.log("[TgBot] Telegram bot polling started. Send /help in your chat.");
+      console.log("[TgBot] Polling started. Send /help to your bot.");
     })
     .catch(() => {
       loop().catch(() => {});
     });
 }
 
-function stopTelegramBot() {
-  _polling = false;
-}
+function stopTelegramBot() { _polling = false; }
 
 module.exports = { startTelegramBot, stopTelegramBot };

@@ -23,7 +23,7 @@ const { PORT, HOST } = require("./src/config");
 const handleRequest = require("./src/router");
 const { startPriceAlertMonitor } = require("./src/price-alert-monitor");
 const { startFbScheduler } = require("./src/fb-scheduler");
-const { startMarketScanner } = require("./src/market-scanner");
+const { startMarketScanner, sendMacroReport } = require("./src/market-scanner");
 const { startTelegramBot }    = require("./src/telegram-bot");
 const { checkDealWatches }   = require("./src/routes/deals");
 
@@ -41,12 +41,17 @@ server.listen(PORT, HOST, () => {
   }
   startPriceAlertMonitor();
   startFbScheduler();
-  startMarketScanner();
+  startMarketScanner();   // 5-min stock scan → grouped BUY/SELL alerts
   startTelegramBot();
+
+  // ── 30-min macro report: Risk On/Off, SPY QQQ IWM, macro instruments ────
+  setInterval(() => { sendMacroReport().catch(e => console.error("[Macro]", e.message)); }, 30 * 60 * 1000);
+  setTimeout(() => { sendMacroReport().catch(() => {}); }, 3 * 60 * 1000); // first report 3 min after boot
+  console.log("[Macro] 30-min macro report scheduler started");
 
   // Deal watch scanner — check every 30 min, send Telegram alerts for new deals
   setInterval(checkDealWatches, 30 * 60 * 1000);
-  setTimeout(checkDealWatches, 60 * 1000); // first check 1 min after boot
+  setTimeout(checkDealWatches, 90 * 1000); // first check 90s after boot
   console.log("[Deals] Background watch scanner started (every 30 min)");
 
   // Keep-alive: ping own health endpoint every 10 min so Render free tier never idles out
