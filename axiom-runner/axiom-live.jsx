@@ -62,16 +62,21 @@ const WEATHER_ZIP = "45014";
 
 // ── Islamic Module Constants ──
 // CDN: cdn.islamic.network/quran/audio-surah/128/{edition}/{surahNum}.mp3
-const QURAN_CDN = "https://cdn.islamic.network/quran/audio-surah/128";
+const QURAN_CDN      = "https://cdn.islamic.network/quran/audio-surah/128";
+const QURAN_CDN_LOW  = "https://cdn.islamic.network/quran/audio-surah/64";
 const QURAN_RECITERS = [
-  { id: "ar.alafasy",               label: "مشاري العفاسي" },
-  { id: "ar.abdurrahmaanas-sudais", label: "عبد الرحمن السديس" },
-  { id: "ar.husary",                label: "محمود خليل الحصري" },
-  { id: "ar.minshawi",              label: "محمد المنشاوي" },
-  { id: "ar.ahmedajamy",            label: "أحمد العجمي" },
-  { id: "ar.abdullahbasfar",        label: "عبد الله بصفر" },
-  { id: "ar.hanirifai",             label: "هاني الرفاعي" },
-  { id: "ar.shaatree",              label: "أبو بكر الشاطري" },
+  { id: "ar.alafasy",        label: "مشاري العفاسي — Mishary Al-Afasy" },
+  { id: "ar.mahermuaiqly",   label: "ماهر المعيقلي — Maher Al-Muaiqly" },
+  { id: "ar.husary",         label: "محمود خليل الحصري — Al-Husary" },
+  { id: "ar.minshawi",       label: "محمد المنشاوي — Al-Minshawi" },
+  { id: "ar.shaatree",       label: "أبو بكر الشاطري — Ash-Shaatree" },
+  { id: "ar.abdullahbasfar", label: "عبد الله بصفر — Abdullah Basfar" },
+  { id: "ar.ahmedajamy",     label: "أحمد العجمي — Ahmed Al-Ajamy" },
+  { id: "ar.hanirifai",      label: "هاني الرفاعي — Hani Ar-Rifai" },
+  { id: "ar.muhammadayyoub", label: "محمد أيوب — Muhammad Ayyoub" },
+  { id: "ar.saoodshuraym",   label: "سعود الشريم — Saud Al-Shuraim" },
+  { id: "ar.ibrahimakhbar",  label: "إبراهيم الأخضر — Ibrahim Al-Akhdar" },
+  { id: "ar.hudhaify",       label: "علي الحذيفي — Ali Al-Hudhaify" },
 ];
 const SURAH_LIST = [
   [1,"الفاتحة","Al-Fatiha"],
@@ -4224,12 +4229,15 @@ export default function App() {
   }, [athanTimes, athanSoundOn]);
 
   // Reload global quran audio when surah or reciter changes, resume if was playing
-  const quranWasPlaying = useRef(false);
+  const quranWasPlaying  = useRef(false);
+  const quranUsedFallback = useRef(false);  // true = already tried 64kbps
   useEffect(() => {
     if (!quranAudioRef.current) return;
     const shouldPlay = quranWasPlaying.current;
-    quranWasPlaying.current = false;
+    quranWasPlaying.current  = false;
+    quranUsedFallback.current = false;  // reset fallback on every track change
     setQuranAudioError(false);
+    quranAudioRef.current.src = `${QURAN_CDN}/${quranReciter.id}/${quranSurah}.mp3`;
     quranAudioRef.current.load();
     if (shouldPlay) {
       quranAudioRef.current.play().catch(() => setQuranAudioError(true));
@@ -10542,7 +10550,7 @@ export default function App() {
                   <div>
                     <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#ff6633" }}>⚠ AUDIO SERVER UNREACHABLE</div>
                     <div style={{ fontFamily: MONO, fontSize: 9, color: "#cc7755", marginTop: 3 }}>
-                      Reciter: {quranReciter.id} — try a different reciter or check your connection.
+                      This surah is not available for this reciter — please choose another reciter.
                     </div>
                   </div>
                   <button
@@ -10983,7 +10991,22 @@ export default function App() {
         onPlay={() => { setQuranPlaying(true); setQuranAudioError(false); }}
         onPause={() => setQuranPlaying(false)}
         onCanPlay={() => setQuranAudioError(false)}
-        onError={() => { setQuranPlaying(false); setQuranAudioError(true); }}
+        onError={() => {
+          // First failure → try 64 kbps fallback before showing error
+          if (!quranUsedFallback.current) {
+            quranUsedFallback.current = true;
+            const el = quranAudioRef.current;
+            if (el) {
+              const wasPlaying = quranPlaying;
+              el.src = `${QURAN_CDN_LOW}/${quranReciter.id}/${quranSurah}.mp3`;
+              el.load();
+              if (wasPlaying) el.play().catch(() => { setQuranPlaying(false); setQuranAudioError(true); });
+            }
+          } else {
+            setQuranPlaying(false);
+            setQuranAudioError(true);
+          }
+        }}
         onEnded={() => {
           if (quranAutoNext && quranSurah < 114) {
             quranWasPlaying.current = true;
