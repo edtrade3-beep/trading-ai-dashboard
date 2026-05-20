@@ -6361,7 +6361,21 @@ export default function App() {
         position: "sticky", top: 0, zIndex: 40,
         boxShadow: themeMode === "dark" ? "0 1px 0 #1a2e4a, 0 2px 12px rgba(0,0,0,0.5)" : "0 1px 4px rgba(0,0,0,0.06)",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: "1 1 auto", overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, minWidth: 0, flex: "1 1 auto", overflow: "hidden" }}>
+          {/* ☰ Hamburger — mobile only, FAR LEFT before logo */}
+          {isMobile && (
+            <button
+              onClick={() => { setMobileMenuOpen(s => !s); setMobileSearchOpen(false); }}
+              style={{
+                background: mobileMenuOpen ? `${C.accent}18` : "transparent",
+                border: `1px solid ${mobileMenuOpen ? C.accent : C.border}`,
+                color: mobileMenuOpen ? C.accent : C.textSec,
+                borderRadius: 6, width: 40, height: 40,
+                fontSize: 18, cursor: "pointer", flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >☰</button>
+          )}
           {/* Logo + brand */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             <img
@@ -6540,15 +6554,8 @@ export default function App() {
             </button>
           )}
 
-          {/* Search — desktop: inline; mobile: icon toggle */}
-          {isMobile ? (
-            <button
-              onClick={() => setMobileSearchOpen(s => !s)}
-              style={{ background: mobileSearchOpen ? `${C.accent}18` : C.card, border: `1px solid ${mobileSearchOpen ? C.accent : C.border}`, color: mobileSearchOpen ? C.accent : C.textSec, fontFamily: MONO, fontSize: 15, padding: "6px 10px", borderRadius: 4, cursor: "pointer", minHeight: 36, display: "flex", alignItems: "center" }}
-            >
-              🔍
-            </button>
-          ) : (
+          {/* Search — desktop inline only; mobile search is inside the ☰ drawer */}
+          {!isMobile && (
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <input
                 value={symbolSearch}
@@ -6562,18 +6569,13 @@ export default function App() {
             </div>
           )}
 
-          {/* Action buttons — desktop: full row; mobile: essential only */}
+          {/* Action buttons — desktop: full row; mobile: theme + search only (menu is on left ☰) */}
           {isMobile ? (
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 13, padding: "6px 10px", borderRadius: 4, cursor: "pointer", minHeight: 36, minWidth: 36, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {loading ? "⟳" : "⟳"}
-              </button>
-              <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 15, padding: "6px 10px", borderRadius: 4, cursor: "pointer", minHeight: 36, minWidth: 36, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {themeMode === "dark" ? "☀" : "🌙"}
-              </button>
-              <button onClick={() => setMobileMenuOpen(s => !s)} style={{ background: mobileMenuOpen ? `${C.accent}18` : C.card, border: `1px solid ${mobileMenuOpen ? C.accent : C.border}`, color: mobileMenuOpen ? C.accent : C.textSec, fontFamily: MONO, fontSize: 15, padding: "6px 10px", borderRadius: 4, cursor: "pointer", minHeight: 36, minWidth: 36, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                ☰
-              </button>
+              <button
+                onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))}
+                style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, width: 40, height: 40, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+              >{themeMode === "dark" ? "☀" : "🌙"}</button>
             </div>
           ) : (
             <div style={{ display: "flex", alignItems: "center", gap: 4, borderLeft: `1px solid ${C.border}`, paddingLeft: 8, marginLeft: 2 }}>
@@ -6593,49 +6595,89 @@ export default function App() {
         </div>
       </div>
 
-      {/* Mobile search dropdown */}
-      {isMobile && mobileSearchOpen && (
-        <div style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, background: themeMode === "dark" ? "#080e1c" : C.surface, display: "flex", gap: 6 }}>
-          <input
-            autoFocus
-            value={symbolSearch}
-            onChange={(e) => setSymbolSearch(e.target.value.toUpperCase())}
-            onKeyDown={(e) => { if (e.key === "Enter") { handleSymbolSearch(); setMobileSearchOpen(false); } }}
-            placeholder="Enter ticker (e.g. NVDA)"
-            style={{ flex: 1, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "10px 12px", fontFamily: MONO, fontSize: 16, outline: "none" }}
-          />
-          <button onClick={() => { handleSymbolSearch(); setMobileSearchOpen(false); }} style={{ background: C.accent, border: "none", color: "#fff", borderRadius: 4, padding: "10px 16px", fontFamily: MONO, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>GO</button>
-          <button onClick={() => openTradingView(symbolSearch || terminalSymbol)} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.accent, borderRadius: 4, padding: "10px 14px", fontFamily: MONO, fontSize: 13, cursor: "pointer" }}>TV</button>
-        </div>
-      )}
-
-      {/* Mobile menu drawer */}
+      {/* Mobile menu drawer — opens from LEFT hamburger button */}
       {isMobile && mobileMenuOpen && (
-        <div style={{ padding: "10px 12px", borderBottom: `2px solid ${C.border}`, background: themeMode === "dark" ? "#080e1c" : C.surface, display: "flex", flexWrap: "wrap", gap: 8 }}>
-          <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); setMobileMenuOpen(false); }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 11, padding: "10px 14px", borderRadius: 4, cursor: "pointer", minHeight: 40 }}>
-            {loading ? "⟳ LOADING" : "⟳ REFRESH"}
-          </button>
-          <a href="/dealer" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 11, padding: "10px 14px", borderRadius: 4, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", minHeight: 40 }}>DEALER</a>
-          <a href="/workstation" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 11, padding: "10px 14px", borderRadius: 4, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", minHeight: 40 }}>WORKSTATION</a>
-          <button onClick={() => { generateMarketReport(); setMobileMenuOpen(false); }} style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "10px 14px", borderRadius: 4, cursor: "pointer", minHeight: 40 }}>MARKET RESET</button>
-          <button onClick={() => { setPaletteOpen(true); setMobileMenuOpen(false); }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 11, padding: "10px 14px", borderRadius: 4, cursor: "pointer", minHeight: 40 }}>CMD</button>
-          <button onClick={() => { handleLock(); setMobileMenuOpen(false); }} style={{ background: `${C.red}12`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "10px 14px", borderRadius: 4, cursor: "pointer", minHeight: 40 }}>LOCK</button>
-          {weatherData && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${C.border}`, background: C.card, borderRadius: 5, padding: "10px 14px", fontSize: 11, fontFamily: MONO, color: C.textSec }}>
-              <span style={{ color: C.accent, fontWeight: 700 }}>☁ {WEATHER_ZIP}</span>
-              <span style={{ fontWeight: 800 }}>{weatherData.temp.toFixed(0)}°F</span>
-              <span style={{ color: C.textDim }}>{weatherCodeLabel(weatherData.code)}</span>
-            </div>
-          )}
-          {(() => {
-            const cdColor = sessionCountdown.session === "REGULAR" ? C.green : sessionCountdown.session === "PREMARKET" ? C.accent : sessionCountdown.session === "AFTERMARKET" ? C.amber : C.textDim;
-            return (
-              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 14px", background: `${cdColor}0e`, borderRadius: 4, border: `1px solid ${cdColor}2a`, minHeight: 40 }}>
-                <span style={{ fontSize: 11, fontFamily: MONO, color: C.textDim }}>{sessionCountdown.label}</span>
-                <span style={{ fontSize: 12, fontFamily: MONO, color: cdColor, fontWeight: 800 }}>{fmtCountdownShort(sessionCountdown.secs)}</span>
+        <div style={{
+          borderBottom: `2px solid ${C.accent}33`,
+          borderLeft: `3px solid ${C.accent}`,
+          background: themeMode === "dark" ? "#070c19" : "#f4f8ff",
+          boxShadow: "0 6px 24px rgba(0,0,0,0.15)",
+        }}>
+          {/* Search row — top of menu */}
+          <div style={{ padding: "10px 12px 0", display: "flex", gap: 6 }}>
+            <input
+              autoFocus
+              value={symbolSearch}
+              onChange={(e) => setSymbolSearch(e.target.value.toUpperCase())}
+              onKeyDown={(e) => { if (e.key === "Enter") { handleSymbolSearch(); setMobileMenuOpen(false); } }}
+              placeholder="🔍  Search ticker (e.g. NVDA)"
+              style={{
+                flex: 1, border: `1px solid ${C.border}`, background: C.surface,
+                color: C.text, borderRadius: 8, padding: "12px 14px",
+                fontFamily: MONO, fontSize: 15, outline: "none",
+              }}
+            />
+            <button
+              onClick={() => { handleSymbolSearch(); setMobileMenuOpen(false); }}
+              style={{ background: C.accent, border: "none", color: "#fff", borderRadius: 8, padding: "12px 18px", fontFamily: MONO, fontSize: 13, fontWeight: 800, cursor: "pointer" }}
+            >GO</button>
+            <button
+              onClick={() => { openTradingView(symbolSearch || terminalSymbol); setMobileMenuOpen(false); }}
+              style={{ border: `1px solid ${C.border}`, background: C.card, color: C.accent, borderRadius: 8, padding: "12px 14px", fontFamily: MONO, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+            >TV</button>
+          </div>
+          {/* Action buttons grid */}
+          <div style={{ padding: "10px 12px 12px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+            <button
+              onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); setMobileMenuOpen(false); }}
+              style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "12px 8px", borderRadius: 8, cursor: "pointer", minHeight: 48, fontWeight: 700 }}
+            >{loading ? "⟳ …" : "⟳ REFRESH"}</button>
+            <a
+              href="/dealer" target="_blank" rel="noopener"
+              onClick={() => setMobileMenuOpen(false)}
+              style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "12px 8px", borderRadius: 8, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 48, fontWeight: 700 }}
+            >DEALER</a>
+            <a
+              href="/workstation" target="_blank" rel="noopener"
+              onClick={() => setMobileMenuOpen(false)}
+              style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "12px 8px", borderRadius: 8, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 48, fontWeight: 700 }}
+            >WS</a>
+            <button
+              onClick={() => { generateMarketReport(); setMobileMenuOpen(false); }}
+              style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}44`, color: C.accent, fontFamily: MONO, fontSize: 12, padding: "12px 8px", borderRadius: 8, cursor: "pointer", minHeight: 48, fontWeight: 700 }}
+            >📊 REPORT</button>
+            <button
+              onClick={() => { setPaletteOpen(true); setMobileMenuOpen(false); }}
+              style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "12px 8px", borderRadius: 8, cursor: "pointer", minHeight: 48, fontWeight: 700 }}
+            >⌨ CMD</button>
+            <button
+              onClick={() => { handleLock(); setMobileMenuOpen(false); }}
+              style={{ background: `${C.red}10`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 12, padding: "12px 8px", borderRadius: 8, cursor: "pointer", minHeight: 48, fontWeight: 700 }}
+            >🔒 LOCK</button>
+          </div>
+          {/* Status info row */}
+          <div style={{ padding: "0 12px 10px", display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {weatherData && (
+              <div style={{ display: "flex", alignItems: "center", gap: 5, border: `1px solid ${C.border}`, background: C.card, borderRadius: 6, padding: "7px 12px", fontSize: 11, fontFamily: MONO, color: C.textSec }}>
+                <span>☁</span>
+                <span style={{ fontWeight: 800 }}>{weatherData.temp.toFixed(0)}°F</span>
+                <span style={{ color: C.textDim }}>{weatherCodeLabel(weatherData.code)}</span>
               </div>
-            );
-          })()}
+            )}
+            {(() => {
+              const cdColor = sessionCountdown.session === "REGULAR" ? C.green : sessionCountdown.session === "PREMARKET" ? C.accent : sessionCountdown.session === "AFTERMARKET" ? C.amber : C.textDim;
+              return (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: `${cdColor}0e`, borderRadius: 6, border: `1px solid ${cdColor}2a` }}>
+                  <span style={{ fontSize: 10, fontFamily: MONO, color: C.textDim }}>{sessionCountdown.label}</span>
+                  <span style={{ fontSize: 12, fontFamily: MONO, color: cdColor, fontWeight: 800 }}>{fmtCountdownShort(sessionCountdown.secs)}</span>
+                </div>
+              );
+            })()}
+            <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", background: C.card, borderRadius: 6, border: `1px solid ${C.border}` }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: dataBadge === "LIVE" ? C.green : C.amber, boxShadow: `0 0 4px ${C.green}` }} />
+              <span style={{ fontSize: 10, fontFamily: MONO, color: C.textDim }}>{lastUpdate ? lastUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}</span>
+            </div>
+          </div>
         </div>
       )}
 
