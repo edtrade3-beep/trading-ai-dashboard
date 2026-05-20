@@ -404,29 +404,52 @@ function recordSignal(symbol, signal) {
 // ── Telegram alert formatter ──────────────────────────────────────────────────
 
 function formatScanAlert(a, signal) {
-  const e      = signal === "BUY" ? "🟢" : "🔴";
-  const action = signal === "BUY" ? "ENTRY" : "EXIT";
+  const isBuy  = signal === "BUY";
+  const e      = isBuy ? "🟢" : "🔴";
   const chg    = `${a.chgPct >= 0 ? "+" : ""}${a.chgPct.toFixed(2)}%`;
+  const chgE   = a.chgPct >= 0 ? "📈" : "📉";
   const time   = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
 
-  let levelLine;
-  if (signal === "BUY") {
-    const risk   = round2(Math.max(a.price - a.support, 0.01));
-    const target = round2(a.price + risk * 2);
-    levelLine = `Entry $${a.price}  Stop $${a.support}  Target $${target}  (R:R 1:2)`;
+  // Risk levels + percentages so you instantly know your risk
+  let stop, target, stopPct, tgtPct;
+  if (isBuy) {
+    const risk = round2(Math.max(a.price - a.support, 0.01));
+    stop    = a.support;
+    target  = round2(a.price + risk * 2);
+    stopPct = round2((stop   - a.price) / a.price * 100);  // negative
+    tgtPct  = round2((target - a.price) / a.price * 100);  // positive
   } else {
-    const risk   = round2(Math.max(a.resistance - a.price, 0.01));
-    const target = round2(a.price - risk * 2);
-    levelLine = `Exit $${a.price}  Stop $${a.resistance}  Target $${target}  (R:R 1:2)`;
+    const risk = round2(Math.max(a.resistance - a.price, 0.01));
+    stop    = a.resistance;
+    target  = round2(a.price - risk * 2);
+    stopPct = round2((stop   - a.price) / a.price * 100);  // positive (stop is above)
+    tgtPct  = round2((target - a.price) / a.price * 100);  // negative (target is below)
   }
 
+  // RSI label
+  const rsiLabel = a.rsi >= 70 ? " ⚠️ overbought"
+                 : a.rsi <= 30 ? " ⚡ oversold"
+                 : "";
+
+  // Trend arrow
+  const trendArrow = a.trend === "Uptrend"        ? "↑↑ Strong"
+                   : a.trend === "Weak Uptrend"   ? "↑  Weak"
+                   : a.trend === "Downtrend"       ? "↓↓ Strong"
+                   :                                "↓  Weak";
+
   return [
-    `${e} ${action} ALERT — ${a.symbol}`,
-    levelLine,
-    `Score ${a.composite}/100  RSI ${a.rsi}  RVOL ${a.rvol}x`,
-    `Trend: ${a.trend}  ${chg}`,
-    `EMA9 $${a.ema9} / EMA21 $${a.ema21}  ${a.emaAligned}`,
-    `${time} ET`,
+    `${e} ${isBuy ? "ENTRY" : "EXIT"} ALERT`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `${a.symbol}   ${chgE} $${a.price}  ${chg}`,
+    `Score  ${a.composite}/100   RSI ${a.rsi}${rsiLabel}`,
+    `RVOL   ${a.rvol}x   Trend ${trendArrow}`,
+    ``,
+    `🎯 ${isBuy ? "Entry " : "Exit  "}  $${a.price}`,
+    `🛑 Stop    $${stop}   (${stopPct}%)`,
+    `🏆 Target  $${target}  (${tgtPct > 0 ? "+" : ""}${tgtPct}%)`,
+    `   R:R  1 : 2`,
+    ``,
+    `⏰ ${time} ET`,
   ].join("\n");
 }
 
@@ -502,11 +525,14 @@ async function runScan(options = {}) {
         ].filter(Boolean).join("  |  ");
 
         sendTelegramMessage(
-          `${e} REGIME SHIFT: ${prev} → ${macro.regime}  (score ${macro.score > 0 ? "+" : ""}${macro.score})\n` +
-          `${snap}\n` +
-          (macro.bullFactors.length ? `Bull: ${macro.bullFactors.slice(0,3).join(", ")}\n` : "") +
-          (macro.bearFactors.length ? `Bear: ${macro.bearFactors.slice(0,3).join(", ")}\n` : "") +
-          `${time} ET`
+          `${e} REGIME SHIFT\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `${prev}  →  ${macro.regime}\n` +
+          `Score: ${macro.score > 0 ? "+" : ""}${macro.score}\n\n` +
+          `${snap}\n\n` +
+          (macro.bullFactors.length ? `📈 ${macro.bullFactors.slice(0,3).join("  •  ")}\n` : "") +
+          (macro.bearFactors.length ? `📉 ${macro.bearFactors.slice(0,3).join("  •  ")}\n` : "") +
+          `\n⏰ ${time} ET`
         ).catch(() => {});
       } else {
         // Regime unchanged — just update in memory silently
@@ -551,33 +577,44 @@ async function runScan(options = {}) {
                         .sort((a,b) => a.composite - b.composite).slice(0, 3);
 
       if ((buys.length || sells.length) && telegramConfigured()) {
-        let msg = `📡 ${scheduledLabel} — ${time} ET  (${symbols.length} checked)\n`;
+        let msg = `📡 ${scheduledLabel.toUpperCase()}\n`;
+        msg    += `⏰ ${time} ET  •  ${symbols.length} symbols\n`;
+        msg    += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
 
         if (buys.length) {
-          msg += `\n🟢 ENTRY (${buys.length})\n`;
+          msg += `\n🟢 ENTRIES (${buys.length} new)\n`;
           for (const h of buys) {
-            const hot  = h.composite >= FIRE_BUY_SCORE ? "🔥 " : "";
-            const chg  = `${h.chgPct >= 0 ? "+" : ""}${h.chgPct.toFixed(2)}%`;
-            const risk = round2(Math.max(h.price - h.support, 0.01));
-            const tgt  = round2(h.price + risk * 2);
-            msg += `${hot}${h.symbol}  $${h.price}  ${chg}  Score ${h.composite}  Stop $${h.support}  Tgt $${tgt}\n`;
+            const fire    = h.composite >= FIRE_BUY_SCORE ? "🔥" : "  ";
+            const chg     = `${h.chgPct >= 0 ? "+" : ""}${h.chgPct.toFixed(2)}%`;
+            const risk    = round2(Math.max(h.price - h.support, 0.01));
+            const tgt     = round2(h.price + risk * 2);
+            const stopPct = round2((h.support - h.price) / h.price * 100);
+            const tgtPct  = round2((tgt - h.price) / h.price * 100);
+            msg += `${fire} ${h.symbol.padEnd(6)} $${h.price}  ${chg}  [${h.composite}]\n`;
+            msg += `   🛑 $${h.support} (${stopPct}%)  →  🏆 $${tgt} (+${tgtPct}%)\n`;
           }
         }
+
         if (sells.length) {
-          msg += `\n🔴 EXIT (${sells.length})\n`;
+          msg += `\n🔴 EXITS (${sells.length} new)\n`;
           for (const h of sells) {
-            const hot  = h.composite <= FIRE_SELL_SCORE ? "🔥 " : "";
-            const chg  = `${h.chgPct >= 0 ? "+" : ""}${h.chgPct.toFixed(2)}%`;
-            const risk = round2(Math.max(h.resistance - h.price, 0.01));
-            const tgt  = round2(h.price - risk * 2);
-            msg += `${hot}${h.symbol}  $${h.price}  ${chg}  Score ${h.composite}  Stop $${h.resistance}  Tgt $${tgt}\n`;
+            const fire    = h.composite <= FIRE_SELL_SCORE ? "🔥" : "  ";
+            const chg     = `${h.chgPct >= 0 ? "+" : ""}${h.chgPct.toFixed(2)}%`;
+            const risk    = round2(Math.max(h.resistance - h.price, 0.01));
+            const tgt     = round2(h.price - risk * 2);
+            const stopPct = round2((h.resistance - h.price) / h.price * 100);
+            const tgtPct  = round2((tgt - h.price) / h.price * 100);
+            msg += `${fire} ${h.symbol.padEnd(6)} $${h.price}  ${chg}  [${h.composite}]\n`;
+            msg += `   🛑 $${h.resistance} (+${stopPct}%)  →  🏆 $${tgt} (${tgtPct}%)\n`;
           }
         }
+
+        msg += `\n━━━━━━━━━━━━━━━━━━━━━━━━`;
         sendTelegramMessage(msg.trim()).catch(() => {});
+
       } else if (telegramConfigured()) {
-        // Scheduled scan ran but nothing new qualified — send brief confirmation
         sendTelegramMessage(
-          `✅ ${scheduledLabel} — no new signals  (${symbols.length} checked  ${time} ET)`
+          `✅ ${scheduledLabel}\n⏰ ${time} ET — no new signals  (${symbols.length} checked)`
         ).catch(() => {});
       }
 

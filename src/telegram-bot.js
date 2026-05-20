@@ -291,50 +291,69 @@ async function cmdScan() {
 async function cmdStatus() {
   const st  = getScannerStatus();
   const cfg = st.config;
-  const lastStr = st.lastRunAt ? new Date(st.lastRunAt).toUTCString() : "Never";
-  const e   = cfg.enabled ? "Enabled" : "Disabled";
-
-  let hitsStr;
-  if (st.lastHits?.length) {
-    hitsStr = st.lastHits.slice(0, 5).map(h =>
-      `  ${h.signal === "BUY" ? "🟢" : "🔴"} ${h.symbol} ${h.signal} @ $${Number(h.price).toFixed(2)}  Score ${h.composite}`
-    ).join("\n");
-  } else {
-    hitsStr = "  No signals yet";
-  }
-
+  const lastET = st.lastRunAt
+    ? new Date(st.lastRunAt).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" }) + " ET"
+    : "Never";
   const regime = st.macroRegime || "Unknown";
   const re     = regime === "RISK-ON" ? "🟢" : regime === "RISK-OFF" ? "🔴" : "⚪";
+  const onOff  = cfg.enabled ? "✅ ON" : "❌ OFF";
 
-  return reply(
-    `Scanner: ${e}  every ${cfg.intervalMinutes} min\n` +
-    `Symbols: ${(cfg.symbols||[]).length}  |  Cooldown: ${cfg.cooldownHours}h\n` +
-    `Scans run: ${st.scanCount}  |  Last: ${lastStr}\n` +
-    `Macro: ${re} ${regime}\n\n` +
-    `Last signals:\n${hitsStr}`
-  );
+  let msg = `📊 SCANNER STATUS\n`;
+  msg    += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+  msg    += `Status   ${onOff}\n`;
+  msg    += `Regime   ${re} ${regime}\n`;
+  msg    += `Interval ${cfg.intervalMinutes} min  •  Cooldown ${cfg.cooldownHours}h\n`;
+  msg    += `Symbols  ${(cfg.symbols||[]).length}  •  Scans run: ${st.scanCount}\n`;
+  msg    += `Last run ${lastET}\n`;
+
+  if (st.lastHits?.length) {
+    msg += `\nRecent signals:\n`;
+    for (const h of st.lastHits.slice(0, 5)) {
+      const e   = h.signal === "BUY" ? "🟢" : "🔴";
+      const chg = h.chgPct != null ? ` ${h.chgPct >= 0 ? "+" : ""}${Number(h.chgPct).toFixed(2)}%` : "";
+      msg += `${e} ${h.symbol}  $${h.price}${chg}  [${h.composite}]\n`;
+    }
+  } else {
+    msg += `\nNo signals yet — run /scan`;
+  }
+
+  return reply(msg.trim());
 }
 
 async function cmdTop() {
   const { lastHits } = getScannerStatus();
-  const buys = (lastHits || []).filter(h => h.signal === "BUY").slice(0, 8);
-  if (!buys.length) return reply("No BUY signals from last scan. Run /scan first.");
-  const lines = buys.map(h => {
-    const chg = h.chgPct != null ? ` ${h.chgPct >= 0 ? "+" : ""}${Number(h.chgPct).toFixed(2)}%` : "";
-    return `🟢 ${h.symbol} @ $${Number(h.price).toFixed(2)}${chg}  Score ${h.composite}  RSI ${h.rsi}  RVOL ${h.rvol}x`;
-  });
-  return reply("Top BUY — Last Scan\n\n" + lines.join("\n"));
+  const buys = (lastHits || []).filter(h => h.signal === "BUY").slice(0, 6);
+  if (!buys.length) return reply("No BUY signals from last scan.\nRun /scan to get fresh signals.");
+  let msg = "🟢 TOP ENTRIES — Last Scan\n";
+  msg    += "━━━━━━━━━━━━━━━━━━━━━━━━\n";
+  for (const h of buys) {
+    const chg     = h.chgPct != null ? `${h.chgPct >= 0 ? "+" : ""}${Number(h.chgPct).toFixed(2)}%` : "—";
+    const risk    = h.support    ? round2(Math.max(h.price - h.support, 0.01))    : null;
+    const tgt     = risk ? round2(h.price + risk * 2) : null;
+    const tgtPct  = tgt  ? round2((tgt - h.price) / h.price * 100) : null;
+    msg += `\n🟢 ${h.symbol}   $${h.price}  ${chg}  [${h.composite}]\n`;
+    if (tgt) msg += `   🛑 $${h.support}  →  🏆 $${tgt} (+${tgtPct}%)  •  RSI ${h.rsi}  RVOL ${h.rvol}x\n`;
+    else     msg += `   RSI ${h.rsi}  RVOL ${h.rvol}x\n`;
+  }
+  return reply(msg.trim());
 }
 
 async function cmdWorst() {
   const { lastHits } = getScannerStatus();
-  const sells = (lastHits || []).filter(h => h.signal === "SELL").slice(0, 8);
-  if (!sells.length) return reply("No SELL signals from last scan. Run /scan first.");
-  const lines = sells.map(h => {
-    const chg = h.chgPct != null ? ` ${h.chgPct >= 0 ? "+" : ""}${Number(h.chgPct).toFixed(2)}%` : "";
-    return `🔴 ${h.symbol} @ $${Number(h.price).toFixed(2)}${chg}  Score ${h.composite}  RSI ${h.rsi}  RVOL ${h.rvol}x`;
-  });
-  return reply("Top SELL — Last Scan\n\n" + lines.join("\n"));
+  const sells = (lastHits || []).filter(h => h.signal === "SELL").slice(0, 6);
+  if (!sells.length) return reply("No SELL signals from last scan.\nRun /scan to get fresh signals.");
+  let msg = "🔴 TOP EXITS — Last Scan\n";
+  msg    += "━━━━━━━━━━━━━━━━━━━━━━━━\n";
+  for (const h of sells) {
+    const chg     = h.chgPct != null ? `${h.chgPct >= 0 ? "+" : ""}${Number(h.chgPct).toFixed(2)}%` : "—";
+    const risk    = h.resistance ? round2(Math.max(h.resistance - h.price, 0.01)) : null;
+    const tgt     = risk ? round2(h.price - risk * 2) : null;
+    const tgtPct  = tgt  ? round2((tgt - h.price) / h.price * 100) : null;
+    msg += `\n🔴 ${h.symbol}   $${h.price}  ${chg}  [${h.composite}]\n`;
+    if (tgt) msg += `   🛑 $${h.resistance}  →  🏆 $${tgt} (${tgtPct}%)  •  RSI ${h.rsi}  RVOL ${h.rvol}x\n`;
+    else     msg += `   RSI ${h.rsi}  RVOL ${h.rvol}x\n`;
+  }
+  return reply(msg.trim());
 }
 
 async function cmdPrice(args) {
