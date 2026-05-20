@@ -3941,6 +3941,14 @@ Risk small and follow the stop.`
 // ═══════════════════════════════════════════════════════════════
 export default function App() {
   const [appUnlocked, setAppUnlocked] = useState(true);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  useEffect(() => {
+    const fn = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
+  }, []);
   const [unlockInput, setUnlockInput] = useState("");
   const [unlockError, setUnlockError] = useState("");
   const [apiKey, setApiKey] = useState("YAHOO_LOCAL");
@@ -6309,15 +6317,30 @@ export default function App() {
   );
 
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: SANS, zoom: UI_ZOOM, lineHeight: 1.45, width: "100%", maxWidth: "100vw", overflowX: "hidden" }}>
+    <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: SANS, zoom: isMobile ? 1 : UI_ZOOM, lineHeight: 1.45, width: "100%", maxWidth: "100vw", overflowX: "hidden" }}>
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+      {/* Mobile-specific global styles */}
+      {isMobile && (
+        <style>{`
+          * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+          select, input[type="text"], input[type="number"], input[type="search"] { font-size: 16px !important; }
+          ::-webkit-scrollbar { display: none; }
+          * { scrollbar-width: none; }
+          .axiom-ticker-track { animation-duration: 160s !important; }
+          table { width: 100%; }
+          td, th { white-space: nowrap; }
+          .mobile-nav-btn { min-height: 44px !important; min-width: 44px !important; padding: 10px 11px !important; font-size: 11px !important; }
+          .mobile-subnav-btn { min-height: 40px !important; padding: 8px 12px !important; font-size: 10px !important; }
+          .mobile-content { padding: 10px 10px 24px !important; }
+        `}</style>
+      )}
 
       {/* Top Bar */}
       <div style={{
         display: "flex", justifyContent: "space-between", alignItems: "center",
-        padding: "8px 18px", borderBottom: `1px solid ${C.border}`,
+        padding: isMobile ? "6px 10px" : "8px 18px", borderBottom: `1px solid ${C.border}`,
         background: themeMode === "dark" ? "#070d1b" : C.surface,
-        flexWrap: "wrap", rowGap: 8,
+        flexWrap: "wrap", rowGap: 6,
         position: "sticky", top: 0, zIndex: 40,
         boxShadow: themeMode === "dark" ? "0 1px 0 #1a2e4a, 0 2px 12px rgba(0,0,0,0.5)" : "0 1px 4px rgba(0,0,0,0.06)",
       }}>
@@ -6327,12 +6350,14 @@ export default function App() {
             <img
               src="/axiom-runner/assets/am-trading-logo.png?v=2"
               alt="AM Trading Platform"
-              style={{ width: 40, height: 40, objectFit: "contain", borderRadius: 7, border: `1px solid ${C.border}`, background: C.surface, flexShrink: 0 }}
+              style={{ width: isMobile ? 32 : 40, height: isMobile ? 32 : 40, objectFit: "contain", borderRadius: 7, border: `1px solid ${C.border}`, background: C.surface, flexShrink: 0 }}
             />
-            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
-              <span style={{ fontFamily: MONO, fontWeight: 900, fontSize: 16, color: C.text, letterSpacing: "-0.01em" }}>AM TRADING</span>
-              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.1em" }}>PLATFORM</span>
-            </div>
+            {!isMobile && (
+              <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
+                <span style={{ fontFamily: MONO, fontWeight: 900, fontSize: 16, color: C.text, letterSpacing: "-0.01em" }}>AM TRADING</span>
+                <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.1em" }}>PLATFORM</span>
+              </div>
+            )}
           </div>
           {/* User pill */}
           <div style={{
@@ -6370,6 +6395,7 @@ export default function App() {
                     <button
                       key={g.id}
                       onClick={() => setActiveTab(g.tabs[0])}
+                      className={isMobile ? "mobile-nav-btn" : ""}
                       style={{
                         border: "none",
                         background: isActive
@@ -6377,11 +6403,12 @@ export default function App() {
                           : "transparent",
                         color: isActive ? C.accent : C.textDim,
                         fontFamily: MONO, fontSize: 10, fontWeight: isActive ? 800 : 600,
-                        padding: "6px 9px", borderRadius: 4, cursor: "pointer",
+                        padding: isMobile ? "10px 11px" : "6px 9px", borderRadius: 4, cursor: "pointer",
                         borderBottom: isActive ? `2px solid ${C.accent}` : "2px solid transparent",
                         letterSpacing: "0.04em", whiteSpace: "nowrap",
                         transition: "color 0.15s, background 0.15s",
                         display: "inline-flex", alignItems: "center", gap: 4,
+                        minHeight: isMobile ? 44 : "auto",
                       }}
                     >
                       {g.label}
@@ -6399,28 +6426,41 @@ export default function App() {
           })()}
         </div>
         {/* Right side: weather, search, status, action buttons */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", flexShrink: 0 }}>
-          {/* Weather chip */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: 6,
-            border: `1px solid ${C.border}`,
-            background: C.card, borderRadius: 5, padding: "4px 10px",
-            fontSize: 10, fontFamily: MONO, color: C.textSec, whiteSpace: "nowrap",
-          }}>
-            <span style={{ color: C.accent, fontWeight: 700 }}>WEATHER {WEATHER_ZIP}</span>
-            {weatherData ? (
-              <>
-                <span style={{ fontWeight: 800, color: weatherData.temp >= 85 ? C.red : weatherData.temp <= 40 ? C.cyan : C.text }}>
-                  {weatherData.temp.toFixed(0)}°F
-                </span>
-                <span style={{ color: C.textDim }}>{weatherCodeLabel(weatherData.code)}</span>
-              </>
-            ) : (
-              <span style={{ color: C.textDim }}>—</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap", justifyContent: "flex-end", flexShrink: 0 }}>
+          {/* Live dot — always visible */}
+          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: C.card, borderRadius: 4, border: `1px solid ${C.border}` }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: dataBadge === "LIVE" ? C.green : dataBadge === "STALE" ? C.amber : C.red, boxShadow: `0 0 5px ${dataBadge === "LIVE" ? C.green : C.amber}`, animation: "pulse 2s infinite", flexShrink: 0 }} />
+            {!isMobile && (
+              <span style={{ fontSize: 9, fontFamily: MONO, color: C.textDim, whiteSpace: "nowrap" }}>
+                {lastUpdate ? `Updated ${lastUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "CONNECTING…"}
+              </span>
             )}
           </div>
-          {/* Session countdown */}
-          {(() => {
+
+          {/* Weather chip — desktop only */}
+          {!isMobile && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 6,
+              border: `1px solid ${C.border}`,
+              background: C.card, borderRadius: 5, padding: "4px 10px",
+              fontSize: 10, fontFamily: MONO, color: C.textSec, whiteSpace: "nowrap",
+            }}>
+              <span style={{ color: C.accent, fontWeight: 700 }}>WEATHER {WEATHER_ZIP}</span>
+              {weatherData ? (
+                <>
+                  <span style={{ fontWeight: 800, color: weatherData.temp >= 85 ? C.red : weatherData.temp <= 40 ? C.cyan : C.text }}>
+                    {weatherData.temp.toFixed(0)}°F
+                  </span>
+                  <span style={{ color: C.textDim }}>{weatherCodeLabel(weatherData.code)}</span>
+                </>
+              ) : (
+                <span style={{ color: C.textDim }}>—</span>
+              )}
+            </div>
+          )}
+
+          {/* Session countdown — desktop only */}
+          {!isMobile && (() => {
             const cdColor = sessionCountdown.session === "REGULAR" ? C.green
               : sessionCountdown.session === "PREMARKET" ? C.accent
               : sessionCountdown.session === "AFTERMARKET" ? C.amber : C.textDim;
@@ -6431,16 +6471,18 @@ export default function App() {
               </div>
             );
           })()}
+
           {/* Hijri date */}
           {athanHijri && (
             <div onClick={() => setActiveTab("athan")} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: "#c9a84c0e", borderRadius: 4, border: "1px solid #c9a84c2a", cursor: "pointer", direction: "rtl" }}>
-              <span style={{ fontSize: 10, fontFamily: "Arial, sans-serif", color: "#c9a84c", fontWeight: 700 }}>
-                {athanHijri.day} {athanHijri.month?.ar} {athanHijri.year} هـ
+              <span style={{ fontSize: isMobile ? 11 : 10, fontFamily: "Arial, sans-serif", color: "#c9a84c", fontWeight: 700 }}>
+                {isMobile ? `${athanHijri.day} هـ` : `${athanHijri.day} ${athanHijri.month?.ar} ${athanHijri.year} هـ`}
               </span>
             </div>
           )}
-          {/* Portfolio P/L chip */}
-          {portfolioSummary.totalCost > 0 && portfolioSummary.totalValue > 0 && (
+
+          {/* Portfolio P/L chip — desktop only */}
+          {!isMobile && portfolioSummary.totalCost > 0 && portfolioSummary.totalValue > 0 && (
             <div onClick={() => setActiveTab("portfolio")} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 4, border: `1px solid ${portfolioSummary.totalPnl >= 0 ? C.green : C.red}44`, background: portfolioSummary.totalPnl >= 0 ? `${C.green}0e` : `${C.red}0e`, cursor: "pointer" }}>
               <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>PORT</span>
               <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red }}>
@@ -6448,7 +6490,8 @@ export default function App() {
               </span>
             </div>
           )}
-          {/* Today P/L chip */}
+
+          {/* Today P/L chip — always visible (important KPI) */}
           {(() => {
             const today = new Date().toISOString().slice(0, 10);
             const todayClosed = journalEntries.filter(e => e.status === "closed" && e.pnl != null && (e.closedAt || "").slice(0, 10) === today);
@@ -6464,56 +6507,123 @@ export default function App() {
               </div>
             );
           })()}
-          {/* Live dot + timestamp */}
-          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: C.card, borderRadius: 4, border: `1px solid ${C.border}` }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: dataBadge === "LIVE" ? C.green : dataBadge === "STALE" ? C.amber : C.red, boxShadow: `0 0 5px ${dataBadge === "LIVE" ? C.green : C.amber}`, animation: "pulse 2s infinite", flexShrink: 0 }} />
-            <span style={{ fontSize: 9, fontFamily: MONO, color: C.textDim, whiteSpace: "nowrap" }}>
-              {lastUpdate ? `Updated ${lastUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "CONNECTING…"}
-            </span>
-          </div>
-          {/* Search bar */}
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <input
-              value={symbolSearch}
-              onChange={(e) => setSymbolSearch(e.target.value.toUpperCase())}
-              onKeyDown={(e) => { if (e.key === "Enter") handleSymbolSearch(); }}
-              placeholder="Search ticker (NVDA)"
-              style={{ width: 160, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, outline: "none" }}
-            />
-            <button onClick={handleSymbolSearch} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 4, padding: "6px 9px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>SEARCH</button>
-            <button onClick={() => openTradingView(symbolSearch || terminalSymbol)} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.accent, borderRadius: 4, padding: "6px 9px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>TV</button>
-          </div>
+
           {/* Quran playing indicator */}
           {quranPlaying && (
             <button
               onClick={() => { if (quranAudioRef.current) quranAudioRef.current.pause(); }}
-              style={{ background: `#c9a84c18`, border: `1px solid #c9a84c55`, color: "#c9a84c", fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "5px 9px", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, maxWidth: 140 }}
+              style={{ background: `#c9a84c18`, border: `1px solid #c9a84c55`, color: "#c9a84c", fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "5px 9px", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, maxWidth: isMobile ? 80 : 140 }}
             >
               <span>▐▌</span>
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 90 }}>
-                {SURAH_LIST.find(s => s[0] === quranSurah)?.[1] || `سورة ${quranSurah}`}
-              </span>
+              {!isMobile && (
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 90 }}>
+                  {SURAH_LIST.find(s => s[0] === quranSurah)?.[1] || `سورة ${quranSurah}`}
+                </span>
+              )}
             </button>
           )}
-          {/* Action buttons matching screenshot */}
-          <div style={{ display: "flex", alignItems: "center", gap: 4, borderLeft: `1px solid ${C.border}`, paddingLeft: 8, marginLeft: 2 }}>
-            <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>
-              {loading ? "⟳" : "REFRESH"}
+
+          {/* Search — desktop: inline; mobile: icon toggle */}
+          {isMobile ? (
+            <button
+              onClick={() => setMobileSearchOpen(s => !s)}
+              style={{ background: mobileSearchOpen ? `${C.accent}18` : C.card, border: `1px solid ${mobileSearchOpen ? C.accent : C.border}`, color: mobileSearchOpen ? C.accent : C.textSec, fontFamily: MONO, fontSize: 15, padding: "6px 10px", borderRadius: 4, cursor: "pointer", minHeight: 36, display: "flex", alignItems: "center" }}
+            >
+              🔍
             </button>
-            <a href="/dealer" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "5px 9px", borderRadius: 4, cursor: "pointer", textDecoration: "none", display: "inline-block" }}>DEALER</a>
-            <a href="/workstation" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "5px 9px", borderRadius: 4, cursor: "pointer", textDecoration: "none", display: "inline-block" }}>WS</a>
-            <button onClick={generateMarketReport} style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>MARKET RESET</button>
-            <button onClick={handleLock} style={{ background: `${C.red}12`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>LOCK</button>
-            <button onClick={() => setPaletteOpen(true)} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>CMD</button>
-            <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 9, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>
-              {themeMode === "dark" ? "☀" : "●"}
-            </button>
-          </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <input
+                value={symbolSearch}
+                onChange={(e) => setSymbolSearch(e.target.value.toUpperCase())}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSymbolSearch(); }}
+                placeholder="Search ticker (NVDA)"
+                style={{ width: 160, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, outline: "none" }}
+              />
+              <button onClick={handleSymbolSearch} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 4, padding: "6px 9px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>SEARCH</button>
+              <button onClick={() => openTradingView(symbolSearch || terminalSymbol)} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.accent, borderRadius: 4, padding: "6px 9px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>TV</button>
+            </div>
+          )}
+
+          {/* Action buttons — desktop: full row; mobile: essential only */}
+          {isMobile ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 13, padding: "6px 10px", borderRadius: 4, cursor: "pointer", minHeight: 36, minWidth: 36, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {loading ? "⟳" : "⟳"}
+              </button>
+              <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 15, padding: "6px 10px", borderRadius: 4, cursor: "pointer", minHeight: 36, minWidth: 36, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {themeMode === "dark" ? "☀" : "🌙"}
+              </button>
+              <button onClick={() => setMobileMenuOpen(s => !s)} style={{ background: mobileMenuOpen ? `${C.accent}18` : C.card, border: `1px solid ${mobileMenuOpen ? C.accent : C.border}`, color: mobileMenuOpen ? C.accent : C.textSec, fontFamily: MONO, fontSize: 15, padding: "6px 10px", borderRadius: 4, cursor: "pointer", minHeight: 36, minWidth: 36, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                ☰
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 4, borderLeft: `1px solid ${C.border}`, paddingLeft: 8, marginLeft: 2 }}>
+              <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>
+                {loading ? "⟳" : "REFRESH"}
+              </button>
+              <a href="/dealer" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "5px 9px", borderRadius: 4, cursor: "pointer", textDecoration: "none", display: "inline-block" }}>DEALER</a>
+              <a href="/workstation" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "5px 9px", borderRadius: 4, cursor: "pointer", textDecoration: "none", display: "inline-block" }}>WS</a>
+              <button onClick={generateMarketReport} style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>MARKET RESET</button>
+              <button onClick={handleLock} style={{ background: `${C.red}12`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>LOCK</button>
+              <button onClick={() => setPaletteOpen(true)} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>CMD</button>
+              <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 9, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>
+                {themeMode === "dark" ? "☀" : "●"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Data source info bar */}
-      <div style={{ padding: "4px 18px", borderBottom: `1px solid ${C.border}`, background: themeMode === "dark" ? "#080e1c" : C.surface, display: "flex", alignItems: "center", gap: 12 }}>
+      {/* Mobile search dropdown */}
+      {isMobile && mobileSearchOpen && (
+        <div style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, background: themeMode === "dark" ? "#080e1c" : C.surface, display: "flex", gap: 6 }}>
+          <input
+            autoFocus
+            value={symbolSearch}
+            onChange={(e) => setSymbolSearch(e.target.value.toUpperCase())}
+            onKeyDown={(e) => { if (e.key === "Enter") { handleSymbolSearch(); setMobileSearchOpen(false); } }}
+            placeholder="Enter ticker (e.g. NVDA)"
+            style={{ flex: 1, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "10px 12px", fontFamily: MONO, fontSize: 16, outline: "none" }}
+          />
+          <button onClick={() => { handleSymbolSearch(); setMobileSearchOpen(false); }} style={{ background: C.accent, border: "none", color: "#fff", borderRadius: 4, padding: "10px 16px", fontFamily: MONO, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>GO</button>
+          <button onClick={() => openTradingView(symbolSearch || terminalSymbol)} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.accent, borderRadius: 4, padding: "10px 14px", fontFamily: MONO, fontSize: 13, cursor: "pointer" }}>TV</button>
+        </div>
+      )}
+
+      {/* Mobile menu drawer */}
+      {isMobile && mobileMenuOpen && (
+        <div style={{ padding: "10px 12px", borderBottom: `2px solid ${C.border}`, background: themeMode === "dark" ? "#080e1c" : C.surface, display: "flex", flexWrap: "wrap", gap: 8 }}>
+          <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); setMobileMenuOpen(false); }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 11, padding: "10px 14px", borderRadius: 4, cursor: "pointer", minHeight: 40 }}>
+            {loading ? "⟳ LOADING" : "⟳ REFRESH"}
+          </button>
+          <a href="/dealer" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 11, padding: "10px 14px", borderRadius: 4, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", minHeight: 40 }}>DEALER</a>
+          <a href="/workstation" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 11, padding: "10px 14px", borderRadius: 4, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", minHeight: 40 }}>WORKSTATION</a>
+          <button onClick={() => { generateMarketReport(); setMobileMenuOpen(false); }} style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "10px 14px", borderRadius: 4, cursor: "pointer", minHeight: 40 }}>MARKET RESET</button>
+          <button onClick={() => { setPaletteOpen(true); setMobileMenuOpen(false); }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 11, padding: "10px 14px", borderRadius: 4, cursor: "pointer", minHeight: 40 }}>CMD</button>
+          <button onClick={() => { handleLock(); setMobileMenuOpen(false); }} style={{ background: `${C.red}12`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "10px 14px", borderRadius: 4, cursor: "pointer", minHeight: 40 }}>LOCK</button>
+          {weatherData && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${C.border}`, background: C.card, borderRadius: 5, padding: "10px 14px", fontSize: 11, fontFamily: MONO, color: C.textSec }}>
+              <span style={{ color: C.accent, fontWeight: 700 }}>☁ {WEATHER_ZIP}</span>
+              <span style={{ fontWeight: 800 }}>{weatherData.temp.toFixed(0)}°F</span>
+              <span style={{ color: C.textDim }}>{weatherCodeLabel(weatherData.code)}</span>
+            </div>
+          )}
+          {(() => {
+            const cdColor = sessionCountdown.session === "REGULAR" ? C.green : sessionCountdown.session === "PREMARKET" ? C.accent : sessionCountdown.session === "AFTERMARKET" ? C.amber : C.textDim;
+            return (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 14px", background: `${cdColor}0e`, borderRadius: 4, border: `1px solid ${cdColor}2a`, minHeight: 40 }}>
+                <span style={{ fontSize: 11, fontFamily: MONO, color: C.textDim }}>{sessionCountdown.label}</span>
+                <span style={{ fontSize: 12, fontFamily: MONO, color: cdColor, fontWeight: 800 }}>{fmtCountdownShort(sessionCountdown.secs)}</span>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* Data source info bar — desktop only */}
+      {!isMobile && <div style={{ padding: "4px 18px", borderBottom: `1px solid ${C.border}`, background: themeMode === "dark" ? "#080e1c" : C.surface, display: "flex", alignItems: "center", gap: 12 }}>
         <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>DATA SOURCE:</span>
         <span style={{ fontFamily: MONO, fontSize: 9, color: C.textSec }}>Multi Provider (Finnhub + FMP + Yahoo Fallback)</span>
         <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>+</span>
@@ -6527,7 +6637,7 @@ export default function App() {
           {lastUpdate ? `Last tick ${lastUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Awaiting first tick"}
           {dataFreshSec !== null ? ` · ${dataFreshSec}s ago` : ""}
         </span>
-      </div>
+      </div>}
       {/* Market Index Strip — matches screenshot layout */}
       <MacroTape data={macroData} cryptoSnapshot={cryptoSnapshot} />
 
@@ -6598,8 +6708,9 @@ export default function App() {
           <div style={{
             borderBottom: `1px solid ${C.border}`,
             background: themeMode === "dark" ? "#070d1b" : "#f2f5fb",
-            padding: "0 18px",
+            padding: isMobile ? "0 6px" : "0 18px",
             display: "flex", alignItems: "center", gap: 1,
+            overflowX: "auto", scrollbarWidth: "none",
           }}>
             {subTabs.map(t => {
               const isActive = activeTab === t.id;
@@ -6611,12 +6722,13 @@ export default function App() {
                     border: "none",
                     background: "transparent",
                     color: isActive ? C.accent : C.textDim,
-                    fontFamily: MONO, fontSize: 9, fontWeight: isActive ? 800 : 500,
-                    padding: "5px 10px", cursor: "pointer",
+                    fontFamily: MONO, fontSize: isMobile ? 11 : 9, fontWeight: isActive ? 800 : 500,
+                    padding: isMobile ? "10px 14px" : "5px 10px", cursor: "pointer",
                     borderBottom: isActive ? `2px solid ${C.accent}` : "2px solid transparent",
                     letterSpacing: "0.06em", whiteSpace: "nowrap",
                     transition: "color 0.12s",
                     display: "inline-flex", alignItems: "center", gap: 4,
+                    minHeight: isMobile ? 44 : "auto",
                   }}
                 >
                   {t.label}
@@ -6637,7 +6749,7 @@ export default function App() {
       )}
 
       {/* Content */}
-      <div style={{ padding: LAYOUT.contentPadding, maxWidth: LAYOUT.pageMaxWidth, margin: "0 auto" }}>
+      <div className={isMobile ? "mobile-content" : ""} style={{ padding: isMobile ? "10px 10px 24px" : LAYOUT.contentPadding, maxWidth: LAYOUT.pageMaxWidth, margin: "0 auto" }}>
         {loading && !watchlistData.length && (
           <div style={{ textAlign: "center", padding: 60, fontFamily: MONO, color: C.textDim }}>
             <div style={{ fontSize: 14, marginBottom: 8 }}>Fetching live market data…</div>
