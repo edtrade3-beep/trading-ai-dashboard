@@ -6554,42 +6554,13 @@ export default function App() {
             </button>
           )}
 
-          {/* Search — desktop inline only; mobile search is inside the ☰ drawer */}
-          {!isMobile && (
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <input
-                value={symbolSearch}
-                onChange={(e) => setSymbolSearch(e.target.value.toUpperCase())}
-                onKeyDown={(e) => { if (e.key === "Enter") handleSymbolSearch(); }}
-                placeholder="Search ticker (NVDA)"
-                style={{ width: 160, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, outline: "none" }}
-              />
-              <button onClick={handleSymbolSearch} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 4, padding: "6px 9px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>SEARCH</button>
-              <button onClick={() => openTradingView(symbolSearch || terminalSymbol)} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.accent, borderRadius: 4, padding: "6px 9px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>TV</button>
-            </div>
-          )}
-
-          {/* Action buttons — desktop: full row; mobile: theme + search only (menu is on left ☰) */}
-          {isMobile ? (
+          {/* Mobile: theme toggle only — all actions in left ☰ drawer */}
+          {isMobile && (
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <button
                 onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))}
                 style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, width: 40, height: 40, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
               >{themeMode === "dark" ? "☀" : "🌙"}</button>
-            </div>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 4, borderLeft: `1px solid ${C.border}`, paddingLeft: 8, marginLeft: 2 }}>
-              <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>
-                {loading ? "⟳" : "REFRESH"}
-              </button>
-              <a href="/dealer" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "5px 9px", borderRadius: 4, cursor: "pointer", textDecoration: "none", display: "inline-block" }}>DEALER</a>
-              <a href="/workstation" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "5px 9px", borderRadius: 4, cursor: "pointer", textDecoration: "none", display: "inline-block" }}>WS</a>
-              <button onClick={generateMarketReport} style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>MARKET RESET</button>
-              <button onClick={handleLock} style={{ background: `${C.red}12`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>LOCK</button>
-              <button onClick={() => setPaletteOpen(true)} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>CMD</button>
-              <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 9, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>
-                {themeMode === "dark" ? "☀" : "●"}
-              </button>
             </div>
           )}
         </div>
@@ -6681,21 +6652,45 @@ export default function App() {
         </div>
       )}
 
-      {/* Data source info bar — desktop only */}
-      {!isMobile && <div style={{ padding: "4px 18px", borderBottom: `1px solid ${C.border}`, background: themeMode === "dark" ? "#080e1c" : C.surface, display: "flex", alignItems: "center", gap: 12 }}>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>DATA SOURCE:</span>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textSec }}>Multi Provider (Finnhub + FMP + Yahoo Fallback)</span>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>+</span>
-        <span onClick={() => setActiveTab("tools")} style={{ fontFamily: MONO, fontSize: 9, color: C.accent, cursor: "pointer", fontWeight: 700 }}>LOG</span>
+      {/* Data source info bar + action buttons — desktop only */}
+      {!isMobile && <div style={{ padding: "3px 12px 3px 18px", borderBottom: `1px solid ${C.border}`, background: themeMode === "dark" ? "#080e1c" : C.surface, display: "flex", alignItems: "center", gap: 10, flexWrap: "nowrap" }}>
+        {/* Left: data source info */}
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, whiteSpace: "nowrap" }}>DATA SOURCE:</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textSec, whiteSpace: "nowrap" }}>Multi Provider (Finnhub + FMP + Yahoo Fallback)</span>
+        <span onClick={() => setActiveTab("tools")} style={{ fontFamily: MONO, fontSize: 9, color: C.accent, cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}>LOG</span>
         <span style={{ width: 1, height: 10, background: C.border, flexShrink: 0 }} />
         <Badge color={dataBadgeColor}>{dataBadge}</Badge>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, whiteSpace: "nowrap" }}>
           {providersConfigured > 0 ? `${providersConfigured} key${providersConfigured > 1 ? "s" : ""} configured` : "No API keys"}
         </span>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, whiteSpace: "nowrap" }}>
           {lastUpdate ? `Last tick ${lastUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Awaiting first tick"}
           {dataFreshSec !== null ? ` · ${dataFreshSec}s ago` : ""}
         </span>
+
+        {/* Right: search + action buttons (moved from topbar) */}
+        <div style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: "auto", flexShrink: 0 }}>
+          {/* Search */}
+          <input
+            value={symbolSearch}
+            onChange={(e) => setSymbolSearch(e.target.value.toUpperCase())}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSymbolSearch(); }}
+            placeholder="Search ticker…"
+            style={{ width: 130, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 10, outline: "none", height: 24 }}
+          />
+          <button onClick={handleSymbolSearch} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10, cursor: "pointer", height: 24 }}>SEARCH</button>
+          <button onClick={() => openTradingView(symbolSearch || terminalSymbol)} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.accent, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10, cursor: "pointer", height: 24 }}>TV</button>
+          <span style={{ width: 1, height: 14, background: C.border, flexShrink: 0 }} />
+          <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>{loading ? "⟳" : "REFRESH"}</button>
+          <a href="/dealer" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>DEALER</a>
+          <a href="/workstation" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>WS</a>
+          <button onClick={generateMarketReport} style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>MARKET RESET</button>
+          <button onClick={handleLock} style={{ background: `${C.red}10`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>LOCK</button>
+          <button onClick={() => setPaletteOpen(true)} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>CMD</button>
+          <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>
+            {themeMode === "dark" ? "☀" : "●"}
+          </button>
+        </div>
       </div>}
       {/* Market Index Strip — matches screenshot layout */}
       <MacroTape data={macroData} cryptoSnapshot={cryptoSnapshot} />
