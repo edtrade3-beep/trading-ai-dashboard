@@ -10749,10 +10749,16 @@ export default function App() {
                 <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>🛒 DEALS FINDER</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>Powered by Reddit deal communities — 100% free · Set Telegram alerts</div>
               </div>
-              <button
-                onClick={() => fetch("/api/deals/test-alert", { method: "POST" }).then(() => alert("Test Telegram alert sent!"))}
-                style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}44`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "6px 12px", borderRadius: 5, cursor: "pointer" }}
-              >📱 TEST TELEGRAM</button>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  onClick={() => fetch("/api/deals/ping").then(r => r.json()).then(d => alert(d.ok ? "✅ Server alive — deals endpoint working!" : "❌ Endpoint error")).catch(e => alert("❌ " + e.message))}
+                  style={{ background: `${C.green}14`, border: `1px solid ${C.green}44`, color: C.green, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "6px 12px", borderRadius: 5, cursor: "pointer" }}
+                >🔌 PING</button>
+                <button
+                  onClick={() => fetch("/api/deals/test-alert", { method: "POST" }).then(() => alert("Test Telegram alert sent!"))}
+                  style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}44`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "6px 12px", borderRadius: 5, cursor: "pointer" }}
+                >📱 TEST TELEGRAM</button>
+              </div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 340px", gap: 16 }}>
