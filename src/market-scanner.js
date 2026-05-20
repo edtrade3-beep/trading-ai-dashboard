@@ -86,11 +86,11 @@ const DEFAULT_CONFIG = {
   enabled: true,
   symbols: DEFAULT_SYMBOLS,
   intervalMinutes: 5,    // scan every 5 min
-  buyScoreMin: 68,
-  sellScoreMax: 35,
+  buyScoreMin: 62,       // was 68 — lowered so more signals fire
+  sellScoreMax: 38,      // was 35 — widened
   minRvol: 1.0,
   cooldownHours: 2,      // re-alert same symbol after 2h
-  marketHoursOnly: true,
+  marketHoursOnly: false, // OFF — run scans 24/7 (crypto + AH stocks)
   concurrency: 16,
 };
 

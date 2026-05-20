@@ -115,23 +115,59 @@ async function handleRequest(req, res) {
       return writeJson(res, 200, { ok: true });
     }
 
+    // GET /api/telegram/status — diagnose token + chat ID without sending
+    if (pathname === "/api/telegram/status" && req.method === "GET") {
+      const token  = process.env.TELEGRAM_BOT_TOKEN || "";
+      const chatId = process.env.TELEGRAM_CHAT_ID   || "";
+      const configured = Boolean(token && chatId);
+      if (!configured) {
+        return writeJson(res, 200, { ok: false, configured: false,
+          error: "TELEGRAM_BOT_TOKEN and/or TELEGRAM_CHAT_ID not set in environment variables." });
+      }
+      // Verify token is valid with Telegram
+      try {
+        const tgRes = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+        const tgJson = await tgRes.json().catch(() => ({}));
+        return writeJson(res, 200, {
+          ok: tgJson.ok,
+          configured: true,
+          tokenSet: true,
+          chatIdSet: true,
+          tokenMasked: token.slice(0, 6) + "..." + token.slice(-4),
+          chatId: chatId,
+          botName: tgJson.result?.first_name || null,
+          botUsername: tgJson.result?.username || null,
+          telegramError: tgJson.ok ? null : (tgJson.description || "Invalid token"),
+        });
+      } catch (err) {
+        return writeJson(res, 200, { ok: false, configured: true, error: err.message });
+      }
+    }
+
     // POST /api/telegram/test — sends a test message using env-var credentials only
     if (pathname === "/api/telegram/test" && req.method === "POST") {
       if (!telegramConfigured()) {
-        return writeJson(res, 503, { ok: false, error: "Telegram not configured. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID env vars." });
+        return writeJson(res, 503, { ok: false, error: "Telegram not configured. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID env vars on Render." });
       }
-      const result = await sendTelegramAlert({
-        symbol: "AXIOM",
-        side: "BUY",
-        price: null,
-        score: 100,
-        message: "✅ Dixie AM Trading Platform — Telegram connection confirmed. Alerts are live.",
-        at: new Date().toISOString(),
-      });
-      if (result && !result.ok) {
-        return writeJson(res, 500, { ok: false, error: result.body || result.error || "Telegram API rejected the request", status: result.status });
+      try {
+        const token  = process.env.TELEGRAM_BOT_TOKEN;
+        const chatId = process.env.TELEGRAM_CHAT_ID;
+        const tgRes  = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: "✅ AM Trading Platform — Test alert. Telegram is working! Scan alerts will appear here.",
+          }),
+        });
+        const tgJson = await tgRes.json().catch(() => ({}));
+        if (!tgJson.ok) {
+          return writeJson(res, 500, { ok: false, error: tgJson.description || "Telegram rejected message", code: tgJson.error_code });
+        }
+        return writeJson(res, 200, { ok: true, message: "Test message delivered to Telegram." });
+      } catch (err) {
+        return writeJson(res, 500, { ok: false, error: err.message });
       }
-      return writeJson(res, 200, { ok: true, message: "Test message sent to Telegram." });
     }
 
     // Clean URL aliases

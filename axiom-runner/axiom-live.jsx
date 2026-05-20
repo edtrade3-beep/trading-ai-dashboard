@@ -10395,6 +10395,20 @@ export default function App() {
                   {tgMsg && <span style={{ fontFamily: MONO, fontSize: 10, color: statusColor, flex: 1 }}>{tgMsg}</span>}
                   <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
                     <button
+                      onClick={async () => {
+                        try {
+                          const r = await fetch("/api/telegram/status");
+                          const d = await r.json();
+                          if (d.ok) {
+                            alert(`✅ Telegram OK\nBot: @${d.botUsername} (${d.botName})\nToken: ${d.tokenMasked}\nChat ID: ${d.chatId}`);
+                          } else {
+                            alert(`❌ Telegram Error\n${d.telegramError || d.error}\n\nToken set: ${d.tokenSet ? "YES" : "NO"}\nChat ID set: ${d.chatIdSet ? "YES" : "NO"}\n\nFix: Go to Render.com → Your service → Environment → Add:\nTELEGRAM_BOT_TOKEN=your_bot_token\nTELEGRAM_CHAT_ID=your_chat_id`);
+                          }
+                        } catch(e) { alert("Status check failed: " + e.message); }
+                      }}
+                      style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 4, padding: "5px 12px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                    >CHECK</button>
+                    <button
                       onClick={sendTest}
                       disabled={tgStatus === "sending"}
                       style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 4, padding: "5px 12px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
