@@ -4253,11 +4253,14 @@ export default function App() {
     setQuranAudioError(false);
     setQuranCurrentTime(0);
     setQuranDuration(0);
+    // Always update the src so subsequent play() uses the right file
     quranAudioRef.current.src = `${QURAN_CDN}/${quranReciter.id}/${quranSurah}.mp3`;
-    quranAudioRef.current.load();
+    // Only fetch (load + play) if we were already playing — otherwise wait for user tap
     if (shouldPlay) {
+      quranAudioRef.current.load();
       quranAudioRef.current.play().catch(() => setQuranAudioError(true));
     }
+    // If not playing: src is staged, browser will NOT fetch until play() is called
   }, [quranSurah, quranReciter]);
 
   // Sync volume to audio element whenever it changes
@@ -10706,8 +10709,19 @@ export default function App() {
                 <button
                   onClick={() => {
                     if (!quranAudioRef.current) return;
-                    if (quranPlaying) { quranAudioRef.current.pause(); }
-                    else { quranAudioRef.current.play().catch(e => { setQuranAudioError(true); setQuranLoading(false); }); }
+                    if (quranPlaying) {
+                      quranAudioRef.current.pause();
+                    } else {
+                      setQuranAudioError(false);
+                      setQuranLoading(true);
+                      // Ensure src is set (re-apply in case it was cleared)
+                      if (!quranAudioRef.current.src || quranAudioRef.current.src === window.location.href) {
+                        quranAudioRef.current.src = `${QURAN_CDN}/${quranReciter.id}/${quranSurah}.mp3`;
+                      }
+                      // With preload="none", must call load() before play()
+                      quranAudioRef.current.load();
+                      quranAudioRef.current.play().catch(() => { setQuranAudioError(true); setQuranLoading(false); });
+                    }
                   }}
                   style={{ background: quranAudioError ? C.red : gold, border: "none", color: "#fff", borderRadius: 999, width: 68, height: 68, fontSize: quranLoading ? 18 : 28, cursor: "pointer", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 4px 20px ${gold}44`, transition: "transform 0.1s", flexShrink: 0 }}
                 >
@@ -10784,10 +10798,11 @@ export default function App() {
                     onClick={() => {
                       quranUsedFallback.current = false;
                       setQuranAudioError(false);
+                      setQuranLoading(true);
                       if (quranAudioRef.current) {
                         quranAudioRef.current.src = `${QURAN_CDN}/${quranReciter.id}/${surahNum}.mp3`;
                         quranAudioRef.current.load();
-                        quranAudioRef.current.play().catch(() => setQuranAudioError(true));
+                        quranAudioRef.current.play().catch(() => { setQuranAudioError(true); setQuranLoading(false); });
                       }
                     }}
                     style={{ background: "#cc4400", border: "none", color: "#fff", borderRadius: 5, padding: "8px 14px", fontFamily: MONO, fontSize: 9, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
@@ -11230,11 +11245,11 @@ export default function App() {
       {/* Global Quran audio element — stays mounted across all tab switches */}
       <audio
         ref={quranAudioRef}
-        src={`${QURAN_CDN}/${quranReciter.id}/${quranSurah}.mp3`}
+        preload="none"
         onPlay={() => { setQuranPlaying(true); setQuranAudioError(false); setQuranLoading(false); }}
         onPause={() => setQuranPlaying(false)}
         onWaiting={() => setQuranLoading(true)}
-        onLoadStart={() => setQuranLoading(true)}
+        onLoadStart={() => { setQuranLoading(true); setQuranAudioError(false); }}
         onCanPlay={() => { setQuranAudioError(false); setQuranLoading(false); if (quranAudioRef.current) setQuranDuration(quranAudioRef.current.duration || 0); }}
         onDurationChange={() => { if (quranAudioRef.current) setQuranDuration(quranAudioRef.current.duration || 0); }}
         onTimeUpdate={() => { if (quranAudioRef.current) setQuranCurrentTime(quranAudioRef.current.currentTime || 0); }}
@@ -11257,9 +11272,10 @@ export default function App() {
         }}
         onEnded={() => {
           if (quranRepeat) {
-            // Repeat current surah
+            // Repeat current surah — seek to start and play again
             if (quranAudioRef.current) {
               quranAudioRef.current.currentTime = 0;
+              quranAudioRef.current.load();
               quranAudioRef.current.play().catch(() => {});
             }
           } else if (quranAutoNext) {
