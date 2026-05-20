@@ -21,10 +21,10 @@
 
 const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = require("./config");
 const { sendTelegramMessage, isConfigured }     = require("./telegram");
-const { runScan, getScannerStatus, sendMacroReport, saveConfig } = require("./market-scanner");
+const { runScan, getScannerStatus, sendMacroReport, saveConfig, analyzeSymbol, computeMacroRegime, SCHEDULED_SCAN_TIMES_ET } = require("./market-scanner");
 const { loadPriceAlerts, savePriceAlerts }       = require("./price-alert-store");
 const { loadSettings }                           = require("./settings-store");
-const { fetchYahooBars, fetchYahooChartMeta }    = require("./providers/yahoo");
+const { fetchYahooBars, fetchYahooChartMeta, fetchYahooQuoteBatch } = require("./providers/yahoo");
 const { withTimeout, round2 }                    = require("./utils");
 
 const API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
@@ -94,16 +94,152 @@ async function cmdHelp() {
     "/scanner off         — disable auto-scan\n" +
     "/scanner interval 5  — set scan interval (minutes)\n" +
     "/scanner symbols     — list scanned symbols\n" +
+    "\nAuto-scans M-F ET: 7:00, 9:45, 12:30, 14:45, 15:45\n" +
+    "\nDEEP DIVE\n" +
+    "/deep AAPL   — full fundamental + technical + projection\n" +
+    "AAPL         — just type a ticker symbol\n" +
     "\n/help — this message"
   );
 }
 
 async function cmdMarket() {
-  await reply("Fetching macro snapshot…");
+  await reply("Fetching macro snapshot + market narrative…");
   try {
     await withTimeout(sendMacroReport(), 60_000, null);
   } catch (err) {
     return reply("Error fetching macro: " + err.message);
+  }
+}
+
+// ── Deep dive: fundamentals + technicals + projection ─────────────────────────
+async function cmdDeep(args) {
+  const symbol = (args[0] || "").toUpperCase().trim();
+  if (!symbol || !/^[A-Z0-9.\-^]{1,10}$/.test(symbol)) {
+    return reply("Usage: /deep AAPL\nOr just type a ticker: NVDA");
+  }
+  await reply(`Deep diving ${symbol}…`);
+
+  try {
+    // ── Parallel fetch: technical analysis + Yahoo quote summary
+    const [tech, quotes, summaryRes] = await Promise.allSettled([
+      withTimeout(analyzeSymbol(symbol), 20_000, null),
+      withTimeout(fetchYahooQuoteBatch([symbol]), 10_000, []),
+      withTimeout(
+        fetch(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=price,defaultKeyStatistics,financialData,summaryProfile`, {
+          headers: { "User-Agent": "Mozilla/5.0" }
+        }).then(r => r.json()).catch(() => null),
+        15_000, null
+      ),
+    ]);
+
+    const t   = tech.status   === "fulfilled" ? tech.value   : null;
+    const q   = (quotes.status === "fulfilled" ? (quotes.value || []) : [])[0] || null;
+    const raw = summaryRes.status === "fulfilled" ? summaryRes.value?.quoteSummary?.result?.[0] : null;
+
+    // ── Fundamentals from Yahoo quoteSummary ─────────────────────────────────
+    const priceData = raw?.price || {};
+    const stats     = raw?.defaultKeyStatistics || {};
+    const finData   = raw?.financialData || {};
+    const profile   = raw?.summaryProfile || {};
+
+    const price      = t?.price || Number(priceData.regularMarketPrice?.raw || q?.regularMarketPrice || 0);
+    const chgPct     = t?.chgPct ?? Number(priceData.regularMarketChangePercent?.raw || 0) * 100;
+    const mcapRaw    = Number(priceData.marketCap?.raw || 0);
+    const mcap       = mcapRaw > 1e12 ? `$${(mcapRaw/1e12).toFixed(2)}T`
+                     : mcapRaw > 1e9  ? `$${(mcapRaw/1e9).toFixed(1)}B`
+                     : mcapRaw > 0    ? `$${(mcapRaw/1e6).toFixed(0)}M` : "—";
+    const pe         = Number(priceData.trailingPE?.raw || stats.trailingPE?.raw || 0);
+    const fwdPe      = Number(stats.forwardPE?.raw || finData.currentPrice?.raw || 0);
+    const eps        = Number(stats.trailingEps?.raw || 0);
+    const epsGrowth  = Number(finData.earningsGrowth?.raw || 0);
+    const revGrowth  = Number(finData.revenueGrowth?.raw || 0);
+    const grossMgn   = Number(finData.grossMargins?.raw || 0);
+    const debtEq     = Number(stats.debtToEquity?.raw || 0);
+    const roe        = Number(finData.returnOnEquity?.raw || 0);
+    const beta       = Number(stats.beta?.raw || q?.beta || 0);
+    const sector     = profile.sector || priceData.sector || q?.sector || "—";
+    const industry   = profile.industry || "—";
+    const name       = priceData.longName || priceData.shortName || q?.longName || symbol;
+    const exchg      = priceData.exchangeName || q?.fullExchangeName || "—";
+    const analysts   = Number(finData.numberOfAnalystOpinions?.raw || 0);
+    const targetMean = Number(finData.targetMeanPrice?.raw || 0);
+    const recKey     = finData.recommendationKey || "";
+    const recLabel   = { strongbuy:"Strong Buy", buy:"Buy", hold:"Hold", sell:"Sell", strongsell:"Strong Sell" }[recKey] || recKey || "—";
+
+    // ── Technical (from analyzeSymbol) ───────────────────────────────────────
+    const techLines = t ? [
+      `Price:    $${price.toFixed(2)}  ${chgPct >= 0 ? "+" : ""}${chgPct.toFixed(2)}%`,
+      `Trend:    ${t.trend}  (EMA ${t.emaAligned})`,
+      `Score:    ${t.composite}/100`,
+      `RSI:      ${t.rsi}  ${t.rsi > 70 ? "(overbought)" : t.rsi < 30 ? "(oversold)" : "(normal)"}`,
+      `RVOL:     ${t.rvol}x`,
+      `EMA9:     $${t.ema9}   EMA21: $${t.ema21}   EMA50: $${t.ema50}`,
+      `Support:  $${t.support}   Resistance: $${t.resistance}`,
+      `52W Pos:  ${(t.yearPos * 100).toFixed(0)}% of range`,
+    ].join("\n") : `Price: $${price.toFixed(2)}  ${chgPct >= 0 ? "+" : ""}${chgPct.toFixed(2)}%\n(Technical analysis unavailable)`;
+
+    // ── Fundamental lines ────────────────────────────────────────────────────
+    const fundLines = [
+      `Market Cap: ${mcap}  |  Beta: ${beta > 0 ? beta.toFixed(2) : "—"}`,
+      pe    > 0 ? `P/E: ${pe.toFixed(1)}  Forward P/E: ${fwdPe > 0 ? fwdPe.toFixed(1) : "—"}` : null,
+      eps   !== 0 ? `EPS: $${eps.toFixed(2)}  EPS Growth: ${(epsGrowth*100).toFixed(1)}%` : null,
+      revGrowth !== 0 ? `Rev Growth: ${(revGrowth*100).toFixed(1)}%  Gross Margin: ${(grossMgn*100).toFixed(1)}%` : null,
+      roe   !== 0 ? `ROE: ${(roe*100).toFixed(1)}%  Debt/Equity: ${debtEq > 0 ? debtEq.toFixed(2) : "—"}` : null,
+      analysts > 0 ? `Analysts: ${analysts}  Target: $${targetMean.toFixed(2)}  Rating: ${recLabel}` : null,
+      `Sector: ${sector}  |  ${industry}`,
+      `Exchange: ${exchg}`,
+    ].filter(Boolean).join("\n");
+
+    // ── Projection / narrative ───────────────────────────────────────────────
+    const projLines = [];
+    if (t) {
+      // Bias
+      if (t.composite >= 75) projLines.push("BULLISH BIAS — strong momentum setup.");
+      else if (t.composite >= 62) projLines.push("CAUTIOUSLY BULLISH — setup forming, wait for confirmation.");
+      else if (t.composite <= 38) projLines.push("BEARISH — weakness confirmed, avoid long entries.");
+      else projLines.push("NEUTRAL — no clear edge, watch for breakout or breakdown.");
+
+      // RSI signal
+      if (t.rsi > 75)  projLines.push("RSI overbought — risk of pullback, don't chase.");
+      if (t.rsi < 30)  projLines.push("RSI oversold — potential bounce setup forming.");
+
+      // RVOL
+      if (t.rvol >= 2.0 && t.chgPct > 0) projLines.push("High RVOL on up day — institutional buying likely.");
+      if (t.rvol >= 1.5 && t.chgPct < 0) projLines.push("High RVOL on down day — distribution risk.");
+
+      // 52W position
+      if (t.yearPos > 0.92)  projLines.push("Near 52W high — potential breakout zone, watch for volume surge.");
+      if (t.yearPos < 0.15)  projLines.push("Near 52W low — deep value or downtrend, needs catalyst.");
+
+      // EMA
+      if (t.trend === "Uptrend") projLines.push("EMA stack bullish (9>21>50) — trend is your friend.");
+      if (t.trend === "Downtrend") projLines.push("EMA stack bearish (9<21<50) — selling into bounces is smarter.");
+
+      // Analyst target
+      if (targetMean > 0 && price > 0) {
+        const upside = ((targetMean - price) / price * 100);
+        if (upside > 10)  projLines.push(`Analyst target $${targetMean.toFixed(2)} = ${upside.toFixed(1)}% upside.`);
+        if (upside < -10) projLines.push(`Analyst target $${targetMean.toFixed(2)} = ${Math.abs(upside).toFixed(1)}% downside from here.`);
+      }
+    }
+
+    const msg = [
+      `DEEP DIVE: ${name} (${symbol})`,
+      "═".repeat(32),
+      "",
+      "TECHNICALS",
+      techLines,
+      "",
+      "FUNDAMENTALS",
+      fundLines,
+      "",
+      "PROJECTION",
+      projLines.join(" ") || "Insufficient data for projection.",
+    ].join("\n");
+
+    return reply(msg);
+  } catch (err) {
+    return reply(`Deep dive error for ${symbol}: ${err.message}`);
   }
 }
 
@@ -315,6 +451,9 @@ const COMMANDS = {
   price:     (a) => cmdPrice(a),
   p:         (a) => cmdPrice(a),
   q:         (a) => cmdPrice(a),
+  deep:      (a) => cmdDeep(a),
+  dive:      (a) => cmdDeep(a),
+  analyze:   (a) => cmdDeep(a),
   alert:     (a) => cmdAlert(a),
   alerts:    () => cmdAlerts(),
   pa:        () => cmdAlerts(),
@@ -328,14 +467,27 @@ const COMMANDS = {
 
 async function dispatch(text) {
   const clean = String(text || "").trim();
-  if (!clean.startsWith("/")) return;
+
+  // ── Bare ticker detection (e.g. "AAPL" or "NVDA" without a slash) ──────────
+  if (!clean.startsWith("/")) {
+    const upper = clean.toUpperCase();
+    // Single word, 1–6 uppercase letters/digits/dots, no spaces
+    if (/^[A-Z][A-Z0-9.\-]{0,8}$/.test(upper) && upper.length >= 1) {
+      console.log(`[TgBot] Bare ticker detected: ${upper} — running deep dive`);
+      return cmdDeep([upper]).catch(err =>
+        reply(`Deep dive error: ${err.message}`)
+      );
+    }
+    return; // ignore non-command, non-ticker messages
+  }
+
   const withoutAt = clean.replace(/^(\/\w+)@\w+/, "$1");
   const parts = withoutAt.slice(1).split(/\s+/);
   const cmd   = (parts[0] || "").toLowerCase();
   const args  = parts.slice(1);
   const handler = COMMANDS[cmd];
   if (!handler) {
-    return reply(`Unknown command: /${cmd}\nType /help for a list.`);
+    return reply(`Unknown command: /${cmd}\nType /help for all commands.\nTip: Just type a ticker like AAPL for a deep dive.`);
   }
   try {
     await handler(args);

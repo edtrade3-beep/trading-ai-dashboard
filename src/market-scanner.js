@@ -588,17 +588,84 @@ async function sendMacroReport() {
     return `${(lbl||sym).padEnd(5)} $${String(a.price).padStart(8)}  ${(arrow+a.chgPct.toFixed(2)+"%").padStart(7)}  Score ${a.composite}  ${bar}`;
   };
 
+  // ── Build market narrative ──────────────────────────────────────────────────
+  const spy  = aMap.get("SPY"),  qqq = aMap.get("QQQ"), iwm = aMap.get("IWM");
+  const vix  = aMap.get("^VIX"), tlt = aMap.get("TLT"),  gld = aMap.get("GLD");
+  const hyg  = aMap.get("HYG"),  uup = aMap.get("UUP");
+  const xly  = aMap.get("XLY"),  xlp = aMap.get("XLP");
+
+  const narrativeParts = [];
+
+  // Regime sentence
+  if (macro.regime === "RISK-ON") {
+    narrativeParts.push("Market is in RISK-ON mode — money is flowing into equities, credit and cyclicals.");
+  } else if (macro.regime === "RISK-OFF") {
+    narrativeParts.push("Market is in RISK-OFF mode — investors are rotating into defensives, bonds and cash.");
+  } else {
+    narrativeParts.push("Market is NEUTRAL — mixed signals, no strong directional conviction.");
+  }
+
+  // Equity breadth
+  if (spy && qqq && iwm) {
+    const all3up   = spy.chgPct > 0.3  && qqq.chgPct > 0.3  && iwm.chgPct > 0.3;
+    const all3down = spy.chgPct < -0.3 && qqq.chgPct < -0.3 && iwm.chgPct < -0.3;
+    const techLead = qqq.chgPct > spy.chgPct + 0.5;
+    const smLag    = iwm.chgPct < spy.chgPct - 0.8;
+    if (all3up)        narrativeParts.push("Broad rally — SPY, QQQ and IWM all rising together (healthy tape).");
+    else if (all3down) narrativeParts.push("Broad selloff — all major indices in the red.");
+    else if (techLead) narrativeParts.push("Tech (QQQ) leading the market — growth/momentum favored.");
+    else if (smLag)    narrativeParts.push("Small caps (IWM) lagging — risk appetite limited to large caps.");
+  }
+
+  // Volatility
+  if (vix) {
+    if (vix.chgPct >  8) narrativeParts.push(`VIX surging +${vix.chgPct.toFixed(1)}% — fear is elevated, expect choppy action.`);
+    else if (vix.chgPct < -5) narrativeParts.push(`VIX falling ${vix.chgPct.toFixed(1)}% — complacency rising, market calming down.`);
+    if (vix.price > 30) narrativeParts.push("VIX above 30 — high-fear environment, position size down.");
+    else if (vix.price < 15) narrativeParts.push("VIX below 15 — low volatility, breakouts more reliable.");
+  }
+
+  // Credit / bonds
+  if (hyg && tlt) {
+    if (hyg.chgPct > 0.3 && tlt.chgPct < 0) narrativeParts.push("Credit (HYG) up while bonds sell off — classic risk-on rotation.");
+    else if (hyg.chgPct < -0.3 && tlt.chgPct > 0.3) narrativeParts.push("Credit weakening + bonds rallying — flight-to-safety in play.");
+  }
+
+  // Gold / Dollar
+  if (gld && uup) {
+    if (gld.chgPct > 0.5 && uup.chgPct > 0.3) narrativeParts.push("Gold and dollar both up — stagflation/uncertainty hedge in demand.");
+    else if (gld.chgPct > 0.5) narrativeParts.push("Gold rising — inflation hedge / safe haven buying.");
+    else if (uup.chgPct > 0.5) narrativeParts.push("Dollar strengthening — headwind for commodities and EM.");
+  }
+
+  // Cyclicals vs defensives
+  if (xly && xlp) {
+    if (xly.chgPct > xlp.chgPct + 1) narrativeParts.push("Cyclicals (XLY) beating defensives (XLP) — growth trade on.");
+    else if (xlp.chgPct > xly.chgPct + 1) narrativeParts.push("Defensives (XLP) outpacing cyclicals — caution in the market.");
+  }
+
+  // What to watch
+  const watchList = [];
+  if (vix && vix.price > 20) watchList.push("VIX > 20 (elevated fear)");
+  if (spy && Math.abs(spy.chgPct) > 1.5) watchList.push(`SPY big move ${spy.chgPct >= 0 ? "+" : ""}${spy.chgPct.toFixed(1)}%`);
+  if (hyg && hyg.chgPct < -0.5) watchList.push("HYG credit stress");
+  if (gld && gld.chgPct > 1) watchList.push("Gold breakout");
+
+  const narrative = narrativeParts.slice(0, 4).join(" ");
+
   const lines = [
     `${e} MACRO REPORT — ${time} ET`,
     `Regime: ${macro.regime}  (score ${macro.score > 0 ? "+" : ""}${macro.score})`,
     "",
-    "── EQUITIES ──────────────────",
+    narrative,
+    "",
+    "── EQUITIES ──────────────",
     row("SPY"),
     row("QQQ"),
     row("IWM"),
     row("XLY","XLY"), row("XLP","XLP"),
     "",
-    "── MACRO INSTRUMENTS ─────────",
+    "── MACRO ─────────────────",
     row("TLT"),
     row("^VIX","VIX"),
     row("GLD"),
@@ -608,6 +675,7 @@ async function sendMacroReport() {
     "",
     macro.bullFactors.length ? "Bull: " + macro.bullFactors.slice(0, 4).join(", ") : null,
     macro.bearFactors.length ? "Bear: " + macro.bearFactors.slice(0, 4).join(", ") : null,
+    watchList.length ? "\nWatch: " + watchList.join(" | ") : null,
   ].filter(s => s !== null).join("\n");
 
   await sendTelegramMessage(lines);
@@ -616,25 +684,42 @@ async function sendMacroReport() {
   console.log(`[Scanner] Macro report sent: ${macro.regime} score ${macro.score}`);
 }
 
+
+// ── Scheduled scan times (ET, M–F) ───────────────────────────────────────────
+// These fire a full scan + Telegram summary at exact clock times every weekday.
+const SCHEDULED_SCAN_TIMES_ET = ["07:00", "09:45", "12:30", "14:45", "15:45"];
+
+function getEtTime() {
+  try {
+    const fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false,
+    }).format(new Date());
+    const [wd, time] = fmt.split(", ");
+    return { wd, time };
+  } catch { return { wd: "Mon", time: "00:00" }; }
+}
+
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 
 let lastScheduledRunAt = 0;
+let lastScheduledTimeLabel = "";  // prevents double-firing within the same minute
 
 function startMarketScanner() {
   const cfg = loadConfig();
 
-  // First scan 30s after startup
+  // First scan 90s after startup (let server settle)
   const t = setTimeout(() => {
     lastScheduledRunAt = Date.now();
     runScan().catch(() => {});
-  }, 30_000);
+  }, 90_000);
   if (t.unref) t.unref();
 
-  // Tick every 60s; re-reads config so interval changes apply without restart
+  // ── Interval-based scan (every N minutes, 24/7 for crypto + AH) ───────────
   const iv = setInterval(() => {
     const cur = loadConfig();
     if (!cur.enabled) return;
-    const ms = Math.max(1, cur.intervalMinutes || 3) * 60_000;
+    const ms = Math.max(1, cur.intervalMinutes || 5) * 60_000;
     if (Date.now() - lastScheduledRunAt >= ms) {
       lastScheduledRunAt = Date.now();
       runScan().catch(() => {});
@@ -642,7 +727,37 @@ function startMarketScanner() {
   }, 60_000);
   if (iv.unref) iv.unref();
 
-  console.log(`[Scanner] Started — ${cfg.intervalMinutes}min interval, ${(cfg.symbols || DEFAULT_SYMBOLS).length} symbols`);
+  // ── Time-based scan: fire at specific ET clock times M-F ──────────────────
+  // 7:00 AM  — Pre-market overview
+  // 9:45 AM  — First 15 min settled, real price discovery
+  // 12:30 PM — Midday momentum check
+  // 2:45 PM  — Late-session positioning
+  // 3:45 PM  — Power hour final scan
+  const tv = setInterval(() => {
+    const { wd, time } = getEtTime();
+    if (wd === "Sat" || wd === "Sun") return;
+    if (!SCHEDULED_SCAN_TIMES_ET.includes(time)) return;
+    if (time === lastScheduledTimeLabel) return; // already fired this minute
+    lastScheduledTimeLabel = time;
+    lastScheduledRunAt = Date.now();
+    const labelMap = {
+      "07:00": "Pre-Market",
+      "09:45": "Open + 15min",
+      "12:30": "Midday",
+      "14:45": "Late Session",
+      "15:45": "Power Hour",
+    };
+    console.log(`[Scanner] Scheduled scan: ${labelMap[time] || time} ET`);
+    // Send a header message before the scan so you know which session it is
+    if (telegramConfigured()) {
+      sendTelegramMessage(`⏰ ${labelMap[time] || time} Scan — ${time} ET`).catch(() => {});
+    }
+    runScan().catch(() => {});
+  }, 30_000); // check every 30s so we never miss a minute
+  if (tv.unref) tv.unref();
+
+  const timeStr = SCHEDULED_SCAN_TIMES_ET.join(", ");
+  console.log(`[Scanner] Started — ${cfg.intervalMinutes}min interval + scheduled ET: ${timeStr}`);
 }
 
-module.exports = { startMarketScanner, runScan, getScannerStatus, sendMacroReport, loadConfig, saveConfig, DEFAULT_SYMBOLS };
+module.exports = { startMarketScanner, runScan, getScannerStatus, sendMacroReport, loadConfig, saveConfig, DEFAULT_SYMBOLS, analyzeSymbol, computeMacroRegime, SCHEDULED_SCAN_TIMES_ET };
