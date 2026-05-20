@@ -19,6 +19,7 @@ const handlePlan = require("./routes/plan");
 const handleWatchlist = require("./routes/watchlist");
 const handleFinviz = require("./routes/finviz");
 const handleScanner = require("./routes/scanner");
+const handleDeals   = require("./routes/deals");
 const { sendTelegramAlert, sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
 
 async function handleRequest(req, res) {
@@ -52,6 +53,10 @@ async function handleRequest(req, res) {
 
     if (pathname.startsWith("/api/scanner/")) {
       return handleScanner(req, res, requestUrl);
+    }
+
+    if (pathname.startsWith("/api/deals/") || pathname === "/api/deals") {
+      return handleDeals(req, res, requestUrl);
     }
 
     if (pathname.startsWith("/api/market/") || pathname === "/api/live") {

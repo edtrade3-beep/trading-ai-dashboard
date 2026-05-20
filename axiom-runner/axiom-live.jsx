@@ -4269,6 +4269,61 @@ export default function App() {
     localStorage.setItem("quran_volume", String(quranVolume));
   }, [quranVolume]);
 
+  // ── Deals State ──
+  const [dealsQuery,    setDealsQuery]    = useState("");
+  const [dealsCategory, setDealsCategory] = useState("electronics");
+  const [dealsMaxPrice, setDealsMaxPrice] = useState("");
+  const [dealsLocation, setDealsLocation] = useState("");
+  const [dealsResults,  setDealsResults]  = useState([]);
+  const [dealsLoading,  setDealsLoading]  = useState(false);
+  const [dealsError,    setDealsError]    = useState("");
+  const [dealsWatches,  setDealsWatches]  = useState([]);
+  const [dealsAlerts,   setDealsAlerts]   = useState([]);
+  const [dealsWatchesLoading, setDealsWatchesLoading] = useState(false);
+
+  const fetchDealsWatches = useCallback(() => {
+    fetch("/api/deals/watches").then(r => r.json()).then(d => {
+      if (d.ok) { setDealsWatches(d.watches || []); setDealsAlerts(d.recentAlerts || []); }
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "deals") fetchDealsWatches();
+  }, [activeTab, fetchDealsWatches]);
+
+  const runDealsSearch = useCallback(() => {
+    setDealsLoading(true); setDealsError(""); setDealsResults([]);
+    const params = new URLSearchParams({ q: dealsQuery, category: dealsCategory });
+    if (dealsMaxPrice) params.set("maxPrice", dealsMaxPrice);
+    if (dealsLocation) params.set("location", dealsLocation);
+    fetch(`/api/deals/search?${params}`)
+      .then(r => r.json())
+      .then(d => {
+        setDealsLoading(false);
+        if (d.ok) setDealsResults(d.results || []);
+        else setDealsError(d.error || "Search failed");
+      })
+      .catch(e => { setDealsLoading(false); setDealsError(e.message); });
+  }, [dealsQuery, dealsCategory, dealsMaxPrice, dealsLocation]);
+
+  const addDealsWatch = useCallback(() => {
+    if (!dealsQuery.trim()) return;
+    setDealsWatchesLoading(true);
+    fetch("/api/deals/watches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: dealsQuery, category: dealsCategory, maxPrice: dealsMaxPrice || null, location: dealsLocation }),
+    }).then(r => r.json()).then(d => {
+      setDealsWatchesLoading(false);
+      if (d.ok) { fetchDealsWatches(); alert(`Watch added! Telegram alerts will fire every 30 min when new "${dealsQuery}" deals appear.`); }
+    }).catch(() => setDealsWatchesLoading(false));
+  }, [dealsQuery, dealsCategory, dealsMaxPrice, dealsLocation, fetchDealsWatches]);
+
+  const removeDealsWatch = useCallback((id) => {
+    fetch(`/api/deals/watches/${id}`, { method: "DELETE" })
+      .then(() => fetchDealsWatches());
+  }, [fetchDealsWatches]);
+
   // ── Athkar State ──
   const [athkarCategory, setAthkarCategory] = useState("morning");
   const [athkarProgress, setAthkarProgress] = useState(() => {
@@ -6413,6 +6468,7 @@ export default function App() {
               { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "tv", "flow"] },
               { id: "portfolio", label: "PORTFOLIO", tabs: ["portfolio", "journal", "alerts"] },
               { id: "tools",     label: "TOOLS",     tabs: ["tools", "backtest", "workflow", "agent"] },
+              { id: "deals",     label: "🛒 DEALS",  tabs: ["deals"] },
               { id: "islamic",   label: "☪",         tabs: ["quran", "athan", "athkar", "tasbih"] },
             ];
             const scannerBadge = scannerRows.filter(r => r.scannerScore >= 70).length || null;
@@ -10650,6 +10706,217 @@ export default function App() {
                 )}
               </div>
             )}
+          </div>
+        );
+      })()}
+
+      {/* ══════════════════ DEALS TAB ══════════════════ */}
+      {activeTab === "deals" && (() => {
+        const DEAL_CATS = [
+          { id: "electronics", label: "🖥️ Electronics" },
+          { id: "realestate",  label: "🏠 Real Estate" },
+          { id: "cars",        label: "🚗 Cars" },
+          { id: "furniture",   label: "🛋️ Furniture" },
+          { id: "general",     label: "🛒 General" },
+        ];
+        const catLabel = DEAL_CATS.find(c => c.id === dealsCategory)?.label || dealsCategory;
+        const showLocation = dealsCategory === "realestate" || dealsCategory === "cars";
+        return (
+          <div style={{ maxWidth: 1400, margin: "0 auto" }}>
+            {/* Header */}
+            <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>🛒 DEALS FINDER</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>Search for deals · Set Telegram alerts for any search</div>
+              </div>
+              <button
+                onClick={() => fetch("/api/deals/test-alert", { method: "POST" }).then(() => alert("Test Telegram alert sent!"))}
+                style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}44`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "6px 12px", borderRadius: 5, cursor: "pointer" }}
+              >📱 TEST TELEGRAM</button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 340px", gap: 16 }}>
+              {/* LEFT: Search + Results */}
+              <div>
+                {/* Search panel */}
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
+                  {/* Category tabs */}
+                  <div style={{ display: "flex", gap: 6, marginBottom: 12, overflowX: "auto", scrollbarWidth: "none" }}>
+                    {DEAL_CATS.map(c => (
+                      <button key={c.id} onClick={() => setDealsCategory(c.id)}
+                        style={{ background: dealsCategory === c.id ? `${C.accent}18` : C.surface, border: `1px solid ${dealsCategory === c.id ? C.accent : C.border}`, color: dealsCategory === c.id ? C.accent : C.textSec, borderRadius: 20, padding: "5px 12px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Search inputs row */}
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <input
+                      value={dealsQuery}
+                      onChange={e => setDealsQuery(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && runDealsSearch()}
+                      placeholder={`Search ${catLabel} deals…`}
+                      style={{ flex: "2 1 200px", border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "9px 12px", fontFamily: MONO, fontSize: 12, outline: "none" }}
+                    />
+                    <input
+                      value={dealsMaxPrice}
+                      onChange={e => setDealsMaxPrice(e.target.value)}
+                      placeholder="Max price $"
+                      type="number"
+                      style={{ flex: "0 1 110px", border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "9px 12px", fontFamily: MONO, fontSize: 12, outline: "none" }}
+                    />
+                    {showLocation && (
+                      <input
+                        value={dealsLocation}
+                        onChange={e => setDealsLocation(e.target.value)}
+                        placeholder="City / ZIP"
+                        style={{ flex: "1 1 130px", border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "9px 12px", fontFamily: MONO, fontSize: 12, outline: "none" }}
+                      />
+                    )}
+                    <button onClick={runDealsSearch} disabled={dealsLoading}
+                      style={{ background: C.accent, border: "none", color: "#fff", borderRadius: 6, padding: "9px 18px", fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", opacity: dealsLoading ? 0.7 : 1, flexShrink: 0 }}>
+                      {dealsLoading ? "SEARCHING…" : "SEARCH"}
+                    </button>
+                    <button onClick={addDealsWatch} disabled={!dealsQuery.trim() || dealsWatchesLoading}
+                      title="Save this search — get Telegram alerts when new deals appear"
+                      style={{ background: `${C.green}14`, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 6, padding: "9px 14px", fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer", opacity: !dealsQuery.trim() ? 0.5 : 1, flexShrink: 0 }}>
+                      🔔 WATCH
+                    </button>
+                  </div>
+
+                  {dealsError && (
+                    <div style={{ marginTop: 10, padding: "8px 12px", background: C.redBg, border: `1px solid ${C.red}44`, borderRadius: 6, fontFamily: MONO, fontSize: 10, color: C.red }}>
+                      ⚠ {dealsError}
+                    </div>
+                  )}
+                </div>
+
+                {/* Results */}
+                {dealsLoading && (
+                  <div style={{ textAlign: "center", padding: 40, fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                    ⟳ Searching for deals…
+                  </div>
+                )}
+                {!dealsLoading && dealsResults.length === 0 && !dealsError && (
+                  <div style={{ textAlign: "center", padding: 40, fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                    Enter a search above and press SEARCH.<br/>
+                    <span style={{ fontSize: 10 }}>Examples: "gaming laptop", "iPhone 15", "homes for sale Cincinnati"</span>
+                  </div>
+                )}
+                {!dealsLoading && dealsResults.length > 0 && (
+                  <div>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 10 }}>
+                      {dealsResults.length} RESULTS · {dealsCategory.toUpperCase()} · {dealsQuery && `"${dealsQuery}"`}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10 }}>
+                      {dealsResults.map(deal => (
+                        <div key={deal.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column", transition: "border-color 0.15s" }}>
+                          {deal.thumbnail && (
+                            <img src={deal.thumbnail} alt={deal.title}
+                              style={{ width: "100%", height: 140, objectFit: "contain", background: "#f8f9fb", borderBottom: `1px solid ${C.border}` }}
+                              onError={e => { e.target.style.display = "none"; }}
+                            />
+                          )}
+                          <div style={{ padding: "10px 12px", flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
+                            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.text, lineHeight: 1.35 }}>
+                              {deal.title}
+                            </div>
+                            {deal.description && (
+                              <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, lineHeight: 1.4 }}>
+                                {deal.description.slice(0, 100)}{deal.description.length > 100 ? "…" : ""}
+                              </div>
+                            )}
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "auto", paddingTop: 6 }}>
+                              {deal.price && (
+                                <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.green }}>{deal.price}</span>
+                              )}
+                              {deal.rating && (
+                                <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber }}>★ {deal.rating} ({deal.reviews})</span>
+                              )}
+                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginLeft: "auto" }}>{deal.source}</span>
+                            </div>
+                            <a href={deal.link} target="_blank" rel="noopener noreferrer"
+                              style={{ background: C.accent, color: "#fff", textDecoration: "none", borderRadius: 5, padding: "6px 0", fontFamily: MONO, fontSize: 10, fontWeight: 700, textAlign: "center", display: "block", marginTop: 4 }}>
+                              VIEW DEAL →
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* RIGHT: Watches + Recent Alerts */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {/* Active watches */}
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.text, marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>🔔 TELEGRAM WATCHES ({dealsWatches.length})</span>
+                    <button onClick={fetchDealsWatches} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>REFRESH</button>
+                  </div>
+                  {dealsWatches.length === 0 ? (
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, padding: "12px 0" }}>
+                      No watches yet.<br/>
+                      Search for something then click 🔔 WATCH to get Telegram alerts every 30 min when new deals appear.
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                      {dealsWatches.map(w => (
+                        <div key={w.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 7, padding: "9px 10px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.query}</div>
+                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>
+                              {w.category.toUpperCase()}{w.maxPrice ? ` · max $${w.maxPrice}` : ""}{w.location ? ` · ${w.location}` : ""}
+                            </div>
+                            <div style={{ fontFamily: MONO, fontSize: 9, color: w.lastAlerted ? C.green : C.textDim, marginTop: 2 }}>
+                              {w.lastAlerted ? `Last alerted: ${new Date(w.lastAlerted).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Not yet checked"}
+                            </div>
+                          </div>
+                          <button onClick={() => removeDealsWatch(w.id)}
+                            style={{ background: C.redBg, border: `1px solid ${C.red}44`, color: C.red, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", flexShrink: 0 }}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Recent Telegram alerts */}
+                {dealsAlerts.length > 0 && (
+                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.text, marginBottom: 10 }}>
+                      📨 RECENT TELEGRAM ALERTS
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                      {dealsAlerts.slice(0, 10).map(a => (
+                        <div key={a.id} style={{ background: `${C.green}08`, border: `1px solid ${C.green}22`, borderRadius: 7, padding: "8px 10px" }}>
+                          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text }}>{a.query} <span style={{ color: C.green, fontWeight: 900 }}>+{a.count} new</span></div>
+                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>{new Date(a.at).toLocaleString()}</div>
+                          {a.preview?.map((p, i) => (
+                            <div key={i} style={{ fontFamily: SANS, fontSize: 10, color: C.textSec, marginTop: 3 }}>
+                              • {p.title.slice(0, 50)}{p.title.length > 50 ? "…" : ""} {p.price && <span style={{ color: C.green, fontWeight: 700 }}>{p.price}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Info box */}
+                <div style={{ background: `${C.accent}08`, border: `1px solid ${C.accent}22`, borderRadius: 10, padding: 12 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, marginBottom: 6 }}>HOW DEAL ALERTS WORK</div>
+                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.6 }}>
+                    1. Search for any product, property, or deal<br/>
+                    2. Click 🔔 WATCH to save the search<br/>
+                    3. Server checks every 30 min automatically<br/>
+                    4. New deals → instant Telegram message<br/>
+                    5. Works 24/7 even when you close the browser
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         );
       })()}

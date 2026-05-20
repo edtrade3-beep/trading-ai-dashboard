@@ -24,7 +24,8 @@ const handleRequest = require("./src/router");
 const { startPriceAlertMonitor } = require("./src/price-alert-monitor");
 const { startFbScheduler } = require("./src/fb-scheduler");
 const { startMarketScanner } = require("./src/market-scanner");
-const { startTelegramBot }  = require("./src/telegram-bot");
+const { startTelegramBot }    = require("./src/telegram-bot");
+const { checkDealWatches }   = require("./src/routes/deals");
 
 const server = http.createServer(handleRequest);
 
@@ -42,6 +43,11 @@ server.listen(PORT, HOST, () => {
   startFbScheduler();
   startMarketScanner();
   startTelegramBot();
+
+  // Deal watch scanner — check every 30 min, send Telegram alerts for new deals
+  setInterval(checkDealWatches, 30 * 60 * 1000);
+  setTimeout(checkDealWatches, 60 * 1000); // first check 1 min after boot
+  console.log("[Deals] Background watch scanner started (every 30 min)");
 
   // Keep-alive: ping own health endpoint every 10 min so Render free tier never idles out
   const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
