@@ -4100,7 +4100,13 @@ export default function App() {
   });
   const [quranPlaying, setQuranPlaying] = useState(false);
   const [quranAutoNext, setQuranAutoNext] = useState(true);
+  const [quranRepeat, setQuranRepeat] = useState(false);
   const [quranAudioError, setQuranAudioError] = useState(false);
+  const [quranLoading, setQuranLoading] = useState(false);
+  const [quranCurrentTime, setQuranCurrentTime] = useState(0);
+  const [quranDuration, setQuranDuration] = useState(0);
+  const [quranVolume, setQuranVolume] = useState(() => { try { return Number(localStorage.getItem("quran_volume") || "1"); } catch { return 1; } });
+  const [quranSearchQuery, setQuranSearchQuery] = useState("");
   const quranAudioRef = useRef(null);
 
   // ── Athan State ──
@@ -4245,12 +4251,20 @@ export default function App() {
     quranWasPlaying.current  = false;
     quranUsedFallback.current = false;  // reset fallback on every track change
     setQuranAudioError(false);
+    setQuranCurrentTime(0);
+    setQuranDuration(0);
     quranAudioRef.current.src = `${QURAN_CDN}/${quranReciter.id}/${quranSurah}.mp3`;
     quranAudioRef.current.load();
     if (shouldPlay) {
       quranAudioRef.current.play().catch(() => setQuranAudioError(true));
     }
   }, [quranSurah, quranReciter]);
+
+  // Sync volume to audio element whenever it changes
+  useEffect(() => {
+    if (quranAudioRef.current) quranAudioRef.current.volume = quranVolume;
+    localStorage.setItem("quran_volume", String(quranVolume));
+  }, [quranVolume]);
 
   // ── Athkar State ──
   const [athkarCategory, setAthkarCategory] = useState("morning");
@@ -10603,29 +10617,73 @@ export default function App() {
       {/* ══════════════════ QURAN TAB ══════════════════ */}
       {activeTab === "quran" && (() => {
         const surahNum = quranSurah;
-        const surahPadded = String(surahNum).padStart(3, "0");
-        const audioUrl = `${QURAN_CDN}/${quranReciter.id}/${surahNum}.mp3`;
         const surahInfo = SURAH_LIST[surahNum - 1];
         const gold = "#c9a84c";
         const goldDim = "#c9a84c44";
+        const goldBg  = "#c9a84c12";
+
+        const fmtTime = (s) => {
+          if (!s || !isFinite(s)) return "0:00";
+          const m = Math.floor(s / 60);
+          const sec = Math.floor(s % 60);
+          return `${m}:${sec.toString().padStart(2, "0")}`;
+        };
+
+        const filteredSurahs = quranSearchQuery.trim()
+          ? SURAH_LIST.filter(([n, ar, en]) =>
+              en.toLowerCase().includes(quranSearchQuery.toLowerCase()) ||
+              ar.includes(quranSearchQuery) ||
+              String(n).startsWith(quranSearchQuery.trim())
+            )
+          : SURAH_LIST;
+
         return (
-          <div dir="rtl" style={{ maxWidth: 700, margin: "0 auto" }}>
-            <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{ fontFamily: "Georgia, serif", fontSize: 13, color: gold, letterSpacing: "0.12em", marginBottom: 4 }}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.1em", direction: "ltr" }}>24/7 QURAN RECITATION</div>
+          <div style={{ maxWidth: 760, margin: "0 auto" }}>
+            {/* ── Bismillah header ── */}
+            <div style={{ textAlign: "center", marginBottom: 18 }}>
+              <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 20, color: gold, letterSpacing: "0.08em", marginBottom: 4, direction: "rtl" }}>
+                بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.14em" }}>QURAN RECITATION PLAYER</div>
             </div>
 
-            {/* Current surah card */}
-            <div style={{ background: C.card, border: `1px solid ${goldDim}`, borderRadius: 16, padding: "24px 20px", marginBottom: 16, textAlign: "center", boxShadow: `0 0 40px ${gold}0a` }}>
-              <div style={{ fontSize: 32, fontWeight: 900, color: gold, fontFamily: "Georgia, serif", marginBottom: 4 }}>
-                {surahInfo?.[1]}
-              </div>
-              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, direction: "ltr", marginBottom: 16 }}>
-                {surahNum}. {surahInfo?.[2]}
+            {/* ── Main player card ── */}
+            <div style={{ background: C.card, border: `1px solid ${goldDim}`, borderRadius: 18, padding: "22px 20px 18px", marginBottom: 14, boxShadow: `0 0 50px ${gold}08` }}>
+
+              {/* Surah name */}
+              <div style={{ textAlign: "center", marginBottom: 14, direction: "rtl" }}>
+                <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 36, fontWeight: 900, color: gold, lineHeight: 1.2 }}>
+                  {surahInfo?.[1]}
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 4, direction: "ltr" }}>
+                  {surahNum}. {surahInfo?.[2]}
+                </div>
               </div>
 
-              {/* Play/Pause controls */}
-              <div style={{ display: "flex", justifyContent: "center", gap: 16, alignItems: "center", marginBottom: 16 }}>
+              {/* ── Progress bar ── */}
+              <div style={{ marginBottom: 12 }}>
+                <input
+                  type="range"
+                  min="0"
+                  max={quranDuration || 100}
+                  step="1"
+                  value={quranCurrentTime}
+                  onChange={e => {
+                    const t = Number(e.target.value);
+                    setQuranCurrentTime(t);
+                    if (quranAudioRef.current) quranAudioRef.current.currentTime = t;
+                  }}
+                  style={{ width: "100%", accentColor: gold, height: 4, cursor: "pointer" }}
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>
+                  <span>{fmtTime(quranCurrentTime)}</span>
+                  <span>{fmtTime(quranDuration)}</span>
+                </div>
+              </div>
+
+              {/* ── Transport controls ── */}
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 14, marginBottom: 16 }}>
+                {/* Prev surah */}
                 <button
                   onClick={() => {
                     const prev = surahNum > 1 ? surahNum - 1 : 114;
@@ -10633,18 +10691,37 @@ export default function App() {
                     setQuranSurah(prev);
                     localStorage.setItem("quran_surah", String(prev));
                   }}
-                  style={{ background: C.surface, border: `1px solid ${goldDim}`, color: gold, borderRadius: 999, width: 44, height: 44, fontSize: 18, cursor: "pointer" }}
-                >‹</button>
+                  title="السورة السابقة"
+                  style={{ background: C.surface, border: `1px solid ${goldDim}`, color: gold, borderRadius: 999, width: 46, height: 46, fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                >⏮</button>
 
+                {/* Rewind 10s */}
+                <button
+                  onClick={() => { if (quranAudioRef.current) quranAudioRef.current.currentTime = Math.max(0, quranCurrentTime - 10); }}
+                  title="-10 ثانية"
+                  style={{ background: C.surface, border: `1px solid ${goldDim}`, color: gold, borderRadius: 999, width: 40, height: 40, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO }}
+                >-10</button>
+
+                {/* Play / Pause — shows spinner while loading */}
                 <button
                   onClick={() => {
                     if (!quranAudioRef.current) return;
                     if (quranPlaying) { quranAudioRef.current.pause(); }
-                    else { quranAudioRef.current.play().catch(e => console.warn(e)); }
+                    else { quranAudioRef.current.play().catch(e => { setQuranAudioError(true); setQuranLoading(false); }); }
                   }}
-                  style={{ background: gold, border: "none", color: C.bg, borderRadius: 999, width: 64, height: 64, fontSize: 26, cursor: "pointer", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}
-                >{quranPlaying ? "⏸" : "▶"}</button>
+                  style={{ background: quranAudioError ? C.red : gold, border: "none", color: "#fff", borderRadius: 999, width: 68, height: 68, fontSize: quranLoading ? 18 : 28, cursor: "pointer", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 4px 20px ${gold}44`, transition: "transform 0.1s", flexShrink: 0 }}
+                >
+                  {quranLoading ? "⌛" : quranPlaying ? "⏸" : "▶"}
+                </button>
 
+                {/* Forward 10s */}
+                <button
+                  onClick={() => { if (quranAudioRef.current && quranDuration) quranAudioRef.current.currentTime = Math.min(quranDuration, quranCurrentTime + 10); }}
+                  title="+10 ثانية"
+                  style={{ background: C.surface, border: `1px solid ${goldDim}`, color: gold, borderRadius: 999, width: 40, height: 40, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO }}
+                >+10</button>
+
+                {/* Next surah */}
                 <button
                   onClick={() => {
                     const next = surahNum < 114 ? surahNum + 1 : 1;
@@ -10652,88 +10729,142 @@ export default function App() {
                     setQuranSurah(next);
                     localStorage.setItem("quran_surah", String(next));
                   }}
-                  style={{ background: C.surface, border: `1px solid ${goldDim}`, color: gold, borderRadius: 999, width: 44, height: 44, fontSize: 18, cursor: "pointer" }}
-                >›</button>
+                  title="السورة التالية"
+                  style={{ background: C.surface, border: `1px solid ${goldDim}`, color: gold, borderRadius: 999, width: 46, height: 46, fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                >⏭</button>
+              </div>
+
+              {/* ── Volume slider ── */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, direction: "ltr" }}>
+                <span style={{ fontSize: 16 }}>{quranVolume === 0 ? "🔇" : quranVolume < 0.5 ? "🔉" : "🔊"}</span>
+                <input
+                  type="range" min="0" max="1" step="0.05"
+                  value={quranVolume}
+                  onChange={e => setQuranVolume(Number(e.target.value))}
+                  style={{ flex: 1, accentColor: gold, cursor: "pointer" }}
+                />
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, minWidth: 30 }}>{Math.round(quranVolume * 100)}%</span>
+              </div>
+
+              {/* ── Mode toggles ── */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", direction: "ltr", justifyContent: "center" }}>
+                <button
+                  onClick={() => setQuranRepeat(r => !r)}
+                  style={{ background: quranRepeat ? `${gold}22` : C.surface, border: `1px solid ${quranRepeat ? gold : C.border}`, color: quranRepeat ? gold : C.textDim, borderRadius: 6, padding: "7px 14px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}
+                >
+                  🔂 <span>تكرار السورة</span>
+                </button>
+                <button
+                  onClick={() => setQuranAutoNext(a => !a)}
+                  style={{ background: quranAutoNext ? `${gold}22` : C.surface, border: `1px solid ${quranAutoNext ? gold : C.border}`, color: quranAutoNext ? gold : C.textDim, borderRadius: 6, padding: "7px 14px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}
+                >
+                  ▶▶ <span>تشغيل تلقائي</span>
+                </button>
+                <a
+                  href={`${QURAN_CDN}/${quranReciter.id}/${surahNum}.mp3`}
+                  download={`${surahInfo?.[2] || surahNum}.mp3`}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, padding: "7px 14px", fontFamily: MONO, fontSize: 10, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", gap: 5 }}
+                >
+                  ⬇ <span>تنزيل</span>
+                </a>
               </div>
 
               {/* Audio error banner */}
               {quranAudioError && (
-                <div style={{ margin: "10px 0 4px", background: "#2a120a", border: "1px solid #cc4400", borderRadius: 8, padding: "10px 14px", direction: "ltr", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <div style={{ marginTop: 14, background: themeMode === "dark" ? "#2a120a" : "#fff4f0", border: "1px solid #cc4400", borderRadius: 10, padding: "12px 14px", direction: "ltr", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#ff6633" }}>⚠ AUDIO SERVER UNREACHABLE</div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: "#cc7755", marginTop: 3 }}>
-                      This surah is not available for this reciter — please choose another reciter.
+                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#ff6633" }}>⚠ تعذّر تشغيل الصوت — Audio unavailable</div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: "#cc7755", marginTop: 4 }}>
+                      Tried 128kbps and 64kbps — this surah may not be recorded by this reciter.<br/>
+                      Try selecting a different reciter (Al-Afasy and Maher Al-Muaiqly have the most complete libraries).
                     </div>
                   </div>
                   <button
                     onClick={() => {
+                      quranUsedFallback.current = false;
                       setQuranAudioError(false);
                       if (quranAudioRef.current) {
+                        quranAudioRef.current.src = `${QURAN_CDN}/${quranReciter.id}/${surahNum}.mp3`;
                         quranAudioRef.current.load();
                         quranAudioRef.current.play().catch(() => setQuranAudioError(true));
                       }
                     }}
-                    style={{ background: "#cc4400", border: "none", color: "#fff", borderRadius: 5, padding: "6px 12px", fontFamily: MONO, fontSize: 9, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
+                    style={{ background: "#cc4400", border: "none", color: "#fff", borderRadius: 5, padding: "8px 14px", fontFamily: MONO, fontSize: 9, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
                   >RETRY</button>
                 </div>
               )}
-
-              {/* Auto-next toggle */}
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12, color: C.textSec, direction: "ltr" }}>
-                <input type="checkbox" checked={quranAutoNext} onChange={e => setQuranAutoNext(e.target.checked)}
-                  style={{ accentColor: gold, width: 14, height: 14 }} />
-                تشغيل السورة التالية تلقائياً
-              </label>
             </div>
 
-            {/* Reciter + Surah selectors */}
-            <div style={{ display: "grid", gap: 10, marginBottom: 14 }}>
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px" }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 6, direction: "rtl" }}>القارئ</div>
-                <select
-                  value={quranReciter.id}
-                  onChange={e => {
-                    const r = QURAN_RECITERS.find(x => x.id === e.target.value) || QURAN_RECITERS[0];
-                    quranWasPlaying.current = quranPlaying;
-                    setQuranReciter(r);
-                    localStorage.setItem("quran_reciter", JSON.stringify(r));
-                  }}
-                  style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "10px 12px", fontFamily: "Arial, sans-serif", fontSize: 14, borderRadius: 6, direction: "rtl" }}
-                >
-                  {QURAN_RECITERS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
-                </select>
-              </div>
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px" }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 6 }}>السورة</div>
-                <select
-                  value={surahNum}
-                  onChange={e => {
-                    const n = Number(e.target.value);
-                    quranWasPlaying.current = quranPlaying;
-                    setQuranSurah(n);
-                    localStorage.setItem("quran_surah", String(n));
-                  }}
-                  style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "10px 12px", fontFamily: "Arial, sans-serif", fontSize: 14, borderRadius: 6, direction: "rtl" }}
-                >
-                  {SURAH_LIST.map(([n, ar, en]) => <option key={n} value={n}>{n}. {ar} — {en}</option>)}
-                </select>
-              </div>
-            </div>
-
-            {/* Quick surah grid (last 10) */}
-            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12 }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 8 }}>السور القصيرة — التلاوة السريعة</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 6 }}>
-                {SURAH_LIST.slice(104).map(([n, ar]) => (
-                  <button key={n} onClick={() => {
-                    quranWasPlaying.current = quranPlaying;
-                    setQuranSurah(n);
-                    localStorage.setItem("quran_surah", String(n));
-                  }}
-                    style={{ background: n === surahNum ? `${gold}22` : C.surface, border: `1px solid ${n === surahNum ? gold : C.border}`, color: n === surahNum ? gold : C.text, borderRadius: 6, padding: "7px 6px", fontSize: 13, cursor: "pointer", fontFamily: "Arial, sans-serif" }}>
-                    {ar}
+            {/* ── Reciter selector ── */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", marginBottom: 12 }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 8, letterSpacing: "0.1em" }}>القارئ — RECITER</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 6 }}>
+                {QURAN_RECITERS.map(r => (
+                  <button
+                    key={r.id}
+                    onClick={() => {
+                      quranWasPlaying.current = quranPlaying;
+                      setQuranReciter(r);
+                      localStorage.setItem("quran_reciter", JSON.stringify(r));
+                    }}
+                    style={{
+                      background: r.id === quranReciter.id ? `${gold}1a` : C.surface,
+                      border: `1px solid ${r.id === quranReciter.id ? gold : C.border}`,
+                      color: r.id === quranReciter.id ? gold : C.text,
+                      borderRadius: 8, padding: "10px 12px", cursor: "pointer",
+                      fontFamily: "Arial, sans-serif", fontSize: 13, textAlign: "right",
+                      direction: "rtl", lineHeight: 1.4, transition: "background 0.12s",
+                    }}
+                  >
+                    {r.label}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* ── Surah list (all 114, searchable) ── */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.1em" }}>
+                  السور — ALL SURAHS ({filteredSurahs.length}/114)
+                </div>
+                <input
+                  value={quranSearchQuery}
+                  onChange={e => setQuranSearchQuery(e.target.value)}
+                  placeholder="ابحث عن سورة  /  Search surah..."
+                  style={{
+                    border: `1px solid ${C.border}`, background: C.surface, color: C.text,
+                    borderRadius: 6, padding: "7px 12px", fontFamily: "Arial, sans-serif", fontSize: 13,
+                    outline: "none", width: 220, direction: "rtl",
+                  }}
+                />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 5, maxHeight: 400, overflowY: "auto", paddingRight: 4 }}>
+                {filteredSurahs.map(([n, ar, en]) => {
+                  const isActive = n === surahNum;
+                  return (
+                    <button
+                      key={n}
+                      onClick={() => {
+                        quranWasPlaying.current = quranPlaying;
+                        setQuranSurah(n);
+                        localStorage.setItem("quran_surah", String(n));
+                      }}
+                      style={{
+                        background: isActive ? `${gold}1e` : C.surface,
+                        border: `1px solid ${isActive ? gold : C.border}`,
+                        color: isActive ? gold : C.text,
+                        borderRadius: 8, padding: "9px 8px",
+                        cursor: "pointer", textAlign: "right", direction: "rtl",
+                        transition: "background 0.1s",
+                      }}
+                    >
+                      <div style={{ fontFamily: "Arial, sans-serif", fontSize: 14, fontWeight: isActive ? 700 : 400 }}>{ar}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: isActive ? `${gold}bb` : C.textDim, marginTop: 2, direction: "ltr" }}>{n}. {en}</div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -11100,9 +11231,13 @@ export default function App() {
       <audio
         ref={quranAudioRef}
         src={`${QURAN_CDN}/${quranReciter.id}/${quranSurah}.mp3`}
-        onPlay={() => { setQuranPlaying(true); setQuranAudioError(false); }}
+        onPlay={() => { setQuranPlaying(true); setQuranAudioError(false); setQuranLoading(false); }}
         onPause={() => setQuranPlaying(false)}
-        onCanPlay={() => setQuranAudioError(false)}
+        onWaiting={() => setQuranLoading(true)}
+        onLoadStart={() => setQuranLoading(true)}
+        onCanPlay={() => { setQuranAudioError(false); setQuranLoading(false); if (quranAudioRef.current) setQuranDuration(quranAudioRef.current.duration || 0); }}
+        onDurationChange={() => { if (quranAudioRef.current) setQuranDuration(quranAudioRef.current.duration || 0); }}
+        onTimeUpdate={() => { if (quranAudioRef.current) setQuranCurrentTime(quranAudioRef.current.currentTime || 0); }}
         onError={() => {
           // First failure → try 64 kbps fallback before showing error
           if (!quranUsedFallback.current) {
@@ -11112,15 +11247,22 @@ export default function App() {
               const wasPlaying = quranPlaying;
               el.src = `${QURAN_CDN_LOW}/${quranReciter.id}/${quranSurah}.mp3`;
               el.load();
-              if (wasPlaying) el.play().catch(() => { setQuranPlaying(false); setQuranAudioError(true); });
+              if (wasPlaying) el.play().catch(() => { setQuranPlaying(false); setQuranLoading(false); setQuranAudioError(true); });
             }
           } else {
             setQuranPlaying(false);
+            setQuranLoading(false);
             setQuranAudioError(true);
           }
         }}
         onEnded={() => {
-          if (quranAutoNext && quranSurah < 114) {
+          if (quranRepeat) {
+            // Repeat current surah
+            if (quranAudioRef.current) {
+              quranAudioRef.current.currentTime = 0;
+              quranAudioRef.current.play().catch(() => {});
+            }
+          } else if (quranAutoNext) {
             quranWasPlaying.current = true;
             setQuranSurah(prev => {
               const next = prev < 114 ? prev + 1 : 1;
