@@ -79,6 +79,25 @@ async function searchDeals(query, category = "general", maxPrice = null) {
         const thumb = p.thumbnail && !["self","nsfw","default","image","spoiler",""].includes(p.thumbnail)
           ? p.thumbnail : null;
 
+        // High-res preview image from Reddit's preview API
+        // URLs contain HTML-encoded ampersands (&amp;) that must be decoded
+        let image = null;
+        try {
+          const previews = p.preview?.images?.[0];
+          if (previews) {
+            // Pick a medium resolution (around 320px) or fall back to source
+            const resolutions = previews.resolutions || [];
+            // resolutions are sorted smallest → largest; pick one around 320px wide
+            const mid = resolutions.find(r => r.width >= 320) || resolutions[resolutions.length - 1] || previews.source;
+            if (mid?.url) {
+              image = mid.url.replace(/&amp;/g, "&");
+            }
+          }
+        } catch {}
+
+        // If no preview, fall back to thumbnail (only if it's a real URL)
+        const displayImage = image || (thumb && thumb.startsWith("http") ? thumb : null);
+
         return {
           id:          p.id,
           title:       p.title,
@@ -89,6 +108,7 @@ async function searchDeals(query, category = "general", maxPrice = null) {
           redditLink:  `https://reddit.com${p.permalink}`,
           source:      `r/${p.subreddit}`,
           thumbnail:   thumb,
+          image:       displayImage,
           score:       p.score || 0,
           comments:    p.num_comments || 0,
           age:         p.created_utc ? Math.floor((Date.now()/1000 - p.created_utc) / 3600) : null,

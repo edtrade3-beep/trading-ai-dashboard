@@ -10805,12 +10805,42 @@ export default function App() {
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10 }}>
                       {dealsResults.map(deal => (
                         <div key={deal.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column", transition: "border-color 0.15s" }}>
-                          {deal.thumbnail && (
-                            <img src={deal.thumbnail} alt={deal.title}
-                              style={{ width: "100%", height: 140, objectFit: "contain", background: "#f8f9fb", borderBottom: `1px solid ${C.border}` }}
-                              onError={e => { e.target.style.display = "none"; }}
-                            />
-                          )}
+                          {/* Product image — high-res preview or thumbnail */}
+                          <div style={{ width: "100%", height: 160, background: theme === "dark" ? "#111827" : "#f3f4f6", borderBottom: `1px solid ${C.border}`, position: "relative", overflow: "hidden", flexShrink: 0 }}>
+                            {deal.image ? (
+                              <img src={deal.image} alt={deal.title}
+                                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                                onError={e => {
+                                  // Fallback to thumbnail if preview fails
+                                  if (deal.thumbnail && e.target.src !== deal.thumbnail) {
+                                    e.target.src = deal.thumbnail;
+                                    e.target.style.objectFit = "contain";
+                                    e.target.style.padding = "12px";
+                                  } else {
+                                    e.target.parentElement.style.display = "none";
+                                  }
+                                }}
+                              />
+                            ) : (
+                              /* No image — show category icon placeholder */
+                              <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                                <span style={{ fontSize: 32 }}>
+                                  {deal.category === "electronics" ? "💻" : deal.category === "realestate" ? "🏠" : deal.category === "cars" ? "🚗" : deal.category === "furniture" ? "🛋️" : deal.category === "jobs" ? "💼" : deal.category === "luxury" ? "💎" : "🛒"}
+                                </span>
+                                <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{deal.source}</span>
+                              </div>
+                            )}
+                            {/* Score badge */}
+                            <div style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.65)", borderRadius: 5, padding: "2px 6px", display: "flex", alignItems: "center", gap: 4 }}>
+                              <span style={{ fontFamily: MONO, fontSize: 9, color: "#f59e0b", fontWeight: 700 }}>▲ {deal.score?.toLocaleString()}</span>
+                            </div>
+                            {/* Age badge */}
+                            {deal.age !== null && (
+                              <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.65)", borderRadius: 5, padding: "2px 6px" }}>
+                                <span style={{ fontFamily: MONO, fontSize: 9, color: "#d1d5db" }}>{deal.age < 24 ? `${deal.age}h ago` : `${Math.floor(deal.age/24)}d ago`}</span>
+                              </div>
+                            )}
+                          </div>
                           <div style={{ padding: "10px 12px", flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
                             <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.text, lineHeight: 1.35 }}>
                               {deal.title}
@@ -10822,11 +10852,9 @@ export default function App() {
                             )}
                             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "auto", paddingTop: 6, flexWrap: "wrap" }}>
                               {deal.price && (
-                                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.green }}>{deal.price}</span>
+                                <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.green }}>{deal.price}</span>
                               )}
-                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.amber }}>▲ {deal.score?.toLocaleString()}</span>
                               <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>💬 {deal.comments}</span>
-                              {deal.age !== null && <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{deal.age < 24 ? `${deal.age}h ago` : `${Math.floor(deal.age/24)}d ago`}</span>}
                               <span style={{ fontFamily: MONO, fontSize: 9, color: C.accent, marginLeft: "auto" }}>{deal.source}</span>
                             </div>
                             <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
