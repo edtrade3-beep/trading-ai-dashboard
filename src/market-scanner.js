@@ -87,14 +87,26 @@ const DEFAULT_SYMBOLS = [
 const DEFAULT_CONFIG = {
   enabled: true,
   symbols: DEFAULT_SYMBOLS,
-  intervalMinutes: 5,    // scan every 5 min
-  buyScoreMin: 62,       // was 68 — lowered so more signals fire
-  sellScoreMax: 38,      // was 35 — widened
-  minRvol: 1.0,
-  cooldownHours: 2,      // re-alert same symbol after 2h
-  marketHoursOnly: false, // OFF — run scans 24/7 (crypto + AH stocks)
+  intervalMinutes: 10,   // background scan every 10 min (scheduled scans handle key times)
+  buyScoreMin: 65,       // entry threshold — must score ≥ 65 to qualify
+  sellScoreMax: 35,      // exit threshold — must score ≤ 35 to qualify
+  minRvol: 1.1,          // minimum relative volume — no low-volume signals
+  cooldownHours: 3,      // never re-alert same symbol:signal within 3 hours
+  marketHoursOnly: false,// OFF — crypto + AH stocks run 24/7
   concurrency: 16,
 };
+
+// ── Alert tiers ──────────────────────────────────────────────────────────────
+// Tier 1 — FIRE ALERT (standalone immediate message): very high conviction
+const FIRE_BUY_SCORE  = 78;   // score ≥ 78 + good RVOL
+const FIRE_SELL_SCORE = 22;   // score ≤ 22
+const FIRE_MAX_PER_SCAN = 3;  // never more than 3 standalone fire alerts per scan run
+
+// Tier 2 — SUMMARY SIGNAL (appears in scheduled scan summary): standard entry/exit
+// Uses buyScoreMin / sellScoreMax from config (65/35)
+
+// Tier 3 — SCHEDULED CONTEXT REPORTS: macro, watchlist, plan, midday, power hour, close
+// These are always sent at their scheduled times regardless of signals
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -118,8 +130,8 @@ function saveConfig(updates) {
 const cooldownMap   = new Map(); // "NVDA:BUY" → timestamp
 const lastSignalMap = new Map(); // "NVDA"     → "BUY"|"SELL"
 
-// Hard minimum gap between alerts for the same symbol:signal — no duplicates within 15 min
-const MIN_ALERT_GAP_MS = 15 * 60_000;
+// Hard minimum gap between alerts for the same symbol:signal
+const MIN_ALERT_GAP_MS = 30 * 60_000; // 30 minutes — prevents noise between scans
 
 let lastRunAt      = null;
 let lastRunResults = [];
@@ -467,42 +479,38 @@ async function runScan(options = {}) {
       if (a && !a.error) analysisMap.set(symbols[i], a);
     }
 
-    // ── Macro regime alert ──────────────────────────────────────────────────
+    // ── Macro regime alert — ONLY fires on a genuine regime CHANGE ────────────
+    // e.g. RISK-OFF → RISK-ON or RISK-ON → RISK-OFF. No periodic repeat messages.
     if (telegramConfigured()) {
       const macro = computeMacroRegime(analysisMap);
-      const regimeChanged = macro.regime !== lastMacroRegime;
-      const cooldownExpired = Date.now() - lastMacroAlertedAt > MACRO_COOLDOWN_MS;
-
-      if (regimeChanged || (macro.regime !== "NEUTRAL" && cooldownExpired)) {
+      if (macro.regime !== lastMacroRegime) {
+        const prev = lastMacroRegime || "UNKNOWN";
         lastMacroRegime    = macro.regime;
         lastMacroAlertedAt = Date.now();
 
-        const e     = macro.regime === "RISK-ON" ? "🟢" : macro.regime === "RISK-OFF" ? "🔴" : "⚪";
-        const label = regimeChanged ? `REGIME SHIFT → ${macro.regime}` : `MACRO: ${macro.regime}`;
-        const time  = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+        const e    = macro.regime === "RISK-ON" ? "🟢" : macro.regime === "RISK-OFF" ? "🔴" : "⚪";
+        const time = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
 
-        const spyA = analysisMap.get("SPY"),  tltA = analysisMap.get("TLT");
-        const uvxyA = analysisMap.get("UVXY"), uupA = analysisMap.get("UUP");
-        const hygA  = analysisMap.get("HYG"),  gldA = analysisMap.get("GLD");
+        const spyA  = analysisMap.get("SPY"),  hygA = analysisMap.get("HYG");
+        const uvxyA = analysisMap.get("UVXY"), gldA = analysisMap.get("GLD");
 
         const snap = [
-          spyA  ? `SPY ${spyA.trend}  Score ${spyA.composite}`   : null,
-          tltA  ? `TLT Score ${tltA.composite}  RSI ${tltA.rsi}` : null,
-          uvxyA ? `UVXY Score ${uvxyA.composite}`                 : null,
-          hygA  ? `HYG Score ${hygA.composite}`                   : null,
-          uupA  ? `DXY Score ${uupA.composite}`                   : null,
-          gldA  ? `GLD Score ${gldA.composite}`                   : null,
-        ].filter(Boolean).join("\n");
-
-        const factors = [
-          macro.bullFactors.length ? `Bull: ${macro.bullFactors.join(", ")}` : null,
-          macro.bearFactors.length ? `Bear: ${macro.bearFactors.join(", ")}` : null,
-        ].filter(Boolean).join("\n");
+          spyA  ? `SPY Score ${spyA.composite}  ${spyA.trend}` : null,
+          hygA  ? `HYG Score ${hygA.composite}`                 : null,
+          uvxyA ? `VIX proxy Score ${uvxyA.composite}`          : null,
+          gldA  ? `GLD Score ${gldA.composite}`                 : null,
+        ].filter(Boolean).join("  |  ");
 
         sendTelegramMessage(
-          `${e} ${label}  (score ${macro.score > 0 ? "+" : ""}${macro.score})\n\n` +
-          `${snap}\n\n${factors}\n${time} ET`
+          `${e} REGIME SHIFT: ${prev} → ${macro.regime}  (score ${macro.score > 0 ? "+" : ""}${macro.score})\n` +
+          `${snap}\n` +
+          (macro.bullFactors.length ? `Bull: ${macro.bullFactors.slice(0,3).join(", ")}\n` : "") +
+          (macro.bearFactors.length ? `Bear: ${macro.bearFactors.slice(0,3).join(", ")}\n` : "") +
+          `${time} ET`
         ).catch(() => {});
+      } else {
+        // Regime unchanged — just update in memory silently
+        lastMacroRegime = macro.regime;
       }
     }
 
@@ -529,66 +537,68 @@ async function runScan(options = {}) {
       });
     }
 
-    // ── FIRE: individual alerts for HIGH-CONVICTION signals ─────────────────
-    // Score >= 75 BUY or <= 25 SELL = strong signal, send immediately as standalone
-    // Track fired symbols so they are NOT repeated in the grouped summary below
-    const firedSymbols = new Set();
-    if (telegramConfigured()) {
-      const fireNow = hits.filter(h =>
-        (h.signal === "BUY"  && h.composite >= 75) ||
-        (h.signal === "SELL" && h.composite <= 25)
-      );
-      for (const h of fireNow) {
-        const a = analysisMap.get(h.symbol);
-        if (a) {
-          sendTelegramMessage(formatScanAlert(a, h.signal)).catch(() => {});
-          firedSymbols.add(h.symbol); // mark as already alerted this run
-        }
-      }
-    }
+    // ── ALERT DISPATCH ────────────────────────────────────────────────────────
+    // Two paths depending on whether this is a scheduled scan or a background interval scan.
 
-    // ── Grouped scan summary — exclude symbols already sent as individual alerts
-    // This prevents the same ticker appearing twice in one scan run
-    const summaryHits = hits.filter(h => !firedSymbols.has(h.symbol));
-    if (summaryHits.length > 0 && telegramConfigured()) {
+    if (scheduledLabel) {
+      // ── PATH A: SCHEDULED SCAN ─────────────────────────────────────────────
+      // Send ONE compact summary. High-conviction signals get 🔥 tag inside the
+      // summary — they do NOT get a separate standalone message. No duplicates.
       const time  = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
-      const buys  = summaryHits.filter(h => h.signal === "BUY")
-                        .sort((a,b) => b.composite - a.composite).slice(0, 5);
-      const sells = summaryHits.filter(h => h.signal === "SELL")
-                        .sort((a,b) => a.composite - b.composite).slice(0, 5);
+      const buys  = hits.filter(h => h.signal === "BUY")
+                        .sort((a,b) => b.composite - a.composite).slice(0, 3);
+      const sells = hits.filter(h => h.signal === "SELL")
+                        .sort((a,b) => a.composite - b.composite).slice(0, 3);
 
-      let msg = `📡 SCAN RESULTS — ${time} ET  (${symbols.length} checked)\n`;
-      if (firedSymbols.size > 0) msg += `(${firedSymbols.size} high-conviction already alerted individually)\n`;
+      if ((buys.length || sells.length) && telegramConfigured()) {
+        let msg = `📡 ${scheduledLabel} — ${time} ET  (${symbols.length} checked)\n`;
 
-      if (buys.length) {
-        msg += `\n🟢 ENTRY SIGNALS (${buys.length})\n`;
-        for (const h of buys) {
-          const chg  = `${h.chgPct >= 0 ? "+" : ""}${h.chgPct.toFixed(2)}%`;
-          const risk = round2(Math.max(h.price - h.support, 0.01));
-          const tgt  = round2(h.price + risk * 2);
-          msg += `${h.symbol}  $${h.price}  ${chg}  Score ${h.composite}  Stop $${h.support}  Tgt $${tgt}\n`;
+        if (buys.length) {
+          msg += `\n🟢 ENTRY (${buys.length})\n`;
+          for (const h of buys) {
+            const hot  = h.composite >= FIRE_BUY_SCORE ? "🔥 " : "";
+            const chg  = `${h.chgPct >= 0 ? "+" : ""}${h.chgPct.toFixed(2)}%`;
+            const risk = round2(Math.max(h.price - h.support, 0.01));
+            const tgt  = round2(h.price + risk * 2);
+            msg += `${hot}${h.symbol}  $${h.price}  ${chg}  Score ${h.composite}  Stop $${h.support}  Tgt $${tgt}\n`;
+          }
         }
-      }
-      if (sells.length) {
-        msg += `\n🔴 EXIT SIGNALS (${sells.length})\n`;
-        for (const h of sells) {
-          const chg  = `${h.chgPct >= 0 ? "+" : ""}${h.chgPct.toFixed(2)}%`;
-          const risk = round2(Math.max(h.resistance - h.price, 0.01));
-          const tgt  = round2(h.price - risk * 2);
-          msg += `${h.symbol}  $${h.price}  ${chg}  Score ${h.composite}  Stop $${h.resistance}  Tgt $${tgt}\n`;
+        if (sells.length) {
+          msg += `\n🔴 EXIT (${sells.length})\n`;
+          for (const h of sells) {
+            const hot  = h.composite <= FIRE_SELL_SCORE ? "🔥 " : "";
+            const chg  = `${h.chgPct >= 0 ? "+" : ""}${h.chgPct.toFixed(2)}%`;
+            const risk = round2(Math.max(h.resistance - h.price, 0.01));
+            const tgt  = round2(h.price - risk * 2);
+            msg += `${hot}${h.symbol}  $${h.price}  ${chg}  Score ${h.composite}  Stop $${h.resistance}  Tgt $${tgt}\n`;
+          }
         }
+        sendTelegramMessage(msg.trim()).catch(() => {});
+      } else if (telegramConfigured()) {
+        // Scheduled scan ran but nothing new qualified — send brief confirmation
+        sendTelegramMessage(
+          `✅ ${scheduledLabel} — no new signals  (${symbols.length} checked  ${time} ET)`
+        ).catch(() => {});
       }
-      sendTelegramMessage(msg.trim()).catch(() => {});
 
-    } else if (scheduledLabel && telegramConfigured()) {
-      // Scheduled scan — confirm it ran even when nothing new fired
-      const time = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
-      const note = firedSymbols.size > 0
-        ? `${firedSymbols.size} high-conviction alert${firedSymbols.size > 1 ? "s" : ""} sent individually`
-        : `no new signals`;
-      sendTelegramMessage(
-        `✅ ${scheduledLabel} scan complete — ${note}\n${symbols.length} symbols checked  ${time} ET`
-      ).catch(() => {});
+    } else {
+      // ── PATH B: BACKGROUND INTERVAL SCAN ──────────────────────────────────
+      // Only send standalone fire alerts for the very highest conviction signals.
+      // No summary message — keeps the channel quiet between scheduled scans.
+      if (telegramConfigured()) {
+        const fireNow = hits
+          .filter(h =>
+            (h.signal === "BUY"  && h.composite >= FIRE_BUY_SCORE)  ||
+            (h.signal === "SELL" && h.composite <= FIRE_SELL_SCORE)
+          )
+          .slice(0, FIRE_MAX_PER_SCAN); // cap at 3 per run
+
+        for (const h of fireNow) {
+          const a = analysisMap.get(h.symbol);
+          if (a) sendTelegramMessage(formatScanAlert(a, h.signal)).catch(() => {});
+        }
+        // No message at all when nothing fire-level — channel stays clean
+      }
     }
 
   } finally {
