@@ -4294,13 +4294,15 @@ export default function App() {
   }, [athanTimes, athanSoundOn]);
 
   // Reload global quran audio when surah or reciter changes, resume if was playing
-  const quranWasPlaying  = useRef(false);
+  const quranWasPlaying   = useRef(false);
   const quranUsedFallback = useRef(false);  // true = already tried 64kbps
+  const quranAutoPlay     = useRef(false);  // true = user intends to play (not yet confirmed by onPlay)
   useEffect(() => {
     if (!quranAudioRef.current) return;
     const shouldPlay = quranWasPlaying.current;
-    quranWasPlaying.current  = false;
+    quranWasPlaying.current   = false;
     quranUsedFallback.current = false;  // reset fallback on every track change
+    quranAutoPlay.current     = false;  // reset intent on track change
     setQuranAudioError(false);
     setQuranCurrentTime(0);
     setQuranDuration(0);
@@ -4308,8 +4310,10 @@ export default function App() {
     quranAudioRef.current.src = `${QURAN_CDN}/${quranReciter.id}/${quranSurah}.mp3`;
     // Only fetch (load + play) if we were already playing — otherwise wait for user tap
     if (shouldPlay) {
+      quranAutoPlay.current = true;
       quranAudioRef.current.load();
-      quranAudioRef.current.play().catch(() => setQuranAudioError(true));
+      // Don't show error here — onError will handle fallback, then show error if both fail
+      quranAudioRef.current.play().catch(() => {});
     }
     // If not playing: src is staged, browser will NOT fetch until play() is called
   }, [quranSurah, quranReciter]);
@@ -11197,8 +11201,11 @@ export default function App() {
                   onClick={() => {
                     if (!quranAudioRef.current) return;
                     if (quranPlaying) {
+                      quranAutoPlay.current = false;
                       quranAudioRef.current.pause();
                     } else {
+                      quranAutoPlay.current     = true;
+                      quranUsedFallback.current = false;  // allow fallback on fresh play attempt
                       setQuranAudioError(false);
                       setQuranLoading(true);
                       // Ensure src is set (re-apply in case it was cleared)
@@ -11207,7 +11214,8 @@ export default function App() {
                       }
                       // With preload="none", must call load() before play()
                       quranAudioRef.current.load();
-                      quranAudioRef.current.play().catch(() => { setQuranAudioError(true); setQuranLoading(false); });
+                      // Don't show error here — onError handles fallback first, shows error only if both CDNs fail
+                      quranAudioRef.current.play().catch(() => {});
                     }
                   }}
                   style={{ background: quranAudioError ? C.red : gold, border: "none", color: "#fff", borderRadius: 999, width: 68, height: 68, fontSize: quranLoading ? 18 : 28, cursor: "pointer", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 4px 20px ${gold}44`, transition: "transform 0.1s", flexShrink: 0 }}
@@ -11284,12 +11292,13 @@ export default function App() {
                   <button
                     onClick={() => {
                       quranUsedFallback.current = false;
+                      quranAutoPlay.current     = true;
                       setQuranAudioError(false);
                       setQuranLoading(true);
                       if (quranAudioRef.current) {
                         quranAudioRef.current.src = `${QURAN_CDN}/${quranReciter.id}/${surahNum}.mp3`;
                         quranAudioRef.current.load();
-                        quranAudioRef.current.play().catch(() => { setQuranAudioError(true); setQuranLoading(false); });
+                        quranAudioRef.current.play().catch(() => {});
                       }
                     }}
                     style={{ background: "#cc4400", border: "none", color: "#fff", borderRadius: 5, padding: "8px 14px", fontFamily: MONO, fontSize: 9, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
@@ -11733,8 +11742,8 @@ export default function App() {
       <audio
         ref={quranAudioRef}
         preload="none"
-        onPlay={() => { setQuranPlaying(true); setQuranAudioError(false); setQuranLoading(false); }}
-        onPause={() => setQuranPlaying(false)}
+        onPlay={() => { quranAutoPlay.current = false; setQuranPlaying(true); setQuranAudioError(false); setQuranLoading(false); }}
+        onPause={() => { quranAutoPlay.current = false; setQuranPlaying(false); }}
         onWaiting={() => setQuranLoading(true)}
         onLoadStart={() => { setQuranLoading(true); setQuranAudioError(false); }}
         onCanPlay={() => { setQuranAudioError(false); setQuranLoading(false); if (quranAudioRef.current) setQuranDuration(quranAudioRef.current.duration || 0); }}
@@ -11746,12 +11755,21 @@ export default function App() {
             quranUsedFallback.current = true;
             const el = quranAudioRef.current;
             if (el) {
-              const wasPlaying = quranPlaying;
               el.src = `${QURAN_CDN_LOW}/${quranReciter.id}/${quranSurah}.mp3`;
               el.load();
-              if (wasPlaying) el.play().catch(() => { setQuranPlaying(false); setQuranLoading(false); setQuranAudioError(true); });
+              // Auto-play fallback if user intended to play (quranAutoPlay) OR was already playing
+              if (quranAutoPlay.current || quranPlaying) {
+                el.play().catch(() => {
+                  quranAutoPlay.current = false;
+                  setQuranPlaying(false);
+                  setQuranLoading(false);
+                  setQuranAudioError(true);
+                });
+              }
             }
           } else {
+            // Both 128kbps and 64kbps failed → show error
+            quranAutoPlay.current = false;
             setQuranPlaying(false);
             setQuranLoading(false);
             setQuranAudioError(true);
