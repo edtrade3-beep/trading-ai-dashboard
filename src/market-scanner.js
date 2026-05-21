@@ -803,7 +803,9 @@ async function sendMacroReport() {
 // ── Scheduled scan times (ET, M–F) ───────────────────────────────────────────
 const SCHEDULED_SCAN_TIMES_ET = [
   "06:45",  // Macro Pre-Market
+  "07:00",  // Pre-Market Scan 1
   "07:30",  // Pre-Market Watchlist
+  "08:30",  // Pre-Open Scan
   "09:20",  // Opening Plan
   "09:45",  // Opening Range Scan
   "10:30",  // A+ Setup Scan
@@ -816,7 +818,9 @@ const SCHEDULED_SCAN_TIMES_ET = [
 
 const SCHEDULED_LABEL_MAP = {
   "06:45": "Macro Pre-Market",
+  "07:00": "Pre-Market Scan",
   "07:30": "Pre-Market Watchlist",
+  "08:30": "Pre-Open Scan",
   "09:20": "Opening Plan",
   "09:45": "Opening Range",
   "10:30": "A+ Setup",
