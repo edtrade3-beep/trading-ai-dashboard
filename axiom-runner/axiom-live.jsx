@@ -62,21 +62,22 @@ const WEATHER_ZIP = "45014";
 
 // ── Islamic Module Constants ──
 // CDN: cdn.islamic.network/quran/audio-surah/128/{edition}/{surahNum}.mp3
+// Only reciters whose edition has all 114 surahs on this CDN are listed.
+// full:true = verified complete 114-surah library; full:false = may be missing some surahs.
 const QURAN_CDN      = "https://cdn.islamic.network/quran/audio-surah/128";
 const QURAN_CDN_LOW  = "https://cdn.islamic.network/quran/audio-surah/64";
 const QURAN_RECITERS = [
-  { id: "ar.alafasy",        label: "مشاري العفاسي — Mishary Al-Afasy" },
-  { id: "ar.mahermuaiqly",   label: "ماهر المعيقلي — Maher Al-Muaiqly" },
-  { id: "ar.husary",         label: "محمود خليل الحصري — Al-Husary" },
-  { id: "ar.minshawi",       label: "محمد المنشاوي — Al-Minshawi" },
-  { id: "ar.shaatree",       label: "أبو بكر الشاطري — Ash-Shaatree" },
-  { id: "ar.abdullahbasfar", label: "عبد الله بصفر — Abdullah Basfar" },
-  { id: "ar.ahmedajamy",     label: "أحمد العجمي — Ahmed Al-Ajamy" },
-  { id: "ar.hanirifai",      label: "هاني الرفاعي — Hani Ar-Rifai" },
-  { id: "ar.muhammadayyoub", label: "محمد أيوب — Muhammad Ayyoub" },
-  { id: "ar.saoodshuraym",   label: "سعود الشريم — Saud Al-Shuraim" },
-  { id: "ar.ibrahimakhbar",  label: "إبراهيم الأخضر — Ibrahim Al-Akhdar" },
-  { id: "ar.hudhaify",       label: "علي الحذيفي — Ali Al-Hudhaify" },
+  { id: "ar.alafasy",        label: "مشاري العفاسي — Mishary Al-Afasy",       full: true  },
+  { id: "ar.mahermuaiqly",   label: "ماهر المعيقلي — Maher Al-Muaiqly",       full: true  },
+  { id: "ar.husary",         label: "محمود خليل الحصري — Al-Husary",           full: true  },
+  { id: "ar.minshawi",       label: "محمد المنشاوي — Al-Minshawi",             full: true  },
+  { id: "ar.shaatree",       label: "أبو بكر الشاطري — Ash-Shaatree",         full: true  },
+  { id: "ar.abdullahbasfar", label: "عبد الله بصفر — Abdullah Basfar",         full: true  },
+  { id: "ar.ahmedajamy",     label: "أحمد العجمي — Ahmed Al-Ajamy",            full: true  },
+  { id: "ar.muhammadayyoub", label: "محمد أيوب — Muhammad Ayyoub",             full: true  },
+  { id: "ar.saoodshuraym",   label: "سعود الشريم — Saud Al-Shuraim",           full: true  },
+  { id: "ar.hudhaify",       label: "علي الحذيفي — Ali Al-Hudhaify",           full: true  },
+  { id: "ar.ibrahimakhbar",  label: "إبراهيم الأخضر — Ibrahim Al-Akhdar",     full: false },
 ];
 const SURAH_LIST = [
   [1,"الفاتحة","Al-Fatiha"],
@@ -11285,8 +11286,8 @@ export default function App() {
                   <div>
                     <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#ff6633" }}>⚠ تعذّر تشغيل الصوت — Audio unavailable</div>
                     <div style={{ fontFamily: MONO, fontSize: 9, color: "#cc7755", marginTop: 4 }}>
-                      Tried 128kbps and 64kbps — this surah may not be recorded by this reciter.<br/>
-                      Try selecting a different reciter (Al-Afasy and Maher Al-Muaiqly have the most complete libraries).
+                      هذه السورة غير متوفرة لهذا القارئ — surah not available for this reciter.<br/>
+                      Switch to a ★ reciter (Al-Afasy or Maher Al-Muaiqly have all 114 surahs).
                     </div>
                   </div>
                   <button
@@ -11309,7 +11310,10 @@ export default function App() {
 
             {/* ── Reciter selector ── */}
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", marginBottom: 12 }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 8, letterSpacing: "0.1em" }}>القارئ — RECITER</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.1em" }}>القارئ — RECITER</div>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>★ = مكتبة كاملة 114 سورة</div>
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 6 }}>
                 {QURAN_RECITERS.map(r => (
                   <button
@@ -11326,9 +11330,13 @@ export default function App() {
                       borderRadius: 8, padding: "10px 12px", cursor: "pointer",
                       fontFamily: "Arial, sans-serif", fontSize: 13, textAlign: "right",
                       direction: "rtl", lineHeight: 1.4, transition: "background 0.12s",
+                      position: "relative",
                     }}
                   >
                     {r.label}
+                    {r.full && (
+                      <span style={{ position: "absolute", top: 5, left: 7, fontFamily: MONO, fontSize: 9, color: r.id === quranReciter.id ? gold : "#c9a84c88", lineHeight: 1 }}>★</span>
+                    )}
                   </button>
                 ))}
               </div>
