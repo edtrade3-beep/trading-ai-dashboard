@@ -87,7 +87,7 @@ const DEFAULT_SYMBOLS = [
 const DEFAULT_CONFIG = {
   enabled: true,
   symbols: DEFAULT_SYMBOLS,
-  intervalMinutes: 10,   // background scan every 10 min (scheduled scans handle key times)
+  intervalMinutes: 15,   // background scan every 15 min — best/worst summary sent each cycle
   buyScoreMin: 65,       // entry threshold — must score ≥ 65 to qualify
   sellScoreMax: 35,      // exit threshold — must score ≤ 35 to qualify
   minRvol: 1.1,          // minimum relative volume — no low-volume signals
@@ -619,22 +619,62 @@ async function runScan(options = {}) {
       }
 
     } else {
-      // ── PATH B: BACKGROUND INTERVAL SCAN ──────────────────────────────────
-      // Only send standalone fire alerts for the very highest conviction signals.
-      // No summary message — keeps the channel quiet between scheduled scans.
+      // ── PATH B: 15-MIN INTERVAL SCAN — Best/Worst Trades Summary ──────────
+      // Sends a compact snapshot of the top 3 buy signals (best trades) and
+      // top 3 sell/exit signals (worst trades) found this cycle.
+      // 🔥 marks any signal that also qualifies as a fire-level alert (≥75 / ≤25).
       if (telegramConfigured()) {
-        const fireNow = hits
-          .filter(h =>
-            (h.signal === "BUY"  && h.composite >= FIRE_BUY_SCORE)  ||
-            (h.signal === "SELL" && h.composite <= FIRE_SELL_SCORE)
-          )
-          .slice(0, FIRE_MAX_PER_SCAN); // cap at 3 per run
+        const buys  = hits
+          .filter(h => h.signal === "BUY")
+          .sort((a, b) => b.composite - a.composite)
+          .slice(0, 3);
+        const sells = hits
+          .filter(h => h.signal === "SELL")
+          .sort((a, b) => a.composite - b.composite)
+          .slice(0, 3);
 
-        for (const h of fireNow) {
-          const a = analysisMap.get(h.symbol);
-          if (a) sendTelegramMessage(formatScanAlert(a, h.signal)).catch(() => {});
+        if (buys.length || sells.length) {
+          const time = new Date().toLocaleTimeString("en-US", {
+            timeZone: "America/New_York", hour: "2-digit", minute: "2-digit",
+          });
+
+          let msg = `📊 15-MIN SCAN  •  ${symbolsScanned} symbols\n`;
+          msg    += `⏰ ${time} ET\n`;
+          msg    += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+
+          if (buys.length) {
+            msg += `\n🟢 BEST ENTRIES (${buys.length})\n`;
+            for (const h of buys) {
+              const fire    = h.composite >= FIRE_BUY_SCORE ? "🔥 " : "   ";
+              const chg     = `${h.chgPct >= 0 ? "+" : ""}${h.chgPct.toFixed(2)}%`;
+              const risk    = Math.max(h.price - h.support, 0.01);
+              const tgt     = round2(h.price + risk * 2);
+              const stp     = round2(h.support);
+              const stpPct  = round2((stp - h.price) / h.price * 100);
+              const tgtPct  = round2((tgt - h.price) / h.price * 100);
+              msg += `${fire}${h.symbol}  $${h.price}  ${chg}  Score ${h.composite}\n`;
+              msg += `      Stop $${stp} (${stpPct}%)  →  Target $${tgt} (+${tgtPct}%)\n`;
+            }
+          }
+
+          if (sells.length) {
+            msg += `\n🔴 EXIT SIGNALS (${sells.length})\n`;
+            for (const h of sells) {
+              const fire    = h.composite <= FIRE_SELL_SCORE ? "🔥 " : "   ";
+              const chg     = `${h.chgPct >= 0 ? "+" : ""}${h.chgPct.toFixed(2)}%`;
+              const risk    = Math.max(h.resistance - h.price, 0.01);
+              const tgt     = round2(h.price - risk * 2);
+              const stp     = round2(h.resistance);
+              const stpPct  = round2((stp - h.price) / h.price * 100);
+              const tgtPct  = round2((tgt - h.price) / h.price * 100);
+              msg += `${fire}${h.symbol}  $${h.price}  ${chg}  Score ${h.composite}\n`;
+              msg += `      Stop $${stp} (+${stpPct > 0 ? stpPct : -stpPct}%)  →  Target $${tgt} (${tgtPct}%)\n`;
+            }
+          }
+
+          sendTelegramMessage(msg.trim()).catch(() => {});
         }
-        // No message at all when nothing fire-level — channel stays clean
+        // Nothing found this cycle → stay silent (cooldowns/duplicates filtered already)
       }
     }
 
