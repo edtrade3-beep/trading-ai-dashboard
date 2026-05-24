@@ -15,6 +15,7 @@
  */
 
 const path = require("node:path");
+const { ROOT }             = require("../config");
 const { fetchCOTCsv }      = require("./cotFetcher");
 const { parseCOTCsv, findMarketRecords } = require("./cotParser");
 const { computeBias }      = require("./cotBiasEngine");
@@ -24,7 +25,7 @@ const {
   saveMeta, isFresh, latestReportDate,
 } = require("./cotStore");
 
-const MARKETS = require(path.join(__dirname, "../../data/cotMarkets.json"));
+const MARKETS = require(path.join(ROOT, "data", "cotMarkets.json"));
 
 // ── Internal: process one report type ────────────────────────────────────────
 
