@@ -6557,12 +6557,11 @@ export default function App() {
             const NAV_GROUPS = [
               { id: "dashboard", label: "MONITOR",   tabs: ["dashboard"] },
               { id: "terminal",  label: "TERMINAL",  tabs: ["terminal"] },
-              { id: "scanner",   label: "SCANNER",   tabs: ["scanner", "early", "analyzer"] },
+              { id: "scanner",   label: "SCANNER",   tabs: ["scanner", "early", "analyzer", "cot"] },
               { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "tv", "flow"] },
               { id: "portfolio", label: "PORTFOLIO", tabs: ["portfolio", "journal", "alerts"] },
               { id: "tools",     label: "TOOLS",     tabs: ["tools", "backtest", "workflow", "agent"] },
               { id: "deals",     label: "🛒 DEALS",  tabs: ["deals"] },
-              { id: "cot",       label: "COT",       tabs: ["cot"] },
               { id: "islamic",   label: "☪",         tabs: ["quran", "athan", "athkar", "tasbih"] },
             ];
             const scannerBadge = scannerRows.filter(r => r.scannerScore >= 70).length || null;
@@ -6875,6 +6874,7 @@ export default function App() {
             { id: "scanner",  label: "SCANNER" },
             { id: "early",    label: "EARLY ENTRY" },
             { id: "analyzer", label: "ANALYZER" },
+            { id: "cot",      label: "📊 COT" },
           ],
           markets: [
             { id: "news",     label: "NEWS" },
