@@ -6561,6 +6561,7 @@ export default function App() {
               { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "tv", "flow"] },
               { id: "portfolio", label: "PORTFOLIO", tabs: ["portfolio", "journal", "alerts"] },
               { id: "tools",     label: "TOOLS",     tabs: ["tools", "backtest", "workflow", "agent"] },
+              { id: "cot",       label: "📊 COT",    tabs: ["cot"] },
               { id: "deals",     label: "🛒 DEALS",  tabs: ["deals"] },
               { id: "islamic",   label: "☪",         tabs: ["quran", "athan", "athkar", "tasbih"] },
             ];
