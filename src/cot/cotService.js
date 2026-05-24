@@ -93,12 +93,15 @@ async function updateCOTData() {
       }
     }
 
-    saveMeta({
-      lastFetchAt:    startedAt,
+    // Only record lastFetchAt when at least one market was updated
+    // so that a failed / empty run doesn't mask the stale warning
+    const meta = {
       marketsUpdated: allResults.length,
       reportDate:     allResults.find(r => r.reportDate)?.reportDate || null,
       errors:         errors.length ? errors : undefined,
-    });
+    };
+    if (allResults.length > 0) meta.lastFetchAt = startedAt;
+    saveMeta(meta);
 
     console.log(`[COT] Update complete — ${allResults.length} markets, ${errors.length} errors`);
     return { ok: true, marketsUpdated: allResults.length, errors };
@@ -174,7 +177,8 @@ function getCOTSummary() {
   };
 }
 
-function isDataFresh()       { return isFresh(); }
+// "Fresh" = recently fetched AND actual bias data exists in the index
+function isDataFresh()       { return isFresh() && Object.keys(getAllBiases()).length > 0; }
 function getLatestReportDate() { return latestReportDate(); }
 
 module.exports = {

@@ -11219,16 +11219,32 @@ export default function App() {
                   disabled={cotRunning}
                   onClick={() => {
                     setCotRunning(true);
-                    fetch("/api/cot/run-update")
-                      .then(r => r.json())
-                      .then(() => { setTimeout(fetchCOTData, 3000); })
-                      .catch(() => {})
-                      .finally(() => setTimeout(() => setCotRunning(false), 3500));
+                    // Fire the async download (server returns 202 immediately; download takes ~60s)
+                    fetch("/api/cot/run-update").catch(() => {});
+                    // Poll /api/cot/status every 12s for up to 120s until biases appear
+                    let attempts = 0;
+                    const maxAttempts = 10;
+                    const poll = () => {
+                      attempts++;
+                      fetch("/api/cot/status")
+                        .then(r => r.json())
+                        .then(d => {
+                          const hasBiases = d.allBiases && Object.keys(d.allBiases).length > 0;
+                          if (hasBiases || attempts >= maxAttempts) {
+                            setCotData(d);
+                            setCotRunning(false);
+                          } else {
+                            setTimeout(poll, 12000);
+                          }
+                        })
+                        .catch(() => { if (attempts >= maxAttempts) setCotRunning(false); else setTimeout(poll, 12000); });
+                    };
+                    setTimeout(poll, 12000); // first check after 12s
                   }}
                   style={{ background: cotRunning ? C.surface : `${blue}1a`, border: `1px solid ${blue}55`,
                     color: blue, fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "5px 12px",
                     borderRadius: 5, cursor: cotRunning ? "not-allowed" : "pointer", letterSpacing: "0.05em" }}>
-                  {cotRunning ? "⏳ UPDATING…" : "⬇ UPDATE COT"}
+                  {cotRunning ? "⏳ DOWNLOADING…" : "⬇ UPDATE COT"}
                 </button>
                 {/* Send Telegram button */}
                 <button
