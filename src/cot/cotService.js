@@ -15,7 +15,6 @@
  */
 
 const path = require("node:path");
-const { ROOT }             = require("../config");
 const { fetchCOTCsv }      = require("./cotFetcher");
 const { parseCOTCsv, findMarketRecords } = require("./cotParser");
 const { computeBias }      = require("./cotBiasEngine");
@@ -25,7 +24,8 @@ const {
   saveMeta, isFresh, latestReportDate,
 } = require("./cotStore");
 
-const MARKETS = require(path.join(ROOT, "data", "cotMarkets.json"));
+// Static market definitions live in src/cot/ so they are tracked by git
+const MARKETS = require("./cotMarkets.json");
 
 // ── Internal: process one report type ────────────────────────────────────────
 

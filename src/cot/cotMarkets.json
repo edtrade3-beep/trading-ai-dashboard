@@ -1,0 +1,136 @@
+{
+  "TFF": [
+    {
+      "symbol":   "SPX",
+      "name":     "S&P 500",
+      "pattern":  "E-MINI S&P 500",
+      "category": "equity",
+      "biasKey":  "sp500",
+      "yfSymbol": "SPY"
+    },
+    {
+      "symbol":   "NDX",
+      "name":     "Nasdaq 100",
+      "pattern":  "NASDAQ-100 MINI",
+      "category": "equity",
+      "biasKey":  "nasdaq",
+      "yfSymbol": "QQQ"
+    },
+    {
+      "symbol":   "DJI",
+      "name":     "Dow Jones",
+      "pattern":  "MINI DOW JONES INDU",
+      "category": "equity",
+      "biasKey":  "dow",
+      "yfSymbol": "DIA"
+    },
+    {
+      "symbol":   "RTY",
+      "name":     "Russell 2000",
+      "pattern":  "E-MINI RUSSELL 2000",
+      "category": "equity",
+      "biasKey":  "russell",
+      "yfSymbol": "IWM"
+    },
+    {
+      "symbol":   "VX",
+      "name":     "VIX Futures",
+      "pattern":  "S&P 500 VIX",
+      "category": "volatility",
+      "biasKey":  "vix",
+      "yfSymbol": "^VIX"
+    },
+    {
+      "symbol":   "ZN",
+      "name":     "10Y T-Note",
+      "pattern":  "10-YEAR U.S. TREASURY NOTES",
+      "category": "bonds",
+      "biasKey":  "10y",
+      "yfSymbol": "TLT"
+    },
+    {
+      "symbol":   "ZT",
+      "name":     "2Y T-Note",
+      "pattern":  "2-YEAR U.S. TREASURY NOTES",
+      "category": "bonds",
+      "biasKey":  "2y",
+      "yfSymbol": "SHY"
+    },
+    {
+      "symbol":   "EC",
+      "name":     "Euro FX",
+      "pattern":  "EURO FX",
+      "category": "fx",
+      "biasKey":  "eurusd",
+      "yfSymbol": "EURUSD=X"
+    },
+    {
+      "symbol":   "JY",
+      "name":     "Japanese Yen",
+      "pattern":  "JAPANESE YEN",
+      "category": "fx",
+      "biasKey":  "usdjpy",
+      "yfSymbol": "JPY=X"
+    },
+    {
+      "symbol":   "BP",
+      "name":     "British Pound",
+      "pattern":  "BRITISH POUND",
+      "category": "fx",
+      "biasKey":  "gbpusd",
+      "yfSymbol": "GBPUSD=X"
+    },
+    {
+      "symbol":   "DX",
+      "name":     "Dollar Index",
+      "pattern":  "U.S. DOLLAR INDEX",
+      "category": "fx",
+      "biasKey":  "dxy",
+      "yfSymbol": "DX-Y.NYB"
+    }
+  ],
+  "DISAGG": [
+    {
+      "symbol":   "GC",
+      "name":     "Gold",
+      "pattern":  "GOLD - COMMODITY EXCHANGE",
+      "category": "metals",
+      "biasKey":  "gold",
+      "yfSymbol": "GLD"
+    },
+    {
+      "symbol":   "SI",
+      "name":     "Silver",
+      "pattern":  "SILVER - COMMODITY EXCHANGE",
+      "category": "metals",
+      "biasKey":  "silver",
+      "yfSymbol": "SLV"
+    },
+    {
+      "symbol":   "CL",
+      "name":     "Crude Oil",
+      "pattern":  "CRUDE OIL, LIGHT SWEET",
+      "category": "energy",
+      "biasKey":  "crude",
+      "yfSymbol": "USO"
+    },
+    {
+      "symbol":   "NG",
+      "name":     "Natural Gas",
+      "pattern":  "NATURAL GAS (NYMEX)",
+      "category": "energy",
+      "biasKey":  "natgas",
+      "yfSymbol": "UNG"
+    }
+  ],
+  "LEGACY": [
+    {
+      "symbol":   "BTC",
+      "name":     "Bitcoin",
+      "pattern":  "BITCOIN",
+      "category": "crypto",
+      "biasKey":  "bitcoin",
+      "yfSymbol": "BTC-USD"
+    }
+  ]
+}
