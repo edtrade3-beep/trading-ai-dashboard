@@ -1,0 +1,89 @@
+"use strict";
+/**
+ * Routes for the COT (Commitments of Traders) module.
+ *
+ * GET  /api/cot/status          — latest scan data + bias summary
+ * GET  /api/cot/latest          — same as status (alias for spec)
+ * GET  /api/cot/market/:key     — bias for one market by biasKey
+ * GET  /api/cot/run-update      — manually trigger CFTC data download
+ * GET  /api/cot/run-now         — manually run intraday scan + send Telegram
+ * GET  /api/cot/report          — build report text without sending
+ * POST /api/cot/telegram/test   — send test message to Telegram
+ */
+
+const { writeJson, readRequestBody } = require("../utils");
+const {
+  updateCOTData,
+  getMarketCOTBias,
+  getAllCOTBiases,
+  getCOTSummary,
+  isDataFresh,
+  getLatestReportDate,
+} = require("../cot/cotService");
+const { sendCOTReport, buildReport } = require("../cot/telegramService");
+const { scanCOTSymbols } = require("../cot/intradayScanner");
+const { loadWatchlistSymbols } = require("../cot/watchlistHelper");
+const { sendTelegramMessage, isConfigured: telegramConfigured } = require("../telegram");
+
+async function handleCOT(req, res, requestUrl) {
+  const { pathname } = requestUrl;
+
+  // ── GET /api/cot/status  or  /api/cot/latest ─────────────────────────────
+  if ((pathname === "/api/cot/status" || pathname === "/api/cot/latest") && req.method === "GET") {
+    const summary = getCOTSummary();
+    return writeJson(res, 200, {
+      ok: true,
+      fresh: isDataFresh(),
+      reportDate: getLatestReportDate(),
+      staleWarning: summary.staleWarning,
+      summary,
+      allBiases: getAllCOTBiases(),
+    });
+  }
+
+  // ── GET /api/cot/market/:key ──────────────────────────────────────────────
+  const mktMatch = pathname.match(/^\/api\/cot\/market\/([a-z0-9_]+)$/i);
+  if (mktMatch && req.method === "GET") {
+    const key  = mktMatch[1].toLowerCase();
+    const bias = getMarketCOTBias(key);
+    if (!bias) return writeJson(res, 404, { error: `No COT data for key: ${key}` });
+    return writeJson(res, 200, { ok: true, key, bias });
+  }
+
+  // ── GET /api/cot/run-update — manual CFTC download ───────────────────────
+  if (pathname === "/api/cot/run-update" && req.method === "GET") {
+    // Run async, return immediately with job status
+    updateCOTData()
+      .then(r => console.log("[COT] Manual update done:", r))
+      .catch(e => console.error("[COT] Manual update error:", e.message));
+    return writeJson(res, 202, { ok: true, message: "COT data update started — check /api/cot/status in ~60s" });
+  }
+
+  // ── GET /api/cot/run-now — manual intraday scan + send Telegram ──────────
+  if (pathname === "/api/cot/run-now" && req.method === "GET") {
+    const watchlist = loadWatchlistSymbols();
+    const result = await sendCOTReport("Manual Scan", watchlist);
+    return writeJson(res, 200, { ok: result.ok, message: result.ok ? "COT report sent to Telegram" : result.error });
+  }
+
+  // ── GET /api/cot/report — build report text only (no send) ───────────────
+  if (pathname === "/api/cot/report" && req.method === "GET") {
+    const watchlist = loadWatchlistSymbols();
+    const scanResult = await scanCOTSymbols(watchlist);
+    const text = buildReport("Preview", scanResult);
+    return writeJson(res, 200, { ok: true, report: text, scanResult });
+  }
+
+  // ── POST /api/cot/telegram/test ───────────────────────────────────────────
+  if (pathname === "/api/cot/telegram/test" && req.method === "POST") {
+    if (!telegramConfigured()) {
+      return writeJson(res, 400, { error: "Telegram not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID missing)" });
+    }
+    await sendTelegramMessage("✅ COT Module — Telegram test message\nYour COT bias reports are connected.");
+    return writeJson(res, 200, { ok: true, message: "Test message sent" });
+  }
+
+  return writeJson(res, 404, { error: "Unknown COT endpoint" });
+}
+
+module.exports = handleCOT;

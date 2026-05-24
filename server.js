@@ -26,6 +26,7 @@ const { startFbScheduler } = require("./src/fb-scheduler");
 const { startMarketScanner, sendMacroReport } = require("./src/market-scanner");
 const { startTelegramBot }    = require("./src/telegram-bot");
 const { checkDealWatches }   = require("./src/routes/deals");
+const { startCOTScheduler }  = require("./src/cot/scheduler");
 
 const server = http.createServer(handleRequest);
 
@@ -41,8 +42,9 @@ server.listen(PORT, HOST, () => {
   }
   startPriceAlertMonitor();
   startFbScheduler();
-  startMarketScanner();   // 5-min stock scan → grouped BUY/SELL alerts
+  startMarketScanner();   // 15-min stock scan → grouped BUY/SELL alerts
   startTelegramBot();
+  startCOTScheduler();    // COT bias reports at 7 scheduled ET times M-F
 
   // ── 30-min macro report: Risk On/Off, SPY QQQ IWM, macro instruments ────
   setInterval(() => { sendMacroReport().catch(e => console.error("[Macro]", e.message)); }, 30 * 60 * 1000);
