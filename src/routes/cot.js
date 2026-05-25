@@ -74,6 +74,33 @@ async function handleCOT(req, res, requestUrl) {
     return writeJson(res, 200, { ok: true, report: text, scanResult });
   }
 
+  // ── GET /api/cot/debug — test download + show first CSV headers + 2 rows ──
+  if (pathname === "/api/cot/debug" && req.method === "GET") {
+    const { fetchCOTCsv }   = require("../cot/cotFetcher");
+    const { parseCOTCsv }   = require("../cot/cotParser");
+    const results = {};
+    for (const reportType of ["TFF", "DISAGG", "LEGACY"]) {
+      try {
+        const { csv, year, stale } = await fetchCOTCsv(reportType);
+        const lines   = csv.split(/\r?\n/).filter(l => l.trim());
+        const headers = lines[0] ? lines[0].split(",").map(h => h.replace(/^"|"$/g, "").trim()) : [];
+        const parsed  = parseCOTCsv(csv, reportType);
+        const markets = Array.from(parsed.keys()).slice(0, 8);
+        results[reportType] = {
+          ok: true, year, stale,
+          csvBytes: csv.length,
+          rowCount: lines.length - 1,
+          headers: headers.slice(0, 20),
+          marketsSample: markets,
+          marketsTotal: parsed.size,
+        };
+      } catch (err) {
+        results[reportType] = { ok: false, error: err.message };
+      }
+    }
+    return writeJson(res, 200, { ok: true, results });
+  }
+
   // ── POST /api/cot/telegram/test ───────────────────────────────────────────
   if (pathname === "/api/cot/telegram/test" && req.method === "POST") {
     if (!telegramConfigured()) {

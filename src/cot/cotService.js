@@ -30,8 +30,15 @@ const MARKETS = require("./cotMarkets.json");
 // ── Internal: process one report type ────────────────────────────────────────
 
 async function processReportType(reportType) {
-  const { csv, stale } = await fetchCOTCsv(reportType);
+  const { csv, stale, year } = await fetchCOTCsv(reportType);
+  console.log(`[COT] ${reportType} ${year}: downloaded ${(csv.length/1024).toFixed(0)} KB`);
+
   const parsed = parseCOTCsv(csv, reportType);
+  console.log(`[COT] ${reportType}: parsed ${parsed.size} unique markets from CSV`);
+
+  // Log first 5 market names so we can verify patterns match
+  const sample = Array.from(parsed.keys()).slice(0, 5).join(" | ");
+  console.log(`[COT] ${reportType} sample markets: ${sample}`);
 
   const marketList = MARKETS[reportType] || [];
   const results = [];
@@ -40,7 +47,7 @@ async function processReportType(reportType) {
     try {
       const freshRecords = findMarketRecords(parsed, mkt.pattern);
       if (!freshRecords.length) {
-        console.warn(`[COT] No records found for pattern "${mkt.pattern}" in ${reportType}`);
+        console.warn(`[COT] No records found for pattern "${mkt.pattern}" in ${reportType} — available: ${Array.from(parsed.keys()).filter(k=>k.includes(mkt.pattern.split(" ")[0].toUpperCase())).slice(0,3).join(", ") || "none matching"}`);
         continue;
       }
 
