@@ -27,6 +27,7 @@ const { startMarketScanner, sendMacroReport } = require("./src/market-scanner");
 const { startTelegramBot }    = require("./src/telegram-bot");
 const { checkDealWatches }   = require("./src/routes/deals");
 const { startCOTScheduler }  = require("./src/cot/scheduler");
+const { updateCOTData, isDataFresh } = require("./src/cot/cotService");
 
 const server = http.createServer(handleRequest);
 
@@ -45,6 +46,18 @@ server.listen(PORT, HOST, () => {
   startMarketScanner();   // 15-min stock scan → grouped BUY/SELL alerts
   startTelegramBot();
   startCOTScheduler();    // COT bias reports at 7 scheduled ET times M-F
+
+  // Auto-download CFTC data on startup if not already fresh
+  setTimeout(() => {
+    if (!isDataFresh()) {
+      console.log("[COT] No fresh data found — downloading CFTC reports now...");
+      updateCOTData()
+        .then(r => console.log(`[COT] Startup download complete: ${r.marketsUpdated} markets updated`))
+        .catch(e => console.error("[COT] Startup download failed:", e.message));
+    } else {
+      console.log("[COT] Data already fresh — skipping startup download");
+    }
+  }, 10_000); // wait 10s for server to fully stabilize
 
   // ── 30-min macro report: Risk On/Off, SPY QQQ IWM, macro instruments ────
   setInterval(() => { sendMacroReport().catch(e => console.error("[Macro]", e.message)); }, 30 * 60 * 1000);
