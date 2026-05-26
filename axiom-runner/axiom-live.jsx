@@ -4146,6 +4146,10 @@ export default function App() {
   const [cotRunning, setCotRunning]     = useState(false);  // manual scan in progress
   const [cotLastSent, setCotLastSent]   = useState(null);   // last Telegram send result
 
+  // ── OpenStock / TradingView Widget State ──
+  const [tvOsInput,  setTvOsInput]  = useState("SPY");
+  const [tvOsSymbol, setTvOsSymbol] = useState("SPY");
+
   // ── Quran Player State ──
   const [quranReciter, setQuranReciter] = useState(() => {
     try {
@@ -6558,7 +6562,7 @@ export default function App() {
               { id: "dashboard", label: "MONITOR",   tabs: ["dashboard"] },
               { id: "terminal",  label: "TERMINAL",  tabs: ["terminal"] },
               { id: "scanner",   label: "SCANNER",   tabs: ["scanner", "early", "analyzer", "cot"] },
-              { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "tv", "flow"] },
+              { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "tv", "flow", "openstock"] },
               { id: "portfolio", label: "PORTFOLIO", tabs: ["portfolio", "journal", "alerts"] },
               { id: "tools",     label: "TOOLS",     tabs: ["tools", "backtest", "workflow", "agent"] },
               { id: "cot",       label: "📊 COT",    tabs: ["cot"] },
@@ -6884,7 +6888,8 @@ export default function App() {
             { id: "sectors",  label: "SECTORS" },
             { id: "rotation", label: "ROTATION" },
             { id: "flow",     label: "FLOW" },
-            { id: "tv",       label: "TV LIVE" },
+            { id: "tv",        label: "TV LIVE" },
+            { id: "openstock", label: "📈 STOCKS" },
           ],
           portfolio: [
             { id: "portfolio", label: "POSITIONS" },
@@ -7931,6 +7936,207 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* ── OPENSTOCK: TradingView Market Widgets ─────────────────────────── */}
+        {activeTab === "openstock" && (() => {
+          const TV_CDN = "https://s3.tradingview.com/external-embedding/";
+
+          // Helper: inject a TradingView widget script into a container div via ref callback.
+          // Using key={symbol} on the container forces remount when symbol changes,
+          // re-running the ref callback with fresh config — no extra useEffect needed.
+          function tvRef(scriptFile, config) {
+            return (el) => {
+              if (!el) return;
+              el.innerHTML = "";
+              const widget = document.createElement("div");
+              widget.className = "tradingview-widget-container__widget";
+              widget.style.height = "100%";
+              el.appendChild(widget);
+              const script = document.createElement("script");
+              script.type  = "text/javascript";
+              script.async = true;
+              script.src   = TV_CDN + scriptFile;
+              script.innerHTML = JSON.stringify({ ...config, width: "100%", height: "100%" });
+              el.appendChild(script);
+            };
+          }
+
+          const darkBase = { colorTheme: "dark", locale: "en", isTransparent: false };
+
+          const heatmapCfg = { ...darkBase,
+            dataSource: "SPX500", grouping: "sector",
+            blockSize: "market_cap_basic", blockColor: "change",
+            hasTopBar: false, isZoomEnabled: true, hasSymbolTooltip: true };
+
+          const overviewCfg = { ...darkBase,
+            dateRange: "3M", showChart: true, showSymbolLogo: true,
+            showFloatingTooltip: true,
+            plotLineColorGrowing: "#0FEDBE", plotLineColorFalling: "#ef5350",
+            belowLineFillColorGrowing: "rgba(15,237,190,0.08)",
+            belowLineFillColorFalling: "rgba(239,83,80,0.08)",
+            tabs: [
+              { title: "Indices",   symbols: [
+                { s: "FOREXCOM:SPXUSD", d: "S&P 500" }, { s: "FOREXCOM:NSXUSD", d: "Nasdaq 100" },
+                { s: "FOREXCOM:DJI",    d: "Dow Jones" }, { s: "INDEX:RTY",       d: "Russell 2000" },
+                { s: "NASDAQ:QQQ" }, { s: "AMEX:IWM" } ] },
+              { title: "Tech",      symbols: [
+                { s: "NASDAQ:NVDA" }, { s: "NASDAQ:AAPL" }, { s: "NASDAQ:MSFT" },
+                { s: "NASDAQ:META" }, { s: "NASDAQ:GOOGL" }, { s: "NASDAQ:AMZN" } ] },
+              { title: "Macro",     symbols: [
+                { s: "AMEX:GLD",   d: "Gold" }, { s: "AMEX:USO",    d: "Oil" },
+                { s: "NASDAQ:TLT", d: "Bonds" }, { s: "AMEX:UUP",   d: "USD" },
+                { s: "BITSTAMP:BTCUSD", d: "Bitcoin" }, { s: "AMEX:SLV", d: "Silver" } ] },
+            ]
+          };
+
+          const quotesCfg = { ...darkBase,
+            showSymbolLogo: true,
+            symbolsGroups: [
+              { name: "Financial", symbols: [
+                { name: "NASDAQ:NVDA" }, { name: "NASDAQ:AAPL" }, { name: "NASDAQ:MSFT" },
+                { name: "NASDAQ:META" }, { name: "NASDAQ:GOOGL" }, { name: "NASDAQ:AMZN" } ] },
+              { name: "ETFs", symbols: [
+                { name: "AMEX:SPY" }, { name: "NASDAQ:QQQ" }, { name: "AMEX:IWM" },
+                { name: "NASDAQ:TLT" }, { name: "AMEX:GLD" }, { name: "AMEX:USO" } ] },
+              { name: "Crypto", symbols: [
+                { name: "BITSTAMP:BTCUSD" }, { name: "COINBASE:ETHUSD" } ] },
+            ]
+          };
+
+          const newsCfg = { ...darkBase, feedMode: "all_symbols", displayMode: "regular" };
+
+          // Symbol-detail widgets (re-mount when tvOsSymbol changes via key)
+          const sym = tvOsSymbol.toUpperCase();
+          const symInfoCfg   = { ...darkBase, symbol: `NASDAQ:${sym}`, largeChartUrl: "" };
+          const chartCfg     = { ...darkBase, symbol: sym, interval: "D", style: "1",
+            details: true, hotlist: true, calendar: false, studies: ["STD;MACD","STD;RSI"],
+            allow_symbol_change: false, save_image: false };
+          const techCfg      = { ...darkBase, symbol: `NASDAQ:${sym}`, interval: "1h", showIntervalTabs: true };
+          const profileCfg   = { ...darkBase, symbol: `NASDAQ:${sym}` };
+          const financialsCfg = { ...darkBase, symbol: `NASDAQ:${sym}`, displayMode: "regular" };
+
+          const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" };
+
+          return (
+            <div>
+              {/* Header */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>
+                  📈 MARKET OVERVIEW — TRADINGVIEW
+                </div>
+                <a href="https://www.tradingview.com" target="_blank" rel="noopener noreferrer"
+                  style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, textDecoration: "none",
+                    border: `1px solid ${C.border}`, borderRadius: 4, padding: "3px 8px" }}>
+                  OPEN TRADINGVIEW ↗
+                </a>
+              </div>
+
+              {/* Row 1: Heatmap + Market Overview */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                <div style={{ ...card }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, padding: "6px 10px", borderBottom: `1px solid ${C.border}` }}>
+                    SPX 500 HEATMAP — BY SECTOR
+                  </div>
+                  <div ref={tvRef("embed-widget-stock-heatmap.js", heatmapCfg)}
+                    style={{ height: 420 }} />
+                </div>
+                <div style={{ ...card }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, padding: "6px 10px", borderBottom: `1px solid ${C.border}` }}>
+                    MARKET OVERVIEW — INDICES / TECH / MACRO
+                  </div>
+                  <div ref={tvRef("embed-widget-market-overview.js", overviewCfg)}
+                    style={{ height: 420 }} />
+                </div>
+              </div>
+
+              {/* Row 2: Market Quotes + News */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+                <div style={{ ...card }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, padding: "6px 10px", borderBottom: `1px solid ${C.border}` }}>
+                    MARKET QUOTES — TECH / ETFs / CRYPTO
+                  </div>
+                  <div ref={tvRef("embed-widget-market-quotes.js", quotesCfg)}
+                    style={{ height: 380 }} />
+                </div>
+                <div style={{ ...card }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, padding: "6px 10px", borderBottom: `1px solid ${C.border}` }}>
+                    MARKET NEWS TIMELINE
+                  </div>
+                  <div ref={tvRef("embed-widget-timeline.js", newsCfg)}
+                    style={{ height: 380 }} />
+                </div>
+              </div>
+
+              {/* Divider + Stock Lookup */}
+              <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 16, marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>
+                    STOCK DEEP DIVE
+                  </div>
+                  <input
+                    value={tvOsInput}
+                    onChange={e => setTvOsInput(e.target.value.toUpperCase())}
+                    onKeyDown={e => { if (e.key === "Enter") setTvOsSymbol(tvOsInput.trim() || "SPY"); }}
+                    placeholder="SYMBOL"
+                    style={{ fontFamily: MONO, fontSize: 11, background: C.surface, border: `1px solid ${C.border}`,
+                      color: C.text, borderRadius: 4, padding: "4px 8px", width: 90, outline: "none" }}
+                  />
+                  <button
+                    onClick={() => setTvOsSymbol(tvOsInput.trim() || "SPY")}
+                    style={{ fontFamily: MONO, fontSize: 10, background: `${C.accent}18`, border: `1px solid ${C.accent}55`,
+                      color: C.accent, borderRadius: 4, padding: "4px 10px", cursor: "pointer" }}>
+                    GO
+                  </button>
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+                    Showing: <b style={{ color: C.text }}>{sym}</b>
+                  </div>
+                </div>
+
+                {/* Symbol Info bar */}
+                <div key={`syminfo-${sym}`} style={{ ...card, marginBottom: 10 }}>
+                  <div ref={tvRef("embed-widget-symbol-info.js", symInfoCfg)}
+                    style={{ height: 120 }} />
+                </div>
+
+                {/* Chart + Technical Analysis */}
+                <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 10, marginBottom: 10 }}>
+                  <div key={`chart-${sym}`} style={{ ...card }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, padding: "6px 10px", borderBottom: `1px solid ${C.border}` }}>
+                      ADVANCED CHART
+                    </div>
+                    <div ref={tvRef("embed-widget-advanced-chart.js", chartCfg)}
+                      style={{ height: 500 }} />
+                  </div>
+                  <div key={`tech-${sym}`} style={{ ...card }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, padding: "6px 10px", borderBottom: `1px solid ${C.border}` }}>
+                      TECHNICAL ANALYSIS
+                    </div>
+                    <div ref={tvRef("embed-widget-technical-analysis.js", techCfg)}
+                      style={{ height: 500 }} />
+                  </div>
+                </div>
+
+                {/* Company Profile + Financials */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div key={`profile-${sym}`} style={{ ...card }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, padding: "6px 10px", borderBottom: `1px solid ${C.border}` }}>
+                      COMPANY PROFILE
+                    </div>
+                    <div ref={tvRef("embed-widget-company-profile.js", profileCfg)}
+                      style={{ height: 440 }} />
+                  </div>
+                  <div key={`fin-${sym}`} style={{ ...card }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, padding: "6px 10px", borderBottom: `1px solid ${C.border}` }}>
+                      FINANCIALS
+                    </div>
+                    <div ref={tvRef("embed-widget-financials.js", financialsCfg)}
+                      style={{ height: 440 }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {activeTab === "sectors" && (
           <div>
