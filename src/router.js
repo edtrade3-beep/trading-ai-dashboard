@@ -209,6 +209,11 @@ async function handleRequest(req, res) {
       res.end();
       return;
     }
+    if (pathname === "/quran" || pathname === "/quran/") {
+      res.writeHead(302, { Location: "/client/quran.html" });
+      res.end();
+      return;
+    }
 
     return serveStatic(pathname, res, req);
   } catch (error) {

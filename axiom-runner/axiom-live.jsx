@@ -7942,9 +7942,10 @@ export default function App() {
           // Each TradingView widget runs inside its own iframe so it gets a clean
           // document context — the only reliable way to embed them in a React SPA.
           function tvFrame(scriptFile, cfg, height) {
-            const config = JSON.stringify({ ...cfg, width: "100%", height: "100%" });
+            // TradingView requires explicit pixel values — "100%" for height is ignored
+            const config = JSON.stringify({ ...cfg, width: "100%", height: height });
             const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden}</style></head>
+<style>*{margin:0;padding:0;box-sizing:border-box}html,body{height:${height}px;overflow:hidden;background:#131722}</style></head>
 <body>
 <div class="tradingview-widget-container" style="height:${height}px;width:100%">
   <div class="tradingview-widget-container__widget" style="height:${height}px;width:100%"></div>
@@ -7993,7 +7994,7 @@ export default function App() {
                     ...dark, dataSource: "SPX500", grouping: "sector",
                     blockSize: "market_cap_basic", blockColor: "change",
                     hasTopBar: false, isZoomEnabled: true, hasSymbolTooltip: true,
-                  }, 420)}
+                  }, 500)}
                 </div>
                 <div style={card}>
                   {lbl("MARKET OVERVIEW — INDICES / TECH / MACRO")}
@@ -8013,7 +8014,7 @@ export default function App() {
                         { s: "NASDAQ:TLT", d: "Bonds" }, { s: "AMEX:UUP", d: "USD" },
                         { s: "BITSTAMP:BTCUSD", d: "Bitcoin" }, { s: "AMEX:SLV", d: "Silver" } ] },
                     ],
-                  }, 420)}
+                  }, 500)}
                 </div>
               </div>
 
@@ -8033,13 +8034,13 @@ export default function App() {
                       { name: "Crypto", symbols: [
                         { name: "BITSTAMP:BTCUSD" }, { name: "COINBASE:ETHUSD" } ] },
                     ],
-                  }, 380)}
+                  }, 500)}
                 </div>
                 <div style={card}>
                   {lbl("MARKET NEWS TIMELINE")}
                   {tvFrame("embed-widget-timeline.js", {
                     ...dark, feedMode: "all_symbols", displayMode: "regular",
-                  }, 380)}
+                  }, 500)}
                 </div>
               </div>
 
@@ -8072,7 +8073,7 @@ export default function App() {
                 <div key={`si-${sym}`} style={{ ...card, marginBottom: 10 }}>
                   {tvFrame("embed-widget-symbol-info.js", {
                     ...dark, symbol: sym, largeChartUrl: "",
-                  }, 120)}
+                  }, 160)}
                 </div>
 
                 {/* Chart + Technical Analysis */}
@@ -8084,13 +8085,13 @@ export default function App() {
                       details: true, hotlist: true, calendar: false,
                       studies: ["STD;MACD", "STD;RSI"],
                       allow_symbol_change: false, save_image: false,
-                    }, 520)}
+                    }, 650)}
                   </div>
                   <div key={`ta-${sym}`} style={card}>
                     {lbl("TECHNICAL ANALYSIS")}
                     {tvFrame("embed-widget-technical-analysis.js", {
                       ...dark, symbol: sym, interval: "1h", showIntervalTabs: true,
-                    }, 520)}
+                    }, 650)}
                   </div>
                 </div>
 
@@ -8098,11 +8099,11 @@ export default function App() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <div key={`cp-${sym}`} style={card}>
                     {lbl("COMPANY PROFILE")}
-                    {tvFrame("embed-widget-company-profile.js", { ...dark, symbol: sym }, 440)}
+                    {tvFrame("embed-widget-company-profile.js", { ...dark, symbol: sym }, 500)}
                   </div>
                   <div key={`fn-${sym}`} style={card}>
                     {lbl("FINANCIALS")}
-                    {tvFrame("embed-widget-financials.js", { ...dark, symbol: sym, displayMode: "regular" }, 440)}
+                    {tvFrame("embed-widget-financials.js", { ...dark, symbol: sym, displayMode: "regular" }, 500)}
                   </div>
                 </div>
               </div>

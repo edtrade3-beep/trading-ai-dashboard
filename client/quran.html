@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quran Player — OBS</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0a;
+    color: #fff;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .container {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 16px;
+    padding: 32px 36px;
+    width: 100%;
+    max-width: 700px;
+    text-align: center;
+    box-shadow: 0 0 40px rgba(0,180,160,0.08);
+  }
+
+  .icon { font-size: 44px; margin-bottom: 8px; }
+
+  .title-ar {
+    font-size: 32px;
+    color: #0FEDBE;
+    margin-bottom: 4px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .surah-name-ar {
+    font-size: 28px;
+    color: #e8d5a0;
+    margin: 12px 0 4px;
+    font-weight: 600;
+  }
+
+  .surah-name-en {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 20px;
+    direction: ltr;
+    letter-spacing: 0.08em;
+    font-family: 'Courier New', monospace;
+  }
+
+  .bismillah {
+    font-size: 22px;
+    color: #a0c4b8;
+    margin: 16px 0 24px;
+    line-height: 1.8;
+    opacity: 0.85;
+  }
+
+  /* Progress bar */
+  .progress-wrap {
+    background: #1a1a1a;
+    border-radius: 4px;
+    height: 4px;
+    margin: 0 0 20px;
+    cursor: pointer;
+    overflow: hidden;
+  }
+  .progress-fill {
+    background: linear-gradient(90deg, #0FEDBE, #09b08a);
+    height: 100%;
+    width: 0%;
+    transition: width 0.5s linear;
+    border-radius: 4px;
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-bottom: 24px;
+    direction: ltr;
+  }
+
+  .btn {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    color: #ccc;
+    border-radius: 8px;
+    padding: 10px 18px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.15s;
+  }
+  .btn:hover { background: #222; border-color: #0FEDBE44; color: #0FEDBE; }
+
+  .btn-play {
+    background: #0FEDBE18;
+    border: 1px solid #0FEDBE55;
+    color: #0FEDBE;
+    font-size: 22px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    padding: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .btn-play:hover { background: #0FEDBE30; }
+  .btn-play.playing { color: #fff; background: #0FEDBE40; }
+
+  .time-display {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: #555;
+    direction: ltr;
+    min-width: 80px;
+    text-align: center;
+  }
+
+  /* Selects */
+  .selects {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    direction: ltr;
+    margin-bottom: 16px;
+  }
+
+  select {
+    background: #161616;
+    border: 1px solid #2a2a2a;
+    color: #ccc;
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    outline: none;
+  }
+  select:focus { border-color: #0FEDBE55; }
+
+  /* Reciter */
+  .reciter-label {
+    font-size: 11px;
+    color: #444;
+    margin-bottom: 6px;
+    direction: ltr;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.06em;
+  }
+
+  .status {
+    font-size: 10px;
+    color: #444;
+    margin-top: 12px;
+    direction: ltr;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.05em;
+    min-height: 16px;
+  }
+
+  .error-msg { color: #e05555; }
+  .playing-dot { display: inline-block; width: 6px; height: 6px; background: #0FEDBE; border-radius: 50%; margin-right: 6px; animation: pulse 1.2s ease-in-out infinite; vertical-align: middle; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="icon">📖</div>
+  <div class="title-ar">القرآن الكريم</div>
+
+  <div id="surah-ar" class="surah-name-ar">الفاتحة</div>
+  <div id="surah-en" class="surah-name-en">SURAH 1 — AL-FATIHA</div>
+
+  <div class="bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
+
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="btn-prev" title="Previous Surah">⏮</button>
+    <span class="time-display" id="time-display">0:00 / 0:00</span>
+    <button class="btn-play" id="btn-play">▶</button>
+    <span class="time-display"></span>
+    <button class="btn" id="btn-next" title="Next Surah">⏭</button>
+  </div>
+
+  <div class="selects">
+    <select id="sel-surah" title="Select Surah"></select>
+    <select id="sel-reciter" title="Select Reciter"></select>
+  </div>
+
+  <div class="reciter-label" id="reciter-label">RECITER</div>
+  <div class="status" id="status-msg"></div>
+</div>
+
+<audio id="audio" preload="none"></audio>
+
+<script>
+const CDN_HQ = "https://cdn.islamic.network/quran/audio-surah/128";
+const CDN_LQ = "https://cdn.islamic.network/quran/audio-surah/64";
+
+const RECITERS = [
+  { id: "ar.alafasy",        name: "Mishary Al-Afasy — مشاري العفاسي" },
+  { id: "ar.mahermuaiqly",   name: "Maher Al-Muaiqly — ماهر المعيقلي" },
+  { id: "ar.husary",         name: "Al-Husary — الحصري" },
+  { id: "ar.minshawi",       name: "Al-Minshawi — المنشاوي" },
+  { id: "ar.shaatree",       name: "Ash-Shaatree — الشاطري" },
+  { id: "ar.abdullahbasfar", name: "Abdullah Basfar — عبد الله بصفر" },
+  { id: "ar.ahmedajamy",     name: "Ahmed Al-Ajamy — أحمد العجمي" },
+  { id: "ar.muhammadayyoub", name: "Muhammad Ayyoub — محمد أيوب" },
+  { id: "ar.saoodshuraym",   name: "Saud Al-Shuraim — سعود الشريم" },
+  { id: "ar.hudhaify",       name: "Ali Al-Hudhaify — علي الحذيفي" },
+];
+
+const SURAHS = [
+  [1,"الفاتحة","Al-Fatiha"],[2,"البقرة","Al-Baqara"],[3,"آل عمران","Ali 'Imran"],[4,"النساء","An-Nisa"],
+  [5,"المائدة","Al-Ma'ida"],[6,"الأنعام","Al-An'am"],[7,"الأعراف","Al-A'raf"],[8,"الأنفال","Al-Anfal"],
+  [9,"التوبة","At-Tawba"],[10,"يونس","Yunus"],[11,"هود","Hud"],[12,"يوسف","Yusuf"],
+  [13,"الرعد","Ar-Ra'd"],[14,"إبراهيم","Ibrahim"],[15,"الحجر","Al-Hijr"],[16,"النحل","An-Nahl"],
+  [17,"الإسراء","Al-Isra"],[18,"الكهف","Al-Kahf"],[19,"مريم","Maryam"],[20,"طه","Ta-Ha"],
+  [21,"الأنبياء","Al-Anbiya"],[22,"الحج","Al-Hajj"],[23,"المؤمنون","Al-Mu'minun"],[24,"النور","An-Nur"],
+  [25,"الفرقان","Al-Furqan"],[26,"الشعراء","Ash-Shu'ara"],[27,"النمل","An-Naml"],[28,"القصص","Al-Qasas"],
+  [29,"العنكبوت","Al-'Ankabut"],[30,"الروم","Ar-Rum"],[31,"لقمان","Luqman"],[32,"السجدة","As-Sajda"],
+  [33,"الأحزاب","Al-Ahzab"],[34,"سبأ","Saba"],[35,"فاطر","Fatir"],[36,"يس","Ya-Sin"],
+  [37,"الصافات","As-Saffat"],[38,"ص","Sad"],[39,"الزمر","Az-Zumar"],[40,"غافر","Ghafir"],
+  [41,"فصلت","Fussilat"],[42,"الشورى","Ash-Shura"],[43,"الزخرف","Az-Zukhruf"],[44,"الدخان","Ad-Dukhan"],
+  [45,"الجاثية","Al-Jathiya"],[46,"الأحقاف","Al-Ahqaf"],[47,"محمد","Muhammad"],[48,"الفتح","Al-Fath"],
+  [49,"الحجرات","Al-Hujurat"],[50,"ق","Qaf"],[51,"الذاريات","Adh-Dhariyat"],[52,"الطور","At-Tur"],
+  [53,"النجم","An-Najm"],[54,"القمر","Al-Qamar"],[55,"الرحمن","Ar-Rahman"],[56,"الواقعة","Al-Waqi'a"],
+  [57,"الحديد","Al-Hadid"],[58,"المجادلة","Al-Mujadila"],[59,"الحشر","Al-Hashr"],[60,"الممتحنة","Al-Mumtahana"],
+  [61,"الصف","As-Saf"],[62,"الجمعة","Al-Jumu'a"],[63,"المنافقون","Al-Munafiqun"],[64,"التغابن","At-Taghabun"],
+  [65,"الطلاق","At-Talaq"],[66,"التحريم","At-Tahrim"],[67,"الملك","Al-Mulk"],[68,"القلم","Al-Qalam"],
+  [69,"الحاقة","Al-Haqqa"],[70,"المعارج","Al-Ma'arij"],[71,"نوح","Nuh"],[72,"الجن","Al-Jinn"],
+  [73,"المزمل","Al-Muzzammil"],[74,"المدثر","Al-Muddaththir"],[75,"القيامة","Al-Qiyama"],[76,"الإنسان","Al-Insan"],
+  [77,"المرسلات","Al-Mursalat"],[78,"النبأ","An-Naba"],[79,"النازعات","An-Nazi'at"],[80,"عبس","Abasa"],
+  [81,"التكوير","At-Takwir"],[82,"الانفطار","Al-Infitar"],[83,"المطففين","Al-Mutaffifin"],[84,"الانشقاق","Al-Inshiqaq"],
+  [85,"البروج","Al-Buruj"],[86,"الطارق","At-Tariq"],[87,"الأعلى","Al-A'la"],[88,"الغاشية","Al-Ghashiya"],
+  [89,"الفجر","Al-Fajr"],[90,"البلد","Al-Balad"],[91,"الشمس","Ash-Shams"],[92,"الليل","Al-Layl"],
+  [93,"الضحى","Ad-Duha"],[94,"الشرح","Ash-Sharh"],[95,"التين","At-Tin"],[96,"العلق","Al-Alaq"],
+  [97,"القدر","Al-Qadr"],[98,"البينة","Al-Bayyina"],[99,"الزلزلة","Az-Zalzala"],[100,"العاديات","Al-Adiyat"],
+  [101,"القارعة","Al-Qari'a"],[102,"التكاثر","At-Takathur"],[103,"العصر","Al-Asr"],[104,"الهمزة","Al-Humaza"],
+  [105,"الفيل","Al-Fil"],[106,"قريش","Quraysh"],[107,"الماعون","Al-Ma'un"],[108,"الكوثر","Al-Kawthar"],
+  [109,"الكافرون","Al-Kafirun"],[110,"النصر","An-Nasr"],[111,"المسد","Al-Masad"],[112,"الإخلاص","Al-Ikhlas"],
+  [113,"الفلق","Al-Falaq"],[114,"الناس","An-Nas"]
+];
+
+// State
+let currentSurah  = parseInt(localStorage.getItem("obs_quran_surah") || "1", 10);
+let currentReciter = localStorage.getItem("obs_quran_reciter") || "ar.alafasy";
+let usedFallback  = false;
+let playing       = false;
+
+const audio    = document.getElementById("audio");
+const btnPlay  = document.getElementById("btn-play");
+const btnPrev  = document.getElementById("btn-prev");
+const btnNext  = document.getElementById("btn-next");
+const selSurah = document.getElementById("sel-surah");
+const selRec   = document.getElementById("sel-reciter");
+const progFill = document.getElementById("progress-fill");
+const progWrap = document.getElementById("progress-wrap");
+const timeDsp  = document.getElementById("time-display");
+const statusEl = document.getElementById("status-msg");
+const surahAr  = document.getElementById("surah-ar");
+const surahEn  = document.getElementById("surah-en");
+const recLabel = document.getElementById("reciter-label");
+
+// Build surah dropdown
+SURAHS.forEach(([n, ar, en]) => {
+  const o = document.createElement("option");
+  o.value = n; o.textContent = `${n}. ${ar} — ${en}`;
+  selSurah.appendChild(o);
+});
+selSurah.value = currentSurah;
+
+// Build reciter dropdown
+RECITERS.forEach(r => {
+  const o = document.createElement("option");
+  o.value = r.id; o.textContent = r.name;
+  selRec.appendChild(o);
+});
+selRec.value = currentReciter;
+
+function updateUI() {
+  const s = SURAHS.find(s => s[0] === currentSurah);
+  surahAr.textContent = s ? s[1] : "";
+  surahEn.textContent = `SURAH ${currentSurah} — ${s ? s[2].toUpperCase() : ""}`;
+  const rec = RECITERS.find(r => r.id === currentReciter);
+  recLabel.textContent = rec ? rec.name : currentReciter;
+  selSurah.value   = currentSurah;
+  selRec.value     = currentReciter;
+  localStorage.setItem("obs_quran_surah",   currentSurah);
+  localStorage.setItem("obs_quran_reciter", currentReciter);
+}
+
+function fmtTime(s) {
+  if (!s || isNaN(s)) return "0:00";
+  const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2,"0")}`;
+}
+
+function setStatus(msg, isErr) {
+  statusEl.textContent = msg;
+  statusEl.className   = "status" + (isErr ? " error-msg" : "");
+}
+
+function loadAudio(autoPlay) {
+  usedFallback = false;
+  audio.src    = `${CDN_HQ}/${currentReciter}/${currentSurah}.mp3`;
+  audio.load();
+  setStatus("Loading…");
+  if (autoPlay) audio.play().catch(() => {});
+}
+
+function togglePlay() {
+  if (audio.paused) {
+    if (!audio.src || audio.src === window.location.href) loadAudio(true);
+    else audio.play().catch(() => {});
+  } else {
+    audio.pause();
+  }
+}
+
+// Audio events
+audio.addEventListener("play",  () => { playing = true;  btnPlay.textContent = "⏸"; btnPlay.classList.add("playing");    setStatus('<span class="playing-dot"></span> Playing'); statusEl.innerHTML = '<span class="playing-dot"></span> Playing'; });
+audio.addEventListener("pause", () => { playing = false; btnPlay.textContent = "▶"; btnPlay.classList.remove("playing"); setStatus(""); });
+audio.addEventListener("ended", () => { playing = false; btnPlay.textContent = "▶"; btnPlay.classList.remove("playing"); setStatus("Finished"); progFill.style.width = "100%"; });
+audio.addEventListener("timeupdate", () => {
+  if (!audio.duration) return;
+  const pct = (audio.currentTime / audio.duration) * 100;
+  progFill.style.width = pct + "%";
+  timeDsp.textContent  = `${fmtTime(audio.currentTime)} / ${fmtTime(audio.duration)}`;
+});
+audio.addEventListener("error", () => {
+  if (!usedFallback) {
+    usedFallback = true;
+    setStatus("Switching to lower quality…");
+    const wasPlaying = playing;
+    audio.src = `${CDN_LQ}/${currentReciter}/${currentSurah}.mp3`;
+    audio.load();
+    if (wasPlaying) audio.play().catch(() => setStatus("Audio unavailable", true));
+  } else {
+    setStatus("Audio unavailable for this selection", true);
+    playing = false; btnPlay.textContent = "▶"; btnPlay.classList.remove("playing");
+  }
+});
+
+// Controls
+btnPlay.addEventListener("click", togglePlay);
+btnPrev.addEventListener("click", () => {
+  if (currentSurah > 1) { currentSurah--; updateUI(); loadAudio(playing); }
+});
+btnNext.addEventListener("click", () => {
+  if (currentSurah < 114) { currentSurah++; updateUI(); loadAudio(playing); }
+});
+selSurah.addEventListener("change", () => {
+  currentSurah = parseInt(selSurah.value, 10); updateUI(); loadAudio(playing);
+});
+selRec.addEventListener("change", () => {
+  currentReciter = selRec.value; updateUI(); loadAudio(playing);
+});
+progWrap.addEventListener("click", e => {
+  if (!audio.duration) return;
+  const rect = progWrap.getBoundingClientRect();
+  audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
+});
+
+// Keyboard shortcuts (useful when focused in OBS)
+document.addEventListener("keydown", e => {
+  if (e.code === "Space")       { e.preventDefault(); togglePlay(); }
+  if (e.code === "ArrowRight")  btnNext.click();
+  if (e.code === "ArrowLeft")   btnPrev.click();
+});
+
+updateUI();
+</script>
+</body>
+</html>
