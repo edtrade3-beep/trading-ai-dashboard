@@ -61,23 +61,24 @@ const LAYOUT = {
 const WEATHER_ZIP = "45014";
 
 // ── Islamic Module Constants ──
-// CDN: cdn.islamic.network/quran/audio-surah/128/{edition}/{surahNum}.mp3
-// Only reciters whose edition has all 114 surahs on this CDN are listed.
-// full:true = verified complete 114-surah library; full:false = may be missing some surahs.
-const QURAN_CDN      = "https://cdn.islamic.network/quran/audio-surah/128";
-const QURAN_CDN_LOW  = "https://cdn.islamic.network/quran/audio-surah/64";
+// CDN: download.quranicaudio.com/quran/{reciter.path}/{surahNum_padded3}.mp3
+// All reciters verified to have complete 114-surah libraries on quranicaudio.com
+const QURAN_BASE = "https://download.quranicaudio.com/quran";
+const qUrl = (r, n) => `${QURAN_BASE}/${r.path}/${String(n).padStart(3, "0")}.mp3`;
 const QURAN_RECITERS = [
-  { id: "ar.alafasy",        label: "مشاري العفاسي — Mishary Al-Afasy",       full: true  },
-  { id: "ar.mahermuaiqly",   label: "ماهر المعيقلي — Maher Al-Muaiqly",       full: true  },
-  { id: "ar.husary",         label: "محمود خليل الحصري — Al-Husary",           full: true  },
-  { id: "ar.minshawi",       label: "محمد المنشاوي — Al-Minshawi",             full: true  },
-  { id: "ar.shaatree",       label: "أبو بكر الشاطري — Ash-Shaatree",         full: true  },
-  { id: "ar.abdullahbasfar", label: "عبد الله بصفر — Abdullah Basfar",         full: true  },
-  { id: "ar.ahmedajamy",     label: "أحمد العجمي — Ahmed Al-Ajamy",            full: true  },
-  { id: "ar.muhammadayyoub", label: "محمد أيوب — Muhammad Ayyoub",             full: true  },
-  { id: "ar.saoodshuraym",   label: "سعود الشريم — Saud Al-Shuraim",           full: true  },
-  { id: "ar.hudhaify",       label: "علي الحذيفي — Ali Al-Hudhaify",           full: true  },
-  { id: "ar.ibrahimakhbar",  label: "إبراهيم الأخضر — Ibrahim Al-Akhdar",     full: false },
+  { id: "alafasy",  path: "mishaari_raashid_al_3afaasee",     label: "مشاري العفاسي — Mishary Al-Afasy",       full: true },
+  { id: "maher",    path: "maher_almu3aiqly/year1440",        label: "ماهر المعيقلي — Maher Al-Muaiqly",       full: true },
+  { id: "husary",   path: "mahmood_khaleel_al-husaree_iza3a", label: "محمود خليل الحصري — Al-Husary",           full: true },
+  { id: "minshawi", path: "muhammad_siddeeq_al-minshaawee",   label: "محمد المنشاوي — Al-Minshawi",             full: true },
+  { id: "sudais",   path: "abdurrahmaan_as-sudays",           label: "عبد الرحمن السديس — Sudais",              full: true },
+  { id: "shuraym",  path: "sa3ood_al-shuraym",                label: "سعود الشريم — Shuraym",                   full: true },
+  { id: "ghamdi",   path: "sa3d_al-ghaamidi/complete",        label: "سعد الغامدي — Saad Al-Ghamdi",            full: true },
+  { id: "shatri",   path: "abu_bakr_ash-shatri_tarawee7",     label: "أبو بكر الشاطري — Abu Bakr Al-Shatri",   full: true },
+  { id: "hudhaify", path: "huthayfi",                         label: "علي الحذيفي — Ali Al-Hudhaify",           full: true },
+  { id: "ajamy",    path: "ahmed_ibn_3ali_al-3ajamy",         label: "أحمد العجمي — Ahmed Al-Ajamy",            full: true },
+  { id: "basfar",   path: "abdullaah_basfar",                 label: "عبد الله بصفر — Abdullah Basfar",         full: true },
+  { id: "ayyoub",   path: "muhammad_ayyoob_hq",               label: "محمد أيوب — Muhammad Ayyoub",             full: true },
+  { id: "akhdar",   path: "ibrahim_al_akhdar",                label: "إبراهيم الأخضر — Ibrahim Al-Akhdar",     full: true },
 ];
 const SURAH_LIST = [
   [1,"الفاتحة","Al-Fatiha"],
@@ -4319,7 +4320,7 @@ export default function App() {
     setQuranCurrentTime(0);
     setQuranDuration(0);
     // Always update the src so subsequent play() uses the right file
-    quranAudioRef.current.src = `${QURAN_CDN}/${quranReciter.id}/${quranSurah}.mp3`;
+    quranAudioRef.current.src = qUrl(quranReciter, quranSurah);
     // Only fetch (load + play) if we were already playing — otherwise wait for user tap
     if (shouldPlay) {
       quranAutoPlay.current = true;
@@ -11730,7 +11731,7 @@ export default function App() {
                       setQuranLoading(true);
                       // Ensure src is set (re-apply in case it was cleared)
                       if (!quranAudioRef.current.src || quranAudioRef.current.src === window.location.href) {
-                        quranAudioRef.current.src = `${QURAN_CDN}/${quranReciter.id}/${quranSurah}.mp3`;
+                        quranAudioRef.current.src = qUrl(quranReciter, quranSurah);
                       }
                       // With preload="none", must call load() before play()
                       quranAudioRef.current.load();
@@ -11790,7 +11791,7 @@ export default function App() {
                   ▶▶ <span>تشغيل تلقائي</span>
                 </button>
                 <a
-                  href={`${QURAN_CDN}/${quranReciter.id}/${surahNum}.mp3`}
+                  href={qUrl(quranReciter, surahNum)}
                   download={`${surahInfo?.[2] || surahNum}.mp3`}
                   target="_blank" rel="noopener noreferrer"
                   style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, padding: "7px 14px", fontFamily: MONO, fontSize: 10, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", gap: 5 }}
@@ -11805,8 +11806,10 @@ export default function App() {
                   <div>
                     <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#ff6633" }}>⚠ تعذّر تشغيل الصوت — Audio unavailable</div>
                     <div style={{ fontFamily: MONO, fontSize: 9, color: "#cc7755", marginTop: 4 }}>
-                      هذه السورة غير متوفرة لهذا القارئ — surah not available for this reciter.<br/>
-                      Switch to a ★ reciter (Al-Afasy or Maher Al-Muaiqly have all 114 surahs).
+                      {quranReciter.full
+                        ? <>ملف الصوت غير متاح مؤقتاً — Audio file temporarily unavailable.<br/>Try a different surah or click RETRY.</>
+                        : <>هذه السورة غير متوفرة لهذا القارئ — surah not available for this reciter.<br/>Switch to a ★ reciter (Al-Afasy or Maher Al-Muaiqly have all 114 surahs).</>
+                      }
                     </div>
                   </div>
                   <button
@@ -11816,7 +11819,7 @@ export default function App() {
                       setQuranAudioError(false);
                       setQuranLoading(true);
                       if (quranAudioRef.current) {
-                        quranAudioRef.current.src = `${QURAN_CDN}/${quranReciter.id}/${surahNum}.mp3`;
+                        quranAudioRef.current.src = qUrl(quranReciter, surahNum);
                         quranAudioRef.current.load();
                         quranAudioRef.current.play().catch(() => {});
                       }
@@ -12282,7 +12285,7 @@ export default function App() {
             quranUsedFallback.current = true;
             const el = quranAudioRef.current;
             if (el) {
-              el.src = `${QURAN_CDN_LOW}/${quranReciter.id}/${quranSurah}.mp3`;
+              el.src = qUrl(quranReciter, quranSurah); // retry (quranicaudio.com has single quality)
               el.load();
               // Auto-play fallback if user intended to play (quranAutoPlay) OR was already playing
               if (quranAutoPlay.current || quranPlaying) {

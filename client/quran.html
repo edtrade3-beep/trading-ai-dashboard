@@ -206,21 +206,26 @@
 <audio id="audio" preload="none"></audio>
 
 <script>
-const CDN_HQ = "https://cdn.islamic.network/quran/audio-surah/128";
-const CDN_LQ = "https://cdn.islamic.network/quran/audio-surah/64";
-
+const QURAN_BASE = "https://download.quranicaudio.com/quran";
 const RECITERS = [
-  { id: "ar.alafasy",        name: "Mishary Al-Afasy — مشاري العفاسي" },
-  { id: "ar.mahermuaiqly",   name: "Maher Al-Muaiqly — ماهر المعيقلي" },
-  { id: "ar.husary",         name: "Al-Husary — الحصري" },
-  { id: "ar.minshawi",       name: "Al-Minshawi — المنشاوي" },
-  { id: "ar.shaatree",       name: "Ash-Shaatree — الشاطري" },
-  { id: "ar.abdullahbasfar", name: "Abdullah Basfar — عبد الله بصفر" },
-  { id: "ar.ahmedajamy",     name: "Ahmed Al-Ajamy — أحمد العجمي" },
-  { id: "ar.muhammadayyoub", name: "Muhammad Ayyoub — محمد أيوب" },
-  { id: "ar.saoodshuraym",   name: "Saud Al-Shuraim — سعود الشريم" },
-  { id: "ar.hudhaify",       name: "Ali Al-Hudhaify — علي الحذيفي" },
+  { id: "alafasy",  path: "mishaari_raashid_al_3afaasee",     name: "Mishary Al-Afasy — مشاري العفاسي" },
+  { id: "maher",    path: "maher_almu3aiqly/year1440",        name: "Maher Al-Muaiqly — ماهر المعيقلي" },
+  { id: "husary",   path: "mahmood_khaleel_al-husaree_iza3a", name: "Al-Husary — الحصري" },
+  { id: "minshawi", path: "muhammad_siddeeq_al-minshaawee",   name: "Al-Minshawi — المنشاوي" },
+  { id: "sudais",   path: "abdurrahmaan_as-sudays",           name: "Sudais — السديس" },
+  { id: "shuraym",  path: "sa3ood_al-shuraym",                name: "Shuraym — الشريم" },
+  { id: "ghamdi",   path: "sa3d_al-ghaamidi/complete",        name: "Saad Al-Ghamdi — سعد الغامدي" },
+  { id: "shatri",   path: "abu_bakr_ash-shatri_tarawee7",     name: "Abu Bakr Al-Shatri — أبو بكر الشاطري" },
+  { id: "hudhaify", path: "huthayfi",                         name: "Ali Al-Hudhaify — علي الحذيفي" },
+  { id: "ajamy",    path: "ahmed_ibn_3ali_al-3ajamy",         name: "Ahmed Al-Ajamy — أحمد العجمي" },
+  { id: "basfar",   path: "abdullaah_basfar",                 name: "Abdullah Basfar — عبد الله بصفر" },
+  { id: "ayyoub",   path: "muhammad_ayyoob_hq",               name: "Muhammad Ayyoub — محمد أيوب" },
+  { id: "akhdar",   path: "ibrahim_al_akhdar",                name: "Ibrahim Al-Akhdar — إبراهيم الأخضر" },
 ];
+function qUrl(recId, n) {
+  const r = RECITERS.find(x => x.id === recId);
+  return `${QURAN_BASE}/${r ? r.path : RECITERS[0].path}/${String(n).padStart(3, "0")}.mp3`;
+}
 
 const SURAHS = [
   [1,"الفاتحة","Al-Fatiha"],[2,"البقرة","Al-Baqara"],[3,"آل عمران","Ali 'Imran"],[4,"النساء","An-Nisa"],
@@ -256,7 +261,7 @@ const SURAHS = [
 
 // State
 let currentSurah  = parseInt(localStorage.getItem("obs_quran_surah") || "1", 10);
-let currentReciter = localStorage.getItem("obs_quran_reciter") || "ar.alafasy";
+let currentReciter = (() => { const s = localStorage.getItem("obs_quran_reciter"); return (s && RECITERS.find(r => r.id === s)) ? s : RECITERS[0].id; })();
 let usedFallback  = false;
 let playing       = false;
 
@@ -315,7 +320,7 @@ function setStatus(msg, isErr) {
 
 function loadAudio(autoPlay) {
   usedFallback = false;
-  audio.src    = `${CDN_HQ}/${currentReciter}/${currentSurah}.mp3`;
+  audio.src    = qUrl(currentReciter, currentSurah);
   audio.load();
   setStatus("Loading…");
   if (autoPlay) audio.play().catch(() => {});
@@ -343,9 +348,9 @@ audio.addEventListener("timeupdate", () => {
 audio.addEventListener("error", () => {
   if (!usedFallback) {
     usedFallback = true;
-    setStatus("Switching to lower quality…");
+    setStatus("Retrying…");
     const wasPlaying = playing;
-    audio.src = `${CDN_LQ}/${currentReciter}/${currentSurah}.mp3`;
+    audio.src = qUrl(currentReciter, currentSurah); // retry (quranicaudio.com has single quality)
     audio.load();
     if (wasPlaying) audio.play().catch(() => setStatus("Audio unavailable", true));
   } else {
