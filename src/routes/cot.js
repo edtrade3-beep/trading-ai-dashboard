@@ -81,13 +81,13 @@ async function handleCOT(req, res, requestUrl) {
     const results = {};
     for (const reportType of ["TFF", "DISAGG", "LEGACY"]) {
       try {
-        const { csv, year, stale } = await fetchCOTCsv(reportType);
+        const { csv, url, stale } = await fetchCOTCsv(reportType);
         const lines   = csv.split(/\r?\n/).filter(l => l.trim());
         const headers = lines[0] ? lines[0].split(",").map(h => h.replace(/^"|"$/g, "").trim()) : [];
         const parsed  = parseCOTCsv(csv, reportType);
         const markets = Array.from(parsed.keys()).slice(0, 8);
         results[reportType] = {
-          ok: true, year, stale,
+          ok: true, url, stale,
           csvBytes: csv.length,
           rowCount: lines.length - 1,
           headers: headers.slice(0, 20),
