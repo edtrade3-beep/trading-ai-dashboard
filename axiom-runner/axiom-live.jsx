@@ -4150,6 +4150,7 @@ export default function App() {
   // ── OpenStock / TradingView Widget State ──
   const [tvOsInput,  setTvOsInput]  = useState("SPY");
   const [tvOsSymbol, setTvOsSymbol] = useState("SPY");
+  const [fivexSector, setFivexSector] = useState("ALL");
 
   // ── Quran Player State ──
   const [quranReciter, setQuranReciter] = useState(() => {
@@ -6563,7 +6564,7 @@ export default function App() {
               { id: "dashboard", label: "MONITOR",   tabs: ["dashboard"] },
               { id: "terminal",  label: "TERMINAL",  tabs: ["terminal"] },
               { id: "scanner",   label: "SCANNER",   tabs: ["scanner", "early", "analyzer", "cot"] },
-              { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "tv", "flow", "openstock"] },
+              { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "tv", "flow", "openstock", "fivex"] },
               { id: "portfolio", label: "PORTFOLIO", tabs: ["portfolio", "journal", "alerts"] },
               { id: "tools",     label: "TOOLS",     tabs: ["tools", "backtest", "workflow", "agent"] },
               { id: "cot",       label: "📊 COT",    tabs: ["cot"] },
@@ -6891,6 +6892,7 @@ export default function App() {
             { id: "flow",     label: "FLOW" },
             { id: "tv",        label: "TV LIVE" },
             { id: "openstock", label: "📈 STOCKS" },
+            { id: "fivex",     label: "🚀 5X PLAYS" },
           ],
           portfolio: [
             { id: "portfolio", label: "POSITIONS" },
@@ -8106,6 +8108,273 @@ export default function App() {
                     {lbl("FINANCIALS")}
                     {tvFrame("embed-widget-financials.js", { ...dark, symbol: sym, displayMode: "regular" }, 500)}
                   </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── 5X PLAYS: High-Growth Thematic Watchlist ──────────────────────── */}
+        {activeTab === "fivex" && (() => {
+          const FIVEX = [
+            { rank:1,  ticker:"BBAI",  company:"BigBear.ai",          sector:"Defense AI",       price:4.37,   e1:4.15,   e2:3.85,   e3:3.50,   trigger:4.72,   stop:3.71,   risk:"Very High",   upside:"5x-8x",  thesis:"Government AI systems" },
+            { rank:2,  ticker:"SERV",  company:"Serve Robotics",       sector:"Robotics",         price:8.84,   e1:8.40,   e2:7.78,   e3:7.07,   trigger:9.55,   stop:7.51,   risk:"Extreme",     upside:"10x+",   thesis:"Autonomous delivery robots" },
+            { rank:3,  ticker:"SMR",   company:"NuScale Power",        sector:"Nuclear",          price:12.07,  e1:11.47,  e2:10.62,  e3:9.66,   trigger:13.04,  stop:10.26,  risk:"High",        upside:"5x-7x",  thesis:"Small modular reactors" },
+            { rank:4,  ticker:"RDW",   company:"Redwire",              sector:"Space",            price:24.00,  e1:22.80,  e2:21.12,  e3:19.20,  trigger:25.92,  stop:20.40,  risk:"High",        upside:"4x-6x",  thesis:"Space infrastructure" },
+            { rank:5,  ticker:"NNE",   company:"Nano Nuclear Energy",  sector:"Nuclear",          price:27.36,  e1:25.99,  e2:24.08,  e3:21.89,  trigger:29.55,  stop:23.26,  risk:"Extreme",     upside:"10x+",   thesis:"Micro nuclear speculation" },
+            { rank:6,  ticker:"LUNR",  company:"Intuitive Machines",   sector:"Space",            price:40.34,  e1:38.32,  e2:35.50,  e3:32.27,  trigger:43.57,  stop:34.29,  risk:"Very High",   upside:"5x-10x", thesis:"Moon/NASA contracts" },
+            { rank:7,  ticker:"PL",    company:"Planet Labs",          sector:"Satellite AI",     price:50.48,  e1:47.96,  e2:44.42,  e3:40.38,  trigger:54.52,  stop:42.91,  risk:"High",        upside:"4x-6x",  thesis:"Earth observation AI" },
+            { rank:8,  ticker:"SYM",   company:"Symbotic",             sector:"Automation",       price:53.63,  e1:50.95,  e2:47.19,  e3:42.90,  trigger:57.92,  stop:45.59,  risk:"Medium-High", upside:"4x-6x",  thesis:"Warehouse robotics" },
+            { rank:9,  ticker:"OKLO",  company:"Oklo",                 sector:"AI Energy",        price:67.82,  e1:64.43,  e2:59.68,  e3:54.26,  trigger:73.25,  stop:57.65,  risk:"Very High",   upside:"8x-12x", thesis:"AI power demand + nuclear" },
+            { rank:10, ticker:"ASTS",  company:"AST SpaceMobile",      sector:"Space",            price:129.60, e1:123.12, e2:114.05, e3:103.68, trigger:139.97, stop:110.16, risk:"Very High",   upside:"8x-15x", thesis:"Satellite direct-to-phone" },
+            { rank:11, ticker:"PLTR",  company:"Palantir",             sector:"Defense AI",       price:132.51, e1:125.88, e2:116.61, e3:106.01, trigger:143.11, stop:112.63, risk:"Medium",      upside:"3x-5x",  thesis:"AI operating system" },
+            { rank:12, ticker:"RKLB",  company:"Rocket Lab",           sector:"Space",            price:150.23, e1:142.72, e2:132.20, e3:120.18, trigger:162.25, stop:127.70, risk:"High",        upside:"5x-8x",  thesis:"Launch + defense + satellites" },
+            { rank:13, ticker:"NBIS",  company:"Nebius Group",         sector:"AI Infrastructure",price:208.37, e1:197.95, e2:183.37, e3:166.70, trigger:225.04, stop:177.11, risk:"High",        upside:"4x-7x",  thesis:"AI compute infrastructure" },
+            { rank:14, ticker:"VRT",   company:"Vertiv",               sector:"Infrastructure",   price:319.78, e1:303.79, e2:281.41, e3:255.82, trigger:345.36, stop:271.81, risk:"Medium",      upside:"3x-5x",  thesis:"AI datacenter cooling" },
+            { rank:15, ticker:"PWR",   company:"Quanta Services",      sector:"Infrastructure",   price:733.62, e1:696.94, e2:645.59, e3:586.90, trigger:792.31, stop:623.58, risk:"Medium",      upside:"3x-5x",  thesis:"Grid modernization" },
+          ];
+
+          const SECTOR_META = {
+            "Defense AI":        { color: "#4488ff", icon: "🛡️" },
+            "Robotics":          { color: "#00d4ff", icon: "🤖" },
+            "Nuclear":           { color: "#ffaa00", icon: "⚛️" },
+            "Space":             { color: "#b06cff", icon: "🚀" },
+            "Satellite AI":      { color: "#00ffd4", icon: "🛰️" },
+            "Automation":        { color: "#66ff88", icon: "⚙️" },
+            "AI Energy":         { color: "#ff6633", icon: "⚡" },
+            "Infrastructure":    { color: "#88a0b8", icon: "🏗️" },
+            "AI Infrastructure": { color: "#cc66ff", icon: "🖥️" },
+          };
+
+          const RISK_COLOR = {
+            "Medium":       "#26a69a",
+            "Medium-High":  "#a8c030",
+            "High":         "#ffaa00",
+            "Very High":    "#ff7030",
+            "Extreme":      "#ff2255",
+          };
+
+          const UPSIDE_COLOR = (u) => {
+            if (u === "10x+") return "#ffd700";
+            if (u.startsWith("8x")) return "#00d4ff";
+            if (u.startsWith("5x")) return "#66ff88";
+            return "#aabbcc";
+          };
+
+          const $ = (n) => `$${n.toFixed(2)}`;
+          const sectors = ["ALL", ...Object.keys(SECTOR_META)];
+          const visible = fivexSector === "ALL" ? FIVEX : FIVEX.filter(s => s.sector === fivexSector);
+
+          // sector summary counts
+          const counts = {};
+          FIVEX.forEach(s => { counts[s.sector] = (counts[s.sector] || 0) + 1; });
+
+          const TH = (label, tip) => (
+            <th title={tip} style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, fontWeight: 700,
+              padding: "6px 8px", textAlign: "center", whiteSpace: "nowrap",
+              borderBottom: `1px solid ${C.border}`, letterSpacing: "0.06em" }}>
+              {label}
+            </th>
+          );
+
+          return (
+            <div>
+              {/* ── Header ── */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>
+                    🚀 HIGH-GROWTH THEMATIC WATCHLIST — 5× AND UP
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 4 }}>
+                    AI · INFRASTRUCTURE · ROBOTICS · NUCLEAR · SATELLITE · SPACE · AI ENERGY · DEFENCE AI &nbsp;|&nbsp;
+                    {FIVEX.length} STOCKS &nbsp;|&nbsp; PRICES CAPTURED 2026-05-27
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: "#ff9900", marginTop: 3 }}>
+                    ⚠ Entry zones are rule-based (−5% / −12% / −20% from capture price). Not financial advice.
+                  </div>
+                </div>
+                <button
+                  onClick={async () => {
+                    const lines = ["🚀 *5X Growth Watchlist*\n"];
+                    visible.forEach(s => {
+                      const sm = SECTOR_META[s.sector];
+                      lines.push(`${sm ? sm.icon : "•"} *${s.ticker}* ${s.upside} — ${s.thesis}`);
+                    });
+                    try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: lines.join("\n") }) }); } catch {}
+                  }}
+                  style={{ fontFamily: MONO, fontSize: 10, background: `${C.accent}18`, border: `1px solid ${C.accent}55`,
+                    color: C.accent, borderRadius: 4, padding: "5px 12px", cursor: "pointer", whiteSpace: "nowrap" }}>
+                  PUSH TO TELEGRAM
+                </button>
+              </div>
+
+              {/* ── Sector summary pills ── */}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+                {sectors.map(sec => {
+                  const meta = SECTOR_META[sec];
+                  const active = fivexSector === sec;
+                  const cnt = sec === "ALL" ? FIVEX.length : (counts[sec] || 0);
+                  return (
+                    <button key={sec}
+                      onClick={() => setFivexSector(sec)}
+                      style={{
+                        fontFamily: MONO, fontSize: 9, cursor: "pointer", borderRadius: 20,
+                        padding: "4px 10px", whiteSpace: "nowrap",
+                        background: active ? (meta ? meta.color + "30" : `${C.accent}22`) : C.surface,
+                        border: `1px solid ${active ? (meta ? meta.color : C.accent) : C.border}`,
+                        color: active ? (meta ? meta.color : C.accent) : C.textDim,
+                        fontWeight: active ? 700 : 400,
+                      }}>
+                      {meta ? meta.icon + " " : ""}{sec} {cnt > 0 && cnt < FIVEX.length ? `(${cnt})` : ""}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* ── Table ── */}
+              <div style={{ overflowX: "auto", borderRadius: 8, border: `1px solid ${C.border}` }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1050 }}>
+                  <thead style={{ background: themeMode === "dark" ? "#0d1117" : "#f0f2f5" }}>
+                    <tr>
+                      {TH("#", "Rank by price")}
+                      {TH("TICKER", "Symbol")}
+                      {TH("COMPANY", "Company name")}
+                      {TH("SECTOR", "Thematic sector")}
+                      {TH("PRICE", "Capture price")}
+                      {TH("STARTER −5%", "Starter entry zone")}
+                      {TH("BETTER −12%", "Better entry zone")}
+                      {TH("DEEP −20%", "Deep value entry zone")}
+                      {TH("BREAKOUT +8%", "Breakout trigger level")}
+                      {TH("STOP −15%", "Suggested stop loss")}
+                      {TH("RISK", "Risk classification")}
+                      {TH("UPSIDE", "Potential upside multiple")}
+                      {TH("THESIS", "Investment thesis")}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visible.map((s, i) => {
+                      const meta = SECTOR_META[s.sector] || { color: C.textDim, icon: "•" };
+                      const rColor = RISK_COLOR[s.risk] || C.textDim;
+                      const uColor = UPSIDE_COLOR(s.upside);
+                      const isAboveBreakout = s.price >= s.trigger;
+                      const isInEntry1 = s.price <= s.e1;
+                      const isInEntry2 = s.price <= s.e2;
+                      const isInEntry3 = s.price <= s.e3;
+                      const rowBg = i % 2 === 0
+                        ? (themeMode === "dark" ? "#11161d" : "#f9fafb")
+                        : (themeMode === "dark" ? "#0d1117" : "#ffffff");
+                      return (
+                        <tr key={s.ticker} style={{ background: rowBg, cursor: "pointer" }}
+                          onClick={() => { setTvOsInput(s.ticker); setTvOsSymbol(s.ticker); setActiveTab("openstock"); }}
+                          title={`Click to open ${s.ticker} in Stock Deep Dive`}>
+                          {/* Rank */}
+                          <td style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: "center",
+                            padding: "9px 8px", borderBottom: `1px solid ${C.border}22` }}>
+                            {s.rank}
+                          </td>
+                          {/* Ticker */}
+                          <td style={{ padding: "9px 8px", borderBottom: `1px solid ${C.border}22`, textAlign: "center" }}>
+                            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: meta.color,
+                              background: meta.color + "18", borderRadius: 4, padding: "2px 6px" }}>
+                              {s.ticker}
+                            </span>
+                          </td>
+                          {/* Company */}
+                          <td style={{ fontFamily: MONO, fontSize: 10, color: C.text, padding: "9px 8px",
+                            borderBottom: `1px solid ${C.border}22`, whiteSpace: "nowrap" }}>
+                            {s.company}
+                          </td>
+                          {/* Sector */}
+                          <td style={{ padding: "9px 8px", borderBottom: `1px solid ${C.border}22`, whiteSpace: "nowrap" }}>
+                            <span style={{ fontFamily: MONO, fontSize: 9, color: meta.color, fontWeight: 700 }}>
+                              {meta.icon} {s.sector}
+                            </span>
+                          </td>
+                          {/* Price */}
+                          <td style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text,
+                            textAlign: "right", padding: "9px 10px", borderBottom: `1px solid ${C.border}22` }}>
+                            {$(s.price)}
+                          </td>
+                          {/* Entry 1 -5% */}
+                          <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "right", padding: "9px 10px",
+                            borderBottom: `1px solid ${C.border}22`,
+                            color: isInEntry1 ? "#26a69a" : C.textDim,
+                            background: isInEntry1 ? "#26a69a14" : "transparent" }}>
+                            {$(s.e1)}
+                          </td>
+                          {/* Entry 2 -12% */}
+                          <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "right", padding: "9px 10px",
+                            borderBottom: `1px solid ${C.border}22`,
+                            color: isInEntry2 ? "#4caf50" : C.textDim,
+                            fontWeight: isInEntry2 ? 700 : 400,
+                            background: isInEntry2 ? "#4caf5018" : "transparent" }}>
+                            {$(s.e2)}
+                          </td>
+                          {/* Entry 3 -20% deep value */}
+                          <td style={{ fontFamily: MONO, fontSize: 11, textAlign: "right", padding: "9px 10px",
+                            borderBottom: `1px solid ${C.border}22`,
+                            color: isInEntry3 ? "#00e676" : C.textDim,
+                            fontWeight: isInEntry3 ? 800 : 400,
+                            background: isInEntry3 ? "#00e67618" : "transparent" }}>
+                            {$(s.e3)}
+                          </td>
+                          {/* Breakout +8% */}
+                          <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "right", padding: "9px 10px",
+                            borderBottom: `1px solid ${C.border}22`,
+                            color: isAboveBreakout ? "#ffd700" : "#ff9900",
+                            fontWeight: 700 }}>
+                            {$(s.trigger)}
+                          </td>
+                          {/* Stop -15% */}
+                          <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "right", padding: "9px 10px",
+                            borderBottom: `1px solid ${C.border}22`, color: C.red }}>
+                            {$(s.stop)}
+                          </td>
+                          {/* Risk */}
+                          <td style={{ textAlign: "center", padding: "9px 8px", borderBottom: `1px solid ${C.border}22` }}>
+                            <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: rColor,
+                              background: rColor + "20", border: `1px solid ${rColor}55`,
+                              borderRadius: 4, padding: "2px 6px", whiteSpace: "nowrap" }}>
+                              {s.risk.toUpperCase()}
+                            </span>
+                          </td>
+                          {/* Upside */}
+                          <td style={{ textAlign: "center", padding: "9px 8px", borderBottom: `1px solid ${C.border}22` }}>
+                            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: uColor }}>
+                              {s.upside}
+                            </span>
+                          </td>
+                          {/* Thesis */}
+                          <td style={{ fontFamily: MONO, fontSize: 9, color: C.textSec, padding: "9px 10px",
+                            borderBottom: `1px solid ${C.border}22`, whiteSpace: "nowrap" }}>
+                            {s.thesis}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ── Legend ── */}
+              <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginTop: 14, padding: "10px 14px",
+                background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                  <span style={{ color: "#26a69a" }}>■</span> STARTER −5% &nbsp;
+                  <span style={{ color: "#4caf50" }}>■</span> BETTER −12% &nbsp;
+                  <span style={{ color: "#00e676", fontWeight: 700 }}>■</span> DEEP −20% &nbsp;&nbsp;
+                  <span style={{ color: "#ff9900" }}>■</span> BREAKOUT +8% &nbsp;
+                  <span style={{ color: C.red }}>■</span> STOP −15%
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                  {["Extreme","Very High","High","Medium-High","Medium"].map(r => (
+                    <span key={r} style={{ marginRight: 10 }}>
+                      <span style={{ color: RISK_COLOR[r] }}>■</span> {r}
+                    </span>
+                  ))}
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginLeft: "auto" }}>
+                  Click any row → Stock Deep Dive ↗
                 </div>
               </div>
             </div>
