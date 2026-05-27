@@ -4560,6 +4560,35 @@ export default function App() {
     if (activeTab === "journal") loadJournalTab();
   }, [activeTab]);
 
+  // ── 5X PLAYS: live price fetch (component level — hooks must not be inside IIFEs) ──
+  const FIVEX_TICKERS = ["BBAI","SERV","SMR","RDW","NNE","LUNR","PL","SYM","OKLO","ASTS","PLTR","RKLB","NBIS","VRT","PWR"];
+  async function fetchLivePrices() {
+    setFivexLoading(true);
+    setFivexError(null);
+    try {
+      const res  = await fetch(`/api/yahoo/quote?symbols=${FIVEX_TICKERS.join(",")}`);
+      const data = await res.json();
+      const map  = {};
+      (Array.isArray(data) ? data : (data.quotes || [])).forEach(q => {
+        if (q.symbol) map[q.symbol] = {
+          price: Number(q.price  || 0),
+          change: Number(q.change || 0),
+          pct:   Number(q.changesPercentage || 0),
+        };
+      });
+      setFivexPrices(map);
+      setFivexFetchedAt(new Date());
+    } catch (e) {
+      setFivexError("Live price fetch failed — " + e.message);
+    }
+    setFivexLoading(false);
+  }
+  useEffect(() => {
+    if (activeTab === "fivex" && Object.keys(fivexPrices).length === 0 && !fivexLoading) {
+      fetchLivePrices();
+    }
+  }, [activeTab]);
+
   const loadPriceAlertList = useCallback(async () => {
     try {
       const res = await fetch("/api/price-alerts");
@@ -8120,37 +8149,6 @@ export default function App() {
 
         {/* ── 5X PLAYS: High-Growth Thematic Watchlist ──────────────────────── */}
         {activeTab === "fivex" && (() => {
-          const ALL_TICKERS = ["BBAI","SERV","SMR","RDW","NNE","LUNR","PL","SYM","OKLO","ASTS","PLTR","RKLB","NBIS","VRT","PWR"];
-
-          async function fetchLivePrices() {
-            setFivexLoading(true);
-            setFivexError(null);
-            try {
-              const res = await fetch(`/api/yahoo/quote?symbols=${ALL_TICKERS.join(",")}`);
-              const data = await res.json();
-              const map = {};
-              (Array.isArray(data) ? data : (data.quotes || [])).forEach(q => {
-                if (q.symbol) map[q.symbol] = {
-                  price: Number(q.price || 0),
-                  change: Number(q.change || 0),
-                  pct: Number(q.changesPercentage || 0),
-                };
-              });
-              setFivexPrices(map);
-              setFivexFetchedAt(new Date());
-            } catch (e) {
-              setFivexError("Live price fetch failed — " + e.message);
-            }
-            setFivexLoading(false);
-          }
-
-          // Auto-fetch when tab first opens (only if no data yet)
-          React.useEffect(() => {
-            if (activeTab === "fivex" && Object.keys(fivexPrices).length === 0 && !fivexLoading) {
-              fetchLivePrices();
-            }
-          }, [activeTab]);
-
           const FIVEX = [
             { rank:1,  ticker:"BBAI",  company:"BigBear.ai",          sector:"Defense AI",       price:4.37,   e1:4.15,   e2:3.85,   e3:3.50,   trigger:4.72,   stop:3.71,   risk:"Very High",   upside:"5x-8x",  thesis:"Government AI systems" },
             { rank:2,  ticker:"SERV",  company:"Serve Robotics",       sector:"Robotics",         price:8.84,   e1:8.40,   e2:7.78,   e3:7.07,   trigger:9.55,   stop:7.51,   risk:"Extreme",     upside:"10x+",   thesis:"Autonomous delivery robots" },
