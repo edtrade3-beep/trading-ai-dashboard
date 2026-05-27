@@ -4151,6 +4151,7 @@ export default function App() {
   const [tvOsInput,  setTvOsInput]  = useState("SPY");
   const [tvOsSymbol, setTvOsSymbol] = useState("SPY");
   const [fivexSector,    setFivexSector]    = useState("ALL");
+  const [fivexSort,      setFivexSort]      = useState("rank");  // "rank" | "zone" | "upside" | "risk"
   const [fivexPrices,    setFivexPrices]    = useState({});   // { BBAI: { price, change, pct } }
   const [fivexLoading,   setFivexLoading]   = useState(false);
   const [fivexFetchedAt, setFivexFetchedAt] = useState(null);
@@ -4588,6 +4589,12 @@ export default function App() {
       fetchLivePrices();
     }
   }, [activeTab]);
+  // Auto-refresh live prices every 5 min while 5X PLAYS tab is open
+  useEffect(() => {
+    if (activeTab !== "fivex") return;
+    const t = setInterval(() => { if (!fivexLoading) fetchLivePrices(); }, 5 * 60 * 1000);
+    return () => clearInterval(t);
+  }, [activeTab, fivexLoading]);
 
   const loadPriceAlertList = useCallback(async () => {
     try {
@@ -8196,11 +8203,41 @@ export default function App() {
 
           const $ = (n) => `$${n.toFixed(2)}`;
           const sectors = ["ALL", ...Object.keys(SECTOR_META)];
-          const visible = fivexSector === "ALL" ? FIVEX : FIVEX.filter(s => s.sector === fivexSector);
+
+          // zone classification per ticker (using live price when available)
+          function getZone(s) {
+            const lv = fivexPrices[s.ticker];
+            const p  = lv ? lv.price : s.price;
+            if (!lv) return "no-data";
+            if (p <= s.stop)     return "stop";
+            if (p <= s.e3)       return "deep";
+            if (p <= s.e2)       return "better";
+            if (p <= s.e1)       return "starter";
+            if (p >= s.trigger)  return "breakout";
+            return "wait";
+          }
+
+          // zone sort order
+          const ZONE_ORDER = { deep: 0, better: 1, starter: 2, breakout: 3, wait: 4, stop: 5, "no-data": 6 };
+          const UPSIDE_VAL = u => u === "10x+" ? 10 : parseFloat(u) || 0;
+          const RISK_ORDER = { Extreme: 0, "Very High": 1, High: 2, "Medium-High": 3, Medium: 4 };
 
           // sector summary counts
           const counts = {};
           FIVEX.forEach(s => { counts[s.sector] = (counts[s.sector] || 0) + 1; });
+
+          // zone summary counts
+          const zoneCounts = { deep: 0, better: 0, starter: 0, breakout: 0, wait: 0, stop: 0 };
+          FIVEX.forEach(s => { const z = getZone(s); if (z in zoneCounts) zoneCounts[z]++; });
+
+          // filter + sort
+          const filtered = fivexSector === "ALL" ? [...FIVEX] : FIVEX.filter(s => s.sector === fivexSector);
+          const visible = filtered.sort((a, b) => {
+            if (fivexSort === "zone")   return ZONE_ORDER[getZone(a)] - ZONE_ORDER[getZone(b)];
+            if (fivexSort === "upside") return UPSIDE_VAL(b.upside) - UPSIDE_VAL(a.upside);
+            if (fivexSort === "risk")   return (RISK_ORDER[a.risk] ?? 9) - (RISK_ORDER[b.risk] ?? 9);
+            return a.rank - b.rank; // default: rank
+          });
 
           const TH = (label, tip) => (
             <th title={tip} style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, fontWeight: 700,
@@ -8262,6 +8299,45 @@ export default function App() {
                     PUSH TO TELEGRAM
                   </button>
                 </div>
+              </div>
+
+              {/* ── Zone summary bar ── */}
+              {Object.keys(fivexPrices).length > 0 && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12,
+                  padding: "10px 14px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, alignItems: "center" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginRight: 4 }}>LIVE ZONES:</span>
+                  {[
+                    { key: "deep",     label: "🟢 DEEP VALUE",  color: "#00e676" },
+                    { key: "better",   label: "⚡ BETTER ENTRY", color: "#4caf50" },
+                    { key: "starter",  label: "🔵 STARTER",      color: "#26a69a" },
+                    { key: "breakout", label: "🚀 BREAKOUT",     color: "#ffd700" },
+                    { key: "wait",     label: "⏳ WAIT",         color: C.textDim },
+                    { key: "stop",     label: "⚠ BELOW STOP",   color: C.red     },
+                  ].map(({ key, label, color }) => zoneCounts[key] > 0 && (
+                    <span key={key} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                      color, background: color + "18", border: `1px solid ${color}44`,
+                      borderRadius: 12, padding: "3px 10px", cursor: "pointer" }}
+                      onClick={() => setFivexSort("zone")}>
+                      {label} <span style={{ fontWeight: 900 }}>{zoneCounts[key]}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* ── Sort + Sector pills row ── */}
+              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
+                <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>SORT:</span>
+                {[["rank","RANK"],["zone","ZONE"],["upside","UPSIDE"],["risk","RISK"]].map(([val, lbl]) => (
+                  <button key={val} onClick={() => setFivexSort(val)} style={{
+                    fontFamily: MONO, fontSize: 9, cursor: "pointer", borderRadius: 4,
+                    padding: "3px 8px",
+                    background: fivexSort === val ? `${C.accent}22` : C.surface,
+                    border: `1px solid ${fivexSort === val ? C.accent : C.border}`,
+                    color: fivexSort === val ? C.accent : C.textDim, fontWeight: fivexSort === val ? 700 : 400,
+                  }}>{lbl}</button>
+                ))}
+                <span style={{ fontFamily: MONO, fontSize: 9, color: C.border, margin: "0 4px" }}>|</span>
+                <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>SECTOR:</span>
               </div>
 
               {/* ── Sector summary pills ── */}
