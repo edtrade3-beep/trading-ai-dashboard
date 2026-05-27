@@ -4150,7 +4150,11 @@ export default function App() {
   // ── OpenStock / TradingView Widget State ──
   const [tvOsInput,  setTvOsInput]  = useState("SPY");
   const [tvOsSymbol, setTvOsSymbol] = useState("SPY");
-  const [fivexSector, setFivexSector] = useState("ALL");
+  const [fivexSector,    setFivexSector]    = useState("ALL");
+  const [fivexPrices,    setFivexPrices]    = useState({});   // { BBAI: { price, change, pct } }
+  const [fivexLoading,   setFivexLoading]   = useState(false);
+  const [fivexFetchedAt, setFivexFetchedAt] = useState(null);
+  const [fivexError,     setFivexError]     = useState(null);
 
   // ── Quran Player State ──
   const [quranReciter, setQuranReciter] = useState(() => {
@@ -8116,6 +8120,37 @@ export default function App() {
 
         {/* ── 5X PLAYS: High-Growth Thematic Watchlist ──────────────────────── */}
         {activeTab === "fivex" && (() => {
+          const ALL_TICKERS = ["BBAI","SERV","SMR","RDW","NNE","LUNR","PL","SYM","OKLO","ASTS","PLTR","RKLB","NBIS","VRT","PWR"];
+
+          async function fetchLivePrices() {
+            setFivexLoading(true);
+            setFivexError(null);
+            try {
+              const res = await fetch(`/api/yahoo/quote?symbols=${ALL_TICKERS.join(",")}`);
+              const data = await res.json();
+              const map = {};
+              (Array.isArray(data) ? data : (data.quotes || [])).forEach(q => {
+                if (q.symbol) map[q.symbol] = {
+                  price: Number(q.price || 0),
+                  change: Number(q.change || 0),
+                  pct: Number(q.changesPercentage || 0),
+                };
+              });
+              setFivexPrices(map);
+              setFivexFetchedAt(new Date());
+            } catch (e) {
+              setFivexError("Live price fetch failed — " + e.message);
+            }
+            setFivexLoading(false);
+          }
+
+          // Auto-fetch when tab first opens (only if no data yet)
+          React.useEffect(() => {
+            if (activeTab === "fivex" && Object.keys(fivexPrices).length === 0 && !fivexLoading) {
+              fetchLivePrices();
+            }
+          }, [activeTab]);
+
           const FIVEX = [
             { rank:1,  ticker:"BBAI",  company:"BigBear.ai",          sector:"Defense AI",       price:4.37,   e1:4.15,   e2:3.85,   e3:3.50,   trigger:4.72,   stop:3.71,   risk:"Very High",   upside:"5x-8x",  thesis:"Government AI systems" },
             { rank:2,  ticker:"SERV",  company:"Serve Robotics",       sector:"Robotics",         price:8.84,   e1:8.40,   e2:7.78,   e3:7.07,   trigger:9.55,   stop:7.51,   risk:"Extreme",     upside:"10x+",   thesis:"Autonomous delivery robots" },
@@ -8187,25 +8222,48 @@ export default function App() {
                   </div>
                   <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 4 }}>
                     AI · INFRASTRUCTURE · ROBOTICS · NUCLEAR · SATELLITE · SPACE · AI ENERGY · DEFENCE AI &nbsp;|&nbsp;
-                    {FIVEX.length} STOCKS &nbsp;|&nbsp; PRICES CAPTURED 2026-05-27
+                    {FIVEX.length} STOCKS &nbsp;|&nbsp; REF PRICES: 2026-05-27
                   </div>
                   <div style={{ fontFamily: MONO, fontSize: 9, color: "#ff9900", marginTop: 3 }}>
-                    ⚠ Entry zones are rule-based (−5% / −12% / −20% from capture price). Not financial advice.
+                    ⚠ Entry zones rule-based (−5% / −12% / −20% from ref price). Not financial advice.
                   </div>
+                  {fivexFetchedAt && (
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.green, marginTop: 3 }}>
+                      ● LIVE PRICES as of {fivexFetchedAt.toLocaleTimeString()}
+                    </div>
+                  )}
+                  {fivexError && (
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.red, marginTop: 3 }}>⚠ {fivexError}</div>
+                  )}
                 </div>
-                <button
-                  onClick={async () => {
-                    const lines = ["🚀 *5X Growth Watchlist*\n"];
-                    visible.forEach(s => {
-                      const sm = SECTOR_META[s.sector];
-                      lines.push(`${sm ? sm.icon : "•"} *${s.ticker}* ${s.upside} — ${s.thesis}`);
-                    });
-                    try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: lines.join("\n") }) }); } catch {}
-                  }}
-                  style={{ fontFamily: MONO, fontSize: 10, background: `${C.accent}18`, border: `1px solid ${C.accent}55`,
-                    color: C.accent, borderRadius: 4, padding: "5px 12px", cursor: "pointer", whiteSpace: "nowrap" }}>
-                  PUSH TO TELEGRAM
-                </button>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <button
+                    onClick={fetchLivePrices}
+                    disabled={fivexLoading}
+                    style={{ fontFamily: MONO, fontSize: 10,
+                      background: fivexLoading ? C.surface : `${C.green}18`,
+                      border: `1px solid ${fivexLoading ? C.border : C.green}`,
+                      color: fivexLoading ? C.textDim : C.green,
+                      borderRadius: 4, padding: "5px 12px", cursor: fivexLoading ? "default" : "pointer", whiteSpace: "nowrap" }}>
+                    {fivexLoading ? "⌛ LOADING…" : "↻ LIVE PRICES"}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const lines = ["🚀 *5X Growth Watchlist*\n"];
+                      visible.forEach(s => {
+                        const lv = fivexPrices[s.ticker];
+                        const sm = SECTOR_META[s.sector];
+                        const priceStr = lv ? ` @ $${lv.price.toFixed(2)} (${lv.pct >= 0 ? "+" : ""}${lv.pct.toFixed(1)}%)` : "";
+                        const zone = lv ? (lv.price <= s.e3 ? " 🟢 DEEP VALUE" : lv.price <= s.e2 ? " 🟡 IN ZONE" : lv.price <= s.e1 ? " 🔵 STARTER" : "") : "";
+                        lines.push(`${sm ? sm.icon : "•"} *${s.ticker}*${priceStr}${zone} ${s.upside} — ${s.thesis}`);
+                      });
+                      try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: lines.join("\n") }) }); } catch {}
+                    }}
+                    style={{ fontFamily: MONO, fontSize: 10, background: `${C.accent}18`, border: `1px solid ${C.accent}55`,
+                      color: C.accent, borderRadius: 4, padding: "5px 12px", cursor: "pointer", whiteSpace: "nowrap" }}>
+                    PUSH TO TELEGRAM
+                  </button>
+                </div>
               </div>
 
               {/* ── Sector summary pills ── */}
@@ -8240,7 +8298,9 @@ export default function App() {
                       {TH("TICKER", "Symbol")}
                       {TH("COMPANY", "Company name")}
                       {TH("SECTOR", "Thematic sector")}
-                      {TH("PRICE", "Capture price")}
+                      {TH("REF PRICE", "Reference capture price (2026-05-27)")}
+                      {TH("LIVE", "Live market price + today's change")}
+                      {TH("ZONE", "Current entry zone based on live price")}
                       {TH("STARTER −5%", "Starter entry zone")}
                       {TH("BETTER −12%", "Better entry zone")}
                       {TH("DEEP −20%", "Deep value entry zone")}
@@ -8256,13 +8316,38 @@ export default function App() {
                       const meta = SECTOR_META[s.sector] || { color: C.textDim, icon: "•" };
                       const rColor = RISK_COLOR[s.risk] || C.textDim;
                       const uColor = UPSIDE_COLOR(s.upside);
-                      const isAboveBreakout = s.price >= s.trigger;
-                      const isInEntry1 = s.price <= s.e1;
-                      const isInEntry2 = s.price <= s.e2;
-                      const isInEntry3 = s.price <= s.e3;
-                      const rowBg = i % 2 === 0
+                      const lv = fivexPrices[s.ticker];
+                      const liveP = lv ? lv.price : null;
+                      // Use live price for zone detection when available, fall back to ref price
+                      const checkP = liveP || s.price;
+                      const isAboveBreakout = checkP >= s.trigger;
+                      const isBelowStop     = checkP <= s.stop;
+                      const isInEntry1      = checkP <= s.e1;
+                      const isInEntry2      = checkP <= s.e2;
+                      const isInEntry3      = checkP <= s.e3;
+                      // Row tint based on live zone
+                      let rowTint = "transparent";
+                      if (liveP) {
+                        if (isBelowStop)        rowTint = "#ff22441a";
+                        else if (isInEntry3)    rowTint = "#00e67610";
+                        else if (isInEntry2)    rowTint = "#4caf5010";
+                        else if (isInEntry1)    rowTint = "#26a69a0c";
+                        else if (isAboveBreakout) rowTint = "#ffd70010";
+                      }
+                      const rowBase = i % 2 === 0
                         ? (themeMode === "dark" ? "#11161d" : "#f9fafb")
                         : (themeMode === "dark" ? "#0d1117" : "#ffffff");
+                      const rowBg = rowTint !== "transparent" ? rowTint : rowBase;
+                      // Zone badge
+                      let zoneBadge = null;
+                      if (liveP) {
+                        if (isBelowStop)          zoneBadge = { label: "⚠ STOP", color: C.red };
+                        else if (isInEntry3)      zoneBadge = { label: "🟢 DEEP", color: "#00e676" };
+                        else if (isInEntry2)      zoneBadge = { label: "⚡ BETTER", color: "#4caf50" };
+                        else if (isInEntry1)      zoneBadge = { label: "🔵 STARTER", color: "#26a69a" };
+                        else if (isAboveBreakout) zoneBadge = { label: "🚀 BREAK", color: "#ffd700" };
+                        else                      zoneBadge = { label: "WAIT", color: C.textDim };
+                      }
                       return (
                         <tr key={s.ticker} style={{ background: rowBg, cursor: "pointer" }}
                           onClick={() => { setTvOsInput(s.ticker); setTvOsSymbol(s.ticker); setActiveTab("openstock"); }}
@@ -8290,10 +8375,42 @@ export default function App() {
                               {meta.icon} {s.sector}
                             </span>
                           </td>
-                          {/* Price */}
-                          <td style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text,
+                          {/* Ref Price */}
+                          <td style={{ fontFamily: MONO, fontSize: 10, fontWeight: 600, color: C.textDim,
                             textAlign: "right", padding: "9px 10px", borderBottom: `1px solid ${C.border}22` }}>
                             {$(s.price)}
+                          </td>
+                          {/* Live Price */}
+                          <td style={{ padding: "9px 10px", borderBottom: `1px solid ${C.border}22`, textAlign: "right" }}>
+                            {fivexLoading ? (
+                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>…</span>
+                            ) : liveP ? (
+                              <div>
+                                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800,
+                                  color: lv.pct >= 0 ? C.green : C.red }}>
+                                  {$(liveP)}
+                                </div>
+                                <div style={{ fontFamily: MONO, fontSize: 8,
+                                  color: lv.pct >= 0 ? C.green : C.red }}>
+                                  {lv.pct >= 0 ? "+" : ""}{lv.pct.toFixed(2)}%
+                                </div>
+                              </div>
+                            ) : (
+                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>—</span>
+                            )}
+                          </td>
+                          {/* Zone Badge */}
+                          <td style={{ textAlign: "center", padding: "9px 8px", borderBottom: `1px solid ${C.border}22` }}>
+                            {zoneBadge ? (
+                              <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700,
+                                color: zoneBadge.color, background: zoneBadge.color + "22",
+                                border: `1px solid ${zoneBadge.color}44`,
+                                borderRadius: 4, padding: "2px 5px", whiteSpace: "nowrap" }}>
+                                {zoneBadge.label}
+                              </span>
+                            ) : (
+                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>—</span>
+                            )}
                           </td>
                           {/* Entry 1 -5% */}
                           <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "right", padding: "9px 10px",
