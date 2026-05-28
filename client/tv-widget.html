@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+</style>
+</head>
+<body>
+<script>
+(function () {
+  var p = new URLSearchParams(location.search);
+  var w  = p.get("w")  || "advanced-chart";
+  var s  = (p.get("s") || "SPY").toUpperCase();
+  var t  = p.get("t") === "light" ? "light" : "dark";
+  var h  = Math.min(900, Math.max(60, parseInt(p.get("h") || "500", 10)));
+  var bg = t === "dark" ? "#0a0e1a" : "#f0f4f9";
+
+  document.documentElement.style.background = bg;
+  document.body.style.background = bg;
+
+  var D = {
+    colorTheme:    t,
+    locale:        "en",
+    isTransparent: false,
+    width:         "100%",
+    height:        h
+  };
+
+  var CFGS = {
+    "advanced-chart": Object.assign({}, D, {
+      symbol:             s,
+      interval:           "D",
+      style:              "1",
+      details:            false,
+      hotlist:            false,
+      calendar:           false,
+      studies:            ["STD;MACD", "STD;RSI"],
+      allow_symbol_change: false,
+      save_image:         false,
+      hide_top_toolbar:   false,
+      hide_legend:        false
+    }),
+    "technical-analysis": Object.assign({}, D, {
+      symbol:           s,
+      interval:         "1D",
+      showIntervalTabs: true,
+      displayMode:      "multiple"
+    }),
+    "financials": Object.assign({}, D, {
+      symbol:      s,
+      displayMode: "regular"
+    }),
+    "symbol-info": Object.assign({}, D, {
+      symbol:       s,
+      largeChartUrl: ""
+    }),
+    "timeline": Object.assign({}, D, {
+      feedMode:    "symbol",
+      symbol:      s,
+      displayMode: "regular"
+    }),
+    "mini-symbol-overview": Object.assign({}, D, {
+      symbol:          s,
+      dateRange:       "3M",
+      trendLineColor:  t === "dark" ? "#22d47e" : "#059669",
+      underLineColor:  t === "dark" ? "rgba(34,212,126,0.12)" : "rgba(5,150,105,0.10)"
+    }),
+    "market-overview": Object.assign({}, D, {
+      showFloatingTooltip: false,
+      tabs: [
+        { title: "Indices", symbols: [
+          { s: "FOREXCOM:SPXUSD", d: "S&P 500" },
+          { s: "FOREXCOM:NSXUSD", d: "Nasdaq 100" },
+          { s: "FOREXCOM:DJI",    d: "Dow Jones" },
+          { s: "FOREXCOM:VIXUSD", d: "VIX" }
+        ]}
+      ]
+    }),
+    "events": Object.assign({}, D, {
+      importanceFilter:  "-1,0,1",
+      currencyFilter:    "USD,EUR,GBP,JPY,AUD,CAD,CHF,CNY"
+    })
+  };
+
+  var cfg = CFGS[w] || CFGS["advanced-chart"];
+  var scriptSrc = "https://s3.tradingview.com/external-embedding/embed-widget-" + w + ".js";
+
+  // document.write during initial parse so the script element's textContent
+  // is available via document.currentScript for TradingView to read as config.
+  document.write(
+    '<div class="tradingview-widget-container" style="width:100%;height:' + h + 'px">'
+    + '<div class="tradingview-widget-container__widget" style="width:100%;height:' + h + 'px"></div>'
+    + '<script type="text/javascript" src="' + scriptSrc + '" async>'
+    + JSON.stringify(cfg)
+    + '<\\/script>'
+    + '<\/div>'
+  );
+})();
+</script>
+</body>
+</html>

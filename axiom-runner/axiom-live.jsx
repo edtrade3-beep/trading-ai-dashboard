@@ -8265,20 +8265,17 @@ export default function App() {
           const tvTheme = themeMode === "dark" ? "dark" : "light";
           const bgColor = themeMode === "dark" ? "#0a0e1a" : "#f0f4f9";
 
-          function tvFrame(scriptFile, cfg, height) {
-            const config = JSON.stringify({ ...cfg, width: "100%", height });
+          // Use a real served HTML file (not srcDoc) so the iframe has a proper
+          // same-origin URL — TradingView scripts are blocked in null-origin frames.
+          function tvFrame(widgetName, cfg, height) {
+            const sym    = cfg.symbol || "SPY";
+            const src    = `/client/tv-widget.html?w=${widgetName}&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=${height}`;
             return (
               <iframe
-                key={`${scriptFile}-${cfg.symbol || ""}-${tvTheme}`}
-                srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>*{margin:0;padding:0;box-sizing:border-box}html,body{height:${height}px;overflow:hidden;background:${bgColor}}</style>
-</head><body>
-<div class="tradingview-widget-container" style="height:${height}px;width:100%">
-  <div class="tradingview-widget-container__widget" style="height:${height}px;width:100%"></div>
-  <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/${scriptFile}" async>${config}<\/script>
-</div></body></html>`}
+                key={`${widgetName}-${sym}-${tvTheme}-${height}`}
+                src={src}
                 style={{ width: "100%", height, border: "none", display: "block" }}
-                scrolling="no" title={scriptFile}
+                scrolling="no" title={widgetName}
               />
             );
           }
@@ -8353,14 +8350,14 @@ export default function App() {
               {/* ── Symbol info strip (price, change, key stats) ── */}
               <div key={`si-${sym}-${tvTheme}`} style={card()}>
                 {sectionLabel("📌", `${sym} — OVERVIEW`)}
-                {tvFrame("embed-widget-symbol-info.js", { ...D, symbol: sym, largeChartUrl: "" }, 90)}
+                {tvFrame("symbol-info", { ...D, symbol: sym, largeChartUrl: "" }, 90)}
               </div>
 
               {/* ── Main row: Chart (left) + Technical Analysis (right) ── */}
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.6fr 1fr", gap: 12 }}>
                 <div key={`ch-${sym}-${tvTheme}`} style={card()}>
                   {sectionLabel("📊", "ADVANCED CHART — RSI + MACD")}
-                  {tvFrame("embed-widget-advanced-chart.js", {
+                  {tvFrame("advanced-chart", {
                     ...D, symbol: sym, interval: "D", style: "1",
                     details: false, hotlist: false, calendar: false,
                     studies: ["STD;MACD", "STD;RSI"],
@@ -8370,7 +8367,7 @@ export default function App() {
                 </div>
                 <div key={`ta-${sym}-${tvTheme}`} style={card()}>
                   {sectionLabel("🎯", "TECHNICAL ANALYSIS — MULTI TIMEFRAME")}
-                  {tvFrame("embed-widget-technical-analysis.js", {
+                  {tvFrame("technical-analysis", {
                     ...D, symbol: sym, interval: "1D", showIntervalTabs: true,
                     displayMode: "multiple",
                   }, isMobile ? 300 : 520)}
@@ -8381,13 +8378,13 @@ export default function App() {
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.2fr 1fr", gap: 12 }}>
                 <div key={`fn-${sym}-${tvTheme}`} style={card()}>
                   {sectionLabel("💰", "FINANCIALS — INCOME / BALANCE / CASH FLOW")}
-                  {tvFrame("embed-widget-financials.js", {
+                  {tvFrame("financials", {
                     ...D, symbol: sym, displayMode: "regular",
                   }, isMobile ? 400 : 500)}
                 </div>
                 <div key={`nl-${sym}-${tvTheme}`} style={card()}>
                   {sectionLabel("📰", `NEWS — ${sym}`)}
-                  {tvFrame("embed-widget-timeline.js", {
+                  {tvFrame("timeline", {
                     ...D, feedMode: "symbol", symbol: sym, displayMode: "regular",
                   }, isMobile ? 300 : 500)}
                 </div>
@@ -9124,7 +9121,7 @@ export default function App() {
                                             title={`tv-${row.ticker}`}
                                             scrolling="no"
                                             style={{ width: "100%", height: 220, border: "none" }}
-                                            srcDoc={`<!DOCTYPE html><html><head><style>body{margin:0;padding:0;overflow:hidden;background:#0c1525}</style></head><body><div class="tradingview-widget-container"><div id="tv_chart"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>{"symbol":"${row.ticker}","width":"100%","height":220,"locale":"en","dateRange":"3M","colorTheme":"${themeMode}","isTransparent":false,"autosize":true,"largeChartUrl":""}<\/script></div></body></html>`}
+                                            src={`/client/tv-widget.html?w=mini-symbol-overview&s=${encodeURIComponent(row.ticker)}&t=${themeMode === "dark" ? "dark" : "light"}&h=220`}
                                           />
                                         </div>
                                       </div>
@@ -11028,28 +11025,7 @@ export default function App() {
                   title="Economic Calendar"
                   scrolling="no"
                   style={{ width: "100%", height: CAL_H, border: "none", display: "block" }}
-                  srcDoc={`<!DOCTYPE html><html><head>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { height: 100%; overflow: hidden;
-    background: ${themeMode === "dark" ? "#0a0e1a" : "#f0f4f9"}; }
-</style>
-</head><body>
-<div class="tradingview-widget-container" style="height:100%;width:100%">
-  <div class="tradingview-widget-container__widget"></div>
-  <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-events.js" async>
-  {
-    "colorTheme": "${tvTheme}",
-    "isTransparent": false,
-    "width": "100%",
-    "height": "${CAL_H}",
-    "locale": "en",
-    "importanceFilter": "-1,0,1",
-    "currencyFilter": "USD,EUR,GBP,JPY,AUD,CAD,CHF,CNY"
-  }
-  <\/script>
-</div>
-</body></html>`}
+                  src={`/client/tv-widget.html?w=events&s=SPY&t=${themeMode === "dark" ? "dark" : "light"}&h=${CAL_H}`}
                 />
               </div>
 
