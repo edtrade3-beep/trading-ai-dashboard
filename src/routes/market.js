@@ -79,11 +79,14 @@ function mergeQuoteRows(primaryRows, overlayRows) {
 }
 
 async function fetchMarketQuotes(symbols, keys) {
-  const liveBatch = await withTimeout(fetchYahooQuoteBatch(symbols), 5000, []);
+  // Primary: v7 batch (1 HTTP call, 90s cached) — fast when Yahoo allows it
+  const liveBatch = await withTimeout(fetchYahooQuoteBatch(symbols), 8000, []);
   const quoteFirstRows = normalizeQuoteBatchToRows(symbols, Array.isArray(liveBatch) ? liveBatch : []);
+  // Fallback: per-symbol chart calls — slower but works when v7 is blocked
+  // Cap at 15s total so we never hang the server
   const yahooRows = quoteFirstRows.length
     ? quoteFirstRows
-    : await withTimeout(fetchYahooQuotes(symbols), MARKET_QUOTE_TIMEOUT_MS, []);
+    : await withTimeout(fetchYahooQuotes(symbols), Math.min(MARKET_QUOTE_TIMEOUT_MS, 15000), []);
   const resolvedYahoo = Array.isArray(yahooRows) ? yahooRows : [];
   const hasGaps = resolvedYahoo.some((row) => !Number.isFinite(Number(row.marketCap)) || Number(row.marketCap) <= 0);
 
@@ -403,8 +406,14 @@ async function handleMarket(req, res, requestUrl) {
       .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
     if (!symbols.length) return writeJson(res, 400, { error: "At least one symbol is required." });
     const keys = resolveProviderKeys(searchParams);
-    const payload = await fetchMarketQuotes(symbols, keys);
-    return writeJson(res, 200, payload);
+    try {
+      const payload = await withTimeout(fetchMarketQuotes(symbols, keys), 28000, []);
+      return writeJson(res, 200, Array.isArray(payload) ? payload : []);
+    } catch (err) {
+      // Return empty array rather than letting this propagate to a 502
+      console.error("[market/quote] Error:", err?.message);
+      return writeJson(res, 200, []);
+    }
   }
 
   if (pathname === "/api/market/movers") {

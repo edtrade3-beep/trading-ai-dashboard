@@ -2,64 +2,122 @@ const { fetchJsonSafe, round2, average, trimText, stripHtml, decodeXmlEntities, 
 const { aggregateBars, computeEMASeries, computeVWAPSeries, computeRSISeries, computeMACDSeries } = require("../indicators");
 const { CANDLE_TIMEFRAME_CONFIG } = require("../config");
 
+// ── Caches ──────────────────────────────────────────────────────────────────
 const MARKET_CAP_CACHE = new Map();
+// Quote batch cache: 90 seconds — avoids hammering Yahoo on every page load
+const QUOTE_BATCH_CACHE = new Map();
+const QUOTE_CACHE_TTL_MS = 90_000;
 
-async function fetchYahooBars(symbol, range, interval) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false&events=div%2Csplits`;
-  const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-  if (!response.ok) {
-    throw new Error(`Yahoo chart request failed for ${symbol}: ${response.status}`);
+// ── Robust Yahoo fetch with AbortController timeout ──────────────────────────
+// Every raw Yahoo HTTP call MUST go through this — prevents server from hanging
+// when Yahoo rate-limits by silently keeping TCP connections open indefinitely.
+const YAHOO_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Accept": "application/json, text/plain, */*",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Accept-Encoding": "gzip, deflate, br",
+  "Origin": "https://finance.yahoo.com",
+  "Referer": "https://finance.yahoo.com/",
+};
+
+async function yFetch(url, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { headers: YAHOO_HEADERS, signal: controller.signal });
+    clearTimeout(timer);
+    return res;
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
   }
-  const payload = await response.json();
+}
+
+// ── Parse chart result into bar array ────────────────────────────────────────
+function parseYahooChartBars(payload) {
   const result = payload?.chart?.result?.[0];
-  const quote = result?.indicators?.quote?.[0];
+  const q = result?.indicators?.quote?.[0];
   const timestamps = result?.timestamp || [];
-  if (!quote || !timestamps.length) {
-    throw new Error(`No chart data returned for ${symbol}.`);
-  }
+  if (!q || !timestamps.length) return [];
   const bars = [];
-  for (let i = 0; i < timestamps.length; i += 1) {
-    const open = quote.open?.[i];
-    const high = quote.high?.[i];
-    const low = quote.low?.[i];
-    const close = quote.close?.[i];
-    const volume = quote.volume?.[i] ?? 0;
-    if ([open, high, low, close].some((value) => value == null)) continue;
+  for (let i = 0; i < timestamps.length; i++) {
+    const open = q.open?.[i], high = q.high?.[i], low = q.low?.[i], close = q.close?.[i];
+    const volume = q.volume?.[i] ?? 0;
+    if ([open, high, low, close].some(v => v == null)) continue;
     bars.push({ time: timestamps[i] * 1000, open, high, low, close, volume });
   }
   return bars;
+}
+
+async function fetchYahooBars(symbol, range, interval) {
+  // Try query1 first, fall back to query2 (different rate-limit pool)
+  const path = `/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false&events=div%2Csplits`;
+  const urls = [
+    `https://query1.finance.yahoo.com${path}`,
+    `https://query2.finance.yahoo.com${path}`,
+  ];
+  for (const url of urls) {
+    try {
+      const response = await yFetch(url, 9000);
+      if (!response.ok) continue;
+      const payload = await response.json();
+      const bars = parseYahooChartBars(payload);
+      if (bars.length > 0) return bars;
+    } catch { continue; }
+  }
+  throw new Error(`Yahoo chart unavailable for ${symbol}`);
 }
 
 async function fetchYahooQuoteBatch(symbols) {
   try {
     const list = symbols.map((s) => String(s || "").trim()).filter(Boolean).join(",");
     if (!list) return [];
-    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(list)}`;
-    const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-    if (!response.ok) return [];
-    const payload = await response.json();
-    return Array.isArray(payload?.quoteResponse?.result) ? payload.quoteResponse.result : [];
+
+    // Check cache first
+    const cached = QUOTE_BATCH_CACHE.get(list);
+    if (cached && Date.now() - cached.ts < QUOTE_CACHE_TTL_MS) return cached.data;
+
+    // Try v7 on query1 and query2 (different rate-limit buckets)
+    const endpoints = [
+      `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(list)}`,
+      `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(list)}`,
+    ];
+    for (const url of endpoints) {
+      try {
+        const response = await yFetch(url, 7000);
+        if (!response.ok) continue;
+        const payload = await response.json();
+        const result = Array.isArray(payload?.quoteResponse?.result) ? payload.quoteResponse.result : [];
+        if (result.length > 0) {
+          QUOTE_BATCH_CACHE.set(list, { data: result, ts: Date.now() });
+          return result;
+        }
+      } catch { continue; }
+    }
+    return [];
   } catch {
     return [];
   }
 }
 
 async function fetchYahooChartMeta(symbol) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d&includePrePost=false&events=div%2Csplits`;
-  try {
-    const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-    if (!response.ok) return null;
-    const payload = await response.json();
-    return payload?.chart?.result?.[0]?.meta || null;
-  } catch {
-    return null;
+  const path = `/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d&includePrePost=false&events=div%2Csplits`;
+  for (const host of ["query1", "query2"]) {
+    try {
+      const response = await yFetch(`https://${host}.finance.yahoo.com${path}`, 6000);
+      if (!response.ok) continue;
+      const payload = await response.json();
+      const meta = payload?.chart?.result?.[0]?.meta;
+      if (meta) return meta;
+    } catch { continue; }
   }
+  return null;
 }
 
 async function fetchYahooMarketCapFromSummary(symbol, price) {
   const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=price,defaultKeyStatistics`;
   try {
-    const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+    const response = await yFetch(url, 7000);
     if (!response.ok) return 0;
     const payload = await response.json();
     const result = payload?.quoteSummary?.result?.[0] || {};
@@ -248,7 +306,7 @@ async function fetchYahooFundamentals(symbol) {
 
   const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=price,summaryDetail,defaultKeyStatistics,calendarEvents,financialData`;
   try {
-    const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+    const response = await yFetch(url, 10000);
     if (!response.ok) {
       const fallbackCap = Number.isFinite(liveMarketCap) && liveMarketCap > 0
         ? liveMarketCap
