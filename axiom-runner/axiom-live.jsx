@@ -8260,176 +8260,139 @@ export default function App() {
           </div>
         )}
 
-        {/* ── OPENSTOCK: TradingView Market Widgets (iframe srcdoc approach) ──── */}
+        {/* ── STOCKS: Single-page stock deep dive ──────────────────────────── */}
         {activeTab === "openstock" && (() => {
-          // Each TradingView widget runs inside its own iframe so it gets a clean
-          // document context — the only reliable way to embed them in a React SPA.
+          const tvTheme = themeMode === "dark" ? "dark" : "light";
+          const bgColor = themeMode === "dark" ? "#0a0e1a" : "#f0f4f9";
+
           function tvFrame(scriptFile, cfg, height) {
-            // TradingView requires explicit pixel values — "100%" for height is ignored
-            const config = JSON.stringify({ ...cfg, width: "100%", height: height });
-            const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>*{margin:0;padding:0;box-sizing:border-box}html,body{height:${height}px;overflow:hidden;background:#131722}</style></head>
-<body>
-<div class="tradingview-widget-container" style="height:${height}px;width:100%">
-  <div class="tradingview-widget-container__widget" style="height:${height}px;width:100%"></div>
-  <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/${scriptFile}" async>
-  ${config}
-  <\/script>
-</div>
-</body></html>`;
+            const config = JSON.stringify({ ...cfg, width: "100%", height });
             return (
               <iframe
-                srcDoc={html}
-                style={{ width: "100%", height: height, border: "none", display: "block" }}
-                scrolling="no"
-                title={scriptFile}
+                key={`${scriptFile}-${cfg.symbol || ""}-${tvTheme}`}
+                srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>*{margin:0;padding:0;box-sizing:border-box}html,body{height:${height}px;overflow:hidden;background:${bgColor}}</style>
+</head><body>
+<div class="tradingview-widget-container" style="height:${height}px;width:100%">
+  <div class="tradingview-widget-container__widget" style="height:${height}px;width:100%"></div>
+  <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/${scriptFile}" async>${config}<\/script>
+</div></body></html>`}
+                style={{ width: "100%", height, border: "none", display: "block" }}
+                scrolling="no" title={scriptFile}
               />
             );
           }
 
-          const dark = { colorTheme: "dark", locale: "en", isTransparent: false };
-          const sym  = tvOsSymbol.toUpperCase();
-          const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" };
-          const lbl  = (t) => (
-            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim,
-              padding: "6px 10px", borderBottom: `1px solid ${C.border}` }}>{t}</div>
+          const D = { colorTheme: tvTheme, locale: "en", isTransparent: false };
+          const sym = tvOsSymbol.toUpperCase();
+
+          const QUICK = ["SPY","QQQ","NVDA","AAPL","MSFT","TSLA","BBAI","PLTR","RKLB","ASTS","SMR","OKLO"];
+
+          const card = (extraStyle = {}) => ({
+            background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
+            overflow: "hidden", ...extraStyle,
+          });
+
+          const sectionLabel = (icon, text) => (
+            <div style={{ display: "flex", alignItems: "center", gap: 6,
+              padding: "8px 14px", borderBottom: `1px solid ${C.border}`,
+              background: themeMode === "dark" ? "#0e1829" : "#eef3fa" }}>
+              <span style={{ fontSize: 13 }}>{icon}</span>
+              <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                color: C.textDim, letterSpacing: "0.07em" }}>{text}</span>
+            </div>
           );
 
           return (
-            <div>
-              {/* Header */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>
-                  📈 MARKET OVERVIEW — TRADINGVIEW
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+              {/* ── Search bar ── */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+                padding: "12px 16px", background: C.card,
+                border: `1px solid ${C.border}`, borderRadius: 10 }}>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900,
+                  color: C.text, letterSpacing: "0.05em" }}>📈 STOCKS</span>
+                <input
+                  value={tvOsInput}
+                  onChange={e => setTvOsInput(e.target.value.toUpperCase())}
+                  onKeyDown={e => { if (e.key === "Enter") setTvOsSymbol(tvOsInput.trim() || "SPY"); }}
+                  placeholder="Enter ticker…"
+                  style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
+                    background: C.surface, border: `1px solid ${C.accent}`,
+                    color: C.text, borderRadius: 6, padding: "6px 12px",
+                    width: 130, outline: "none", letterSpacing: "0.05em" }}
+                />
+                <button onClick={() => setTvOsSymbol(tvOsInput.trim() || "SPY")}
+                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                    background: C.accent, border: "none", color: "#fff",
+                    borderRadius: 6, padding: "7px 16px", cursor: "pointer" }}>
+                  GO
+                </button>
+                {/* Quick tickers */}
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                  {QUICK.map(t => (
+                    <button key={t} onClick={() => { setTvOsInput(t); setTvOsSymbol(t); }}
+                      style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                        background: sym === t ? `${C.accent}22` : C.surface,
+                        border: `1px solid ${sym === t ? C.accent : C.border}`,
+                        color: sym === t ? C.accent : C.textDim,
+                        borderRadius: 4, padding: "4px 8px", cursor: "pointer" }}>
+                      {t}
+                    </button>
+                  ))}
                 </div>
-                <a href="https://www.tradingview.com" target="_blank" rel="noopener noreferrer"
-                  style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, textDecoration: "none",
-                    border: `1px solid ${C.border}`, borderRadius: 4, padding: "3px 8px" }}>
-                  OPEN TRADINGVIEW ↗
+                <a href={`https://www.tradingview.com/chart/?symbol=${sym}`}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, color: C.textDim,
+                    textDecoration: "none", border: `1px solid ${C.border}`,
+                    borderRadius: 4, padding: "5px 10px" }}>
+                  Open in TradingView ↗
                 </a>
               </div>
 
-              {/* Row 1: Heatmap + Market Overview */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-                <div style={card}>
-                  {lbl("SPX 500 HEATMAP — BY SECTOR")}
-                  {tvFrame("embed-widget-stock-heatmap.js", {
-                    ...dark, dataSource: "SPX500", grouping: "sector",
-                    blockSize: "market_cap_basic", blockColor: "change",
-                    hasTopBar: false, isZoomEnabled: true, hasSymbolTooltip: true,
-                  }, 500)}
+              {/* ── Symbol info strip (price, change, key stats) ── */}
+              <div key={`si-${sym}-${tvTheme}`} style={card()}>
+                {sectionLabel("📌", `${sym} — OVERVIEW`)}
+                {tvFrame("embed-widget-symbol-info.js", { ...D, symbol: sym, largeChartUrl: "" }, 90)}
+              </div>
+
+              {/* ── Main row: Chart (left) + Technical Analysis (right) ── */}
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.6fr 1fr", gap: 12 }}>
+                <div key={`ch-${sym}-${tvTheme}`} style={card()}>
+                  {sectionLabel("📊", "ADVANCED CHART — RSI + MACD")}
+                  {tvFrame("embed-widget-advanced-chart.js", {
+                    ...D, symbol: sym, interval: "D", style: "1",
+                    details: false, hotlist: false, calendar: false,
+                    studies: ["STD;MACD", "STD;RSI"],
+                    allow_symbol_change: false, save_image: false,
+                    hide_top_toolbar: false, hide_legend: false,
+                  }, isMobile ? 360 : 520)}
                 </div>
-                <div style={card}>
-                  {lbl("MARKET OVERVIEW — INDICES / TECH / MACRO")}
-                  {tvFrame("embed-widget-market-overview.js", {
-                    ...dark, dateRange: "3M", showChart: true, showSymbolLogo: true, showFloatingTooltip: true,
-                    plotLineColorGrowing: "#26a69a", plotLineColorFalling: "#ef5350",
-                    tabs: [
-                      { title: "Indices", symbols: [
-                        { s: "FOREXCOM:SPXUSD", d: "S&P 500" }, { s: "FOREXCOM:NSXUSD", d: "Nasdaq 100" },
-                        { s: "FOREXCOM:DJI", d: "Dow Jones" }, { s: "INDEX:RTY", d: "Russell 2000" },
-                        { s: "NASDAQ:QQQ" }, { s: "AMEX:IWM" } ] },
-                      { title: "Tech", symbols: [
-                        { s: "NASDAQ:NVDA" }, { s: "NASDAQ:AAPL" }, { s: "NASDAQ:MSFT" },
-                        { s: "NASDAQ:META" }, { s: "NASDAQ:GOOGL" }, { s: "NASDAQ:AMZN" } ] },
-                      { title: "Macro", symbols: [
-                        { s: "AMEX:GLD", d: "Gold" }, { s: "AMEX:USO", d: "Oil" },
-                        { s: "NASDAQ:TLT", d: "Bonds" }, { s: "AMEX:UUP", d: "USD" },
-                        { s: "BITSTAMP:BTCUSD", d: "Bitcoin" }, { s: "AMEX:SLV", d: "Silver" } ] },
-                    ],
-                  }, 500)}
+                <div key={`ta-${sym}-${tvTheme}`} style={card()}>
+                  {sectionLabel("🎯", "TECHNICAL ANALYSIS — MULTI TIMEFRAME")}
+                  {tvFrame("embed-widget-technical-analysis.js", {
+                    ...D, symbol: sym, interval: "1D", showIntervalTabs: true,
+                    displayMode: "multiple",
+                  }, isMobile ? 300 : 520)}
                 </div>
               </div>
 
-              {/* Row 2: Quotes + News */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-                <div style={card}>
-                  {lbl("MARKET QUOTES — TECH / ETFs / CRYPTO")}
-                  {tvFrame("embed-widget-market-quotes.js", {
-                    ...dark, showSymbolLogo: true,
-                    symbolsGroups: [
-                      { name: "Tech", symbols: [
-                        { name: "NASDAQ:NVDA" }, { name: "NASDAQ:AAPL" }, { name: "NASDAQ:MSFT" },
-                        { name: "NASDAQ:META" }, { name: "NASDAQ:GOOGL" }, { name: "NASDAQ:AMZN" } ] },
-                      { name: "ETFs", symbols: [
-                        { name: "AMEX:SPY" }, { name: "NASDAQ:QQQ" }, { name: "AMEX:IWM" },
-                        { name: "NASDAQ:TLT" }, { name: "AMEX:GLD" }, { name: "AMEX:USO" } ] },
-                      { name: "Crypto", symbols: [
-                        { name: "BITSTAMP:BTCUSD" }, { name: "COINBASE:ETHUSD" } ] },
-                    ],
-                  }, 500)}
+              {/* ── Bottom row: Financials (left) + News (right) ── */}
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.2fr 1fr", gap: 12 }}>
+                <div key={`fn-${sym}-${tvTheme}`} style={card()}>
+                  {sectionLabel("💰", "FINANCIALS — INCOME / BALANCE / CASH FLOW")}
+                  {tvFrame("embed-widget-financials.js", {
+                    ...D, symbol: sym, displayMode: "regular",
+                  }, isMobile ? 400 : 500)}
                 </div>
-                <div style={card}>
-                  {lbl("MARKET NEWS TIMELINE")}
+                <div key={`nl-${sym}-${tvTheme}`} style={card()}>
+                  {sectionLabel("📰", `NEWS — ${sym}`)}
                   {tvFrame("embed-widget-timeline.js", {
-                    ...dark, feedMode: "all_symbols", displayMode: "regular",
-                  }, 500)}
+                    ...D, feedMode: "symbol", symbol: sym, displayMode: "regular",
+                  }, isMobile ? 300 : 500)}
                 </div>
               </div>
 
-              {/* Stock Deep Dive */}
-              <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 16, marginBottom: 14 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>
-                    STOCK DEEP DIVE
-                  </div>
-                  <input
-                    value={tvOsInput}
-                    onChange={e => setTvOsInput(e.target.value.toUpperCase())}
-                    onKeyDown={e => { if (e.key === "Enter") setTvOsSymbol(tvOsInput.trim() || "SPY"); }}
-                    placeholder="SYMBOL"
-                    style={{ fontFamily: MONO, fontSize: 11, background: C.surface, border: `1px solid ${C.border}`,
-                      color: C.text, borderRadius: 4, padding: "4px 8px", width: 90, outline: "none" }}
-                  />
-                  <button
-                    onClick={() => setTvOsSymbol(tvOsInput.trim() || "SPY")}
-                    style={{ fontFamily: MONO, fontSize: 10, background: `${C.accent}18`, border: `1px solid ${C.accent}55`,
-                      color: C.accent, borderRadius: 4, padding: "4px 10px", cursor: "pointer" }}>
-                    GO
-                  </button>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
-                    Showing: <b style={{ color: C.text }}>{sym}</b>
-                  </span>
-                </div>
-
-                {/* Symbol Info */}
-                <div key={`si-${sym}`} style={{ ...card, marginBottom: 10 }}>
-                  {tvFrame("embed-widget-symbol-info.js", {
-                    ...dark, symbol: sym, largeChartUrl: "",
-                  }, 160)}
-                </div>
-
-                {/* Chart + Technical Analysis */}
-                <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 10, marginBottom: 10 }}>
-                  <div key={`ch-${sym}`} style={card}>
-                    {lbl("ADVANCED CHART — DAILY")}
-                    {tvFrame("embed-widget-advanced-chart.js", {
-                      ...dark, symbol: sym, interval: "D", style: "1",
-                      details: true, hotlist: true, calendar: false,
-                      studies: ["STD;MACD", "STD;RSI"],
-                      allow_symbol_change: false, save_image: false,
-                    }, 650)}
-                  </div>
-                  <div key={`ta-${sym}`} style={card}>
-                    {lbl("TECHNICAL ANALYSIS")}
-                    {tvFrame("embed-widget-technical-analysis.js", {
-                      ...dark, symbol: sym, interval: "1h", showIntervalTabs: true,
-                    }, 650)}
-                  </div>
-                </div>
-
-                {/* Company Profile + Financials */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <div key={`cp-${sym}`} style={card}>
-                    {lbl("COMPANY PROFILE")}
-                    {tvFrame("embed-widget-company-profile.js", { ...dark, symbol: sym }, 500)}
-                  </div>
-                  <div key={`fn-${sym}`} style={card}>
-                    {lbl("FINANCIALS")}
-                    {tvFrame("embed-widget-financials.js", { ...dark, symbol: sym, displayMode: "regular" }, 500)}
-                  </div>
-                </div>
-              </div>
             </div>
           );
         })()}
