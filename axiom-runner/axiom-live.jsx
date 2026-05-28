@@ -4207,6 +4207,10 @@ export default function App() {
   const [scanError,    setScanError]    = useState(null);
   const [scanDeepData, setScanDeepData] = useState({});
   const [scanDeepLoad, setScanDeepLoad] = useState({});
+  // ── AI Trade Setup state ─────────────────────────────────────────────────
+  const [tradeSetups,     setTradeSetups]     = useState({});  // { BBAI: { plan, generatedAt } }
+  const [tradeSetupLoad,  setTradeSetupLoad]  = useState({});  // { BBAI: true/false }
+  const [tradeSetupError, setTradeSetupError] = useState({});  // { BBAI: "msg" }
 
   const [fivexSector,    setFivexSector]    = useState("ALL");
   const [fivexSort,      setFivexSort]      = useState("rank");  // "rank" | "zone" | "upside" | "risk"
@@ -4811,6 +4815,40 @@ export default function App() {
       }));
     } catch {}
     setScanDeepLoad(prev => ({ ...prev, [ticker]: false }));
+  }
+
+  async function fetchTradeSetup(ticker, row) {
+    if (tradeSetupLoad[ticker]) return;
+    setTradeSetupLoad(prev => ({ ...prev, [ticker]: true }));
+    setTradeSetupError(prev => ({ ...prev, [ticker]: null }));
+    const deep = scanDeepData[ticker] || {};
+    try {
+      const res = await fetch("/api/agent/trade-setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ticker,
+          score:      row.score,
+          signal:     row.signal,
+          signals:    row.signals || [],
+          rsiVal:     row.rsiVal,
+          macdBull:   row.macdBull,
+          ema9v:      row.ema9v,
+          ema21v:     row.ema21v,
+          livePrice:  row.quote?.price,
+          liveChg:    row.quote?.changePercent,
+          ref:        row.ref,
+          fundamentals: deep.fundamentals || null,
+          news:         deep.news || [],
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "AI setup failed");
+      setTradeSetups(prev => ({ ...prev, [ticker]: { plan: data.plan, generatedAt: data.generatedAt } }));
+    } catch (e) {
+      setTradeSetupError(prev => ({ ...prev, [ticker]: e.message }));
+    }
+    setTradeSetupLoad(prev => ({ ...prev, [ticker]: false }));
   }
 
   const loadPriceAlertList = useCallback(async () => {
@@ -6838,9 +6876,9 @@ export default function App() {
               { id: "dashboard", label: "MONITOR",   tabs: ["dashboard"] },
               { id: "terminal",  label: "TERMINAL",  tabs: ["terminal", "openstock", "tv"] },
               { id: "scanner",   label: "SCANNER",   tabs: ["scanner", "early", "analyzer", "cot", "flow"] },
-              { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation"] },
+              { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "calendar"] },
               { id: "watchlist", label: "WATCHLIST", tabs: ["fivex", "smartscan"] },
-              { id: "portfolio", label: "PORTFOLIO", tabs: ["portfolio", "journal", "alerts"] },
+              { id: "portfolio", label: "PORTFOLIO", tabs: ["portfolio", "performance", "journal", "alerts"] },
               { id: "tools",     label: "TOOLS",     tabs: ["tools", "backtest", "workflow", "agent", "deals"] },
               { id: "islamic",   label: "☪",         tabs: ["quran", "athan", "athkar", "tasbih"] },
             ];
@@ -7163,20 +7201,22 @@ export default function App() {
             { id: "flow",     label: "⚡ FLOW" },
           ],
           markets: [
-            { id: "news",     label: "NEWS" },
-            { id: "earnings", label: "EARNINGS" },
-            { id: "macro",    label: "MACRO" },
-            { id: "sectors",  label: "SECTORS" },
-            { id: "rotation", label: "ROTATION" },
+            { id: "news",      label: "NEWS" },
+            { id: "earnings",  label: "EARNINGS" },
+            { id: "macro",     label: "MACRO" },
+            { id: "sectors",   label: "SECTORS" },
+            { id: "rotation",  label: "ROTATION" },
+            { id: "calendar",  label: "📅 CALENDAR" },
           ],
           watchlist: [
             { id: "fivex",     label: "🚀 5X PLAYS" },
             { id: "smartscan", label: "🧠 SMART SCAN" },
           ],
           portfolio: [
-            { id: "portfolio", label: "POSITIONS" },
-            { id: "journal",   label: "JOURNAL" },
-            { id: "alerts",    label: "ALERTS" },
+            { id: "portfolio",   label: "POSITIONS" },
+            { id: "performance", label: "📊 PERFORMANCE" },
+            { id: "journal",     label: "JOURNAL" },
+            { id: "alerts",      label: "ALERTS" },
           ],
           tools: [
             { id: "tools",     label: "TOOLS" },
@@ -9253,6 +9293,109 @@ export default function App() {
                                           </div>
                                         )}
                                       </div>
+
+                                      {/* ── AI Trade Setup panel ── */}
+                                      <div style={{ flex: "1 1 260px", minWidth: 240 }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                                          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                                            color: C.textDim, letterSpacing: "0.06em" }}>
+                                            🤖 AI TRADE SETUP
+                                          </div>
+                                          {!tradeSetups[row.ticker] && (
+                                            <button
+                                              onClick={() => { if (!deepData) { loadDeepDive(row.ticker).then(() => fetchTradeSetup(row.ticker, row)); } else { fetchTradeSetup(row.ticker, row); } }}
+                                              disabled={tradeSetupLoad[row.ticker]}
+                                              style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                                                background: tradeSetupLoad[row.ticker] ? C.surface : `${C.purple}18`,
+                                                border: `1px solid ${tradeSetupLoad[row.ticker] ? C.border : C.purple}`,
+                                                color: tradeSetupLoad[row.ticker] ? C.textDim : C.purple,
+                                                borderRadius: 4, padding: "3px 10px",
+                                                cursor: tradeSetupLoad[row.ticker] ? "default" : "pointer" }}>
+                                              {tradeSetupLoad[row.ticker] ? "⌛ Generating…" : "▶ GENERATE"}
+                                            </button>
+                                          )}
+                                          {tradeSetups[row.ticker] && (
+                                            <button
+                                              onClick={() => { setTradeSetups(prev => { const n = {...prev}; delete n[row.ticker]; return n; }); }}
+                                              style={{ fontFamily: MONO, fontSize: 8, color: C.textDim,
+                                                background: "none", border: "none", cursor: "pointer" }}>
+                                              ↺ Regenerate
+                                            </button>
+                                          )}
+                                        </div>
+
+                                        {tradeSetupError[row.ticker] && (
+                                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.red,
+                                            background: C.redBg, borderRadius: 4, padding: "6px 8px" }}>
+                                            ⚠ {tradeSetupError[row.ticker]}
+                                          </div>
+                                        )}
+
+                                        {tradeSetupLoad[row.ticker] && (
+                                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.purple,
+                                            background: `${C.purple}10`, borderRadius: 4, padding: "10px 8px",
+                                            textAlign: "center" }}>
+                                            ⌛ Claude is analysing {row.ticker}…
+                                          </div>
+                                        )}
+
+                                        {tradeSetups[row.ticker] && (() => {
+                                          const plan = tradeSetups[row.ticker].plan || "";
+                                          // Parse sections from plain-text response
+                                          const sections = plan.split(/\n(?=[A-Z /]{4,}$)/m);
+                                          const SECTION_COLORS = {
+                                            "VERDICT": C.amber, "ENTRY": C.green, "STOP": C.red,
+                                            "PRICE TARGETS": C.cyan, "RISK": C.amber, "KEY": C.accent,
+                                            "RED": C.red, "SETUP": C.text,
+                                          };
+                                          const getCol = (line) => {
+                                            const up = line.toUpperCase();
+                                            for (const [k, v] of Object.entries(SECTION_COLORS)) {
+                                              if (up.startsWith(k)) return v;
+                                            }
+                                            return null;
+                                          };
+                                          return (
+                                            <div style={{ maxHeight: 320, overflowY: "auto",
+                                              background: themeMode === "dark" ? "#0a1628" : "#f5f9ff",
+                                              border: `1px solid ${C.border}`, borderRadius: 6,
+                                              padding: "10px 12px" }}>
+                                              {plan.split("\n").map((line, li) => {
+                                                const col = getCol(line.trim());
+                                                const isEmpty = !line.trim();
+                                                return (
+                                                  <div key={li} style={{
+                                                    fontFamily: MONO,
+                                                    fontSize: col ? 10 : 9,
+                                                    fontWeight: col ? 800 : 400,
+                                                    color: col || C.textSec,
+                                                    marginTop: (col || isEmpty) ? (col ? 8 : 4) : 0,
+                                                    lineHeight: 1.55,
+                                                  }}>
+                                                    {isEmpty ? null : line}
+                                                  </div>
+                                                );
+                                              })}
+                                              <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim,
+                                                marginTop: 10, borderTop: `1px solid ${C.border}`, paddingTop: 6 }}>
+                                                Generated {new Date(tradeSetups[row.ticker].generatedAt).toLocaleTimeString()} · Claude AI
+                                              </div>
+                                            </div>
+                                          );
+                                        })()}
+
+                                        {!tradeSetups[row.ticker] && !tradeSetupLoad[row.ticker] && !tradeSetupError[row.ticker] && (
+                                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim,
+                                            background: themeMode === "dark" ? "#0a1628" : "#f5f9ff",
+                                            border: `1px dashed ${C.border}`, borderRadius: 6,
+                                            padding: "16px 12px", textAlign: "center", lineHeight: 1.6 }}>
+                                            Click <span style={{ color: C.purple, fontWeight: 700 }}>▶ GENERATE</span> for a complete AI trade plan:<br/>
+                                            <span style={{ color: C.textDim, fontSize: 8 }}>
+                                              entry · stop · targets · R:R · catalysts · risks · verdict
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   )}
                                 </td>
@@ -10884,6 +11027,91 @@ export default function App() {
           </div>
         )}
 
+        {activeTab === "calendar" && (() => {
+          const CAL_H = isMobile ? 520 : 720;
+          const tvTheme = themeMode === "dark" ? "dark" : "light";
+          return (
+            <div style={{ padding: "0 2px" }}>
+              {/* Header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14,
+                padding: "12px 16px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 10 }}>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: "0.06em" }}>
+                    📅 ECONOMIC CALENDAR
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>
+                    Upcoming market-moving events — Fed · CPI · NFP · GDP · Earnings · Central Banks
+                  </div>
+                </div>
+                <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                  {[
+                    { label: "HIGH IMPACT", color: C.red },
+                    { label: "MEDIUM",      color: C.amber },
+                    { label: "LOW",         color: C.textDim },
+                  ].map(({ label, color }) => (
+                    <span key={label} style={{ fontFamily: MONO, fontSize: 8, color,
+                      background: color + "20", border: `1px solid ${color}44`,
+                      borderRadius: 4, padding: "2px 7px" }}>
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* TradingView Economic Calendar Widget */}
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
+                overflow: "hidden" }}>
+                <iframe
+                  title="Economic Calendar"
+                  scrolling="no"
+                  style={{ width: "100%", height: CAL_H, border: "none", display: "block" }}
+                  srcDoc={`<!DOCTYPE html><html><head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden;
+    background: ${themeMode === "dark" ? "#0a0e1a" : "#f0f4f9"}; }
+</style>
+</head><body>
+<div class="tradingview-widget-container" style="height:100%;width:100%">
+  <div class="tradingview-widget-container__widget"></div>
+  <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-events.js" async>
+  {
+    "colorTheme": "${tvTheme}",
+    "isTransparent": false,
+    "width": "100%",
+    "height": "${CAL_H}",
+    "locale": "en",
+    "importanceFilter": "-1,0,1",
+    "currencyFilter": "USD,EUR,GBP,JPY,AUD,CAD,CHF,CNY"
+  }
+  <\/script>
+</div>
+</body></html>`}
+                />
+              </div>
+
+              {/* Quick reference */}
+              <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {[
+                  { event: "FOMC Rate Decision", desc: "Fed interest rate — market-wide impact", color: C.red },
+                  { event: "CPI Inflation",       desc: "Consumer Price Index — USD + equities move",  color: C.red },
+                  { event: "NFP Jobs Report",     desc: "Non-Farm Payrolls — 1st Friday monthly",      color: C.red },
+                  { event: "GDP",                 desc: "Economic growth — quarterly",                  color: C.amber },
+                  { event: "PCE Inflation",       desc: "Fed's preferred inflation gauge",              color: C.amber },
+                  { event: "PPI",                 desc: "Producer Price Index — leading CPI",           color: C.amber },
+                ].map(({ event, desc, color }) => (
+                  <div key={event} style={{ flex: "1 1 200px", minWidth: 180,
+                    background: C.card, border: `1px solid ${color}33`,
+                    borderLeft: `3px solid ${color}`, borderRadius: 6, padding: "8px 12px" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color }}>{event}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>{desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
         {activeTab === "rotation" && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -11232,6 +11460,219 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {activeTab === "performance" && (() => {
+          const closed = journalEntries.filter(e => e.status === "closed" && e.pnl != null && e.closedAt)
+            .sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt));
+
+          // Build equity curve
+          let running = 0;
+          const curve = closed.map(e => { running += e.pnl; return { ...e, equity: running }; });
+
+          // Monthly breakdown
+          const monthMap = {};
+          closed.forEach(e => {
+            const m = (e.closedAt || "").slice(0, 7);
+            if (!monthMap[m]) monthMap[m] = { wins: 0, losses: 0, pnl: 0, trades: 0 };
+            monthMap[m].pnl    += e.pnl;
+            monthMap[m].trades += 1;
+            if (e.pnl > 0) monthMap[m].wins++; else monthMap[m].losses++;
+          });
+          const months = Object.entries(monthMap).sort(([a], [b]) => a.localeCompare(b));
+
+          // Stats
+          const totalPnl   = closed.reduce((s, e) => s + e.pnl, 0);
+          const wins       = closed.filter(e => e.pnl > 0);
+          const losses     = closed.filter(e => e.pnl <= 0);
+          const winRate    = closed.length ? ((wins.length / closed.length) * 100).toFixed(1) : 0;
+          const avgWin     = wins.length   ? wins.reduce((s, e) => s + e.pnl, 0) / wins.length : 0;
+          const avgLoss    = losses.length ? Math.abs(losses.reduce((s, e) => s + e.pnl, 0) / losses.length) : 0;
+          const rr         = avgLoss > 0 ? (avgWin / avgLoss).toFixed(2) : "—";
+          const bestTrade  = closed.length ? closed.reduce((a, b) => a.pnl > b.pnl ? a : b) : null;
+          const worstTrade = closed.length ? closed.reduce((a, b) => a.pnl < b.pnl ? a : b) : null;
+          const profitFactor = losses.reduce((s, e) => s + Math.abs(e.pnl), 0) > 0
+            ? (wins.reduce((s, e) => s + e.pnl, 0) / Math.abs(losses.reduce((s, e) => s + e.pnl, 0))).toFixed(2) : "—";
+
+          // SVG equity curve
+          const W = 800, H = 180, PAD = 32;
+          const equityVals  = curve.map(e => e.equity);
+          const minEq = equityVals.length ? Math.min(0, ...equityVals) : 0;
+          const maxEq = equityVals.length ? Math.max(0, ...equityVals) : 1;
+          const range = maxEq - minEq || 1;
+          const toX = (i) => PAD + ((i / Math.max(curve.length - 1, 1)) * (W - PAD * 2));
+          const toY = (v) => H - PAD - ((v - minEq) / range) * (H - PAD * 2);
+          const zeroY = toY(0);
+          const pathD = curve.length
+            ? curve.map((e, i) => `${i === 0 ? "M" : "L"} ${toX(i).toFixed(1)} ${toY(e.equity).toFixed(1)}`).join(" ")
+            : "";
+          const fillD = curve.length
+            ? `${pathD} L ${toX(curve.length - 1).toFixed(1)} ${zeroY.toFixed(1)} L ${toX(0).toFixed(1)} ${zeroY.toFixed(1)} Z`
+            : "";
+
+          const lineColor = totalPnl >= 0 ? C.green : C.red;
+          const fillId    = "eq-fill-" + (totalPnl >= 0 ? "g" : "r");
+
+          if (closed.length === 0) return (
+            <div style={{ textAlign: "center", padding: "60px 0",
+              fontFamily: MONO, fontSize: 13, color: C.textDim }}>
+              No closed trades yet — close some journal entries to see your performance chart.
+            </div>
+          );
+
+          return (
+            <div style={{ padding: "0 2px" }}>
+              {/* Header */}
+              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12,
+                marginBottom: 14, padding: "12px 16px",
+                background: C.card, border: `1px solid ${C.border}`, borderRadius: 10 }}>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: "0.06em" }}>
+                    📊 P&amp;L PERFORMANCE
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>
+                    Equity curve from {closed.length} closed trade{closed.length !== 1 ? "s" : ""}
+                  </div>
+                </div>
+                <div style={{ marginLeft: "auto" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 24, fontWeight: 900,
+                    color: totalPnl >= 0 ? C.green : C.red }}>
+                    {totalPnl >= 0 ? "+" : ""}${Math.round(totalPnl).toLocaleString()}
+                  </span>
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 8 }}>
+                    TOTAL P&amp;L
+                  </span>
+                </div>
+              </div>
+
+              {/* Stat cards */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+                {[
+                  { label: "WIN RATE",      value: `${winRate}%`,        color: Number(winRate) >= 50 ? C.green : C.amber, sub: `${wins.length}W / ${losses.length}L` },
+                  { label: "AVG WIN",       value: `+$${avgWin.toFixed(0)}`,  color: C.green,    sub: `per winning trade` },
+                  { label: "AVG LOSS",      value: `-$${avgLoss.toFixed(0)}`, color: C.red,      sub: `per losing trade` },
+                  { label: "RISK/REWARD",   value: `${rr}:1`,             color: C.cyan,     sub: `avg win ÷ avg loss` },
+                  { label: "PROFIT FACTOR", value: profitFactor,           color: C.accent,   sub: `gross win ÷ gross loss` },
+                  { label: "TOTAL TRADES",  value: closed.length,          color: C.text,     sub: `closed positions` },
+                ].map(({ label, value, color, sub }) => (
+                  <div key={label} style={{ flex: "1 1 100px", minWidth: 90,
+                    background: C.card, border: `1px solid ${C.border}`,
+                    borderRadius: 8, padding: "10px 14px", textAlign: "center" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, letterSpacing: "0.06em" }}>{label}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color, lineHeight: 1.2, marginTop: 3 }}>{value}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, marginTop: 3 }}>{sub}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Equity curve SVG */}
+              <div style={{ background: C.card, border: `1px solid ${C.border}`,
+                borderRadius: 10, padding: "16px 12px", marginBottom: 14 }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim,
+                  letterSpacing: "0.06em", marginBottom: 10 }}>
+                  EQUITY CURVE
+                </div>
+                <div style={{ width: "100%", overflowX: "auto" }}>
+                  <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", minWidth: 300, height: "auto", display: "block" }}>
+                    <defs>
+                      <linearGradient id={fillId} x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%"   stopColor={lineColor} stopOpacity="0.28" />
+                        <stop offset="100%" stopColor={lineColor} stopOpacity="0.02" />
+                      </linearGradient>
+                    </defs>
+
+                    {/* Zero line */}
+                    <line x1={PAD} y1={zeroY} x2={W - PAD} y2={zeroY}
+                      stroke={C.border} strokeWidth="1" strokeDasharray="4 3" />
+
+                    {/* Area fill */}
+                    {fillD && <path d={fillD} fill={`url(#${fillId})`} />}
+
+                    {/* Equity line */}
+                    {pathD && <path d={pathD} fill="none" stroke={lineColor} strokeWidth="2.5"
+                      strokeLinejoin="round" strokeLinecap="round" />}
+
+                    {/* Trade dots */}
+                    {curve.map((e, i) => (
+                      <circle key={i} cx={toX(i)} cy={toY(e.equity)} r="3"
+                        fill={e.pnl > 0 ? C.green : C.red}
+                        stroke={C.card} strokeWidth="1.5" />
+                    ))}
+
+                    {/* Y-axis labels */}
+                    {[minEq, (minEq + maxEq) / 2, maxEq].map((v, i) => (
+                      <text key={i} x={PAD - 4} y={toY(v) + 4}
+                        textAnchor="end" fontSize="9" fill={C.textDim} fontFamily="monospace">
+                        {v >= 0 ? "+" : ""}${Math.round(v)}
+                      </text>
+                    ))}
+                  </svg>
+                </div>
+              </div>
+
+              {/* Monthly P&L bars */}
+              {months.length > 0 && (
+                <div style={{ background: C.card, border: `1px solid ${C.border}`,
+                  borderRadius: 10, padding: "14px 16px", marginBottom: 14 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim,
+                    letterSpacing: "0.06em", marginBottom: 10 }}>
+                    MONTHLY BREAKDOWN
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {months.map(([month, m]) => {
+                      const col = m.pnl >= 0 ? C.green : C.red;
+                      const wr  = m.trades ? ((m.wins / m.trades) * 100).toFixed(0) : 0;
+                      return (
+                        <div key={month} style={{ flex: "1 1 80px", minWidth: 72,
+                          background: col + "14", border: `1px solid ${col}44`,
+                          borderRadius: 6, padding: "8px 10px", textAlign: "center" }}>
+                          <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim }}>
+                            {month.slice(0, 7)}
+                          </div>
+                          <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: col, marginTop: 2 }}>
+                            {m.pnl >= 0 ? "+" : ""}${Math.round(m.pnl)}
+                          </div>
+                          <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, marginTop: 1 }}>
+                            {m.trades}t · {wr}% WR
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Best/Worst trades */}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {bestTrade && (
+                  <div style={{ flex: "1 1 240px", background: C.card,
+                    border: `1px solid ${C.green}44`, borderLeft: `3px solid ${C.green}`,
+                    borderRadius: 8, padding: "10px 14px" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, letterSpacing: "0.06em" }}>🏆 BEST TRADE</div>
+                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.green, marginTop: 2 }}>
+                      +${bestTrade.pnl.toFixed(2)} — {bestTrade.ticker}
+                    </div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>
+                      {(bestTrade.closedAt || "").slice(0, 10)} · {bestTrade.style || "Swing"} · {bestTrade.timeframe || "1D"}
+                    </div>
+                  </div>
+                )}
+                {worstTrade && (
+                  <div style={{ flex: "1 1 240px", background: C.card,
+                    border: `1px solid ${C.red}44`, borderLeft: `3px solid ${C.red}`,
+                    borderRadius: 8, padding: "10px 14px" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, letterSpacing: "0.06em" }}>📉 WORST TRADE</div>
+                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.red, marginTop: 2 }}>
+                      ${worstTrade.pnl.toFixed(2)} — {worstTrade.ticker}
+                    </div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>
+                      {(worstTrade.closedAt || "").slice(0, 10)} · {worstTrade.style || "Swing"} · {worstTrade.timeframe || "1D"}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {activeTab === "journal" && (
           <div>
