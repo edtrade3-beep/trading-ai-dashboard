@@ -7753,6 +7753,9 @@ export default function App() {
             { id: "calendar", label: "📅 CALENDAR" },
             { id: "analyst",  label: "🎯 ANALYST" },
             { id: "ipo",      label: "💸 DIVIDENDS" },
+            { id: "feargreed",   label: "😨 FEAR/GREED" },
+            { id: "breadth",     label: "📊 BREADTH" },
+            { id: "seasonality", label: "📅 SEASONAL" },
           ],
           watchlist: [
             { id: "fivex",     label: "🚀 5X PLAYS" },
