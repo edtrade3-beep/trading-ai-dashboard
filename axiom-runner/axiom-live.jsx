@@ -6,52 +6,64 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 // ═══════════════════════════════════════════════════════════════
 
 const THEME_LIGHT = {
-  bg: "#fbfcff",
-  surface: "#ffffff",
-  card: "#ffffff",
-  cardHover: "#f6f9ff",
-  border: "#e6edf7",
-  borderLit: "#d6e3f5",
-  text: "#0a0a0a",
-  textSec: "#1f1f1f",
-  textDim: "#262626",
-  accent: "#2c76e7",
-  accentGlow: "rgba(44,118,231,0.14)",
-  green: "#17a572",
-  greenBg: "rgba(23,165,114,0.10)",
-  red: "#de5b6f",
-  redBg: "rgba(222,91,111,0.10)",
-  amber: "#d99a2c",
-  amberBg: "rgba(217,154,44,0.10)",
-  cyan: "#2f98c6",
-  purple: "#9a6ae0",
+  // Backgrounds — soft off-white reduces eye strain vs pure white
+  bg:         "#f0f4f9",
+  surface:    "#ffffff",
+  card:       "#ffffff",
+  cardHover:  "#e8f0fa",
+  // Borders — clearly visible but not harsh
+  border:     "#ccd8ea",
+  borderLit:  "#b3c8e2",
+  // Text — strong 3-level hierarchy
+  text:       "#0d1117",   // near-black — primary labels
+  textSec:    "#374151",   // dark grey — secondary info
+  textDim:    "#6b7b8d",   // medium grey — hints, timestamps, captions
+  // Brand accent
+  accent:     "#2563eb",   // Tailwind blue-600 — crisp, accessible
+  accentGlow: "rgba(37,99,235,0.16)",
+  // Semantic colours — WCAG AA+ on white
+  green:      "#059669",   // emerald-600
+  greenBg:    "rgba(5,150,105,0.10)",
+  red:        "#dc2626",   // red-600
+  redBg:      "rgba(220,38,38,0.10)",
+  amber:      "#d97706",   // amber-600
+  amberBg:    "rgba(217,119,6,0.10)",
+  cyan:       "#0891b2",   // cyan-600
+  purple:     "#7c3aed",   // violet-600
 };
 const THEME_DARK = {
-  bg: "#060d1a",
-  surface: "#0c1525",
-  card: "#0f1c30",
-  cardHover: "#152336",
-  border: "#1a2e4a",
-  borderLit: "#20395e",
-  text: "#e4eeff",
-  textSec: "#b0c6e8",
-  textDim: "#607494",
-  accent: "#2b90ff",
-  accentGlow: "rgba(43,144,255,0.25)",
-  green: "#00c97a",
-  greenBg: "rgba(0,201,122,0.12)",
-  red: "#ff4d63",
-  redBg: "rgba(255,77,99,0.12)",
-  amber: "#ffb340",
-  amberBg: "rgba(255,179,64,0.14)",
-  cyan: "#00d4ff",
-  purple: "#a97aff",
+  // Backgrounds — rich dark navy (not harsh black)
+  bg:         "#0a0e1a",
+  surface:    "#111827",
+  card:       "#151f30",
+  cardHover:  "#1c2a40",
+  // Borders — subtle but visible
+  border:     "#1e2d47",
+  borderLit:  "#263d5e",
+  // Text — high-contrast 3-level hierarchy
+  text:       "#eef2ff",   // near-white with blue tint — crisp on dark
+  textSec:    "#a5b4cf",   // cool mid-grey — secondary info
+  textDim:    "#526480",   // muted blue-grey — hints/captions
+  // Brand accent — bright electric blue
+  accent:     "#4da3ff",
+  accentGlow: "rgba(77,163,255,0.28)",
+  // Semantic colours — extra vibrant on dark
+  green:      "#22d47e",   // bright green — profits / bullish
+  greenBg:    "rgba(34,212,126,0.13)",
+  red:        "#ff4560",   // bright coral-red — losses / bearish
+  redBg:      "rgba(255,69,96,0.13)",
+  amber:      "#ffbd3e",   // warm amber — warnings
+  amberBg:    "rgba(255,189,62,0.14)",
+  cyan:       "#00d9ef",   // electric cyan
+  purple:     "#b07fff",   // soft violet
 };
 const C = { ...THEME_LIGHT };
 
-const SANS = `'Inter', 'Segoe UI Variable Text', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif`;
-const MONO = `'Inter', 'Segoe UI Variable Text', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif`;
-const UI_ZOOM = 1.06;
+// SANS  — clean system UI font for navigation, labels, body copy
+const SANS = `'Inter', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif`;
+// MONO  — true monospace for prices, tickers, percentages, scores — much crisper digits
+const MONO = `'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Roboto Mono', 'Courier New', monospace`;
+const UI_ZOOM = 1.10;   // slightly larger = easier to read without changing every font-size
 const LAYOUT = {
   pageMaxWidth: 1880,
   contentPadding: "18px 20px 28px",
@@ -1426,7 +1438,7 @@ function PasswordLockScreen({ value, error, onChange, onSubmit }) {
       minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center",
       justifyContent: "center", fontFamily: SANS,
     }}>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       <div style={{
         width: 420, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
         padding: 32, textAlign: "center",
@@ -1489,7 +1501,7 @@ function ApiKeyScreen({ onSubmit }) {
       minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center",
       justifyContent: "center", fontFamily: SANS,
     }}>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       <div style={{
         width: 440, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
         padding: 40, textAlign: "center",
@@ -6733,12 +6745,29 @@ export default function App() {
   );
 
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: SANS, zoom: isMobile ? 1 : UI_ZOOM, lineHeight: 1.45, width: "100%", maxWidth: "100vw", overflowX: "hidden" }}>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: SANS, zoom: isMobile ? 1 : UI_ZOOM, lineHeight: 1.5, width: "100%", maxWidth: "100vw", overflowX: "hidden" }}>
+      {/* Google Fonts — Inter (UI) + JetBrains Mono (data/numbers) */}
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+      {/* Global baseline styles */}
+      <style>{`
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { font-size: 14px; -webkit-text-size-adjust: 100%; }
+        body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+        /* Thin, attractive scrollbars on desktop */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(128,160,200,0.28); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(128,160,200,0.50); }
+        * { scrollbar-width: thin; scrollbar-color: rgba(128,160,200,0.28) transparent; }
+        /* Monospace digits should have tabular figures */
+        .mono, [class*="mono"] { font-variant-numeric: tabular-nums; }
+      `}</style>
       {/* Mobile-specific global styles */}
       {isMobile && (
         <style>{`
-          * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+          * { -webkit-tap-highlight-color: transparent; }
           select, input[type="text"], input[type="number"], input[type="search"] { font-size: 16px !important; }
           ::-webkit-scrollbar { display: none; }
           * { scrollbar-width: none; }
@@ -6755,7 +6784,7 @@ export default function App() {
       <div style={{
         display: "flex", justifyContent: "space-between", alignItems: "center",
         padding: isMobile ? "6px 10px" : "8px 18px", borderBottom: `1px solid ${C.border}`,
-        background: themeMode === "dark" ? "#070d1b" : C.surface,
+        background: themeMode === "dark" ? "#0d1422" : C.surface,
         flexWrap: "wrap", rowGap: 6,
         position: "sticky", top: 0, zIndex: 40,
         boxShadow: themeMode === "dark" ? "0 1px 0 #1a2e4a, 0 2px 12px rgba(0,0,0,0.5)" : "0 1px 4px rgba(0,0,0,0.06)",
@@ -6972,7 +7001,7 @@ export default function App() {
         <div style={{
           borderBottom: `2px solid ${C.accent}33`,
           borderLeft: `3px solid ${C.accent}`,
-          background: themeMode === "dark" ? "#070c19" : "#f4f8ff",
+          background: themeMode === "dark" ? "#0e1829" : "#f0f5ff",
           boxShadow: "0 6px 24px rgba(0,0,0,0.15)",
         }}>
           {/* Search row — top of menu */}
@@ -7166,7 +7195,7 @@ export default function App() {
         return (
           <div style={{
             borderBottom: `1px solid ${C.border}`,
-            background: themeMode === "dark" ? "#070d1b" : "#f2f5fb",
+            background: themeMode === "dark" ? "#0d1422" : "#edf2f9",
             padding: isMobile ? "0 6px" : "0 18px",
             display: "flex", alignItems: "center", gap: 1,
             overflowX: "auto", scrollbarWidth: "none",
@@ -8559,7 +8588,7 @@ export default function App() {
               {/* ── Table ── */}
               <div style={{ overflowX: "auto", borderRadius: 8, border: `1px solid ${C.border}` }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1050 }}>
-                  <thead style={{ background: themeMode === "dark" ? "#0d1117" : "#f0f2f5" }}>
+                  <thead style={{ background: themeMode === "dark" ? "#0e1829" : "#eef3fa" }}>
                     <tr>
                       {TH("#", "Rank by price")}
                       {TH("TICKER", "Symbol")}
@@ -8871,7 +8900,7 @@ export default function App() {
                   borderRadius: 10, overflow: "hidden" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
-                      <tr style={{ background: themeMode === "dark" ? "#0b1526" : "#f0f4fa" }}>
+                      <tr style={{ background: themeMode === "dark" ? "#0e1829" : "#eef3fa" }}>
                         {["#","SCORE","SIGNAL","TICKER","SECTOR","LIVE $","RSI","MACD","EMA","ZONE","UPSIDE","THESIS"].map(h => (
                           <th key={h} style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700,
                             color: C.textDim, padding: "8px 10px", textAlign: h === "#" ? "center" : "left",
@@ -8931,8 +8960,8 @@ export default function App() {
                               style={{
                                 cursor: "pointer",
                                 background: isExpanded
-                                  ? (themeMode === "dark" ? "#0d1f38" : "#eef4ff")
-                                  : (idx % 2 === 0 ? "transparent" : (themeMode === "dark" ? "#0a1628" : "#f8fbff")),
+                                  ? (themeMode === "dark" ? "#122040" : "#e8f2ff")
+                                  : (idx % 2 === 0 ? "transparent" : (themeMode === "dark" ? "#111f36" : "#f5f9ff")),
                                 borderLeft: isExpanded ? `3px solid ${row.sColor}` : "3px solid transparent",
                               }}
                             >
@@ -9062,7 +9091,7 @@ export default function App() {
                             {isExpanded && (
                               <tr>
                                 <td colSpan={12}
-                                  style={{ background: themeMode === "dark" ? "#081221" : "#f4f8ff",
+                                  style={{ background: themeMode === "dark" ? "#0e1b2e" : "#f2f7ff",
                                     borderLeft: `3px solid ${row.sColor}`,
                                     borderBottom: `2px solid ${row.sColor}44`,
                                     padding: "16px 18px" }}>
@@ -9196,7 +9225,7 @@ export default function App() {
                                                 <a key={ni} href={url} target="_blank" rel="noopener noreferrer"
                                                   style={{ display: "block", textDecoration: "none",
                                                     padding: "6px 8px", borderRadius: 4,
-                                                    background: bear ? C.redBg : bull ? C.greenBg : (themeMode === "dark" ? "#0d1e33" : "#eef4ff"),
+                                                    background: bear ? C.redBg : bull ? C.greenBg : (themeMode === "dark" ? "#131f35" : "#eaf1ff"),
                                                     border: `1px solid ${bear ? C.red : bull ? C.green : C.border}44` }}>
                                                   <div style={{ fontFamily: MONO, fontSize: 9,
                                                     color: bear ? C.red : bull ? C.green : C.text,
