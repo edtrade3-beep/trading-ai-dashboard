@@ -394,6 +394,213 @@ Under 300 words. Be scholarly and clear.`;
     }
   }
 
+  // POST /api/agent/pattern — AI chart pattern recognition
+  if (pathname === "/api/agent/pattern" && req.method === "POST") {
+    if (!ANTHROPIC_API_KEY) return writeJson(res, 503, { error: "ANTHROPIC_API_KEY not configured." });
+    let body;
+    try { body = JSON.parse(await readRequestBody(req)); }
+    catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
+
+    const { ticker, bars = [], currentPrice, rsiVal, macdBull } = body;
+    if (!bars.length) return writeJson(res, 400, { error: "No candle data provided" });
+
+    const recent = bars.slice(-30);
+    const ohlc = recent.map((b, i) => `${i + 1}: O${Number(b.open).toFixed(2)} H${Number(b.high).toFixed(2)} L${Number(b.low).toFixed(2)} C${Number(b.close).toFixed(2)} V${Math.round((b.volume || 0) / 1000)}K`).join("\n");
+    const prompt = `You are a professional technical analyst. Analyze this OHLCV data and identify chart patterns.
+
+TICKER: ${ticker}  |  Current Price: $${Number(currentPrice || 0).toFixed(2)}
+RSI(14): ${rsiVal != null ? Number(rsiVal).toFixed(1) : "N/A"}  |  MACD: ${macdBull ? "BULLISH" : "BEARISH"}
+
+LAST 30 DAILY BARS (index: O H L C Vol):
+${ohlc}
+
+Analyze and respond in this exact structure (plain text):
+
+PATTERN IDENTIFIED
+[Name the primary chart pattern you see — be specific]
+
+PATTERN QUALITY
+[Strong / Moderate / Weak — and why]
+
+KEY LEVELS
+[Support: $X | Resistance: $Y | Breakout trigger: $Z]
+
+MEASURED MOVE TARGET
+[$X — how you calculated it from the pattern]
+
+INVALIDATION
+[What price action would invalidate this setup]
+
+VERDICT
+[BULLISH SETUP / BEARISH SETUP / NO CLEAR PATTERN] — [One sentence action]
+
+Under 200 words. Be precise with exact prices.`;
+
+    try {
+      const text = await callAnthropicApi(prompt, ANTHROPIC_API_KEY, { maxTokens: 400 });
+      return writeJson(res, 200, { ok: true, ticker, analysis: text, generatedAt: new Date().toISOString() });
+    } catch (err) {
+      return writeJson(res, 422, { error: err instanceof Error ? err.message : "Pattern analysis failed" });
+    }
+  }
+
+  // POST /api/agent/macro-scenario — Macro scenario impact analysis
+  if (pathname === "/api/agent/macro-scenario" && req.method === "POST") {
+    if (!ANTHROPIC_API_KEY) return writeJson(res, 503, { error: "ANTHROPIC_API_KEY not configured." });
+    let body;
+    try { body = JSON.parse(await readRequestBody(req)); }
+    catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
+
+    const { scenario, regime, holdings = [], watchlist = [] } = body;
+    if (!scenario?.trim()) return writeJson(res, 400, { error: "scenario required" });
+
+    const holdingsLine = holdings.slice(0, 8).map(h => `${h.symbol} (${h.shares} shares @ $${h.avgPrice})`).join(", ");
+    const watchLine    = watchlist.slice(0, 10).join(", ");
+
+    const prompt = `You are a macro strategist. Analyze the market impact of this scenario.
+
+SCENARIO: "${scenario}"
+CURRENT REGIME: ${regime || "Unknown"}
+PORTFOLIO: ${holdingsLine || "No positions provided"}
+WATCHLIST: ${watchLine || "No watchlist provided"}
+
+Analyze and respond exactly as:
+
+PROBABILITY
+[Low / Medium / High — your assessment of this scenario occurring in next 90 days]
+
+IMMEDIATE IMPACT (first 48 hours)
+[Market reaction: indexes, VIX, bonds, dollar]
+
+SECTOR WINNERS
+[Top 3 sectors that benefit — specific ETFs]
+
+SECTOR LOSERS
+[Top 3 sectors that get hurt — specific ETFs]
+
+PORTFOLIO IMPACT
+[How each holding above is affected — specific and honest]
+
+RECOMMENDED ACTIONS
+[3 specific trades to position for this scenario]
+
+HEDGE
+[Best 1-2 hedges if scenario occurs unexpectedly]
+
+Under 350 words. Plain text. Be a strategist not a journalist.`;
+
+    try {
+      const text = await callAnthropicApi(prompt, ANTHROPIC_API_KEY, { maxTokens: 600 });
+      return writeJson(res, 200, { ok: true, scenario, analysis: text, generatedAt: new Date().toISOString() });
+    } catch (err) {
+      return writeJson(res, 422, { error: err instanceof Error ? err.message : "Scenario analysis failed" });
+    }
+  }
+
+  // POST /api/agent/earnings-call — Earnings transcript summarizer
+  if (pathname === "/api/agent/earnings-call" && req.method === "POST") {
+    if (!ANTHROPIC_API_KEY) return writeJson(res, 503, { error: "ANTHROPIC_API_KEY not configured." });
+    let body;
+    try { body = JSON.parse(await readRequestBody(req)); }
+    catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
+
+    const { ticker, transcript } = body;
+    if (!transcript?.trim() || transcript.trim().length < 100) return writeJson(res, 400, { error: "Transcript too short (min 100 chars)" });
+
+    const trimmed = String(transcript).slice(0, 12000);
+    const prompt = `You are an institutional sell-side analyst. Extract key information from this earnings call transcript.
+
+COMPANY: ${ticker || "Unknown"}
+
+TRANSCRIPT:
+${trimmed}
+
+Summarize exactly as (plain text):
+
+HEADLINE
+[One sentence: beat/miss, key guidance change, market reaction]
+
+FINANCIAL RESULTS
+[Revenue: actual vs estimate, EPS: actual vs estimate, key margins]
+
+GUIDANCE
+[Next quarter and full year guidance — numbers only, not fluff]
+
+MANAGEMENT TONE
+[Confident / Cautious / Mixed — with evidence from their language]
+
+KEY GROWTH DRIVERS
+[2-3 specific catalysts management highlighted]
+
+RISKS ACKNOWLEDGED
+[What risks did they mention or dodge]
+
+ANALYST QUESTIONS THEMES
+[What were analysts most concerned about]
+
+TRADING IMPLICATION
+[BUY INTO WEAKNESS / SELL THE POP / HOLD — with exact reasoning]
+
+Under 400 words. Numbers only, no filler.`;
+
+    try {
+      const text = await callAnthropicApi(prompt, ANTHROPIC_API_KEY, { maxTokens: 700 });
+      return writeJson(res, 200, { ok: true, ticker, summary: text, generatedAt: new Date().toISOString() });
+    } catch (err) {
+      return writeJson(res, 422, { error: err instanceof Error ? err.message : "Earnings analysis failed" });
+    }
+  }
+
+  // POST /api/agent/session-recap — End-of-day trading session recap
+  if (pathname === "/api/agent/session-recap" && req.method === "POST") {
+    if (!ANTHROPIC_API_KEY) return writeJson(res, 503, { error: "ANTHROPIC_API_KEY not configured." });
+    let body;
+    try { body = JSON.parse(await readRequestBody(req)); }
+    catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
+
+    const { indexMoves = [], topMovers = [], alertsTriggered = [], journalToday = [], regime, date } = body;
+    const idxLine   = indexMoves.slice(0, 5).map(m => `${m.symbol} ${m.value >= 0 ? "+" : ""}${Number(m.value || 0).toFixed(2)}%`).join(", ");
+    const movers    = topMovers.slice(0, 5).map(m => `${m.symbol} ${m.pct >= 0 ? "+" : ""}${m.pct.toFixed(1)}%`).join(", ");
+    const alertLine = alertsTriggered.slice(0, 5).map(a => `${a.symbol} [${a.type}] ${a.text}`).join("; ");
+    const tradesLine= journalToday.slice(0, 5).map(t => `${t.symbol} ${t.side} PnL:${t.pnl >= 0 ? "+" : ""}$${Number(t.pnl || 0).toFixed(0)}`).join("; ");
+
+    const prompt = `Generate a concise end-of-session trading recap.
+
+DATE: ${date || new Date().toDateString()}
+REGIME: ${regime || "Unknown"}
+INDEX MOVES: ${idxLine || "N/A"}
+TOP MOVERS: ${movers || "N/A"}
+ALERTS TRIGGERED: ${alertLine || "None"}
+TRADES TODAY: ${tradesLine || "None"}
+
+Write a brief session recap:
+
+SESSION SUMMARY
+[2-3 sentences: what happened in the market today, key theme]
+
+NOTABLE MOVES
+[What worked, what didn't, any surprise moves]
+
+TODAY'S TRADES
+[Review any trades above — what was good/bad]
+
+TOMORROW SETUP
+[2-3 specific tickers to watch tomorrow with levels]
+
+LESSON
+[One specific thing to remember from today's session]
+
+Under 250 words. Plain text. Be direct.`;
+
+    try {
+      const text = await callAnthropicApi(prompt, ANTHROPIC_API_KEY, { maxTokens: 500 });
+      if (telegramConfigured()) sendTelegramMessage(`📋 *Session Recap*\n\n${text.slice(0, 1200)}`).catch(() => {});
+      return writeJson(res, 200, { ok: true, recap: text, generatedAt: new Date().toISOString() });
+    } catch (err) {
+      return writeJson(res, 422, { error: err instanceof Error ? err.message : "Session recap failed" });
+    }
+  }
+
   return writeJson(res, 404, { error: "Unknown agent endpoint." });
 }
 

@@ -4257,6 +4257,82 @@ export default function App() {
   const [newsSentiments,  setNewsSentiments]  = useState({});  // headline text → {s, score}
   const [newsSentLoading, setNewsSentLoading] = useState(false);
 
+  // ── Smart Money (Insider + Institutional) ────────────────────────────────
+  const [insiderTicker,   setInsiderTicker]   = useState("AAPL");
+  const [insiderInput,    setInsiderInput]    = useState("AAPL");
+  const [insiderData,     setInsiderData]     = useState(null);
+  const [instData,        setInstData]        = useState(null);
+  const [insiderLoading,  setInsiderLoading]  = useState(false);
+
+  // ── Social Sentiment ──────────────────────────────────────────────────────
+  const [socialTicker,    setSocialTicker]    = useState("TSLA");
+  const [socialInput,     setSocialInput]     = useState("TSLA");
+  const [socialData,      setSocialData]      = useState(null);
+  const [socialLoading,   setSocialLoading]   = useState(false);
+
+  // ── Analyst Ratings ───────────────────────────────────────────────────────
+  const [analystTicker,   setAnalystTicker]   = useState("AAPL");
+  const [analystInput,    setAnalystInput]    = useState("AAPL");
+  const [analystData,     setAnalystData]     = useState(null);
+  const [analystLoading,  setAnalystLoading]  = useState(false);
+
+  // ── Dividend / IPO Calendar ───────────────────────────────────────────────
+  const [dividendData,    setDividendData]    = useState(null);
+  const [dividendLoading, setDividendLoading] = useState(false);
+
+  // ── AI Pattern Recognizer ─────────────────────────────────────────────────
+  const [patternTicker,   setPatternTicker]   = useState("SPY");
+  const [patternInput,    setPatternInput]    = useState("SPY");
+  const [patternResult,   setPatternResult]   = useState(null);
+  const [patternLoading,  setPatternLoading]  = useState(false);
+
+  // ── Macro Scenario Planner ────────────────────────────────────────────────
+  const [scenarioInput,   setScenarioInput]   = useState("");
+  const [scenarioResult,  setScenarioResult]  = useState(null);
+  const [scenarioLoading, setScenarioLoading] = useState(false);
+
+  // ── Earnings Call Summarizer ──────────────────────────────────────────────
+  const [earningsCallText,   setEarningsCallText]   = useState("");
+  const [earningsCallResult, setEarningsCallResult] = useState(null);
+  const [earningsCallLoad,   setEarningsCallLoad]   = useState(false);
+
+  // ── Session Recap ─────────────────────────────────────────────────────────
+  const [sessionRecapResult, setSessionRecapResult] = useState(null);
+  const [sessionRecapLoad,   setSessionRecapLoad]   = useState(false);
+
+  // ── Trade Checklist ───────────────────────────────────────────────────────
+  const [checklistItems, setChecklistItems] = useState([
+    { id: 1, label: "Trend aligned on D1 chart",           done: false },
+    { id: 2, label: "Above key support level",             done: false },
+    { id: 3, label: "RSI not overbought (< 70)",           done: false },
+    { id: 4, label: "MACD bullish cross confirmed",        done: false },
+    { id: 5, label: "Volume above 20-day average",         done: false },
+    { id: 6, label: "Risk/Reward ≥ 2:1",                   done: false },
+    { id: 7, label: "Position size within risk limit",     done: false },
+    { id: 8, label: "Stop-loss level defined",             done: false },
+    { id: 9, label: "No major news catalyst today",        done: false },
+    { id: 10, label: "Halal screening passed",             done: false },
+  ]);
+
+  // ── DCA Planner ───────────────────────────────────────────────────────────
+  const [dcaTicker,  setDcaTicker]  = useState("SPY");
+  const [dcaAmount,  setDcaAmount]  = useState("500");
+  const [dcaPeriod,  setDcaPeriod]  = useState("monthly");
+  const [dcaMonths,  setDcaMonths]  = useState("24");
+  const [dcaReturn,  setDcaReturn]  = useState("10");
+  const [dcaResult,  setDcaResult]  = useState(null);
+
+  // ── Options Break-Even Calculator ─────────────────────────────────────────
+  const [optionType,    setOptionType]    = useState("call");
+  const [optionStock,   setOptionStock]   = useState("");
+  const [optionStrike,  setOptionStrike]  = useState("");
+  const [optionPremium, setOptionPremium] = useState("");
+  const [optionExpiry,  setOptionExpiry]  = useState("");
+  const [optionResult,  setOptionResult]  = useState(null);
+
+  // ── AI Lab sub-section ────────────────────────────────────────────────────
+  const [ailabSection,  setAilabSection]  = useState("pattern");
+
   const [fivexSector,    setFivexSector]    = useState("ALL");
   const [fivexSort,      setFivexSort]      = useState("rank");  // "rank" | "zone" | "upside" | "risk"
   const [fivexPrices,    setFivexPrices]    = useState({});   // { BBAI: { price, change, pct } }
@@ -5060,6 +5136,199 @@ export default function App() {
       setCorrMatrix({ error: e.message });
     }
     setCorrLoading(false);
+  }
+
+  // ── Smart Money: Insider + Institutional ─────────────────────────────────
+  async function fetchInsiderData(ticker) {
+    setInsiderLoading(true);
+    setInsiderData(null); setInstData(null);
+    try {
+      const [insRes, instRes] = await Promise.all([
+        fetch(`/api/market/insider?ticker=${encodeURIComponent(ticker)}`),
+        fetch(`/api/market/insider?ticker=${encodeURIComponent(ticker)}&type=inst`),
+      ]);
+      const insJson  = insRes.ok  ? await insRes.json()  : null;
+      const instJson = instRes.ok ? await instRes.json() : null;
+      setInsiderTicker(ticker);
+      if (insJson)  setInsiderData(insJson);
+      if (instJson) setInstData(instJson);
+    } catch (e) {
+      setInsiderData({ error: e.message });
+    }
+    setInsiderLoading(false);
+  }
+
+  // ── Social Sentiment ──────────────────────────────────────────────────────
+  async function fetchSocialSentiment(ticker) {
+    setSocialLoading(true);
+    setSocialData(null);
+    try {
+      const res = await fetch(`/api/market/social?ticker=${encodeURIComponent(ticker)}`);
+      const data = res.ok ? await res.json() : { error: "Failed" };
+      setSocialTicker(ticker);
+      setSocialData(data);
+    } catch (e) {
+      setSocialData({ error: e.message });
+    }
+    setSocialLoading(false);
+  }
+
+  // ── Analyst Ratings ───────────────────────────────────────────────────────
+  async function fetchAnalystRatings(ticker) {
+    setAnalystLoading(true);
+    setAnalystData(null);
+    try {
+      const res = await fetch(`/api/market/analyst?tickers=${encodeURIComponent(ticker)}`);
+      const data = res.ok ? await res.json() : { error: "Failed" };
+      setAnalystTicker(ticker);
+      setAnalystData(Array.isArray(data) ? data[0] : data);
+    } catch (e) {
+      setAnalystData({ error: e.message });
+    }
+    setAnalystLoading(false);
+  }
+
+  // ── Dividend Calendar ─────────────────────────────────────────────────────
+  async function fetchDividendCalendar() {
+    setDividendLoading(true);
+    try {
+      // Fetch for watchlist tickers
+      const tickers = watchlistData.length > 0
+        ? watchlistData.slice(0, 20).map(w => w.ticker).join(",")
+        : "AAPL,MSFT,JNJ,PG,KO,VZ,T,XOM,CVX,MCD,DIS,HD,WMT,PFE,MRK";
+      const res = await fetch(`/api/market/dividends?tickers=${encodeURIComponent(tickers)}`);
+      const data = res.ok ? await res.json() : [];
+      setDividendData(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setDividendData([]);
+    }
+    setDividendLoading(false);
+  }
+
+  // ── AI Pattern Recognizer ─────────────────────────────────────────────────
+  async function fetchAIPattern(ticker) {
+    setPatternLoading(true);
+    setPatternResult(null);
+    try {
+      // Get candle data first
+      const cRes = await fetch(`/api/market/candles?ticker=${encodeURIComponent(ticker)}&timeframe=1d`);
+      const cData = cRes.ok ? await cRes.json() : null;
+      if (!cData?.bars?.length) { setPatternResult({ error: "No candle data available" }); setPatternLoading(false); return; }
+      const bars = cData.bars.slice(-60); // last 60 days
+      const res = await fetch("/api/agent/pattern", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker, bars }),
+      });
+      const data = res.ok ? await res.json() : { error: "AI request failed" };
+      setPatternTicker(ticker);
+      setPatternResult(data);
+    } catch (e) {
+      setPatternResult({ error: e.message });
+    }
+    setPatternLoading(false);
+  }
+
+  // ── Macro Scenario Planner ────────────────────────────────────────────────
+  async function fetchMacroScenario(prompt) {
+    if (!prompt.trim()) return;
+    setScenarioLoading(true);
+    setScenarioResult(null);
+    try {
+      const holdings = portfolioRows.slice(0, 10).map(p => ({ ticker: p.ticker, shares: p.shares, value: (p.shares * (p.currentPrice || p.avgCost)) }));
+      const res = await fetch("/api/agent/macro-scenario", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenario: prompt, holdings }),
+      });
+      const data = res.ok ? await res.json() : { error: "AI request failed" };
+      setScenarioResult(data);
+    } catch (e) {
+      setScenarioResult({ error: e.message });
+    }
+    setScenarioLoading(false);
+  }
+
+  // ── Earnings Call Summarizer ──────────────────────────────────────────────
+  async function summarizeEarningsCall() {
+    if (!earningsCallText.trim()) return;
+    setEarningsCallLoad(true);
+    setEarningsCallResult(null);
+    try {
+      const res = await fetch("/api/agent/earnings-call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript: earningsCallText.slice(0, 12000) }),
+      });
+      const data = res.ok ? await res.json() : { error: "AI request failed" };
+      setEarningsCallResult(data);
+    } catch (e) {
+      setEarningsCallResult({ error: e.message });
+    }
+    setEarningsCallLoad(false);
+  }
+
+  // ── Session Recap ─────────────────────────────────────────────────────────
+  async function generateSessionRecap() {
+    setSessionRecapLoad(true);
+    setSessionRecapResult(null);
+    try {
+      const closedToday = journalEntries.filter(e => {
+        if (!e.exitDate) return false;
+        const d = new Date(e.exitDate);
+        const today = new Date();
+        return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+      });
+      const res = await fetch("/api/agent/session-recap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trades: closedToday.length > 0 ? closedToday : journalEntries.slice(-5), macroRegime: regime }),
+      });
+      const data = res.ok ? await res.json() : { error: "AI request failed" };
+      setSessionRecapResult(data);
+    } catch (e) {
+      setSessionRecapResult({ error: e.message });
+    }
+    setSessionRecapLoad(false);
+  }
+
+  // ── DCA Calculator ────────────────────────────────────────────────────────
+  function computeDCA() {
+    const amount   = parseFloat(dcaAmount)  || 0;
+    const months   = parseInt(dcaMonths)    || 24;
+    const annRet   = parseFloat(dcaReturn)  || 10;
+    const periods  = dcaPeriod === "weekly" ? months * 4.33 : dcaPeriod === "daily" ? months * 30 : months;
+    const r        = (annRet / 100) / (dcaPeriod === "weekly" ? 52 : dcaPeriod === "daily" ? 365 : 12);
+    // Future value of a series: FV = P * ((1+r)^n - 1) / r
+    const fv       = r > 0 ? amount * ((Math.pow(1 + r, periods) - 1) / r) : amount * periods;
+    const invested = amount * periods;
+    const gain     = fv - invested;
+    // Build equity curve (sampled at monthly intervals for chart)
+    const curve = [];
+    const perPeriodInMonth = dcaPeriod === "weekly" ? 4.33 : dcaPeriod === "daily" ? 30 : 1;
+    for (let m = 1; m <= months; m++) {
+      const n = m * perPeriodInMonth;
+      const val = r > 0 ? amount * ((Math.pow(1 + r, n) - 1) / r) : amount * n;
+      curve.push({ month: m, value: val, invested: amount * n });
+    }
+    setDcaResult({ fv, invested, gain, gainPct: (gain / invested) * 100, curve, periods: Math.round(periods) });
+  }
+
+  // ── Options Break-Even ────────────────────────────────────────────────────
+  function computeOptions() {
+    const strike   = parseFloat(optionStrike)  || 0;
+    const premium  = parseFloat(optionPremium) || 0;
+    const stock    = parseFloat(optionStock)   || 0;
+    if (!strike || !premium) return;
+    const isCall = optionType === "call";
+    const breakEven    = isCall ? strike + premium : strike - premium;
+    const intrinsic    = isCall ? Math.max(0, stock - strike) : Math.max(0, strike - stock);
+    const timeValue    = Math.max(0, premium - intrinsic);
+    const currentPnL   = stock ? (isCall ? (stock - breakEven) * 100 : (breakEven - stock) * 100) : null;
+    const maxProfit    = isCall ? "Unlimited" : ((strike - premium) * 100).toFixed(2);
+    const maxLoss      = (premium * 100).toFixed(2);
+    const daysToExpiry = optionExpiry ? Math.max(0, Math.round((new Date(optionExpiry) - new Date()) / 86400000)) : null;
+    setOptionResult({ breakEven, intrinsic, timeValue, currentPnL, maxProfit, maxLoss, daysToExpiry, isCall, premium, strike });
   }
 
   const loadPriceAlertList = useCallback(async () => {
@@ -7086,11 +7355,11 @@ export default function App() {
             const NAV_GROUPS = [
               { id: "dashboard", label: "MONITOR",   tabs: ["dashboard", "briefing"] },
               { id: "terminal",  label: "TERMINAL",  tabs: ["terminal", "openstock", "tv", "multitf"] },
-              { id: "scanner",   label: "SCANNER",   tabs: ["scanner", "early", "analyzer", "cot", "flow", "screener", "shortint"] },
-              { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "calendar"] },
+              { id: "scanner",   label: "SCANNER",   tabs: ["scanner", "early", "analyzer", "cot", "flow", "screener", "shortint", "smartmoney", "social"] },
+              { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "calendar", "analyst", "ipo"] },
               { id: "watchlist", label: "WATCHLIST", tabs: ["fivex", "smartscan"] },
-              { id: "portfolio", label: "PORTFOLIO", tabs: ["portfolio", "performance", "journal", "alerts", "heatmap", "correlation"] },
-              { id: "tools",     label: "TOOLS",     tabs: ["tools", "backtest", "workflow", "agent", "deals", "fibonacci"] },
+              { id: "portfolio", label: "PORTFOLIO", tabs: ["portfolio", "performance", "journal", "alerts", "heatmap", "correlation", "risklab"] },
+              { id: "tools",     label: "TOOLS",     tabs: ["tools", "backtest", "workflow", "agent", "deals", "fibonacci", "ailab", "dca", "options-calc"] },
               { id: "islamic",   label: "☪",         tabs: ["quran", "athan", "athkar", "tasbih", "halal"] },
             ];
             const scannerBadge = scannerRows.filter(r => r.scannerScore >= 70).length || null;
@@ -7410,21 +7679,25 @@ export default function App() {
             { id: "multitf",   label: "⏱ MULTI-TF" },
           ],
           scanner: [
-            { id: "scanner",  label: "SCANNER" },
-            { id: "early",    label: "EARLY ENTRY" },
-            { id: "analyzer", label: "ANALYZER" },
-            { id: "cot",      label: "📊 COT" },
-            { id: "flow",     label: "⚡ FLOW" },
-            { id: "screener", label: "🔍 SCREENER" },
-            { id: "shortint", label: "🩳 SHORT INT" },
+            { id: "scanner",    label: "SCANNER" },
+            { id: "early",      label: "EARLY ENTRY" },
+            { id: "analyzer",   label: "ANALYZER" },
+            { id: "cot",        label: "📊 COT" },
+            { id: "flow",       label: "⚡ FLOW" },
+            { id: "screener",   label: "🔍 SCREENER" },
+            { id: "shortint",   label: "🩳 SHORT INT" },
+            { id: "smartmoney", label: "🏦 SMART $" },
+            { id: "social",     label: "💬 SOCIAL" },
           ],
           markets: [
-            { id: "news",      label: "NEWS" },
-            { id: "earnings",  label: "EARNINGS" },
-            { id: "macro",     label: "MACRO" },
-            { id: "sectors",   label: "SECTORS" },
-            { id: "rotation",  label: "ROTATION" },
-            { id: "calendar",  label: "📅 CALENDAR" },
+            { id: "news",     label: "NEWS" },
+            { id: "earnings", label: "EARNINGS" },
+            { id: "macro",    label: "MACRO" },
+            { id: "sectors",  label: "SECTORS" },
+            { id: "rotation", label: "ROTATION" },
+            { id: "calendar", label: "📅 CALENDAR" },
+            { id: "analyst",  label: "🎯 ANALYST" },
+            { id: "ipo",      label: "💸 DIVIDENDS" },
           ],
           watchlist: [
             { id: "fivex",     label: "🚀 5X PLAYS" },
@@ -7437,14 +7710,18 @@ export default function App() {
             { id: "alerts",      label: "ALERTS" },
             { id: "heatmap",     label: "🔥 HEAT MAP" },
             { id: "correlation", label: "🔗 CORRELATION" },
+            { id: "risklab",     label: "⚠ RISK LAB" },
           ],
           tools: [
-            { id: "tools",     label: "TOOLS" },
-            { id: "backtest",  label: "BACKTEST" },
-            { id: "workflow",  label: "WORKFLOW" },
-            { id: "agent",     label: "AI AGENT" },
-            { id: "deals",     label: "🛒 DEALS" },
-            { id: "fibonacci", label: "🌀 FIBONACCI" },
+            { id: "tools",       label: "TOOLS" },
+            { id: "backtest",    label: "BACKTEST" },
+            { id: "workflow",    label: "WORKFLOW" },
+            { id: "agent",       label: "AI AGENT" },
+            { id: "deals",       label: "🛒 DEALS" },
+            { id: "fibonacci",   label: "🌀 FIBONACCI" },
+            { id: "ailab",       label: "🤖 AI LAB" },
+            { id: "dca",         label: "📈 DCA" },
+            { id: "options-calc", label: "🎰 OPTIONS" },
           ],
           islamic: [
             { id: "quran",  label: "قرآن" },
@@ -14887,6 +15164,902 @@ export default function App() {
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, maxWidth: 400, margin: "0 auto" }}>
                   Checks business activities, revenue from haram sources, debt ratios, and interest income against AAOIFI Islamic finance screening standards.
                 </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── SMART MONEY TAB ─────────────────────────────────────────────────── */}
+      {activeTab === "smartmoney" && (() => {
+        const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
+        const SM_TICKERS = ["AAPL","MSFT","NVDA","TSLA","AMZN","GOOGL","META","PLTR","RKLB","BBAI"];
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>🏦 SMART MONEY TRACKER</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>Insider transactions + institutional ownership from SEC filings</div>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: "auto", flexWrap: "wrap" }}>
+                <input value={insiderInput} onChange={e => setInsiderInput(e.target.value.toUpperCase())}
+                  onKeyDown={e => { if (e.key === "Enter" && insiderInput.trim()) fetchInsiderData(insiderInput.trim()); }}
+                  placeholder="Ticker…"
+                  style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "7px 12px", width: 120, outline: "none" }} />
+                <button onClick={() => insiderInput.trim() && fetchInsiderData(insiderInput.trim())} disabled={insiderLoading}
+                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: insiderLoading ? C.surface : C.accent, border: "none", color: insiderLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 16px", cursor: insiderLoading ? "default" : "pointer" }}>
+                  {insiderLoading ? "LOADING…" : "FETCH"}
+                </button>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {SM_TICKERS.map(t => (
+                <button key={t} onClick={() => { setInsiderInput(t); fetchInsiderData(t); }}
+                  style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, background: insiderTicker === t && insiderData ? `${C.accent}22` : C.surface, border: `1px solid ${insiderTicker === t && insiderData ? C.accent : C.border}`, color: insiderTicker === t && insiderData ? C.accent : C.textDim, borderRadius: 4, padding: "5px 10px", cursor: "pointer" }}>{t}</button>
+              ))}
+            </div>
+            {insiderLoading && <div style={{ ...card({ padding: 40, textAlign: "center" }) }}><span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading insider data…</span></div>}
+            {insiderData && !insiderLoading && (() => {
+              const ins = insiderData;
+              return (
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
+                  {/* Insider Transactions */}
+                  <div style={{ ...card({ padding: 16 }) }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 12, letterSpacing: "0.05em" }}>INSIDER TRANSACTIONS — {ins.symbol}</div>
+                    {ins.error ? <div style={{ color: C.red, fontFamily: MONO, fontSize: 11 }}>{ins.error}</div> : ins.transactions?.length > 0 ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {ins.transactions.slice(0, 12).map((t, i) => (
+                          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: t.type === "BUY" ? C.greenBg : C.redBg, borderRadius: 6, borderLeft: `3px solid ${t.type === "BUY" ? C.green : C.red}` }}>
+                            <div>
+                              <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: t.type === "BUY" ? C.green : C.red }}>{t.type} · {t.name}</div>
+                              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{t.role} · {t.date}</div>
+                            </div>
+                            <div style={{ textAlign: "right" }}>
+                              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{t.shares?.toLocaleString()} shares</div>
+                              {t.value > 0 && <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>${(t.value / 1e6).toFixed(1)}M</div>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, padding: 20, textAlign: "center" }}>No recent insider transactions</div>}
+                  </div>
+                  {/* Institutional Ownership */}
+                  <div style={{ ...card({ padding: 16 }) }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.purple, marginBottom: 12, letterSpacing: "0.05em" }}>INSTITUTIONAL OWNERSHIP</div>
+                    {ins.error ? <div style={{ color: C.red, fontFamily: MONO, fontSize: 11 }}>{ins.error}</div> : (
+                      <>
+                        {(ins.insidersPct != null || ins.institutionsPct != null) && (
+                          <div style={{ display: "flex", gap: 20, marginBottom: 14, flexWrap: "wrap" }}>
+                            {ins.insidersPct != null && (
+                              <div style={{ textAlign: "center" }}>
+                                <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.amber }}>{(ins.insidersPct * 100).toFixed(1)}%</div>
+                                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>INSIDERS HELD</div>
+                              </div>
+                            )}
+                            {ins.institutionsPct != null && (
+                              <div style={{ textAlign: "center" }}>
+                                <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.purple }}>{(ins.institutionsPct * 100).toFixed(1)}%</div>
+                                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>INSTITUTIONS HELD</div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {ins.institutions?.length > 0 && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                            {ins.institutions.slice(0, 10).map((inst, i) => (
+                              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", background: C.surface, borderRadius: 5 }}>
+                                <div style={{ fontFamily: MONO, fontSize: 10, color: C.text, fontWeight: 700 }}>{inst.name}</div>
+                                <div style={{ fontFamily: MONO, fontSize: 10, color: inst.change > 0 ? C.green : inst.change < 0 ? C.red : C.textDim }}>
+                                  {inst.pctHeld != null ? `${(inst.pctHeld * 100).toFixed(2)}%` : "—"}
+                                  {inst.change != null && <span style={{ marginLeft: 8 }}>{inst.change > 0 ? "+" : ""}{inst.change?.toLocaleString()}</span>}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+            {!insiderData && !insiderLoading && (
+              <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
+                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>🏦</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Enter a ticker to track smart money</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>See who's buying and selling before price moves</div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── SOCIAL SENTIMENT TAB ─────────────────────────────────────────────── */}
+      {activeTab === "social" && (() => {
+        const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
+        const SOC_TICKERS = ["TSLA","GME","AMC","BBAI","PLTR","NVDA","AAPL","MSTR","SMCI","RKLB"];
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.cyan }}>💬 SOCIAL SENTIMENT</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>StockTwits bull/bear + Reddit WallStreetBets mentions</div>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: "auto", flexWrap: "wrap" }}>
+                <input value={socialInput} onChange={e => setSocialInput(e.target.value.toUpperCase())}
+                  onKeyDown={e => { if (e.key === "Enter" && socialInput.trim()) fetchSocialSentiment(socialInput.trim()); }}
+                  placeholder="Ticker…"
+                  style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "7px 12px", width: 120, outline: "none" }} />
+                <button onClick={() => socialInput.trim() && fetchSocialSentiment(socialInput.trim())} disabled={socialLoading}
+                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: socialLoading ? C.surface : C.cyan, border: "none", color: socialLoading ? C.textDim : "#000", borderRadius: 6, padding: "9px 16px", cursor: socialLoading ? "default" : "pointer" }}>
+                  {socialLoading ? "LOADING…" : "FETCH"}
+                </button>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {SOC_TICKERS.map(t => (
+                <button key={t} onClick={() => { setSocialInput(t); fetchSocialSentiment(t); }}
+                  style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, background: socialTicker === t && socialData ? `${C.cyan}22` : C.surface, border: `1px solid ${socialTicker === t && socialData ? C.cyan : C.border}`, color: socialTicker === t && socialData ? C.cyan : C.textDim, borderRadius: 4, padding: "5px 10px", cursor: "pointer" }}>{t}</button>
+              ))}
+            </div>
+            {socialLoading && <div style={{ ...card({ padding: 40, textAlign: "center" }) }}><span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Fetching social data…</span></div>}
+            {socialData && !socialLoading && (() => {
+              const sd = socialData;
+              const bullPct = sd.bullPct || 0;
+              const bearPct = sd.bearPct || (sd.total > 0 ? (1 - bullPct) * 100 : 0);
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {/* Gauge row */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
+                    <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.green}` }) }}>
+                      <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.green }}>{(bullPct * 100).toFixed(0)}%</div>
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>🟢 BULLISH</div>
+                    </div>
+                    <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.red}` }) }}>
+                      <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.red }}>{(bearPct * 100 || (100 - bullPct * 100)).toFixed(0)}%</div>
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>🔴 BEARISH</div>
+                    </div>
+                    <div style={{ ...card({ padding: 18, textAlign: "center" }) }}>
+                      <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.text }}>{sd.total || 0}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>TOTAL POSTS</div>
+                    </div>
+                    {sd.redditMentions != null && (
+                      <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.amber}` }) }}>
+                        <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.amber }}>{sd.redditMentions}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>WSB MENTIONS</div>
+                      </div>
+                    )}
+                  </div>
+                  {/* Sentiment bar */}
+                  <div style={{ ...card({ padding: "12px 16px" }) }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 8 }}>SENTIMENT DISTRIBUTION</div>
+                    <div style={{ display: "flex", height: 24, borderRadius: 6, overflow: "hidden" }}>
+                      <div style={{ width: `${(bullPct * 100).toFixed(0)}%`, background: C.green }} />
+                      <div style={{ flex: 1, background: C.red }} />
+                    </div>
+                  </div>
+                  {/* Recent messages */}
+                  {sd.messages?.length > 0 && (
+                    <div style={{ ...card({ padding: 16 }) }}>
+                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.cyan, marginBottom: 10 }}>RECENT POSTS — {sd.symbol}</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {sd.messages.slice(0, 8).map((m, i) => (
+                          <div key={i} style={{ padding: "10px 12px", background: C.surface, borderRadius: 6, borderLeft: `3px solid ${m.sentiment === "Bullish" ? C.green : m.sentiment === "Bearish" ? C.red : C.border}` }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                              <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: m.sentiment === "Bullish" ? C.green : m.sentiment === "Bearish" ? C.red : C.textDim }}>
+                                {m.sentiment === "Bullish" ? "🟢" : m.sentiment === "Bearish" ? "🔴" : "⚪"} {m.user}
+                              </span>
+                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{m.likes > 0 ? `❤ ${m.likes}` : ""}</span>
+                            </div>
+                            <div style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.5 }}>{m.body?.slice(0, 200)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            {!socialData && !socialLoading && (
+              <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
+                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>💬</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Enter a ticker to see social sentiment</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>StockTwits real-time bull/bear ratio + Reddit WSB mentions</div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── ANALYST RATINGS TAB ─────────────────────────────────────────────── */}
+      {activeTab === "analyst" && (() => {
+        const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
+        const AN_TICKERS = ["AAPL","MSFT","NVDA","TSLA","AMZN","GOOGL","META","PLTR","RKLB","BBAI","SMR","OKLO"];
+        const recColor = (r = "") => {
+          r = r.toLowerCase();
+          if (r.includes("strong buy") || r.includes("buy")) return C.green;
+          if (r.includes("sell") || r.includes("underperform")) return C.red;
+          return C.amber;
+        };
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>🎯 ANALYST RATINGS</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>Wall Street consensus · price targets · upgrade/downgrade history</div>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: "auto", flexWrap: "wrap" }}>
+                <input value={analystInput} onChange={e => setAnalystInput(e.target.value.toUpperCase())}
+                  onKeyDown={e => { if (e.key === "Enter" && analystInput.trim()) fetchAnalystRatings(analystInput.trim()); }}
+                  placeholder="Ticker…"
+                  style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "7px 12px", width: 120, outline: "none" }} />
+                <button onClick={() => analystInput.trim() && fetchAnalystRatings(analystInput.trim())} disabled={analystLoading}
+                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: analystLoading ? C.surface : C.accent, border: "none", color: analystLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 16px", cursor: analystLoading ? "default" : "pointer" }}>
+                  {analystLoading ? "LOADING…" : "FETCH"}
+                </button>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {AN_TICKERS.map(t => (
+                <button key={t} onClick={() => { setAnalystInput(t); fetchAnalystRatings(t); }}
+                  style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, background: analystTicker === t && analystData ? `${C.accent}22` : C.surface, border: `1px solid ${analystTicker === t && analystData ? C.accent : C.border}`, color: analystTicker === t && analystData ? C.accent : C.textDim, borderRadius: 4, padding: "5px 10px", cursor: "pointer" }}>{t}</button>
+              ))}
+            </div>
+            {analystLoading && <div style={{ ...card({ padding: 40, textAlign: "center" }) }}><span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading analyst data…</span></div>}
+            {analystData && !analystLoading && (() => {
+              const ad = analystData;
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {/* Summary card */}
+                  <div style={{ ...card({ padding: 20, borderLeft: `4px solid ${recColor(ad.recommendation)}` }), display: "flex", gap: 24, flexWrap: "wrap", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>TICKER</div>
+                      <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 900, color: C.accent }}>{ad.symbol}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>CONSENSUS</div>
+                      <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: recColor(ad.recommendation) }}>{ad.recommendation?.toUpperCase() || "—"}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>ANALYSTS</div>
+                      <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 800, color: C.text }}>{ad.numAnalysts || "—"}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>CURRENT PRICE</div>
+                      <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 800, color: C.text }}>${ad.currentPrice?.toFixed(2) || "—"}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>PRICE TARGETS</div>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>Low ${ad.targetLow?.toFixed(0)}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.accent }}>Mean ${ad.targetMean?.toFixed(0)}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>High ${ad.targetHigh?.toFixed(0)}</span>
+                      </div>
+                      {ad.currentPrice && ad.targetMean && (
+                        <div style={{ fontFamily: MONO, fontSize: 10, color: ad.targetMean > ad.currentPrice ? C.green : C.red, marginTop: 2 }}>
+                          {ad.targetMean > ad.currentPrice ? "+" : ""}{(((ad.targetMean - ad.currentPrice) / ad.currentPrice) * 100).toFixed(1)}% upside
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {/* Upgrade/downgrade history */}
+                  {ad.history?.length > 0 && (
+                    <div style={{ ...card({ padding: 16 }) }}>
+                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 10 }}>RATING HISTORY</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                        {ad.history.slice(0, 12).map((h, i) => (
+                          <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "7px 10px", background: h.action === "up" ? C.greenBg : h.action === "down" ? C.redBg : C.surface, borderRadius: 6, flexWrap: "wrap", gap: 6 }}>
+                            <div>
+                              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text }}>{h.firm}</span>
+                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginLeft: 8 }}>{h.date}</span>
+                            </div>
+                            <div>
+                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{h.fromGrade} → </span>
+                              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: h.action === "up" ? C.green : h.action === "down" ? C.red : C.amber }}>{h.toGrade}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Trend table */}
+                  {ad.trend?.length > 0 && (
+                    <div style={{ ...card({ padding: 16 }) }}>
+                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 10 }}>RECOMMENDATION TREND</div>
+                      <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 11 }}>
+                          <thead>
+                            <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                              {["PERIOD","STR BUY","BUY","HOLD","SELL","STR SELL"].map(h => (
+                                <th key={h} style={{ padding: "6px 10px", textAlign: "center", color: C.textDim, fontSize: 9, fontWeight: 600 }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ad.trend.map((row, i) => (
+                              <tr key={i} style={{ borderBottom: `1px solid ${C.border}30` }}>
+                                <td style={{ padding: "8px 10px", color: C.textSec, fontSize: 10 }}>{row.period}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "center", color: C.green, fontWeight: 700 }}>{row.strongBuy || 0}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "center", color: C.green }}>{row.buy || 0}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "center", color: C.amber }}>{row.hold || 0}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "center", color: C.red }}>{row.sell || 0}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "center", color: C.red, fontWeight: 700 }}>{row.strongSell || 0}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            {!analystData && !analystLoading && (
+              <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
+                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>🎯</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Enter a ticker for analyst ratings</div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── DIVIDEND / IPO CALENDAR TAB ─────────────────────────────────────── */}
+      {activeTab === "ipo" && (() => {
+        const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.green }}>💸 DIVIDEND TRACKER</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>Ex-dividend dates, yields, payout ratios & stock splits</div>
+              </div>
+              <button onClick={fetchDividendCalendar} disabled={dividendLoading} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 700, background: dividendLoading ? C.surface : C.green, border: "none", color: dividendLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 18px", cursor: dividendLoading ? "default" : "pointer" }}>
+                {dividendLoading ? "LOADING…" : "LOAD DIVIDENDS"}
+              </button>
+            </div>
+            {dividendLoading && <div style={{ ...card({ padding: 40, textAlign: "center" }) }}><span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Fetching dividend data…</span></div>}
+            {dividendData && !dividendLoading && (() => {
+              const items = dividendData;
+              if (!items.length) return (
+                <div style={{ ...card({ padding: 40, textAlign: "center" }) }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>No dividend data found for watchlist tickers</div>
+                </div>
+              );
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {items.map((d, i) => (
+                    <div key={i} style={{ ...card({ padding: "14px 18px" }), display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                      <div>
+                        <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.accent }}>{d.symbol}</div>
+                        {d.exDividendDate && <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>Ex-Div: {new Date(d.exDividendDate * 1000).toLocaleDateString()}</div>}
+                        {d.dividendDate && <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Pay Date: {new Date(d.dividendDate * 1000).toLocaleDateString()}</div>}
+                        {d.lastSplitFactor && <div style={{ fontFamily: MONO, fontSize: 9, color: C.amber, marginTop: 4 }}>Split: {d.lastSplitFactor} ({d.lastSplitDate ? new Date(d.lastSplitDate * 1000).toLocaleDateString() : "—"})</div>}
+                      </div>
+                      <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                        {d.dividendYield > 0 && (
+                          <div style={{ textAlign: "center" }}>
+                            <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.green }}>{(d.dividendYield * 100).toFixed(2)}%</div>
+                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>YIELD</div>
+                          </div>
+                        )}
+                        {d.dividendRate > 0 && (
+                          <div style={{ textAlign: "center" }}>
+                            <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.text }}>${d.dividendRate?.toFixed(2)}</div>
+                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>ANNUAL</div>
+                          </div>
+                        )}
+                        {d.payoutRatio > 0 && (
+                          <div style={{ textAlign: "center" }}>
+                            <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: d.payoutRatio > 0.9 ? C.red : d.payoutRatio > 0.6 ? C.amber : C.text }}>{(d.payoutRatio * 100).toFixed(0)}%</div>
+                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>PAYOUT</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+            {!dividendData && !dividendLoading && (
+              <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
+                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>💸</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Click LOAD DIVIDENDS to fetch your watchlist</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>Shows dividend yields, ex-dates, payout ratios, and stock splits</div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── RISK LAB TAB ─────────────────────────────────────────────────────── */}
+      {activeTab === "risklab" && (() => {
+        const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
+        // Compute portfolio metrics from positions
+        const totalValue = portfolioRows.reduce((s, p) => s + p.shares * (p.currentPrice || p.avgCost || 0), 0);
+        const positions = portfolioRows.map(p => {
+          const val = p.shares * (p.currentPrice || p.avgCost || 0);
+          const weight = totalValue > 0 ? val / totalValue : 0;
+          const pnlPct = p.avgCost > 0 && p.currentPrice ? (p.currentPrice - p.avgCost) / p.avgCost : 0;
+          // Use deep scan ATR if available, else estimate 2% daily vol
+          const bars = scanDeepData[p.ticker]?.candles || [];
+          let vol = 0.02;
+          if (bars.length >= 14) {
+            const highs = bars.map(b => b.high), lows = bars.map(b => b.low), closes = bars.map(b => b.close);
+            const trs = [];
+            for (let i = 1; i < Math.min(bars.length, 20); i++) {
+              trs.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i-1]), Math.abs(lows[i] - closes[i-1])));
+            }
+            const atr = trs.reduce((a, b) => a + b, 0) / trs.length;
+            vol = (p.currentPrice || p.avgCost) > 0 ? atr / (p.currentPrice || p.avgCost) : 0.02;
+          }
+          return { ticker: p.ticker, val, weight, pnlPct, vol };
+        });
+        // Portfolio VaR (95%, 1-day) — simplified parametric
+        const portVol = positions.length > 0 ? positions.reduce((s, p) => s + p.weight * p.vol, 0) : 0;
+        const var95 = totalValue * portVol * 1.645;
+        const var99 = totalValue * portVol * 2.326;
+        // Beta: weighted sum (SPY beta = 1 baseline; use vol ratio as proxy if no beta data)
+        const approxBeta = positions.length > 0 ? positions.reduce((s, p) => s + p.weight * (p.vol / 0.015), 0) : 1;
+        // Stress scenarios
+        const scenarios = [
+          { name: "Flash Crash -10%", spyShock: -0.10, label: "2020 COVID Flash" },
+          { name: "Recession -30%",   spyShock: -0.30, label: "2022 Bear Market" },
+          { name: "GFC -50%",        spyShock: -0.50, label: "2008/09 Level" },
+          { name: "Bull Run +20%",   spyShock: +0.20, label: "2023-style Rally" },
+        ];
+        // Tax-loss harvesting: positions with unrealized loss
+        const losers = portfolioRows.filter(p => p.currentPrice && p.avgCost && p.currentPrice < p.avgCost)
+          .map(p => ({ ticker: p.ticker, loss: (p.currentPrice - p.avgCost) * p.shares, lossAmt: Math.abs((p.currentPrice - p.avgCost) * p.shares) }))
+          .sort((a, b) => a.loss - b.loss);
+
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.amber }}>⚠ RISK LABORATORY</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>Stress testing · VaR · Beta exposure · Tax-loss harvesting</div>
+              </div>
+              <div style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.textDim }}>{portfolioRows.length} positions · ${totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} total</div>
+            </div>
+            {portfolioRows.length === 0 ? (
+              <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
+                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>⚠</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Add positions to Portfolio first</div>
+              </div>
+            ) : (
+              <>
+                {/* VaR + Beta row */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
+                  <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.red}` }) }}>
+                    <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.red }}>-${var95.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>VaR 95% (1-DAY)</div>
+                  </div>
+                  <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.red}` }) }}>
+                    <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.red }}>-${var99.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>VaR 99% (1-DAY)</div>
+                  </div>
+                  <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.amber}` }) }}>
+                    <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.amber }}>{approxBeta.toFixed(2)}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>PORTFOLIO BETA</div>
+                  </div>
+                  <div style={{ ...card({ padding: 18, textAlign: "center" }) }}>
+                    <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.text }}>{(portVol * 100).toFixed(1)}%</div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>AVG DAILY VOL</div>
+                  </div>
+                </div>
+                {/* Stress tests */}
+                <div style={{ ...card({ padding: 16 }) }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.amber, marginBottom: 12 }}>STRESS TEST SCENARIOS</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+                    {scenarios.map((sc, i) => {
+                      const impact = totalValue * approxBeta * sc.spyShock;
+                      return (
+                        <div key={i} style={{ padding: "14px 16px", background: C.surface, borderRadius: 8, borderLeft: `4px solid ${sc.spyShock < 0 ? C.red : C.green}` }}>
+                          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text }}>{sc.name}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>{sc.label}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: sc.spyShock < 0 ? C.red : C.green, marginTop: 8 }}>
+                            {impact >= 0 ? "+" : ""}${impact.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                {/* Tax-loss harvesting */}
+                <div style={{ ...card({ padding: 16 }) }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, marginBottom: 10 }}>TAX-LOSS HARVESTING OPPORTUNITIES</div>
+                  {losers.length === 0 ? (
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, padding: "12px 0" }}>No unrealized losses in portfolio — all positions are profitable</div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {losers.map((l, i) => (
+                        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: C.redBg, borderRadius: 6 }}>
+                          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{l.ticker}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>Loss: ${l.lossAmt.toFixed(0)} · Tax savings ≈ ${(l.lossAmt * 0.22).toFixed(0)} (22%)</div>
+                        </div>
+                      ))}
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 6 }}>
+                        * Estimated at 22% federal tax rate. Consult a tax professional. Wash-sale rule: do not repurchase within 30 days.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── AI LAB TAB ───────────────────────────────────────────────────────── */}
+      {activeTab === "ailab" && (() => {
+        const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
+        const sections = [
+          { id: "pattern",    label: "📊 PATTERN" },
+          { id: "scenario",   label: "🌐 SCENARIO" },
+          { id: "earnings",   label: "📞 EARNINGS" },
+          { id: "recap",      label: "📋 RECAP" },
+          { id: "checklist",  label: "✅ CHECKLIST" },
+        ];
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ ...card({ padding: "10px 16px" }) }}>
+              <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.purple, marginBottom: 10 }}>🤖 AI LABORATORY</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {sections.map(s => (
+                  <button key={s.id} onClick={() => setAilabSection(s.id)}
+                    style={{ fontFamily: MONO, fontSize: 10, fontWeight: ailabSection === s.id ? 800 : 500, background: ailabSection === s.id ? `${C.purple}22` : C.surface, border: `1px solid ${ailabSection === s.id ? C.purple : C.border}`, color: ailabSection === s.id ? C.purple : C.textDim, borderRadius: 5, padding: "7px 14px", cursor: "pointer" }}>{s.label}</button>
+                ))}
+              </div>
+            </div>
+
+            {ailabSection === "pattern" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ ...card({ padding: 16 }), display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.purple }}>AI CHART PATTERN RECOGNIZER</div>
+                  <input value={patternInput} onChange={e => setPatternInput(e.target.value.toUpperCase())}
+                    onKeyDown={e => { if (e.key === "Enter" && patternInput.trim()) fetchAIPattern(patternInput.trim()); }}
+                    placeholder="Ticker…"
+                    style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "7px 12px", width: 120, outline: "none" }} />
+                  <button onClick={() => patternInput.trim() && fetchAIPattern(patternInput.trim())} disabled={patternLoading}
+                    style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: patternLoading ? C.surface : C.purple, border: "none", color: patternLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 16px", cursor: patternLoading ? "default" : "pointer" }}>
+                    {patternLoading ? "ANALYZING…" : "ANALYZE"}
+                  </button>
+                </div>
+                {patternLoading && <div style={{ ...card({ padding: 40, textAlign: "center" }) }}><span style={{ fontFamily: MONO, color: C.textDim }}>AI analyzing price action…</span></div>}
+                {patternResult && !patternLoading && (
+                  <div style={{ ...card({ padding: 20, borderLeft: `4px solid ${C.purple}` }) }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.purple, marginBottom: 10 }}>PATTERN ANALYSIS — {patternTicker}</div>
+                    {patternResult.error ? (
+                      <div style={{ fontFamily: MONO, color: C.red }}>{patternResult.error}</div>
+                    ) : (
+                      <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{patternResult.analysis || patternResult.result}</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {ailabSection === "scenario" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ ...card({ padding: 16 }) }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.purple, marginBottom: 10 }}>MACRO SCENARIO PLANNER</div>
+                  <textarea value={scenarioInput} onChange={e => setScenarioInput(e.target.value)}
+                    placeholder="Describe a macro scenario (e.g. 'Fed cuts rates by 50bps in September amid recession fears')"
+                    rows={3}
+                    style={{ width: "100%", fontFamily: SANS, fontSize: 13, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "10px 12px", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+                  <button onClick={() => fetchMacroScenario(scenarioInput)} disabled={scenarioLoading || !scenarioInput.trim()}
+                    style={{ marginTop: 10, fontFamily: MONO, fontSize: 11, fontWeight: 700, background: scenarioLoading || !scenarioInput.trim() ? C.surface : C.purple, border: "none", color: scenarioLoading ? C.textDim : "#fff", borderRadius: 6, padding: "10px 20px", cursor: "pointer" }}>
+                    {scenarioLoading ? "ANALYZING…" : "ANALYZE IMPACT"}
+                  </button>
+                </div>
+                {scenarioLoading && <div style={{ ...card({ padding: 40, textAlign: "center" }) }}><span style={{ fontFamily: MONO, color: C.textDim }}>Running scenario analysis…</span></div>}
+                {scenarioResult && !scenarioLoading && (
+                  <div style={{ ...card({ padding: 20, borderLeft: `4px solid ${C.purple}` }) }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.purple, marginBottom: 10 }}>SCENARIO IMPACT</div>
+                    {scenarioResult.error ? (
+                      <div style={{ fontFamily: MONO, color: C.red }}>{scenarioResult.error}</div>
+                    ) : (
+                      <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{scenarioResult.analysis || scenarioResult.result}</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {ailabSection === "earnings" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ ...card({ padding: 16 }) }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.purple, marginBottom: 10 }}>EARNINGS CALL SUMMARIZER</div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 8 }}>Paste earnings call transcript below (up to 12,000 characters)</div>
+                  <textarea value={earningsCallText} onChange={e => setEarningsCallText(e.target.value)}
+                    placeholder="Paste earnings call transcript here…"
+                    rows={8}
+                    style={{ width: "100%", fontFamily: SANS, fontSize: 12, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "10px 12px", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{earningsCallText.length} / 12,000 chars</span>
+                    <button onClick={summarizeEarningsCall} disabled={earningsCallLoad || !earningsCallText.trim()}
+                      style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: earningsCallLoad || !earningsCallText.trim() ? C.surface : C.purple, border: "none", color: earningsCallLoad ? C.textDim : "#fff", borderRadius: 6, padding: "10px 20px", cursor: "pointer" }}>
+                      {earningsCallLoad ? "SUMMARIZING…" : "SUMMARIZE"}
+                    </button>
+                  </div>
+                </div>
+                {earningsCallLoad && <div style={{ ...card({ padding: 40, textAlign: "center" }) }}><span style={{ fontFamily: MONO, color: C.textDim }}>AI reading the call…</span></div>}
+                {earningsCallResult && !earningsCallLoad && (
+                  <div style={{ ...card({ padding: 20, borderLeft: `4px solid ${C.purple}` }) }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.purple, marginBottom: 10 }}>SUMMARY</div>
+                    {earningsCallResult.error ? (
+                      <div style={{ fontFamily: MONO, color: C.red }}>{earningsCallResult.error}</div>
+                    ) : (
+                      <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{earningsCallResult.summary || earningsCallResult.result}</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {ailabSection === "recap" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ ...card({ padding: 20 }), display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                  <div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.purple }}>SESSION RECAP GENERATOR</div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 4 }}>AI reviews today's closed trades and market performance</div>
+                  </div>
+                  <button onClick={generateSessionRecap} disabled={sessionRecapLoad}
+                    style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: sessionRecapLoad ? C.surface : C.purple, border: "none", color: sessionRecapLoad ? C.textDim : "#fff", borderRadius: 6, padding: "10px 20px", cursor: "pointer" }}>
+                    {sessionRecapLoad ? "GENERATING…" : "GENERATE RECAP"}
+                  </button>
+                </div>
+                {sessionRecapLoad && <div style={{ ...card({ padding: 40, textAlign: "center" }) }}><span style={{ fontFamily: MONO, color: C.textDim }}>Writing your session recap…</span></div>}
+                {sessionRecapResult && !sessionRecapLoad && (
+                  <div style={{ ...card({ padding: 20, borderLeft: `4px solid ${C.purple}` }) }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.purple, marginBottom: 10 }}>TODAY'S SESSION RECAP</div>
+                    {sessionRecapResult.error ? (
+                      <div style={{ fontFamily: MONO, color: C.red }}>{sessionRecapResult.error}</div>
+                    ) : (
+                      <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{sessionRecapResult.recap || sessionRecapResult.result}</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {ailabSection === "checklist" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ ...card({ padding: 16 }), display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.purple }}>PRE-TRADE CHECKLIST</div>
+                  <div>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: checklistItems.filter(c => c.done).length === checklistItems.length ? C.green : C.amber }}>
+                      {checklistItems.filter(c => c.done).length}/{checklistItems.length}
+                    </span>
+                    <button onClick={() => setChecklistItems(prev => prev.map(c => ({ ...c, done: false })))}
+                      style={{ marginLeft: 12, fontFamily: MONO, fontSize: 9, background: C.surface, border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 4, padding: "4px 10px", cursor: "pointer" }}>RESET</button>
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {checklistItems.map(item => (
+                    <div key={item.id} onClick={() => setChecklistItems(prev => prev.map(c => c.id === item.id ? { ...c, done: !c.done } : c))}
+                      style={{ ...card({ padding: "12px 16px" }), display: "flex", alignItems: "center", gap: 12, cursor: "pointer", borderLeft: `4px solid ${item.done ? C.green : C.border}`, opacity: item.done ? 0.85 : 1 }}>
+                      <div style={{ width: 20, height: 20, borderRadius: 4, border: `2px solid ${item.done ? C.green : C.border}`, background: item.done ? C.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        {item.done && <span style={{ color: "#fff", fontSize: 12, lineHeight: 1 }}>✓</span>}
+                      </div>
+                      <span style={{ fontFamily: SANS, fontSize: 13, color: item.done ? C.textDim : C.text, textDecoration: item.done ? "line-through" : "none" }}>{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+                {checklistItems.filter(c => c.done).length === checklistItems.length && (
+                  <div style={{ ...card({ padding: 16, borderLeft: `4px solid ${C.green}`, textAlign: "center" }) }}>
+                    <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.green }}>✅ ALL CHECKS PASSED — CLEAR TO TRADE</div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── DCA PLANNER TAB ──────────────────────────────────────────────────── */}
+      {activeTab === "dca" && (() => {
+        const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ ...card({ padding: "14px 18px" }) }}>
+              <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.green, marginBottom: 14 }}>📈 DCA PLANNER</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>TICKER</div>
+                  <input value={dcaTicker} onChange={e => setDcaTicker(e.target.value.toUpperCase())}
+                    style={{ width: "100%", fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 10px", boxSizing: "border-box", outline: "none" }} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>AMOUNT ($)</div>
+                  <input type="number" value={dcaAmount} onChange={e => setDcaAmount(e.target.value)}
+                    style={{ width: "100%", fontFamily: MONO, fontSize: 13, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 10px", boxSizing: "border-box", outline: "none" }} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>FREQUENCY</div>
+                  <select value={dcaPeriod} onChange={e => setDcaPeriod(e.target.value)}
+                    style={{ width: "100%", fontFamily: MONO, fontSize: 12, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 10px", boxSizing: "border-box", outline: "none" }}>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>MONTHS</div>
+                  <input type="number" value={dcaMonths} onChange={e => setDcaMonths(e.target.value)} min={1} max={120}
+                    style={{ width: "100%", fontFamily: MONO, fontSize: 13, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 10px", boxSizing: "border-box", outline: "none" }} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>ANNUAL RETURN (%)</div>
+                  <input type="number" value={dcaReturn} onChange={e => setDcaReturn(e.target.value)} min={0} max={100}
+                    style={{ width: "100%", fontFamily: MONO, fontSize: 13, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 10px", boxSizing: "border-box", outline: "none" }} />
+                </div>
+                <div style={{ display: "flex", alignItems: "flex-end" }}>
+                  <button onClick={computeDCA}
+                    style={{ width: "100%", fontFamily: MONO, fontSize: 12, fontWeight: 700, background: C.green, border: "none", color: "#fff", borderRadius: 6, padding: "10px 0", cursor: "pointer" }}>
+                    CALCULATE
+                  </button>
+                </div>
+              </div>
+            </div>
+            {dcaResult && (() => {
+              const { fv, invested, gain, gainPct, curve } = dcaResult;
+              const maxVal = Math.max(...curve.map(c => c.value));
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {/* Summary metrics */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+                    <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.green}` }) }}>
+                      <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.green }}>${fv.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>FINAL VALUE</div>
+                    </div>
+                    <div style={{ ...card({ padding: 18, textAlign: "center" }) }}>
+                      <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.text }}>${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>TOTAL INVESTED</div>
+                    </div>
+                    <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.accent}` }) }}>
+                      <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.accent }}>${gain.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>TOTAL GAIN</div>
+                    </div>
+                    <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.accent}` }) }}>
+                      <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.accent }}>{gainPct.toFixed(1)}%</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>RETURN</div>
+                    </div>
+                  </div>
+                  {/* Equity curve */}
+                  <div style={{ ...card({ padding: 16 }) }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, marginBottom: 12 }}>EQUITY CURVE — {dcaTicker}</div>
+                    <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 120, padding: "0 4px" }}>
+                      {curve.map((pt, i) => (
+                        <div key={i} title={`Month ${pt.month}: $${pt.value.toFixed(0)}`} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 1, height: "100%" }}>
+                          <div style={{ width: "100%", background: `${C.green}88`, borderRadius: "2px 2px 0 0", height: `${(pt.invested / maxVal) * 100}%`, minHeight: 2 }} />
+                          <div style={{ width: "100%", background: C.green, borderRadius: "2px 2px 0 0", height: `${Math.max(0, (pt.value - pt.invested) / maxVal * 100)}%`, marginTop: "-2px" }} />
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: 14, marginTop: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 12, height: 8, background: `${C.green}88`, borderRadius: 2 }} /><span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Invested</span></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 12, height: 8, background: C.green, borderRadius: 2 }} /><span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Growth</span></div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+            {!dcaResult && (
+              <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
+                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>📈</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Set parameters and click CALCULATE</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>Projects the future value of regular investments using compound growth</div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── OPTIONS CALCULATOR TAB ───────────────────────────────────────────── */}
+      {activeTab === "options-calc" && (() => {
+        const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ ...card({ padding: "14px 18px" }) }}>
+              <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.amber, marginBottom: 14 }}>🎰 OPTIONS BREAK-EVEN CALCULATOR</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>TYPE</div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => setOptionType("call")}
+                      style={{ flex: 1, fontFamily: MONO, fontSize: 12, fontWeight: 700, background: optionType === "call" ? C.green : C.surface, border: `1px solid ${optionType === "call" ? C.green : C.border}`, color: optionType === "call" ? "#fff" : C.textDim, borderRadius: 5, padding: "8px 0", cursor: "pointer" }}>CALL</button>
+                    <button onClick={() => setOptionType("put")}
+                      style={{ flex: 1, fontFamily: MONO, fontSize: 12, fontWeight: 700, background: optionType === "put" ? C.red : C.surface, border: `1px solid ${optionType === "put" ? C.red : C.border}`, color: optionType === "put" ? "#fff" : C.textDim, borderRadius: 5, padding: "8px 0", cursor: "pointer" }}>PUT</button>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>STRIKE PRICE</div>
+                  <input type="number" value={optionStrike} onChange={e => setOptionStrike(e.target.value)} placeholder="150"
+                    style={{ width: "100%", fontFamily: MONO, fontSize: 13, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 10px", boxSizing: "border-box", outline: "none" }} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>PREMIUM PAID</div>
+                  <input type="number" value={optionPremium} onChange={e => setOptionPremium(e.target.value)} placeholder="3.50"
+                    style={{ width: "100%", fontFamily: MONO, fontSize: 13, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 10px", boxSizing: "border-box", outline: "none" }} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>STOCK PRICE (opt)</div>
+                  <input type="number" value={optionStock} onChange={e => setOptionStock(e.target.value)} placeholder="148"
+                    style={{ width: "100%", fontFamily: MONO, fontSize: 13, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 10px", boxSizing: "border-box", outline: "none" }} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>EXPIRY DATE (opt)</div>
+                  <input type="date" value={optionExpiry} onChange={e => setOptionExpiry(e.target.value)}
+                    style={{ width: "100%", fontFamily: MONO, fontSize: 12, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 10px", boxSizing: "border-box", outline: "none" }} />
+                </div>
+                <div style={{ display: "flex", alignItems: "flex-end" }}>
+                  <button onClick={computeOptions}
+                    style={{ width: "100%", fontFamily: MONO, fontSize: 12, fontWeight: 700, background: C.amber, border: "none", color: "#000", borderRadius: 6, padding: "10px 0", cursor: "pointer" }}>
+                    CALCULATE
+                  </button>
+                </div>
+              </div>
+            </div>
+            {optionResult && (() => {
+              const { breakEven, intrinsic, timeValue, currentPnL, maxProfit, maxLoss, daysToExpiry, isCall } = optionResult;
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+                    <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.accent}` }) }}>
+                      <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.accent }}>${breakEven.toFixed(2)}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>BREAK-EVEN</div>
+                    </div>
+                    <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.green}` }) }}>
+                      <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.green }}>{isCall ? "Unlimited" : `$${maxProfit}`}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>MAX PROFIT</div>
+                    </div>
+                    <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.red}` }) }}>
+                      <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.red }}>-${maxLoss}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>MAX LOSS</div>
+                    </div>
+                    {intrinsic != null && (
+                      <div style={{ ...card({ padding: 18, textAlign: "center" }) }}>
+                        <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.text }}>${intrinsic.toFixed(2)}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>INTRINSIC VALUE</div>
+                      </div>
+                    )}
+                    {timeValue != null && (
+                      <div style={{ ...card({ padding: 18, textAlign: "center" }) }}>
+                        <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.textSec }}>${timeValue.toFixed(2)}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>TIME VALUE</div>
+                      </div>
+                    )}
+                    {currentPnL != null && (
+                      <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${currentPnL >= 0 ? C.green : C.red}` }) }}>
+                        <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: currentPnL >= 0 ? C.green : C.red }}>{currentPnL >= 0 ? "+" : ""}${currentPnL.toFixed(0)}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>CURRENT P&L</div>
+                      </div>
+                    )}
+                    {daysToExpiry != null && (
+                      <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${daysToExpiry <= 7 ? C.red : daysToExpiry <= 21 ? C.amber : C.green}` }) }}>
+                        <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: daysToExpiry <= 7 ? C.red : daysToExpiry <= 21 ? C.amber : C.green }}>{daysToExpiry}d</div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>DAYS TO EXPIRY</div>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ ...card({ padding: 16, borderLeft: `4px solid ${isCall ? C.green : C.red}` }) }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8 }}>TRADE SUMMARY — {isCall ? "CALL" : "PUT"} ${optionStrike} @ ${optionPremium}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.7 }}>
+                      {isCall
+                        ? `You paid $${optionPremium}/share ($${(parseFloat(optionPremium) * 100).toFixed(0)} per contract) for the right to BUY at $${optionStrike}. Stock must rise above $${breakEven.toFixed(2)} by expiry to profit.`
+                        : `You paid $${optionPremium}/share ($${(parseFloat(optionPremium) * 100).toFixed(0)} per contract) for the right to SELL at $${optionStrike}. Stock must fall below $${breakEven.toFixed(2)} by expiry to profit.`}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+            {!optionResult && (
+              <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
+                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>🎰</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Enter option details and click CALCULATE</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>Computes break-even, max profit/loss, intrinsic value, time value, and P&L</div>
               </div>
             )}
           </div>

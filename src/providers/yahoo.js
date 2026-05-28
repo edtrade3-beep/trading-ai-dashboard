@@ -503,6 +503,173 @@ async function fetchYahooShortInterest(symbol) {
   }
 }
 
+// ── Insider transactions (Form 4 via Yahoo) ───────────────────────────────────
+async function fetchYahooInsiderTransactions(symbol) {
+  const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=insiderTransactions,insiderHolders`;
+  try {
+    const res = await yFetch(url, 10000);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const payload = await res.json();
+    const r = payload?.quoteSummary?.result?.[0] || {};
+    const txns   = (r?.insiderTransactions?.transactions  || []).slice(0, 20);
+    const holders= (r?.insiderHolders?.holders            || []).slice(0, 10);
+    return {
+      symbol: symbol.toUpperCase(),
+      transactions: txns.map(t => ({
+        date:   t.startDate?.fmt || "",
+        name:   t.filerName || "Unknown",
+        role:   t.filerRelation || "",
+        type:   String(t.transactionText || "").toLowerCase().includes("sale") ? "SELL" : "BUY",
+        shares: Number(t.shares?.raw || 0),
+        value:  Number(t.value?.raw  || 0),
+        text:   t.transactionText || "",
+      })),
+      holders: holders.map(h => ({
+        name:   h.name || "",
+        shares: Number(h.shares?.raw || 0),
+        value:  Number(h.value?.raw  || 0),
+        date:   h.latestTransDate?.fmt || "",
+        relation: h.relation || "",
+        desc:   h.transactionDescription || "",
+      })),
+    };
+  } catch {
+    return { symbol: symbol.toUpperCase(), transactions: [], holders: [] };
+  }
+}
+
+// ── Institutional ownership / 13F-style ──────────────────────────────────────
+async function fetchYahooInstitutional(symbol) {
+  const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=institutionalOwnership,majorHoldersBreakdown,fundOwnership`;
+  try {
+    const res = await yFetch(url, 10000);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const payload = await res.json();
+    const r = payload?.quoteSummary?.result?.[0] || {};
+    const instList = (r?.institutionalOwnership?.ownershipList || []).slice(0, 25);
+    const fundList = (r?.fundOwnership?.ownershipList          || []).slice(0, 10);
+    const bkdn     = r?.majorHoldersBreakdown || {};
+    return {
+      symbol: symbol.toUpperCase(),
+      insidersPct:      round2(Number(bkdn.insidersPercentHeld?.raw || 0) * 100),
+      institutionsPct:  round2(Number(bkdn.institutionsPercentHeld?.raw || 0) * 100),
+      institutions: instList.map(o => ({
+        name:      o.organization || "",
+        date:      o.reportDate?.fmt || "",
+        shares:    Number(o.position?.raw || 0),
+        change:    Number(o.change?.raw   || 0),
+        pctHeld:   round2(Number(o.pctHeld?.raw || 0) * 100),
+        value:     Number(o.value?.raw    || 0),
+      })),
+      funds: fundList.map(f => ({
+        name:   f.organization || "",
+        date:   f.reportDate?.fmt || "",
+        shares: Number(f.position?.raw || 0),
+        pctHeld: round2(Number(f.pctHeld?.raw || 0) * 100),
+      })),
+    };
+  } catch {
+    return { symbol: symbol.toUpperCase(), insidersPct: 0, institutionsPct: 0, institutions: [], funds: [] };
+  }
+}
+
+// ── Analyst ratings ───────────────────────────────────────────────────────────
+async function fetchYahooAnalystRatings(symbol) {
+  const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=upgradeDowngradeHistory,recommendationTrend,financialData`;
+  try {
+    const res = await yFetch(url, 10000);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const payload = await res.json();
+    const r = payload?.quoteSummary?.result?.[0] || {};
+    const history = (r?.upgradeDowngradeHistory?.history || []).slice(0, 20);
+    const trend   = (r?.recommendationTrend?.trend       || []).slice(0, 4);
+    const fd      = r?.financialData || {};
+    return {
+      symbol: symbol.toUpperCase(),
+      targetLow:    Number(fd.targetLowPrice?.raw    || 0),
+      targetMean:   Number(fd.targetMeanPrice?.raw   || 0),
+      targetHigh:   Number(fd.targetHighPrice?.raw   || 0),
+      currentPrice: Number(fd.currentPrice?.raw      || 0),
+      recommendation: fd.recommendationKey || "",
+      numAnalysts:  Number(fd.numberOfAnalystOpinions?.raw || 0),
+      history: history.map(h => ({
+        date:      h.epochGradeDate ? new Date(h.epochGradeDate * 1000).toISOString().slice(0, 10) : "",
+        firm:      h.firm || "",
+        action:    h.action || "",   // main, up, down, reit
+        fromGrade: h.fromGrade || "",
+        toGrade:   h.toGrade || "",
+      })),
+      trend: trend.map(t => ({
+        period:     t.period || "",
+        strongBuy:  Number(t.strongBuy  || 0),
+        buy:        Number(t.buy        || 0),
+        hold:       Number(t.hold       || 0),
+        sell:       Number(t.sell       || 0),
+        strongSell: Number(t.strongSell || 0),
+      })),
+    };
+  } catch {
+    return { symbol: symbol.toUpperCase(), history: [], trend: [], targetMean: 0, targetLow: 0, targetHigh: 0, currentPrice: 0, recommendation: "", numAnalysts: 0 };
+  }
+}
+
+// ── Dividend & split calendar ─────────────────────────────────────────────────
+async function fetchYahooDividendInfo(symbol) {
+  const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=calendarEvents,summaryDetail`;
+  try {
+    const res = await yFetch(url, 8000);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const payload = await res.json();
+    const r   = payload?.quoteSummary?.result?.[0] || {};
+    const cal = r?.calendarEvents    || {};
+    const sd  = r?.summaryDetail     || {};
+    return {
+      symbol:           symbol.toUpperCase(),
+      exDividendDate:   cal.exDividendDate?.fmt  || null,
+      dividendDate:     cal.dividendDate?.fmt    || null,
+      dividendRate:     round2(Number(sd.dividendRate?.raw   || 0)),
+      dividendYield:    round2(Number(sd.dividendYield?.raw  || 0) * 100),
+      payoutRatio:      round2(Number(sd.payoutRatio?.raw    || 0) * 100),
+      fiveYearAvgYield: round2(Number(sd.fiveYearAvgDividendYield?.raw || 0)),
+      lastSplitFactor:  sd.lastSplitFactor || null,
+      lastSplitDate:    sd.lastSplitDate?.fmt || null,
+    };
+  } catch {
+    return { symbol: symbol.toUpperCase(), exDividendDate: null, dividendDate: null, dividendRate: 0, dividendYield: 0, payoutRatio: 0, lastSplitFactor: null, lastSplitDate: null };
+  }
+}
+
+// ── StockTwits social sentiment ───────────────────────────────────────────────
+async function fetchStockTwitsSentiment(symbol) {
+  const url = `https://api.stocktwits.com/api/2/streams/symbol/${encodeURIComponent(symbol)}.json`;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(url, { signal: controller.signal, headers: { "User-Agent": "Mozilla/5.0" } });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const messages = data?.messages || [];
+    const bullCount = messages.filter(m => m.entities?.sentiment?.basic === "Bullish").length;
+    const bearCount = messages.filter(m => m.entities?.sentiment?.basic === "Bearish").length;
+    const total = messages.length;
+    return {
+      symbol: symbol.toUpperCase(),
+      bullCount, bearCount, total,
+      bullPct: total > 0 ? Math.round(bullCount / total * 100) : 50,
+      messages: messages.slice(0, 15).map(m => ({
+        body:      String(m.body  || "").slice(0, 200),
+        sentiment: m.entities?.sentiment?.basic || "Neutral",
+        date:      m.created_at || "",
+        user:      m.user?.username || "anon",
+        likes:     m.likes?.total  || 0,
+      })),
+    };
+  } catch {
+    return { symbol: symbol.toUpperCase(), bullCount: 0, bearCount: 0, total: 0, bullPct: 50, messages: [] };
+  }
+}
+
 module.exports = {
   fetchYahooBars, fetchYahooQuoteBatch, fetchYahooQuotes,
   fetchYahooNews, fetchYahooRssNews,
@@ -511,4 +678,7 @@ module.exports = {
   fetchYahooMarketCapFromSummary, fetchYahooChartMeta,
   resolveMarketCap, MARKET_CAP_CACHE,
   fetchYahooShortInterest,
+  fetchYahooInsiderTransactions, fetchYahooInstitutional,
+  fetchYahooAnalystRatings, fetchYahooDividendInfo,
+  fetchStockTwitsSentiment,
 };

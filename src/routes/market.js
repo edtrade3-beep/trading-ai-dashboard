@@ -10,6 +10,9 @@ const {
   fetchYahooNews, fetchYahooFundamentals,
   fetchYahooOptionsFlowForSymbol, fetchEstimatedOptionsFlow,
   fetchYahooShortInterest,
+  fetchYahooInsiderTransactions, fetchYahooInstitutional,
+  fetchYahooAnalystRatings, fetchYahooDividendInfo,
+  fetchStockTwitsSentiment,
 } = require("../providers/yahoo");
 const { fetchFinnhubQuotes, fetchFinnhubNews } = require("../providers/finnhub");
 const { fetchFmpQuotes, fetchFmpFundamentals } = require("../providers/fmp");
@@ -588,6 +591,52 @@ async function handleMarket(req, res, requestUrl) {
       r.status === "fulfilled" ? r.value : { symbol: tickers[i], shortFloat: null, shortRatio: null }
     );
     return writeJson(res, 200, { ok: true, fetchedAt: new Date().toISOString(), results });
+  }
+
+  // GET /api/market/insider?ticker=BBAI
+  if (pathname === "/api/market/insider" && req.method === "GET") {
+    const ticker = (searchParams.get("ticker") || "").trim().toUpperCase();
+    if (!ticker) return writeJson(res, 400, { error: "ticker required" });
+    const [txns, inst] = await Promise.all([
+      fetchYahooInsiderTransactions(ticker).catch(() => ({ symbol: ticker, transactions: [], holders: [] })),
+      fetchYahooInstitutional(ticker).catch(() => ({ symbol: ticker, institutions: [], funds: [], insidersPct: 0, institutionsPct: 0 })),
+    ]);
+    return writeJson(res, 200, { ok: true, ticker, insiderTransactions: txns, institutional: inst, fetchedAt: new Date().toISOString() });
+  }
+
+  // GET /api/market/analyst?tickers=BBAI,PLTR
+  if (pathname === "/api/market/analyst" && req.method === "GET") {
+    const tickers = (searchParams.get("tickers") || "").split(",").map(s => s.trim().toUpperCase()).filter(Boolean).slice(0, 10);
+    if (!tickers.length) return writeJson(res, 400, { error: "tickers required" });
+    const settled = await Promise.allSettled(tickers.map(t => fetchYahooAnalystRatings(t)));
+    const results = settled.map((r, i) => r.status === "fulfilled" ? r.value : { symbol: tickers[i], history: [], trend: [] });
+    return writeJson(res, 200, { ok: true, results, fetchedAt: new Date().toISOString() });
+  }
+
+  // GET /api/market/dividends?tickers=AAPL,MSFT
+  if (pathname === "/api/market/dividends" && req.method === "GET") {
+    const tickers = (searchParams.get("tickers") || "").split(",").map(s => s.trim().toUpperCase()).filter(Boolean).slice(0, 30);
+    if (!tickers.length) return writeJson(res, 400, { error: "tickers required" });
+    const settled = await Promise.allSettled(tickers.map(t => fetchYahooDividendInfo(t)));
+    const results = settled.map((r, i) => r.status === "fulfilled" ? r.value : { symbol: tickers[i], dividendYield: 0 });
+    return writeJson(res, 200, { ok: true, results: results.filter(r => r.dividendYield > 0 || r.exDividendDate || r.lastSplitFactor), fetchedAt: new Date().toISOString() });
+  }
+
+  // GET /api/market/social?ticker=BBAI
+  if (pathname === "/api/market/social" && req.method === "GET") {
+    const ticker = (searchParams.get("ticker") || "").trim().toUpperCase();
+    if (!ticker) return writeJson(res, 400, { error: "ticker required" });
+    const [stwits] = await Promise.all([
+      fetchStockTwitsSentiment(ticker).catch(() => ({ symbol: ticker, bullPct: 50, total: 0, messages: [] })),
+    ]);
+    // Reddit WSB mentions (best-effort)
+    let redditCount = 0;
+    try {
+      const rUrl = `https://www.reddit.com/r/wallstreetbets/search.json?q=${encodeURIComponent(ticker)}&restrict_sr=1&sort=new&limit=10&t=week`;
+      const rRes = await fetch(rUrl, { headers: { "User-Agent": "AM-Trading/1.0" }, signal: AbortSignal.timeout(5000) });
+      if (rRes.ok) { const rData = await rRes.json(); redditCount = rData?.data?.dist || 0; }
+    } catch {}
+    return writeJson(res, 200, { ok: true, ticker, stocktwits: stwits, redditMentions: redditCount, fetchedAt: new Date().toISOString() });
   }
 
   // GET /api/market/candles?ticker=BBAI&timeframe=1D
