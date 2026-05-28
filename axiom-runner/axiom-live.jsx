@@ -4562,7 +4562,7 @@ export default function App() {
   }, [activeTab]);
 
   // ── 5X PLAYS: live price fetch (component level — hooks must not be inside IIFEs) ──
-  const FIVEX_TICKERS = ["BBAI","SERV","SMR","RDW","NNE","LUNR","PL","SYM","OKLO","ASTS","PLTR","RKLB","NBIS","VRT","PWR"];
+  const FIVEX_TICKERS = ["BBAI","SERV","SMR","RDW","NNE","LUNR","PL","SYM","OKLO","ASTS","PLTR","RKLB","NBIS","VRT","PWR","GSAT","APLD","ACHR","SOUN","RGTI","CORZ","PATH","KTOS","IONQ","SMCI","CCJ","BWXT","VST","CEG","GEV"];
   async function fetchLivePrices() {
     setFivexLoading(true);
     setFivexError(null);
@@ -8172,6 +8172,22 @@ export default function App() {
             { rank:13, ticker:"NBIS",  company:"Nebius Group",         sector:"AI Infrastructure",price:208.37, e1:197.95, e2:183.37, e3:166.70, trigger:225.04, stop:177.11, risk:"High",        upside:"4x-7x",  thesis:"AI compute infrastructure" },
             { rank:14, ticker:"VRT",   company:"Vertiv",               sector:"Infrastructure",   price:319.78, e1:303.79, e2:281.41, e3:255.82, trigger:345.36, stop:271.81, risk:"Medium",      upside:"3x-5x",  thesis:"AI datacenter cooling" },
             { rank:15, ticker:"PWR",   company:"Quanta Services",      sector:"Infrastructure",   price:733.62, e1:696.94, e2:645.59, e3:586.90, trigger:792.31, stop:623.58, risk:"Medium",      upside:"3x-5x",  thesis:"Grid modernization" },
+            // ── New additions ──────────────────────────────────────────────────
+            { rank:16, ticker:"GSAT",  company:"Globalstar",           sector:"Satellite AI",     price:2.82,   e1:2.68,   e2:2.48,   e3:2.26,   trigger:3.05,   stop:2.40,   risk:"Extreme",     upside:"10x+",   thesis:"Apple satellite partner — direct-to-device" },
+            { rank:17, ticker:"APLD",  company:"Applied Digital",      sector:"AI Infrastructure",price:8.14,   e1:7.73,   e2:7.16,   e3:6.51,   trigger:8.79,   stop:6.92,   risk:"Extreme",     upside:"10x+",   thesis:"AI hyperscale data center builder" },
+            { rank:18, ticker:"ACHR",  company:"Archer Aviation",      sector:"Air Mobility",     price:10.82,  e1:10.28,  e2:9.52,   e3:8.66,   trigger:11.69,  stop:9.20,   risk:"Extreme",     upside:"8x-15x", thesis:"eVTOL air taxi + US military contracts" },
+            { rank:19, ticker:"SOUN",  company:"SoundHound AI",        sector:"AI Voice",         price:12.44,  e1:11.82,  e2:10.95,  e3:9.95,   trigger:13.44,  stop:10.57,  risk:"Extreme",     upside:"8x-15x", thesis:"Voice AI platform — automotive + enterprise" },
+            { rank:20, ticker:"RGTI",  company:"Rigetti Computing",    sector:"Quantum AI",       price:13.86,  e1:13.17,  e2:12.20,  e3:11.09,  trigger:14.97,  stop:11.78,  risk:"Extreme",     upside:"10x+",   thesis:"Quantum processors for AI optimisation" },
+            { rank:21, ticker:"CORZ",  company:"Core Scientific",      sector:"AI Infrastructure",price:16.24,  e1:15.43,  e2:14.29,  e3:12.99,  trigger:17.54,  stop:13.80,  risk:"Very High",   upside:"6x-10x", thesis:"HPC + AI compute hosting — ex-Bitcoin miner pivot" },
+            { rank:22, ticker:"PATH",  company:"UiPath",               sector:"Automation",       price:17.68,  e1:16.80,  e2:15.56,  e3:14.14,  trigger:19.09,  stop:15.03,  risk:"High",        upside:"4x-7x",  thesis:"Enterprise AI automation — agentic workflow leader" },
+            { rank:23, ticker:"KTOS",  company:"Kratos Defense",       sector:"Defense AI",       price:37.94,  e1:36.04,  e2:33.39,  e3:30.35,  trigger:40.98,  stop:32.25,  risk:"High",        upside:"5x-8x",  thesis:"Autonomous drones + AI targeting systems" },
+            { rank:24, ticker:"IONQ",  company:"IonQ",                 sector:"Quantum AI",       price:47.62,  e1:45.24,  e2:41.91,  e3:38.10,  trigger:51.43,  stop:40.48,  risk:"Very High",   upside:"8x-15x", thesis:"Quantum computing as a service — govt + cloud" },
+            { rank:25, ticker:"SMCI",  company:"Super Micro Computer", sector:"AI Infrastructure",price:48.35,  e1:45.93,  e2:42.55,  e3:38.68,  trigger:52.22,  stop:41.10,  risk:"Very High",   upside:"5x-10x", thesis:"AI server + GPU rack systems — Nvidia ecosystem" },
+            { rank:26, ticker:"CCJ",   company:"Cameco",               sector:"Nuclear",          price:57.88,  e1:54.99,  e2:50.93,  e3:46.30,  trigger:62.51,  stop:49.20,  risk:"High",        upside:"4x-6x",  thesis:"World's largest uranium producer — nuclear renaissance" },
+            { rank:27, ticker:"BWXT",  company:"BWX Technologies",     sector:"Nuclear",          price:112.44, e1:106.82, e2:98.95,  e3:89.95,  trigger:121.44, stop:95.57,  risk:"Medium-High", upside:"4x-6x",  thesis:"Naval nuclear reactors + microreactor development" },
+            { rank:28, ticker:"VST",   company:"Vistra Energy",        sector:"AI Energy",        price:141.76, e1:134.67, e2:124.75, e3:113.41, trigger:153.10, stop:120.50, risk:"Medium",      upside:"3x-5x",  thesis:"Nuclear + gas power for AI data center demand" },
+            { rank:29, ticker:"CEG",   company:"Constellation Energy",  sector:"AI Energy",       price:268.42, e1:255.00, e2:236.21, e3:214.74, trigger:289.89, stop:228.16, risk:"Medium",      upside:"3x-5x",  thesis:"Largest US nuclear fleet — AI data center PPAs" },
+            { rank:30, ticker:"GEV",   company:"GE Vernova",           sector:"Infrastructure",   price:397.84, e1:377.95, e2:350.10, e3:318.27, trigger:429.67, stop:338.16, risk:"Medium",      upside:"3x-5x",  thesis:"Grid modernisation + wind & gas turbines for AI era" },
           ];
 
           const SECTOR_META = {
@@ -8184,6 +8200,9 @@ export default function App() {
             "AI Energy":         { color: "#ff6633", icon: "⚡" },
             "Infrastructure":    { color: "#88a0b8", icon: "🏗️" },
             "AI Infrastructure": { color: "#cc66ff", icon: "🖥️" },
+            "Quantum AI":        { color: "#ff44cc", icon: "⚛️🤖" },
+            "AI Voice":          { color: "#44ffdd", icon: "🎙️" },
+            "Air Mobility":      { color: "#88ccff", icon: "✈️" },
           };
 
           const RISK_COLOR = {
