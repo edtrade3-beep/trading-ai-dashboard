@@ -16133,6 +16133,7 @@ export default function App() {
 
       {/* -- Fear & Greed Meter */}
       {activeTab === "feargreed" && (() => {
+        const card = (extra = {}) => ({ background: C.card, border: "1px solid " + C.border, borderRadius: 10, ...extra });
         const fg = fearGreedData;
         const scoreColor = fg
           ? fg.score <= 25 ? C.red
@@ -16212,6 +16213,7 @@ export default function App() {
 
       {/* -- Market Breadth Dashboard */}
       {activeTab === "breadth" && (() => {
+        const card = (extra = {}) => ({ background: C.card, border: "1px solid " + C.border, borderRadius: 10, ...extra });
         const bd = breadthData;
         const sm = bd ? bd.summary : null;
         return (
@@ -16309,6 +16311,7 @@ export default function App() {
 
       {/* -- Seasonality Charts */}
       {activeTab === "seasonality" && (() => {
+        const card = (extra = {}) => ({ background: C.card, border: "1px solid " + C.border, borderRadius: 10, ...extra });
         const sd = seasonData;
         const maxAbsMonth = sd && sd.months ? Math.max.apply(null, sd.months.map(function(m){ return Math.abs(m.avgReturn||0); }).concat([0.01])) : 1;
         const maxAbsDow   = sd && sd.daysOfWeek ? Math.max.apply(null, sd.daysOfWeek.map(function(d){ return Math.abs(d.avgReturn||0); }).concat([0.01])) : 1;
