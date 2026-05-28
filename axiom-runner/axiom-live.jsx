@@ -6836,13 +6836,12 @@ export default function App() {
           {(() => {
             const NAV_GROUPS = [
               { id: "dashboard", label: "MONITOR",   tabs: ["dashboard"] },
-              { id: "terminal",  label: "TERMINAL",  tabs: ["terminal"] },
-              { id: "scanner",   label: "SCANNER",   tabs: ["scanner", "early", "analyzer", "cot"] },
-              { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "tv", "flow", "openstock", "fivex", "smartscan"] },
+              { id: "terminal",  label: "TERMINAL",  tabs: ["terminal", "openstock", "tv"] },
+              { id: "scanner",   label: "SCANNER",   tabs: ["scanner", "early", "analyzer", "cot", "flow"] },
+              { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation"] },
+              { id: "watchlist", label: "WATCHLIST", tabs: ["fivex", "smartscan"] },
               { id: "portfolio", label: "PORTFOLIO", tabs: ["portfolio", "journal", "alerts"] },
-              { id: "tools",     label: "TOOLS",     tabs: ["tools", "backtest", "workflow", "agent"] },
-              { id: "cot",       label: "📊 COT",    tabs: ["cot"] },
-              { id: "deals",     label: "🛒 DEALS",  tabs: ["deals"] },
+              { id: "tools",     label: "TOOLS",     tabs: ["tools", "backtest", "workflow", "agent", "deals"] },
               { id: "islamic",   label: "☪",         tabs: ["quran", "athan", "athkar", "tasbih"] },
             ];
             const scannerBadge = scannerRows.filter(r => r.scannerScore >= 70).length || null;
@@ -7151,11 +7150,17 @@ export default function App() {
       {/* Sub-nav bar — shown when active tab belongs to a multi-tab group */}
       {(() => {
         const SUB_GROUPS = {
-          scanner:   [
+          terminal: [
+            { id: "terminal",  label: "📈 CHART" },
+            { id: "openstock", label: "STOCKS" },
+            { id: "tv",        label: "TV LIVE" },
+          ],
+          scanner: [
             { id: "scanner",  label: "SCANNER" },
             { id: "early",    label: "EARLY ENTRY" },
             { id: "analyzer", label: "ANALYZER" },
             { id: "cot",      label: "📊 COT" },
+            { id: "flow",     label: "⚡ FLOW" },
           ],
           markets: [
             { id: "news",     label: "NEWS" },
@@ -7163,9 +7168,8 @@ export default function App() {
             { id: "macro",    label: "MACRO" },
             { id: "sectors",  label: "SECTORS" },
             { id: "rotation", label: "ROTATION" },
-            { id: "flow",     label: "FLOW" },
-            { id: "tv",        label: "TV LIVE" },
-            { id: "openstock", label: "📈 STOCKS" },
+          ],
+          watchlist: [
             { id: "fivex",     label: "🚀 5X PLAYS" },
             { id: "smartscan", label: "🧠 SMART SCAN" },
           ],
@@ -7179,6 +7183,7 @@ export default function App() {
             { id: "backtest",  label: "BACKTEST" },
             { id: "workflow",  label: "WORKFLOW" },
             { id: "agent",     label: "AI AGENT" },
+            { id: "deals",     label: "🛒 DEALS" },
           ],
           islamic: [
             { id: "quran",  label: "قرآن" },
