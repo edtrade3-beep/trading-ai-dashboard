@@ -8,7 +8,8 @@ const {
 const {
   fetchYahooQuotes, fetchYahooQuoteBatch, fetchYahooBars,
   fetchYahooNews, fetchYahooFundamentals,
-  fetchYahooOptionsFlowForSymbol, fetchEstimatedOptionsFlow
+  fetchYahooOptionsFlowForSymbol, fetchEstimatedOptionsFlow,
+  fetchYahooShortInterest,
 } = require("../providers/yahoo");
 const { fetchFinnhubQuotes, fetchFinnhubNews } = require("../providers/finnhub");
 const { fetchFmpQuotes, fetchFmpFundamentals } = require("../providers/fmp");
@@ -574,6 +575,33 @@ async function handleMarket(req, res, requestUrl) {
         error: error instanceof Error ? error.message : "Failed to build live payload",
         ticker
       });
+    }
+  }
+
+  // GET /api/market/short-interest?tickers=BBAI,PLTR,...
+  if (pathname === "/api/market/short-interest" && req.method === "GET") {
+    const tickers = (searchParams.get("tickers") || "")
+      .split(",").map(s => s.trim().toUpperCase()).filter(Boolean).slice(0, 30);
+    if (!tickers.length) return writeJson(res, 400, { error: "tickers param required" });
+    const settled = await Promise.allSettled(tickers.map(t => fetchYahooShortInterest(t)));
+    const results = settled.map((r, i) =>
+      r.status === "fulfilled" ? r.value : { symbol: tickers[i], shortFloat: null, shortRatio: null }
+    );
+    return writeJson(res, 200, { ok: true, fetchedAt: new Date().toISOString(), results });
+  }
+
+  // GET /api/market/candles?ticker=BBAI&timeframe=1D
+  if (pathname === "/api/market/candles" && req.method === "GET") {
+    const ticker    = (searchParams.get("ticker") || "").trim().toUpperCase();
+    const timeframe = searchParams.get("timeframe") || "1D";
+    if (!ticker) return writeJson(res, 400, { error: "ticker required" });
+    const { CANDLE_TIMEFRAME_CONFIG } = require("../config");
+    const cfg = CANDLE_TIMEFRAME_CONFIG[timeframe] || CANDLE_TIMEFRAME_CONFIG["1D"];
+    try {
+      const bars = await fetchYahooBars(ticker, cfg.range, cfg.interval);
+      return writeJson(res, 200, { ok: true, ticker, timeframe, bars: bars.slice(-120) });
+    } catch (err) {
+      return writeJson(res, 422, { error: err?.message || "Candle fetch failed" });
     }
   }
 

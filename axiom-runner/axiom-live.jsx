@@ -4212,6 +4212,51 @@ export default function App() {
   const [tradeSetupLoad,  setTradeSetupLoad]  = useState({});  // { BBAI: true/false }
   const [tradeSetupError, setTradeSetupError] = useState({});  // { BBAI: "msg" }
 
+  // ── Pre-Market Briefing ───────────────────────────────────────────────────
+  const [premktBriefing,  setPremktBriefing]  = useState("");
+  const [premktLoading,   setPremktLoading]   = useState(false);
+  const [premktAt,        setPremktAt]        = useState("");
+
+  // ── Custom Screener ───────────────────────────────────────────────────────
+  const [screenerRules,   setScreenerRules]   = useState([{ field: "score", op: ">=", val: "70" }]);
+  const [screenerResults, setScreenerResults] = useState([]);
+  const [screenerRan,     setScreenerRan]     = useState(false);
+
+  // ── Short Interest ────────────────────────────────────────────────────────
+  const [shortIntData,    setShortIntData]    = useState([]);
+  const [shortIntLoading, setShortIntLoading] = useState(false);
+  const [shortIntInput,   setShortIntInput]   = useState("");
+
+  // ── Correlation Matrix ────────────────────────────────────────────────────
+  const [corrMatrix,      setCorrMatrix]      = useState(null);
+  const [corrLoading,     setCorrLoading]     = useState(false);
+
+  // ── Fibonacci Calculator ──────────────────────────────────────────────────
+  const [fibTicker,       setFibTicker]       = useState("SPY");
+  const [fibInput,        setFibInput]        = useState("SPY");
+  const [fibData,         setFibData]         = useState(null);
+  const [fibLoading,      setFibLoading]      = useState(false);
+  const [fibError,        setFibError]        = useState("");
+
+  // ── Multi-Timeframe ───────────────────────────────────────────────────────
+  const [multitfSymbol,   setMultitfSymbol]   = useState("SPY");
+  const [multitfInput,    setMultitfInput]    = useState("SPY");
+
+  // ── Halal Screener ────────────────────────────────────────────────────────
+  const [halalInput,      setHalalInput]      = useState("");
+  const [halalReport,     setHalalReport]     = useState(null);
+  const [halalLoading,    setHalalLoading]    = useState(false);
+  const [halalError,      setHalalError]      = useState("");
+
+  // ── AI Journal Review ─────────────────────────────────────────────────────
+  const [journalReview,   setJournalReview]   = useState(null);
+  const [journalRevLoad,  setJournalRevLoad]  = useState(false);
+  const [journalRevError, setJournalRevError] = useState("");
+
+  // ── News Sentiment ────────────────────────────────────────────────────────
+  const [newsSentiments,  setNewsSentiments]  = useState({});  // headline text → {s, score}
+  const [newsSentLoading, setNewsSentLoading] = useState(false);
+
   const [fivexSector,    setFivexSector]    = useState("ALL");
   const [fivexSort,      setFivexSort]      = useState("rank");  // "rank" | "zone" | "upside" | "risk"
   const [fivexPrices,    setFivexPrices]    = useState({});   // { BBAI: { price, change, pct } }
@@ -4849,6 +4894,172 @@ export default function App() {
       setTradeSetupError(prev => ({ ...prev, [ticker]: e.message }));
     }
     setTradeSetupLoad(prev => ({ ...prev, [ticker]: false }));
+  }
+
+  // ── Pre-Market Briefing ───────────────────────────────────────────────────
+  async function fetchPremarketBriefing() {
+    setPremktLoading(true);
+    try {
+      const topLongs = (watchlistData || [])
+        .filter(q => Number(q.changesPercentage || 0) > 0)
+        .sort((a, b) => (b.composite || b.changesPercentage || 0) - (a.composite || a.changesPercentage || 0))
+        .slice(0, 8)
+        .map(q => ({ symbol: q.symbol, relVsSpy: q.relVsSpy || 0, composite: q.composite || 0 }));
+      const topRisks = (watchlistData || [])
+        .filter(q => Number(q.changesPercentage || 0) < -1)
+        .slice(0, 4)
+        .map(q => ({ symbol: q.symbol }));
+      const indexMoves = (macroData || [])
+        .slice(0, 5)
+        .map(m => ({ label: m.symbol || "", value: Number(m.changesPercentage || 0) }));
+      const earningsToday = (earningsRows || []).filter(e => {
+        try { const d = new Date(e.date); const t = new Date(); return d.toDateString() === t.toDateString(); } catch { return false; }
+      }).slice(0, 6);
+      const res = await fetch("/api/agent/premarket", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ regime: "Market Hours", macroTone: "Neutral", session: "Pre-Market", indexMoves, topLongs, topRisks, flowBias: "Neutral", earningsToday }),
+      });
+      const data = await res.json();
+      if (data.ok) { setPremktBriefing(data.briefing); setPremktAt(data.generatedAt); }
+      else throw new Error(data.error || "Briefing failed");
+    } catch (e) {
+      setPremktBriefing("Error: " + e.message);
+    }
+    setPremktLoading(false);
+  }
+
+  // ── Fibonacci Calculator ──────────────────────────────────────────────────
+  async function fetchFibonacci(ticker) {
+    setFibLoading(true); setFibError(""); setFibData(null);
+    try {
+      const res = await fetch(`/api/market/candles?ticker=${encodeURIComponent(ticker)}&timeframe=1D`);
+      const data = await res.json();
+      if (!data.ok || !data.bars || data.bars.length < 20) throw new Error("Not enough candle data");
+      const bars = data.bars.slice(-90);
+      const highs = bars.map(b => b.high);
+      const lows  = bars.map(b => b.low);
+      const swingHigh = Math.max(...highs);
+      const swingLow  = Math.min(...lows);
+      const range = swingHigh - swingLow;
+      const last  = bars[bars.length - 1].close;
+      const RATIOS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1, 1.272, 1.618];
+      const LABELS = ["0% (Low)", "23.6%", "38.2%", "50%", "61.8% (Golden)", "78.6%", "100% (High)", "127.2% (Ext)", "161.8% (Ext)"];
+      const levels = RATIOS.map((r, i) => ({
+        label: LABELS[i], ratio: r,
+        price: swingLow + range * r,
+        isKey: [0.382, 0.5, 0.618].includes(r),
+        isExt: r > 1,
+      }));
+      setFibData({ ticker, swingHigh, swingLow, levels, lastPrice: last, highIdx: highs.indexOf(swingHigh), lowIdx: lows.indexOf(swingLow) });
+    } catch (e) {
+      setFibError(e.message);
+    }
+    setFibLoading(false);
+  }
+
+  // ── Halal Check ───────────────────────────────────────────────────────────
+  async function fetchHalalCheck(ticker) {
+    setHalalLoading(true); setHalalError(""); setHalalReport(null);
+    try {
+      // Fetch fundamentals first
+      const fRes = await fetch(`/api/market/fundamentals?ticker=${encodeURIComponent(ticker)}`).catch(() => null);
+      let fund = {};
+      if (fRes?.ok) { try { fund = await fRes.json(); } catch {} }
+      const res = await fetch("/api/agent/halal", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker, company: fund.name || ticker, sector: fund.sector || "Unknown", description: fund.description || "", debtRatio: fund.debtRatio, interestRatio: fund.interestRatio, cashRatio: fund.cashRatio }),
+      });
+      const data = await res.json();
+      if (data.ok) setHalalReport({ ticker, report: data.report, at: data.generatedAt });
+      else throw new Error(data.error || "Halal check failed");
+    } catch (e) {
+      setHalalError(e.message);
+    }
+    setHalalLoading(false);
+  }
+
+  // ── Journal AI Review ─────────────────────────────────────────────────────
+  async function fetchJournalReview() {
+    setJournalRevLoad(true); setJournalRevError("");
+    try {
+      const res = await fetch("/api/agent/journal-review", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries: journalEntries }),
+      });
+      const data = await res.json();
+      if (data.ok) setJournalReview({ text: data.review, at: data.generatedAt });
+      else throw new Error(data.error || "Review failed");
+    } catch (e) {
+      setJournalRevError(e.message);
+    }
+    setJournalRevLoad(false);
+  }
+
+  // ── News Sentiment Scorer ─────────────────────────────────────────────────
+  async function scoreNewsSentiment() {
+    setNewsSentLoading(true);
+    try {
+      const headlines = (newsData || []).slice(0, 25).map(n => n.title || n.headline || "");
+      const res = await fetch("/api/agent/sentiment", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ headlines }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        const map = {};
+        (data.results || []).forEach((r, i) => { if (headlines[r.i - 1]) map[headlines[r.i - 1]] = r; });
+        setNewsSentiments(map);
+      }
+    } catch {}
+    setNewsSentLoading(false);
+  }
+
+  // ── Short Interest Fetch ──────────────────────────────────────────────────
+  async function fetchShortInterest(tickerStr) {
+    setShortIntLoading(true);
+    try {
+      const tickers = tickerStr.split(",").map(s => s.trim().toUpperCase()).filter(Boolean).slice(0, 30);
+      const res = await fetch(`/api/market/short-interest?tickers=${tickers.join(",")}`);
+      const data = await res.json();
+      if (data.ok) setShortIntData(data.results || []);
+    } catch {}
+    setShortIntLoading(false);
+  }
+
+  // ── Correlation Calculator ────────────────────────────────────────────────
+  async function computeCorrelation() {
+    setCorrLoading(true);
+    try {
+      // Use available candle data from scanDeepData
+      const syms = Object.keys(scanDeepData).filter(t => scanDeepData[t]?.candles?.length >= 20);
+      if (syms.length < 2) { setCorrMatrix({ error: "Run Smart Scan first to load candle data (need ≥2 tickers)" }); setCorrLoading(false); return; }
+      // Build returns matrix
+      const returnsBySym = {};
+      for (const s of syms) {
+        const bars = scanDeepData[s].candles;
+        const closes = bars.map(b => b.close).filter(Number.isFinite);
+        const returns = closes.slice(1).map((c, i) => (c - closes[i]) / closes[i]);
+        returnsBySym[s] = returns;
+      }
+      // Normalize to same length (min length)
+      const minLen = Math.min(...Object.values(returnsBySym).map(r => r.length));
+      const trimmed = {};
+      for (const s of syms) trimmed[s] = returnsBySym[s].slice(-minLen);
+      // Compute pairwise Pearson
+      const pearson = (a, b) => {
+        const n = a.length;
+        const ma = a.reduce((s, v) => s + v, 0) / n, mb = b.reduce((s, v) => s + v, 0) / n;
+        let num = 0, da = 0, db = 0;
+        for (let i = 0; i < n; i++) { num += (a[i] - ma) * (b[i] - mb); da += (a[i] - ma) ** 2; db += (b[i] - mb) ** 2; }
+        return da && db ? num / Math.sqrt(da * db) : 0;
+      };
+      const matrix = {};
+      for (const s1 of syms) { matrix[s1] = {}; for (const s2 of syms) matrix[s1][s2] = Number(pearson(trimmed[s1], trimmed[s2]).toFixed(2)); }
+      setCorrMatrix({ syms, matrix, computedAt: new Date().toISOString() });
+    } catch (e) {
+      setCorrMatrix({ error: e.message });
+    }
+    setCorrLoading(false);
   }
 
   const loadPriceAlertList = useCallback(async () => {
@@ -6873,14 +7084,14 @@ export default function App() {
           {/* Nav tabs — grouped */}
           {(() => {
             const NAV_GROUPS = [
-              { id: "dashboard", label: "MONITOR",   tabs: ["dashboard"] },
-              { id: "terminal",  label: "TERMINAL",  tabs: ["terminal", "openstock", "tv"] },
-              { id: "scanner",   label: "SCANNER",   tabs: ["scanner", "early", "analyzer", "cot", "flow"] },
+              { id: "dashboard", label: "MONITOR",   tabs: ["dashboard", "briefing"] },
+              { id: "terminal",  label: "TERMINAL",  tabs: ["terminal", "openstock", "tv", "multitf"] },
+              { id: "scanner",   label: "SCANNER",   tabs: ["scanner", "early", "analyzer", "cot", "flow", "screener", "shortint"] },
               { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "calendar"] },
               { id: "watchlist", label: "WATCHLIST", tabs: ["fivex", "smartscan"] },
-              { id: "portfolio", label: "PORTFOLIO", tabs: ["portfolio", "performance", "journal", "alerts"] },
-              { id: "tools",     label: "TOOLS",     tabs: ["tools", "backtest", "workflow", "agent", "deals"] },
-              { id: "islamic",   label: "☪",         tabs: ["quran", "athan", "athkar", "tasbih"] },
+              { id: "portfolio", label: "PORTFOLIO", tabs: ["portfolio", "performance", "journal", "alerts", "heatmap", "correlation"] },
+              { id: "tools",     label: "TOOLS",     tabs: ["tools", "backtest", "workflow", "agent", "deals", "fibonacci"] },
+              { id: "islamic",   label: "☪",         tabs: ["quran", "athan", "athkar", "tasbih", "halal"] },
             ];
             const scannerBadge = scannerRows.filter(r => r.scannerScore >= 70).length || null;
             return (
@@ -7188,10 +7399,15 @@ export default function App() {
       {/* Sub-nav bar — shown when active tab belongs to a multi-tab group */}
       {(() => {
         const SUB_GROUPS = {
+          dashboard: [
+            { id: "dashboard", label: "📊 MONITOR" },
+            { id: "briefing",  label: "🌅 BRIEFING" },
+          ],
           terminal: [
             { id: "terminal",  label: "📈 CHART" },
             { id: "openstock", label: "STOCKS" },
             { id: "tv",        label: "TV LIVE" },
+            { id: "multitf",   label: "⏱ MULTI-TF" },
           ],
           scanner: [
             { id: "scanner",  label: "SCANNER" },
@@ -7199,6 +7415,8 @@ export default function App() {
             { id: "analyzer", label: "ANALYZER" },
             { id: "cot",      label: "📊 COT" },
             { id: "flow",     label: "⚡ FLOW" },
+            { id: "screener", label: "🔍 SCREENER" },
+            { id: "shortint", label: "🩳 SHORT INT" },
           ],
           markets: [
             { id: "news",      label: "NEWS" },
@@ -7217,6 +7435,8 @@ export default function App() {
             { id: "performance", label: "📊 PERFORMANCE" },
             { id: "journal",     label: "JOURNAL" },
             { id: "alerts",      label: "ALERTS" },
+            { id: "heatmap",     label: "🔥 HEAT MAP" },
+            { id: "correlation", label: "🔗 CORRELATION" },
           ],
           tools: [
             { id: "tools",     label: "TOOLS" },
@@ -7224,12 +7444,14 @@ export default function App() {
             { id: "workflow",  label: "WORKFLOW" },
             { id: "agent",     label: "AI AGENT" },
             { id: "deals",     label: "🛒 DEALS" },
+            { id: "fibonacci", label: "🌀 FIBONACCI" },
           ],
           islamic: [
             { id: "quran",  label: "قرآن" },
             { id: "athan",  label: "الصلاة" },
             { id: "athkar", label: "أذكار" },
             { id: "tasbih", label: "تسبيح" },
+            { id: "halal",  label: "☪ HALAL" },
           ],
         };
         const activeGroup = Object.entries(SUB_GROUPS).find(([, tabs]) =>
@@ -7283,6 +7505,31 @@ export default function App() {
 
       {/* Content */}
       <div className={isMobile ? "mobile-content" : ""} style={{ padding: isMobile ? "10px 10px 24px" : LAYOUT.contentPadding, maxWidth: LAYOUT.pageMaxWidth, margin: "0 auto" }}>
+
+        {/* ── Regime Strategy Banner ── shows on scanner/watchlist tabs */}
+        {["scanner","early","smartscan","screener","fivex","shortint"].includes(activeTab) && regime && regime !== "Loading…" && (() => {
+          const isRiskOff  = regime === "Risk-Off" || regime === "Defensive";
+          const isRiskOn   = regime === "Risk-On" || regime === "Growth" || regime === "Goldilocks";
+          const bannerColor = isRiskOff ? C.red : isRiskOn ? C.green : C.amber;
+          const bannerBg    = isRiskOff ? C.redBg : isRiskOn ? C.greenBg : C.amberBg;
+          const icon  = isRiskOff ? "⚠️" : isRiskOn ? "🟢" : "🟡";
+          const strategy = isRiskOff
+            ? "RISK-OFF MODE: Reduce size, prefer hedges/shorts, tighten stops on longs. Avoid chasing."
+            : isRiskOn
+            ? "RISK-ON MODE: Lean long on high-RS names with confirmation. Momentum favors buyers."
+            : "NEUTRAL REGIME: Trade selective A+ setups only. No edge in low-conviction names.";
+          return (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", marginBottom: 12,
+              background: bannerBg, border: `1px solid ${bannerColor}44`, borderRadius: 8, borderLeft: `3px solid ${bannerColor}` }}>
+              <span style={{ fontSize: 14 }}>{icon}</span>
+              <div>
+                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: bannerColor, letterSpacing: "0.06em" }}>REGIME: {regime.toUpperCase()}</span>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textSec, marginLeft: 12 }}>{strategy}</span>
+              </div>
+            </div>
+          );
+        })()}
+
         {loading && !watchlistData.length && (
           <div style={{ textAlign: "center", padding: 60, fontFamily: MONO, color: C.textDim }}>
             <div style={{ fontSize: 14, marginBottom: 8 }}>Fetching live market data…</div>
@@ -8029,6 +8276,14 @@ export default function App() {
                 >
                   {newsLoading ? "LOADING..." : `REFRESH (${newsData.length})`}
                 </button>
+                <button
+                  onClick={scoreNewsSentiment}
+                  disabled={newsSentLoading || !newsData.length}
+                  title="AI-score each headline with Claude"
+                  style={{ border: `1px solid ${C.accent}44`, background: `${C.accent}11`, color: newsSentLoading ? C.textDim : C.accent, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: newsSentLoading || !newsData.length ? "default" : "pointer" }}
+                >
+                  {newsSentLoading ? "🤖 SCORING…" : "🤖 AI SENTIMENT"}
+                </button>
               </div>
             </div>
             <div style={{ display: "grid", gap: 10 }}>
@@ -8057,8 +8312,12 @@ export default function App() {
                   const sent = bs > be ? "bullish" : be > bs ? "bearish" : "neutral";
                   const sentColor = sent === "bullish" ? C.green : sent === "bearish" ? C.red : C.textDim;
                   const onWatchlist = watchlistSymbols.includes(n.ticker);
+                  // AI sentiment badge (from Claude scoring)
+                  const aiSent = newsSentiments[n.title || ""];
+                  const aiColor = aiSent?.s === "bull" ? C.green : aiSent?.s === "bear" ? C.red : C.textDim;
+                  const aiLabel = aiSent?.s === "bull" ? "🟢 AI BULL" : aiSent?.s === "bear" ? "🔴 AI BEAR" : aiSent ? "⚪ AI NEUTRAL" : null;
                   return (
-                    <div key={`${n.ticker}-${i}`} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: 12, position: "relative" }}>
+                    <div key={`${n.ticker}-${i}`} style={{ background: C.card, border: `1px solid ${aiSent ? (aiSent.s === "bull" ? `${C.green}44` : aiSent.s === "bear" ? `${C.red}44` : C.border) : C.border}`, borderRadius: 6, padding: 12, position: "relative" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                           <button onClick={() => { setTerminalSymbol(n.ticker); setActiveTab("terminal"); }}
@@ -8067,6 +8326,11 @@ export default function App() {
                           </button>
                           <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>· {n.publisher}</span>
                           <span style={{ fontFamily: MONO, fontSize: 9, color: sentColor, fontWeight: 700, textTransform: "uppercase" }}>{sent}</span>
+                          {aiLabel && (
+                            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: aiColor, background: `${aiColor}18`, borderRadius: 3, padding: "1px 5px" }}>
+                              {aiLabel}{aiSent?.score != null ? ` (${aiSent.score > 0 ? "+" : ""}${aiSent.score})` : ""}
+                            </span>
+                          )}
                         </div>
                         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                           <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
@@ -11615,9 +11879,40 @@ export default function App() {
 
         {activeTab === "journal" && (
           <div>
-            <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>
-              TRADE JOURNAL — PERFORMANCE TRACKER
+            <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
+              <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
+                TRADE JOURNAL — PERFORMANCE TRACKER
+              </div>
+              <button onClick={fetchJournalReview} disabled={journalRevLoad || journalEntries.filter(e => e.closedAt).length < 3}
+                style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                  background: journalRevLoad ? C.surface : `${C.purple}22`,
+                  border: `1px solid ${C.purple}66`, color: journalRevLoad ? C.textDim : C.purple,
+                  borderRadius: 6, padding: "7px 14px", cursor: journalRevLoad ? "default" : "pointer" }}>
+                {journalRevLoad ? "🤖 ANALYZING…" : "🤖 AI COACHING REVIEW"}
+              </button>
             </div>
+
+            {/* AI Journal Review panel */}
+            {(journalReview || journalRevError) && (
+              <div style={{ background: C.card, border: `1px solid ${C.purple}44`, borderLeft: `3px solid ${C.purple}`,
+                borderRadius: 10, padding: 16, marginBottom: 14 }}>
+                {journalRevError ? (
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>{journalRevError}</div>
+                ) : (
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.purple }}>🤖 AI COACHING REVIEW</div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{journalReview?.at ? new Date(journalReview.at).toLocaleString() : ""}</span>
+                        <button onClick={() => setJournalReview(null)} style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", fontSize: 12 }}>✕</button>
+                      </div>
+                    </div>
+                    <pre style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.7, whiteSpace: "pre-wrap", margin: 0 }}>{journalReview?.text}</pre>
+                  </>
+                )}
+              </div>
+            )}
+
 
             {/* Today / Week P&L strip */}
             {journalEntries.length > 0 && (() => {
@@ -13819,6 +14114,781 @@ export default function App() {
               <input type="number" value={tasbihCustomTarget} onChange={e => setTasbihCustomTarget(e.target.value)} placeholder="هدف مخصص…"
                 style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "9px 12px", borderRadius: 8, fontFamily: MONO, fontSize: 12, textAlign: "center" }} />
             </div>
+          </div>
+        );
+      })()}
+
+      {/* ── PRE-MARKET BRIEFING ──────────────────────────────────────────── */}
+      {activeTab === "briefing" && (() => {
+        const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
+        const sectionRe = /^([A-Z][A-Z\s\/]{3,})\n/gm;
+        const parts = premktBriefing ? premktBriefing.split(sectionRe).filter(Boolean) : [];
+        const sections = [];
+        for (let i = 0; i < parts.length; i += 2) {
+          if (i + 1 < parts.length) sections.push({ title: parts[i].trim(), body: parts[i + 1].trim() });
+          else sections.push({ title: "", body: parts[i].trim() });
+        }
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Header */}
+            <div style={{ ...card(), padding: "14px 18px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>🌅 PRE-MARKET BRIEFING</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>
+                  {premktAt ? `Generated ${new Date(premktAt).toLocaleTimeString()}` : "AI-powered morning analysis using live market data"}
+                </div>
+              </div>
+              <button onClick={fetchPremarketBriefing} disabled={premktLoading}
+                style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                  background: premktLoading ? C.surface : C.accent, border: "none", color: premktLoading ? C.textDim : "#fff",
+                  borderRadius: 7, padding: "10px 22px", cursor: premktLoading ? "default" : "pointer" }}>
+                {premktLoading ? "⏳ GENERATING…" : "🌅 GENERATE BRIEFING"}
+              </button>
+            </div>
+
+            {/* Content */}
+            {!premktBriefing && !premktLoading && (
+              <div style={{ ...card(), padding: 40, textAlign: "center" }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>🌅</div>
+                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 6 }}>Ready when you are</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Generates a personalized morning briefing using your live watchlist, macro data, and earnings calendar.</div>
+              </div>
+            )}
+            {premktLoading && (
+              <div style={{ ...card(), padding: 40, textAlign: "center" }}>
+                <div style={{ fontFamily: MONO, fontSize: 13, color: C.accent }}>Claude is analyzing the market…</div>
+              </div>
+            )}
+            {premktBriefing && !premktLoading && (() => {
+              const ICONS = { "MORNING VERDICT": "⚖️", "KEY THEMES": "🎯", "EARNINGS WATCH": "📅", "MACRO EVENTS": "📊", "TOP 3 SETUPS": "🚀", "WHAT TO AVOID": "⚠️", "GAME PLAN": "🗺️" };
+              return sections.length > 1 ? (
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(340px, 1fr))", gap: 12 }}>
+                  {sections.map((s, i) => {
+                    const icon = Object.entries(ICONS).find(([k]) => s.title.includes(k.split(" ")[0]))?.[1] || "📌";
+                    const isGamePlan = s.title.includes("GAME PLAN");
+                    return (
+                      <div key={i} style={{ ...card({ padding: 16 }), gridColumn: isGamePlan ? "1 / -1" : undefined,
+                        borderLeft: i === 0 ? `3px solid ${C.accent}` : `3px solid ${C.border}` }}>
+                        {s.title && <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.accent, letterSpacing: "0.08em", marginBottom: 8 }}>{icon} {s.title}</div>}
+                        <div style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{s.body}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ ...card({ padding: 20 }) }}>
+                  <pre style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.7, whiteSpace: "pre-wrap", margin: 0 }}>{premktBriefing}</pre>
+                </div>
+              );
+            })()}
+          </div>
+        );
+      })()}
+
+      {/* ── MULTI-TIMEFRAME DASHBOARD ────────────────────────────────────── */}
+      {activeTab === "multitf" && (() => {
+        const tvTheme = themeMode === "dark" ? "dark" : "light";
+        const TFS = [
+          { key: "5m",  label: "5 MIN",  interval: "5"  },
+          { key: "1H",  label: "1 HOUR", interval: "60" },
+          { key: "4H",  label: "4 HOUR", interval: "240" },
+          { key: "1D",  label: "DAILY",  interval: "D"  },
+        ];
+        const sym = multitfSymbol.toUpperCase();
+        const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", ...extra });
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* Ticker bar */}
+            <div style={{ ...card({ overflow: "visible" }), padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>⏱ MULTI-TIMEFRAME</span>
+              <input value={multitfInput} onChange={e => setMultitfInput(e.target.value.toUpperCase())}
+                onKeyDown={e => { if (e.key === "Enter") setMultitfSymbol(multitfInput.trim() || "SPY"); }}
+                placeholder="Ticker…"
+                style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface, border: `1px solid ${C.accent}`,
+                  color: C.text, borderRadius: 6, padding: "6px 12px", width: 120, outline: "none" }} />
+              <button onClick={() => setMultitfSymbol(multitfInput.trim() || "SPY")}
+                style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: C.accent, border: "none", color: "#fff", borderRadius: 6, padding: "7px 16px", cursor: "pointer" }}>GO</button>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+                Align trend across all 4 timeframes before entering a position
+              </div>
+              <a href={`https://www.tradingview.com/chart/?symbol=${sym}`} target="_blank" rel="noopener noreferrer"
+                style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, color: C.textDim, textDecoration: "none", border: `1px solid ${C.border}`, borderRadius: 4, padding: "5px 10px" }}>
+                Full Chart ↗
+              </a>
+            </div>
+            {/* 4 charts grid */}
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+              {TFS.map(tf => (
+                <div key={tf.key} style={card()}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px",
+                    borderBottom: `1px solid ${C.border}`, background: themeMode === "dark" ? "#0e1829" : "#eef3fa" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent }}>{sym}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 600, color: C.textDim }}>{tf.label}</span>
+                  </div>
+                  <iframe
+                    key={`mtf-${sym}-${tf.key}-${tvTheme}`}
+                    src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=320&iv=${tf.interval}`}
+                    style={{ width: "100%", height: 320, border: "none", display: "block" }}
+                    scrolling="no" title={`${sym}-${tf.key}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── CUSTOM SCREENER ──────────────────────────────────────────────── */}
+      {activeTab === "screener" && (() => {
+        const FIELDS = [
+          { id: "score",    label: "AI Score",    get: r => r.score },
+          { id: "rsi",      label: "RSI",         get: r => r.rsiVal },
+          { id: "change",   label: "Change %",    get: r => r.quote?.changePercent },
+          { id: "price",    label: "Price",       get: r => r.quote?.price },
+          { id: "rvol",     label: "Rel Volume",  get: r => r.quote?.volume && r.quote?.avgVolume ? r.quote.volume / r.quote.avgVolume : null },
+          { id: "mktcap",   label: "Mkt Cap ($B)",get: r => r.quote?.marketCap ? r.quote.marketCap / 1e9 : null },
+        ];
+        const OPS = [">=", "<=", ">", "<", "="];
+
+        function runScreener() {
+          const rows = (scanResults || []).filter(row => {
+            return screenerRules.every(rule => {
+              const field = FIELDS.find(f => f.id === rule.field);
+              if (!field) return true;
+              const val = field.get(row);
+              if (val == null || !Number.isFinite(Number(val))) return false;
+              const v = Number(val), thresh = Number(rule.val);
+              if (!Number.isFinite(thresh)) return true;
+              switch (rule.op) {
+                case ">=": return v >= thresh;
+                case "<=": return v <= thresh;
+                case ">":  return v > thresh;
+                case "<":  return v < thresh;
+                case "=":  return Math.abs(v - thresh) < 0.01;
+                default:   return true;
+              }
+            });
+          });
+          setScreenerResults(rows);
+          setScreenerRan(true);
+        }
+
+        function addRule() {
+          setScreenerRules(prev => [...prev, { field: "score", op: ">=", val: "60" }]);
+        }
+        function removeRule(i) {
+          setScreenerRules(prev => prev.filter((_, idx) => idx !== i));
+        }
+        function updateRule(i, key, val) {
+          setScreenerRules(prev => prev.map((r, idx) => idx === i ? { ...r, [key]: val } : r));
+        }
+
+        const sel = { fontFamily: MONO, fontSize: 11, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 5, padding: "5px 8px", outline: "none" };
+        const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
+
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Header */}
+            <div style={{ ...card({ padding: "14px 18px" }) }}>
+              <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text, marginBottom: 6 }}>🔍 CUSTOM SCREENER</div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Build filter rules and screen against Smart Scanner results. Run Smart Scan first to populate data.</div>
+            </div>
+
+            {/* Rule builder */}
+            <div style={card({ padding: 16 })}>
+              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, marginBottom: 10, letterSpacing: "0.06em" }}>FILTER RULES</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {screenerRules.map((rule, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <select value={rule.field} onChange={e => updateRule(i, "field", e.target.value)} style={sel}>
+                      {FIELDS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                    </select>
+                    <select value={rule.op} onChange={e => updateRule(i, "op", e.target.value)} style={sel}>
+                      {OPS.map(op => <option key={op} value={op}>{op}</option>)}
+                    </select>
+                    <input type="number" value={rule.val} onChange={e => updateRule(i, "val", e.target.value)}
+                      style={{ ...sel, width: 80 }} />
+                    <button onClick={() => removeRule(i)}
+                      style={{ fontFamily: MONO, fontSize: 10, background: C.redBg, border: `1px solid ${C.red}44`,
+                        color: C.red, borderRadius: 5, padding: "5px 10px", cursor: "pointer" }}>✕</button>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+                <button onClick={addRule}
+                  style={{ fontFamily: MONO, fontSize: 11, background: C.surface, border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, padding: "8px 14px", cursor: "pointer" }}>
+                  + ADD RULE
+                </button>
+                <button onClick={runScreener} disabled={!scanResults.length}
+                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                    background: scanResults.length ? C.accent : C.surface,
+                    border: "none", color: scanResults.length ? "#fff" : C.textDim,
+                    borderRadius: 6, padding: "8px 20px", cursor: scanResults.length ? "pointer" : "default" }}>
+                  🔍 RUN SCREEN ({scanResults.length} rows)
+                </button>
+              </div>
+            </div>
+
+            {/* Results */}
+            {screenerRan && (
+              <div style={card({ overflow: "hidden" })}>
+                <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: screenerResults.length ? C.green : C.textDim }}>
+                  {screenerResults.length ? `✅ ${screenerResults.length} MATCHES` : "❌ NO MATCHES — Adjust your rules"}
+                </div>
+                {screenerResults.length > 0 && (
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead>
+                        <tr style={{ background: themeMode === "dark" ? "#0e1829" : "#eef3fa" }}>
+                          {["TICKER","SCORE","RSI","CHANGE%","PRICE","REL VOL","ACTION"].map(h => (
+                            <th key={h} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, padding: "8px 12px", textAlign: h === "TICKER" ? "left" : "right", letterSpacing: "0.04em" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {screenerResults.map((row, i) => {
+                          const chg = row.quote?.changePercent || 0;
+                          const rvol = row.quote?.volume && row.quote?.avgVolume ? row.quote.volume / row.quote.avgVolume : null;
+                          return (
+                            <tr key={row.ticker} style={{ borderTop: `1px solid ${C.border}33`, background: i % 2 === 0 ? "transparent" : (themeMode === "dark" ? "#ffffff04" : "#00000003") }}>
+                              <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, padding: "8px 12px" }}>{row.ticker}</td>
+                              <td style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: row.score >= 70 ? C.green : row.score >= 50 ? C.amber : C.red, textAlign: "right", padding: "8px 12px" }}>{row.score}</td>
+                              <td style={{ fontFamily: MONO, fontSize: 11, color: row.rsiVal < 30 ? C.green : row.rsiVal > 70 ? C.red : C.text, textAlign: "right", padding: "8px 12px" }}>{row.rsiVal != null ? row.rsiVal.toFixed(0) : "—"}</td>
+                              <td style={{ fontFamily: MONO, fontSize: 11, color: chg >= 0 ? C.green : C.red, textAlign: "right", padding: "8px 12px" }}>{chg >= 0 ? "+" : ""}{Number(chg).toFixed(2)}%</td>
+                              <td style={{ fontFamily: MONO, fontSize: 11, color: C.text, textAlign: "right", padding: "8px 12px" }}>${Number(row.quote?.price || 0).toFixed(2)}</td>
+                              <td style={{ fontFamily: MONO, fontSize: 11, color: rvol && rvol >= 1.5 ? C.green : C.textDim, textAlign: "right", padding: "8px 12px" }}>{rvol ? rvol.toFixed(2) + "x" : "—"}</td>
+                              <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                                <button onClick={() => { setActiveTab("openstock"); setTvOsSymbol(row.ticker); setTvOsInput(row.ticker); }}
+                                  style={{ fontFamily: MONO, fontSize: 9, background: `${C.accent}22`, border: `1px solid ${C.accent}44`, color: C.accent, borderRadius: 4, padding: "4px 10px", cursor: "pointer" }}>
+                                  CHART
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+            {!scanResults.length && (
+              <div style={{ ...card({ padding: 24 }), textAlign: "center" }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>No scan data yet — go to <strong style={{ color: C.accent }}>SCANNER → SMART SCAN</strong> and run a scan first</div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── SHORT INTEREST DASHBOARD ─────────────────────────────────────── */}
+      {activeTab === "shortint" && (() => {
+        const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
+        const defaultTickers = watchlistSymbols.slice(0, 20).join(",");
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Header */}
+            <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>🩳 SHORT INTEREST</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>Short float %, days-to-cover, squeeze potential</div>
+              </div>
+              <input value={shortIntInput || defaultTickers}
+                onChange={e => setShortIntInput(e.target.value.toUpperCase())}
+                placeholder="BBAI,PLTR,RKLB…"
+                style={{ fontFamily: MONO, fontSize: 11, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "7px 12px", flex: "1 1 220px", outline: "none" }} />
+              <button onClick={() => fetchShortInterest(shortIntInput || defaultTickers)} disabled={shortIntLoading}
+                style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: shortIntLoading ? C.surface : C.accent, border: "none", color: shortIntLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 18px", cursor: shortIntLoading ? "default" : "pointer" }}>
+                {shortIntLoading ? "LOADING…" : "FETCH DATA"}
+              </button>
+            </div>
+
+            {/* Legend */}
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+              {[{ color: C.green, label: "< 5% — Low short interest" }, { color: C.amber, label: "5-15% — Moderate" }, { color: C.red, label: "> 15% — High squeeze potential" }].map(l => (
+                <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: 2, background: l.color }} />
+                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{l.label}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Table */}
+            {shortIntData.length > 0 && (
+              <div style={{ ...card({ overflow: "hidden" }) }}>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ background: themeMode === "dark" ? "#0e1829" : "#eef3fa" }}>
+                        {["TICKER","SHORT FLOAT %","DAYS TO COVER","SHARES SHORT","VS PRIOR MONTH","AS OF"].map(h => (
+                          <th key={h} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, padding: "9px 14px", textAlign: h === "TICKER" ? "left" : "right", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shortIntData.sort((a, b) => (b.shortFloat || 0) - (a.shortFloat || 0)).map((row, i) => {
+                        const sf = row.shortFloat;
+                        const sfColor = sf == null ? C.textDim : sf > 15 ? C.red : sf > 5 ? C.amber : C.green;
+                        const change = row.sharesShort && row.sharesShortPrior ? ((row.sharesShort - row.sharesShortPrior) / row.sharesShortPrior * 100) : null;
+                        return (
+                          <tr key={row.symbol} style={{ borderTop: `1px solid ${C.border}33`, background: i % 2 === 0 ? "transparent" : (themeMode === "dark" ? "#ffffff04" : "#00000003") }}>
+                            <td style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.accent, padding: "9px 14px" }}>
+                              <button onClick={() => { setActiveTab("openstock"); setTvOsSymbol(row.symbol); setTvOsInput(row.symbol); }}
+                                style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 13, fontWeight: 800, cursor: "pointer", padding: 0 }}>
+                                {row.symbol}
+                              </button>
+                            </td>
+                            <td style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: sfColor, textAlign: "right", padding: "9px 14px" }}>
+                              {sf != null ? sf.toFixed(1) + "%" : "—"}
+                              {sf != null && sf > 15 && <span style={{ marginLeft: 6, fontSize: 10, color: C.red }}>🔥 SQUEEZE</span>}
+                            </td>
+                            <td style={{ fontFamily: MONO, fontSize: 12, color: row.shortRatio > 5 ? C.amber : C.text, textAlign: "right", padding: "9px 14px" }}>
+                              {row.shortRatio != null ? row.shortRatio.toFixed(1) + " days" : "—"}
+                            </td>
+                            <td style={{ fontFamily: MONO, fontSize: 11, color: C.textSec, textAlign: "right", padding: "9px 14px" }}>
+                              {row.sharesShort ? (row.sharesShort / 1e6).toFixed(1) + "M" : "—"}
+                            </td>
+                            <td style={{ fontFamily: MONO, fontSize: 11, color: change == null ? C.textDim : change > 0 ? C.red : C.green, textAlign: "right", padding: "9px 14px" }}>
+                              {change != null ? (change > 0 ? "+" : "") + change.toFixed(1) + "%" : "—"}
+                            </td>
+                            <td style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: "right", padding: "9px 14px" }}>
+                              {row.dateShortInterest || "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            {!shortIntData.length && !shortIntLoading && (
+              <div style={{ ...card({ padding: 32 }), textAlign: "center" }}>
+                <div style={{ fontSize: 32, marginBottom: 10 }}>🩳</div>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Enter tickers above and click Fetch Data</div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── PORTFOLIO HEAT MAP ────────────────────────────────────────────── */}
+      {activeTab === "heatmap" && (() => {
+        const positions = (portfolioHoldings || []).filter(h => h.shares > 0);
+        const enriched = positions.map(h => {
+          const live = (watchlistData || []).find(q => q.symbol === h.symbol) || {};
+          const price = Number(live.price || h.avgPrice || h.cost || 0);
+          const value = price * h.shares;
+          const pnl = price && h.avgPrice ? (price - h.avgPrice) / h.avgPrice * 100 : 0;
+          return { ...h, price, value, pnlPct: pnl };
+        });
+        const totalValue = enriched.reduce((s, h) => s + h.value, 0);
+        const sorted = [...enriched].sort((a, b) => b.value - a.value);
+
+        function pnlColor(pct) {
+          const absP = Math.min(Math.abs(pct), 10) / 10; // 0–1 scale
+          if (pct > 0) return `rgba(34,212,126,${0.15 + absP * 0.65})`;
+          if (pct < 0) return `rgba(255,69,96,${0.15 + absP * 0.65})`;
+          return themeMode === "dark" ? "#1a2535" : "#e8eef6";
+        }
+
+        const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
+
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>🔥 PORTFOLIO HEAT MAP</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>Tile size = position value · Color = P&L</div>
+              </div>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
+                {[{ c: C.green, l: "Gain" }, { c: C.red, l: "Loss" }, { c: C.textDim, l: "Flat" }].map(({ c, l }) => (
+                  <div key={l} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <div style={{ width: 12, height: 12, borderRadius: 2, background: c, opacity: 0.7 }} />
+                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{l}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {sorted.length === 0 ? (
+              <div style={{ ...card({ padding: 40 }), textAlign: "center" }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>No positions — add holdings in the PORTFOLIO tab</div>
+              </div>
+            ) : (
+              <>
+                {/* Heat map tiles */}
+                <div style={card({ padding: 16 })}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {sorted.map(h => {
+                      const sizePct = totalValue > 0 ? (h.value / totalValue) * 100 : 0;
+                      const tileW   = Math.max(80, Math.min(220, sizePct * 8));
+                      const tileH   = Math.max(64, Math.min(140, tileW * 0.6));
+                      return (
+                        <button key={h.symbol}
+                          onClick={() => { setActiveTab("openstock"); setTvOsSymbol(h.symbol); setTvOsInput(h.symbol); }}
+                          title={`${h.symbol}: ${h.pnlPct >= 0 ? "+" : ""}${h.pnlPct.toFixed(2)}% · $${h.value.toFixed(0)}`}
+                          style={{ width: tileW, height: tileH, background: pnlColor(h.pnlPct),
+                            border: `1px solid ${h.pnlPct > 0 ? C.green : h.pnlPct < 0 ? C.red : C.border}44`,
+                            borderRadius: 8, cursor: "pointer", display: "flex", flexDirection: "column",
+                            alignItems: "center", justifyContent: "center", gap: 4, padding: 6 }}>
+                          <div style={{ fontFamily: MONO, fontSize: Math.max(10, tileW / 9), fontWeight: 800, color: C.text }}>{h.symbol}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: h.pnlPct >= 0 ? C.green : C.red }}>
+                            {h.pnlPct >= 0 ? "+" : ""}{h.pnlPct.toFixed(2)}%
+                          </div>
+                          {tileH > 80 && (
+                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>${(h.value / 1000).toFixed(1)}K</div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Summary stats */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+                  {sorted.map(h => (
+                    <div key={h.symbol} style={{ ...card({ padding: "10px 14px" }), borderLeft: `3px solid ${h.pnlPct >= 0 ? C.green : C.red}` }}>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{h.symbol}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>{h.shares} shares @ ${Number(h.avgPrice || 0).toFixed(2)}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: h.pnlPct >= 0 ? C.green : C.red, marginTop: 4 }}>
+                        {h.pnlPct >= 0 ? "▲" : "▼"} {Math.abs(h.pnlPct).toFixed(2)}%
+                      </div>
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textSec }}>${h.value.toFixed(0)} ({totalValue > 0 ? (h.value / totalValue * 100).toFixed(1) : 0}%)</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── CORRELATION MATRIX ───────────────────────────────────────────── */}
+      {activeTab === "correlation" && (() => {
+        const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
+        const corrColor = (v) => {
+          if (v >= 0.7)  return themeMode === "dark" ? "rgba(34,212,126,0.55)"  : "rgba(5,150,105,0.50)";
+          if (v >= 0.3)  return themeMode === "dark" ? "rgba(34,212,126,0.20)"  : "rgba(5,150,105,0.18)";
+          if (v >= -0.3) return themeMode === "dark" ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)";
+          if (v >= -0.7) return themeMode === "dark" ? "rgba(255,69,96,0.20)"   : "rgba(220,38,38,0.18)";
+          return themeMode === "dark" ? "rgba(255,69,96,0.55)" : "rgba(220,38,38,0.50)";
+        };
+        const availSyms = Object.keys(scanDeepData).filter(t => scanDeepData[t]?.candles?.length >= 20);
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>🔗 CORRELATION MATRIX</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>
+                  Pearson correlation of daily returns · {availSyms.length} tickers with candle data loaded
+                </div>
+              </div>
+              <button onClick={computeCorrelation} disabled={corrLoading || availSyms.length < 2}
+                style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                  background: corrLoading || availSyms.length < 2 ? C.surface : C.accent,
+                  border: "none", color: corrLoading || availSyms.length < 2 ? C.textDim : "#fff",
+                  borderRadius: 6, padding: "9px 18px", cursor: corrLoading || availSyms.length < 2 ? "default" : "pointer" }}>
+                {corrLoading ? "COMPUTING…" : "CALCULATE"}
+              </button>
+            </div>
+
+            {/* Color legend */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {[{ bg: corrColor(0.8), label: "> 0.7 Strong positive" }, { bg: corrColor(0.5), label: "0.3–0.7 Moderate" }, { bg: corrColor(0), label: "Near zero" }, { bg: corrColor(-0.5), label: "-0.7–-0.3 Moderate inverse" }, { bg: corrColor(-0.8), label: "< -0.7 Strong inverse" }].map(l => (
+                <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <div style={{ width: 12, height: 12, borderRadius: 2, background: l.bg, border: `1px solid ${C.border}` }} />
+                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{l.label}</span>
+                </div>
+              ))}
+            </div>
+
+            {availSyms.length < 2 && (
+              <div style={{ ...card({ padding: 32 }), textAlign: "center" }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 8 }}>
+                  Need ≥2 tickers with candle data
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+                  Go to <strong style={{ color: C.accent }}>WATCHLIST → SMART SCAN</strong> and expand any ticker to load candle data, then come back here.
+                </div>
+              </div>
+            )}
+
+            {corrMatrix?.error && (
+              <div style={{ ...card({ padding: 20 }), borderLeft: `3px solid ${C.red}` }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>{corrMatrix.error}</div>
+              </div>
+            )}
+
+            {corrMatrix?.matrix && (
+              <div style={{ ...card({ overflow: "auto", padding: 16 }) }}>
+                <table style={{ borderCollapse: "separate", borderSpacing: 3 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, padding: "4px 8px", textAlign: "right" }}></th>
+                      {corrMatrix.syms.map(s => (
+                        <th key={s} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, padding: "4px 8px", textAlign: "center", whiteSpace: "nowrap" }}>{s}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {corrMatrix.syms.map(s1 => (
+                      <tr key={s1}>
+                        <td style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, padding: "4px 8px", textAlign: "right", whiteSpace: "nowrap" }}>{s1}</td>
+                        {corrMatrix.syms.map(s2 => {
+                          const v = corrMatrix.matrix[s1][s2];
+                          const isDiag = s1 === s2;
+                          return (
+                            <td key={s2} title={`${s1} vs ${s2}: ${v.toFixed(2)}`}
+                              style={{ background: isDiag ? `${C.accent}22` : corrColor(v),
+                                border: `1px solid ${C.border}33`, borderRadius: 4,
+                                fontFamily: MONO, fontSize: 10, fontWeight: isDiag ? 800 : 600,
+                                color: isDiag ? C.accent : C.text,
+                                padding: "6px 8px", textAlign: "center", minWidth: 48 }}>
+                              {isDiag ? "—" : v.toFixed(2)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {corrMatrix.computedAt && (
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 10 }}>Computed {new Date(corrMatrix.computedAt).toLocaleTimeString()}</div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── FIBONACCI CALCULATOR ──────────────────────────────────────────── */}
+      {activeTab === "fibonacci" && (() => {
+        const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>🌀 FIBONACCI CALCULATOR</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>Auto-detects swing high/low from 90-day daily candles</div>
+              </div>
+              <input value={fibInput} onChange={e => setFibInput(e.target.value.toUpperCase())}
+                onKeyDown={e => { if (e.key === "Enter") { setFibTicker(fibInput.trim() || "SPY"); fetchFibonacci(fibInput.trim() || "SPY"); } }}
+                placeholder="Ticker…"
+                style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface, border: `1px solid ${C.accent}`, color: C.text, borderRadius: 6, padding: "7px 12px", width: 130, outline: "none" }} />
+              <button onClick={() => { const t = fibInput.trim() || "SPY"; setFibTicker(t); fetchFibonacci(t); }} disabled={fibLoading}
+                style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: fibLoading ? C.surface : C.accent, border: "none", color: fibLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 18px", cursor: fibLoading ? "default" : "pointer" }}>
+                {fibLoading ? "LOADING…" : "CALCULATE"}
+              </button>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {["SPY","NVDA","AAPL","TSLA","BBAI","PLTR"].map(t => (
+                  <button key={t} onClick={() => { setFibInput(t); setFibTicker(t); fetchFibonacci(t); }}
+                    style={{ fontFamily: MONO, fontSize: 9, background: fibTicker === t ? `${C.accent}22` : C.surface, border: `1px solid ${fibTicker === t ? C.accent : C.border}`, color: fibTicker === t ? C.accent : C.textDim, borderRadius: 4, padding: "4px 8px", cursor: "pointer" }}>{t}</button>
+                ))}
+              </div>
+            </div>
+
+            {fibError && (
+              <div style={{ ...card({ padding: 16 }), borderLeft: `3px solid ${C.red}` }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>Error: {fibError}</span>
+              </div>
+            )}
+
+            {fibData && (
+              <>
+                {/* Summary */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+                  {[
+                    { l: "TICKER",     v: fibData.ticker,                              c: C.accent },
+                    { l: "SWING HIGH", v: "$" + fibData.swingHigh.toFixed(2),          c: C.green },
+                    { l: "SWING LOW",  v: "$" + fibData.swingLow.toFixed(2),           c: C.red },
+                    { l: "RANGE",      v: "$" + (fibData.swingHigh - fibData.swingLow).toFixed(2), c: C.text },
+                    { l: "LAST CLOSE", v: "$" + fibData.lastPrice.toFixed(2),          c: C.text },
+                    { l: "POSITION",   v: (((fibData.lastPrice - fibData.swingLow) / (fibData.swingHigh - fibData.swingLow)) * 100).toFixed(1) + "% of range", c: C.amber },
+                  ].map(stat => (
+                    <div key={stat.l} style={{ ...card({ padding: "10px 14px" }) }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4, letterSpacing: "0.06em" }}>{stat.l}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: stat.c }}>{stat.v}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Levels table */}
+                <div style={{ ...card({ overflow: "hidden" }) }}>
+                  <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: "0.06em" }}>
+                    FIBONACCI LEVELS — {fibData.ticker}
+                  </div>
+                  {fibData.levels.map((lvl, i) => {
+                    const isCurrent = fibData.lastPrice >= lvl.price - (fibData.swingHigh - fibData.swingLow) * 0.02
+                      && fibData.lastPrice <= lvl.price + (fibData.swingHigh - fibData.swingLow) * 0.02;
+                    const above = fibData.lastPrice > lvl.price;
+                    const dist = Math.abs(fibData.lastPrice - lvl.price);
+                    const distPct = ((dist / fibData.lastPrice) * 100).toFixed(1);
+                    return (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px",
+                        borderTop: i > 0 ? `1px solid ${C.border}33` : "none",
+                        background: isCurrent ? `${C.amber}18` : lvl.isKey ? `${C.accent}08` : "transparent" }}>
+                        {/* Level indicator bar */}
+                        <div style={{ width: 4, height: 28, borderRadius: 2, flexShrink: 0,
+                          background: lvl.isExt ? C.purple : lvl.isKey ? C.amber : lvl.ratio === 0 || lvl.ratio === 1 ? C.textDim : C.border }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: lvl.isKey ? C.amber : lvl.isExt ? C.purple : C.textSec }}>
+                            {lvl.label} {isCurrent && <span style={{ color: C.amber }}>◄ PRICE IS HERE</span>}
+                          </div>
+                        </div>
+                        <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: lvl.isKey ? C.amber : C.text, minWidth: 90, textAlign: "right" }}>
+                          ${lvl.price.toFixed(2)}
+                        </div>
+                        <div style={{ fontFamily: MONO, fontSize: 10, color: above ? C.green : C.red, minWidth: 70, textAlign: "right" }}>
+                          {above ? "▼ " : "▲ "}{distPct}% away
+                        </div>
+                        {/* Mini price bar visualization */}
+                        <div style={{ width: 80, height: 8, background: C.border, borderRadius: 4, overflow: "hidden", flexShrink: 0 }}>
+                          <div style={{ width: `${Math.min(100, lvl.ratio * 100)}%`, height: "100%",
+                            background: lvl.isKey ? C.amber : C.accent, borderRadius: 4 }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {!fibData && !fibLoading && !fibError && (
+              <div style={{ ...card({ padding: 40 }), textAlign: "center" }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>🌀</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 6 }}>Enter a ticker and click Calculate</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Automatically finds swing high/low over last 90 days and draws all key Fibonacci levels</div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── HALAL SCREENER ────────────────────────────────────────────────── */}
+      {activeTab === "halal" && (() => {
+        const gold = "#c9a84c";
+        const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
+        const verdictColor = (v = "") => {
+          if (v.includes("HALAL")) return C.green;
+          if (v.includes("HARAM")) return C.red;
+          return C.amber;
+        };
+        const verdictMatch = halalReport?.report ? halalReport.report.match(/VERDICT:\s*(.+)/) : null;
+        const verdict = verdictMatch ? verdictMatch[1].trim() : null;
+        const scoreMatch = halalReport?.report ? halalReport.report.match(/COMPLIANCE SCORE:\s*(\d+)/) : null;
+        const score = scoreMatch ? Number(scoreMatch[1]) : null;
+
+        const WATCHLIST_FOR_HALAL = ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "GOOGL", "META", "PLTR", "RKLB", "BBAI", "SMR", "OKLO", "ASTS"];
+
+        return (
+          <div dir="ltr" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Header */}
+            <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: gold }}>☪ HALAL STOCK SCREENER</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>
+                  Islamic finance compliance check per AAOIFI standards — powered by AI
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: "auto", flexWrap: "wrap" }}>
+                <input value={halalInput} onChange={e => setHalalInput(e.target.value.toUpperCase())}
+                  onKeyDown={e => { if (e.key === "Enter" && halalInput.trim()) fetchHalalCheck(halalInput.trim()); }}
+                  placeholder="Enter ticker…"
+                  style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface, border: `1px solid ${gold}88`, color: C.text, borderRadius: 6, padding: "7px 12px", width: 140, outline: "none" }} />
+                <button onClick={() => halalInput.trim() && fetchHalalCheck(halalInput.trim())} disabled={halalLoading}
+                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: halalLoading ? C.surface : gold, border: "none", color: halalLoading ? C.textDim : "#1a1000", borderRadius: 6, padding: "9px 18px", cursor: halalLoading ? "default" : "pointer" }}>
+                  {halalLoading ? "CHECKING…" : "☪ CHECK"}
+                </button>
+              </div>
+            </div>
+
+            {/* Quick pick tickers */}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {WATCHLIST_FOR_HALAL.map(t => (
+                <button key={t} onClick={() => { setHalalInput(t); fetchHalalCheck(t); }}
+                  style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                    background: halalReport?.ticker === t ? `${gold}22` : C.surface,
+                    border: `1px solid ${halalReport?.ticker === t ? gold : C.border}`,
+                    color: halalReport?.ticker === t ? gold : C.textDim,
+                    borderRadius: 4, padding: "5px 10px", cursor: "pointer" }}>{t}</button>
+              ))}
+            </div>
+
+            {halalError && (
+              <div style={{ ...card({ padding: 16 }), borderLeft: `3px solid ${C.red}` }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>{halalError}</span>
+              </div>
+            )}
+
+            {halalLoading && (
+              <div style={{ ...card({ padding: 40 }), textAlign: "center" }}>
+                <div style={{ fontFamily: "Georgia, serif", fontSize: 24, color: gold, marginBottom: 12 }}>بِسْمِ اللَّهِ</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Consulting Islamic finance principles…</div>
+              </div>
+            )}
+
+            {halalReport && !halalLoading && (() => {
+              const SECTION_RE = /^([A-Z][A-Z\s\/]{3,})\n/gm;
+              const parts = halalReport.report.split(SECTION_RE).filter(Boolean);
+              const sections = [];
+              for (let i = 0; i < parts.length; i += 2) {
+                if (i + 1 < parts.length) sections.push({ title: parts[i].trim(), body: parts[i + 1].trim() });
+                else sections.push({ title: "", body: parts[i].trim() });
+              }
+
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {/* Verdict card */}
+                  <div style={{ ...card({ padding: 20, borderLeft: `4px solid ${verdict ? verdictColor(verdict) : gold}` }), display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>TICKER</div>
+                      <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.accent }}>{halalReport.ticker}</div>
+                    </div>
+                    {verdict && (
+                      <div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>VERDICT</div>
+                        <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: verdictColor(verdict) }}>{verdict}</div>
+                      </div>
+                    )}
+                    {score != null && (
+                      <div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>COMPLIANCE SCORE</div>
+                        <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: score >= 70 ? C.green : score >= 40 ? C.amber : C.red }}>{score}/100</div>
+                        <div style={{ height: 6, width: 120, background: C.border, borderRadius: 3, marginTop: 4 }}>
+                          <div style={{ width: `${score}%`, height: "100%", background: score >= 70 ? C.green : score >= 40 ? C.amber : C.red, borderRadius: 3 }} />
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, color: C.textDim, textAlign: "right" }}>
+                      {halalReport.at && new Date(halalReport.at).toLocaleString()}
+                    </div>
+                  </div>
+
+                  {/* Detail sections */}
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(320px, 1fr))", gap: 10 }}>
+                    {sections.map((s, i) => (
+                      s.title !== "VERDICT" && s.title !== "COMPLIANCE SCORE" && (
+                        <div key={i} style={{ ...card({ padding: 14, borderLeft: `3px solid ${gold}44` }) }}>
+                          {s.title && <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: gold, letterSpacing: "0.07em", marginBottom: 8 }}>☪ {s.title}</div>}
+                          <div style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{s.body}</div>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {!halalReport && !halalLoading && (
+              <div style={{ ...card({ padding: 40 }), textAlign: "center" }}>
+                <div style={{ fontFamily: "Georgia, serif", fontSize: 36, color: gold, marginBottom: 12 }}>☪</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 6 }}>Enter a ticker to check halal compliance</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, maxWidth: 400, margin: "0 auto" }}>
+                  Checks business activities, revenue from haram sources, debt ratios, and interest income against AAOIFI Islamic finance screening standards.
+                </div>
+              </div>
+            )}
           </div>
         );
       })()}

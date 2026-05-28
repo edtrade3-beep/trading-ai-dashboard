@@ -186,6 +186,214 @@ Be specific with exact dollar prices. Under 450 words total.`;
     }
   }
 
+  // POST /api/agent/premarket — AI pre-market morning briefing
+  if (pathname === "/api/agent/premarket" && req.method === "POST") {
+    if (!ANTHROPIC_API_KEY) return writeJson(res, 503, { error: "ANTHROPIC_API_KEY not configured." });
+    let body;
+    try { body = JSON.parse(await readRequestBody(req)); }
+    catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
+
+    const { regime, macroTone, session, indexMoves = [], topLongs = [], topRisks = [],
+            alerts = [], flowBias, earningsToday = [], macroEvents = [] } = body;
+
+    const indexLine   = indexMoves.map(r => `${r.label} ${r.value >= 0 ? "+" : ""}${Number(r.value || 0).toFixed(2)}%`).join(", ");
+    const longsLine   = topLongs.slice(0, 5).map(q => `${q.symbol} (Score ${Math.round(q.composite || q.score || 0)}, RS ${Number(q.relVsSpy || 0).toFixed(1)}%)`).join("; ");
+    const risksLine   = topRisks.slice(0, 3).map(q => q.symbol).join(", ");
+    const alertsLine  = alerts.slice(0, 3).map(a => `${a.symbol} [${a.type}] ${a.text}`).join("; ");
+    const earningsLine = earningsToday.slice(0, 6).map(e => `${e.symbol}${e.timing ? " (" + e.timing + ")" : ""}`).join(", ");
+    const macroLine   = macroEvents.slice(0, 4).map(e => `${e.time || ""} ${e.event || ""} (${e.impact || ""})`).join("; ");
+
+    const prompt = `You are a senior institutional trading desk strategist. Generate a concise pre-market briefing.
+
+CURRENT DATA:
+- Regime: ${regime || "Unknown"} | Macro: ${macroTone || "Unknown"} | Session: ${session || "Pre-Market"}
+- Index futures: ${indexLine || "N/A"}
+- Flow bias: ${flowBias || "N/A"}
+- Top setups: ${longsLine || "None"}
+- Risk names: ${risksLine || "None"}
+- Alerts: ${alertsLine || "None"}
+- Earnings today: ${earningsLine || "None"}
+- Key macro events: ${macroLine || "None"}
+
+Structure your briefing exactly as:
+
+MORNING VERDICT
+[Regime status, overall bias bull/bear/neutral, confidence level]
+
+KEY THEMES TODAY
+[2-3 specific narratives driving the tape today]
+
+EARNINGS WATCH
+[Any earnings worth trading, approach if any]
+
+MACRO EVENTS
+[Specific data releases to watch, expected market impact]
+
+TOP 3 SETUPS
+[Specific tickers, entry triggers, stops — be exact]
+
+WHAT TO AVOID
+[Sectors or names to stay away from today]
+
+GAME PLAN
+[One paragraph — exactly what the ideal trader does today from open to close]
+
+Under 450 words. Plain text only. Be specific and actionable.`;
+
+    try {
+      const text = await callAnthropicApi(prompt, ANTHROPIC_API_KEY, { maxTokens: 700 });
+      if (telegramConfigured()) {
+        const preview = text.length > 1200 ? text.slice(0, 1200) + "…" : text;
+        sendTelegramMessage(`🌅 *Pre-Market Briefing*\n\n${preview}`).catch(() => {});
+      }
+      return writeJson(res, 200, { ok: true, briefing: text, generatedAt: new Date().toISOString() });
+    } catch (err) {
+      return writeJson(res, 422, { error: err instanceof Error ? err.message : "Briefing generation failed" });
+    }
+  }
+
+  // POST /api/agent/journal-review — AI analysis of trading journal
+  if (pathname === "/api/agent/journal-review" && req.method === "POST") {
+    if (!ANTHROPIC_API_KEY) return writeJson(res, 503, { error: "ANTHROPIC_API_KEY not configured." });
+    let body;
+    try { body = JSON.parse(await readRequestBody(req)); }
+    catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
+
+    const { entries = [] } = body;
+    const closed = entries.filter(e => e.closedAt && e.pnl != null).slice(-50);
+    if (closed.length < 3) return writeJson(res, 400, { error: "Need at least 3 closed trades to analyze." });
+
+    const totalPnl = closed.reduce((s, e) => s + (Number(e.pnl) || 0), 0);
+    const wins     = closed.filter(e => Number(e.pnl) > 0);
+    const losses   = closed.filter(e => Number(e.pnl) <= 0);
+    const winRate  = ((wins.length / closed.length) * 100).toFixed(0);
+    const avgWin   = wins.length   ? (wins.reduce((s, e)   => s + Number(e.pnl), 0) / wins.length).toFixed(0)   : 0;
+    const avgLoss  = losses.length ? (losses.reduce((s, e) => s + Number(e.pnl), 0) / losses.length).toFixed(0) : 0;
+    const pf       = losses.length && Number(avgLoss) < 0 ? Math.abs(Number(avgWin) / Number(avgLoss)).toFixed(2) : "N/A";
+
+    const tradeLines = closed.slice(-20).map(e =>
+      `${e.symbol || "?"} ${e.side || "?"} ${e.setup || "?"} P&L:$${Number(e.pnl || 0).toFixed(0)}${e.notes ? ` "${String(e.notes).slice(0, 60)}"` : ""}`
+    ).join("\n");
+
+    const prompt = `You are an expert trading coach reviewing a trader's journal. Be direct, specific, and honest.
+
+STATS (last ${closed.length} closed trades):
+- Total P&L: $${totalPnl.toFixed(0)} | Win rate: ${winRate}% | Profit factor: ${pf}
+- Avg win: $${avgWin} | Avg loss: $${avgLoss}
+
+RECENT TRADES:
+${tradeLines}
+
+Provide structured coaching:
+
+PERFORMANCE SUMMARY
+[Key numbers, honest overall assessment]
+
+STRENGTHS
+[2-3 specific things they do well — cite actual trades]
+
+WEAKNESSES
+[2-3 patterns hurting P&L — be direct, cite examples]
+
+PSYCHOLOGY PATTERNS
+[Any emotional patterns: overtrading, revenge trading, cutting winners early, letting losers run]
+
+TOP 3 IMPROVEMENTS
+[Ranked by expected P&L impact, make each one actionable]
+
+HOMEWORK
+[2-3 concrete actions before next trading session]
+
+Under 400 words. Plain text. Be a coach, not a cheerleader.`;
+
+    try {
+      const text = await callAnthropicApi(prompt, ANTHROPIC_API_KEY, { maxTokens: 700 });
+      return writeJson(res, 200, { ok: true, review: text, generatedAt: new Date().toISOString() });
+    } catch (err) {
+      return writeJson(res, 422, { error: err instanceof Error ? err.message : "Journal review failed" });
+    }
+  }
+
+  // POST /api/agent/sentiment — batch sentiment scoring for news headlines
+  if (pathname === "/api/agent/sentiment" && req.method === "POST") {
+    if (!ANTHROPIC_API_KEY) return writeJson(res, 503, { error: "ANTHROPIC_API_KEY not configured." });
+    let body;
+    try { body = JSON.parse(await readRequestBody(req)); }
+    catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
+
+    const { headlines = [] } = body;
+    const batch = headlines.slice(0, 25).map(h => String(h || "").slice(0, 120));
+    if (!batch.length) return writeJson(res, 400, { error: "No headlines provided" });
+
+    const numbered = batch.map((h, i) => `${i + 1}. ${h}`).join("\n");
+    const prompt = `Rate each headline's market sentiment. Respond ONLY with a valid JSON array — no other text, no markdown.
+
+Each item: {"i": 1, "s": "bull"|"bear"|"neutral", "score": -100 to 100}
+
+Headlines:
+${numbered}`;
+
+    try {
+      const raw = await callAnthropicApi(prompt, ANTHROPIC_API_KEY, { maxTokens: 500 });
+      const match = raw.match(/\[[\s\S]*\]/);
+      if (!match) throw new Error("Could not parse sentiment response");
+      const results = JSON.parse(match[0]);
+      return writeJson(res, 200, { ok: true, results });
+    } catch (err) {
+      return writeJson(res, 422, { error: err instanceof Error ? err.message : "Sentiment analysis failed" });
+    }
+  }
+
+  // POST /api/agent/halal — Islamic finance halal compliance check
+  if (pathname === "/api/agent/halal" && req.method === "POST") {
+    if (!ANTHROPIC_API_KEY) return writeJson(res, 503, { error: "ANTHROPIC_API_KEY not configured." });
+    let body;
+    try { body = JSON.parse(await readRequestBody(req)); }
+    catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
+
+    const { ticker, company, sector, description, debtRatio, interestRatio, cashRatio } = body;
+
+    const prompt = `You are an Islamic finance scholar specializing in equity stock screening per AAOIFI and MSCI Islamic screening standards.
+
+STOCK: ${ticker} — ${company || ticker}
+SECTOR: ${sector || "Unknown"}
+BUSINESS: ${description ? String(description).slice(0, 350) : "No description available"}
+FINANCIALS:
+- Total debt / total assets: ${debtRatio != null ? (Number(debtRatio) * 100).toFixed(1) + "%" : "N/A"} (threshold: <33%)
+- Interest income / revenue: ${interestRatio != null ? (Number(interestRatio) * 100).toFixed(1) + "%" : "N/A"} (threshold: <5%)
+- Cash + securities / assets: ${cashRatio != null ? (Number(cashRatio) * 100).toFixed(1) + "%" : "N/A"}
+
+Evaluate and respond in this exact structure (plain text, no markdown):
+
+VERDICT: [HALAL / DOUBTFUL / HARAM]
+
+COMPLIANCE SCORE: [0-100]
+
+BUSINESS SCREENING
+[Is the primary business permissible? Any haram revenue streams (alcohol, gambling, weapons, pork, conventional banking/insurance, adult content)? Estimate % haram revenue if applicable]
+
+FINANCIAL RATIOS
+[Check each ratio against AAOIFI thresholds. Pass or fail each one]
+
+CONCERNS
+[Specific issues that could make this non-compliant — be precise]
+
+PURIFICATION
+[If holding, what % of dividends should be donated as purification? Explain]
+
+RECOMMENDATION
+[SUITABLE FOR HALAL PORTFOLIO / AVOID / REQUIRES DEEPER RESEARCH]
+
+Under 300 words. Be scholarly and clear.`;
+
+    try {
+      const text = await callAnthropicApi(prompt, ANTHROPIC_API_KEY, { maxTokens: 600 });
+      return writeJson(res, 200, { ok: true, ticker, report: text, generatedAt: new Date().toISOString() });
+    } catch (err) {
+      return writeJson(res, 422, { error: err instanceof Error ? err.message : "Halal check failed" });
+    }
+  }
+
   return writeJson(res, 404, { error: "Unknown agent endpoint." });
 }
 

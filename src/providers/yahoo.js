@@ -474,11 +474,41 @@ async function fetchEstimatedOptionsFlow(symbols) {
   return rows.filter(Boolean);
 }
 
+// ── Short interest data ───────────────────────────────────────────────────────
+async function fetchYahooShortInterest(symbol) {
+  const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=defaultKeyStatistics,summaryDetail`;
+  try {
+    const res = await yFetch(url, 8000);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const payload = await res.json();
+    const stats = payload?.quoteSummary?.result?.[0]?.defaultKeyStatistics || {};
+    const summary = payload?.quoteSummary?.result?.[0]?.summaryDetail || {};
+    const shortFloat  = Number(stats?.shortPercentOfFloat?.raw ?? summary?.shortPercentOfFloat?.raw ?? null);
+    const shortRatio  = Number(stats?.shortRatio?.raw ?? null);
+    const sharesShort = Number(stats?.sharesShort?.raw ?? null);
+    const sharesShortPrior = Number(stats?.sharesShortPriorMonth?.raw ?? null);
+    const dateShort   = stats?.dateShortInterest?.fmt || null;
+    const float       = Number(stats?.floatShares?.raw ?? null);
+    return {
+      symbol: symbol.toUpperCase(),
+      shortFloat:       Number.isFinite(shortFloat)  ? round2(shortFloat * 100)  : null, // as percent
+      shortRatio:       Number.isFinite(shortRatio)  ? round2(shortRatio)        : null, // days to cover
+      sharesShort:      Number.isFinite(sharesShort) ? sharesShort              : null,
+      sharesShortPrior: Number.isFinite(sharesShortPrior) ? sharesShortPrior   : null,
+      floatShares:      Number.isFinite(float)       ? float                    : null,
+      dateShortInterest: dateShort,
+    };
+  } catch {
+    return { symbol: symbol.toUpperCase(), shortFloat: null, shortRatio: null, sharesShort: null, sharesShortPrior: null, floatShares: null, dateShortInterest: null };
+  }
+}
+
 module.exports = {
   fetchYahooBars, fetchYahooQuoteBatch, fetchYahooQuotes,
   fetchYahooNews, fetchYahooRssNews,
   fetchYahooFundamentals, fetchYahooCandlesWithIndicators,
   fetchYahooOptionsFlowForSymbol, fetchEstimatedOptionsFlow,
   fetchYahooMarketCapFromSummary, fetchYahooChartMeta,
-  resolveMarketCap, MARKET_CAP_CACHE
+  resolveMarketCap, MARKET_CAP_CACHE,
+  fetchYahooShortInterest,
 };

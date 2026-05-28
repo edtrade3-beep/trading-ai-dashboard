@@ -16,6 +16,7 @@
   var s  = (p.get("s") || "SPY").toUpperCase();
   var t  = p.get("t") === "light" ? "light" : "dark";
   var h  = Math.min(900, Math.max(60, parseInt(p.get("h") || "500", 10)));
+  var iv = p.get("iv") || "D";   // interval override for advanced-chart
   var bg = t === "dark" ? "#0a0e1a" : "#f0f4f9";
 
   document.documentElement.style.background = bg;
@@ -32,7 +33,7 @@
   var CFGS = {
     "advanced-chart": Object.assign({}, D, {
       symbol:             s,
-      interval:           "D",
+      interval:           iv,
       style:              "1",
       details:            false,
       hotlist:            false,
