@@ -79,7 +79,7 @@ async function handleRequest(req, res) {
       return handleJournal(req, res, requestUrl);
     }
 
-    if (pathname === "/api/agent") {
+    if (pathname === "/api/agent" || pathname.startsWith("/api/agent/")) {
       return handleAgent(req, res, requestUrl);
     }
 
