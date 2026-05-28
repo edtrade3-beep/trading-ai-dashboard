@@ -58,6 +58,41 @@ async function handleScanner(req, res, requestUrl) {
     return writeJson(res, 200, { ok: true, config: saved });
   }
 
+  // GET /api/scanner/smart-scan?tickers=BBAI,SERV,...
+  // Returns quotes + candle indicators for every ticker in one shot.
+  // Client scores and renders; server just provides the raw data.
+  if (pathname === "/api/scanner/smart-scan" && req.method === "GET") {
+    const { fetchYahooQuotes, fetchYahooCandlesWithIndicators } = require("../providers/yahoo");
+    const tickers = (requestUrl.searchParams.get("tickers") || "")
+      .split(",").map(s => s.trim().toUpperCase()).filter(Boolean).slice(0, 40);
+    if (!tickers.length) return writeJson(res, 400, { error: "tickers param required" });
+
+    // Batch quotes — one Yahoo call
+    const quotes = await fetchYahooQuotes(tickers).catch(() => []);
+    const quoteMap = Object.fromEntries(quotes.map(q => [String(q.symbol || "").toUpperCase(), q]));
+
+    // Parallel candles — 6-month daily so RSI/MACD have enough history
+    const candleSettled = await Promise.allSettled(
+      tickers.map(t =>
+        fetchYahooCandlesWithIndicators(t, "1D")
+          .then(d => ({ ticker: t, bars: d.bars.slice(-60), indicators: d.indicators }))
+          .catch(() => ({ ticker: t, bars: [], indicators: {} }))
+      )
+    );
+    const candleMap = {};
+    candleSettled.forEach(r => {
+      if (r.status === "fulfilled") candleMap[r.value.ticker] = r.value;
+    });
+
+    const results = tickers.map(t => ({
+      ticker: t,
+      quote:   quoteMap[t]   || null,
+      candles: candleMap[t]  || null,
+    }));
+
+    return writeJson(res, 200, { ok: true, scannedAt: new Date().toISOString(), results });
+  }
+
   return writeJson(res, 404, { error: "Unknown scanner endpoint" });
 }
 

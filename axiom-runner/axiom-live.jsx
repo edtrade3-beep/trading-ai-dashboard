@@ -80,6 +80,42 @@ const QURAN_RECITERS = [
   { id: "ayyoub",   path: "muhammad_ayyoob_hq",               label: "محمد أيوب — Muhammad Ayyoub",             full: true },
   { id: "akhdar",   path: "ibrahim_al_akhdar",                label: "إبراهيم الأخضر — Ibrahim Al-Akhdar",     full: true },
 ];
+// ── 5X Thematic Watchlist — shared by 5X PLAYS tab + Smart Scanner ─────────
+const FIVEX_DATA = [
+  { rank:1,  ticker:"BBAI",  company:"BigBear.ai",          sector:"Defense AI",        price:4.37,   e1:4.15,   e2:3.85,   e3:3.50,   trigger:4.72,   stop:3.71,   risk:"Very High",   upside:"5x-8x",  thesis:"Government AI systems" },
+  { rank:2,  ticker:"SERV",  company:"Serve Robotics",       sector:"Robotics",          price:8.84,   e1:8.40,   e2:7.78,   e3:7.07,   trigger:9.55,   stop:7.51,   risk:"Extreme",     upside:"10x+",   thesis:"Autonomous delivery robots" },
+  { rank:3,  ticker:"SMR",   company:"NuScale Power",        sector:"Nuclear",           price:12.07,  e1:11.47,  e2:10.62,  e3:9.66,   trigger:13.04,  stop:10.26,  risk:"High",        upside:"5x-7x",  thesis:"Small modular reactors" },
+  { rank:4,  ticker:"RDW",   company:"Redwire",              sector:"Space",             price:24.00,  e1:22.80,  e2:21.12,  e3:19.20,  trigger:25.92,  stop:20.40,  risk:"High",        upside:"4x-6x",  thesis:"Space infrastructure" },
+  { rank:5,  ticker:"NNE",   company:"Nano Nuclear Energy",  sector:"Nuclear",           price:27.36,  e1:25.99,  e2:24.08,  e3:21.89,  trigger:29.55,  stop:23.26,  risk:"Extreme",     upside:"10x+",   thesis:"Micro nuclear speculation" },
+  { rank:6,  ticker:"LUNR",  company:"Intuitive Machines",   sector:"Space",             price:40.34,  e1:38.32,  e2:35.50,  e3:32.27,  trigger:43.57,  stop:34.29,  risk:"Very High",   upside:"5x-10x", thesis:"Moon/NASA contracts" },
+  { rank:7,  ticker:"PL",    company:"Planet Labs",          sector:"Satellite AI",      price:50.48,  e1:47.96,  e2:44.42,  e3:40.38,  trigger:54.52,  stop:42.91,  risk:"High",        upside:"4x-6x",  thesis:"Earth observation AI" },
+  { rank:8,  ticker:"SYM",   company:"Symbotic",             sector:"Automation",        price:53.63,  e1:50.95,  e2:47.19,  e3:42.90,  trigger:57.92,  stop:45.59,  risk:"Medium-High", upside:"4x-6x",  thesis:"Warehouse robotics" },
+  { rank:9,  ticker:"OKLO",  company:"Oklo",                 sector:"AI Energy",         price:67.82,  e1:64.43,  e2:59.68,  e3:54.26,  trigger:73.25,  stop:57.65,  risk:"Very High",   upside:"8x-12x", thesis:"AI power demand + nuclear" },
+  { rank:10, ticker:"ASTS",  company:"AST SpaceMobile",      sector:"Space",             price:129.60, e1:123.12, e2:114.05, e3:103.68, trigger:139.97, stop:110.16, risk:"Very High",   upside:"8x-15x", thesis:"Satellite direct-to-phone" },
+  { rank:11, ticker:"PLTR",  company:"Palantir",             sector:"Defense AI",        price:132.51, e1:125.88, e2:116.61, e3:106.01, trigger:143.11, stop:112.63, risk:"Medium",      upside:"3x-5x",  thesis:"AI operating system" },
+  { rank:12, ticker:"RKLB",  company:"Rocket Lab",           sector:"Space",             price:150.23, e1:142.72, e2:132.20, e3:120.18, trigger:162.25, stop:127.70, risk:"High",        upside:"5x-8x",  thesis:"Launch + defense + satellites" },
+  { rank:13, ticker:"NBIS",  company:"Nebius Group",         sector:"AI Infrastructure", price:208.37, e1:197.95, e2:183.37, e3:166.70, trigger:225.04, stop:177.11, risk:"High",        upside:"4x-7x",  thesis:"AI compute infrastructure" },
+  { rank:14, ticker:"VRT",   company:"Vertiv",               sector:"Infrastructure",    price:319.78, e1:303.79, e2:281.41, e3:255.82, trigger:345.36, stop:271.81, risk:"Medium",      upside:"3x-5x",  thesis:"AI datacenter cooling" },
+  { rank:15, ticker:"PWR",   company:"Quanta Services",      sector:"Infrastructure",    price:733.62, e1:696.94, e2:645.59, e3:586.90, trigger:792.31, stop:623.58, risk:"Medium",      upside:"3x-5x",  thesis:"Grid modernization" },
+  { rank:16, ticker:"GSAT",  company:"Globalstar",           sector:"Satellite AI",      price:2.82,   e1:2.68,   e2:2.48,   e3:2.26,   trigger:3.05,   stop:2.40,   risk:"Extreme",     upside:"10x+",   thesis:"Apple satellite partner — direct-to-device" },
+  { rank:17, ticker:"APLD",  company:"Applied Digital",      sector:"AI Infrastructure", price:8.14,   e1:7.73,   e2:7.16,   e3:6.51,   trigger:8.79,   stop:6.92,   risk:"Extreme",     upside:"10x+",   thesis:"AI hyperscale data center builder" },
+  { rank:18, ticker:"ACHR",  company:"Archer Aviation",      sector:"Air Mobility",      price:10.82,  e1:10.28,  e2:9.52,   e3:8.66,   trigger:11.69,  stop:9.20,   risk:"Extreme",     upside:"8x-15x", thesis:"eVTOL air taxi + US military contracts" },
+  { rank:19, ticker:"SOUN",  company:"SoundHound AI",        sector:"AI Voice",          price:12.44,  e1:11.82,  e2:10.95,  e3:9.95,   trigger:13.44,  stop:10.57,  risk:"Extreme",     upside:"8x-15x", thesis:"Voice AI platform — automotive + enterprise" },
+  { rank:20, ticker:"RGTI",  company:"Rigetti Computing",    sector:"Quantum AI",        price:13.86,  e1:13.17,  e2:12.20,  e3:11.09,  trigger:14.97,  stop:11.78,  risk:"Extreme",     upside:"10x+",   thesis:"Quantum processors for AI optimisation" },
+  { rank:21, ticker:"CORZ",  company:"Core Scientific",      sector:"AI Infrastructure", price:16.24,  e1:15.43,  e2:14.29,  e3:12.99,  trigger:17.54,  stop:13.80,  risk:"Very High",   upside:"6x-10x", thesis:"HPC + AI compute hosting — ex-Bitcoin miner pivot" },
+  { rank:22, ticker:"PATH",  company:"UiPath",               sector:"Automation",        price:17.68,  e1:16.80,  e2:15.56,  e3:14.14,  trigger:19.09,  stop:15.03,  risk:"High",        upside:"4x-7x",  thesis:"Enterprise AI automation — agentic workflow leader" },
+  { rank:23, ticker:"KTOS",  company:"Kratos Defense",       sector:"Defense AI",        price:37.94,  e1:36.04,  e2:33.39,  e3:30.35,  trigger:40.98,  stop:32.25,  risk:"High",        upside:"5x-8x",  thesis:"Autonomous drones + AI targeting systems" },
+  { rank:24, ticker:"IONQ",  company:"IonQ",                 sector:"Quantum AI",        price:47.62,  e1:45.24,  e2:41.91,  e3:38.10,  trigger:51.43,  stop:40.48,  risk:"Very High",   upside:"8x-15x", thesis:"Quantum computing as a service — govt + cloud" },
+  { rank:25, ticker:"SMCI",  company:"Super Micro Computer", sector:"AI Infrastructure", price:48.35,  e1:45.93,  e2:42.55,  e3:38.68,  trigger:52.22,  stop:41.10,  risk:"Very High",   upside:"5x-10x", thesis:"AI server + GPU rack systems — Nvidia ecosystem" },
+  { rank:26, ticker:"CCJ",   company:"Cameco",               sector:"Nuclear",           price:57.88,  e1:54.99,  e2:50.93,  e3:46.30,  trigger:62.51,  stop:49.20,  risk:"High",        upside:"4x-6x",  thesis:"World's largest uranium producer — nuclear renaissance" },
+  { rank:27, ticker:"BWXT",  company:"BWX Technologies",     sector:"Nuclear",           price:112.44, e1:106.82, e2:98.95,  e3:89.95,  trigger:121.44, stop:95.57,  risk:"Medium-High", upside:"4x-6x",  thesis:"Naval nuclear reactors + microreactor development" },
+  { rank:28, ticker:"VST",   company:"Vistra Energy",        sector:"AI Energy",         price:141.76, e1:134.67, e2:124.75, e3:113.41, trigger:153.10, stop:120.50, risk:"Medium",      upside:"3x-5x",  thesis:"Nuclear + gas power for AI data center demand" },
+  { rank:29, ticker:"CEG",   company:"Constellation Energy", sector:"AI Energy",         price:268.42, e1:255.00, e2:236.21, e3:214.74, trigger:289.89, stop:228.16, risk:"Medium",      upside:"3x-5x",  thesis:"Largest US nuclear fleet — AI data center PPAs" },
+  { rank:30, ticker:"GEV",   company:"GE Vernova",           sector:"Infrastructure",    price:397.84, e1:377.95, e2:350.10, e3:318.27, trigger:429.67, stop:338.16, risk:"Medium",      upside:"3x-5x",  thesis:"Grid modernisation + wind & gas turbines for AI era" },
+];
+// Lookup map: ticker → ref data
+const FIVEX_REF = Object.fromEntries(FIVEX_DATA.map(s => [s.ticker, s]));
+
 const SURAH_LIST = [
   [1,"الفاتحة","Al-Fatiha"],
   [2,"البقرة","Al-Baqarah"],
@@ -4150,6 +4186,16 @@ export default function App() {
   // ── OpenStock / TradingView Widget State ──
   const [tvOsInput,  setTvOsInput]  = useState("SPY");
   const [tvOsSymbol, setTvOsSymbol] = useState("SPY");
+  // ── Smart Scanner state ──────────────────────────────────────────────────
+  const [scanResults,  setScanResults]  = useState([]);
+  const [scanLoading,  setScanLoading]  = useState(false);
+  const [scanProgress, setScanProgress] = useState({ done: 0, total: 30 });
+  const [scanExpanded, setScanExpanded] = useState(null);
+  const [scanLastRun,  setScanLastRun]  = useState(null);
+  const [scanError,    setScanError]    = useState(null);
+  const [scanDeepData, setScanDeepData] = useState({});
+  const [scanDeepLoad, setScanDeepLoad] = useState({});
+
   const [fivexSector,    setFivexSector]    = useState("ALL");
   const [fivexSort,      setFivexSort]      = useState("rank");  // "rank" | "zone" | "upside" | "risk"
   const [fivexPrices,    setFivexPrices]    = useState({});   // { BBAI: { price, change, pct } }
@@ -4595,6 +4641,165 @@ export default function App() {
     const t = setInterval(() => { if (!fivexLoading) fetchLivePrices(); }, 5 * 60 * 1000);
     return () => clearInterval(t);
   }, [activeTab, fivexLoading]);
+
+  // ── Smart Scanner: scoring + scan + deep-dive ───────────────────────────
+  function scoreTicker(ticker, quote, candles) {
+    let score = 50;
+    const signals = [];
+    const price   = Number(quote?.price || 0);
+    const ref     = FIVEX_REF[ticker];
+
+    // ── RSI ────────────────────────────────────────────────────────────────
+    const rsiArr = candles?.indicators?.rsi || [];
+    const rsiVal = rsiArr.length ? Number(rsiArr.at(-1)?.value) : null;
+    if (rsiVal !== null && !isNaN(rsiVal)) {
+      if      (rsiVal < 25) { score += 22; signals.push({ txt: `RSI ${rsiVal.toFixed(0)} — OVERSOLD`,   bull: true  }); }
+      else if (rsiVal < 35) { score += 14; signals.push({ txt: `RSI ${rsiVal.toFixed(0)} — WEAK`,       bull: true  }); }
+      else if (rsiVal < 50) { score +=  7; }
+      else if (rsiVal > 75) { score -= 12; signals.push({ txt: `RSI ${rsiVal.toFixed(0)} — OVERBOUGHT`, bull: false }); }
+      else if (rsiVal > 65) { score -=  5; }
+    }
+
+    // ── MACD ───────────────────────────────────────────────────────────────
+    const macdArr  = candles?.indicators?.macd || [];
+    const macdLast = macdArr.length ? macdArr.at(-1)  : null;
+    const macdPrev = macdArr.length >= 2 ? macdArr.at(-2) : null;
+    let macdBull   = null;
+    if (macdLast) {
+      macdBull = Number(macdLast.macd) > Number(macdLast.signal);
+      if (macdBull) { score += 12; signals.push({ txt: "MACD BULLISH CROSSOVER",  bull: true  }); }
+      else          { score -=  5; signals.push({ txt: "MACD BEARISH",             bull: false }); }
+      if (macdPrev) {
+        const histNow  = Number(macdLast.histogram);
+        const histPrev = Number(macdPrev.histogram);
+        if (!isNaN(histNow) && !isNaN(histPrev) && histNow > histPrev) {
+          score += 5; signals.push({ txt: "MACD HISTOGRAM RISING ↑", bull: true });
+        }
+      }
+    }
+
+    // ── EMA position ──────────────────────────────────────────────────────
+    const ema9Arr  = candles?.indicators?.ema9  || [];
+    const ema21Arr = candles?.indicators?.ema21 || [];
+    const ema9v    = ema9Arr.length  ? Number(ema9Arr.at(-1)?.value)  : null;
+    const ema21v   = ema21Arr.length ? Number(ema21Arr.at(-1)?.value) : null;
+    if (ema9v  && price > 0) {
+      if (price > ema9v)           { score += 5;  signals.push({ txt: "ABOVE EMA9",          bull: true  }); }
+      if (price < ema9v * 0.94)    { score += 8;  signals.push({ txt: "FAR BELOW EMA9 ← BOUNCE?", bull: true }); }
+    }
+    if (ema21v && price > 0) {
+      if (price > ema21v)          { score += 8;  signals.push({ txt: "ABOVE EMA21",         bull: true  }); }
+      else                         { score -= 3;  signals.push({ txt: "BELOW EMA21",          bull: false }); }
+    }
+
+    // ── Entry zone vs 5X ref data ─────────────────────────────────────────
+    if (ref && price > 0) {
+      if      (price <= ref.stop)    { score -= 20; signals.push({ txt: "⚠ BELOW STOP LEVEL",    bull: false }); }
+      else if (price <= ref.e3)      { score += 20; signals.push({ txt: "🟢 DEEP VALUE ZONE",     bull: true  }); }
+      else if (price <= ref.e2)      { score += 13; signals.push({ txt: "⚡ BETTER ENTRY ZONE",   bull: true  }); }
+      else if (price <= ref.e1)      { score +=  7; signals.push({ txt: "🔵 STARTER ENTRY ZONE",  bull: true  }); }
+      else if (price >= ref.trigger) { score -=  5; signals.push({ txt: "ABOVE BREAKOUT TRIGGER", bull: false }); }
+    }
+
+    // ── 52-week range position ────────────────────────────────────────────
+    const yH = Number(quote?.yearHigh || 0);
+    const yL = Number(quote?.yearLow  || 0);
+    if (yH > yL && price > 0) {
+      const pos = (price - yL) / (yH - yL);
+      if      (pos < 0.20) { score += 15; signals.push({ txt: "NEAR 52W LOW ← VALUE",    bull: true  }); }
+      else if (pos < 0.35) { score +=  8; }
+      else if (pos > 0.90) { score -=  8; signals.push({ txt: "NEAR 52W HIGH → CAUTION", bull: false }); }
+      else if (pos > 0.75) { score -=  3; }
+    }
+
+    // ── Volume vs average ─────────────────────────────────────────────────
+    const vol    = Number(quote?.volume    || 0);
+    const avgVol = Number(quote?.avgVolume || 0);
+    if (vol > 0 && avgVol > 0) {
+      const vr = vol / avgVol;
+      if      (vr > 2.5) { score += 12; signals.push({ txt: `VOL SPIKE ${vr.toFixed(1)}×`,  bull: true  }); }
+      else if (vr > 1.5) { score +=  6; signals.push({ txt: "VOL ABOVE AVG",                 bull: true  }); }
+      else if (vr < 0.4) { score -=  5; signals.push({ txt: "LOW VOLUME — WEAK CONVICTION",  bull: false }); }
+    }
+
+    // ── Momentum (1-week move) ────────────────────────────────────────────
+    const d1w = Number(quote?.delta1w || 0);
+    if      (d1w < -15) { score += 12; signals.push({ txt: `OVERSOLD 1W (${d1w.toFixed(1)}%) ← REVERSAL?`, bull: true  }); }
+    else if (d1w < -6)  { score +=  6; signals.push({ txt: `PULLBACK 1W (${d1w.toFixed(1)}%)`,              bull: true  }); }
+    else if (d1w > 20)  { score -=  8; signals.push({ txt: `EXTENDED 1W (+${d1w.toFixed(1)}%) ← CHASING`,  bull: false }); }
+
+    // ── Sentiment from news keywords ──────────────────────────────────────
+    const BULL_KW = ["win","award","contract","surge","beat","record","launch","expand","partnership","upgrade","buy","strong","profit","revenue","growth","milestone"];
+    const BEAR_KW = ["fall","drop","loss","miss","cut","layoff","lawsuit","probe","fraud","decline","sell","downgrade","concern","risk","fail","delay","cancel","warning"];
+    const news = (scanDeepData[ticker]?.news || []);
+    let bullKw = 0, bearKw = 0;
+    news.forEach(n => {
+      const t = (n.title + " " + (n.summary || "")).toLowerCase();
+      BULL_KW.forEach(w => { if (t.includes(w)) bullKw++; });
+      BEAR_KW.forEach(w => { if (t.includes(w)) bearKw++; });
+    });
+    const sentScore = Math.min(10, bullKw) - Math.min(10, bearKw);
+    score += sentScore;
+    if (sentScore >= 4)  signals.push({ txt: "SENTIMENT BULLISH 📰", bull: true  });
+    if (sentScore <= -4) signals.push({ txt: "SENTIMENT BEARISH 📰", bull: false });
+
+    // Clamp 5-97
+    score = Math.max(5, Math.min(97, Math.round(score)));
+
+    // Signal label
+    let signal, sColor;
+    if      (score >= 78) { signal = "STRONG BUY"; sColor = "#00e676"; }
+    else if (score >= 63) { signal = "BUY";         sColor = "#4caf50"; }
+    else if (score >= 48) { signal = "WATCH";       sColor = "#26a69a"; }
+    else if (score >= 35) { signal = "NEUTRAL";     sColor = "#ffaa00"; }
+    else                  { signal = "AVOID";        sColor = "#ff4444"; }
+
+    return { ticker, score, signal, sColor, signals, rsiVal, macdBull, ema9v, ema21v, ref };
+  }
+
+  async function runSmartScan() {
+    setScanLoading(true);
+    setScanError(null);
+    setScanResults([]);
+    setScanProgress({ done: 0, total: FIVEX_TICKERS.length });
+    try {
+      setScanProgress({ done: 2, total: FIVEX_TICKERS.length });
+      const res  = await fetch(`/api/scanner/smart-scan?tickers=${FIVEX_TICKERS.join(",")}`);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Scan failed");
+      setScanProgress({ done: FIVEX_TICKERS.length, total: FIVEX_TICKERS.length });
+      const scored = (data.results || [])
+        .map(({ ticker, quote, candles }) => ({
+          ...scoreTicker(ticker, quote, candles),
+          quote, candles,
+        }))
+        .sort((a, b) => b.score - a.score);
+      setScanResults(scored);
+      setScanLastRun(new Date());
+    } catch (e) {
+      setScanError(e.message);
+    }
+    setScanLoading(false);
+  }
+
+  async function loadDeepDive(ticker) {
+    if (scanDeepData[ticker]) return;
+    setScanDeepLoad(prev => ({ ...prev, [ticker]: true }));
+    try {
+      const [fundR, newsR] = await Promise.allSettled([
+        fetch(`/api/yahoo/fundamentals?symbol=${ticker}`).then(r => r.json()),
+        fetch(`/api/yahoo/news?tickers=${ticker}&limit=6`).then(r => r.json()),
+      ]);
+      setScanDeepData(prev => ({
+        ...prev,
+        [ticker]: {
+          fundamentals: fundR.status === "fulfilled" ? fundR.value : null,
+          news: newsR.status === "fulfilled" ? (Array.isArray(newsR.value) ? newsR.value : []) : [],
+        },
+      }));
+    } catch {}
+    setScanDeepLoad(prev => ({ ...prev, [ticker]: false }));
+  }
 
   const loadPriceAlertList = useCallback(async () => {
     try {
@@ -6604,7 +6809,7 @@ export default function App() {
               { id: "dashboard", label: "MONITOR",   tabs: ["dashboard"] },
               { id: "terminal",  label: "TERMINAL",  tabs: ["terminal"] },
               { id: "scanner",   label: "SCANNER",   tabs: ["scanner", "early", "analyzer", "cot"] },
-              { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "tv", "flow", "openstock", "fivex"] },
+              { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "tv", "flow", "openstock", "fivex", "smartscan"] },
               { id: "portfolio", label: "PORTFOLIO", tabs: ["portfolio", "journal", "alerts"] },
               { id: "tools",     label: "TOOLS",     tabs: ["tools", "backtest", "workflow", "agent"] },
               { id: "cot",       label: "📊 COT",    tabs: ["cot"] },
@@ -6933,6 +7138,7 @@ export default function App() {
             { id: "tv",        label: "TV LIVE" },
             { id: "openstock", label: "📈 STOCKS" },
             { id: "fivex",     label: "🚀 5X PLAYS" },
+            { id: "smartscan", label: "🧠 SMART SCAN" },
           ],
           portfolio: [
             { id: "portfolio", label: "POSITIONS" },
@@ -8156,39 +8362,7 @@ export default function App() {
 
         {/* ── 5X PLAYS: High-Growth Thematic Watchlist ──────────────────────── */}
         {activeTab === "fivex" && (() => {
-          const FIVEX = [
-            { rank:1,  ticker:"BBAI",  company:"BigBear.ai",          sector:"Defense AI",       price:4.37,   e1:4.15,   e2:3.85,   e3:3.50,   trigger:4.72,   stop:3.71,   risk:"Very High",   upside:"5x-8x",  thesis:"Government AI systems" },
-            { rank:2,  ticker:"SERV",  company:"Serve Robotics",       sector:"Robotics",         price:8.84,   e1:8.40,   e2:7.78,   e3:7.07,   trigger:9.55,   stop:7.51,   risk:"Extreme",     upside:"10x+",   thesis:"Autonomous delivery robots" },
-            { rank:3,  ticker:"SMR",   company:"NuScale Power",        sector:"Nuclear",          price:12.07,  e1:11.47,  e2:10.62,  e3:9.66,   trigger:13.04,  stop:10.26,  risk:"High",        upside:"5x-7x",  thesis:"Small modular reactors" },
-            { rank:4,  ticker:"RDW",   company:"Redwire",              sector:"Space",            price:24.00,  e1:22.80,  e2:21.12,  e3:19.20,  trigger:25.92,  stop:20.40,  risk:"High",        upside:"4x-6x",  thesis:"Space infrastructure" },
-            { rank:5,  ticker:"NNE",   company:"Nano Nuclear Energy",  sector:"Nuclear",          price:27.36,  e1:25.99,  e2:24.08,  e3:21.89,  trigger:29.55,  stop:23.26,  risk:"Extreme",     upside:"10x+",   thesis:"Micro nuclear speculation" },
-            { rank:6,  ticker:"LUNR",  company:"Intuitive Machines",   sector:"Space",            price:40.34,  e1:38.32,  e2:35.50,  e3:32.27,  trigger:43.57,  stop:34.29,  risk:"Very High",   upside:"5x-10x", thesis:"Moon/NASA contracts" },
-            { rank:7,  ticker:"PL",    company:"Planet Labs",          sector:"Satellite AI",     price:50.48,  e1:47.96,  e2:44.42,  e3:40.38,  trigger:54.52,  stop:42.91,  risk:"High",        upside:"4x-6x",  thesis:"Earth observation AI" },
-            { rank:8,  ticker:"SYM",   company:"Symbotic",             sector:"Automation",       price:53.63,  e1:50.95,  e2:47.19,  e3:42.90,  trigger:57.92,  stop:45.59,  risk:"Medium-High", upside:"4x-6x",  thesis:"Warehouse robotics" },
-            { rank:9,  ticker:"OKLO",  company:"Oklo",                 sector:"AI Energy",        price:67.82,  e1:64.43,  e2:59.68,  e3:54.26,  trigger:73.25,  stop:57.65,  risk:"Very High",   upside:"8x-12x", thesis:"AI power demand + nuclear" },
-            { rank:10, ticker:"ASTS",  company:"AST SpaceMobile",      sector:"Space",            price:129.60, e1:123.12, e2:114.05, e3:103.68, trigger:139.97, stop:110.16, risk:"Very High",   upside:"8x-15x", thesis:"Satellite direct-to-phone" },
-            { rank:11, ticker:"PLTR",  company:"Palantir",             sector:"Defense AI",       price:132.51, e1:125.88, e2:116.61, e3:106.01, trigger:143.11, stop:112.63, risk:"Medium",      upside:"3x-5x",  thesis:"AI operating system" },
-            { rank:12, ticker:"RKLB",  company:"Rocket Lab",           sector:"Space",            price:150.23, e1:142.72, e2:132.20, e3:120.18, trigger:162.25, stop:127.70, risk:"High",        upside:"5x-8x",  thesis:"Launch + defense + satellites" },
-            { rank:13, ticker:"NBIS",  company:"Nebius Group",         sector:"AI Infrastructure",price:208.37, e1:197.95, e2:183.37, e3:166.70, trigger:225.04, stop:177.11, risk:"High",        upside:"4x-7x",  thesis:"AI compute infrastructure" },
-            { rank:14, ticker:"VRT",   company:"Vertiv",               sector:"Infrastructure",   price:319.78, e1:303.79, e2:281.41, e3:255.82, trigger:345.36, stop:271.81, risk:"Medium",      upside:"3x-5x",  thesis:"AI datacenter cooling" },
-            { rank:15, ticker:"PWR",   company:"Quanta Services",      sector:"Infrastructure",   price:733.62, e1:696.94, e2:645.59, e3:586.90, trigger:792.31, stop:623.58, risk:"Medium",      upside:"3x-5x",  thesis:"Grid modernization" },
-            // ── New additions ──────────────────────────────────────────────────
-            { rank:16, ticker:"GSAT",  company:"Globalstar",           sector:"Satellite AI",     price:2.82,   e1:2.68,   e2:2.48,   e3:2.26,   trigger:3.05,   stop:2.40,   risk:"Extreme",     upside:"10x+",   thesis:"Apple satellite partner — direct-to-device" },
-            { rank:17, ticker:"APLD",  company:"Applied Digital",      sector:"AI Infrastructure",price:8.14,   e1:7.73,   e2:7.16,   e3:6.51,   trigger:8.79,   stop:6.92,   risk:"Extreme",     upside:"10x+",   thesis:"AI hyperscale data center builder" },
-            { rank:18, ticker:"ACHR",  company:"Archer Aviation",      sector:"Air Mobility",     price:10.82,  e1:10.28,  e2:9.52,   e3:8.66,   trigger:11.69,  stop:9.20,   risk:"Extreme",     upside:"8x-15x", thesis:"eVTOL air taxi + US military contracts" },
-            { rank:19, ticker:"SOUN",  company:"SoundHound AI",        sector:"AI Voice",         price:12.44,  e1:11.82,  e2:10.95,  e3:9.95,   trigger:13.44,  stop:10.57,  risk:"Extreme",     upside:"8x-15x", thesis:"Voice AI platform — automotive + enterprise" },
-            { rank:20, ticker:"RGTI",  company:"Rigetti Computing",    sector:"Quantum AI",       price:13.86,  e1:13.17,  e2:12.20,  e3:11.09,  trigger:14.97,  stop:11.78,  risk:"Extreme",     upside:"10x+",   thesis:"Quantum processors for AI optimisation" },
-            { rank:21, ticker:"CORZ",  company:"Core Scientific",      sector:"AI Infrastructure",price:16.24,  e1:15.43,  e2:14.29,  e3:12.99,  trigger:17.54,  stop:13.80,  risk:"Very High",   upside:"6x-10x", thesis:"HPC + AI compute hosting — ex-Bitcoin miner pivot" },
-            { rank:22, ticker:"PATH",  company:"UiPath",               sector:"Automation",       price:17.68,  e1:16.80,  e2:15.56,  e3:14.14,  trigger:19.09,  stop:15.03,  risk:"High",        upside:"4x-7x",  thesis:"Enterprise AI automation — agentic workflow leader" },
-            { rank:23, ticker:"KTOS",  company:"Kratos Defense",       sector:"Defense AI",       price:37.94,  e1:36.04,  e2:33.39,  e3:30.35,  trigger:40.98,  stop:32.25,  risk:"High",        upside:"5x-8x",  thesis:"Autonomous drones + AI targeting systems" },
-            { rank:24, ticker:"IONQ",  company:"IonQ",                 sector:"Quantum AI",       price:47.62,  e1:45.24,  e2:41.91,  e3:38.10,  trigger:51.43,  stop:40.48,  risk:"Very High",   upside:"8x-15x", thesis:"Quantum computing as a service — govt + cloud" },
-            { rank:25, ticker:"SMCI",  company:"Super Micro Computer", sector:"AI Infrastructure",price:48.35,  e1:45.93,  e2:42.55,  e3:38.68,  trigger:52.22,  stop:41.10,  risk:"Very High",   upside:"5x-10x", thesis:"AI server + GPU rack systems — Nvidia ecosystem" },
-            { rank:26, ticker:"CCJ",   company:"Cameco",               sector:"Nuclear",          price:57.88,  e1:54.99,  e2:50.93,  e3:46.30,  trigger:62.51,  stop:49.20,  risk:"High",        upside:"4x-6x",  thesis:"World's largest uranium producer — nuclear renaissance" },
-            { rank:27, ticker:"BWXT",  company:"BWX Technologies",     sector:"Nuclear",          price:112.44, e1:106.82, e2:98.95,  e3:89.95,  trigger:121.44, stop:95.57,  risk:"Medium-High", upside:"4x-6x",  thesis:"Naval nuclear reactors + microreactor development" },
-            { rank:28, ticker:"VST",   company:"Vistra Energy",        sector:"AI Energy",        price:141.76, e1:134.67, e2:124.75, e3:113.41, trigger:153.10, stop:120.50, risk:"Medium",      upside:"3x-5x",  thesis:"Nuclear + gas power for AI data center demand" },
-            { rank:29, ticker:"CEG",   company:"Constellation Energy",  sector:"AI Energy",       price:268.42, e1:255.00, e2:236.21, e3:214.74, trigger:289.89, stop:228.16, risk:"Medium",      upside:"3x-5x",  thesis:"Largest US nuclear fleet — AI data center PPAs" },
-            { rank:30, ticker:"GEV",   company:"GE Vernova",           sector:"Infrastructure",   price:397.84, e1:377.95, e2:350.10, e3:318.27, trigger:429.67, stop:338.16, risk:"Medium",      upside:"3x-5x",  thesis:"Grid modernisation + wind & gas turbines for AI era" },
-          ];
+          const FIVEX = FIVEX_DATA; // module-level constant — shared with Smart Scanner
 
           const SECTOR_META = {
             "Defense AI":        { color: "#4488ff", icon: "🛡️" },
@@ -8587,6 +8761,494 @@ export default function App() {
                   Click any row → Stock Deep Dive ↗
                 </div>
               </div>
+            </div>
+          );
+        })()}
+
+        {activeTab === "smartscan" && (() => {
+          // ── Signal badge style helper ─────────────────────────────────────
+          const SIG_STYLE = (sColor) => ({
+            display: "inline-block", fontFamily: MONO, fontSize: 9, fontWeight: 800,
+            color: sColor, background: sColor + "22", border: `1px solid ${sColor}44`,
+            borderRadius: 4, padding: "2px 7px", whiteSpace: "nowrap",
+          });
+
+          // ── Summary counts ────────────────────────────────────────────────
+          const sigCounts = { "STRONG BUY": 0, "BUY": 0, "WATCH": 0, "NEUTRAL": 0, "AVOID": 0 };
+          scanResults.forEach(r => { if (sigCounts[r.signal] !== undefined) sigCounts[r.signal]++; });
+
+          const STAT_CARDS = [
+            { label: "STRONG BUY", count: sigCounts["STRONG BUY"], color: "#00e676" },
+            { label: "BUY",        count: sigCounts["BUY"],        color: "#4caf50" },
+            { label: "WATCH",      count: sigCounts["WATCH"],      color: "#26a69a" },
+            { label: "NEUTRAL",    count: sigCounts["NEUTRAL"],    color: "#ffaa00" },
+            { label: "AVOID",      count: sigCounts["AVOID"],      color: "#ff4444" },
+          ];
+
+          return (
+            <div style={{ padding: "0 2px" }}>
+
+              {/* ── Header ── */}
+              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12,
+                marginBottom: 14, padding: "12px 16px",
+                background: C.card, border: `1px solid ${C.border}`, borderRadius: 10 }}>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text,
+                    letterSpacing: "0.06em" }}>🧠 SMART SCANNER</div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>
+                    AI-scored technical + entry zone + volume + sentiment — 30 high-growth tickers
+                  </div>
+                </div>
+                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  {scanLastRun && (
+                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                      Last scan: {scanLastRun.toLocaleTimeString()}
+                    </span>
+                  )}
+                  {scanLoading && (
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.accent }}>
+                      ⌛ Scanning {scanProgress.done}/{scanProgress.total}…
+                      <div style={{ marginTop: 4, width: 160, height: 4, background: C.border, borderRadius: 2, overflow: "hidden" }}>
+                        <div style={{ width: `${Math.round((scanProgress.done / scanProgress.total) * 100)}%`,
+                          height: "100%", background: C.accent, borderRadius: 2, transition: "width 0.3s" }} />
+                      </div>
+                    </div>
+                  )}
+                  <button onClick={runSmartScan} disabled={scanLoading}
+                    style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                      background: scanLoading ? C.surface : `${C.green}18`,
+                      border: `1px solid ${scanLoading ? C.border : C.green}`,
+                      color: scanLoading ? C.textDim : C.green,
+                      borderRadius: 6, padding: "7px 18px", cursor: scanLoading ? "default" : "pointer" }}>
+                    {scanLoading ? "⌛ SCANNING…" : "▶ RUN SCAN"}
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Error ── */}
+              {scanError && (
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.red,
+                  background: C.redBg, border: `1px solid ${C.red}44`,
+                  borderRadius: 6, padding: "8px 14px", marginBottom: 10 }}>
+                  ⚠ {scanError}
+                </div>
+              )}
+
+              {/* ── Empty state ── */}
+              {!scanLoading && !scanError && scanResults.length === 0 && (
+                <div style={{ textAlign: "center", padding: "60px 0",
+                  fontFamily: MONO, fontSize: 12, color: C.textDim }}>
+                  Press <strong style={{ color: C.green }}>▶ RUN SCAN</strong> to analyse all 30 watchlist stocks
+                  <div style={{ fontSize: 9, marginTop: 8, color: C.textDim }}>
+                    RSI · MACD · EMA · Entry zones · Volume · 52W position · News sentiment
+                  </div>
+                </div>
+              )}
+
+              {/* ── Summary stat cards ── */}
+              {scanResults.length > 0 && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+                  {STAT_CARDS.map(sc => (
+                    <div key={sc.label} style={{ flex: "1 1 100px", minWidth: 90,
+                      background: C.card, border: `1px solid ${sc.color}44`,
+                      borderRadius: 8, padding: "10px 14px", textAlign: "center" }}>
+                      <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: sc.color,
+                        lineHeight: 1 }}>
+                        {sc.count}
+                      </div>
+                      <div style={{ fontFamily: MONO, fontSize: 8, color: sc.color + "cc",
+                        marginTop: 4, letterSpacing: "0.06em" }}>
+                        {sc.label}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── Results table ── */}
+              {scanResults.length > 0 && (
+                <div style={{ background: C.card, border: `1px solid ${C.border}`,
+                  borderRadius: 10, overflow: "hidden" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ background: themeMode === "dark" ? "#0b1526" : "#f0f4fa" }}>
+                        {["#","SCORE","SIGNAL","TICKER","SECTOR","LIVE $","RSI","MACD","EMA","ZONE","UPSIDE","THESIS"].map(h => (
+                          <th key={h} style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700,
+                            color: C.textDim, padding: "8px 10px", textAlign: h === "#" ? "center" : "left",
+                            letterSpacing: "0.05em", borderBottom: `1px solid ${C.border}`,
+                            whiteSpace: "nowrap" }}>
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scanResults.map((row, idx) => {
+                        const isExpanded = scanExpanded === row.ticker;
+                        const ref = FIVEX_REF[row.ticker];
+                        const livePrice = Number(row.quote?.price || 0);
+                        const liveChg   = Number(row.quote?.changePercent || 0);
+                        const yH = Number(row.quote?.yearHigh || 0);
+                        const yL = Number(row.quote?.yearLow  || 0);
+
+                        // Zone label
+                        let zoneLbl = "—", zoneCol = C.textDim;
+                        if (ref && livePrice > 0) {
+                          if      (livePrice <= ref.stop)    { zoneLbl = "⚠ STOP";   zoneCol = C.red; }
+                          else if (livePrice <= ref.e3)      { zoneLbl = "🟢 DEEP";   zoneCol = "#00e676"; }
+                          else if (livePrice <= ref.e2)      { zoneLbl = "⚡ BETTER"; zoneCol = "#4caf50"; }
+                          else if (livePrice <= ref.e1)      { zoneLbl = "🔵 STARTER"; zoneCol = "#26a69a"; }
+                          else if (livePrice >= ref.trigger) { zoneLbl = "🔶 ABOVE"; zoneCol = "#ff9900"; }
+                          else                               { zoneLbl = "WAIT";      zoneCol = C.textDim; }
+                        }
+
+                        const emaLabel = (row.ema9v && row.ema21v)
+                          ? (row.ema9v > row.ema21v ? "9>21 ▲" : "9<21 ▼")
+                          : "—";
+                        const emaCol   = (row.ema9v && row.ema21v)
+                          ? (row.ema9v > row.ema21v ? C.green : C.red)
+                          : C.textDim;
+
+                        const deepData = scanDeepData[row.ticker];
+                        const isLoading = scanDeepLoad[row.ticker];
+                        const fd = deepData?.fundamentals;
+
+                        const $ = v => (v == null || isNaN(v)) ? "—" : `$${Number(v).toFixed(2)}`;
+                        const fmt = (v, decimals = 2) => (v == null || isNaN(v)) ? "—" : Number(v).toFixed(decimals);
+
+                        return (
+                          <React.Fragment key={row.ticker}>
+                            {/* ── Main row ── */}
+                            <tr
+                              onClick={() => {
+                                if (scanExpanded === row.ticker) {
+                                  setScanExpanded(null);
+                                } else {
+                                  setScanExpanded(row.ticker);
+                                  loadDeepDive(row.ticker);
+                                }
+                              }}
+                              style={{
+                                cursor: "pointer",
+                                background: isExpanded
+                                  ? (themeMode === "dark" ? "#0d1f38" : "#eef4ff")
+                                  : (idx % 2 === 0 ? "transparent" : (themeMode === "dark" ? "#0a1628" : "#f8fbff")),
+                                borderLeft: isExpanded ? `3px solid ${row.sColor}` : "3px solid transparent",
+                              }}
+                            >
+                              {/* Rank */}
+                              <td style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                                color: C.textDim, textAlign: "center", padding: "9px 8px",
+                                borderBottom: `1px solid ${C.border}22` }}>
+                                {idx + 1}
+                              </td>
+
+                              {/* Score bar */}
+                              <td style={{ padding: "9px 10px", borderBottom: `1px solid ${C.border}22`,
+                                minWidth: 90 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                  <div style={{ flex: 1, height: 6, background: C.border, borderRadius: 3,
+                                    overflow: "hidden", minWidth: 50 }}>
+                                    <div style={{ width: `${row.score}%`, height: "100%",
+                                      background: row.sColor, borderRadius: 3, transition: "width 0.4s" }} />
+                                  </div>
+                                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800,
+                                    color: row.sColor, minWidth: 22, textAlign: "right" }}>
+                                    {row.score}
+                                  </span>
+                                </div>
+                              </td>
+
+                              {/* Signal badge */}
+                              <td style={{ padding: "9px 8px", borderBottom: `1px solid ${C.border}22` }}>
+                                <span style={SIG_STYLE(row.sColor)}>{row.signal}</span>
+                              </td>
+
+                              {/* Ticker */}
+                              <td style={{ padding: "9px 10px", borderBottom: `1px solid ${C.border}22` }}>
+                                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text }}>
+                                  {row.ticker}
+                                </div>
+                                {ref && (
+                                  <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, marginTop: 1 }}>
+                                    {ref.company}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Sector */}
+                              <td style={{ fontFamily: MONO, fontSize: 9, color: C.textDim,
+                                padding: "9px 10px", borderBottom: `1px solid ${C.border}22`,
+                                whiteSpace: "nowrap" }}>
+                                {ref?.sector || "—"}
+                              </td>
+
+                              {/* Live price */}
+                              <td style={{ padding: "9px 10px", borderBottom: `1px solid ${C.border}22`,
+                                textAlign: "right", minWidth: 72 }}>
+                                {livePrice > 0 ? (
+                                  <>
+                                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800,
+                                      color: liveChg >= 0 ? C.green : C.red }}>
+                                      ${livePrice.toFixed(2)}
+                                    </div>
+                                    <div style={{ fontFamily: MONO, fontSize: 8,
+                                      color: liveChg >= 0 ? C.green : C.red }}>
+                                      {liveChg >= 0 ? "+" : ""}{liveChg.toFixed(2)}%
+                                    </div>
+                                  </>
+                                ) : (
+                                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>—</span>
+                                )}
+                              </td>
+
+                              {/* RSI */}
+                              <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "center",
+                                padding: "9px 8px", borderBottom: `1px solid ${C.border}22`,
+                                color: row.rsiVal === null ? C.textDim
+                                  : row.rsiVal < 30 ? C.green
+                                  : row.rsiVal > 70 ? C.red
+                                  : C.text,
+                                fontWeight: row.rsiVal !== null ? 700 : 400 }}>
+                                {row.rsiVal !== null ? row.rsiVal.toFixed(0) : "—"}
+                              </td>
+
+                              {/* MACD */}
+                              <td style={{ textAlign: "center", padding: "9px 8px",
+                                borderBottom: `1px solid ${C.border}22` }}>
+                                {row.macdBull === null ? (
+                                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>—</span>
+                                ) : row.macdBull ? (
+                                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.green }}>▲ BULL</span>
+                                ) : (
+                                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.red }}>▼ BEAR</span>
+                                )}
+                              </td>
+
+                              {/* EMA cross */}
+                              <td style={{ fontFamily: MONO, fontSize: 9, textAlign: "center",
+                                padding: "9px 8px", borderBottom: `1px solid ${C.border}22`,
+                                color: emaCol, fontWeight: 700 }}>
+                                {emaLabel}
+                              </td>
+
+                              {/* Zone */}
+                              <td style={{ fontFamily: MONO, fontSize: 9, textAlign: "center",
+                                padding: "9px 8px", borderBottom: `1px solid ${C.border}22`,
+                                color: zoneCol, fontWeight: 700, whiteSpace: "nowrap" }}>
+                                {zoneLbl}
+                              </td>
+
+                              {/* Upside */}
+                              <td style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800,
+                                textAlign: "center", padding: "9px 8px",
+                                borderBottom: `1px solid ${C.border}22`,
+                                color: C.amber }}>
+                                {ref?.upside || "—"}
+                              </td>
+
+                              {/* Thesis */}
+                              <td style={{ fontFamily: MONO, fontSize: 9, color: C.textSec,
+                                padding: "9px 10px", borderBottom: `1px solid ${C.border}22`,
+                                whiteSpace: "nowrap" }}>
+                                {ref?.thesis || "—"}
+                                <span style={{ marginLeft: 6, color: C.accent, fontSize: 9 }}>
+                                  {isExpanded ? "▲" : "▼"}
+                                </span>
+                              </td>
+                            </tr>
+
+                            {/* ── Deep Dive row ── */}
+                            {isExpanded && (
+                              <tr>
+                                <td colSpan={12}
+                                  style={{ background: themeMode === "dark" ? "#081221" : "#f4f8ff",
+                                    borderLeft: `3px solid ${row.sColor}`,
+                                    borderBottom: `2px solid ${row.sColor}44`,
+                                    padding: "16px 18px" }}>
+
+                                  {isLoading ? (
+                                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                      textAlign: "center", padding: "24px 0" }}>
+                                      ⌛ Loading deep dive data for {row.ticker}…
+                                    </div>
+                                  ) : (
+                                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+
+                                      {/* ── Left: TradingView mini chart ── */}
+                                      <div style={{ flex: "0 0 340px", minWidth: 280 }}>
+                                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                                          color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
+                                          📊 CHART
+                                        </div>
+                                        <div style={{ borderRadius: 6, overflow: "hidden",
+                                          border: `1px solid ${C.border}` }}>
+                                          <iframe
+                                            title={`tv-${row.ticker}`}
+                                            scrolling="no"
+                                            style={{ width: "100%", height: 220, border: "none" }}
+                                            srcDoc={`<!DOCTYPE html><html><head><style>body{margin:0;padding:0;overflow:hidden;background:#0c1525}</style></head><body><div class="tradingview-widget-container"><div id="tv_chart"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>{"symbol":"${row.ticker}","width":"100%","height":220,"locale":"en","dateRange":"3M","colorTheme":"${themeMode}","isTransparent":false,"autosize":true,"largeChartUrl":""}<\/script></div></body></html>`}
+                                          />
+                                        </div>
+                                      </div>
+
+                                      {/* ── Middle: Signals + Technicals ── */}
+                                      <div style={{ flex: "1 1 200px", minWidth: 180 }}>
+                                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                                          color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
+                                          ⚡ SIGNALS ({row.signals?.length || 0})
+                                        </div>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                          {(row.signals || []).length === 0 ? (
+                                            <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                                              No signals — run scan for live data
+                                            </span>
+                                          ) : (row.signals || []).map((sig, si) => (
+                                            <div key={si} style={{ display: "flex", alignItems: "center",
+                                              gap: 6, fontFamily: MONO, fontSize: 9,
+                                              color: sig.bull ? C.green : C.red }}>
+                                              <span>{sig.bull ? "▲" : "▼"}</span>
+                                              <span>{sig.txt}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+
+                                        {/* Entry zones */}
+                                        {ref && (
+                                          <div style={{ marginTop: 12 }}>
+                                            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                                              color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
+                                              🎯 ENTRY ZONES
+                                            </div>
+                                            {[
+                                              { label: "Deep Value", val: ref.e3, col: "#00e676" },
+                                              { label: "Better",     val: ref.e2, col: "#4caf50" },
+                                              { label: "Starter",    val: ref.e1, col: "#26a69a" },
+                                              { label: "Trigger ▲",  val: ref.trigger, col: "#ffd700" },
+                                              { label: "Stop ✂",     val: ref.stop,    col: C.red },
+                                            ].map(z => (
+                                              <div key={z.label} style={{ display: "flex", justifyContent: "space-between",
+                                                fontFamily: MONO, fontSize: 9, padding: "2px 0",
+                                                borderBottom: `1px solid ${C.border}22` }}>
+                                                <span style={{ color: z.col }}>{z.label}</span>
+                                                <span style={{ color: z.col, fontWeight: 700 }}>
+                                                  ${Number(z.val).toFixed(2)}
+                                                </span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* ── Right: Fundamentals ── */}
+                                      <div style={{ flex: "1 1 200px", minWidth: 180 }}>
+                                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                                          color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
+                                          📋 FUNDAMENTALS
+                                        </div>
+                                        {fd ? (
+                                          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                            {[
+                                              ["Market Cap",    fd.marketCap ? `$${(fd.marketCap/1e9).toFixed(2)}B` : "—"],
+                                              ["Revenue TTM",   fd.revenue   ? `$${(fd.revenue/1e9).toFixed(2)}B`   : "—"],
+                                              ["Gross Margin",  fd.grossMargin  ? `${(fd.grossMargin*100).toFixed(1)}%`  : "—"],
+                                              ["Rev Growth",    fd.revenueGrowth ? `${(fd.revenueGrowth*100).toFixed(1)}%` : "—"],
+                                              ["P/S Ratio",     fd.priceToSales ? `${Number(fd.priceToSales).toFixed(1)}×`  : "—"],
+                                              ["P/E Ratio",     fd.trailingPE   ? `${Number(fd.trailingPE).toFixed(1)}×`   : "—"],
+                                              ["Debt/Equity",   fd.debtToEquity ? `${Number(fd.debtToEquity).toFixed(2)}` : "—"],
+                                              ["Cash",          fd.totalCash    ? `$${(fd.totalCash/1e9).toFixed(2)}B`     : "—"],
+                                              ["52W Range",     (yH > 0 && yL > 0) ? `$${yL.toFixed(2)} – $${yH.toFixed(2)}` : "—"],
+                                            ].map(([k, v]) => (
+                                              <div key={k} style={{ display: "flex", justifyContent: "space-between",
+                                                fontFamily: MONO, fontSize: 9, padding: "2px 0",
+                                                borderBottom: `1px solid ${C.border}22` }}>
+                                                <span style={{ color: C.textDim }}>{k}</span>
+                                                <span style={{ color: C.text, fontWeight: 600 }}>{v}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                                            {deepData ? "No fundamental data available" : "Loading…"}
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* ── Far right: News ── */}
+                                      <div style={{ flex: "1 1 220px", minWidth: 200 }}>
+                                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                                          color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
+                                          📰 RECENT NEWS
+                                        </div>
+                                        {deepData?.news?.length > 0 ? (
+                                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                            {deepData.news.slice(0, 6).map((n, ni) => {
+                                              const title = n.title || n.headline || "";
+                                              const src   = n.source || n.publisher || "";
+                                              const url   = n.url || n.link || "#";
+                                              const bear  = ["fall","drop","loss","miss","cut","lawsuit","probe","fraud",
+                                                "decline","sell","downgrade","warning","fail"].some(w =>
+                                                title.toLowerCase().includes(w));
+                                              const bull  = ["win","award","contract","surge","beat","record","launch",
+                                                "expand","partnership","upgrade","buy","strong","profit","growth",
+                                                "milestone"].some(w => title.toLowerCase().includes(w));
+                                              return (
+                                                <a key={ni} href={url} target="_blank" rel="noopener noreferrer"
+                                                  style={{ display: "block", textDecoration: "none",
+                                                    padding: "6px 8px", borderRadius: 4,
+                                                    background: bear ? C.redBg : bull ? C.greenBg : (themeMode === "dark" ? "#0d1e33" : "#eef4ff"),
+                                                    border: `1px solid ${bear ? C.red : bull ? C.green : C.border}44` }}>
+                                                  <div style={{ fontFamily: MONO, fontSize: 9,
+                                                    color: bear ? C.red : bull ? C.green : C.text,
+                                                    lineHeight: 1.4 }}>
+                                                    {title.length > 90 ? title.slice(0, 90) + "…" : title}
+                                                  </div>
+                                                  {src && (
+                                                    <div style={{ fontFamily: MONO, fontSize: 8,
+                                                      color: C.textDim, marginTop: 2 }}>
+                                                      {src}
+                                                    </div>
+                                                  )}
+                                                </a>
+                                              );
+                                            })}
+                                          </div>
+                                        ) : (
+                                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                                            {deepData ? "No recent news found" : "Loading…"}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* ── Legend ── */}
+              {scanResults.length > 0 && (
+                <div style={{ marginTop: 10, padding: "8px 14px",
+                  background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
+                  display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                    {[["STRONG BUY","#00e676"],["BUY","#4caf50"],["WATCH","#26a69a"],["NEUTRAL","#ffaa00"],["AVOID","#ff4444"]].map(([l,c]) => (
+                      <span key={l} style={{ marginRight: 14 }}>
+                        <span style={{ color: c }}>■</span> {l}
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginLeft: "auto" }}>
+                    Click any row to expand deep dive ↓ · Score = RSI + MACD + EMA + Zone + Volume + Sentiment
+                  </div>
+                </div>
+              )}
             </div>
           );
         })()}
