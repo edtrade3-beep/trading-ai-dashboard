@@ -5143,15 +5143,23 @@ export default function App() {
     setInsiderLoading(true);
     setInsiderData(null); setInstData(null);
     try {
-      const [insRes, instRes] = await Promise.all([
-        fetch(`/api/market/insider?ticker=${encodeURIComponent(ticker)}`),
-        fetch(`/api/market/insider?ticker=${encodeURIComponent(ticker)}&type=inst`),
-      ]);
-      const insJson  = insRes.ok  ? await insRes.json()  : null;
-      const instJson = instRes.ok ? await instRes.json() : null;
+      const res  = await fetch(`/api/market/insider?ticker=${encodeURIComponent(ticker)}`);
+      const data = res.ok ? await res.json() : { error: "Failed" };
       setInsiderTicker(ticker);
-      if (insJson)  setInsiderData(insJson);
-      if (instJson) setInstData(instJson);
+      if (data.error) { setInsiderData({ error: data.error }); setInsiderLoading(false); return; }
+      // Backend returns { insiderTransactions: {...transactions,holders}, institutional: {...institutions,funds} }
+      // Merge into one flat object so the render code works with a single variable
+      const txn  = data.insiderTransactions  || {};
+      const inst = data.institutional        || {};
+      setInsiderData({
+        symbol:           ticker.toUpperCase(),
+        transactions:     txn.transactions    || [],
+        holders:          txn.holders         || [],
+        insidersPct:      inst.insidersPct    ?? null,   // already 0-100 percent
+        institutionsPct:  inst.institutionsPct ?? null,  // already 0-100 percent
+        institutions:     inst.institutions   || [],
+        funds:            inst.funds          || [],
+      });
     } catch (e) {
       setInsiderData({ error: e.message });
     }
@@ -5181,7 +5189,8 @@ export default function App() {
       const res = await fetch(`/api/market/analyst?tickers=${encodeURIComponent(ticker)}`);
       const data = res.ok ? await res.json() : { error: "Failed" };
       setAnalystTicker(ticker);
-      setAnalystData(Array.isArray(data) ? data[0] : data);
+      // Backend wraps array in { ok, results: [...], fetchedAt }
+      setAnalystData(data.results?.[0] || data);
     } catch (e) {
       setAnalystData({ error: e.message });
     }
@@ -5192,13 +5201,13 @@ export default function App() {
   async function fetchDividendCalendar() {
     setDividendLoading(true);
     try {
-      // Fetch for watchlist tickers
       const tickers = watchlistData.length > 0
         ? watchlistData.slice(0, 20).map(w => w.ticker).join(",")
         : "AAPL,MSFT,JNJ,PG,KO,VZ,T,XOM,CVX,MCD,DIS,HD,WMT,PFE,MRK";
       const res = await fetch(`/api/market/dividends?tickers=${encodeURIComponent(tickers)}`);
-      const data = res.ok ? await res.json() : [];
-      setDividendData(Array.isArray(data) ? data : []);
+      const data = res.ok ? await res.json() : {};
+      // Backend wraps array in { ok, results: [...], fetchedAt }
+      setDividendData(data.results || []);
     } catch (e) {
       setDividendData([]);
     }
@@ -15232,13 +15241,13 @@ export default function App() {
                           <div style={{ display: "flex", gap: 20, marginBottom: 14, flexWrap: "wrap" }}>
                             {ins.insidersPct != null && (
                               <div style={{ textAlign: "center" }}>
-                                <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.amber }}>{(ins.insidersPct * 100).toFixed(1)}%</div>
+                                <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.amber }}>{Number(ins.insidersPct).toFixed(1)}%</div>
                                 <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>INSIDERS HELD</div>
                               </div>
                             )}
                             {ins.institutionsPct != null && (
                               <div style={{ textAlign: "center" }}>
-                                <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.purple }}>{(ins.institutionsPct * 100).toFixed(1)}%</div>
+                                <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.purple }}>{Number(ins.institutionsPct).toFixed(1)}%</div>
                                 <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>INSTITUTIONS HELD</div>
                               </div>
                             )}
@@ -15250,7 +15259,7 @@ export default function App() {
                               <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", background: C.surface, borderRadius: 5 }}>
                                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.text, fontWeight: 700 }}>{inst.name}</div>
                                 <div style={{ fontFamily: MONO, fontSize: 10, color: inst.change > 0 ? C.green : inst.change < 0 ? C.red : C.textDim }}>
-                                  {inst.pctHeld != null ? `${(inst.pctHeld * 100).toFixed(2)}%` : "—"}
+                                  {inst.pctHeld != null ? `${Number(inst.pctHeld).toFixed(2)}%` : "—"}
                                   {inst.change != null && <span style={{ marginLeft: 8 }}>{inst.change > 0 ? "+" : ""}{inst.change?.toLocaleString()}</span>}
                                 </div>
                               </div>
@@ -15304,46 +15313,49 @@ export default function App() {
             </div>
             {socialLoading && <div style={{ ...card({ padding: 40, textAlign: "center" }) }}><span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Fetching social data…</span></div>}
             {socialData && !socialLoading && (() => {
-              const sd = socialData;
-              const bullPct = sd.bullPct || 0;
-              const bearPct = sd.bearPct || (sd.total > 0 ? (1 - bullPct) * 100 : 0);
+              // Backend returns { ok, ticker, stocktwits: {bullPct(0-100), total, messages,...}, redditMentions }
+              const stwits  = socialData.stocktwits || {};
+              const bullPct = stwits.bullPct ?? 50;   // already 0-100
+              const bearPct = 100 - bullPct;
+              const total   = stwits.total   ?? 0;
+              const msgs    = stwits.messages ?? [];
               return (
                 <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                   {/* Gauge row */}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
                     <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.green}` }) }}>
-                      <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.green }}>{(bullPct * 100).toFixed(0)}%</div>
+                      <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.green }}>{bullPct.toFixed(0)}%</div>
                       <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>🟢 BULLISH</div>
                     </div>
                     <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.red}` }) }}>
-                      <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.red }}>{(bearPct * 100 || (100 - bullPct * 100)).toFixed(0)}%</div>
+                      <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.red }}>{bearPct.toFixed(0)}%</div>
                       <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>🔴 BEARISH</div>
                     </div>
                     <div style={{ ...card({ padding: 18, textAlign: "center" }) }}>
-                      <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.text }}>{sd.total || 0}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.text }}>{total}</div>
                       <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>TOTAL POSTS</div>
                     </div>
-                    {sd.redditMentions != null && (
+                    {socialData.redditMentions != null && (
                       <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.amber}` }) }}>
-                        <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.amber }}>{sd.redditMentions}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.amber }}>{socialData.redditMentions}</div>
                         <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>WSB MENTIONS</div>
                       </div>
                     )}
                   </div>
                   {/* Sentiment bar */}
                   <div style={{ ...card({ padding: "12px 16px" }) }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 8 }}>SENTIMENT DISTRIBUTION</div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 8 }}>SENTIMENT DISTRIBUTION — {total > 0 ? `${total} posts analyzed` : "no sentiment data"}</div>
                     <div style={{ display: "flex", height: 24, borderRadius: 6, overflow: "hidden" }}>
-                      <div style={{ width: `${(bullPct * 100).toFixed(0)}%`, background: C.green }} />
+                      <div style={{ width: `${bullPct}%`, background: C.green, minWidth: bullPct > 0 ? 4 : 0 }} />
                       <div style={{ flex: 1, background: C.red }} />
                     </div>
                   </div>
                   {/* Recent messages */}
-                  {sd.messages?.length > 0 && (
+                  {msgs.length > 0 && (
                     <div style={{ ...card({ padding: 16 }) }}>
-                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.cyan, marginBottom: 10 }}>RECENT POSTS — {sd.symbol}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.cyan, marginBottom: 10 }}>RECENT POSTS — {stwits.symbol || socialData.ticker}</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {sd.messages.slice(0, 8).map((m, i) => (
+                        {msgs.slice(0, 8).map((m, i) => (
                           <div key={i} style={{ padding: "10px 12px", background: C.surface, borderRadius: 6, borderLeft: `3px solid ${m.sentiment === "Bullish" ? C.green : m.sentiment === "Bearish" ? C.red : C.border}` }}>
                             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                               <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: m.sentiment === "Bullish" ? C.green : m.sentiment === "Bearish" ? C.red : C.textDim }}>
@@ -15532,26 +15544,29 @@ export default function App() {
                     <div key={i} style={{ ...card({ padding: "14px 18px" }), display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
                       <div>
                         <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.accent }}>{d.symbol}</div>
-                        {d.exDividendDate && <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>Ex-Div: {new Date(d.exDividendDate * 1000).toLocaleDateString()}</div>}
-                        {d.dividendDate && <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Pay Date: {new Date(d.dividendDate * 1000).toLocaleDateString()}</div>}
-                        {d.lastSplitFactor && <div style={{ fontFamily: MONO, fontSize: 9, color: C.amber, marginTop: 4 }}>Split: {d.lastSplitFactor} ({d.lastSplitDate ? new Date(d.lastSplitDate * 1000).toLocaleDateString() : "—"})</div>}
+                        {/* dates are returned as formatted strings like "2026-03-14", not Unix timestamps */}
+                        {d.exDividendDate && <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>Ex-Div: {d.exDividendDate}</div>}
+                        {d.dividendDate && <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Pay Date: {d.dividendDate}</div>}
+                        {d.lastSplitFactor && <div style={{ fontFamily: MONO, fontSize: 9, color: C.amber, marginTop: 4 }}>Split: {d.lastSplitFactor} ({d.lastSplitDate || "—"})</div>}
                       </div>
                       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                         {d.dividendYield > 0 && (
                           <div style={{ textAlign: "center" }}>
-                            <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.green }}>{(d.dividendYield * 100).toFixed(2)}%</div>
+                            {/* dividendYield from backend is already a % value (e.g. 1.23 = 1.23%) */}
+                            <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.green }}>{Number(d.dividendYield).toFixed(2)}%</div>
                             <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>YIELD</div>
                           </div>
                         )}
                         {d.dividendRate > 0 && (
                           <div style={{ textAlign: "center" }}>
-                            <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.text }}>${d.dividendRate?.toFixed(2)}</div>
+                            <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.text }}>${Number(d.dividendRate).toFixed(2)}</div>
                             <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>ANNUAL</div>
                           </div>
                         )}
                         {d.payoutRatio > 0 && (
                           <div style={{ textAlign: "center" }}>
-                            <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: d.payoutRatio > 0.9 ? C.red : d.payoutRatio > 0.6 ? C.amber : C.text }}>{(d.payoutRatio * 100).toFixed(0)}%</div>
+                            {/* payoutRatio is already a % (e.g. 45 = 45%) */}
+                            <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: d.payoutRatio > 90 ? C.red : d.payoutRatio > 60 ? C.amber : C.text }}>{Number(d.payoutRatio).toFixed(0)}%</div>
                             <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>PAYOUT</div>
                           </div>
                         )}
