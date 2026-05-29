@@ -617,7 +617,7 @@ async function handleAgent(req, res, requestUrl) {
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON" }); }
     const briefing = generateBriefing(body);
     if (telegramConfigured()) sendTelegramMessage(`🌅 Pre-Market Briefing\n\n${briefing.slice(0, 1400)}`).catch(() => {});
-    return writeJson(res, 200, { briefing, generatedAt: now() });
+    return writeJson(res, 200, { ok: true, briefing, generatedAt: now() });
   }
 
   // ── POST /api/agent/journal-review ──────────────────────────────────────
