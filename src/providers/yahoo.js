@@ -308,19 +308,27 @@ async function fetchYahooFundamentals(symbol) {
   const liveEarningsTs = Number((Array.isArray(live?.earningsTimestamp) ? live.earningsTimestamp[0] : live?.earningsTimestamp) || 0);
 
   const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=price,summaryDetail,defaultKeyStatistics,calendarEvents,financialData`;
+
+  function buildFallback(cap) {
+    return {
+      symbol, marketCap: cap,
+      pe: Number.isFinite(livePE) ? livePE : null,
+      eps: Number.isFinite(liveEPS) ? liveEPS : null,
+      sharesOutstanding: Number.isFinite(liveShares) ? liveShares : null,
+      earningsDate: liveEarningsTs > 0 ? new Date(liveEarningsTs * 1000).toISOString() : null,
+      revenue: null, revenueGrowth: null, grossMargin: null, profitMargin: null,
+      roe: null, debtToEquity: null, freeCashflow: null, analystTarget: null,
+      dividendYield: null, beta: null, pegRatio: null, priceToBook: null,
+    };
+  }
+
   try {
     const response = await yFetch(url, 10000);
     if (!response.ok) {
-      const fallbackCap = Number.isFinite(liveMarketCap) && liveMarketCap > 0
+      const cap = Number.isFinite(liveMarketCap) && liveMarketCap > 0
         ? liveMarketCap
         : (Number.isFinite(liveShares) && liveShares > 0 && Number.isFinite(livePrice) && livePrice > 0 ? liveShares * livePrice : 0);
-      return {
-        symbol, marketCap: fallbackCap,
-        pe: Number.isFinite(livePE) ? livePE : null,
-        eps: Number.isFinite(liveEPS) ? liveEPS : null,
-        sharesOutstanding: Number.isFinite(liveShares) ? liveShares : null,
-        earningsDate: liveEarningsTs > 0 ? new Date(liveEarningsTs * 1000).toISOString() : null
-      };
+      return buildFallback(cap);
     }
     const payload = await response.json();
     const result = payload?.quoteSummary?.result?.[0] || {};
@@ -330,33 +338,46 @@ async function fetchYahooFundamentals(symbol) {
     const financial = result?.financialData || {};
     const earningsRaw = result?.calendarEvents?.earnings?.earningsDate || [];
     const earningsTs = Array.isArray(earningsRaw) && earningsRaw.length ? Number(earningsRaw[0]?.raw || 0) : 0;
+
     const marketCap = Number(price?.marketCap?.raw || liveMarketCap || 0);
     const pe = Number(summary?.trailingPE?.raw ?? financial?.forwardPE?.raw ?? livePE);
     const eps = Number(stats?.trailingEps?.raw ?? stats?.forwardEps?.raw ?? liveEPS);
     const sharesOutstanding = Number(stats?.sharesOutstanding?.raw || liveShares || 0);
+
+    const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : null; };
+
     return {
       symbol,
       marketCap: Number.isFinite(marketCap) && marketCap > 0
         ? marketCap
-        : (Number.isFinite(sharesOutstanding) && sharesOutstanding > 0 && Number.isFinite(livePrice) && livePrice > 0 ? sharesOutstanding * livePrice : 0),
+        : (sharesOutstanding > 0 && livePrice > 0 ? sharesOutstanding * livePrice : 0),
       pe: Number.isFinite(pe) ? pe : null,
       eps: Number.isFinite(eps) ? eps : null,
       sharesOutstanding: Number.isFinite(sharesOutstanding) ? sharesOutstanding : null,
       earningsDate: earningsTs > 0
         ? new Date(earningsTs * 1000).toISOString()
-        : (liveEarningsTs > 0 ? new Date(liveEarningsTs * 1000).toISOString() : null)
+        : (liveEarningsTs > 0 ? new Date(liveEarningsTs * 1000).toISOString() : null),
+      // Income & growth
+      revenue:       n(financial?.totalRevenue?.raw),
+      revenueGrowth: n(financial?.revenueGrowth?.raw),   // decimal e.g. 0.12 = 12%
+      grossMargin:   n(financial?.grossMargins?.raw),    // decimal
+      profitMargin:  n(financial?.profitMargins?.raw),   // decimal
+      // Efficiency & leverage
+      roe:           n(financial?.returnOnEquity?.raw),  // decimal
+      debtToEquity:  n(financial?.debtToEquity?.raw),    // ratio (already as number)
+      freeCashflow:  n(financial?.freeCashflow?.raw),
+      // Valuation extras
+      analystTarget: n(financial?.targetMeanPrice?.raw),
+      dividendYield: n(summary?.dividendYield?.raw),     // decimal
+      beta:          n(summary?.beta?.raw),
+      pegRatio:      n(stats?.pegRatio?.raw),
+      priceToBook:   n(stats?.priceToBook?.raw),
     };
   } catch {
-    const fallbackCap = Number.isFinite(liveMarketCap) && liveMarketCap > 0
+    const cap = Number.isFinite(liveMarketCap) && liveMarketCap > 0
       ? liveMarketCap
       : (Number.isFinite(liveShares) && liveShares > 0 && Number.isFinite(livePrice) && livePrice > 0 ? liveShares * livePrice : 0);
-    return {
-      symbol, marketCap: fallbackCap,
-      pe: Number.isFinite(livePE) ? livePE : null,
-      eps: Number.isFinite(liveEPS) ? liveEPS : null,
-      sharesOutstanding: Number.isFinite(liveShares) ? liveShares : null,
-      earningsDate: liveEarningsTs > 0 ? new Date(liveEarningsTs * 1000).toISOString() : null
-    };
+    return buildFallback(cap);
   }
 }
 

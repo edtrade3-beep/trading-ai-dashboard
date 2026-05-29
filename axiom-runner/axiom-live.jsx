@@ -3169,20 +3169,91 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
               <div style={{ fontSize: 11, fontFamily: MONO, fontWeight: 800, color: C.purple, letterSpacing: "0.08em" }}>VALUATION & METRICS</div>
               {fundamentalsLoading && <span style={{ fontSize: 10, fontFamily: MONO, color: C.amber }}>⏳ Loading…</span>}
             </div>
-            {[
-              ["P/E Ratio", resolvedPe > 0 ? resolvedPe.toFixed(1) : (fundamentalsLoading ? "…" : "—")],
-              ["EPS (TTM)", resolvedEps > 0 ? `$${resolvedEps.toFixed(2)}` : (fundamentalsLoading ? "…" : "—")],
-              ["Shares Out", (() => { const sh = Number(fundamentals?.sharesOutstanding || stock.sharesOutstanding || 0); return sh > 0 ? `${(sh / 1e9).toFixed(2)}B` : (fundamentalsLoading ? "…" : "—"); })()],
-              ["Open", `$${stock.open?.toFixed(2)}`],
-              ["Prev Close", `$${stock.previousClose?.toFixed(2)}`],
-              ["50D Avg", stock.priceAvg50 ? `$${stock.priceAvg50.toFixed(2)}` : "—"],
-              ["200D Avg", stock.priceAvg200 ? `$${stock.priceAvg200.toFixed(2)}` : "—"],
-            ].map(([k, v]) => (
-              <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ fontSize: 13, fontFamily: SANS, color: C.textDim }}>{k}</span>
-                <span style={{ fontSize: 13, fontFamily: MONO, color: C.text, fontWeight: 600 }}>{v || "—"}</span>
-              </div>
-            ))}
+            {(() => {
+              const ld = fundamentalsLoading ? "…" : "—";
+              const sh = Number(fundamentals?.sharesOutstanding || stock.sharesOutstanding || 0);
+              const dy = Number(fundamentals?.dividendYield);
+              const analystTarget = Number(fundamentals?.analystTarget);
+              const upside = analystTarget > 0 && stock.price > 0
+                ? ((analystTarget / stock.price - 1) * 100).toFixed(1)
+                : null;
+              return [
+                ["P/E Ratio",   resolvedPe > 0 ? resolvedPe.toFixed(1) : ld],
+                ["EPS (TTM)",   resolvedEps > 0 ? `$${resolvedEps.toFixed(2)}` : ld],
+                ["PEG Ratio",   Number(fundamentals?.pegRatio) > 0 ? Number(fundamentals.pegRatio).toFixed(2) : ld],
+                ["P/B Ratio",   Number(fundamentals?.priceToBook) > 0 ? Number(fundamentals.priceToBook).toFixed(2) : ld],
+                ["Beta",        Number(fundamentals?.beta) > 0 ? Number(fundamentals.beta).toFixed(2) : ld],
+                ["Div Yield",   Number.isFinite(dy) && dy > 0 ? `${(dy * 100).toFixed(2)}%` : "—"],
+                ["Analyst Tgt", analystTarget > 0 ? `$${analystTarget.toFixed(2)}${upside !== null ? ` (${upside > 0 ? "+" : ""}${upside}%)` : ""}` : ld],
+                ["Shares Out",  sh > 0 ? `${(sh / 1e9).toFixed(2)}B` : ld],
+                ["Open",        `$${stock.open?.toFixed(2)}`],
+                ["Prev Close",  `$${stock.previousClose?.toFixed(2)}`],
+                ["50D Avg",     stock.priceAvg50 ? `$${stock.priceAvg50.toFixed(2)}` : "—"],
+                ["200D Avg",    stock.priceAvg200 ? `$${stock.priceAvg200.toFixed(2)}` : "—"],
+              ].map(([k, v]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: 13, fontFamily: SANS, color: C.textDim }}>{k}</span>
+                  <span style={{ fontSize: 13, fontFamily: MONO, color: C.text, fontWeight: 600 }}>{v || "—"}</span>
+                </div>
+              ));
+            })()}
+          </div>
+        </div>
+
+        {/* Financials Row */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, padding: "14px 20px 0" }}>
+          <div style={{ ...panelCard, padding: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontFamily: MONO, fontWeight: 800, color: C.green, letterSpacing: "0.08em" }}>INCOME & GROWTH</div>
+              {fundamentalsLoading && <span style={{ fontSize: 10, fontFamily: MONO, color: C.amber }}>⏳</span>}
+            </div>
+            {(() => {
+              const ld = fundamentalsLoading ? "…" : "—";
+              const rev = Number(fundamentals?.revenue);
+              const revG = Number(fundamentals?.revenueGrowth);
+              const gm = Number(fundamentals?.grossMargin);
+              const pm = Number(fundamentals?.profitMargin);
+              const fcf = Number(fundamentals?.freeCashflow);
+              return [
+                ["Revenue",       rev > 0 ? formatNum(rev) : ld],
+                ["Rev Growth",    Number.isFinite(revG) ? `${(revG * 100).toFixed(1)}%` : ld],
+                ["Gross Margin",  Number.isFinite(gm) && gm > 0 ? `${(gm * 100).toFixed(1)}%` : ld],
+                ["Profit Margin", Number.isFinite(pm) ? `${(pm * 100).toFixed(1)}%` : ld],
+                ["Free Cash Flow",Number.isFinite(fcf) && fcf !== 0 ? formatNum(fcf) : ld],
+              ].map(([k, v]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: 13, fontFamily: SANS, color: C.textDim }}>{k}</span>
+                  <span style={{ fontSize: 13, fontFamily: MONO, color: C.text, fontWeight: 600 }}>{v || "—"}</span>
+                </div>
+              ));
+            })()}
+          </div>
+          <div style={{ ...panelCard, padding: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontFamily: MONO, fontWeight: 800, color: C.amber, letterSpacing: "0.08em" }}>EFFICIENCY & LEVERAGE</div>
+              {fundamentalsLoading && <span style={{ fontSize: 10, fontFamily: MONO, color: C.amber }}>⏳</span>}
+            </div>
+            {(() => {
+              const ld = fundamentalsLoading ? "…" : "—";
+              const roe = Number(fundamentals?.roe);
+              const de = Number(fundamentals?.debtToEquity);
+              return [
+                ["Return on Equity", Number.isFinite(roe) ? `${(roe * 100).toFixed(1)}%` : ld],
+                ["Debt / Equity",    Number.isFinite(de) && de >= 0 ? de.toFixed(2) : ld],
+                ["Market Cap",       resolvedMarketCap > 0 ? formatNum(resolvedMarketCap) : ld],
+                ["Earnings Date",    (() => {
+                  const d = fundamentals?.earningsDate;
+                  if (!d) return ld;
+                  try { return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); }
+                  catch { return ld; }
+                })()],
+              ].map(([k, v]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: 13, fontFamily: SANS, color: C.textDim }}>{k}</span>
+                  <span style={{ fontSize: 13, fontFamily: MONO, color: C.text, fontWeight: 600 }}>{v || "—"}</span>
+                </div>
+              ));
+            })()}
           </div>
         </div>
 
