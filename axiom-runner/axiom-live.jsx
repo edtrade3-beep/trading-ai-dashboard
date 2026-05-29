@@ -4207,6 +4207,10 @@ export default function App() {
   const [scanError,    setScanError]    = useState(null);
   const [scanDeepData, setScanDeepData] = useState({});
   const [scanDeepLoad, setScanDeepLoad] = useState({});
+  const [autoScanOn,   setAutoScanOn]   = useState(false);
+  const [autoScanMins, setAutoScanMins] = useState(5);
+  const [autoScanCountdown, setAutoScanCountdown] = useState(0);
+  const autoScanRef = useRef(null);
   // ── AI Trade Setup state ─────────────────────────────────────────────────
   const [tradeSetups,     setTradeSetups]     = useState({});  // { BBAI: { plan, generatedAt } }
   const [tradeSetupLoad,  setTradeSetupLoad]  = useState({});  // { BBAI: true/false }
@@ -4929,6 +4933,25 @@ export default function App() {
     }
     setScanLoading(false);
   }
+
+  // ── Auto-scan interval ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (autoScanRef.current) { clearInterval(autoScanRef.current); autoScanRef.current = null; }
+    if (!autoScanOn) { setAutoScanCountdown(0); return; }
+    const totalSecs = autoScanMins * 60;
+    setAutoScanCountdown(totalSecs);
+    let remaining = totalSecs;
+    autoScanRef.current = setInterval(() => {
+      remaining -= 1;
+      setAutoScanCountdown(remaining);
+      if (remaining <= 0) {
+        remaining = totalSecs;
+        setAutoScanCountdown(totalSecs);
+        runSmartScan();
+      }
+    }, 1000);
+    return () => { if (autoScanRef.current) clearInterval(autoScanRef.current); };
+  }, [autoScanOn, autoScanMins]);
 
   async function loadDeepDive(ticker) {
     if (scanDeepData[ticker]) return;
@@ -9447,6 +9470,27 @@ export default function App() {
                       </div>
                     </div>
                   )}
+                  {/* Auto-scan interval selector */}
+                  <select value={autoScanMins} onChange={e => setAutoScanMins(Number(e.target.value))}
+                    style={{ fontFamily: MONO, fontSize: 9, background: C.surface, border: `1px solid ${C.border}`,
+                      color: C.textSec, borderRadius: 4, padding: "4px 6px", cursor: "pointer" }}>
+                    <option value={1}>1 min</option>
+                    <option value={5}>5 min</option>
+                    <option value={10}>10 min</option>
+                    <option value={15}>15 min</option>
+                    <option value={30}>30 min</option>
+                  </select>
+                  {/* Auto toggle */}
+                  <button onClick={() => setAutoScanOn(v => !v)}
+                    style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                      background: autoScanOn ? `${C.amber}18` : C.surface,
+                      border: `1px solid ${autoScanOn ? C.amber : C.border}`,
+                      color: autoScanOn ? C.amber : C.textDim,
+                      borderRadius: 6, padding: "7px 12px", cursor: "pointer", minWidth: 90, textAlign: "center" }}>
+                    {autoScanOn
+                      ? `⏱ ${Math.floor(autoScanCountdown / 60)}:${String(autoScanCountdown % 60).padStart(2, "0")}`
+                      : "AUTO OFF"}
+                  </button>
                   <button onClick={runSmartScan} disabled={scanLoading}
                     style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
                       background: scanLoading ? C.surface : `${C.green}18`,
