@@ -250,65 +250,272 @@ function halalScreening(ticker, fundamentals) {
 
 // ── Pre-market briefing generator ─────────────────────────────────────────────
 function generateBriefing(ctx) {
-  const regime   = ctx.regime   || "Unknown";
-  const macro    = ctx.macro    || {};
-  const watchlist= ctx.watchlist || [];
-  const earnings = ctx.earnings || [];
-  const date     = fmtDate();
+  const regime    = ctx.regime    || "Unknown";
+  const macroTone = ctx.macroTone || "Neutral";
+  const session   = ctx.session   || "Market Hours";
+  const date      = fmtDate();
 
-  const spyChg   = macro.spyChange    ? fmtPct(macro.spyChange)    : "N/A";
-  const qqqChg   = macro.qqqChange    ? fmtPct(macro.qqqChange)    : "N/A";
-  const vix      = macro.vix          ? fmt1(macro.vix)            : "N/A";
-  const dxy      = macro.dxy          ? fmt2(macro.dxy)            : "N/A";
-  const yields10 = macro.yields10     ? fmt2(macro.yields10)       : "N/A";
+  // ── Index data ──
+  const spyChg  = Number(ctx.spy?.chg  || (ctx.indexMoves||[]).find(m=>m.label==="SPY")?.value  || 0);
+  const qqqChg  = Number(ctx.qqq?.chg  || (ctx.indexMoves||[]).find(m=>m.label==="QQQ")?.value  || 0);
+  const iwmChg  = Number(ctx.iwm?.chg  || (ctx.indexMoves||[]).find(m=>m.label==="IWM")?.value  || 0);
+  const vixChg  = Number(ctx.vix?.chg  || 0);
+  const usdChg  = Number(ctx.usd?.chg  || 0);
+  const oilChg  = Number(ctx.oil?.chg  || 0);
+  const btcChg  = Number(ctx.btc?.chg  || (ctx.indexMoves||[]).find(m=>m.label==="BTC"||m.label==="BTCUSD")?.value || 0);
 
-  const vixNote = Number(macro.vix || 0) > 25
-    ? "⚠️ VIX ELEVATED — reduce size, widen stops"
-    : Number(macro.vix || 0) > 18
-    ? "⚡ VIX MODERATE — normal risk management"
-    : "✅ VIX LOW — conditions favor momentum plays";
+  // ── Breadth ──
+  const breadth    = ctx.breadth || {};
+  const advancers  = Number(breadth.advancers  || 0);
+  const decliners  = Number(breadth.decliners  || 0);
+  const breadthPct = Number(breadth.breadthPct || (advancers+decliners > 0 ? Math.round(advancers/(advancers+decliners)*100) : 50));
 
-  const topPlays = watchlist
-    .sort((a, b) => (b.score || 0) - (a.score || 0))
-    .slice(0, 5)
-    .map(w => `  • ${w.ticker}${w.score ? ` (Score: ${Math.round(w.score)})` : ""}${w.zone ? ` — Entry: $${w.zone.e1}` : ""}${w.thesis ? ` | ${w.thesis}` : ""}`)
-    .join("\n");
+  // ── Flow ──
+  const flowBias    = ctx.flowBias || "Neutral";
+  const callNotl    = Number(ctx.flowCallNotional || 0);
+  const putNotl     = Number(ctx.flowPutNotional  || 0);
+  const fmtNotl = n => n >= 1e9 ? `$${(n/1e9).toFixed(1)}B` : n >= 1e6 ? `$${(n/1e6).toFixed(0)}M` : n > 0 ? `$${n}` : "N/A";
 
-  const earningsToday = earnings.filter(e => {
-    const d = new Date(e.date || e.reportDate || "");
-    const today = new Date();
-    return d.toDateString() === today.toDateString() || Math.abs(d - today) < 2 * 86400000;
-  }).map(e => `  • ${e.ticker || e.symbol}: EPS Est. $${e.epsEstimated || "—"} | Rev Est. ${e.revenueEstimated ? `$${(e.revenueEstimated / 1e9).toFixed(2)}B` : "—"}`).join("\n");
+  // ── Sector ──
+  const sectorBreadth = ctx.sectorBreadth || {};
+  const secPos = Number(sectorBreadth.positive || 0);
+  const secNeg = Number(sectorBreadth.negative || 0);
+  const sectorSnap  = (ctx.sectorSnap || []).slice(0,11);
+
+  // ── Movers ──
+  const topGainers  = (ctx.topGainers || []).slice(0,5);
+  const topLosers   = (ctx.topLosers  || []).slice(0,5);
+  const topLongs    = (ctx.topLongs   || []).slice(0,8);
+  const topRisks    = (ctx.topRisks   || []).slice(0,5);
+  const rotation    = (ctx.rotation   || []).slice(0,5);
+
+  // ── Alerts + news ──
+  const alerts      = (ctx.alerts        || []).slice(0,6);
+  const news        = (ctx.newsHeadlines || []).slice(0,8);
+  const earnings    = (ctx.earningsUpcoming || ctx.earningsToday || []).slice(0,8);
+
+  // ── Risk sizing ──
+  const riskAcc = Number(ctx.riskAccount || 50000);
+  const riskPct = Number(ctx.riskPct     || 1);
+  const dailyBudget = (riskAcc * riskPct / 100);
+  const fmtBudget = dailyBudget >= 1000 ? `$${(dailyBudget/1000).toFixed(1)}K` : `$${dailyBudget.toFixed(0)}`;
+
+  // ── Verdict scoring ──
+  let score = 50;
+  if (spyChg  >  0.5) score += 8;  else if (spyChg  < -0.5) score -= 8;
+  if (qqqChg  >  0.5) score += 6;  else if (qqqChg  < -0.5) score -= 6;
+  if (iwmChg  >  0)   score += 4;  else if (iwmChg  < -0.5) score -= 4;
+  if (vixChg  < -2)   score += 6;  else if (vixChg  >  5)   score -= 8;
+  if (oilChg  < -1)   score += 3;  else if (oilChg  >  2)   score -= 2;
+  if (breadthPct > 60) score += 7; else if (breadthPct < 40) score -= 7;
+  if (flowBias === "CALL BIAS" || flowBias === "Calls") score += 5;
+  else if (flowBias === "PUT BIAS" || flowBias === "Puts") score -= 5;
+  if (regime === "Risk-On" || regime === "Goldilocks") score += 5;
+  else if (regime === "Risk-Off" || regime === "Defensive") score -= 7;
+  if (btcChg > 1) score += 3; else if (btcChg < -2) score -= 3;
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
+  const verdict    = score >= 62 ? "BULLISH" : score <= 40 ? "BEARISH" : "NEUTRAL";
+  const conviction = score >= 72 || score <= 28 ? "HIGH" : score >= 58 || score <= 42 ? "MODERATE" : "LOW";
+  const bullProb   = Math.min(90, Math.max(10, score));
+  const bearProb   = Math.min(90, Math.max(10, 100 - score - 10));
+  const baseProb   = 100 - bullProb - bearProb;
+
+  // ── Narrative helpers ──
+  const vixNote  = vixChg < -2 ? "VIX easing — risk-on conditions" : vixChg > 5 ? "VIX spiking — caution, reduce size" : "VIX contained";
+  const flowNote = callNotl > 0 && putNotl > 0
+    ? `Flow: ${flowBias} (Calls ${fmtNotl(callNotl)} / Puts ${fmtNotl(putNotl)})`
+    : `Flow: ${flowBias}`;
+
+  const proj1d = verdict === "BULLISH"
+    ? `Bias up next session; favour pullbacks in high-RS leaders with RVOL > 1.2x.`
+    : verdict === "BEARISH"
+    ? `Downside bias; cut weak names, reduce exposure, protect capital.`
+    : `Mixed tape — trade smaller, wait for clear expansion before adding size.`;
+
+  const proj1w = regime === "Risk-On" || regime === "Goldilocks"
+    ? `Constructive backdrop if breadth holds above 55% and VIX stays contained.`
+    : regime === "Risk-Off" || regime === "Defensive"
+    ? `Challenging environment; rotate to quality/defensive names, avoid chasing.`
+    : `Range-bound likely; react to data rather than anticipate directional moves.`;
 
   const regimeStrategy = {
-    "Risk-On":    "STRATEGY: Favor momentum + growth. Chase breakouts. Add to winners.",
-    "Goldilocks": "STRATEGY: Broad participation. Run diversified longs. Momentum favored.",
-    "Risk-Off":   "STRATEGY: Reduce exposure. Defensive sectors (XLU/XLV/GLD). Tighten stops.",
-    "Defensive":  "STRATEGY: Cash is a position. Only A+ setups. Protect capital.",
-    "Stagflation":"STRATEGY: Real assets (commodities, energy). Avoid high-multiple growth.",
+    "Risk-On":    "Chase momentum breakouts with confirmation. Add to high-RS winners.",
+    "Goldilocks": "Broad participation. Run diversified longs. Momentum names favored.",
+    "Risk-Off":   "Reduce gross exposure. Defensive sectors (XLU/XLV/GLD). Tighten stops.",
+    "Defensive":  "Cash is a position. A+ setups only. Protect capital above all.",
+    "Stagflation":"Real assets (energy/commodities/GLD). Avoid high-multiple growth.",
   };
-  const strategy = regimeStrategy[regime] || "STRATEGY: Follow the trend. Size appropriately for current volatility.";
+  const strategyLine = regimeStrategy[regime] || "Follow the trend. Size proportional to current volatility.";
 
-  const lines = [
-    `🌅 PRE-MARKET BRIEFING — ${date}`,
-    `${"─".repeat(50)}`,
-    "",
-    `📊 MACRO ENVIRONMENT`,
-    `Regime: ${regime}  |  ${vixNote}`,
-    `SPY: ${spyChg}  |  QQQ: ${qqqChg}  |  VIX: ${vix}`,
-    dxy !== "N/A" ? `DXY: ${dxy}  |  10Y Yield: ${yields10}%` : "",
-    "",
-    `🎯 TOP SETUPS TODAY`,
-    topPlays || "  (Run Scanner first to populate watchlist)",
-    "",
-    earningsToday ? `📅 EARNINGS THIS SESSION\n${earningsToday}\n` : "",
-    `💡 ${strategy}`,
-    "",
-    `${"─".repeat(50)}`,
-    `Generated: ${new Date().toLocaleTimeString()} local time`,
-  ].filter(s => s !== "").join("\n");
+  const doNow = verdict === "BULLISH"
+    ? ["Focus longs on RS leaders with RVOL > 1.2x", "Buy pullbacks to support only after volume confirmation", "Keep risk concentrated in top 3 strongest setups"]
+    : verdict === "BEARISH"
+    ? ["Reduce gross exposure by 20–40%", "Rotate to defensive sectors (XLU/XLV/GLD)", "Only trade short side on confirmed breakdowns"]
+    : ["Trade smaller — 50% normal size", "Wait for confirmed directional breakout before adding", "Keep stops tight and take partial profits early"];
 
-  return lines;
+  const avoidNow = verdict === "BULLISH"
+    ? ["Chasing late-stage extensions without pullback structure", "Crowded names with weak flow support", "Overtrading low-score setups in noise"]
+    : verdict === "BEARISH"
+    ? ["Bottom-fishing momentum breakdowns", "Adding to losing positions", "Ignoring macro headwinds on long setups"]
+    : ["Overtrading in choppy conditions", "Large position sizes without conviction", "Fading confirmed moves"];
+
+  const watchNow = [
+    `Breadth: ${advancers > 0 ? `${advancers}A / ${decliners}D (${breadthPct}% positive)` : "Awaiting data"}`,
+    flowNote,
+    `BTC: ${btcChg >= 0 ? "+" : ""}${fmt1(btcChg)}% | Alt strength ${btcChg > 1 ? "positive" : btcChg < -2 ? "weak" : "neutral"}`,
+  ];
+
+  const flipBull = `Breadth > 60%, VIX falls, and call flow expands above ${fmtNotl(callNotl || 2e6)}.`;
+  const flipBear = `Breadth < 40%, VIX spikes, and put flow dominates.`;
+
+  // Portfolio sizing
+  const portAction = verdict === "BULLISH"
+    ? `Increase gross risk selectively (+10% to +20%) with max daily risk budget ${fmtBudget}.`
+    : verdict === "BEARISH"
+    ? `Cut gross risk (−20% to −40%), rotate defensive, keep daily loss hard-stop near ${fmtBudget}.`
+    : `Balanced exposure, cap position sizing, preserve daily risk budget near ${fmtBudget}.`;
+
+  // Crypto regime
+  const cryptoNote = `BTC ${btcChg >= 0 ? "supportive" : "weak"} (${btcChg >= 0 ? "+" : ""}${fmt1(btcChg)}%). ${btcChg > 2 ? "Risk-on crypto signal — watch altcoins." : btcChg < -3 ? "Crypto headwind — risk-off pressure on growth names." : "BTC neutral — no added crypto pressure."}`;
+
+  // ── Long / Short ideas ──
+  const longIdeas  = topLongs.slice(0,5).map(q => `${q.symbol} (RS ${Number(q.relVsSpy||0)>=0?"+":""}${fmt1(q.relVsSpy||0)}%, RVOL ${fmt1(q.rvol||1)}x)`);
+  const shortIdeas = topRisks.slice(0,4).map(q => `${q.symbol} (${fmt1(q.chg||0)}%, RVOL ${fmt1(q.rvol||1)}x)`);
+
+  // ── Confidence drivers ──
+  const confDrivers = [];
+  if (vixChg < -2) confDrivers.push({ tone:"GREEN", text:`Volatility easing (${fmtPct(vixChg)})` });
+  if (oilChg < -1) confDrivers.push({ tone:"GREEN", text:`Oil pressure cooling (${fmtPct(oilChg)})` });
+  if (breadthPct > 60) confDrivers.push({ tone:"GREEN", text:`Strong breadth — ${breadthPct}% of watchlist advancing` });
+  if (spyChg > 0.5 && qqqChg > 0.5) confDrivers.push({ tone:"GREEN", text:`Index alignment — SPY & QQQ both positive` });
+  if (flowBias === "CALL BIAS" || flowBias === "Calls") confDrivers.push({ tone:"GREEN", text:`Call flow dominating (${fmtNotl(callNotl)} vs ${fmtNotl(putNotl)})` });
+  if (vixChg > 5)  confDrivers.push({ tone:"RED",   text:`VIX spiking (${fmtPct(vixChg)}) — risk caution` });
+  if (breadthPct < 40) confDrivers.push({ tone:"RED", text:`Weak breadth — only ${breadthPct}% advancing` });
+  if (flowBias === "PUT BIAS" || flowBias === "Puts") confDrivers.push({ tone:"RED", text:`Put flow dominating — institutional hedging detected` });
+  if (usdChg > 0.5) confDrivers.push({ tone:"RED", text:`Dollar strengthening (${fmtPct(usdChg)}) — pressure on risk assets` });
+  if (confDrivers.length === 0) confDrivers.push({ tone:"GREY", text:"Mixed signals — no dominant driver" });
+
+  // ── Macro risk count ──
+  const macroRiskCount = confDrivers.filter(d => d.tone === "RED").length;
+  const alignScore = Math.round(
+    (spyChg > 0 ? 20 : 0) + (qqqChg > 0 ? 20 : 0) + (iwmChg > 0 ? 10 : 0) +
+    (breadthPct > 50 ? 20 : 0) + (vixChg < 0 ? 15 : 0) + (flowBias.includes("CALL") ? 15 : 0)
+  );
+
+  // ── Sector section ──
+  const secLeaders  = sectorSnap.filter(s=>Number(s.chg||0)>0).sort((a,b)=>Number(b.chg||0)-Number(a.chg||0)).slice(0,3);
+  const secLaggers  = sectorSnap.filter(s=>Number(s.chg||0)<0).sort((a,b)=>Number(a.chg||0)-Number(b.chg||0)).slice(0,3);
+
+  // ── Build rich text output ──
+  const L = [];
+  const hr = "─".repeat(52);
+
+  L.push(`🌅 PRE-MARKET BRIEFING — ${date}`);
+  L.push(hr);
+  L.push("");
+
+  L.push("EXECUTIVE BRIEF");
+  L.push(`Verdict: ${verdict}  |  Score: ${score}/100  |  Conviction: ${conviction}`);
+  L.push(`1D projection: ${proj1d}`);
+  L.push(`1W projection: ${proj1w}`);
+  L.push(`Index snapshot: SPY ${fmtPct(spyChg)} | QQQ ${fmtPct(qqqChg)} | IWM ${fmtPct(iwmChg)} | VIX ${fmtPct(vixChg)} | BTC ${fmtPct(btcChg)}`);
+  L.push(`Macro vs Stocks/Crypto: Stocks ${spyChg >= 0 ? "positive" : "negative"} (${fmtPct(spyChg)} avg) | Crypto ${btcChg >= 0 ? "confirming risk-on" : "risk-off pressure"} (${fmtPct(btcChg)}) | ${vixNote}.`);
+  L.push("");
+
+  L.push("DECISION MATRIX");
+  L.push(`Scenario probabilities: Bull ${bullProb}% | Base ${baseProb}% | Bear ${bearProb}%`);
+  L.push(`Alignment score: ${alignScore}/100`);
+  L.push(`Macro risk count: ${macroRiskCount}`);
+  L.push(`Sector breadth: ${secPos} positive / ${secNeg} negative`);
+  L.push(`Turn bullish if: ${flipBull}`);
+  L.push(`Turn bearish if: ${flipBear}`);
+  L.push("");
+
+  L.push("DO NOW");
+  doNow.forEach(d => L.push(`• ${d}`));
+  L.push("");
+
+  L.push("AVOID NOW");
+  avoidNow.forEach(d => L.push(`• ${d}`));
+  L.push("");
+
+  L.push("WATCH NOW");
+  watchNow.forEach(d => L.push(`• ${d}`));
+  L.push("");
+
+  L.push("PORTFOLIO ACTION");
+  L.push(portAction);
+  L.push(`Daily risk budget: ${fmtBudget}`);
+  L.push("");
+
+  L.push("CRYPTO REGIME");
+  L.push(cryptoNote);
+  L.push("");
+
+  L.push("LONG IDEAS");
+  if (longIdeas.length) longIdeas.forEach(l => L.push(`- ${l}`));
+  else L.push("- No clear long leaders yet. Wait for scanner data.");
+  L.push("");
+
+  L.push("SHORT / HEDGE IDEAS");
+  if (shortIdeas.length) shortIdeas.forEach(s => L.push(`- ${s}`));
+  else L.push("- No significant weakness detected in watchlist.");
+  L.push("");
+
+  L.push("CONFIDENCE DRIVERS");
+  confDrivers.forEach(d => L.push(`${d.tone}: ${d.text}`));
+  L.push("");
+
+  L.push("MARKET OVERVIEW");
+  L.push(`Session: ${session}  |  Regime: ${regime}  |  Tone: ${macroTone}`);
+  L.push("");
+
+  L.push("INDEX + MACRO SNAPSHOT");
+  L.push(`SPY ${fmtPct(spyChg)} | QQQ ${fmtPct(qqqChg)} | IWM ${fmtPct(iwmChg)} | VIX ${fmtPct(vixChg)} | USD ${fmtPct(usdChg)} | OIL ${fmtPct(oilChg)} | BTC ${fmtPct(btcChg)}`);
+  L.push("");
+
+  L.push("BREADTH + LEADERSHIP");
+  L.push(`Breadth: ${advancers} advancers / ${decliners} decliners (${breadthPct}% positive)`);
+  if (topGainers.length) L.push(`Top gainers: ${topGainers.map(q=>`${q.symbol} ${fmtPct(q.chg)}`).join("  ")}`);
+  if (topLosers.length)  L.push(`Top losers:  ${topLosers.map(q=>`${q.symbol} ${fmtPct(q.chg)}`).join("  ")}`);
+  if (secLeaders.length) L.push(`Sector leaders: ${secLeaders.map(s=>`${s.symbol} ${fmtPct(s.chg)}`).join("  ")}`);
+  if (secLaggers.length) L.push(`Sector laggards: ${secLaggers.map(s=>`${s.symbol} ${fmtPct(s.chg)}`).join("  ")}`);
+  L.push("");
+
+  L.push("RISK + FLOW + ALERTS");
+  const greenDrivers = confDrivers.filter(d=>d.tone==="GREEN");
+  const redDrivers   = confDrivers.filter(d=>d.tone==="RED");
+  if (greenDrivers.length) L.push(`Macro green: ${greenDrivers.map(d=>d.text).join(" | ")}`);
+  if (redDrivers.length)   L.push(`Macro red: ${redDrivers.map(d=>d.text).join(" | ")}`);
+  else                     L.push("Macro red: None");
+  L.push(`Flow bias: ${flowBias}`);
+  if (callNotl > 0 || putNotl > 0) L.push(`Call vs Put: ${fmtNotl(callNotl)} / ${fmtNotl(putNotl)}`);
+  if (alerts.length) L.push(`Priority alerts: ${alerts.map(a=>`${a.symbol}(${a.score})`).join("  ")}`);
+  L.push("");
+
+  L.push("NEWS + EXECUTION FOCUS");
+  if (news.length) news.forEach((n,i) => L.push(`${i+1}. ${n.ticker} - ${n.title}`));
+  else L.push("No headlines loaded. Refresh watchlist to pull news.");
+  if (rotation.length) L.push(`\nRotation leaders: ${rotation.map(q=>`${q.symbol} RS ${fmtPct(q.relVsSpy)}`).join("  ")}`);
+  L.push(`\nPosture: ${strategyLine}`);
+  L.push("");
+
+  if (earnings.length) {
+    L.push("EARNINGS WATCH");
+    earnings.forEach((e,i) => L.push(`${i+1}. ${e.symbol} — ${e.date ? new Date(e.date).toLocaleDateString() : "TBD"} ${e.timing ? `(${e.timing})` : ""}`));
+    L.push("");
+  }
+
+  L.push("GAME PLAN");
+  L.push(`Regime says: ${strategyLine}`);
+  L.push(`Risk: Max ${fmtBudget}/day. Size down in uncertainty.`);
+  L.push(`Execute only A+ setups with volume confirmation and clear invalidation.`);
+  L.push("");
+  L.push(`${hr}`);
+  L.push(`Generated: ${new Date().toLocaleTimeString()} local time  |  Decision-support only, not financial advice.`);
+
+  return L.filter(s => s !== undefined).join("\n");
 }
 
 // ── Journal statistics review ─────────────────────────────────────────────────

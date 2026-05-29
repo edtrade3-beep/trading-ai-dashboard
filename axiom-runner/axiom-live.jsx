@@ -5010,24 +5010,62 @@ export default function App() {
   async function fetchPremarketBriefing() {
     setPremktLoading(true);
     try {
-      const topLongs = (watchlistData || [])
-        .filter(q => Number(q.changesPercentage || 0) > 0)
-        .sort((a, b) => (b.composite || b.changesPercentage || 0) - (a.composite || a.changesPercentage || 0))
-        .slice(0, 8)
-        .map(q => ({ symbol: q.symbol, relVsSpy: q.relVsSpy || 0, composite: q.composite || 0 }));
-      const topRisks = (watchlistData || [])
-        .filter(q => Number(q.changesPercentage || 0) < -1)
-        .slice(0, 4)
-        .map(q => ({ symbol: q.symbol }));
-      const indexMoves = (macroData || [])
-        .slice(0, 5)
-        .map(m => ({ label: m.symbol || "", value: Number(m.changesPercentage || 0) }));
-      const earningsToday = (earningsRows || []).filter(e => {
-        try { const d = new Date(e.date); const t = new Date(); return d.toDateString() === t.toDateString(); } catch { return false; }
-      }).slice(0, 6);
+      const wl = watchlistData || [];
+      const md = macroData || [];
+
+      const spy  = md.find(m => m.symbol === "SPY");
+      const qqq  = md.find(m => m.symbol === "QQQ");
+      const iwm  = md.find(m => m.symbol === "IWM");
+      const vix  = md.find(m => m.symbol === "VIX" || m.symbol === "^VIX");
+      const usd  = md.find(m => m.symbol === "DXY" || m.symbol === "UUP");
+      const oil  = md.find(m => m.symbol === "USO" || m.symbol === "CL=F");
+      const btc  = md.find(m => m.symbol === "BTCUSD" || m.symbol === "BTC-USD");
+
+      const chg = s => Number(s?.changesPercentage || 0);
+
+      const advancers = wl.filter(q => chg(q) > 0).length;
+      const decliners = wl.filter(q => chg(q) < 0).length;
+      const breadthPct = wl.length ? Math.round(advancers / wl.length * 100) : 50;
+
+      const topGainers = [...wl].sort((a,b) => chg(b)-chg(a)).slice(0,5)
+        .map(q => ({ symbol: q.symbol, chg: chg(q), rvol: Number(q.rvol||1) }));
+      const topLosers  = [...wl].sort((a,b) => chg(a)-chg(b)).slice(0,5)
+        .map(q => ({ symbol: q.symbol, chg: chg(q), rvol: Number(q.rvol||1) }));
+      const topLongs   = [...wl].filter(q=>chg(q)>0)
+        .sort((a,b)=>(Number(b.relVsSpy||0)+Number(b.rvol||1))-(Number(a.relVsSpy||0)+Number(a.rvol||1)))
+        .slice(0,8).map(q=>({ symbol: q.symbol, relVsSpy: Number(q.relVsSpy||0), rvol: Number(q.rvol||1), composite: Number(q.composite||0), chg: chg(q) }));
+      const topRisks   = [...wl].filter(q=>chg(q)<-1)
+        .sort((a,b)=>chg(a)-chg(b)).slice(0,5)
+        .map(q=>({ symbol: q.symbol, chg: chg(q), rvol: Number(q.rvol||1) }));
+      const rotation   = (rotationRank||[]).slice(0,8).map(q=>({ symbol:q.symbol, relVsSpy:Number(q.relVsSpy||0), rvol:Number(q.rvol||1) }));
+
+      const indexMoves = md.slice(0,8).map(m => ({ label: m.symbol||"", value: chg(m), price: Number(m.price||0) }));
+
+      const earningsUpcoming = (earningsRows||[]).filter(e => {
+        try { const d = new Date(e.date||e.earningsDate); const diff = (d - new Date()) / 86400000; return diff >= -1 && diff <= 14; } catch { return false; }
+      }).slice(0,8).map(e => ({ symbol: e.symbol||e.ticker, date: e.date||e.earningsDate, timing: e.timing||"" }));
+
+      const sectorSnap = (sectorData||[]).slice(0,11).map(s=>({ symbol:s.symbol, chg: chg(s) }));
+      const sectorPos  = sectorSnap.filter(s=>s.chg>0).length;
+      const sectorNeg  = sectorSnap.filter(s=>s.chg<0).length;
+
+      const alerts = (combinedAlerts||[]).slice(0,6).map(a=>({ symbol:a.symbol, score:a.score||0, text:(a.text||"").slice(0,80) }));
+
+      const newsHeadlines = (newsData||[]).slice(0,8).map(n=>({ ticker:n.ticker||"MKT", title:(n.title||n.headline||"").slice(0,120) }));
+
       const res = await fetch("/api/agent/premarket", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ regime: "Market Hours", macroTone: "Neutral", session: "Pre-Market", indexMoves, topLongs, topRisks, flowBias: "Neutral", earningsToday }),
+        body: JSON.stringify({
+          regime, macroTone, session: marketSession,
+          flowBias, flowCallNotional, flowPutNotional,
+          spy: { chg: chg(spy) }, qqq: { chg: chg(qqq) }, iwm: { chg: chg(iwm) },
+          vix: { chg: chg(vix) }, usd: { chg: chg(usd) }, oil: { chg: chg(oil) }, btc: { chg: chg(btc) },
+          breadth: { advancers, decliners, breadthPct },
+          topGainers, topLosers, topLongs, topRisks, rotation,
+          indexMoves, earningsUpcoming, sectorSnap, sectorBreadth: { positive: sectorPos, negative: sectorNeg },
+          alerts, newsHeadlines,
+          riskAccount: Number(riskAccount||50000), riskPct: Number(riskPct||1),
+        }),
       });
       const data = await res.json();
       if (data.ok) { setPremktBriefing(data.briefing); setPremktAt(data.generatedAt); }
