@@ -4098,6 +4098,8 @@ export default function App() {
   const [apiKey, setApiKey] = useState("YAHOO_LOCAL");
   const [watchlistSymbols, setWatchlistSymbols] = useState(WATCHLIST_SYMBOLS);
   const [watchlistInput, setWatchlistInput] = useState(WATCHLIST_SYMBOLS.join(","));
+  const [wlSearchQuery, setWlSearchQuery] = useState("");
+  const [wlSearchFocused, setWlSearchFocused] = useState(false);
   const [watchlistNotes, setWatchlistNotes] = useState(() => { try { return JSON.parse(localStorage.getItem("ax_wl_notes") || "{}"); } catch { return {}; } });
   const [openNoteSymbol, setOpenNoteSymbol] = useState(null);
   const [openAlertSymbol, setOpenAlertSymbol] = useState(null);
@@ -8012,24 +8014,102 @@ export default function App() {
                 <span style={{ fontFamily: SANS, fontSize: 15, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em" }}>
                   WATCHLIST — {watchlistData.length} SYMBOLS — REAL-TIME QUOTES
                 </span>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input
-                    value={watchlistInput}
-                    onChange={(e) => setWatchlistInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") { const next = watchlistInput.split(",").map(s => s.trim().toUpperCase()).filter(Boolean); if (next.length) { setWatchlistSymbols(Array.from(new Set(next))); setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); } } }}
-                    placeholder="AAPL,MSFT,NVDA"
-                    style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 10, padding: "6px 8px", minWidth: 160, width: "min(300px, 40vw)" }}
-                  />
-                  <button onClick={() => {
-                    const next = watchlistInput.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
-                    if (next.length) {
-                      setWatchlistSymbols(Array.from(new Set(next)));
-                      setLoading(true);
-                      fetchAll(apiKey).finally(() => setLoading(false));
-                    }
-                  }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "6px 8px", cursor: "pointer" }}>
-                    SAVE LIST
-                  </button>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  {/* ── Search + Add ── */}
+                  <div style={{ position: "relative" }}>
+                    <div style={{ display: "flex", alignItems: "center", border: `1px solid ${wlSearchFocused ? C.accent : C.border}`, borderRadius: 6, background: C.surface, overflow: "visible" }}>
+                      <span style={{ padding: "0 8px", color: C.textDim, fontSize: 13 }}>🔍</span>
+                      <input
+                        value={wlSearchQuery}
+                        onChange={e => setWlSearchQuery(e.target.value.toUpperCase())}
+                        onFocus={() => setWlSearchFocused(true)}
+                        onBlur={() => setTimeout(() => setWlSearchFocused(false), 200)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter" && wlSearchQuery.trim()) {
+                            const sym = wlSearchQuery.trim().toUpperCase();
+                            if (!watchlistSymbols.includes(sym)) {
+                              const next = [...watchlistSymbols, sym];
+                              setWatchlistSymbols(next);
+                              setWatchlistInput(next.join(","));
+                              setLoading(true);
+                              fetchAll(apiKey).finally(() => setLoading(false));
+                            }
+                            setWlSearchQuery("");
+                          }
+                          if (e.key === "Escape") setWlSearchQuery("");
+                        }}
+                        placeholder="Search ticker…"
+                        style={{ background: "transparent", border: "none", outline: "none", color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 4px", width: 130 }}
+                      />
+                      {wlSearchQuery && (
+                        <button
+                          onMouseDown={e => {
+                            e.preventDefault();
+                            const sym = wlSearchQuery.trim().toUpperCase();
+                            if (sym && !watchlistSymbols.includes(sym)) {
+                              const next = [...watchlistSymbols, sym];
+                              setWatchlistSymbols(next);
+                              setWatchlistInput(next.join(","));
+                              setLoading(true);
+                              fetchAll(apiKey).finally(() => setLoading(false));
+                            }
+                            setWlSearchQuery("");
+                          }}
+                          style={{ background: C.accent, border: "none", color: "#fff", fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 10px", cursor: "pointer", borderRadius: "0 5px 5px 0", whiteSpace: "nowrap" }}
+                        >+ ADD</button>
+                      )}
+                    </div>
+                    {/* Suggestion dropdown from market universe */}
+                    {wlSearchFocused && wlSearchQuery.length >= 1 && (() => {
+                      const q = wlSearchQuery.toUpperCase();
+                      const suggestions = MARKET_UNIVERSE_SYMBOLS.filter(s => s.startsWith(q) && !watchlistSymbols.includes(s)).slice(0, 8);
+                      if (!suggestions.length) return null;
+                      return (
+                        <div style={{ position: "absolute", top: "100%", left: 0, zIndex: 200, background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", minWidth: 180, marginTop: 2 }}>
+                          {suggestions.map(sym => (
+                            <div
+                              key={sym}
+                              onMouseDown={e => {
+                                e.preventDefault();
+                                const next = [...watchlistSymbols, sym];
+                                setWatchlistSymbols(next);
+                                setWatchlistInput(next.join(","));
+                                setWlSearchQuery("");
+                                setLoading(true);
+                                fetchAll(apiKey).finally(() => setLoading(false));
+                              }}
+                              style={{ padding: "9px 14px", fontFamily: MONO, fontSize: 13, color: C.text, cursor: "pointer", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                              onMouseEnter={e => e.currentTarget.style.background = C.surface}
+                              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                            >
+                              <span>{sym}</span>
+                              <span style={{ fontSize: 11, color: C.accent, fontWeight: 700 }}>+ ADD</span>
+                            </div>
+                          ))}
+                          {!MARKET_UNIVERSE_SYMBOLS.includes(wlSearchQuery) && (
+                            <div
+                              onMouseDown={e => {
+                                e.preventDefault();
+                                const sym = wlSearchQuery.trim();
+                                if (sym && !watchlistSymbols.includes(sym)) {
+                                  const next = [...watchlistSymbols, sym];
+                                  setWatchlistSymbols(next);
+                                  setWatchlistInput(next.join(","));
+                                  setLoading(true);
+                                  fetchAll(apiKey).finally(() => setLoading(false));
+                                }
+                                setWlSearchQuery("");
+                              }}
+                              style={{ padding: "9px 14px", fontFamily: MONO, fontSize: 12, color: C.accent, cursor: "pointer", display: "flex", justifyContent: "space-between" }}
+                            >
+                              <span>Add "{wlSearchQuery}"</span>
+                              <span style={{ fontWeight: 700 }}>↵</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
                   <button
                     onClick={async () => {
                       try {
