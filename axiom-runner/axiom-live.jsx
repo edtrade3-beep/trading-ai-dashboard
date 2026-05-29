@@ -3113,30 +3113,25 @@ function DeepDive({ stock, fundamentals, onClose, onExit, onOpenTradingView }) {
         </div>
 
         {/* Score Bar */}
-        <div style={{
-          display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10,
-          padding: "12px 14px 2px",
-        }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, padding: "16px 20px 4px" }}>
           {[
             { label: "COMPOSITE", val: scores.composite, col: C.accent },
             { label: "TECHNICAL", val: scores.tech, col: C.cyan },
             { label: "FUNDAMENTAL", val: scores.fund, col: C.purple },
             { label: "MACRO FIT", val: scores.macro, col: C.amber },
           ].map(s => (
-            <div key={s.label} style={{ ...panelCard, borderTop: `3px solid ${s.col}`, padding: "12px 14px", textAlign: "center" }}>
-              <div style={{ fontSize: 8, fontFamily: MONO, color: C.textDim, marginBottom: 5, letterSpacing: "0.1em" }}>{s.label}</div>
-              <div style={{ fontSize: 24, fontFamily: MONO, fontWeight: 800, color: s.col }}>{s.val}</div>
-              <div style={{ marginTop: 5 }}><ScoreBar value={s.val} color={s.col} /></div>
+            <div key={s.label} style={{ ...panelCard, borderTop: `4px solid ${s.col}`, padding: "16px 18px", textAlign: "center" }}>
+              <div style={{ fontSize: 10, fontFamily: MONO, color: C.textDim, marginBottom: 8, letterSpacing: "0.1em" }}>{s.label}</div>
+              <div style={{ fontSize: 36, fontFamily: MONO, fontWeight: 800, color: s.col, lineHeight: 1 }}>{s.val}</div>
+              <div style={{ marginTop: 8 }}><ScoreBar value={s.val} color={s.col} /></div>
             </div>
           ))}
         </div>
 
         {/* Data Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 12, padding: "10px 14px 0" }}>
-          <div style={{ ...panelCard, padding: 18 }}>
-            <div style={{ fontSize: 10, fontFamily: MONO, fontWeight: 800, color: C.cyan, marginBottom: 10, letterSpacing: "0.08em" }}>
-              MARKET DATA
-            </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, padding: "14px 20px 0" }}>
+          <div style={{ ...panelCard, padding: 20 }}>
+            <div style={{ fontSize: 11, fontFamily: MONO, fontWeight: 800, color: C.cyan, marginBottom: 12, letterSpacing: "0.08em" }}>MARKET DATA</div>
             {[
               ["Price", `$${stock.price?.toFixed(2)}`],
               ["Day Range", `$${stock.dayLow?.toFixed(2)} — $${stock.dayHigh?.toFixed(2)}`],
@@ -3146,16 +3141,14 @@ function DeepDive({ stock, fundamentals, onClose, onExit, onOpenTradingView }) {
               ["Rel. Volume", `${rvol}x`],
               ["Market Cap", formatNum(resolvedMarketCap)],
             ].map(([k, v]) => (
-              <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ fontSize: 10, fontFamily: SANS, color: C.textDim }}>{k}</span>
-                <span style={{ fontSize: 10, fontFamily: MONO, color: C.text }}>{v || "—"}</span>
+              <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
+                <span style={{ fontSize: 13, fontFamily: SANS, color: C.textDim }}>{k}</span>
+                <span style={{ fontSize: 13, fontFamily: MONO, color: C.text, fontWeight: 600 }}>{v || "—"}</span>
               </div>
             ))}
           </div>
-          <div style={{ ...panelCard, padding: 18 }}>
-            <div style={{ fontSize: 10, fontFamily: MONO, fontWeight: 800, color: C.purple, marginBottom: 10, letterSpacing: "0.08em" }}>
-              VALUATION & METRICS
-            </div>
+          <div style={{ ...panelCard, padding: 20 }}>
+            <div style={{ fontSize: 11, fontFamily: MONO, fontWeight: 800, color: C.purple, marginBottom: 12, letterSpacing: "0.08em" }}>VALUATION & METRICS</div>
             {[
               ["P/E Ratio", stock.pe?.toFixed(2)],
               ["EPS (TTM)", `$${stock.eps?.toFixed(2)}`],
@@ -3165,20 +3158,18 @@ function DeepDive({ stock, fundamentals, onClose, onExit, onOpenTradingView }) {
               ["50D Avg", stock.priceAvg50 ? `$${stock.priceAvg50.toFixed(2)}` : "—"],
               ["200D Avg", stock.priceAvg200 ? `$${stock.priceAvg200.toFixed(2)}` : "—"],
             ].map(([k, v]) => (
-              <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ fontSize: 10, fontFamily: SANS, color: C.textDim }}>{k}</span>
-                <span style={{ fontSize: 10, fontFamily: MONO, color: C.text }}>{v || "—"}</span>
+              <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
+                <span style={{ fontSize: 13, fontFamily: SANS, color: C.textDim }}>{k}</span>
+                <span style={{ fontSize: 13, fontFamily: MONO, color: C.text, fontWeight: 600 }}>{v || "—"}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* EMA / Trend Analysis */}
-        <div style={{ ...panelCard, margin: "12px 14px 0", padding: 18 }}>
-          <div style={{ fontSize: 10, fontFamily: MONO, fontWeight: 800, color: C.accent, marginBottom: 10, letterSpacing: "0.08em" }}>
-            TREND ANALYSIS
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+        {/* Trend Analysis */}
+        <div style={{ ...panelCard, margin: "14px 20px 0", padding: 20 }}>
+          <div style={{ fontSize: 11, fontFamily: MONO, fontWeight: 800, color: C.accent, marginBottom: 14, letterSpacing: "0.08em" }}>TREND ANALYSIS</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
             {[
               {
                 label: "50D AVG POSITION",
@@ -3202,167 +3193,202 @@ function DeepDive({ stock, fundamentals, onClose, onExit, onOpenTradingView }) {
               },
             ].map(item => (
               <div key={item.label}>
-                <div style={{ fontSize: 8, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em", marginBottom: 4 }}>{item.label}</div>
-                <div style={{ fontSize: 16, fontFamily: MONO, fontWeight: 800, color: item.col }}>{item.val}</div>
-                <div style={{ fontSize: 9, fontFamily: SANS, color: C.textDim, marginTop: 2 }}>{item.detail}</div>
+                <div style={{ fontSize: 10, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>{item.label}</div>
+                <div style={{ fontSize: 26, fontFamily: MONO, fontWeight: 800, color: item.col }}>{item.val}</div>
+                <div style={{ fontSize: 12, fontFamily: SANS, color: C.textDim, marginTop: 4 }}>{item.detail}</div>
               </div>
             ))}
           </div>
         </div>
 
         {/* Deep Dive Pro */}
-        <div style={{ ...panelCard, margin: "12px 14px 0", padding: 18 }}>
-          <div style={{ fontSize: 10, fontFamily: MONO, fontWeight: 800, color: C.green, marginBottom: 10, letterSpacing: "0.08em" }}>
-            DEEP DIVE PRO
+        <div style={{ margin: "14px 20px 0" }}>
+          <div style={{ fontSize: 12, fontFamily: MONO, fontWeight: 800, color: C.green, marginBottom: 14, letterSpacing: "0.08em", padding: "0 2px" }}>DEEP DIVE PRO</div>
+
+          {/* Row 1: Institutional Read + Trade Plan */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+            <div style={{ ...panelCard, padding: 20 }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 12 }}>INSTITUTIONAL READ</div>
+              <div style={{ fontSize: 13, color: C.textSec, marginBottom: 10, lineHeight: 1.6 }}>
+                <strong style={{ color: C.green }}>Bull:</strong> {trendState === "Primary Uptrend" ? "Trend leadership intact with favorable structure and upside continuation potential." : "Needs reclaim of trend stack (price > 50D > 200D) before high-conviction continuation."}
+              </div>
+              <div style={{ fontSize: 13, color: C.textSec, marginBottom: 10, lineHeight: 1.6 }}>
+                <strong style={{ color: C.red }}>Bear:</strong> {trendState === "Primary Downtrend" ? "Downtrend pressure remains with higher risk of lower highs and lower lows." : "Loss of 50D support can trigger fast de-risking into range lows."}
+              </div>
+              <div style={{ fontSize: 13, color: C.textSec, lineHeight: 1.6 }}>
+                <strong style={{ color: C.amber }}>Macro:</strong> {macroFit}. Stock responds more to broad risk regime than idiosyncratic catalysts in high-volatility sessions.
+              </div>
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginBottom: 8 }}>TECHNICAL CHECKLIST</div>
+                <div style={{ fontSize: 13, color: C.textSec, lineHeight: 1.6 }}>
+                  Trend: <strong>{stock.price > (stock.priceAvg50 || 0) ? "Aligned ✅" : "Weak ⚠️"}</strong> ·
+                  RVOL: <strong>{rvol}x</strong> ·
+                  52W pos: <strong>{stock.yearHigh && stock.yearLow ? `${(((stock.price - stock.yearLow) / Math.max(0.01, (stock.yearHigh - stock.yearLow))) * 100).toFixed(0)}%` : "n/a"}</strong>
+                </div>
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginBottom: 8 }}>FUNDAMENTAL PROXY</div>
+                <div style={{ fontSize: 13, color: C.textSec, lineHeight: 1.6 }}>
+                  Market cap: <strong>{formatNum(resolvedMarketCap)}</strong> ·
+                  Trend: <strong>{(stock.priceAvg50 && stock.priceAvg200 && stock.priceAvg50 > stock.priceAvg200) ? "Improving" : "Mixed/weak"}</strong> ·
+                  Quality: <strong>{scores.fund >= 65 ? "Higher" : scores.fund >= 50 ? "Neutral" : "Lower"}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ ...panelCard, padding: 20 }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 12 }}>TRADE PLAN</div>
+              {[
+                ["Setup",        setup,                   setup.includes("BUY") ? C.green : setup.includes("WAIT") ? C.amber : C.red],
+                ["Entry Zone",   `$${entry.toFixed(2)}`,  C.text],
+                ["Stop",         `$${stop.toFixed(2)}`,   C.red],
+                ["Target 1",     `$${target1.toFixed(2)}`, C.green],
+                ["Target 2",     `$${target2.toFixed(2)}`, C.green],
+                ["R:R",          `${rr.toFixed(2)}x`,     rr >= 1.5 ? C.green : C.amber],
+              ].map(([k, v, col]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: 13, color: C.textDim }}>{k}</span>
+                  <span style={{ fontSize: 14, fontFamily: MONO, fontWeight: 700, color: col }}>{v}</span>
+                </div>
+              ))}
+              <div style={{ fontSize: 12, color: C.textDim, marginTop: 12, lineHeight: 1.6 }}>
+                Invalidation: close below stop on rising volume. Risk max 0.5%–1% per trade.
+              </div>
+            </div>
           </div>
-          {(() => {
-            return (
-              <>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
-                <div style={{ ...panelCard, padding: 12 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.accent, marginBottom: 8 }}>INSTITUTIONAL READ</div>
-                  <div style={{ fontSize: 12, color: C.textSec, marginBottom: 6 }}>
-                    Bull case: {trendState === "Primary Uptrend" ? "Trend leadership intact with favorable structure and upside continuation potential." : "Needs reclaim of trend stack (price > 50D > 200D) before high-conviction continuation."}
-                  </div>
-                  <div style={{ fontSize: 12, color: C.textSec, marginBottom: 6 }}>
-                    Bear case: {trendState === "Primary Downtrend" ? "Downtrend pressure remains with higher risk of lower highs and lower lows." : "Loss of 50D support can trigger fast de-risking into range lows."}
-                  </div>
-                  <div style={{ fontSize: 12, color: C.textSec }}>
-                    Macro fit: {macroFit}. Stock likely responds more to broad risk regime than idiosyncratic catalysts in high-volatility sessions.
-                  </div>
-                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>TECHNICAL CHECKLIST</div>
-                    <div style={{ fontSize: 11, color: C.textSec, lineHeight: 1.45 }}>
-                      Trend: {stock.price > (stock.priceAvg50 || 0) ? "Aligned" : "Weak"} ·
-                      RVOL: {rvol}x ·
-                      52W position: {stock.yearHigh && stock.yearLow ? `${(((stock.price - stock.yearLow) / Math.max(0.01, (stock.yearHigh - stock.yearLow))) * 100).toFixed(0)}%` : "n/a"}
-                    </div>
-                  </div>
-                  <div style={{ marginTop: 8 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>FUNDAMENTAL PROXY</div>
-                    <div style={{ fontSize: 11, color: C.textSec, lineHeight: 1.45 }}>
-                      Market cap: {formatNum(resolvedMarketCap)} ·
-                      50D vs 200D: {(stock.priceAvg50 && stock.priceAvg200 && stock.priceAvg50 > stock.priceAvg200) ? "Improving trend" : "Mixed/weak"} ·
-                      Quality flag: {scores.fund >= 65 ? "Higher quality" : scores.fund >= 50 ? "Neutral quality" : "Lower quality"}
-                    </div>
-                  </div>
+
+          {/* Row 2: Technical Intel + Fundamental + Scenario */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
+            <div style={{ ...panelCard, padding: 20 }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 12 }}>TECHNICAL INTELLIGENCE</div>
+              {[
+                ["Trend state", trendState],
+                ["Structure", structureState],
+                ["RVOL", `${rvol}x`],
+                ["ATR proxy", `${atrProxyPct.toFixed(2)}%`],
+              ].map(([k, v]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: 12, color: C.textDim }}>{k}</span>
+                  <span style={{ fontSize: 13, fontFamily: MONO, color: C.text, fontWeight: 600 }}>{v}</span>
                 </div>
-                <div style={{ ...panelCard, padding: 12 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.accent, marginBottom: 8 }}>TRADE PLAN</div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 5 }}><span style={{ color: C.textDim }}>Setup</span><span style={{ color: setup.includes("BUY") ? C.green : setup.includes("WAIT") ? C.amber : C.red, fontFamily: MONO }}>{setup}</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 5 }}><span style={{ color: C.textDim }}>Entry Zone</span><span style={{ color: C.text, fontFamily: MONO }}>${entry.toFixed(2)}</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 5 }}><span style={{ color: C.textDim }}>Stop</span><span style={{ color: C.red, fontFamily: MONO }}>${stop.toFixed(2)}</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 5 }}><span style={{ color: C.textDim }}>Target 1</span><span style={{ color: C.green, fontFamily: MONO }}>${target1.toFixed(2)}</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 5 }}><span style={{ color: C.textDim }}>Target 2</span><span style={{ color: C.green, fontFamily: MONO }}>${target2.toFixed(2)}</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 5 }}><span style={{ color: C.textDim }}>R:R</span><span style={{ color: rr >= 1.5 ? C.green : C.amber, fontFamily: MONO }}>{rr.toFixed(2)}x</span></div>
-                  <div style={{ fontSize: 10, color: C.textDim, marginTop: 8 }}>
-                    Invalidation: close below stop with rising volume. Position size note: risk max 0.5%–1% per trade.
-                  </div>
+              ))}
+            </div>
+            <div style={{ ...panelCard, padding: 20 }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 12 }}>FUNDAMENTAL SNAPSHOT</div>
+              {[
+                ["Market cap", formatNum(resolvedMarketCap)],
+                ["Valuation", `${valuationState}${resolvedPe > 0 ? ` (P/E ${resolvedPe.toFixed(1)})` : ""}`],
+                ["EPS proxy", resolvedEps > 0 ? `$${resolvedEps.toFixed(2)}` : "Not available"],
+                ["Quality", qualityState],
+              ].map(([k, v]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: 12, color: C.textDim }}>{k}</span>
+                  <span style={{ fontSize: 13, fontFamily: MONO, color: C.text, fontWeight: 600 }}>{v}</span>
                 </div>
+              ))}
+            </div>
+            <div style={{ ...panelCard, padding: 20 }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 12 }}>SCENARIO MATRIX</div>
+              {[
+                ["Bull continuation", `${bullProb}%`, C.green],
+                ["Base consolidation", `${baseProb}%`, C.amber],
+                ["Bear breakdown", `${bearProb}%`, C.red],
+                ["52W position", `${yearPos.toFixed(0)}%`, C.text],
+              ].map(([k, v, col]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: 12, color: C.textDim }}>{k}</span>
+                  <span style={{ fontSize: 14, fontFamily: MONO, fontWeight: 700, color: col }}>{v}</span>
+                </div>
+              ))}
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginBottom: 8 }}>12M PRICE ESTIMATE</div>
+                {[
+                  ["Bear", `$${bear12m.toFixed(2)}`, `${downsideBearPct.toFixed(1)}%`, C.red],
+                  ["Base", `$${base12m.toFixed(2)}`, `${upsideBasePct >= 0 ? "+" : ""}${upsideBasePct.toFixed(1)}%`, C.accent],
+                  ["Bull", `$${bull12m.toFixed(2)}`, `${upsideBullPct >= 0 ? "+" : ""}${upsideBullPct.toFixed(1)}%`, C.green],
+                ].map(([k, price, pct, col]) => (
+                  <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
+                    <span style={{ fontSize: 12, color: C.textDim }}>{k}</span>
+                    <span style={{ fontSize: 13, fontFamily: MONO, color: col, fontWeight: 600 }}>{price} <span style={{ fontSize: 11 }}>({pct})</span></span>
+                  </div>
+                ))}
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12, marginTop: 12 }}>
-                <div style={{ ...panelCard, padding: 12 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.accent, marginBottom: 6 }}>TECHNICAL INTELLIGENCE</div>
-                  <div style={{ fontSize: 11, color: C.textSec, lineHeight: 1.55 }}>
-                    Trend state: {trendState}<br />
-                    Structure: {structureState}<br />
-                    RVOL: {rvol}x<br />
-                    Intraday range / ATR proxy: {atrProxyPct.toFixed(2)}%
-                  </div>
-                </div>
-                <div style={{ ...panelCard, padding: 12 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.accent, marginBottom: 6 }}>FUNDAMENTAL SNAPSHOT</div>
-                  <div style={{ fontSize: 11, color: C.textSec, lineHeight: 1.55 }}>
-                Market cap: {formatNum(resolvedMarketCap)}<br />
-                Valuation: {valuationState} {resolvedPe > 0 ? `(P/E ${resolvedPe.toFixed(1)})` : ""}<br />
-                EPS proxy: {resolvedEps > 0 ? `$${resolvedEps.toFixed(2)}` : "Not available"}<br />
-                Quality: {qualityState}
+            </div>
+          </div>
+
+          {/* Row 3: Catalysts + Sizing */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+            <div style={{ ...panelCard, padding: 20 }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 12 }}>CATALYSTS & RISKS</div>
+              <div style={{ fontSize: 13, color: C.textSec, lineHeight: 1.7 }}>
+                <div style={{ marginBottom: 8 }}><strong style={{ fontFamily: MONO, fontSize: 11, color: C.green }}>CATALYST</strong><br />{catalystNote}</div>
+                <div style={{ marginBottom: 8 }}><strong style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>RISK FLAG</strong><br />{riskNote}</div>
+                <div><strong style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>CONFIRMATION</strong><br />Hold above entry zone and improve relative volume and trend quality.</div>
               </div>
+            </div>
+            <div style={{ ...panelCard, padding: 20 }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 12 }}>POSITION SIZING</div>
+              {[
+                ["Risk Budget",       `$${riskBudget.toFixed(0)}`,           C.text],
+                ["Risk / Share",      `$${riskPerShare.toFixed(2)}`,          C.text],
+                ["Suggested Size",    `${sizeShares.toLocaleString()} shares`, C.green],
+                ["Position Notional", `$${positionValue.toFixed(0)}`,         C.accent],
+              ].map(([k, v, col]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: 13, color: C.textDim }}>{k}</span>
+                  <span style={{ fontSize: 15, fontFamily: MONO, fontWeight: 700, color: col }}>{v}</span>
                 </div>
-                <div style={{ ...panelCard, padding: 12 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.accent, marginBottom: 6 }}>SCENARIO MATRIX</div>
-                  <div style={{ fontSize: 11, color: C.textSec, lineHeight: 1.55 }}>
-                    Bull continuation: <span style={{ color: C.green, fontFamily: MONO }}>{bullProb}%</span><br />
-                    Base consolidation: <span style={{ color: C.amber, fontFamily: MONO }}>{baseProb}%</span><br />
-                    Bear breakdown: <span style={{ color: C.red, fontFamily: MONO }}>{bearProb}%</span><br />
-                    Year range position: <span style={{ fontFamily: MONO }}>{yearPos.toFixed(0)}%</span>
-                  </div>
-                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>12M PRICE ESTIMATE</div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 5 }}>
-                      <span style={{ color: C.textDim }}>Bear (12m)</span>
-                      <span style={{ color: C.red, fontFamily: MONO }}>${bear12m.toFixed(2)} ({downsideBearPct >= 0 ? "+" : ""}{downsideBearPct.toFixed(1)}%)</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 5 }}>
-                      <span style={{ color: C.textDim }}>Base (12m)</span>
-                      <span style={{ color: C.accent, fontFamily: MONO }}>${base12m.toFixed(2)} ({upsideBasePct >= 0 ? "+" : ""}{upsideBasePct.toFixed(1)}%)</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 2 }}>
-                      <span style={{ color: C.textDim }}>Bull (12m)</span>
-                      <span style={{ color: C.green, fontFamily: MONO }}>${bull12m.toFixed(2)} ({upsideBullPct >= 0 ? "+" : ""}{upsideBullPct.toFixed(1)}%)</span>
-                    </div>
-                    <div style={{ fontSize: 10, color: C.textDim, marginTop: 6 }}>
-                      Model: {estModelTag}. For decision support only.
-                    </div>
-                  </div>
-                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Row 4: Tech Deep Dive + Fund Deep Dive */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ ...panelCard, padding: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.cyan }}>TECHNICAL DEEP DIVE</div>
+                <Badge color={technicalDeepScore >= 70 ? C.green : technicalDeepScore >= 55 ? C.amber : C.red}>{technicalDeepScore}</Badge>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 12, marginTop: 12 }}>
-                <div style={{ ...panelCard, padding: 12 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.accent, marginBottom: 6 }}>CATALYSTS & RISKS</div>
-                  <div style={{ fontSize: 11, color: C.textSec, lineHeight: 1.55 }}>
-                    Catalyst watch: {catalystNote}<br />
-                    Risk flag: {riskNote}<br />
-                    Confirmation needed: hold above entry zone and improve relative volume and trend quality.
-                  </div>
+              {[
+                ["Trend Stack (9/21/50/200 proxy)", techTrendScore],
+                ["Momentum (CHG% + RVOL)", Math.round(techMomentumScore)],
+                ["Structure (52W range position)", Math.round(techStructureScore)],
+                ["Volatility Efficiency", Math.round(techVolatilityScore)],
+              ].map(([label, val]) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: 13, color: C.textSec }}>{label}</span>
+                  <span style={{ fontSize: 14, fontFamily: MONO, fontWeight: 700, color: val >= 70 ? C.green : val >= 55 ? C.amber : C.red }}>{val}</span>
                 </div>
-                <div style={{ ...panelCard, padding: 12 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.accent, marginBottom: 6 }}>POSITION SIZING NOTE</div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 5 }}><span style={{ color: C.textDim }}>Risk Budget</span><span style={{ color: C.text, fontFamily: MONO }}>${riskBudget.toFixed(0)}</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 5 }}><span style={{ color: C.textDim }}>Risk / Share</span><span style={{ color: C.text, fontFamily: MONO }}>${riskPerShare.toFixed(2)}</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 5 }}><span style={{ color: C.textDim }}>Suggested Size</span><span style={{ color: C.text, fontFamily: MONO }}>{sizeShares.toLocaleString()} sh</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}><span style={{ color: C.textDim }}>Position Notional</span><span style={{ color: C.text, fontFamily: MONO }}>${positionValue.toFixed(0)}</span></div>
-                </div>
+              ))}
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}`, fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>
+                {technicalDeepScore >= 70 ? "✅ Institutional-quality continuation profile." : technicalDeepScore >= 55 ? "⚠️ Tradable with confirmation and tighter risk." : "❌ Weak technical quality — avoid forcing entries."}
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 12, marginTop: 12 }}>
-                <div style={{ ...panelCard, padding: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.cyan }}>TECHNICAL DEEP DIVE</div>
-                    <Badge color={technicalDeepScore >= 70 ? C.green : technicalDeepScore >= 55 ? C.amber : C.red}>{technicalDeepScore}</Badge>
-                  </div>
-                  <div style={{ display: "grid", gap: 5, fontSize: 11, color: C.textSec, lineHeight: 1.45 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Trend Stack (9/21/50/200 proxy)</span><span style={{ fontFamily: MONO, color: techTrendScore >= 70 ? C.green : techTrendScore >= 55 ? C.amber : C.red }}>{techTrendScore}</span></div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Momentum (CHG% + RVOL)</span><span style={{ fontFamily: MONO, color: techMomentumScore >= 70 ? C.green : techMomentumScore >= 55 ? C.amber : C.red }}>{Math.round(techMomentumScore)}</span></div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Structure (52W range position)</span><span style={{ fontFamily: MONO, color: techStructureScore >= 70 ? C.green : techStructureScore >= 55 ? C.amber : C.red }}>{Math.round(techStructureScore)}</span></div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Volatility Efficiency</span><span style={{ fontFamily: MONO, color: techVolatilityScore >= 70 ? C.green : techVolatilityScore >= 55 ? C.amber : C.red }}>{Math.round(techVolatilityScore)}</span></div>
-                  </div>
-                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}`, fontSize: 10, color: C.textDim }}>
-                    Trigger quality: {technicalDeepScore >= 70 ? "Institutional-quality continuation profile." : technicalDeepScore >= 55 ? "Tradable with confirmation and tighter risk." : "Weak technical quality, avoid forcing entries."}
-                  </div>
-                </div>
-                <div style={{ ...panelCard, padding: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.purple }}>FUNDAMENTAL DEEP DIVE</div>
-                    <Badge color={fundamentalDeepScore >= 70 ? C.green : fundamentalDeepScore >= 55 ? C.amber : C.red}>{fundamentalDeepScore}</Badge>
-                  </div>
-                  <div style={{ display: "grid", gap: 5, fontSize: 11, color: C.textSec, lineHeight: 1.45 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Valuation Quality</span><span style={{ fontFamily: MONO, color: fundValuationScore >= 70 ? C.green : fundValuationScore >= 55 ? C.amber : C.red }}>{fundValuationScore}</span></div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>EPS Power (proxy)</span><span style={{ fontFamily: MONO, color: fundEpsScore >= 70 ? C.green : fundEpsScore >= 55 ? C.amber : C.red }}>{Math.round(fundEpsScore)}</span></div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Quality Composite</span><span style={{ fontFamily: MONO, color: fundQualityScore >= 70 ? C.green : fundQualityScore >= 55 ? C.amber : C.red }}>{fundQualityScore}</span></div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Durability / Scale</span><span style={{ fontFamily: MONO, color: fundDurabilityScore >= 70 ? C.green : fundDurabilityScore >= 55 ? C.amber : C.red }}>{Math.round(fundDurabilityScore)}</span></div>
-                  </div>
-                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}`, fontSize: 10, color: C.textDim }}>
-                    12m Base/Bull/Bear: <span style={{ fontFamily: MONO, color: C.text }}>${base12m.toFixed(2)} / ${bull12m.toFixed(2)} / ${bear12m.toFixed(2)}</span>
-                  </div>
-                </div>
+            </div>
+            <div style={{ ...panelCard, padding: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.purple }}>FUNDAMENTAL DEEP DIVE</div>
+                <Badge color={fundamentalDeepScore >= 70 ? C.green : fundamentalDeepScore >= 55 ? C.amber : C.red}>{fundamentalDeepScore}</Badge>
               </div>
-              </>
-            );
-          })()}
+              {[
+                ["Valuation Quality", fundValuationScore],
+                ["EPS Power (proxy)", Math.round(fundEpsScore)],
+                ["Quality Composite", fundQualityScore],
+                ["Durability / Scale", Math.round(fundDurabilityScore)],
+              ].map(([label, val]) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: 13, color: C.textSec }}>{label}</span>
+                  <span style={{ fontSize: 14, fontFamily: MONO, fontWeight: 700, color: val >= 70 ? C.green : val >= 55 ? C.amber : C.red }}>{val}</span>
+                </div>
+              ))}
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}`, fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>
+                12m estimates — Bear: <span style={{ fontFamily: MONO, color: C.red }}>${bear12m.toFixed(2)}</span> · Base: <span style={{ fontFamily: MONO, color: C.accent }}>${base12m.toFixed(2)}</span> · Bull: <span style={{ fontFamily: MONO, color: C.green }}>${bull12m.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Disclaimer */}
-        <div style={{ margin: "12px 14px 16px", padding: "10px 18px", fontSize: 9, fontFamily: SANS, color: C.textDim, background: "#f8fbff", border: `1px solid ${C.borderLit}`, borderRadius: 8, fontStyle: "italic" }}>
+        <div style={{ margin: "16px 20px 20px", padding: "12px 20px", fontSize: 11, fontFamily: SANS, color: C.textDim, background: "#f8fbff", border: `1px solid ${C.borderLit}`, borderRadius: 8, fontStyle: "italic", lineHeight: 1.6 }}>
           Decision support only — not financial advice. Scores are heuristic estimates. Full fundamental & macro scoring requires additional API data (income statements, macro indicators).
         </div>
       </div>
