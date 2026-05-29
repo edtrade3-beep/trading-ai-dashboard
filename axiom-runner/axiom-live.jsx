@@ -334,9 +334,26 @@ const CANDLE_BASE_URL = "/api/yahoo";
 
 // ── Symbols ──
 const WATCHLIST_SYMBOLS = [
-  "NVDA","AAPL","MSFT","AMZN","META","GOOGL","TSLA","JPM","XOM","UNH","LLY","AVGO","HD","V","CRM",
-  "AMD","QCOM","MU","INTC","ORCL","ADBE","NFLX","COST","WMT","BAC","WFC","GS","MS","CAT","DE",
-  "NKE","MCD","DIS","PFE","MRK","ABBV","KO","PEP","TMO","AMGN","ISRG","PANW","PLTR","UBER","SHOP"
+  // Mega-cap tech & AI
+  "NVDA","AAPL","MSFT","AMZN","META","GOOGL","TSLA","AVGO","CRM","ADBE","ORCL","NFLX",
+  // Semis
+  "AMD","QCOM","MU","INTC","AMAT","LRCX","KLAC","MRVL","ARM","SMCI",
+  // High-growth / momentum tech
+  "PLTR","PANW","CRWD","SNOW","NOW","UBER","SHOP","COIN","NET","DDOG","ZS","OKTA",
+  // Financials
+  "JPM","BAC","WFC","GS","MS","V","MA","AXP","BX","SCHW",
+  // Healthcare & biotech
+  "UNH","LLY","ABBV","MRK","PFE","TMO","ISRG","AMGN","VRTX","REGN",
+  // Consumer & retail
+  "COST","WMT","HD","MCD","NKE","SBUX","CMG","TGT","AMZN",
+  // Energy
+  "XOM","CVX","COP","OXY","SLB",
+  // Industrial & defense
+  "CAT","DE","RTX","LMT","BA",
+  // Staples & dividend
+  "KO","PEP","PG","JNJ",
+  // ETF proxies for macro
+  "SPY","QQQ","IWM","XLK","XLE","XLF","GLD"
 ];
 const MARKET_UNIVERSE_SYMBOLS = [
   "AAPL","MSFT","NVDA","AMZN","META","GOOGL","TSLA","AVGO","BRK.B","JPM","V","UNH","XOM","LLY","MA","HD","PG","COST","JNJ","MRK",
