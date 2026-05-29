@@ -2981,7 +2981,7 @@ function TerminalWorkspace({
   );
 }
 
-function DeepDive({ stock, fundamentals, onClose, onExit, onOpenTradingView }) {
+function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, onOpenTradingView }) {
   if (!stock) return null;
   const chg = stock.changesPercentage || 0;
   const isUp = chg >= 0;
@@ -3156,7 +3156,7 @@ function DeepDive({ stock, fundamentals, onClose, onExit, onOpenTradingView }) {
               ["Volume", stock.volume?.toLocaleString()],
               ["Avg Volume", stock.avgVolume?.toLocaleString()],
               ["Rel. Volume", `${rvol}x`],
-              ["Market Cap", resolvedMarketCap > 0 ? formatNum(resolvedMarketCap) : "—"],
+              ["Market Cap", resolvedMarketCap > 0 ? formatNum(resolvedMarketCap) : (fundamentalsLoading ? "…" : "—")],
             ].map(([k, v]) => (
               <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
                 <span style={{ fontSize: 13, fontFamily: SANS, color: C.textDim }}>{k}</span>
@@ -3165,11 +3165,14 @@ function DeepDive({ stock, fundamentals, onClose, onExit, onOpenTradingView }) {
             ))}
           </div>
           <div style={{ ...panelCard, padding: 20 }}>
-            <div style={{ fontSize: 11, fontFamily: MONO, fontWeight: 800, color: C.purple, marginBottom: 12, letterSpacing: "0.08em" }}>VALUATION & METRICS</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontFamily: MONO, fontWeight: 800, color: C.purple, letterSpacing: "0.08em" }}>VALUATION & METRICS</div>
+              {fundamentalsLoading && <span style={{ fontSize: 10, fontFamily: MONO, color: C.amber }}>⏳ Loading…</span>}
+            </div>
             {[
-              ["P/E Ratio", resolvedPe > 0 ? resolvedPe.toFixed(1) : "—"],
-              ["EPS (TTM)", resolvedEps > 0 ? `$${resolvedEps.toFixed(2)}` : "—"],
-              ["Shares Out", stock.sharesOutstanding ? `${(stock.sharesOutstanding / 1e9).toFixed(2)}B` : "—"],
+              ["P/E Ratio", resolvedPe > 0 ? resolvedPe.toFixed(1) : (fundamentalsLoading ? "…" : "—")],
+              ["EPS (TTM)", resolvedEps > 0 ? `$${resolvedEps.toFixed(2)}` : (fundamentalsLoading ? "…" : "—")],
+              ["Shares Out", (() => { const sh = Number(fundamentals?.sharesOutstanding || stock.sharesOutstanding || 0); return sh > 0 ? `${(sh / 1e9).toFixed(2)}B` : (fundamentalsLoading ? "…" : "—"); })()],
               ["Open", `$${stock.open?.toFixed(2)}`],
               ["Prev Close", `$${stock.previousClose?.toFixed(2)}`],
               ["50D Avg", stock.priceAvg50 ? `$${stock.priceAvg50.toFixed(2)}` : "—"],
@@ -4163,6 +4166,7 @@ export default function App() {
   const [terminalPanelCandles, setTerminalPanelCandles] = useState({});
   const [terminalFundamentals, setTerminalFundamentals] = useState(null);
   const [selectedFundamentals, setSelectedFundamentals] = useState(null);
+  const [selectedFundamentalsLoading, setSelectedFundamentalsLoading] = useState(false);
   const [dataSourceStatus, setDataSourceStatus] = useState("connecting");
   const [terminalLayout, setTerminalLayout] = useState(DEFAULT_SETTINGS.terminalLayout);
   const [hotkeyProfile, setHotkeyProfile] = useState(DEFAULT_SETTINGS.hotkeyProfile);
@@ -5835,14 +5839,16 @@ export default function App() {
     let cancelled = false;
     if (!selectedStock?.symbol) {
       setSelectedFundamentals(null);
+      setSelectedFundamentalsLoading(false);
       return () => { cancelled = true; };
     }
+    setSelectedFundamentalsLoading(true);
     fetchFundamentals(selectedStock.symbol, providerKeys)
       .then((f) => {
-        if (!cancelled) setSelectedFundamentals(f || null);
+        if (!cancelled) { setSelectedFundamentals(f || null); setSelectedFundamentalsLoading(false); }
       })
       .catch(() => {
-        if (!cancelled) setSelectedFundamentals(null);
+        if (!cancelled) { setSelectedFundamentals(null); setSelectedFundamentalsLoading(false); }
       });
     return () => { cancelled = true; };
   }, [selectedStock?.symbol, providerKeys]);
@@ -16994,6 +17000,7 @@ export default function App() {
         <DeepDive
           stock={selectedStock}
           fundamentals={selectedFundamentals}
+          fundamentalsLoading={selectedFundamentalsLoading}
           onClose={() => setSelectedStock(null)}
           onExit={() => { setSelectedStock(null); setActiveTab("dashboard"); }}
           onOpenTradingView={openTradingView}
