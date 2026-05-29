@@ -3046,11 +3046,11 @@ function DeepDive({ stock, fundamentals, onClose, onExit, onOpenTradingView }) {
   return (
     <div onClick={onClose} style={{
       position: "fixed", inset: 0, background: "linear-gradient(180deg, #f4f8ff 0%, #edf3fb 100%)",
-      zIndex: 1000, overflow: "hidden",
+      zIndex: 1000, overflowY: "auto", overflowX: "hidden",
     }}>
       <div onClick={e => e.stopPropagation()} style={{
         width: "100%", maxWidth: "100%", minHeight: "100vh", background: "transparent",
-        border: "none", borderRadius: 0, overflowY: "auto", overflowX: "hidden", boxSizing: "border-box",
+        border: "none", borderRadius: 0, boxSizing: "border-box",
       }}>
         {/* Header */}
         <div style={{
@@ -3139,7 +3139,7 @@ function DeepDive({ stock, fundamentals, onClose, onExit, onOpenTradingView }) {
               ["Volume", stock.volume?.toLocaleString()],
               ["Avg Volume", stock.avgVolume?.toLocaleString()],
               ["Rel. Volume", `${rvol}x`],
-              ["Market Cap", formatNum(resolvedMarketCap)],
+              ["Market Cap", resolvedMarketCap > 0 ? formatNum(resolvedMarketCap) : "—"],
             ].map(([k, v]) => (
               <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
                 <span style={{ fontSize: 13, fontFamily: SANS, color: C.textDim }}>{k}</span>
@@ -3150,8 +3150,8 @@ function DeepDive({ stock, fundamentals, onClose, onExit, onOpenTradingView }) {
           <div style={{ ...panelCard, padding: 20 }}>
             <div style={{ fontSize: 11, fontFamily: MONO, fontWeight: 800, color: C.purple, marginBottom: 12, letterSpacing: "0.08em" }}>VALUATION & METRICS</div>
             {[
-              ["P/E Ratio", stock.pe?.toFixed(2)],
-              ["EPS (TTM)", `$${stock.eps?.toFixed(2)}`],
+              ["P/E Ratio", resolvedPe > 0 ? resolvedPe.toFixed(1) : "—"],
+              ["EPS (TTM)", resolvedEps > 0 ? `$${resolvedEps.toFixed(2)}` : "—"],
               ["Shares Out", stock.sharesOutstanding ? `${(stock.sharesOutstanding / 1e9).toFixed(2)}B` : "—"],
               ["Open", `$${stock.open?.toFixed(2)}`],
               ["Prev Close", `$${stock.previousClose?.toFixed(2)}`],
