@@ -17251,7 +17251,7 @@ export default function App() {
 
       <style>{`
         @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.3 } }
-        @keyframes axiomTickerLTR { 0% { transform: translateX(-55%); } 100% { transform: translateX(100%); } }
+        @keyframes axiomTickerLTR { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
         .axiom-ticker-track:hover { animation-play-state: paused; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         ::-webkit-scrollbar { width: 3px; height: 3px; }
