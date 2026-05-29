@@ -7527,7 +7527,7 @@ export default function App() {
           select, input[type="text"], input[type="number"], input[type="search"] { font-size: 16px !important; }
           ::-webkit-scrollbar { display: none; }
           * { scrollbar-width: none; }
-          .axiom-ticker-track { animation-duration: 160s !important; }
+          .axiom-ticker-track { animation-duration: 280s !important; }
           table { width: 100%; }
           td, th { white-space: nowrap; }
           .mobile-nav-btn { min-height: 44px !important; min-width: 44px !important; padding: 10px 11px !important; font-size: 11px !important; }
@@ -7882,7 +7882,7 @@ export default function App() {
 
       {/* News / Alert Tape */}
       <div style={{ borderBottom: `1px solid ${C.border}`, background: themeMode === "dark" ? "#080f1e" : "#f7faff", overflow: "hidden", whiteSpace: "nowrap" }}>
-        <div className="axiom-ticker-track" style={{ display: "inline-flex", alignItems: "center", gap: 26, padding: "5px 0", animation: "axiomTickerLTR 320s linear infinite" }}>
+        <div className="axiom-ticker-track" style={{ display: "inline-flex", alignItems: "center", gap: 26, padding: "5px 0", animation: "axiomTickerLTR 500s linear infinite" }}>
           {[...topHeadlineTape, ...topHeadlineTape].map((item, i) => {
             const isDarkNews = themeMode === "dark" && item.kind === "NEWS";
             const toneColor = isDarkNews ? "#2a2100" : (item.tone === "red" ? C.red : item.tone === "green" ? C.green : item.tone === "amber" ? C.amber : C.accent);
