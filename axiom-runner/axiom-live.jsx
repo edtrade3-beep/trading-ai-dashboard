@@ -9933,19 +9933,6 @@ export default function App() {
       {/* Data source info bar + action buttons â€” desktop only */}
       {!isMobile && <div style={{ padding: "3px 12px 3px 18px", borderBottom: `1px solid ${C.border}`, background: themeMode === "dark" ? "#080e1c" : C.surface, display: "flex", alignItems: "center", gap: 10, flexWrap: "nowrap" }}>
         {/* Left: data source info */}
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, whiteSpace: "nowrap" }}>DATA SOURCE:</span>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textSec, whiteSpace: "nowrap" }}>Multi Provider (Finnhub + FMP + Yahoo Fallback)</span>
-        <span onClick={() => setActiveTab("tools")} style={{ fontFamily: MONO, fontSize: 9, color: C.accent, cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}>LOG</span>
-        <span style={{ width: 1, height: 10, background: C.border, flexShrink: 0 }} />
-        <Badge color={dataBadgeColor}>{dataBadge}</Badge>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, whiteSpace: "nowrap" }}>
-          {providersConfigured > 0 ? `${providersConfigured} key${providersConfigured > 1 ? "s" : ""} configured` : "No API keys"}
-        </span>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, whiteSpace: "nowrap" }}>
-          {lastUpdate ? `Last tick ${lastUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Awaiting first tick"}
-          {dataFreshSec !== null ? ` Â· ${dataFreshSec}s ago` : ""}
-        </span>
-
         {/* Right: search + action buttons (moved from topbar) */}
         <div style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: "auto", flexShrink: 0 }}>
           {/* Search */}
