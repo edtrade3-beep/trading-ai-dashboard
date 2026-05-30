@@ -5434,6 +5434,7 @@ export default function App() {
   const [volumeFilter, setVolumeFilter] = useState("ALL"); // ALL | HIGH | NORMAL | LOW
   const [scoreFilter,  setScoreFilter]  = useState("ALL"); // ALL | 70+ | 60+ | 50+ | <50
   const [sortDir, setSortDir] = useState("desc");
+  const [wlCardView, setWlCardView] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
   const intervalRef = useRef(null);
   const seenTriggeredAlerts = useRef(new Set());
   const lastAlertsTabVisit = useRef(0);
@@ -9580,10 +9581,15 @@ export default function App() {
                       </>
                     )}
 
-                    {/* Result count */}
+                    {/* Result count + view toggle */}
                     <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: "auto" }}>
                       {signalFiltered.length} / {sorted.length}
                     </span>
+                    <button onClick={() => setWlCardView(v => !v)}
+                      title={wlCardView ? "Switch to table view" : "Switch to card view"}
+                      style={{ border: `1px solid ${C.border}`, background: wlCardView ? `${C.accent}18` : C.surface, color: wlCardView ? C.accent : C.textDim, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
+                      {wlCardView ? "⊞ CARDS" : "☰ TABLE"}
+                    </button>
                   </div>
                 );
               })()}
@@ -9631,6 +9637,56 @@ export default function App() {
                   </div>
                 );
               })()}
+              {wlCardView ? (
+                /* ── CARD VIEW ─────────────────────────────────────────── */
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10, marginBottom: 6 }}>
+                  {signalFiltered.map(q => {
+                    const chg    = q.changesPercentage || 0;
+                    const isUp   = chg >= 0;
+                    const scores = computeScores(q);
+                    const trend  = classifyTrend(q);
+                    const rvol   = q.avgVolume ? (q.volume / q.avgVolume) : 0;
+                    const mtf    = computeMTFSignal(q);
+                    const sigCol = mtf.signal === "BUY" ? C.green : mtf.signal === "SELL" ? C.red : C.amber;
+                    const trendArrow = trend.includes("Up") ? "▲" : trend.includes("Down") ? "▼" : "─";
+                    const trendCol   = trend.includes("Up") ? C.green : trend.includes("Down") ? C.red : C.textDim;
+                    return (
+                      <div key={q.symbol}
+                        onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
+                        style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", cursor: "pointer", transition: "border-color 0.15s, background 0.15s" }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.background = C.cardHover; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = C.card; }}
+                      >
+                        {/* Symbol + signal */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                          <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.accent }}>{q.symbol}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: sigCol, background: `${sigCol}22`, borderRadius: 3, padding: "2px 6px" }}>{mtf.signal}</span>
+                        </div>
+                        {/* Price */}
+                        <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 2 }}>
+                          ${(q.price || 0).toFixed(2)}
+                        </div>
+                        {/* Change */}
+                        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: isUp ? C.green : C.red, marginBottom: 8 }}>
+                          {isUp ? "+" : ""}{chg.toFixed(2)}%
+                        </div>
+                        {/* Trend + Score row */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontFamily: MONO, fontSize: 11, color: trendCol }}>{trendArrow} {trend.replace(" Up","").replace(" Down","").replace("Strong","").trim() || trend}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>S:{Math.round(scores.composite)}</span>
+                        </div>
+                        {/* RVOL */}
+                        {rvol > 0 && (
+                          <div style={{ fontFamily: MONO, fontSize: 10, color: rvol >= 2 ? C.accent : rvol >= 1.2 ? C.amber : C.textDim, marginTop: 4 }}>
+                            RVOL {rvol.toFixed(1)}×
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+              /* ── TABLE VIEW ────────────────────────────────────────────── */
               <div style={{
                 background: C.card, border: `1px solid ${C.border}`, borderRadius: 5,
                 overflow: "hidden",
@@ -9893,8 +9949,9 @@ export default function App() {
                   </table>
                 </div>
               </div>
+              )}
               <div style={{ marginTop: 6, fontSize: 8, fontFamily: MONO, color: C.textDim, textAlign: "center" }}>
-                Click any row for deep-dive · Auto-refreshes every {Math.round(settings.refreshMs / 60000)}m · Data via multi-provider quote engine
+                {wlCardView ? "Tap card to open terminal" : "Click any row for deep-dive"} · Auto-refreshes every {Math.round(settings.refreshMs / 60000)}m · Data via multi-provider quote engine
               </div>
             </div>
 
