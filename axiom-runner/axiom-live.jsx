@@ -9690,8 +9690,8 @@ export default function App() {
               { id: "portfolio", label: "PORTFOLIO", tabs: ["portfolio", "performance", "journal", "alerts", "heatmap", "correlation", "risklab"] },
               { id: "research",   label: "RESEARCH",  tabs: ["options", "sec-filings", "telegram"] },
               { id: "tools",     label: "TOOLS",     tabs: ["tools", "backtest", "workflow", "agent", "deals", "fibonacci", "ailab", "dca", "options-calc"] },
-              { id: "islamic",   label: "☪",         tabs: ["quran", "athan", "athkar", "tasbih", "halal"] },
-              { id: "soccer",    label: "⚽",         tabs: ["soccer"] },
+              { id: "islamic",   label: "☪️",        tabs: ["quran", "athan", "athkar", "tasbih", "halal"] },
+              { id: "soccer",    label: "⚽",        tabs: ["soccer"] },
             ];
             const scannerBadge = scannerRows.filter(r => r.scannerScore >= 70).length || null;
             return (
