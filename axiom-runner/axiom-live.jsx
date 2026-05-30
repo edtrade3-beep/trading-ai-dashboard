@@ -3099,12 +3099,18 @@ function parsePortfolioCSV(text) {
       if (isBuy)  { positions[sym].totalQty += qty; positions[sym].totalCost += qty * price; }
       if (isSell) { positions[sym].totalQty -= qty; }
     }
+    const NON_STOCK = /^(CASH|USD|MMDA\d*|GOLD|RBHGOLD|INT|DIV|ACH|WIRE|FEE|INTEREST|DIVIDEND|OPTIONS?)$/i;
     const result = Object.entries(positions)
-      .filter(([, p]) => p.totalQty > 0.0001)
+      .filter(([sym, p]) => {
+        if (p.totalQty < 0.001) return false;               // closed or dust
+        if (NON_STOCK.test(sym)) return false;               // cash / fees / gold subscription
+        if (!/^[A-Z]{1,5}(\.[A-Z]{1,2})?$/.test(sym)) return false; // not a valid ticker (skips options)
+        return true;
+      })
       .map(([sym, p]) => ({
         symbol:  sym,
         shares:  p.totalQty.toFixed(6).replace(/\.?0+$/, ""),
-        avgCost: p.totalQty > 0 ? (p.totalCost / p.totalQty).toFixed(2) : "0",
+        avgCost: p.totalQty > 0 && p.totalCost > 0 ? (p.totalCost / p.totalQty).toFixed(2) : "0",
       }));
     return { rows: result, format: "Robinhood Activity", errors: result.length ? [] : ["No open positions found — all positions appear to be closed."] };
   }
@@ -3122,8 +3128,10 @@ function parsePortfolioCSV(text) {
       const sym  = (row[colMap.symbol] || "").trim().toUpperCase().replace(/[^A-Z.]/g, "");
       const qty  = parseFloat(row[colMap.shares] || "0");
       const cost = colMap.avgCost >= 0 ? parseFloat(row[colMap.avgCost] || "0") : 0;
-      if (!sym || !qty || qty <= 0) continue;
-      if (!/^[A-Z.]{1,10}$/.test(sym)) { errors.push(`Skipped unrecognised symbol: ${sym}`); continue; }
+      if (!sym || !qty || qty < 0.001) continue;
+      if (!/^[A-Z]{1,5}(\.[A-Z]{1,2})?$/.test(sym)) { errors.push(`Skipped: ${sym}`); continue; }
+      const NON_STOCK2 = /^(CASH|USD|MMDA\d*|GOLD|RBHGOLD|INT|DIV|FEE)$/i;
+      if (NON_STOCK2.test(sym)) continue;
       result.push({ symbol: sym, shares: qty.toFixed(6).replace(/\.?0+$/, ""), avgCost: cost > 0 ? cost.toFixed(2) : "0" });
     }
     return { rows: result, format: "Generic Positions CSV", errors };
