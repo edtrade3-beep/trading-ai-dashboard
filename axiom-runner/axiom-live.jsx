@@ -9335,7 +9335,7 @@ export default function App() {
                         background: isActive
                           ? (themeMode === "dark" ? `${C.accent}22` : `${C.accent}14`)
                           : "transparent",
-                        color: isActive ? C.accent : C.textDim,
+                        color: isActive ? C.accent : C.textSec,
                         fontFamily: MONO, fontSize: 10, fontWeight: isActive ? 800 : 600,
                         padding: isMobile ? "10px 11px" : "6px 9px", borderRadius: 4, cursor: "pointer",
                         borderBottom: isActive ? `2px solid ${C.accent}` : "2px solid transparent",
