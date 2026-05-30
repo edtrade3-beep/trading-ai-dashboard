@@ -10129,15 +10129,15 @@ export default function App() {
                             {marketSession === "PREMARKET" ? "PRE%" : "POST%"}
                           </th>
                         )}
-                        <th style={{ padding: "10px 8px", fontSize: 10, fontFamily: MONO, color: C.textDim, textAlign: "right", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>5M</th>
-                        <th style={{ padding: "10px 8px", fontSize: 10, fontFamily: MONO, color: C.textDim, textAlign: "right", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>30M</th>
+                        {!isTablet && <th style={{ padding: "10px 8px", fontSize: 10, fontFamily: MONO, color: C.textDim, textAlign: "right", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>5M</th>}
+                        {!isTablet && <th style={{ padding: "10px 8px", fontSize: 10, fontFamily: MONO, color: C.textDim, textAlign: "right", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>30M</th>}
                         <th style={{ padding: "10px 8px", fontSize: 10, fontFamily: MONO, color: C.textDim, textAlign: "center", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>TREND</th>
                         <SortH col="rvol" align="right">RVOL</SortH>
                         <SortH col="volume" align="right">VOLUME</SortH>
-                        <SortH col="mktcap" align="right">MKT CAP</SortH>
+                        {!isTablet && <SortH col="mktcap" align="right">MKT CAP</SortH>}
                         <SortH col="composite">SCORE</SortH>
                         <SortH col="tech">TECH</SortH>
-                        <SortH col="fund">FUND</SortH>
+                        {!isTablet && <SortH col="fund">FUND</SortH>}
                         <th style={{ padding: "10px 8px", fontSize: 10, fontFamily: MONO, color: C.textDim, textAlign: "center", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>SIGNAL</th>
                       </tr>
                     </thead>
@@ -10149,7 +10149,7 @@ export default function App() {
                         const trend = classifyTrend(q);
                         const rvol = q.avgVolume ? (q.volume / q.avgVolume) : 0;
                         const mtf = computeMTFSignal(q);
-                        const colSpan = (marketSession === "PREMARKET" || marketSession === "AFTERMARKET") ? 14 : 13;
+                        const colSpan = ((marketSession === "PREMARKET" || marketSession === "AFTERMARKET") ? 14 : 13) - (isTablet ? 4 : 0);
                         return (
                           <React.Fragment key={q.symbol}>
                           <tr
@@ -10168,13 +10168,13 @@ export default function App() {
                                 >
                                   CHART
                                 </button>
-                                <button
+                                {!isTablet && <button
                                   onClick={(e) => { e.stopPropagation(); openTradingView(q.symbol); }}
                                   style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
                                 >
                                   TV
-                                </button>
-                                <a
+                                </button>}
+                                {!isTablet && <a
                                   href={`/workstation#${q.symbol}`}
                                   target="_blank"
                                   rel="noopener"
@@ -10182,7 +10182,7 @@ export default function App() {
                                   style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.purple, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", textDecoration: "none" }}
                                 >
                                   WS
-                                </a>
+                                </a>}
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setQuickLogModal({ symbol: q.symbol, price: q.price || 0, entry: (q.price || 0).toFixed(2), stopLoss: "", target: "", size: "", side: "BUY", timeframe: "1D", style: "Watchlist", notes: `CHG ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}% · RVOL ${rvol.toFixed(2)}x`, score: scores.composite || 0, chg, rvol }); }}
                                   style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}
@@ -10239,12 +10239,12 @@ export default function App() {
                                 </td>
                               );
                             })()}
-                            <td style={{ padding: "10px 8px", fontFamily: MONO, fontSize: 12, textAlign: "right", borderBottom: `1px solid ${C.border}`, color: (q.delta5m || 0) >= 0 ? C.green : C.red }}>
+                            {!isTablet && <td style={{ padding: "10px 8px", fontFamily: MONO, fontSize: 12, textAlign: "right", borderBottom: `1px solid ${C.border}`, color: (q.delta5m || 0) >= 0 ? C.green : C.red }}>
                               {(q.delta5m || 0) >= 0 ? "+" : ""}{(q.delta5m || 0).toFixed(2)}%
-                            </td>
-                            <td style={{ padding: "10px 8px", fontFamily: MONO, fontSize: 12, textAlign: "right", borderBottom: `1px solid ${C.border}`, color: (q.delta30m || 0) >= 0 ? C.green : C.red }}>
+                            </td>}
+                            {!isTablet && <td style={{ padding: "10px 8px", fontFamily: MONO, fontSize: 12, textAlign: "right", borderBottom: `1px solid ${C.border}`, color: (q.delta30m || 0) >= 0 ? C.green : C.red }}>
                               {(q.delta30m || 0) >= 0 ? "+" : ""}{(q.delta30m || 0).toFixed(2)}%
-                            </td>
+                            </td>}
                             <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>
                               <TrendTag trend={trend} />
                             </td>
@@ -10258,18 +10258,18 @@ export default function App() {
                             <td style={{ padding: "10px 8px", fontFamily: MONO, fontSize: 13, color: C.textSec, textAlign: "right", borderBottom: `1px solid ${C.border}` }}>
                               {q.volume ? (q.volume / 1e6).toFixed(1) + "M" : "—"}
                             </td>
-                            <td style={{ padding: "10px 8px", fontFamily: MONO, fontSize: 13, color: C.textSec, textAlign: "right", borderBottom: `1px solid ${C.border}` }}>
+                            {!isTablet && <td style={{ padding: "10px 8px", fontFamily: MONO, fontSize: 13, color: C.textSec, textAlign: "right", borderBottom: `1px solid ${C.border}` }}>
                               {formatNum(q.marketCap)}
-                            </td>
+                            </td>}
                             <td style={{ padding: "7px 6px", borderBottom: `1px solid ${C.border}`, minWidth: 65 }}>
                               <ScoreBar value={scores.composite} />
                             </td>
                             <td style={{ padding: "7px 6px", borderBottom: `1px solid ${C.border}`, minWidth: 55 }}>
                               <ScoreBar value={scores.tech} color={C.cyan} />
                             </td>
-                            <td style={{ padding: "7px 6px", borderBottom: `1px solid ${C.border}`, minWidth: 55 }}>
+                            {!isTablet && <td style={{ padding: "7px 6px", borderBottom: `1px solid ${C.border}`, minWidth: 55 }}>
                               <ScoreBar value={scores.fund} color={C.purple} />
-                            </td>
+                            </td>}
                             <td style={{ padding: "7px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "center", minWidth: 90 }}>
                               {(() => {
                                 const sigColor = mtf.signal === "BUY" ? C.green : mtf.signal === "SELL" ? C.red : C.amber;
