@@ -32,30 +32,30 @@ const THEME_LIGHT = {
   purple:     "#7c3aed",   // violet-600
 };
 const THEME_DARK = {
-  // Backgrounds — rich dark navy (not harsh black)
-  bg:         "#0a0e1a",
-  surface:    "#111827",
-  card:       "#151f30",
-  cardHover:  "#1c2a40",
-  // Borders — subtle but visible
-  border:     "#1e2d47",
-  borderLit:  "#263d5e",
-  // Text — high-contrast 3-level hierarchy
-  text:       "#eef2ff",   // near-white with blue tint — crisp on dark
-  textSec:    "#a5b4cf",   // cool mid-grey — secondary info
-  textDim:    "#526480",   // muted blue-grey — hints/captions
-  // Brand accent — bright electric blue
-  accent:     "#4da3ff",
-  accentGlow: "rgba(77,163,255,0.28)",
-  // Semantic colours — extra vibrant on dark
-  green:      "#22d47e",   // bright green — profits / bullish
-  greenBg:    "rgba(34,212,126,0.13)",
-  red:        "#ff4560",   // bright coral-red — losses / bearish
-  redBg:      "rgba(255,69,96,0.13)",
-  amber:      "#ffbd3e",   // warm amber — warnings
-  amberBg:    "rgba(255,189,62,0.14)",
-  cyan:       "#00d9ef",   // electric cyan
-  purple:     "#b07fff",   // soft violet
+  // Backgrounds — warm dark slate, easier on eyes than cold navy
+  bg:         "#0f1318",   // warm near-black (slight warm tint, not blue-cold)
+  surface:    "#161c24",   // warm dark surface
+  card:       "#1c2530",   // card — slightly lighter, warm undertone
+  cardHover:  "#222f3e",   // hover — clearly different but not jarring
+  // Borders — warm subtle, not harsh
+  border:     "#2a3545",
+  borderLit:  "#374860",
+  // Text — warm cream hierarchy (not cold blue-white)
+  text:       "#e8dcc8",   // warm cream — much easier than blue-white over hours
+  textSec:    "#9aaa95",   // warm mid-grey — secondary info
+  textDim:    "#5a6b70",   // muted warm — hints, captions
+  // Accent — softer sky blue (less electric, still clear)
+  accent:     "#5b9cf6",
+  accentGlow: "rgba(91,156,246,0.22)",
+  // Semantic — muted, professional (not neon)
+  green:      "#2ec27e",   // natural green — readable, not neon
+  greenBg:    "rgba(46,194,126,0.12)",
+  red:        "#e05c6a",   // warm coral-red — easier than harsh bright red
+  redBg:      "rgba(224,92,106,0.12)",
+  amber:      "#f0a830",   // warm amber
+  amberBg:    "rgba(240,168,48,0.13)",
+  cyan:       "#42c9d8",   // teal-cyan — softer
+  purple:     "#a57ff0",   // soft violet
 };
 const C = { ...THEME_LIGHT };
 
