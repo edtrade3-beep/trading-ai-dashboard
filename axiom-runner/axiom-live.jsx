@@ -4718,7 +4718,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
               <Badge color={C.textSec}>{stock.exchange}</Badge>
               <button
                 onClick={() => onOpenTradingView?.(stock.symbol)}
-                style={{ border: `1px solid ${C.borderLit}`, background: "#ffffff", color: C.accent, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                style={{ border: `1px solid ${C.borderLit}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
               >
                 TRADINGVIEW
               </button>
@@ -4737,7 +4737,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
             <button
               onClick={onClose}
               style={{
-                background: "#ffffff", border: `1px solid ${C.borderLit}`, color: C.text,
+                background: C.surface, border: `1px solid ${C.borderLit}`, color: C.text,
                 fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer",
                 borderRadius: 6, padding: "8px 12px",
               }}
@@ -4747,7 +4747,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
             <button
               onClick={() => (onExit ? onExit() : onClose?.())}
               style={{
-                background: "#ffffff", border: `1px solid ${C.borderLit}`, color: C.red,
+                background: C.surface, border: `1px solid ${C.borderLit}`, color: C.red,
                 fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer",
                 borderRadius: 6, padding: "8px 12px",
               }}
@@ -4756,7 +4756,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
             </button>
           </div>
           <button onClick={onClose} style={{
-            background: "#f6f9ff", border: `1px solid ${C.borderLit}`, color: C.accent,
+            background: C.surface, border: `1px solid ${C.borderLit}`, color: C.accent,
             fontSize: 18, cursor: "pointer", borderRadius: 6, width: 38, height: 38,
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>✕</button>
@@ -5111,8 +5111,179 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
           </div>
         </div>
 
+        {/* ── TECHNICAL ANALYSIS SCHOOL ── */}
+        {(() => {
+          const price = Number(stock.price || 0);
+          const open  = Number(stock.open || price);
+          const rvolNum = stock.volume && stock.avgVolume ? stock.volume / stock.avgVolume : 0;
+          const yearPos52 = yearRange > 0 ? ((price - yearLow) / yearRange) * 100 : 50;
+
+          // Bullish signals
+          const bullSignals = [
+            {
+              active: price > 0 && sma50 > 0 && price > sma50,
+              label: "Price above 50-Day SMA",
+              explain: "The 50-day simple moving average acts as dynamic support. When price trades above it, institutions are still net buyers. A stock in an uptrend stays above its 50D. If it dips to the 50D and bounces — that's a buy signal.",
+            },
+            {
+              active: sma50 > 0 && sma200 > 0 && sma50 > sma200,
+              label: "Golden Cross (50D > 200D)",
+              explain: "When the 50-day SMA crosses above the 200-day SMA, it signals a long-term shift to bullish momentum. Funds that use trend-following strategies automatically become buyers here. This is one of the most reliable trend continuation signals.",
+            },
+            {
+              active: rvolNum >= 1.2,
+              label: `Relative Volume ≥ 1.2x (${rvolNum > 0 ? rvolNum.toFixed(2) : "—"}x)`,
+              explain: "Relative Volume (RVOL) = today's volume ÷ average daily volume. RVOL > 1.2 means 20%+ more buyers than usual are participating. Breakouts on high RVOL are more likely to hold. Low RVOL moves often fail — big players aren't committed.",
+            },
+            {
+              active: yearPos52 >= 70,
+              label: `Near 52-Week Highs (${yearPos52.toFixed(0)}% of range)`,
+              explain: "Stocks near their 52-week highs are in price discovery — no overhead supply from trapped sellers. Counterintuitively, stocks making new highs tend to make more new highs. Institutions buy strength, not weakness.",
+            },
+            {
+              active: chg > 1,
+              label: `Positive Day Momentum (+${chg.toFixed(2)}%)`,
+              explain: "Strong same-day price action (>+1%) shows fresh buying pressure. Combined with volume, it suggests new catalysts or continued institutional accumulation.",
+            },
+            {
+              active: open > 0 && price > open,
+              label: "Trading Above Open Price",
+              explain: "Price above the opening price means buyers have controlled the session so far. This is a simple intraday trend signal — the trend of the day is up until proven otherwise.",
+            },
+          ];
+
+          // Bearish signals
+          const bearSignals = [
+            {
+              active: price > 0 && sma50 > 0 && price < sma50,
+              label: "Price Below 50-Day SMA",
+              explain: "When price breaks below the 50D SMA, it's the first warning sign. Trend followers start reducing exposure. Lower highs often follow. This level becomes resistance instead of support.",
+            },
+            {
+              active: sma50 > 0 && sma200 > 0 && sma50 < sma200,
+              label: "Death Cross (50D < 200D)",
+              explain: "The death cross is when the 50-day SMA falls below the 200-day SMA. It signals long-term bearish momentum — many algorithmic funds are programmed to sell when this happens, creating self-fulfilling selling pressure.",
+            },
+            {
+              active: price > 0 && sma200 > 0 && price < sma200,
+              label: "Price Below 200-Day SMA",
+              explain: "The 200D SMA separates bull and bear markets at the stock level. When price is below it, the long-term trend is down. Most institutions avoid buying below the 200D — it means the stock needs major reconstruction.",
+            },
+            {
+              active: yearPos52 <= 30,
+              label: `Near 52-Week Lows (${yearPos52.toFixed(0)}% of range)`,
+              explain: "Stocks near 52-week lows have trapped shareholders waiting to sell into every bounce. This overhead supply is a constant headwind. Avoid catching falling knives — wait for base formation (sideways for weeks) before considering a reversal trade.",
+            },
+            {
+              active: rvolNum > 0 && rvolNum < 0.7,
+              label: `Thin Volume (${rvolNum > 0 ? rvolNum.toFixed(2) : "—"}x RVOL)`,
+              explain: "Low relative volume means big players are absent. Any move on thin volume is suspect — it can reverse sharply when real volume returns. Don't chase breakouts on RVOL below 0.8.",
+            },
+            {
+              active: chg < -2,
+              label: `Heavy Selling Pressure (${chg.toFixed(2)}%)`,
+              explain: "A day drop of -2% or more, especially on high volume, signals active institutional selling or stop-loss cascades. The safest response is to wait for the stock to stabilize (3-5 days of quiet) before reassessing.",
+            },
+          ];
+
+          const SignalRow = ({ s, type }) => {
+            const color = s.active ? (type === "bull" ? C.green : C.red) : C.textDim;
+            const icon  = s.active ? (type === "bull" ? "✅" : "🔴") : "○";
+            const [open2, setOpen2] = React.useState(false);
+            return (
+              <div style={{ borderBottom: `1px solid ${C.border}`, padding: "10px 0" }}>
+                <div
+                  onClick={() => setOpen2(p => !p)}
+                  style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
+                >
+                  <span style={{ fontSize: 14, width: 20, flexShrink: 0 }}>{icon}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color, fontWeight: s.active ? 700 : 400, flex: 1 }}>{s.label}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{open2 ? "▲" : "▼ learn"}</span>
+                </div>
+                {open2 && (
+                  <div style={{ marginTop: 8, marginLeft: 30, padding: "10px 14px", background: C.bg, borderLeft: `3px solid ${color}`, borderRadius: 4, fontSize: 12, fontFamily: SANS, color: C.textSec, lineHeight: 1.7 }}>
+                    {s.explain}
+                  </div>
+                )}
+              </div>
+            );
+          };
+
+          const activeBull = bullSignals.filter(s => s.active).length;
+          const activeBear = bearSignals.filter(s => s.active).length;
+          const signal = activeBull >= 4 ? "STRONG BULL" : activeBull >= 2 && activeBear <= 1 ? "LEANING BULL" : activeBear >= 4 ? "STRONG BEAR" : activeBear >= 2 && activeBull <= 1 ? "LEANING BEAR" : "MIXED / NEUTRAL";
+          const signalColor = signal.includes("BULL") ? C.green : signal.includes("BEAR") ? C.red : C.amber;
+
+          return (
+            <div style={{ margin: "20px 20px 0", background: C.card, border: `1px solid ${C.borderLit}`, borderRadius: 12, overflow: "hidden" }}>
+              {/* Header */}
+              <div style={{ background: C.surface, padding: "16px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, letterSpacing: "0.1em" }}>📈 TECHNICAL ANALYSIS SCHOOL</div>
+                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 3 }}>Tap any signal to learn what it means and how to use it</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 4 }}>OVERALL SIGNAL</div>
+                  <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: signalColor }}>{signal}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>{activeBull} bull · {activeBear} bear active</div>
+                </div>
+              </div>
+
+              {/* Two columns */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+                {/* Bullish */}
+                <div style={{ padding: "16px 20px", borderRight: `1px solid ${C.border}` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, letterSpacing: "0.08em" }}>BULLISH SIGNALS</div>
+                    <div style={{ background: `${C.green}22`, color: C.green, fontFamily: MONO, fontSize: 10, fontWeight: 700, borderRadius: 10, padding: "1px 8px" }}>{activeBull} / {bullSignals.length}</div>
+                  </div>
+                  {bullSignals.map((s, i) => <SignalRow key={i} s={s} type="bull" />)}
+                  <div style={{ marginTop: 14, padding: "12px 14px", background: `${C.green}0f`, border: `1px solid ${C.green}33`, borderRadius: 6 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.green, marginBottom: 4 }}>📖 RULE OF THUMB</div>
+                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.7 }}>
+                      A strong bull setup checks at least 4 of these 6 signals. Price above 50D + Golden Cross + RVOL &gt; 1.2 = institutional sponsorship. Never buy a stock without at least 2 active bullish signals.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bearish */}
+                <div style={{ padding: "16px 20px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.red, letterSpacing: "0.08em" }}>BEARISH SIGNALS</div>
+                    <div style={{ background: `${C.red}22`, color: C.red, fontFamily: MONO, fontSize: 10, fontWeight: 700, borderRadius: 10, padding: "1px 8px" }}>{activeBear} / {bearSignals.length}</div>
+                  </div>
+                  {bearSignals.map((s, i) => <SignalRow key={i} s={s} type="bear" />)}
+                  <div style={{ marginTop: 14, padding: "12px 14px", background: `${C.red}0f`, border: `1px solid ${C.red}33`, borderRadius: 6 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.red, marginBottom: 4 }}>⛔ AVOID WHEN</div>
+                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.7 }}>
+                      Price is below both the 50D and 200D SMA with declining RVOL. That combination means the stock is in a distribution phase — professional sellers are quietly offloading to retail buyers.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom: how to read the chart */}
+              <div style={{ borderTop: `1px solid ${C.border}`, padding: "14px 20px", background: C.surface }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.amber, marginBottom: 10, letterSpacing: "0.08em" }}>📊 HOW TO READ A CHART — QUICK REFERENCE</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+                  {[
+                    { title: "Support & Resistance", body: "Support = price floor where buyers step in. Resistance = price ceiling where sellers dominate. A breakout above resistance on high volume is a buy signal. A break below support on high volume is a sell signal." },
+                    { title: "Volume Tells the Truth", body: "Price moves on high volume are real. Price moves on low volume are suspect. Up day + high volume = accumulation. Down day + high volume = distribution (selling). Always check RVOL before acting on any price move." },
+                    { title: "Trend Is Your Friend", body: "Never fight the primary trend. In an uptrend (price > 50D > 200D), buy pullbacks to the 50D. In a downtrend (price < 50D < 200D), wait for a trend reversal — at minimum price must reclaim the 50D before you consider buying." },
+                  ].map(item => (
+                    <div key={item.title} style={{ padding: "10px 12px", background: C.card, borderRadius: 6, border: `1px solid ${C.border}` }}>
+                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, marginBottom: 6 }}>{item.title}</div>
+                      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.7 }}>{item.body}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Disclaimer */}
-        <div style={{ margin: "16px 20px 20px", padding: "12px 20px", fontSize: 11, fontFamily: SANS, color: C.textDim, background: "#f8fbff", border: `1px solid ${C.borderLit}`, borderRadius: 8, fontStyle: "italic", lineHeight: 1.6 }}>
+        <div style={{ margin: "16px 20px 20px", padding: "12px 20px", fontSize: 11, fontFamily: SANS, color: C.textDim, background: C.surface, border: `1px solid ${C.borderLit}`, borderRadius: 8, fontStyle: "italic", lineHeight: 1.6 }}>
           Decision support only — not financial advice. Scores are heuristic estimates. Full fundamental & macro scoring requires additional API data (income statements, macro indicators).
         </div>
       </div>
@@ -10929,8 +11100,9 @@ export default function App() {
                   const aiSent = newsSentiments[n.title || ""];
                   const aiColor = aiSent?.s === "bull" ? C.green : aiSent?.s === "bear" ? C.red : C.textDim;
                   const aiLabel = aiSent?.s === "bull" ? "🟢 AI BULL" : aiSent?.s === "bear" ? "🔴 AI BEAR" : aiSent ? "⚪ AI NEUTRAL" : null;
+                  const sentBorderColor = sent === "bullish" ? C.green : sent === "bearish" ? C.red : C.border;
                   return (
-                    <div key={`${n.ticker}-${i}`} style={{ background: C.card, border: `1px solid ${aiSent ? (aiSent.s === "bull" ? `${C.green}44` : aiSent.s === "bear" ? `${C.red}44` : C.border) : C.border}`, borderRadius: 6, padding: 12, position: "relative" }}>
+                    <div key={`${n.ticker}-${i}`} style={{ background: C.card, border: `1px solid ${aiSent ? (aiSent.s === "bull" ? `${C.green}44` : aiSent.s === "bear" ? `${C.red}44` : C.border) : C.border}`, borderLeft: `4px solid ${sentBorderColor}`, borderRadius: 6, padding: 12, position: "relative" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                           <button onClick={() => { setTerminalSymbol(n.ticker); setActiveTab("terminal"); }}
