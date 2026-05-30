@@ -4,6 +4,7 @@ const { ROOT } = require("./config");
 const { fetchYahooBars } = require("./providers/yahoo");
 const { computeEMA, computeRSI } = require("./indicators");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
+const { maybeAutoExecute } = require("./routes/autoexec");
 const { fetchTrending: stTrending }  = require("./providers/stocktwits");
 const { fetchAllNews, fetchFinanceNews } = require("./providers/reddit-news");
 const { round2, withTimeout } = require("./utils");
@@ -561,13 +562,35 @@ async function runScan(options = {}) {
       if (isDuplicate(sym, signal, cfg.cooldownHours)) continue;
 
       recordSignal(sym, signal);
-      hits.push({
+      const hit = {
         symbol: sym, signal,
         composite: a.composite, price: a.price,
         rsi: a.rsi, rvol: a.rvol, chgPct: a.chgPct, trend: a.trend,
         support: a.support, resistance: a.resistance,
         ema9: a.ema9, ema21: a.ema21,
-      });
+      };
+      hits.push(hit);
+
+      // Auto-execute fire-level signals via Tradier
+      maybeAutoExecute({
+        symbol: sym, signal,
+        composite: a.composite, price: a.price,
+        support: a.support, resistance: a.resistance,
+        rvol: a.rvol,
+      }).then(result => {
+        if (!result) return;
+        if (result.error) {
+          if (telegramConfigured()) sendTelegramMessage(`⚠️ AUTO-EXEC FAILED\n${sym}: ${result.error}`).catch(() => {});
+          return;
+        }
+        const mode = result.live ? "🔴 LIVE" : "🧪 PAPER";
+        const msg  = `🤖 AUTO-EXEC ${mode}\n` +
+          `${signal === "BUY" ? "🟢 BUY" : "🔴 SELL"} ${sym}  •  ${result.quantity} shares @ $${a.price}\n` +
+          `Score ${a.composite}  •  RVOL ${a.rvol?.toFixed(2)}x\n` +
+          `🛑 Stop $${a.support}  →  🏆 Target $${+(a.price + (a.price - a.support) * 2).toFixed(2)}\n` +
+          `Order ID: ${result.orderId || "pending"}`;
+        if (telegramConfigured()) sendTelegramMessage(msg).catch(() => {});
+      }).catch(() => {});
     }
 
     // ── ALERT DISPATCH ────────────────────────────────────────────────────────
