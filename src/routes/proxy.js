@@ -40,12 +40,41 @@ async function proxyTwelveData(requestUrl, res) {
   }
 }
 
+// M3U playlist proxy — fetches any M3U/M3U8 URL server-side to bypass browser CORS
+async function proxyM3U(requestUrl, res) {
+  const target = requestUrl.searchParams.get("url");
+  if (!target) return writeJson(res, 400, { error: "url param required" });
+  let parsed;
+  try { parsed = new URL(target); } catch { return writeJson(res, 400, { error: "Invalid URL" }); }
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    return writeJson(res, 400, { error: "Only http/https allowed" });
+  }
+  try {
+    const r = await fetch(target, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; IPTV-proxy/1.0)", "Accept": "*/*" },
+      signal: AbortSignal.timeout(15_000),
+    });
+    const body = await r.text();
+    res.writeHead(r.status, {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "max-age=300",
+    });
+    res.end(body);
+  } catch (e) {
+    writeJson(res, 502, { error: "M3U proxy failed", details: e.message });
+  }
+}
+
 async function handleProxy(req, res, requestUrl) {
   if (requestUrl.pathname.startsWith("/api/fmp/")) {
     return proxyFinancialModelingPrep(requestUrl, res);
   }
   if (requestUrl.pathname.startsWith("/api/td/")) {
     return proxyTwelveData(requestUrl, res);
+  }
+  if (requestUrl.pathname === "/api/proxy/m3u" && req.method === "GET") {
+    return proxyM3U(requestUrl, res);
   }
   return writeJson(res, 404, { error: "Not found." });
 }

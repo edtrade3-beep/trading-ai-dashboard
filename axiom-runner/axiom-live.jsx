@@ -4546,7 +4546,259 @@ function CryptoTab({ C, MONO, SANS }) {
   );
 }
 
+function SoccerIPTVPlayer({ C, MONO, SANS }) {
+  const videoRef    = React.useRef(null);
+  const hlsRef      = React.useRef(null);
+  const [channels,    setChannels]    = React.useState([]);
+  const [activeUrl,   setActiveUrl]   = React.useState(null);
+  const [activeName,  setActiveName]  = React.useState("");
+  const [m3uInput,    setM3uInput]    = React.useState("");
+  const [loadingM3u,  setLoadingM3u]  = React.useState(false);
+  const [m3uError,    setM3uError]    = React.useState(null);
+  const [chSearch,    setChSearch]    = React.useState("");
+  const [playerErr,   setPlayerErr]   = React.useState(null);
+  const [hlsReady,    setHlsReady]    = React.useState(false);
+
+  // Pre-loaded public free sports channels (iptv-org verified streams)
+  const DEFAULT_CHANNELS = [
+    // ── Arabic Sports ──────────────────────────────────────────────
+    { name: "Al Kass Sports 1",   url: "https://kass.com.qa/live/kass1/playlist.m3u8",                                                      flag: "🇶🇦", group: "Arabic" },
+    { name: "Al Kass Sports 2",   url: "https://kass.com.qa/live/kass2/playlist.m3u8",                                                      flag: "🇶🇦", group: "Arabic" },
+    { name: "Al Kass Sports 4",   url: "https://kass.com.qa/live/kass4/playlist.m3u8",                                                      flag: "🇶🇦", group: "Arabic" },
+    { name: "Al Kass Sports 5",   url: "https://kass.com.qa/live/kass5/playlist.m3u8",                                                      flag: "🇶🇦", group: "Arabic" },
+    { name: "SSC Sports 1",       url: "https://cdn.live.ssc.tv/ssc1hls/index.m3u8",                                                        flag: "🇸🇦", group: "Arabic" },
+    { name: "SSC Sports 2",       url: "https://cdn.live.ssc.tv/ssc2hls/index.m3u8",                                                        flag: "🇸🇦", group: "Arabic" },
+    { name: "SSC Sports 3",       url: "https://cdn.live.ssc.tv/ssc3hls/index.m3u8",                                                        flag: "🇸🇦", group: "Arabic" },
+    { name: "SSC Extra 1",        url: "https://cdn.live.ssc.tv/sscsportextra1hls/index.m3u8",                                              flag: "🇸🇦", group: "Arabic" },
+    { name: "Abu Dhabi Sports 1", url: "https://adtv-live.abudhabi.ae/abudhabisports1/smil:abudhabisports1.smil/playlist.m3u8",             flag: "🇦🇪", group: "Arabic" },
+    { name: "Abu Dhabi Sports 2", url: "https://adtv-live.abudhabi.ae/abudhabisports2/smil:abudhabisports2.smil/playlist.m3u8",             flag: "🇦🇪", group: "Arabic" },
+    { name: "Dubai Sports 1",     url: "https://www.dsports.ae/live/ds1.m3u8",                                                              flag: "🇦🇪", group: "Arabic" },
+    { name: "MBC Action",         url: "https://shls-mbcaction-live-us.shahid.net/out/v1/ddbfe64d6e664e57942de4e5bedb4e5f/index.m3u8",      flag: "🇸🇦", group: "Arabic" },
+    // ── International Sports ────────────────────────────────────────
+    { name: "Eurosport 1",        url: "https://i.mjh.nz/PlutoTV/8b1a9b09-af6c-4fed-ad69-7e8cf7e61f8b.m3u8",                               flag: "🇪🇺", group: "Euro" },
+    { name: "Sky Sports Football",url: "https://i.mjh.nz/PlutoTV/84b14c6f-3891-47a5-84fc-6f4d61bbbc6d.m3u8",                               flag: "🇬🇧", group: "Euro" },
+    { name: "Sky Sports News",    url: "https://i.mjh.nz/PlutoTV/2e48de29-4d5f-4f05-8b56-ed0a2e47e36c.m3u8",                               flag: "🇬🇧", group: "Euro" },
+    { name: "ESPN Deportes",      url: "https://i.mjh.nz/PlutoTV/8028d53b-1de0-4c09-a7f7-cf3bb10f2c9c.m3u8",                               flag: "🇺🇸", group: "Americas" },
+    { name: "FOX Sports",         url: "https://i.mjh.nz/PlutoTV/sports-tv.m3u8",                                                          flag: "🇺🇸", group: "Americas" },
+    { name: "beIN Sports Xtra",   url: "https://i.mjh.nz/PlutoTV/bein-sports-xtra.m3u8",                                                   flag: "🌍", group: "International" },
+    { name: "Sports News 24/7",   url: "https://i.mjh.nz/PlutoTV/sports-news-247.m3u8",                                                    flag: "🌍", group: "International" },
+    // ── Public M3U playlists (free, no key) ────────────────────────
+    { name: "⚽ IPTV-Org Sports", url: "https://iptv-org.github.io/iptv/categories/sports.m3u", flag: "📋", group: "Playlist", isPlaylist: true },
+  ];
+
+  // Load HLS.js from CDN once
+  React.useEffect(() => {
+    if (window.Hls) { setHlsReady(true); return; }
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js";
+    s.onload = () => setHlsReady(true);
+    s.onerror = () => setM3uError("Failed to load HLS.js player library.");
+    document.head.appendChild(s);
+  }, []);
+
+  React.useEffect(() => {
+    setChannels(DEFAULT_CHANNELS);
+  }, []);
+
+  const playStream = React.useCallback((url, name) => {
+    setPlayerErr(null);
+    setActiveName(name);
+    setActiveUrl(url);
+    const video = videoRef.current;
+    if (!video) return;
+    if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+    if (window.Hls && window.Hls.isSupported()) {
+      const hls = new window.Hls({ enableWorker: true, lowLatencyMode: true });
+      hlsRef.current = hls;
+      hls.loadSource(url);
+      hls.attachMedia(video);
+      hls.on(window.Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => {}); });
+      hls.on(window.Hls.Events.ERROR, (_, data) => {
+        if (data.fatal) setPlayerErr(`Stream error: ${data.details || "could not load"}`);
+      });
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = url;
+      video.play().catch(() => {});
+    } else {
+      setPlayerErr("Your browser does not support HLS streams. Try Chrome or Firefox.");
+    }
+  }, []);
+
+  // Parse M3U text into channel objects
+  function parseM3U(text) {
+    const lines = text.split("\n");
+    const result = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line.startsWith("#EXTINF")) continue;
+      const nameMatch = line.match(/,(.+)$/);
+      const logoMatch = line.match(/tvg-logo="([^"]*)"/);
+      const groupMatch = line.match(/group-title="([^"]*)"/);
+      const countryMatch = line.match(/tvg-country="([^"]*)"/);
+      const urlLine = lines[i + 1]?.trim();
+      if (!urlLine || urlLine.startsWith("#")) continue;
+      result.push({
+        name:  nameMatch?.[1]?.trim() || "Channel",
+        url:   urlLine,
+        logo:  logoMatch?.[1] || null,
+        group: groupMatch?.[1] || countryMatch?.[1] || "Other",
+        flag:  "📺",
+      });
+    }
+    return result;
+  }
+
+  const loadM3U = React.useCallback(async (urlOverride) => {
+    const src = (urlOverride || m3uInput).trim();
+    if (!src) return;
+    setLoadingM3u(true);
+    setM3uError(null);
+    try {
+      const r = await fetch(`/api/proxy/m3u?url=${encodeURIComponent(src)}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const text = await r.text();
+      const parsed = parseM3U(text);
+      if (!parsed.length) throw new Error("No channels found in playlist");
+      setChannels(parsed);
+    } catch (e) {
+      // Try direct fetch as fallback (works if CORS allows)
+      try {
+        const r2 = await fetch(src);
+        const text2 = await r2.text();
+        const parsed2 = parseM3U(text2);
+        if (!parsed2.length) throw new Error("No channels found in playlist");
+        setChannels(parsed2);
+      } catch {
+        setM3uError(`Could not load playlist: ${e.message}`);
+      }
+    } finally {
+      setLoadingM3u(false);
+    }
+  }, [m3uInput]);
+
+  const visible = channels.filter(ch =>
+    !chSearch || ch.name.toLowerCase().includes(chSearch.toLowerCase()) || (ch.group || "").toLowerCase().includes(chSearch.toLowerCase())
+  );
+
+  // Group channels
+  const groups = [...new Set(visible.map(ch => ch.group || "Other"))];
+
+  const btnStyle = (active) => ({
+    fontFamily: MONO, fontSize: 10, fontWeight: active ? 800 : 600,
+    border: active ? `1px solid ${C.accent}` : `1px solid ${C.border}`,
+    background: active ? `${C.accent}22` : C.surface,
+    color: active ? C.accent : C.textSec,
+    borderRadius: 4, padding: "5px 10px", cursor: "pointer", whiteSpace: "nowrap",
+  });
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Player */}
+      <div style={{ background: "#000", borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}`, position: "relative", aspectRatio: "16/9", maxHeight: 480 }}>
+        <video
+          ref={videoRef}
+          controls
+          autoPlay
+          style={{ width: "100%", height: "100%", display: "block", background: "#000" }}
+        />
+        {!activeUrl && (
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, pointerEvents: "none" }}>
+            <span style={{ fontSize: 48 }}>📺</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: "#888" }}>Select a channel to start watching</span>
+          </div>
+        )}
+        {playerErr && (
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#c0392b", padding: "8px 14px", fontFamily: MONO, fontSize: 10, color: "#fff" }}>
+            ⚠ {playerErr} — <span style={{ cursor: "pointer", textDecoration: "underline" }} onClick={() => setPlayerErr(null)}>dismiss</span>
+          </div>
+        )}
+        {activeName && !playerErr && (
+          <div style={{ position: "absolute", top: 10, left: 12, background: "rgba(0,0,0,0.7)", borderRadius: 4, padding: "4px 10px", fontFamily: MONO, fontSize: 11, color: "#fff", pointerEvents: "none" }}>
+            📡 {activeName}
+          </div>
+        )}
+      </div>
+
+      {/* Custom M3U loader */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, flexShrink: 0 }}>M3U URL:</span>
+        <input
+          value={m3uInput}
+          onChange={e => setM3uInput(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") loadM3U(); }}
+          placeholder="Paste your IPTV M3U subscription URL…"
+          style={{ flex: 1, minWidth: 200, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 11, outline: "none" }}
+        />
+        <button onClick={() => loadM3U()} disabled={loadingM3u || !m3uInput.trim()}
+          style={{ ...btnStyle(false), background: C.accent, color: "#fff", border: "none", padding: "6px 14px", fontWeight: 800 }}>
+          {loadingM3u ? "LOADING…" : "LOAD"}
+        </button>
+        <button onClick={() => setChannels(DEFAULT_CHANNELS)}
+          style={{ ...btnStyle(false), padding: "6px 10px" }}>
+          RESET
+        </button>
+        {m3uError && <span style={{ fontFamily: MONO, fontSize: 10, color: C.red, width: "100%" }}>{m3uError}</span>}
+      </div>
+
+      {/* Channel search + list */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+        <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent }}>📡 CHANNELS ({visible.length})</span>
+          <input
+            value={chSearch}
+            onChange={e => setChSearch(e.target.value)}
+            placeholder="Filter channels…"
+            style={{ flex: 1, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "5px 9px", fontFamily: MONO, fontSize: 10, outline: "none" }}
+          />
+        </div>
+        <div style={{ maxHeight: 420, overflowY: "auto", scrollbarWidth: "thin" }}>
+          {groups.map(group => {
+            const grpChannels = visible.filter(ch => (ch.group || "Other") === group);
+            return (
+              <div key={group}>
+                <div style={{ padding: "6px 14px 4px", background: C.surface, borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em" }}>
+                  {group.toUpperCase()} ({grpChannels.length})
+                </div>
+                {grpChannels.map((ch, i) => {
+                  const isPlaying = activeUrl === ch.url;
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => ch.isPlaylist ? loadM3U(ch.url) : playStream(ch.url, ch.name)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10, padding: "9px 14px",
+                        borderBottom: `1px solid ${C.border}`,
+                        background: isPlaying ? `${C.accent}18` : "transparent",
+                        cursor: "pointer", transition: "background 0.1s",
+                      }}
+                      onMouseEnter={e => { if (!isPlaying) e.currentTarget.style.background = C.cardHover; }}
+                      onMouseLeave={e => { if (!isPlaying) e.currentTarget.style.background = "transparent"; }}
+                    >
+                      {ch.logo
+                        ? <img src={ch.logo} alt="" style={{ width: 28, height: 20, objectFit: "contain", borderRadius: 2, flexShrink: 0 }} onError={e => { e.target.style.display = "none"; }} />
+                        : <span style={{ fontSize: 16, flexShrink: 0 }}>{ch.flag || "📺"}</span>
+                      }
+                      <span style={{ fontFamily: SANS, fontSize: 12, color: isPlaying ? C.accent : C.text, fontWeight: isPlaying ? 700 : 400, flex: 1 }}>{ch.name}</span>
+                      {ch.isPlaylist && <span style={{ fontFamily: MONO, fontSize: 9, color: C.amber, border: `1px solid ${C.amber}44`, borderRadius: 3, padding: "2px 5px" }}>M3U</span>}
+                      {isPlaying && <span style={{ fontFamily: MONO, fontSize: 9, color: C.green, fontWeight: 800 }}>▶ LIVE</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+          {visible.length === 0 && (
+            <div style={{ padding: "30px 0", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.textDim }}>No channels match your search</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
+  const [soccerView, setSoccerView] = React.useState("iptv");
+
   const LEAGUES = [
     { id: "eng.1",           name: "Premier League",    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", },
     { id: "esp.1",           name: "La Liga",           flag: "🇪🇸" },
@@ -4655,96 +4907,122 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
 
   const cols = isTablet ? "1fr 1fr" : "repeat(4, 1fr)";
 
+  const tabBtn = (id, label) => (
+    <button onClick={() => setSoccerView(id)} style={{
+      fontFamily: MONO, fontSize: 11, fontWeight: soccerView === id ? 800 : 600,
+      border: soccerView === id ? `1px solid ${C.accent}` : `1px solid ${C.border}`,
+      background: soccerView === id ? `${C.accent}22` : "transparent",
+      color: soccerView === id ? C.accent : C.textSec,
+      borderRadius: 4, padding: "6px 14px", cursor: "pointer",
+      borderBottom: soccerView === id ? `2px solid ${C.accent}` : "2px solid transparent",
+    }}>{label}</button>
+  );
+
   return (
     <div style={{ paddingBottom: 40 }}>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: 2 }}>⚽ SOCCER WATCH</div>
-        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>Live scores · Schedules · Free streaming links</div>
-      </div>
-
-      {/* Free streaming sites */}
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, marginBottom: 24, overflow: "hidden" }}>
-        <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}` }}>
-          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, letterSpacing: "0.08em" }}>🆓 FREE STREAMING SITES — tap to open</span>
+      {/* Header + tabs */}
+      <div style={{ marginBottom: 18, display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: 2 }}>⚽ SOCCER WATCH</div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>IPTV · Live scores · Free streaming links</div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: cols }}>
-          {FREE_SITES.map((s, i) => (
-            <a key={s.name} href={s.url} target="_blank" rel="noreferrer"
-              style={{ display: "block", padding: "12px 14px", textDecoration: "none",
-                borderRight: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`,
-                background: "transparent", transition: "background 0.15s" }}
-              onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
-              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-              onTouchStart={e => e.currentTarget.style.background = C.cardHover}
-              onTouchEnd={e => { setTimeout(() => { if (e.currentTarget) e.currentTarget.style.background = "transparent"; }, 300); }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                <span style={{ fontSize: 14 }}>{s.icon}</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>{s.name}</span>
-              </div>
-              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.5 }}>{s.desc}</div>
-            </a>
-          ))}
+        <div style={{ display: "flex", gap: 6 }}>
+          {tabBtn("iptv",   "📺 IPTV")}
+          {tabBtn("scores", "📅 SCORES")}
+          {tabBtn("sites",  "🆓 FREE SITES")}
         </div>
       </div>
 
-      {/* Schedule */}
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
-        <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, letterSpacing: "0.08em" }}>📅 TODAY'S SCHEDULE</span>
-          <button onClick={() => fetchLeague(soccerLeague)} disabled={soccerLoading}
-            style={{ fontFamily: MONO, fontSize: 10, background: C.surface, border: `1px solid ${C.border}`, color: C.textSec, borderRadius: 4, padding: "5px 10px", cursor: "pointer" }}>
-            {soccerLoading ? "LOADING…" : "↻ REFRESH"}
-          </button>
-        </div>
-        <div style={{ display: "flex", overflowX: "auto", scrollbarWidth: "none", padding: "8px 12px", gap: 6, borderBottom: `1px solid ${C.border}` }}>
-          {LEAGUES.map(l => (
-            <button key={l.id} onClick={() => setSoccerLeague(l.id)}
-              style={{ fontFamily: MONO, fontSize: 10, fontWeight: soccerLeague === l.id ? 800 : 500, whiteSpace: "nowrap",
-                border: soccerLeague === l.id ? `1px solid ${C.accent}` : `1px solid ${C.border}`,
-                background: soccerLeague === l.id ? `${C.accent}22` : C.surface,
-                color: soccerLeague === l.id ? C.accent : C.textSec,
-                borderRadius: 4, padding: "5px 10px", cursor: "pointer" }}>
-              {l.flag} {l.name}
+      {/* ── IPTV TAB ────────────────────────────────────────────────────────── */}
+      {soccerView === "iptv" && (
+        <SoccerIPTVPlayer C={C} MONO={MONO} SANS={SANS} />
+      )}
+
+      {/* ── SCORES TAB ──────────────────────────────────────────────────────── */}
+      {soccerView === "scores" && (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+          <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, letterSpacing: "0.08em" }}>📅 TODAY'S SCHEDULE</span>
+            <button onClick={() => fetchLeague(soccerLeague)} disabled={soccerLoading}
+              style={{ fontFamily: MONO, fontSize: 10, background: C.surface, border: `1px solid ${C.border}`, color: C.textSec, borderRadius: 4, padding: "5px 10px", cursor: "pointer" }}>
+              {soccerLoading ? "LOADING…" : "↻ REFRESH"}
             </button>
-          ))}
-        </div>
-        <div style={{ padding: "14px 16px" }}>
-          {soccerLoading && <div style={{ textAlign: "center", padding: "40px 0", fontFamily: MONO, fontSize: 11, color: C.textDim }}>Loading schedule…</div>}
-          {soccerError && !soccerLoading && <div style={{ textAlign: "center", padding: "30px 0", fontFamily: MONO, fontSize: 11, color: C.red }}>{soccerError}</div>}
-          {!soccerLoading && !soccerError && soccerFetched && soccerGames.length === 0 && (
-            <div style={{ textAlign: "center", padding: "30px 0" }}>
-              <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginBottom: 6 }}>No matches scheduled today</div>
-              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Try another league or check back on match days</div>
-            </div>
-          )}
-          {!soccerLoading && soccerGames.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              {live.length > 0 && (
-                <div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.green, fontWeight: 800, letterSpacing: "0.1em", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: C.green, animation: "pulse 1.5s infinite" }} />
-                    LIVE NOW ({live.length})
+          </div>
+          <div style={{ display: "flex", overflowX: "auto", scrollbarWidth: "none", padding: "8px 12px", gap: 6, borderBottom: `1px solid ${C.border}` }}>
+            {LEAGUES.map(l => (
+              <button key={l.id} onClick={() => setSoccerLeague(l.id)}
+                style={{ fontFamily: MONO, fontSize: 10, fontWeight: soccerLeague === l.id ? 800 : 500, whiteSpace: "nowrap",
+                  border: soccerLeague === l.id ? `1px solid ${C.accent}` : `1px solid ${C.border}`,
+                  background: soccerLeague === l.id ? `${C.accent}22` : C.surface,
+                  color: soccerLeague === l.id ? C.accent : C.textSec,
+                  borderRadius: 4, padding: "5px 10px", cursor: "pointer" }}>
+                {l.flag} {l.name}
+              </button>
+            ))}
+          </div>
+          <div style={{ padding: "14px 16px" }}>
+            {soccerLoading && <div style={{ textAlign: "center", padding: "40px 0", fontFamily: MONO, fontSize: 11, color: C.textDim }}>Loading schedule…</div>}
+            {soccerError && !soccerLoading && <div style={{ textAlign: "center", padding: "30px 0", fontFamily: MONO, fontSize: 11, color: C.red }}>{soccerError}</div>}
+            {!soccerLoading && !soccerError && soccerFetched && soccerGames.length === 0 && (
+              <div style={{ textAlign: "center", padding: "30px 0" }}>
+                <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginBottom: 6 }}>No matches scheduled today</div>
+                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Try another league or check back on match days</div>
+              </div>
+            )}
+            {!soccerLoading && soccerGames.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {live.length > 0 && (
+                  <div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.green, fontWeight: 800, letterSpacing: "0.1em", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: C.green, animation: "pulse 1.5s infinite" }} />
+                      LIVE NOW ({live.length})
+                    </div>
+                    {live.map(g => <GameCard key={g.id} g={g} />)}
                   </div>
-                  {live.map(g => <GameCard key={g.id} g={g} />)}
-                </div>
-              )}
-              {upcoming.length > 0 && (
-                <div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.amber, fontWeight: 800, letterSpacing: "0.1em", marginBottom: 8 }}>UPCOMING ({upcoming.length})</div>
-                  {upcoming.map(g => <GameCard key={g.id} g={g} />)}
-                </div>
-              )}
-              {finished.length > 0 && (
-                <div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, fontWeight: 800, letterSpacing: "0.1em", marginBottom: 8 }}>FINAL RESULTS ({finished.length})</div>
-                  {finished.map(g => <GameCard key={g.id} g={g} />)}
-                </div>
-              )}
-            </div>
-          )}
+                )}
+                {upcoming.length > 0 && (
+                  <div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.amber, fontWeight: 800, letterSpacing: "0.1em", marginBottom: 8 }}>UPCOMING ({upcoming.length})</div>
+                    {upcoming.map(g => <GameCard key={g.id} g={g} />)}
+                  </div>
+                )}
+                {finished.length > 0 && (
+                  <div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, fontWeight: 800, letterSpacing: "0.1em", marginBottom: 8 }}>FINAL RESULTS ({finished.length})</div>
+                    {finished.map(g => <GameCard key={g.id} g={g} />)}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* ── FREE SITES TAB ───────────────────────────────────────────────────── */}
+      {soccerView === "sites" && (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+          <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}` }}>
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, letterSpacing: "0.08em" }}>🆓 FREE STREAMING SITES — tap to open</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: cols }}>
+            {FREE_SITES.map(s => (
+              <a key={s.name} href={s.url} target="_blank" rel="noreferrer"
+                style={{ display: "block", padding: "12px 14px", textDecoration: "none", borderRight: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: "transparent", transition: "background 0.15s" }}
+                onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                onTouchStart={e => e.currentTarget.style.background = C.cardHover}
+                onTouchEnd={e => { setTimeout(() => { if (e.currentTarget) e.currentTarget.style.background = "transparent"; }, 300); }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <span style={{ fontSize: 14 }}>{s.icon}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>{s.name}</span>
+                </div>
+                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.5 }}>{s.desc}</div>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
