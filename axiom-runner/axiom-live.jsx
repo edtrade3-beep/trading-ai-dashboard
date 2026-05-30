@@ -2981,6 +2981,285 @@ function TerminalWorkspace({
   );
 }
 
+// ─── CryptoTab ──────────────────────────────────────────────────────────────
+function CryptoTab({ C, MONO, SANS }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [lastFetch, setLastFetch] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/market/crypto");
+      const json = await res.json();
+      if (!json.ok) throw new Error("Crypto fetch failed");
+      setData(json);
+      setLastFetch(new Date());
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Auto-refresh every 60 seconds
+  useEffect(() => {
+    const t = setInterval(load, 60000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  const card = {
+    background: C.card, border: `1px solid ${C.border}`,
+    borderRadius: 10, padding: 18, boxSizing: "border-box",
+  };
+
+  const fgColor = (val) => {
+    if (val >= 75) return C.green;
+    if (val >= 55) return "#22c55e";
+    if (val >= 45) return C.amber;
+    if (val >= 25) return "#f97316";
+    return C.red;
+  };
+
+  const fgLabel = (val) => {
+    if (val >= 75) return "EXTREME GREED";
+    if (val >= 55) return "GREED";
+    if (val >= 45) return "NEUTRAL";
+    if (val >= 25) return "FEAR";
+    return "EXTREME FEAR";
+  };
+
+  const fmt = (n) => {
+    if (!n) return "—";
+    if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
+    if (n >= 1e9)  return `$${(n / 1e9).toFixed(2)}B`;
+    if (n >= 1e6)  return `$${(n / 1e6).toFixed(2)}M`;
+    return `$${Number(n).toLocaleString()}`;
+  };
+
+  const fmtVol = (n) => {
+    if (!n) return "—";
+    if (n >= 1e9)  return `${(n / 1e9).toFixed(2)}B`;
+    if (n >= 1e6)  return `${(n / 1e6).toFixed(2)}M`;
+    if (n >= 1e3)  return `${(n / 1e3).toFixed(1)}K`;
+    return String(n);
+  };
+
+  return (
+    <div style={{ padding: "0 0 40px" }}>
+      {/* Header bar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 20 }}>₿</span>
+          <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>CRYPTO MARKET</span>
+          {data?.globalMacro && (
+            <span style={{
+              fontFamily: MONO, fontSize: 11, color: C.textDim,
+              background: C.surface, border: `1px solid ${C.border}`,
+              borderRadius: 6, padding: "3px 8px",
+            }}>
+              MCAP {fmt(data.globalMacro.totalMarketCap)}
+              &nbsp;·&nbsp;
+              24h {data.globalMacro.marketCapChange24h > 0 ? "+" : ""}{data.globalMacro.marketCapChange24h}%
+            </span>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {lastFetch && (
+            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+              Updated {lastFetch.toLocaleTimeString()}
+            </span>
+          )}
+          <button
+            onClick={load}
+            disabled={loading}
+            style={{
+              fontFamily: MONO, fontSize: 11, fontWeight: 700,
+              background: C.accent, color: "#fff", border: "none",
+              borderRadius: 6, padding: "6px 14px", cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.6 : 1,
+            }}
+          >
+            {loading ? "⟳ LOADING…" : "⟳ REFRESH"}
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div style={{ ...card, color: C.red, fontFamily: MONO, fontSize: 12, marginBottom: 14 }}>
+          ⚠ {error}
+        </div>
+      )}
+
+      {/* Macro row: Fear & Greed + BTC Dom + ETH Dom + Volume */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 16 }}>
+        {/* Fear & Greed Meter */}
+        {data?.fearGreed ? (() => {
+          const fg = data.fearGreed;
+          const col = fgColor(fg.value);
+          return (
+            <div style={{ ...card, gridColumn: "span 1", textAlign: "center" }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>FEAR & GREED INDEX</div>
+              {/* Gauge arc */}
+              <div style={{ position: "relative", width: 120, height: 68, margin: "0 auto 8px" }}>
+                <svg viewBox="0 0 120 68" style={{ width: "100%", height: "100%" }}>
+                  <path d="M10,60 A50,50 0 0,1 110,60" fill="none" stroke={C.border} strokeWidth="12" strokeLinecap="round" />
+                  <path
+                    d="M10,60 A50,50 0 0,1 110,60"
+                    fill="none" stroke={col} strokeWidth="12" strokeLinecap="round"
+                    strokeDasharray={`${(fg.value / 100) * 157} 157`}
+                    style={{ transition: "stroke-dasharray 0.8s ease" }}
+                  />
+                </svg>
+                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, textAlign: "center" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 32, fontWeight: 900, color: col, lineHeight: 1 }}>{fg.value}</div>
+                </div>
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: col, letterSpacing: "0.06em" }}>{fgLabel(fg.value)}</div>
+              {/* 7-day sparkline */}
+              {fg.history?.length > 1 && (
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 3, marginTop: 12, justifyContent: "center", height: 28 }}>
+                  {[...fg.history].reverse().map((h, i) => (
+                    <div key={i} title={`${h.label}: ${h.value}`} style={{
+                      width: 12, borderRadius: 3,
+                      height: `${Math.max(4, (h.value / 100) * 28)}px`,
+                      background: fgColor(h.value),
+                      opacity: i === fg.history.length - 1 ? 1 : 0.5,
+                    }} />
+                  ))}
+                </div>
+              )}
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 4 }}>7-DAY HISTORY</div>
+            </div>
+          );
+        })() : (
+          <div style={{ ...card, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 120 }}>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{loading ? "Loading…" : "Fear & Greed N/A"}</span>
+          </div>
+        )}
+
+        {/* BTC Dominance */}
+        {data?.globalMacro ? (() => {
+          const g = data.globalMacro;
+          return (
+            <div style={{ ...card }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 14 }}>MARKET DOMINANCE</div>
+              {[
+                ["BTC Dominance", `${g.btcDominance}%`, C.amber],
+                ["ETH Dominance", `${g.ethDominance}%`, C.purple],
+                ["Total Mkt Cap", fmt(g.totalMarketCap), C.text],
+                ["24h Volume",    fmt(g.totalVolume24h), C.text],
+                ["Mkt Cap Δ 24h", `${g.marketCapChange24h > 0 ? "+" : ""}${g.marketCapChange24h}%`, g.marketCapChange24h >= 0 ? C.green : C.red],
+                ["Active Coins",  g.activeCurrencies?.toLocaleString(), C.textDim],
+              ].map(([k, v, col]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontFamily: SANS, fontSize: 13, color: C.textDim }}>{k}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: col || C.text }}>{v || "—"}</span>
+                </div>
+              ))}
+            </div>
+          );
+        })() : (
+          <div style={{ ...card, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 120 }}>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{loading ? "Loading…" : "Global data N/A"}</span>
+          </div>
+        )}
+
+        {/* BTC dominance bar */}
+        {data?.globalMacro && (
+          <div style={{ ...card }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 14 }}>DOMINANCE BREAKDOWN</div>
+            {[
+              { label: "BTC", pct: data.globalMacro.btcDominance, col: C.amber },
+              { label: "ETH", pct: data.globalMacro.ethDominance, col: C.purple },
+              { label: "ALTs", pct: Math.max(0, 100 - data.globalMacro.btcDominance - data.globalMacro.ethDominance), col: C.cyan },
+            ].map(({ label, pct, col }) => (
+              <div key={label} style={{ marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{label}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: col }}>{pct.toFixed(1)}%</span>
+                </div>
+                <div style={{ height: 8, background: C.border, borderRadius: 4, overflow: "hidden" }}>
+                  <div style={{ width: `${Math.min(100, pct)}%`, height: "100%", background: col, borderRadius: 4, transition: "width 0.6s ease" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Coin table */}
+      <div style={{ ...card, padding: 0, overflow: "hidden" }}>
+        <div style={{ padding: "14px 18px 10px", borderBottom: `1px solid ${C.border}` }}>
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>LIVE PRICES</span>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 10 }}>auto-refresh 60s · Yahoo Finance</span>
+        </div>
+        {/* Table header */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "40px 100px 1fr 90px 90px 90px 90px 90px",
+          gap: 0, padding: "8px 18px",
+          borderBottom: `1px solid ${C.border}`,
+          background: C.surface,
+        }}>
+          {["#","COIN","NAME","PRICE","24H %","24H HI","24H LO","VOLUME"].map((h, i) => (
+            <div key={h} style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, fontWeight: 700, letterSpacing: "0.06em", textAlign: i > 1 ? "right" : "left" }}>{h}</div>
+          ))}
+        </div>
+        {loading && !data?.coins?.length ? (
+          <div style={{ padding: "40px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading crypto data…</div>
+        ) : (data?.coins || []).map((coin, idx) => {
+          const isUp = coin.changesPercentage >= 0;
+          const col = isUp ? C.green : C.red;
+          const COIN_ICONS = {
+            BTC: "₿", ETH: "Ξ", SOL: "◎", BNB: "⬡", XRP: "✕",
+            DOGE: "Ð", ADA: "₳", AVAX: "△", LINK: "⬡", DOT: "●",
+            MATIC: "⬟", UNI: "🦄", LTC: "Ł", BCH: "Ƀ", ATOM: "⚛",
+          };
+          const icon = COIN_ICONS[coin.symbol] || "◆";
+          return (
+            <div key={coin.symbol} style={{
+              display: "grid",
+              gridTemplateColumns: "40px 100px 1fr 90px 90px 90px 90px 90px",
+              gap: 0, padding: "10px 18px",
+              borderBottom: `1px solid ${C.border}`,
+              background: idx % 2 === 0 ? "transparent" : C.surface,
+            }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, alignSelf: "center" }}>{idx + 1}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, alignSelf: "center" }}>
+                <span style={{ fontSize: 14 }}>{icon}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{coin.symbol}</span>
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {coin.name?.replace(" USD", "").replace("-USD", "")}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text, textAlign: "right", alignSelf: "center" }}>
+                ${coin.price >= 1000 ? coin.price.toLocaleString() : coin.price.toFixed(coin.price >= 1 ? 2 : 6)}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: col, textAlign: "right", alignSelf: "center" }}>
+                {isUp ? "▲" : "▼"} {Math.abs(coin.changesPercentage).toFixed(2)}%
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "right", alignSelf: "center" }}>
+                ${coin.high24h >= 1000 ? coin.high24h.toLocaleString() : coin.high24h?.toFixed(coin.high24h >= 1 ? 2 : 4)}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "right", alignSelf: "center" }}>
+                ${coin.low24h >= 1000 ? coin.low24h.toLocaleString() : coin.low24h?.toFixed(coin.low24h >= 1 ? 2 : 4)}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "right", alignSelf: "center" }}>
+                {fmtVol(coin.volume)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, onOpenTradingView }) {
   if (!stock) return null;
   const chg = stock.changesPercentage || 0;
@@ -7594,6 +7873,7 @@ export default function App() {
               { id: "dashboard", label: "MONITOR",   tabs: ["dashboard", "briefing"] },
               { id: "terminal",  label: "TERMINAL",  tabs: ["terminal", "openstock", "tv", "multitf"] },
               { id: "scanner",   label: "SCANNER",   tabs: ["scanner", "early", "analyzer", "cot", "flow", "screener", "shortint", "smartmoney", "social"] },
+              { id: "crypto",    label: "₿ CRYPTO",  tabs: ["crypto"] },
               { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "calendar", "analyst", "ipo", "feargreed", "breadth", "seasonality"] },
               { id: "watchlist", label: "WATCHLIST", tabs: ["fivex", "smartscan"] },
               { id: "portfolio", label: "PORTFOLIO", tabs: ["portfolio", "performance", "journal", "alerts", "heatmap", "correlation", "risklab"] },
@@ -8839,6 +9119,10 @@ export default function App() {
               })()}
             </div>
           </div>
+        )}
+
+        {activeTab === "crypto" && (
+          <CryptoTab C={C} MONO={MONO} SANS={SANS} />
         )}
 
         {activeTab === "news" && (

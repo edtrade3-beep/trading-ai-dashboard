@@ -789,6 +789,96 @@ async function handleMarket(req, res, requestUrl) {
     }
   }
 
+  // GET /api/market/crypto — live crypto prices + Fear & Greed + BTC dominance
+  if (pathname === "/api/market/crypto" && req.method === "GET") {
+    const CRYPTO_SYMBOLS = [
+      "BTC-USD","ETH-USD","SOL-USD","BNB-USD","XRP-USD",
+      "DOGE-USD","ADA-USD","AVAX-USD","LINK-USD","DOT-USD",
+      "MATIC-USD","UNI-USD","LTC-USD","BCH-USD","ATOM-USD",
+    ];
+    try {
+      // Fetch crypto quotes from Yahoo Finance (same provider already in use)
+      const [quoteRows, fngData, globalData] = await Promise.allSettled([
+        fetchYahooQuoteBatch(CRYPTO_SYMBOLS),
+        // Fear & Greed — free, no API key
+        withTimeout(
+          fetch("https://api.alternative.me/fng/?limit=7", { headers: { "User-Agent": "Mozilla/5.0" } })
+            .then(r => r.ok ? r.json() : null).catch(() => null),
+          6000, null
+        ),
+        // CoinGecko global — free, no API key
+        withTimeout(
+          fetch("https://api.coingecko.com/api/v3/global", { headers: { "User-Agent": "Mozilla/5.0" } })
+            .then(r => r.ok ? r.json() : null).catch(() => null),
+          6000, null
+        ),
+      ]);
+
+      const rows = (quoteRows.status === "fulfilled" ? quoteRows.value : []) || [];
+      const bySymbol = Object.fromEntries(rows.map(r => [String(r?.symbol || "").toUpperCase(), r]));
+
+      const coins = CRYPTO_SYMBOLS.map(sym => {
+        const live = bySymbol[sym.toUpperCase()];
+        if (!live) return null;
+        const price = Number(live.regularMarketPrice);
+        if (!price) return null;
+        const chgPct = round2(Number(live.regularMarketChangePercent) || 0);
+        const h24 = round2(Number(live.regularMarketDayHigh) || price);
+        const l24 = round2(Number(live.regularMarketDayLow) || price);
+        const vol = Number(live.regularMarketVolume) || 0;
+        const mcap = Number(live.marketCap) || 0;
+        const y52h = round2(Number(live.fiftyTwoWeekHigh) || 0);
+        const y52l = round2(Number(live.fiftyTwoWeekLow) || 0);
+        return {
+          symbol: sym.replace("-USD", ""),
+          name: live.longName || live.shortName || sym,
+          price: round2(price),
+          changesPercentage: chgPct,
+          high24h: h24,
+          low24h: l24,
+          volume: vol,
+          marketCap: mcap,
+          yearHigh: y52h,
+          yearLow: y52l,
+        };
+      }).filter(Boolean);
+
+      // Fear & Greed
+      let fearGreed = null;
+      const fng = fngData.status === "fulfilled" ? fngData.value : null;
+      if (fng?.data?.length) {
+        fearGreed = {
+          value: Number(fng.data[0].value),
+          label: fng.data[0].value_classification,
+          history: fng.data.slice(0, 7).map(d => ({
+            value: Number(d.value),
+            label: d.value_classification,
+            timestamp: d.timestamp,
+          })),
+        };
+      }
+
+      // BTC Dominance + Total Market Cap
+      let globalMacro = null;
+      const gd = globalData.status === "fulfilled" ? globalData.value : null;
+      if (gd?.data) {
+        globalMacro = {
+          totalMarketCap: gd.data.total_market_cap?.usd || 0,
+          totalVolume24h: gd.data.total_volume?.usd || 0,
+          btcDominance: round2(gd.data.market_cap_percentage?.btc || 0),
+          ethDominance: round2(gd.data.market_cap_percentage?.eth || 0),
+          activeCurrencies: gd.data.active_cryptocurrencies || 0,
+          marketCapChange24h: round2(gd.data.market_cap_change_percentage_24h_usd || 0),
+        };
+      }
+
+      return writeJson(res, 200, { ok: true, coins, fearGreed, globalMacro, generatedAt: new Date().toISOString() });
+    } catch (err) {
+      console.error("[market/crypto] Error:", err?.message);
+      return writeJson(res, 200, { ok: true, coins: [], fearGreed: null, globalMacro: null, generatedAt: new Date().toISOString() });
+    }
+  }
+
   return writeJson(res, 404, { error: "Unknown market endpoint." });
 }
 
