@@ -9474,7 +9474,7 @@ export default function App() {
         <div style={{
           borderBottom: `2px solid ${C.accent}33`,
           borderLeft: `3px solid ${C.accent}`,
-          background: themeMode === "dark" ? "#0e1829" : "#f0f5ff",
+          background: C.surface,
           boxShadow: "0 6px 24px rgba(0,0,0,0.15)",
         }}>
           {/* Search row — top of menu */}
@@ -9631,7 +9631,7 @@ export default function App() {
       <MacroTape data={macroData} cryptoSnapshot={cryptoSnapshot} />
 
       {/* News / Alert Tape */}
-      <div style={{ borderBottom: `1px solid ${C.border}`, background: themeMode === "dark" ? "#111820" : "#edf2f8", overflow: "hidden", whiteSpace: "nowrap" }}>
+      <div style={{ borderBottom: `1px solid ${C.border}`, background: "#111820", overflow: "hidden", whiteSpace: "nowrap" }}>
         <div className="axiom-ticker-track" style={{ display: "inline-flex", alignItems: "center", gap: 26, padding: "6px 0", animation: "axiomTickerLTR 500s linear infinite" }}>
           {[...topHeadlineTape, ...topHeadlineTape].map((item, i) => {
             const toneColor = item.tone === "red" ? C.red : item.tone === "green" ? C.green : item.tone === "amber" ? C.amber : C.accent;
@@ -9729,7 +9729,7 @@ export default function App() {
         return (
           <div style={{
             borderBottom: `1px solid ${C.border}`,
-            background: themeMode === "dark" ? "#0d1422" : "#edf2f9",
+            background: C.surface,
             padding: isMobile ? "0 6px" : "0 18px",
             display: "flex", alignItems: "center", gap: 1,
             overflowX: "auto", scrollbarWidth: "none",
@@ -11140,7 +11140,7 @@ export default function App() {
         {/* ── STOCKS: Single-page stock deep dive ──────────────────────────── */}
         {activeTab === "openstock" && (() => {
           const tvTheme = themeMode === "dark" ? "dark" : "light";
-          const bgColor = themeMode === "dark" ? "#0a0e1a" : "#f0f4f9";
+          const bgColor = C.bg;
 
           // Use a real served HTML file (not srcDoc) so the iframe has a proper
           // same-origin URL — TradingView scripts are blocked in null-origin frames.
@@ -11170,7 +11170,7 @@ export default function App() {
           const sectionLabel = (icon, text) => (
             <div style={{ display: "flex", alignItems: "center", gap: 6,
               padding: "8px 14px", borderBottom: `1px solid ${C.border}`,
-              background: themeMode === "dark" ? "#0e1829" : "#eef3fa" }}>
+              background: C.surface }}>
               <span style={{ fontSize: 13 }}>{icon}</span>
               <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                 color: C.textDim, letterSpacing: "0.07em" }}>{text}</span>
@@ -11470,7 +11470,7 @@ export default function App() {
               {/* ── Table ── */}
               <div style={{ overflowX: "auto", borderRadius: 8, border: `1px solid ${C.border}` }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1050 }}>
-                  <thead style={{ background: themeMode === "dark" ? "#0e1829" : "#eef3fa" }}>
+                  <thead style={{ background: C.surface }}>
                     <tr>
                       {TH("#", "Rank by price")}
                       {TH("TICKER", "Symbol")}
@@ -11512,9 +11512,7 @@ export default function App() {
                         else if (isInEntry1)    rowTint = "#26a69a0c";
                         else if (isAboveBreakout) rowTint = "#ffd70010";
                       }
-                      const rowBase = i % 2 === 0
-                        ? (themeMode === "dark" ? "#11161d" : "#f9fafb")
-                        : (themeMode === "dark" ? "#0d1117" : "#ffffff");
+                      const rowBase = i % 2 === 0 ? C.surface : C.bg;
                       const rowBg = rowTint !== "transparent" ? rowTint : rowBase;
                       // Zone badge
                       let zoneBadge = null;
@@ -11824,7 +11822,7 @@ export default function App() {
                   borderRadius: 10, overflow: "hidden" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
-                      <tr style={{ background: themeMode === "dark" ? "#0e1829" : "#eef3fa" }}>
+                      <tr style={{ background: C.surface }}>
                         {["#","SCORE","SIGNAL","TICKER","SECTOR","LIVE $","RSI","MACD","EMA","ZONE","UPSIDE","THESIS"].map(h => (
                           <th key={h} style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700,
                             color: C.textDim, padding: "8px 10px", textAlign: h === "#" ? "center" : "left",
@@ -11884,8 +11882,8 @@ export default function App() {
                               style={{
                                 cursor: "pointer",
                                 background: isExpanded
-                                  ? (themeMode === "dark" ? "#122040" : "#e8f2ff")
-                                  : (idx % 2 === 0 ? "transparent" : (themeMode === "dark" ? "#111f36" : "#f5f9ff")),
+                                  ? C.cardHover
+                                  : (idx % 2 === 0 ? "transparent" : C.surface),
                                 borderLeft: isExpanded ? `3px solid ${row.sColor}` : "3px solid transparent",
                               }}
                             >
@@ -12015,7 +12013,7 @@ export default function App() {
                             {isExpanded && (
                               <tr>
                                 <td colSpan={12}
-                                  style={{ background: themeMode === "dark" ? "#0e1b2e" : "#f2f7ff",
+                                  style={{ background: C.bg,
                                     borderLeft: `3px solid ${row.sColor}`,
                                     borderBottom: `2px solid ${row.sColor}44`,
                                     padding: "16px 18px" }}>
@@ -12149,7 +12147,7 @@ export default function App() {
                                                 <a key={ni} href={url} target="_blank" rel="noopener noreferrer"
                                                   style={{ display: "block", textDecoration: "none",
                                                     padding: "6px 8px", borderRadius: 4,
-                                                    background: bear ? C.redBg : bull ? C.greenBg : (themeMode === "dark" ? "#131f35" : "#eaf1ff"),
+                                                    background: bear ? C.redBg : bull ? C.greenBg : C.card,
                                                     border: `1px solid ${bear ? C.red : bull ? C.green : C.border}44` }}>
                                                   <div style={{ fontFamily: MONO, fontSize: 9,
                                                     color: bear ? C.red : bull ? C.green : C.text,
@@ -12236,7 +12234,7 @@ export default function App() {
                                           };
                                           return (
                                             <div style={{ maxHeight: 320, overflowY: "auto",
-                                              background: themeMode === "dark" ? "#0a1628" : "#f5f9ff",
+                                              background: C.surface,
                                               border: `1px solid ${C.border}`, borderRadius: 6,
                                               padding: "10px 12px" }}>
                                               {plan.split("\n").map((line, li) => {
@@ -15496,7 +15494,7 @@ export default function App() {
                     </div>
                   </div>
                   {isError && (
-                    <div style={{ marginTop: 6, padding: "8px 12px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 6, fontFamily: MONO, fontSize: 10, color: "#dc2626" }}>
+                    <div style={{ marginTop: 6, padding: "8px 12px", background: C.redBg, border: `1px solid ${C.red}55`, borderRadius: 6, fontFamily: MONO, fontSize: 10, color: C.red }}>
                       <strong>Fix: </strong>
                       {tgStatus === "unconfigured"
                         ? 'Go to Render.com → your service → Environment → set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID'
@@ -16623,7 +16621,7 @@ export default function App() {
 
               {/* Audio error banner */}
               {quranAudioError && (
-                <div style={{ marginTop: 14, background: themeMode === "dark" ? "#2a120a" : "#fff4f0", border: "1px solid #cc4400", borderRadius: 10, padding: "12px 14px", direction: "ltr", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                <div style={{ marginTop: 14, background: "#2a120a", border: "1px solid #cc4400", borderRadius: 10, padding: "12px 14px", direction: "ltr", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
                   <div>
                     <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#ff6633" }}>⚠ تعذّر تشغيل الصوت — Audio unavailable</div>
                     <div style={{ fontFamily: MONO, fontSize: 9, color: "#cc7755", marginTop: 4 }}>
@@ -17192,7 +17190,7 @@ export default function App() {
               {TFS.map(tf => (
                 <div key={tf.key} style={card()}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px",
-                    borderBottom: `1px solid ${C.border}`, background: themeMode === "dark" ? "#0e1829" : "#eef3fa" }}>
+                    borderBottom: `1px solid ${C.border}`, background: C.surface }}>
                     <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent }}>{sym}</span>
                     <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 600, color: C.textDim }}>{tf.label}</span>
                   </div>
@@ -17310,7 +17308,7 @@ export default function App() {
                   <div style={{ overflowX: "auto" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
                       <thead>
-                        <tr style={{ background: themeMode === "dark" ? "#0e1829" : "#eef3fa" }}>
+                        <tr style={{ background: C.surface }}>
                           {["TICKER","SCORE","RSI","CHANGE%","PRICE","REL VOL","ACTION"].map(h => (
                             <th key={h} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, padding: "8px 12px", textAlign: h === "TICKER" ? "left" : "right", letterSpacing: "0.04em" }}>{h}</th>
                           ))}
@@ -17390,7 +17388,7 @@ export default function App() {
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
-                      <tr style={{ background: themeMode === "dark" ? "#0e1829" : "#eef3fa" }}>
+                      <tr style={{ background: C.surface }}>
                         {["TICKER","SHORT FLOAT %","DAYS TO COVER","SHARES SHORT","VS PRIOR MONTH","AS OF"].map(h => (
                           <th key={h} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, padding: "9px 14px", textAlign: h === "TICKER" ? "left" : "right", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
                         ))}
@@ -17460,7 +17458,7 @@ export default function App() {
           const absP = Math.min(Math.abs(pct), 10) / 10; // 0–1 scale
           if (pct > 0) return `rgba(34,212,126,${0.15 + absP * 0.65})`;
           if (pct < 0) return `rgba(255,69,96,${0.15 + absP * 0.65})`;
-          return themeMode === "dark" ? "#1a2535" : "#e8eef6";
+          return C.card;
         }
 
         const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
