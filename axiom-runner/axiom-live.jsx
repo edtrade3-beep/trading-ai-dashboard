@@ -3006,9 +3006,9 @@ function CryptoTab({ C, MONO, SANS }) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Auto-refresh every 60 seconds
+  // Auto-refresh every 2 minutes (matches server-side cache TTL)
   useEffect(() => {
-    const t = setInterval(load, 60000);
+    const t = setInterval(load, 120000);
     return () => clearInterval(t);
   }, [load]);
 

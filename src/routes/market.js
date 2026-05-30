@@ -791,6 +791,12 @@ async function handleMarket(req, res, requestUrl) {
 
   // GET /api/market/crypto — live crypto prices + Fear & Greed + BTC dominance
   if (pathname === "/api/market/crypto" && req.method === "GET") {
+    // Server-side cache — only hit Binance/CoinGecko once per 2 minutes
+    if (!handleMarket._cryptoCache) handleMarket._cryptoCache = { data: null, ts: 0 };
+    const CRYPTO_TTL = 120_000; // 2 minutes
+    if (handleMarket._cryptoCache.data && Date.now() - handleMarket._cryptoCache.ts < CRYPTO_TTL) {
+      return writeJson(res, 200, handleMarket._cryptoCache.data);
+    }
     // Binance symbol → display info
     const BINANCE_MAP = [
       { binance: "BTCUSDT",  symbol: "BTC",   name: "Bitcoin" },
@@ -914,9 +920,16 @@ async function handleMarket(req, res, requestUrl) {
         }
       }
 
-      return writeJson(res, 200, { ok: true, coins, fearGreed, globalMacro, generatedAt: new Date().toISOString() });
+      const payload = { ok: true, coins, fearGreed, globalMacro, generatedAt: new Date().toISOString() };
+      // Only cache if we actually got coin data — don't cache empty responses
+      if (coins.length > 0) {
+        handleMarket._cryptoCache = { data: payload, ts: Date.now() };
+      }
+      return writeJson(res, 200, payload);
     } catch (err) {
       console.error("[market/crypto] Error:", err?.message);
+      // Return stale cache if available rather than empty
+      if (handleMarket._cryptoCache?.data) return writeJson(res, 200, handleMarket._cryptoCache.data);
       return writeJson(res, 200, { ok: true, coins: [], fearGreed: null, globalMacro: null, generatedAt: new Date().toISOString() });
     }
   }
