@@ -3192,8 +3192,52 @@ function CryptoTab({ C, MONO, SANS }) {
         )}
       </div>
 
+      {/* Top Movers summary */}
+      {data?.coins?.length > 0 && (() => {
+        const sorted = [...data.coins].sort((a, b) => b.changesPercentage - a.changesPercentage);
+        const top3 = sorted.slice(0, 3);
+        const bot3 = sorted.slice(-3).reverse();
+        const MoverCard = ({ coin, rank }) => {
+          const isUp = coin.changesPercentage >= 0;
+          const col = isUp ? C.green : C.red;
+          const COIN_ICONS = { BTC:"₿",ETH:"Ξ",SOL:"◎",BNB:"⬡",XRP:"✕",DOGE:"Ð",ADA:"₳",AVAX:"△",LINK:"⬡",DOT:"●",MATIC:"⬟",UNI:"🦄",LTC:"Ł",BCH:"Ƀ",ATOM:"⚛" };
+          return (
+            <div style={{ ...card, padding: "12px 16px", borderLeft: `3px solid ${col}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 16 }}>{COIN_ICONS[coin.symbol] || "◆"}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>{coin.symbol}</span>
+                </div>
+                <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: col }}>
+                  {isUp ? "+" : ""}{coin.changesPercentage.toFixed(2)}%
+                </span>
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 4 }}>
+                ${coin.price >= 1000 ? coin.price.toLocaleString() : coin.price.toFixed(coin.price >= 1 ? 2 : 6)}
+              </div>
+            </div>
+          );
+        };
+        return (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
+            <div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.green, letterSpacing: "0.08em", marginBottom: 8, fontWeight: 700 }}>▲ TOP GAINERS (24H)</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {top3.map((c, i) => <MoverCard key={c.symbol} coin={c} rank={i+1} />)}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.red, letterSpacing: "0.08em", marginBottom: 8, fontWeight: 700 }}>▼ TOP LOSERS (24H)</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {bot3.map((c, i) => <MoverCard key={c.symbol} coin={c} rank={i+1} />)}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Coin table */}
-      <div style={{ ...card, padding: 0, overflow: "hidden" }}>
+      <div style={{ ...card, padding: 0, overflow: "hidden", marginBottom: 16 }}>
         <div style={{ padding: "14px 18px 10px", borderBottom: `1px solid ${C.border}` }}>
           <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>LIVE PRICES</span>
           <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 10 }}>auto-refresh 60s · Yahoo Finance</span>
@@ -3201,12 +3245,12 @@ function CryptoTab({ C, MONO, SANS }) {
         {/* Table header */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "40px 100px 1fr 90px 90px 90px 90px 90px",
+          gridTemplateColumns: "36px 90px 1fr 100px 90px 100px 100px 90px 100px",
           gap: 0, padding: "8px 18px",
           borderBottom: `1px solid ${C.border}`,
           background: C.surface,
         }}>
-          {["#","COIN","NAME","PRICE","24H %","24H HI","24H LO","VOLUME"].map((h, i) => (
+          {["#","COIN","NAME","PRICE","24H %","24H HI","24H LO","VOLUME","MARKET CAP"].map((h, i) => (
             <div key={h} style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, fontWeight: 700, letterSpacing: "0.06em", textAlign: i > 1 ? "right" : "left" }}>{h}</div>
           ))}
         </div>
@@ -3215,47 +3259,110 @@ function CryptoTab({ C, MONO, SANS }) {
         ) : (data?.coins || []).map((coin, idx) => {
           const isUp = coin.changesPercentage >= 0;
           const col = isUp ? C.green : C.red;
-          const COIN_ICONS = {
-            BTC: "₿", ETH: "Ξ", SOL: "◎", BNB: "⬡", XRP: "✕",
-            DOGE: "Ð", ADA: "₳", AVAX: "△", LINK: "⬡", DOT: "●",
-            MATIC: "⬟", UNI: "🦄", LTC: "Ł", BCH: "Ƀ", ATOM: "⚛",
-          };
+          const COIN_ICONS = { BTC:"₿",ETH:"Ξ",SOL:"◎",BNB:"⬡",XRP:"✕",DOGE:"Ð",ADA:"₳",AVAX:"△",LINK:"⬡",DOT:"●",MATIC:"⬟",UNI:"🦄",LTC:"Ł",BCH:"Ƀ",ATOM:"⚛" };
           const icon = COIN_ICONS[coin.symbol] || "◆";
+          const fmtPrice = (p) => p >= 1000 ? `$${p.toLocaleString()}` : `$${p.toFixed(p >= 1 ? 2 : 6)}`;
           return (
             <div key={coin.symbol} style={{
               display: "grid",
-              gridTemplateColumns: "40px 100px 1fr 90px 90px 90px 90px 90px",
+              gridTemplateColumns: "36px 90px 1fr 100px 90px 100px 100px 90px 100px",
               gap: 0, padding: "10px 18px",
               borderBottom: `1px solid ${C.border}`,
               background: idx % 2 === 0 ? "transparent" : C.surface,
             }}>
               <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, alignSelf: "center" }}>{idx + 1}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, alignSelf: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, alignSelf: "center" }}>
                 <span style={{ fontSize: 14 }}>{icon}</span>
                 <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{coin.symbol}</span>
               </div>
               <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {coin.name?.replace(" USD", "").replace("-USD", "")}
+                {coin.name?.replace(" USD","").replace("-USD","")}
               </div>
               <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text, textAlign: "right", alignSelf: "center" }}>
-                ${coin.price >= 1000 ? coin.price.toLocaleString() : coin.price.toFixed(coin.price >= 1 ? 2 : 6)}
+                {fmtPrice(coin.price)}
               </div>
               <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: col, textAlign: "right", alignSelf: "center" }}>
                 {isUp ? "▲" : "▼"} {Math.abs(coin.changesPercentage).toFixed(2)}%
               </div>
-              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "right", alignSelf: "center" }}>
-                ${coin.high24h >= 1000 ? coin.high24h.toLocaleString() : coin.high24h?.toFixed(coin.high24h >= 1 ? 2 : 4)}
-              </div>
-              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "right", alignSelf: "center" }}>
-                ${coin.low24h >= 1000 ? coin.low24h.toLocaleString() : coin.low24h?.toFixed(coin.low24h >= 1 ? 2 : 4)}
-              </div>
-              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "right", alignSelf: "center" }}>
-                {fmtVol(coin.volume)}
-              </div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "right", alignSelf: "center" }}>{fmtPrice(coin.high24h)}</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "right", alignSelf: "center" }}>{fmtPrice(coin.low24h)}</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "right", alignSelf: "center" }}>{fmtVol(coin.volume)}</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "right", alignSelf: "center" }}>{fmt(coin.marketCap)}</div>
             </div>
           );
         })}
       </div>
+
+      {/* Crypto News */}
+      <CryptoNews C={C} MONO={MONO} SANS={SANS} />
+    </div>
+  );
+}
+
+function CryptoNews({ C, MONO, SANS }) {
+  const [news, setNews] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch("/api/market/news?tickers=BTC-USD,ETH-USD,COIN,MSTR&limit=20")
+      .then(r => r.json())
+      .then(d => { setNews(Array.isArray(d) ? d : (d.news || [])); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" };
+
+  return (
+    <div style={card}>
+      <div style={{ padding: "14px 18px 10px", borderBottom: `1px solid ${C.border}` }}>
+        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>📰 CRYPTO NEWS</span>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 10 }}>BTC · ETH · COIN · MSTR</span>
+      </div>
+      {loading ? (
+        <div style={{ padding: "30px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading headlines…</div>
+      ) : news.length === 0 ? (
+        <div style={{ padding: "30px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>No headlines available</div>
+      ) : news.slice(0, 15).map((n, i) => {
+        const ago = (() => {
+          const ts = n.publishedAt || n.date || n.datetime;
+          if (!ts) return "";
+          const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
+          if (diff < 60) return `${diff}m ago`;
+          if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
+          return `${Math.floor(diff / 1440)}d ago`;
+        })();
+        return (
+          <a
+            key={i}
+            href={n.url || n.link || "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "block", padding: "12px 18px",
+              borderBottom: `1px solid ${C.border}`,
+              textDecoration: "none",
+              background: "transparent",
+              transition: "background 0.15s",
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
+            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+              <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.5, flex: 1 }}>
+                {n.headline || n.title || n.summary || ""}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, whiteSpace: "nowrap", flexShrink: 0, marginTop: 2 }}>
+                {ago}
+              </div>
+            </div>
+            {n.source && (
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.accent, marginTop: 4 }}>{n.source}</div>
+            )}
+          </a>
+        );
+      })}
     </div>
   );
 }
