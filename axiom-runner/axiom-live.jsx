@@ -3609,6 +3609,30 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
   const [expanded, setExpanded] = useState(null);
   const [addInput, setAddInput] = useState("");
   const [addMsg, setAddMsg]     = useState("");
+  const [autoAlert, setAutoAlert] = useState(false);       // auto-send conviction 7+ to Telegram
+  const [alertedSet, setAlertedSet] = useState(new Set()); // symbols already auto-alerted this session
+  const [accountSize, setAccountSize] = useState("50000"); // for position sizer
+  const [riskPct, setRiskPct] = useState("1");             // % of account to risk per trade
+  const [advisorTablet, setAdvisorTablet] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768 && window.innerWidth <= 1200);
+  useEffect(() => {
+    const fn = () => setAdvisorTablet(window.innerWidth >= 768 && window.innerWidth <= 1200);
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
+  }, []);
+
+  // Auto-alert: when a new conviction 7+ setup appears, send to Telegram once
+  useEffect(() => {
+    if (!autoAlert) return;
+    const highConv = (watchlistData || [])
+      .map(generateSetup)
+      .filter(s => s && s.conviction >= 7 && !alertedSet.has(s.symbol));
+    if (!highConv.length) return;
+    highConv.forEach(s => {
+      const msg = `🚨 *HIGH CONVICTION SETUP*\n${s.side === "LONG" ? "🟢" : "🔴"} *${s.symbol}* — ${s.setupType} ${s.side}\n💰 Entry: $${s.entry} | Stop: $${s.stop} | T1: $${s.target1}\n📊 Conviction: ${s.conviction}/10 | Score: ${s.composite}/100\n${s.reasons[0] || ""}`;
+      fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+    });
+    setAlertedSet(prev => new Set([...prev, ...highConv.map(s => s.symbol)]));
+  }, [watchlistData, autoAlert]); // eslint-disable-line
 
   const setups = useMemo(() => {
     if (!watchlistData?.length) return [];
@@ -3662,10 +3686,39 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
           ))}
           {/* Min conviction */}
           <select value={minConv} onChange={e => setMinConv(Number(e.target.value))}
-            style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 10, padding: "5px 8px", borderRadius: 4 }}>
+            style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: advisorTablet ? 12 : 10, padding: advisorTablet ? "8px 10px" : "5px 8px", borderRadius: 4 }}>
             {[1,2,3,4,5,6,7].map(n => <option key={n} value={n}>Min conviction: {n}+</option>)}
           </select>
+          {/* Auto-alert toggle */}
+          <button onClick={() => { setAutoAlert(v => !v); setAlertedSet(new Set()); }}
+            style={{ fontFamily: MONO, fontSize: advisorTablet ? 12 : 10, fontWeight: 700,
+              border: `1px solid ${autoAlert ? C.green : C.border}`,
+              background: autoAlert ? `${C.green}18` : C.surface,
+              color: autoAlert ? C.green : C.textDim,
+              borderRadius: 5, padding: advisorTablet ? "8px 14px" : "5px 12px", cursor: "pointer",
+              minHeight: advisorTablet ? 44 : "auto" }}>
+            {autoAlert ? "🔔 ALERTS ON" : "🔕 ALERTS OFF"}
+          </button>
         </div>
+      </div>
+
+      {/* Position Sizer */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 12 : 10, color: C.textDim, whiteSpace: "nowrap" }}>💼 POSITION SIZER:</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 11 : 9, color: C.textDim }}>Account $</span>
+          <input type="number" value={accountSize} onChange={e => setAccountSize(e.target.value)}
+            style={{ width: advisorTablet ? 110 : 90, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: advisorTablet ? 12 : 11, padding: advisorTablet ? "7px 8px" : "4px 6px", borderRadius: 4 }} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 11 : 9, color: C.textDim }}>Risk %</span>
+          <input type="number" value={riskPct} min="0.1" max="5" step="0.1" onChange={e => setRiskPct(e.target.value)}
+            style={{ width: 55, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: advisorTablet ? 12 : 11, padding: advisorTablet ? "7px 8px" : "4px 6px", borderRadius: 4 }} />
+        </div>
+        <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 11 : 9, color: C.textDim }}>
+          = <strong style={{ color: C.amber }}>${(Number(accountSize) * Number(riskPct) / 100).toFixed(0)}</strong> risk per trade
+        </span>
+        {autoAlert && <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 11 : 9, color: C.green, marginLeft: "auto" }}>🔔 Auto-alerting conviction 7+ setups via Telegram</span>}
       </div>
 
       {/* Quick-add symbols bar */}
@@ -3721,30 +3774,30 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
               {/* Card header */}
               <div
                 onClick={() => setExpanded(isOpen ? null : s.symbol)}
-                style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", cursor: "pointer", flexWrap: "wrap" }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: advisorTablet ? "16px 16px" : "14px 16px", cursor: "pointer", flexWrap: "wrap", minHeight: advisorTablet ? 64 : "auto" }}
               >
                 {/* Rank */}
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, minWidth: 20 }}>#{i + 1}</div>
+                <div style={{ fontFamily: MONO, fontSize: advisorTablet ? 13 : 11, color: C.textDim, minWidth: 24 }}>#{i + 1}</div>
 
                 {/* Symbol */}
                 <button onClick={e => { e.stopPropagation(); onOpenTerminal(s.symbol); }}
-                  style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 18, fontWeight: 900, cursor: "pointer", padding: 0, letterSpacing: "-0.01em" }}>
+                  style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: advisorTablet ? 22 : 18, fontWeight: 900, cursor: "pointer", padding: 0, letterSpacing: "-0.01em" }}>
                   {s.symbol}
                 </button>
 
                 {/* Side badge */}
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: sideCol, background: `${sideCol}20`, border: `1px solid ${sideCol}55`, borderRadius: 4, padding: "3px 9px" }}>
+                <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 13 : 11, fontWeight: 800, color: sideCol, background: `${sideCol}20`, border: `1px solid ${sideCol}55`, borderRadius: 4, padding: advisorTablet ? "5px 12px" : "3px 9px" }}>
                   {s.side === "LONG" ? "▲ LONG" : "▼ SHORT"}
                 </span>
 
                 {/* Setup type */}
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.accent, background: `${C.accent}12`, borderRadius: 4, padding: "3px 8px" }}>
+                <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 12 : 10, color: C.accent, background: `${C.accent}12`, borderRadius: 4, padding: advisorTablet ? "5px 10px" : "3px 8px" }}>
                   {s.setupType}
                 </span>
 
                 {/* Price + chg */}
-                <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: C.text }}>${s.price.toFixed(2)}</span>
-                <span style={{ fontFamily: MONO, fontSize: 12, color: s.chg >= 0 ? C.green : C.red, fontWeight: 700 }}>
+                <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 16 : 14, fontWeight: 700, color: C.text }}>${s.price.toFixed(2)}</span>
+                <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 14 : 12, color: s.chg >= 0 ? C.green : C.red, fontWeight: 700 }}>
                   {s.chg >= 0 ? "+" : ""}{s.chg.toFixed(2)}%
                 </span>
 
@@ -3754,23 +3807,23 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
                 </div>
 
                 {/* Expand arrow */}
-                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, transition: "transform 0.2s", display: "inline-block", transform: isOpen ? "rotate(180deg)" : "none" }}>▼</span>
+                <span style={{ fontFamily: MONO, fontSize: 14, color: C.textDim, transition: "transform 0.2s", display: "inline-block", transform: isOpen ? "rotate(180deg)" : "none" }}>▼</span>
               </div>
 
               {/* Quick stats bar (always visible) */}
-              <div style={{ display: "flex", gap: 0, borderTop: `1px solid ${C.border}`, background: C.surface }}>
+              <div style={{ display: "flex", gap: 0, borderTop: `1px solid ${C.border}`, background: C.surface, flexWrap: advisorTablet ? "wrap" : "nowrap" }}>
                 {[
-                  { label: "ENTRY",   val: `$${s.entry}`,   col: C.text },
-                  { label: "STOP",    val: `$${s.stop} (${s.stopPct}%)`, col: C.red },
+                  { label: "ENTRY",    val: `$${s.entry}`,              col: C.text },
+                  { label: "STOP",     val: `$${s.stop} (${s.stopPct}%)`, col: C.red },
                   { label: "TARGET 1", val: `$${s.target1} (+${s.t1Pct}%)`, col: C.green },
                   { label: "TARGET 2", val: `$${s.target2} (+${s.t2Pct}%)`, col: C.green },
-                  { label: "R:R",     val: s.rrRatio,        col: C.amber },
-                  { label: "RVOL",    val: `${s.rvol.toFixed(1)}×`, col: s.rvol >= 2 ? C.accent : C.textSec },
-                  { label: "SCORE",   val: `${s.composite}/100`, col: C.accent },
+                  { label: "R:R",      val: s.rrRatio,                  col: C.amber },
+                  { label: "RVOL",     val: `${s.rvol.toFixed(1)}×`,   col: s.rvol >= 2 ? C.accent : C.textSec },
+                  { label: "SCORE",    val: `${s.composite}/100`,       col: C.accent },
                 ].map(({ label, val, col }) => (
-                  <div key={label} style={{ flex: 1, padding: "8px 10px", borderRight: `1px solid ${C.border}`, minWidth: 0 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, marginBottom: 2, letterSpacing: "0.06em" }}>{label}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: col, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{val}</div>
+                  <div key={label} style={{ flex: advisorTablet ? "1 1 33%" : 1, padding: advisorTablet ? "10px 12px" : "8px 10px", borderRight: `1px solid ${C.border}`, borderBottom: advisorTablet ? `1px solid ${C.border}` : "none", minWidth: 0 }}>
+                    <div style={{ fontFamily: MONO, fontSize: advisorTablet ? 9 : 8, color: C.textDim, marginBottom: 2, letterSpacing: "0.06em" }}>{label}</div>
+                    <div style={{ fontFamily: MONO, fontSize: advisorTablet ? 13 : 11, fontWeight: 700, color: col, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{val}</div>
                   </div>
                 ))}
               </div>
@@ -3817,16 +3870,47 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
                     </div>
                   </div>
 
+                  {/* Position size calculator */}
+                  {(() => {
+                    const riskDollars = Number(accountSize) * Number(riskPct) / 100;
+                    const riskPerShare = s.price - Number(s.stop.replace("$",""));
+                    const shares = riskPerShare > 0 ? Math.floor(riskDollars / riskPerShare) : 0;
+                    const totalCost = shares * s.price;
+                    return (
+                      <div style={{ marginTop: 14, background: C.surface, border: `1px solid ${C.accent}33`, borderRadius: 8, padding: "12px 14px" }}>
+                        <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700, marginBottom: 10, letterSpacing: "0.06em" }}>💼 POSITION SIZE (based on your ${Number(accountSize).toLocaleString()} account)</div>
+                        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                          <div>
+                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>RISK AMOUNT</div>
+                            <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.amber }}>${riskDollars.toFixed(0)}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>SHARES TO BUY</div>
+                            <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.text }}>{shares > 0 ? shares : "—"}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>TOTAL COST</div>
+                            <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.text }}>{shares > 0 ? `$${totalCost.toLocaleString(undefined, {maximumFractionDigits:0})}` : "—"}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>MAX LOSS</div>
+                            <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.red }}>{shares > 0 ? `$${riskDollars.toFixed(0)}` : "—"}</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {/* Action buttons */}
                   <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
                     <button onClick={() => onOpenTerminal(s.symbol)}
-                      style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 6, padding: "8px 16px", fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                      style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 6, padding: advisorTablet ? "12px 20px" : "8px 16px", fontFamily: MONO, fontSize: advisorTablet ? 13 : 11, fontWeight: 700, cursor: "pointer", minHeight: advisorTablet ? 44 : "auto" }}>
                       📈 OPEN CHART
                     </button>
                     <button onClick={async () => {
                       const msg = `${s.side === "LONG" ? "🟢" : "🔴"} *${s.symbol}* — ${s.setupType} ${s.side}\n💰 Entry: $${s.entry} | Stop: $${s.stop} (${s.stopPct}%) | T1: $${s.target1} (+${s.t1Pct}%)\n📊 Conviction: ${s.conviction}/10 | Score: ${s.composite}/100\n${s.reasons[0] || ""}`;
                       try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
-                    }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "8px 14px", fontFamily: MONO, fontSize: 11, cursor: "pointer" }}>
+                    }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: advisorTablet ? "12px 18px" : "8px 14px", fontFamily: MONO, fontSize: advisorTablet ? 13 : 11, cursor: "pointer", minHeight: advisorTablet ? 44 : "auto" }}>
                       📬 SEND TO TELEGRAM
                     </button>
                   </div>
@@ -5757,6 +5841,7 @@ export default function App() {
   const [riskSlipBps, setRiskSlipBps] = useState("10");
   const [riskSetupQuality, setRiskSetupQuality] = useState("A");
   const [watchlistData, setWatchlistData] = useState([]);
+  const prevScoresRef = useRef({});  // symbol → last composite score, for crossing-70 detection
   const [marketUniverseData, setMarketUniverseData] = useState([]);
   const [marketUniverseLoading, setMarketUniverseLoading] = useState(false);
   const [newsData, setNewsData] = useState([]);
@@ -7698,7 +7783,21 @@ export default function App() {
 
     try {
       wl = await withClientTimeout(fetchQuotes(watchlistSymbols, providerKeys), 25000, []);
-      if (Array.isArray(wl) && wl.length > 0) setWatchlistData(wl);
+      if (Array.isArray(wl) && wl.length > 0) {
+        setWatchlistData(wl);
+        // ── Score-crossing alert: fire Telegram when composite crosses above 70 ──
+        wl.forEach(q => {
+          const sym = q.symbol;
+          const scores = computeScores(q);
+          const newScore = scores.composite;
+          const oldScore = prevScoresRef.current[sym];
+          if (oldScore !== undefined && oldScore < 70 && newScore >= 70) {
+            const msg = `🚀 *SCORE ALERT*: ${sym} just crossed above 70 (now ${Math.round(newScore)}/100)\n$${(q.price||0).toFixed(2)} · ${(q.changesPercentage||0) >= 0 ? "+" : ""}${(q.changesPercentage||0).toFixed(2)}%`;
+            fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+          }
+          prevScoresRef.current[sym] = newScore;
+        });
+      }
       else wl = [];
     } catch (e) {
       hardError = `Quotes unavailable: ${e?.message || "unknown error"}`;
