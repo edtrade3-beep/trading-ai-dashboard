@@ -813,7 +813,7 @@ async function handleAgent(req, res, requestUrl) {
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON" }); }
     const result = buildTradeSetup(body);
     if (telegramConfigured() && result.bias !== "NEUTRAL") {
-      sendTelegramMessage(`🎯 Trade Setup: ${result.ticker} ${result.bias}\n${result.output.slice(0, 600)}`).catch(() => {});
+      sendTelegramMessage(`🎯 Trade Setup: ${result.ticker} ${result.bias}\n${result.plan.slice(0, 600)}`).catch(() => {});
     }
     return writeJson(res, 200, result);
   }
