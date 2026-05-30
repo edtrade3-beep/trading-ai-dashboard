@@ -9631,20 +9631,18 @@ export default function App() {
       <MacroTape data={macroData} cryptoSnapshot={cryptoSnapshot} />
 
       {/* News / Alert Tape */}
-      <div style={{ borderBottom: `1px solid ${C.border}`, background: themeMode === "dark" ? "#080f1e" : "#f7faff", overflow: "hidden", whiteSpace: "nowrap" }}>
-        <div className="axiom-ticker-track" style={{ display: "inline-flex", alignItems: "center", gap: 26, padding: "5px 0", animation: "axiomTickerLTR 500s linear infinite" }}>
+      <div style={{ borderBottom: `1px solid ${C.border}`, background: themeMode === "dark" ? "#111820" : "#edf2f8", overflow: "hidden", whiteSpace: "nowrap" }}>
+        <div className="axiom-ticker-track" style={{ display: "inline-flex", alignItems: "center", gap: 26, padding: "6px 0", animation: "axiomTickerLTR 500s linear infinite" }}>
           {[...topHeadlineTape, ...topHeadlineTape].map((item, i) => {
-            const isDarkNews = themeMode === "dark" && item.kind === "NEWS";
-            const toneColor = isDarkNews ? "#2a2100" : (item.tone === "red" ? C.red : item.tone === "green" ? C.green : item.tone === "amber" ? C.amber : C.accent);
-            const toneBg = isDarkNews ? "#ffd54a" : (item.tone === "red" ? C.redBg : item.tone === "green" ? C.greenBg : item.tone === "amber" ? C.amberBg : `${C.accent}12`);
-            const toneBorder = isDarkNews ? "#caa32b" : `${toneColor}40`;
+            const toneColor = item.tone === "red" ? C.red : item.tone === "green" ? C.green : item.tone === "amber" ? C.amber : C.accent;
+            const toneBg    = item.tone === "red" ? C.redBg : item.tone === "green" ? C.greenBg : item.tone === "amber" ? C.amberBg : `${C.accent}12`;
             return (
               <span key={`ticker-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 8, paddingRight: 8 }}>
-                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: toneColor, background: toneBg, border: `1px solid ${toneBorder}`, borderRadius: 3, padding: "2px 5px" }}>
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: toneColor, background: toneBg, border: `1px solid ${toneColor}44`, borderRadius: 3, padding: "2px 6px" }}>
                   {item.kind}
                 </span>
-                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text }}>{item.symbol}</span>
-                <span style={{ fontSize: 11, color: themeMode === "dark" ? "#b8ccec" : C.textSec, maxWidth: 420, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block", verticalAlign: "bottom" }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.textSec }}>{item.symbol}</span>
+                <span style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, maxWidth: 460, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block", verticalAlign: "bottom" }}>
                   {item.text}
                 </span>
               </span>
