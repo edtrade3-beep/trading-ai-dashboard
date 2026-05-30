@@ -1255,6 +1255,74 @@ function classifyTrend(q) {
   return "Down";
 }
 
+// Multi-timeframe signal — uses price action data already in each quote row
+// Returns { signal: "BUY"|"HOLD"|"SELL", score, timeframes: [{label,bull}] }
+function computeMTFSignal(q) {
+  if (!q || !q.price) return { signal: "HOLD", score: 0, timeframes: [] };
+
+  const price   = Number(q.price);
+  const chg     = Number(q.changesPercentage || 0);
+  const chg5m   = Number(q.delta5m  || 0);
+  const chg30m  = Number(q.delta30m || 0);
+  const sma50   = Number(q.priceAvg50  || 0);
+  const sma200  = Number(q.priceAvg200 || 0);
+  const yHigh   = Number(q.yearHigh || 0);
+  const yLow    = Number(q.yearLow  || 0);
+  const rvol    = q.avgVolume ? q.volume / q.avgVolume : 1;
+
+  // Each timeframe: label shown in the badge row, and whether it's bullish
+  const tfs = [
+    {
+      label: "5M",
+      bull: chg5m > 0,
+      neutral: Math.abs(chg5m) < 0.05,
+    },
+    {
+      label: "30M",
+      bull: chg30m > 0,
+      neutral: Math.abs(chg30m) < 0.1,
+    },
+    {
+      label: "1D",
+      bull: chg > 0.15,
+      neutral: Math.abs(chg) < 0.15,
+    },
+    {
+      label: "1W",    // proxy: price vs 50D SMA
+      bull: sma50 > 0 ? price > sma50 : chg > 0,
+      neutral: sma50 > 0 ? Math.abs(price / sma50 - 1) < 0.005 : false,
+    },
+    {
+      label: "1M",    // proxy: price vs 200D SMA
+      bull: sma200 > 0 ? price > sma200 : chg > 0,
+      neutral: sma200 > 0 ? Math.abs(price / sma200 - 1) < 0.005 : false,
+    },
+  ];
+
+  // Score: each non-neutral tf gives +1 (bull) or -1 (bear)
+  let score = 0;
+  for (const tf of tfs) {
+    if (!tf.neutral) score += tf.bull ? 1 : -1;
+  }
+
+  // Volume confirms the direction (bonus ±1)
+  if (rvol > 1.25) score += chg >= 0 ? 1 : -1;
+
+  // 52W range position as tie-breaker
+  if (yHigh > yLow) {
+    const pos = (price - yLow) / (yHigh - yLow);
+    if (pos > 0.75) score += 1;
+    else if (pos < 0.25) score -= 1;
+  }
+
+  let signal;
+  if (score >= 3)       signal = "BUY";
+  else if (score <= -3) signal = "SELL";
+  else                  signal = "HOLD";
+
+  return { signal, score, timeframes: tfs };
+}
+
 function classifyRegime(macroQuotes) {
   if (!macroQuotes || macroQuotes.length < 3) return "Loading…";
   const spy = macroQuotes.find(q => q.symbol === "SPY");
@@ -8679,6 +8747,7 @@ export default function App() {
                         <SortH col="composite">SCORE</SortH>
                         <SortH col="tech">TECH</SortH>
                         <SortH col="fund">FUND</SortH>
+                        <th style={{ padding: "10px 8px", fontSize: 10, fontFamily: MONO, color: C.textDim, textAlign: "center", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>SIGNAL</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -8688,7 +8757,8 @@ export default function App() {
                         const scores = computeScores(q);
                         const trend = classifyTrend(q);
                         const rvol = q.avgVolume ? (q.volume / q.avgVolume) : 0;
-                        const colSpan = (marketSession === "PREMARKET" || marketSession === "AFTERMARKET") ? 13 : 12;
+                        const mtf = computeMTFSignal(q);
+                        const colSpan = (marketSession === "PREMARKET" || marketSession === "AFTERMARKET") ? 14 : 13;
                         return (
                           <React.Fragment key={q.symbol}>
                           <tr
@@ -8808,6 +8878,38 @@ export default function App() {
                             </td>
                             <td style={{ padding: "7px 6px", borderBottom: `1px solid ${C.border}`, minWidth: 55 }}>
                               <ScoreBar value={scores.fund} color={C.purple} />
+                            </td>
+                            <td style={{ padding: "7px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "center", minWidth: 90 }}>
+                              {(() => {
+                                const sigColor = mtf.signal === "BUY" ? C.green : mtf.signal === "SELL" ? C.red : C.amber;
+                                const sigBg    = mtf.signal === "BUY" ? C.greenBg : mtf.signal === "SELL" ? C.redBg : C.amberBg;
+                                return (
+                                  <div>
+                                    <div style={{
+                                      fontFamily: MONO, fontSize: 11, fontWeight: 900,
+                                      color: sigColor, background: sigBg,
+                                      borderRadius: 5, padding: "3px 8px",
+                                      display: "inline-block", letterSpacing: "0.06em",
+                                    }}>
+                                      {mtf.signal}
+                                    </div>
+                                    <div style={{ display: "flex", gap: 2, marginTop: 4, justifyContent: "center" }}>
+                                      {mtf.timeframes.map(tf => (
+                                        <div key={tf.label} title={`${tf.label}: ${tf.neutral ? "neutral" : tf.bull ? "bullish" : "bearish"}`} style={{
+                                          display: "flex", flexDirection: "column", alignItems: "center", gap: 1,
+                                        }}>
+                                          <div style={{
+                                            width: 10, height: 10, borderRadius: 2,
+                                            background: tf.neutral ? C.border : tf.bull ? C.green : C.red,
+                                            opacity: tf.neutral ? 0.4 : 1,
+                                          }} />
+                                          <div style={{ fontFamily: MONO, fontSize: 7, color: C.textDim, lineHeight: 1 }}>{tf.label}</div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </td>
                           </tr>
                           {openNoteSymbol === q.symbol && (
