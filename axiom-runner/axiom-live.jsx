@@ -10006,7 +10006,7 @@ export default function App() {
       <MacroTape data={macroData} cryptoSnapshot={cryptoSnapshot} />
 
       {/* News / Alert Tape */}
-      <div style={{ borderBottom: `1px solid ${C.border}`, background: "#111820", overflow: "hidden", whiteSpace: "nowrap" }}>
+      <div style={{ borderBottom: `1px solid ${C.border}`, background: "#06090e", overflow: "hidden", whiteSpace: "nowrap" }}>
         <div className="axiom-ticker-track" style={{ display: "inline-flex", alignItems: "center", gap: 26, padding: "6px 0", animation: "axiomTickerLTR 500s linear infinite" }}>
           {[...topHeadlineTape, ...topHeadlineTape].map((item, i) => {
             const toneColor = item.tone === "red" ? C.red : item.tone === "green" ? C.green : item.tone === "amber" ? C.amber : C.accent;
@@ -10016,8 +10016,8 @@ export default function App() {
                 <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: toneColor, background: toneBg, border: `1px solid ${toneColor}44`, borderRadius: 3, padding: "2px 6px" }}>
                   {item.kind}
                 </span>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.textSec }}>{item.symbol}</span>
-                <span style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, maxWidth: 460, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block", verticalAlign: "bottom" }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: "#e8e8e8" }}>{item.symbol}</span>
+                <span style={{ fontFamily: SANS, fontSize: 11, color: "#c8cfd8", maxWidth: 460, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block", verticalAlign: "bottom" }}>
                   {item.text}
                 </span>
               </span>
