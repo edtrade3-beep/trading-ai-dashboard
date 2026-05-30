@@ -4819,6 +4819,8 @@ export default function App() {
   const [portfolioHoldings, setPortfolioHoldings] = useState(DEFAULT_PORTFOLIO);
   const [csvImportModal, setCsvImportModal] = useState(null); // null | { rows, parseInfo }
   const csvFileRef = useRef(null);
+  const [pasteModal, setPasteModal] = useState(null); // null | "input" | { rows, scanning, scanned }
+  const [pasteText, setPasteText] = useState("");
   const [scannerFilters, setScannerFilters] = useState(DEFAULT_SCANNER_FILTERS);
   const [serverScreenLoading, setServerScreenLoading] = useState(false);
   const [serverScreenResults, setServerScreenResults] = useState(null);
@@ -11890,6 +11892,177 @@ export default function App() {
                 <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: C.text }}>{portfolioSummary.winners} / {portfolioSummary.losers}</div>
               </div>
             </div>
+            {/* ── Paste & Scan Modal ── */}
+            {pasteModal && (
+              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, width: "100%", maxWidth: 700, maxHeight: "88vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+
+                  {/* Header */}
+                  <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>📋 PASTE & SCAN PORTFOLIO</div>
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>
+                        {pasteModal === "input"
+                          ? "Paste tickers, or tickers + shares + cost — any format"
+                          : pasteModal.scanning
+                            ? `⟳ Fetching live prices for ${pasteModal.rows.length} symbols…`
+                            : `${pasteModal.rows.length} positions scanned — edit then save`}
+                      </div>
+                    </div>
+                    <button onClick={() => { setPasteModal(null); setPasteText(""); }} style={{ background: "none", border: "none", color: C.textDim, fontSize: 20, cursor: "pointer" }}>✕</button>
+                  </div>
+
+                  {/* Step 1 — paste input */}
+                  {pasteModal === "input" && (
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: 20, gap: 14 }}>
+                      <textarea
+                        autoFocus
+                        value={pasteText}
+                        onChange={e => setPasteText(e.target.value)}
+                        placeholder={`Paste anything, for example:\n\nAAPL\nNVDA 10\nTSLA 5 180.00\nMSFT, AMZN, GOOGL\nAMD 20 shares at $120\n\nJust symbols also works — you fill in shares later.`}
+                        style={{
+                          flex: 1, minHeight: 260,
+                          background: C.surface, border: `1px solid ${C.border}`,
+                          color: C.text, fontFamily: MONO, fontSize: 13,
+                          padding: 14, borderRadius: 8, resize: "none",
+                          lineHeight: 1.7,
+                        }}
+                      />
+                      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                        <button onClick={() => { setPasteModal(null); setPasteText(""); }}
+                          style={{ fontFamily: MONO, fontSize: 11, background: "none", border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, padding: "8px 18px", cursor: "pointer" }}>
+                          CANCEL
+                        </button>
+                        <button
+                          disabled={!pasteText.trim()}
+                          onClick={async () => {
+                            // Parse the pasted text
+                            const NON_STOCK = /^(CASH|USD|MMDA\d*|GOLD|INT|DIV|FEE|THE|AND|AT|IN|OF|FOR|MY|I|A)$/i;
+                            const lines = pasteText.split(/[\n,;]+/).map(l => l.trim()).filter(Boolean);
+                            const parsed = [];
+                            for (const line of lines) {
+                              // Try to extract: SYMBOL [shares] [cost]
+                              const tokens = line.replace(/shares?|@|at|\$/gi, " ").trim().split(/\s+/);
+                              const sym = (tokens[0] || "").toUpperCase().replace(/[^A-Z.]/g, "");
+                              if (!sym || !/^[A-Z]{1,5}(\.[A-Z]{1,2})?$/.test(sym) || NON_STOCK.test(sym)) continue;
+                              const shares  = tokens[1] && /^\d+\.?\d*$/.test(tokens[1]) ? tokens[1] : "";
+                              const avgCost = tokens[2] && /^\d+\.?\d*$/.test(tokens[2]) ? tokens[2] : "";
+                              if (!parsed.find(r => r.symbol === sym)) {
+                                parsed.push({ symbol: sym, shares, avgCost, price: null });
+                              }
+                            }
+                            if (!parsed.length) return;
+
+                            // Fetch live prices
+                            setPasteModal({ rows: parsed, scanning: true });
+                            try {
+                              const syms = parsed.map(r => r.symbol).join(",");
+                              const res = await fetch(`/api/market/quote?symbols=${syms}`);
+                              const quotes = await res.json();
+                              const bySymbol = Object.fromEntries((Array.isArray(quotes) ? quotes : []).map(q => [q.symbol, q]));
+                              const enriched = parsed.map(r => ({
+                                ...r,
+                                price: bySymbol[r.symbol]?.price || null,
+                                name:  bySymbol[r.symbol]?.name  || r.symbol,
+                              }));
+                              setPasteModal({ rows: enriched, scanning: false });
+                            } catch {
+                              setPasteModal({ rows: parsed, scanning: false });
+                            }
+                          }}
+                          style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, background: C.accent, border: "none", color: "#fff", borderRadius: 6, padding: "8px 20px", cursor: pasteText.trim() ? "pointer" : "not-allowed", opacity: pasteText.trim() ? 1 : 0.5 }}>
+                          SCAN PRICES →
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Step 2 — review + edit */}
+                  {pasteModal !== "input" && pasteModal && (
+                    <>
+                      <div style={{ overflowY: "auto", flex: 1 }}>
+                        {pasteModal.scanning ? (
+                          <div style={{ padding: 40, textAlign: "center", fontFamily: MONO, fontSize: 13, color: C.textDim }}>
+                            ⟳ Scanning live prices…
+                          </div>
+                        ) : (
+                          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                            <thead>
+                              <tr style={{ background: C.surface }}>
+                                {["Symbol","Name","Live Price","Shares","Avg Cost",""].map((h, i) => (
+                                  <th key={i} style={{ padding: "10px 14px", fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: i >= 2 ? "right" : "left", borderBottom: `1px solid ${C.border}` }}>{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {pasteModal.rows.map((row, i) => (
+                                <tr key={i} style={{ background: i % 2 === 0 ? "transparent" : C.surface }}>
+                                  <td style={{ padding: "9px 14px", fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, borderBottom: `1px solid ${C.border}` }}>{row.symbol}</td>
+                                  <td style={{ padding: "9px 14px", fontFamily: MONO, fontSize: 11, color: C.textDim, borderBottom: `1px solid ${C.border}`, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name || "—"}</td>
+                                  <td style={{ padding: "9px 14px", fontFamily: MONO, fontSize: 13, color: row.price ? C.text : C.textDim, textAlign: "right", borderBottom: `1px solid ${C.border}` }}>
+                                    {row.price ? `$${row.price.toFixed(2)}` : "—"}
+                                  </td>
+                                  <td style={{ padding: "9px 14px", textAlign: "right", borderBottom: `1px solid ${C.border}` }}>
+                                    <input
+                                      value={row.shares}
+                                      placeholder="0"
+                                      onChange={e => setPasteModal(prev => ({ ...prev, rows: prev.rows.map((r, j) => j === i ? { ...r, shares: e.target.value.replace(/[^\d.]/g, "") } : r) }))}
+                                      style={{ width: 80, textAlign: "right", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: MONO, fontSize: 12, borderRadius: 4 }}
+                                    />
+                                  </td>
+                                  <td style={{ padding: "9px 14px", textAlign: "right", borderBottom: `1px solid ${C.border}` }}>
+                                    <input
+                                      value={row.avgCost}
+                                      placeholder={row.price ? row.price.toFixed(2) : "0"}
+                                      onChange={e => setPasteModal(prev => ({ ...prev, rows: prev.rows.map((r, j) => j === i ? { ...r, avgCost: e.target.value.replace(/[^\d.]/g, "") } : r) }))}
+                                      style={{ width: 90, textAlign: "right", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: MONO, fontSize: 12, borderRadius: 4 }}
+                                    />
+                                  </td>
+                                  <td style={{ padding: "9px 14px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>
+                                    <button onClick={() => setPasteModal(prev => ({ ...prev, rows: prev.rows.filter((_, j) => j !== i) }))}
+                                      style={{ background: "none", border: "none", color: C.red, cursor: "pointer", fontSize: 14, fontWeight: 700 }}>✕</button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                      {!pasteModal.scanning && pasteModal.rows.length > 0 && (
+                        <div style={{ padding: "14px 20px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center", flexWrap: "wrap" }}>
+                          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, flex: 1 }}>
+                            {pasteModal.rows.length} position{pasteModal.rows.length !== 1 ? "s" : ""} · fill Shares + Avg Cost then save
+                          </span>
+                          <button onClick={() => { setPasteModal("input"); }}
+                            style={{ fontFamily: MONO, fontSize: 11, background: "none", border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, padding: "8px 14px", cursor: "pointer" }}>
+                            ← EDIT PASTE
+                          </button>
+                          <button
+                            onClick={() => {
+                              const valid = pasteModal.rows.filter(r => r.symbol);
+                              setPortfolioHoldings(prev => {
+                                const merged = [...prev];
+                                for (const r of valid) {
+                                  const idx = merged.findIndex(h => h.symbol === r.symbol);
+                                  const entry = { symbol: r.symbol, shares: r.shares || "0", avgCost: r.avgCost || (r.price ? r.price.toFixed(2) : "0") };
+                                  if (idx >= 0) merged[idx] = entry;
+                                  else merged.push(entry);
+                                }
+                                return merged;
+                              });
+                              setPasteModal(null); setPasteText("");
+                            }}
+                            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, background: C.greenBg, border: `1px solid ${C.green}`, color: C.green, borderRadius: 6, padding: "8px 20px", cursor: "pointer" }}>
+                            ✓ SAVE TO PORTFOLIO
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* CSV Import Modal */}
             {csvImportModal && (
               <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -12025,6 +12198,13 @@ export default function App() {
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                 <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>POSITIONS ({portfolioHoldings.length})</span>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <button
+                    onClick={() => { setPasteText(""); setPasteModal("input"); }}
+                    style={{ border: `1px solid ${C.green}66`, background: `${C.green}15`, color: C.green, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}
+                    title="Paste tickers or positions and scan live prices"
+                  >
+                    📋 PASTE & SCAN
+                  </button>
                   <button
                     onClick={() => csvFileRef.current?.click()}
                     style={{ border: `1px solid ${C.accent}66`, background: `${C.accent}15`, color: C.accent, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}
