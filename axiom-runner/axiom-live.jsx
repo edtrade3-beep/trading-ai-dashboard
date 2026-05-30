@@ -4844,6 +4844,9 @@ export default function App() {
   const [error, setError] = useState("");
   const [sortCol, setSortCol] = useState("composite");
   const [signalFilter, setSignalFilter] = useState("ALL"); // ALL | BUY | HOLD | SELL
+  const [trendFilter,  setTrendFilter]  = useState("ALL"); // ALL | Strong Up | Up | Flat | Weak | Down
+  const [volumeFilter, setVolumeFilter] = useState("ALL"); // ALL | HIGH | NORMAL | LOW
+  const [scoreFilter,  setScoreFilter]  = useState("ALL"); // ALL | 70+ | 60+ | 50+ | <50
   const [sortDir, setSortDir] = useState("desc");
   const intervalRef = useRef(null);
   const seenTriggeredAlerts = useRef(new Set());
@@ -6792,9 +6795,29 @@ export default function App() {
   }, [watchlistData, sortCol, sortDir]);
 
   const signalFiltered = useMemo(() => {
-    if (signalFilter === "ALL") return sorted;
-    return sorted.filter(q => computeMTFSignal(q).signal === signalFilter);
-  }, [sorted, signalFilter]);
+    return sorted.filter(q => {
+      // Signal
+      if (signalFilter !== "ALL" && computeMTFSignal(q).signal !== signalFilter) return false;
+      // Trend
+      if (trendFilter !== "ALL" && classifyTrend(q) !== trendFilter) return false;
+      // Volume (RVOL)
+      if (volumeFilter !== "ALL") {
+        const rvol = q.avgVolume ? q.volume / q.avgVolume : 0;
+        if (volumeFilter === "HIGH"   && rvol < 1.5)  return false;
+        if (volumeFilter === "NORMAL" && (rvol < 0.8 || rvol >= 1.5)) return false;
+        if (volumeFilter === "LOW"    && rvol >= 0.8) return false;
+      }
+      // Score
+      if (scoreFilter !== "ALL") {
+        const s = computeScores(q).composite;
+        if (scoreFilter === "70+" && s < 70)  return false;
+        if (scoreFilter === "60+" && s < 60)  return false;
+        if (scoreFilter === "50+" && s < 50)  return false;
+        if (scoreFilter === "<50" && s >= 50) return false;
+      }
+      return true;
+    });
+  }, [sorted, signalFilter, trendFilter, volumeFilter, scoreFilter]);
 
   const handleSort = (col) => {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -8779,33 +8802,84 @@ export default function App() {
                 </div>
               </div>
               {watchlistData.length >= 3 && (() => {
-                const buyCnt  = sorted.filter(q => computeMTFSignal(q).signal === "BUY").length;
-                const holdCnt = sorted.filter(q => computeMTFSignal(q).signal === "HOLD").length;
-                const sellCnt = sorted.filter(q => computeMTFSignal(q).signal === "SELL").length;
+                const anyFilter = signalFilter !== "ALL" || trendFilter !== "ALL" || volumeFilter !== "ALL" || scoreFilter !== "ALL";
+                const Pill = ({ active, col, bg, bdr, onClick, children }) => (
+                  <button onClick={onClick} style={{
+                    fontFamily: MONO, fontSize: 11, fontWeight: active ? 800 : 400,
+                    color: active ? col : C.textDim,
+                    background: active ? bg : "transparent",
+                    border: `1px solid ${active ? bdr : C.border}`,
+                    borderRadius: 5, padding: "3px 10px", cursor: "pointer", transition: "all 0.12s",
+                  }}>{children}</button>
+                );
+                const Sep = () => <span style={{ color: C.border, fontSize: 14, userSelect: "none" }}>│</span>;
                 return (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 0 4px", flexWrap: "wrap" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginRight: 4, letterSpacing: "0.06em" }}>SIGNAL FILTER:</span>
+                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 7, padding: "8px 12px", marginBottom: 8, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+
+                    {/* Signal */}
+                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>SIGNAL</span>
                     {[
-                      { label: "ALL",  count: sorted.length, col: C.text,  bg: C.surface,  border: C.border },
-                      { label: "BUY",  count: buyCnt,        col: C.green, bg: C.greenBg,  border: C.green  },
-                      { label: "HOLD", count: holdCnt,        col: C.amber, bg: C.amberBg,  border: C.amber  },
-                      { label: "SELL", count: sellCnt,        col: C.red,   bg: C.redBg,    border: C.red    },
-                    ].map(({ label, count, col, bg, border }) => (
-                      <button
-                        key={label}
-                        onClick={() => setSignalFilter(label)}
-                        style={{
-                          fontFamily: MONO, fontSize: 11, fontWeight: 800,
-                          color: signalFilter === label ? col : C.textDim,
-                          background: signalFilter === label ? bg : "transparent",
-                          border: `1px solid ${signalFilter === label ? border : C.border}`,
-                          borderRadius: 5, padding: "4px 12px", cursor: "pointer",
-                          transition: "all 0.15s",
-                        }}
-                      >
-                        {label} <span style={{ fontWeight: 400, fontSize: 10, opacity: 0.7 }}>({count})</span>
-                      </button>
+                      { v: "ALL",  col: C.text,  bg: C.card,    bdr: C.border },
+                      { v: "BUY",  col: C.green, bg: C.greenBg, bdr: C.green  },
+                      { v: "HOLD", col: C.amber, bg: C.amberBg, bdr: C.amber  },
+                      { v: "SELL", col: C.red,   bg: C.redBg,   bdr: C.red    },
+                    ].map(({ v, col, bg, bdr }) => (
+                      <Pill key={v} active={signalFilter === v} col={col} bg={bg} bdr={bdr} onClick={() => setSignalFilter(v)}>{v}</Pill>
                     ))}
+
+                    <Sep />
+
+                    {/* Trend */}
+                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>TREND</span>
+                    {[
+                      { v: "ALL",        label: "ALL"   },
+                      { v: "Strong Up",  label: "▲▲"   },
+                      { v: "Up",         label: "▲"    },
+                      { v: "Flat",       label: "─"    },
+                      { v: "Weak",       label: "▼"    },
+                      { v: "Down",       label: "▼▼"   },
+                    ].map(({ v, label }) => {
+                      const col = v === "Strong Up" ? C.green : v === "Up" ? C.green : v === "Flat" ? C.textDim : v === "Weak" ? C.red : v === "Down" ? C.red : C.text;
+                      const bg  = v === "Strong Up" || v === "Up" ? C.greenBg : v === "Weak" || v === "Down" ? C.redBg : C.card;
+                      return <Pill key={v} active={trendFilter === v} col={col} bg={bg} bdr={col} onClick={() => setTrendFilter(v)}>{label}</Pill>;
+                    })}
+
+                    <Sep />
+
+                    {/* Volume */}
+                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>VOL</span>
+                    {[
+                      { v: "ALL",    label: "ALL",    col: C.text,  bg: C.card    },
+                      { v: "HIGH",   label: "HIGH",   col: C.green, bg: C.greenBg },
+                      { v: "NORMAL", label: "NORMAL", col: C.amber, bg: C.amberBg },
+                      { v: "LOW",    label: "LOW",    col: C.red,   bg: C.redBg   },
+                    ].map(({ v, label, col, bg }) => (
+                      <Pill key={v} active={volumeFilter === v} col={col} bg={bg} bdr={col} onClick={() => setVolumeFilter(v)}>{label}</Pill>
+                    ))}
+
+                    <Sep />
+
+                    {/* Score */}
+                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>SCORE</span>
+                    {["ALL","70+","60+","50+","<50"].map(v => (
+                      <Pill key={v} active={scoreFilter === v} col={C.accent} bg={C.accentGlow} bdr={C.accent} onClick={() => setScoreFilter(v)}>{v}</Pill>
+                    ))}
+
+                    {/* Reset all */}
+                    {anyFilter && (
+                      <>
+                        <Sep />
+                        <button onClick={() => { setSignalFilter("ALL"); setTrendFilter("ALL"); setVolumeFilter("ALL"); setScoreFilter("ALL"); }}
+                          style={{ fontFamily: MONO, fontSize: 10, color: C.red, background: "none", border: "none", cursor: "pointer", padding: "2px 4px" }}>
+                          ✕ RESET
+                        </button>
+                      </>
+                    )}
+
+                    {/* Result count */}
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: "auto" }}>
+                      {signalFiltered.length} / {sorted.length}
+                    </span>
                   </div>
                 );
               })()}
