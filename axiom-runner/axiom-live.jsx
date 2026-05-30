@@ -9734,8 +9734,8 @@ export default function App() {
             );
           })()}
         </div>
-        {/* Right side: weather, search, status, action buttons */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap", justifyContent: "flex-end", flexShrink: 0 }}>
+        {/* Right side: status chips + all action buttons */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "nowrap", justifyContent: "flex-end", flexShrink: 0 }}>
           {/* Live dot — always visible */}
           <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: C.card, borderRadius: 4, border: `1px solid ${C.border}` }}>
             <div style={{ width: 6, height: 6, borderRadius: "50%", background: dataBadge === "LIVE" ? C.green : dataBadge === "STALE" ? C.amber : C.red, boxShadow: `0 0 5px ${dataBadge === "LIVE" ? C.green : C.amber}`, animation: "pulse 2s infinite", flexShrink: 0 }} />
@@ -9842,6 +9842,63 @@ export default function App() {
             </div>
           )}
         </div>
+
+        {/* Desktop action buttons — right side of nav bar */}
+        {!isMobile && (
+          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginLeft: 8 }}>
+            <input
+              value={symbolSearch}
+              onChange={(e) => setSymbolSearch(e.target.value.toUpperCase())}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSymbolSearch(); }}
+              placeholder="Search ticker…"
+              style={{ width: 120, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 10, outline: "none", height: 24 }}
+            />
+            <button onClick={handleSymbolSearch} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10, cursor: "pointer", height: 24 }}>SEARCH</button>
+            <button onClick={() => openTradingView(symbolSearch || terminalSymbol)} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.accent, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10, cursor: "pointer", height: 24 }}>TV</button>
+            <span style={{ width: 1, height: 14, background: C.border, flexShrink: 0 }} />
+            <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>{loading ? "⟳" : "REFRESH"}</button>
+            <button
+              title="Save watchlists, portfolio & settings to server"
+              onClick={async () => {
+                try {
+                  const payload = { watchlists, portfolioHoldings, activeWlistId };
+                  const r = await fetch("/api/cloud/save", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                  const d = await r.json();
+                  if (d.ok) alert(`☁ Saved to cloud at ${new Date(d.savedAt).toLocaleTimeString()}`);
+                  else alert("Save failed: " + d.error);
+                } catch (e) { alert("Save failed: " + e.message); }
+              }}
+              style={{ background: `${C.green}14`, border: `1px solid ${C.green}55`, color: C.green, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}
+            >☁ SAVE</button>
+            <button
+              title="Load watchlists, portfolio & settings from server"
+              onClick={async () => {
+                try {
+                  const r = await fetch("/api/cloud/load");
+                  const d = await r.json();
+                  if (!d.ok || !d.data) { alert("No cloud save found."); return; }
+                  if (!window.confirm(`Load cloud save from ${new Date(d.data.savedAt).toLocaleString()}? This will overwrite your current data.`)) return;
+                  if (Array.isArray(d.data.watchlists) && d.data.watchlists.length) {
+                    setWatchlists(d.data.watchlists);
+                    const aid = d.data.activeWlistId || d.data.watchlists[0].id;
+                    setActiveWlistId(aid);
+                  }
+                  if (Array.isArray(d.data.portfolioHoldings)) setPortfolioHoldings(d.data.portfolioHoldings);
+                  alert("☁ Loaded from cloud!");
+                } catch (e) { alert("Load failed: " + e.message); }
+              }}
+              style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}
+            >☁ LOAD</button>
+            <a href="/dealer" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>DEALER</a>
+            <a href="/workstation" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>WS</a>
+            <button onClick={generateMarketReport} style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>MARKET RESET</button>
+            <button onClick={handleLock} style={{ background: `${C.red}10`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>LOCK</button>
+            <button onClick={() => setPaletteOpen(true)} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>CMD</button>
+            <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>
+              {themeMode === "dark" ? "☀" : "●"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Mobile menu drawer — opens from LEFT hamburger button */}
@@ -9930,65 +9987,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Data source info bar + action buttons — desktop only */}
-      {!isMobile && <div style={{ padding: "3px 12px 3px 18px", borderBottom: `1px solid ${C.border}`, background: themeMode === "dark" ? "#080e1c" : C.surface, display: "flex", alignItems: "center", gap: 10, flexWrap: "nowrap" }}>
-        {/* Left: data source info */}
-        {/* Right: search + action buttons (moved from topbar) */}
-        <div style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: "auto", flexShrink: 0 }}>
-          {/* Search */}
-          <input
-            value={symbolSearch}
-            onChange={(e) => setSymbolSearch(e.target.value.toUpperCase())}
-            onKeyDown={(e) => { if (e.key === "Enter") handleSymbolSearch(); }}
-            placeholder="Search ticker…"
-            style={{ width: 130, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 10, outline: "none", height: 24 }}
-          />
-          <button onClick={handleSymbolSearch} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10, cursor: "pointer", height: 24 }}>SEARCH</button>
-          <button onClick={() => openTradingView(symbolSearch || terminalSymbol)} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.accent, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10, cursor: "pointer", height: 24 }}>TV</button>
-          <span style={{ width: 1, height: 14, background: C.border, flexShrink: 0 }} />
-          <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>{loading ? "⟳" : "REFRESH"}</button>
-          <button
-            title="Save watchlists, portfolio & settings to server"
-            onClick={async () => {
-              try {
-                const payload = { watchlists, portfolioHoldings, activeWlistId };
-                const r = await fetch("/api/cloud/save", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-                const d = await r.json();
-                if (d.ok) alert(`☁ Saved to cloud at ${new Date(d.savedAt).toLocaleTimeString()}`);
-                else alert("Save failed: " + d.error);
-              } catch (e) { alert("Save failed: " + e.message); }
-            }}
-            style={{ background: `${C.green}14`, border: `1px solid ${C.green}55`, color: C.green, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}
-          >☁ SAVE</button>
-          <button
-            title="Load watchlists, portfolio & settings from server"
-            onClick={async () => {
-              try {
-                const r = await fetch("/api/cloud/load");
-                const d = await r.json();
-                if (!d.ok || !d.data) { alert("No cloud save found."); return; }
-                if (!window.confirm(`Load cloud save from ${new Date(d.data.savedAt).toLocaleString()}? This will overwrite your current data.`)) return;
-                if (Array.isArray(d.data.watchlists) && d.data.watchlists.length) {
-                  setWatchlists(d.data.watchlists);
-                  const aid = d.data.activeWlistId || d.data.watchlists[0].id;
-                  setActiveWlistId(aid);
-                }
-                if (Array.isArray(d.data.portfolioHoldings)) setPortfolioHoldings(d.data.portfolioHoldings);
-                alert("☁ Loaded from cloud!");
-              } catch (e) { alert("Load failed: " + e.message); }
-            }}
-            style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}
-          >☁ LOAD</button>
-          <a href="/dealer" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>DEALER</a>
-          <a href="/workstation" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>WS</a>
-          <button onClick={generateMarketReport} style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>MARKET RESET</button>
-          <button onClick={handleLock} style={{ background: `${C.red}10`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>LOCK</button>
-          <button onClick={() => setPaletteOpen(true)} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>CMD</button>
-          <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>
-            {themeMode === "dark" ? "☀" : "●"}
-          </button>
-        </div>
-      </div>}
       {/* Market Index Strip — matches screenshot layout */}
       <MacroTape data={macroData} cryptoSnapshot={cryptoSnapshot} />
 
