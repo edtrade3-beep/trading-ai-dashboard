@@ -88,19 +88,19 @@ const DEFAULT_CONFIG = {
   enabled: true,
   symbols: DEFAULT_SYMBOLS,
   intervalMinutes: 15,   // background scan every 15 min
-  buyScoreMin: 75,       // A+ entry only — score ≥ 75 (raised from 65)
-  sellScoreMax: 25,      // Strong exit only — score ≤ 25 (tightened from 35)
-  minRvol: 1.5,          // High-volume moves only — no low-volume noise (raised from 1.1)
-  cooldownHours: 6,      // Never re-alert same symbol within 6 hours (raised from 3)
+  buyScoreMin: 85,       // A+ entry only — score ≥ 85
+  sellScoreMax: 15,      // Strong exit only — score ≤ 15
+  minRvol: 2.0,          // Requires genuine volume surge (2× average)
+  cooldownHours: 12,     // Never re-alert same symbol within 12 hours
   marketHoursOnly: false,// OFF — crypto + AH stocks run 24/7
   concurrency: 16,
 };
 
 // ── Alert tiers ──────────────────────────────────────────────────────────────
 // Tier 1 — FIRE ALERT (standalone immediate message): very high conviction only
-const FIRE_BUY_SCORE  = 82;   // score ≥ 82 → standalone fire alert (raised from 75)
-const FIRE_SELL_SCORE = 18;   // score ≤ 18 → standalone fire alert (tightened from 25)
-const FIRE_MAX_PER_SCAN = 2;  // max 2 standalone fire alerts per scan (reduced from 3)
+const FIRE_BUY_SCORE  = 88;   // score ≥ 88 → fire alert
+const FIRE_SELL_SCORE = 12;   // score ≤ 12 → fire alert
+const FIRE_MAX_PER_SCAN = 1;  // max 1 fire alert per scan
 
 // Tier 2 — SUMMARY SIGNAL (appears in scheduled scan summary): standard entry/exit
 // Uses buyScoreMin / sellScoreMax from config (65/35)
@@ -131,7 +131,7 @@ const cooldownMap   = new Map(); // "NVDA:BUY" → timestamp
 const lastSignalMap = new Map(); // "NVDA"     → "BUY"|"SELL"
 
 // Hard minimum gap between alerts for the same symbol:signal
-const MIN_ALERT_GAP_MS = 60 * 60_000; // 60 minutes — prevents noise between scans (raised from 30)
+const MIN_ALERT_GAP_MS = 120 * 60_000; // 120 minutes hard floor between any alert for same symbol
 
 let lastRunAt      = null;
 let lastRunResults = [];
@@ -618,12 +618,8 @@ async function runScan(options = {}) {
 
         msg += `\n━━━━━━━━━━━━━━━━━━━━━━━━`;
         sendTelegramMessage(msg.trim()).catch(() => {});
-
-      } else if (telegramConfigured()) {
-        sendTelegramMessage(
-          `✅ ${scheduledLabel}\n⏰ ${time} ET — no new signals  (${symbols.length} checked)`
-        ).catch(() => {});
       }
+      // No signals → stay silent. Don't send "no new signals" noise.
 
     } else {
       // ── PATH B: 15-MIN INTERVAL SCAN — Best/Worst Trades Summary ──────────
@@ -640,7 +636,10 @@ async function runScan(options = {}) {
           .sort((a, b) => a.composite - b.composite)
           .slice(0, 2);
 
-        if (buys.length || sells.length) {
+        // PATH B only fires when at least one signal is fire-level (🔥)
+        const hasFireBuy  = buys.some(h  => h.composite >= FIRE_BUY_SCORE);
+        const hasFireSell = sells.some(h => h.composite <= FIRE_SELL_SCORE);
+        if ((buys.length || sells.length) && (hasFireBuy || hasFireSell)) {
           const time = new Date().toLocaleTimeString("en-US", {
             timeZone: "America/New_York", hour: "2-digit", minute: "2-digit",
           });
