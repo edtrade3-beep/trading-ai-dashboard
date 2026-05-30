@@ -935,48 +935,79 @@ async function handleMarket(req, res, requestUrl) {
   }
 
   // GET /api/market/options?symbol=AAPL&expiry=2025-01-17
+  // Uses Tradier API (TRADIER_API_KEY env var). Falls back to a Yahoo attempt if key missing.
   if (pathname === "/api/market/options" && req.method === "GET") {
     const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
     if (!symbol) return writeJson(res, 400, { error: "symbol required" });
     const requestedExpiry = searchParams.get("expiry") || null;
-    try {
-      const url = requestedExpiry
-        ? `https://query2.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}?date=${Math.floor(new Date(requestedExpiry).getTime() / 1000)}`
-        : `https://query2.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}`;
-      const H = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Accept": "application/json", "Referer": "https://finance.yahoo.com/" };
-      const res2 = await withTimeout(fetch(url, { headers: H }), 10000, null);
-      if (!res2 || !res2.ok) return writeJson(res, 502, { error: "Options data unavailable" });
-      const payload = await res2.json();
-      const result = payload?.optionChain?.result?.[0];
-      if (!result) return writeJson(res, 404, { error: "No options data for " + symbol });
 
-      const quote = result.quote || {};
-      const expiryDates = (result.expirationDates || []).map(ts => new Date(ts * 1000).toISOString().slice(0, 10));
-      const options = result.options?.[0] || {};
+    const tradierKey = process.env.TRADIER_API_KEY || "";
+    if (!tradierKey) {
+      return writeJson(res, 503, { error: "Options unavailable: TRADIER_API_KEY not set. Add it in Render → Environment." });
+    }
+
+    try {
+      const TH = { "Authorization": `Bearer ${tradierKey}`, "Accept": "application/json" };
+
+      // Step 1: get expiry dates + underlying price
+      const [expRes, quoteRes] = await Promise.all([
+        withTimeout(fetch(`https://api.tradier.com/v1/markets/options/expirations?symbol=${symbol}&includeAllRoots=false`, { headers: TH }), 8000, null),
+        withTimeout(fetch(`https://api.tradier.com/v1/markets/quotes?symbols=${symbol}&greeks=false`, { headers: TH }), 8000, null),
+      ]);
+
+      const expJson   = expRes?.ok  ? await expRes.json().catch(() => ({}))  : {};
+      const quoteJson = quoteRes?.ok ? await quoteRes.json().catch(() => ({})) : {};
+
+      const expiryDates = expJson?.expirations?.date
+        ? (Array.isArray(expJson.expirations.date) ? expJson.expirations.date : [expJson.expirations.date])
+        : [];
+
+      if (expiryDates.length === 0) {
+        return writeJson(res, 404, { error: `No options found for ${symbol}. Check the symbol or try a different one.` });
+      }
+
+      const underlying = quoteJson?.quotes?.quote?.last || quoteJson?.quotes?.quote?.bid || 0;
+      const chosenExpiry = requestedExpiry && expiryDates.includes(requestedExpiry) ? requestedExpiry : expiryDates[0];
+
+      // Step 2: fetch the chain for chosen expiry
+      const chainRes = await withTimeout(
+        fetch(`https://api.tradier.com/v1/markets/options/chains?symbol=${symbol}&expiration=${chosenExpiry}&greeks=true`, { headers: TH }),
+        10000, null
+      );
+      if (!chainRes?.ok) return writeJson(res, 502, { error: "Options chain fetch failed" });
+      const chainJson = await chainRes.json().catch(() => ({}));
+      const contracts = chainJson?.options?.option || [];
+      const contractArr = Array.isArray(contracts) ? contracts : [contracts];
 
       const mapContract = (c) => ({
-        contractSymbol: c.contractSymbol,
-        strike: round2(c.strike),
-        lastPrice: round2(c.lastPrice || 0),
+        contractSymbol: c.symbol || "",
+        strike: round2(c.strike || 0),
+        lastPrice: round2(c.last || 0),
         bid: round2(c.bid || 0),
         ask: round2(c.ask || 0),
         change: round2(c.change || 0),
-        changePct: round2(c.percentChange || 0),
-        volume: c.volume || 0,
-        openInterest: c.openInterest || 0,
-        iv: round2((c.impliedVolatility || 0) * 100), // as %
-        inTheMoney: c.inTheMoney || false,
-        expiry: new Date((c.expiration || 0) * 1000).toISOString().slice(0, 10),
+        changePct: round2(c.change_percentage || 0),
+        volume: Number(c.volume) || 0,
+        openInterest: Number(c.open_interest) || 0,
+        iv: round2((c.greeks?.mid_iv || c.implied_volatility || 0) * 100),
+        inTheMoney: underlying > 0 && (
+          c.option_type === "call" ? c.strike <= underlying : c.strike >= underlying
+        ),
+        expiry: chosenExpiry,
+        delta: c.greeks?.delta ? round2(c.greeks.delta) : null,
       });
+
+      const calls = contractArr.filter(c => c.option_type === "call").map(mapContract);
+      const puts  = contractArr.filter(c => c.option_type === "put").map(mapContract);
 
       return writeJson(res, 200, {
         ok: true,
         symbol,
-        underlying: round2(quote.regularMarketPrice || 0),
+        underlying: round2(underlying),
         expiryDates,
-        selectedExpiry: expiryDates[0] || null,
-        calls: (options.calls || []).map(mapContract),
-        puts:  (options.puts  || []).map(mapContract),
+        selectedExpiry: chosenExpiry,
+        calls,
+        puts,
         generatedAt: new Date().toISOString(),
       });
     } catch (err) {

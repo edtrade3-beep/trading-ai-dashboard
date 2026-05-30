@@ -3107,7 +3107,11 @@ function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTerminal }) {
         <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 11, color: C.textDim, borderBottom: `1px solid ${C.border}`, textAlign: "right" }}>{c.openInterest?.toLocaleString()}</td>
         <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 11, borderBottom: `1px solid ${C.border}`, textAlign: "right",
           color: c.iv > 80 ? C.red : c.iv > 50 ? C.amber : C.green }}>
-          {c.iv}%
+          {c.iv > 0 ? c.iv + "%" : "—"}
+        </td>
+        <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 11, borderBottom: `1px solid ${C.border}`, textAlign: "right",
+          color: Math.abs(c.delta || 0) > 0.5 ? C.text : C.textDim }}>
+          {c.delta != null ? c.delta : "—"}
         </td>
         <td style={{ padding: "7px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "center" }}>
           {itm && <span style={{ fontFamily: MONO, fontSize: 9, color: type === "calls" ? C.green : C.red, fontWeight: 700 }}>ITM</span>}
@@ -3130,12 +3134,13 @@ function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTerminal }) {
               <ColH>VOLUME</ColH>
               <ColH>OI</ColH>
               <ColH>IV</ColH>
+              <ColH>DELTA</ColH>
               <ColH align="center"> </ColH>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0
-              ? <tr><td colSpan={8} style={{ padding: 20, textAlign: "center", color: C.textDim, fontFamily: MONO, fontSize: 12 }}>No contracts for this expiry</td></tr>
+              ? <tr><td colSpan={9} style={{ padding: 20, textAlign: "center", color: C.textDim, fontFamily: MONO, fontSize: 12 }}>No contracts for this expiry</td></tr>
               : filtered.map((c, i) => <ContractRow key={i} c={c} type={type} />)
             }
           </tbody>
