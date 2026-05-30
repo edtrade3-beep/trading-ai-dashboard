@@ -63,7 +63,7 @@ const C = { ...THEME_LIGHT };
 const SANS = `'Inter', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif`;
 // MONO  — true monospace for prices, tickers, percentages, scores — much crisper digits
 const MONO = `'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Roboto Mono', 'Courier New', monospace`;
-const UI_ZOOM = 1.10;   // slightly larger = easier to read without changing every font-size
+const UI_ZOOM = 1.18;   // slightly larger = easier to read without changing every font-size
 const LAYOUT = {
   pageMaxWidth: 1880,
   contentPadding: "18px 20px 28px",
