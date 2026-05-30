@@ -4749,6 +4749,7 @@ export default function App() {
   const [lastUpdate, setLastUpdate] = useState(null);
   const [error, setError] = useState("");
   const [sortCol, setSortCol] = useState("composite");
+  const [signalFilter, setSignalFilter] = useState("ALL"); // ALL | BUY | HOLD | SELL
   const [sortDir, setSortDir] = useState("desc");
   const intervalRef = useRef(null);
   const seenTriggeredAlerts = useRef(new Set());
@@ -6695,6 +6696,11 @@ export default function App() {
       return sortDir === "asc" ? va - vb : vb - va;
     });
   }, [watchlistData, sortCol, sortDir]);
+
+  const signalFiltered = useMemo(() => {
+    if (signalFilter === "ALL") return sorted;
+    return sorted.filter(q => computeMTFSignal(q).signal === signalFilter);
+  }, [sorted, signalFilter]);
 
   const handleSort = (col) => {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -8679,6 +8685,37 @@ export default function App() {
                 </div>
               </div>
               {watchlistData.length >= 3 && (() => {
+                const buyCnt  = sorted.filter(q => computeMTFSignal(q).signal === "BUY").length;
+                const holdCnt = sorted.filter(q => computeMTFSignal(q).signal === "HOLD").length;
+                const sellCnt = sorted.filter(q => computeMTFSignal(q).signal === "SELL").length;
+                return (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 0 4px", flexWrap: "wrap" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginRight: 4, letterSpacing: "0.06em" }}>SIGNAL FILTER:</span>
+                    {[
+                      { label: "ALL",  count: sorted.length, col: C.text,  bg: C.surface,  border: C.border },
+                      { label: "BUY",  count: buyCnt,        col: C.green, bg: C.greenBg,  border: C.green  },
+                      { label: "HOLD", count: holdCnt,        col: C.amber, bg: C.amberBg,  border: C.amber  },
+                      { label: "SELL", count: sellCnt,        col: C.red,   bg: C.redBg,    border: C.red    },
+                    ].map(({ label, count, col, bg, border }) => (
+                      <button
+                        key={label}
+                        onClick={() => setSignalFilter(label)}
+                        style={{
+                          fontFamily: MONO, fontSize: 11, fontWeight: 800,
+                          color: signalFilter === label ? col : C.textDim,
+                          background: signalFilter === label ? bg : "transparent",
+                          border: `1px solid ${signalFilter === label ? border : C.border}`,
+                          borderRadius: 5, padding: "4px 12px", cursor: "pointer",
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        {label} <span style={{ fontWeight: 400, fontSize: 10, opacity: 0.7 }}>({count})</span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+              {watchlistData.length >= 3 && (() => {
                 const isPreMkt = marketSession === "PREMARKET";
                 const isPostMkt = marketSession === "AFTERMARKET";
                 const isExt = isPreMkt || isPostMkt;
@@ -8751,7 +8788,7 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {sorted.map(q => {
+                      {signalFiltered.map(q => {
                         const chg = q.changesPercentage || 0;
                         const isUp = chg >= 0;
                         const scores = computeScores(q);
