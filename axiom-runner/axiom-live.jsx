@@ -8764,17 +8764,20 @@ export default function App() {
           </div>
           {/* User pill */}
           <div style={{
-            display: "flex", alignItems: "center", gap: 6,
-            background: C.card, border: `1px solid ${C.border}`,
-            borderRadius: 999, padding: "4px 10px 4px 4px", flexShrink: 0,
+            display: "flex", alignItems: "center", gap: 0,
+            background: "transparent", border: "none",
+            borderRadius: 999, padding: "2px", flexShrink: 0,
           }}>
-            <div style={{
-              width: 22, height: 22, borderRadius: "50%",
-              background: `linear-gradient(135deg, ${C.accent}, ${C.cyan})`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 11, fontWeight: 800, color: "#fff", fontFamily: MONO, flexShrink: 0,
-            }}>D</div>
-            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textSec, fontWeight: 700 }}>Dixie</span>
+            <img
+              src="./assets/avatar.jpg"
+              alt="Dixie"
+              style={{
+                width: 34, height: 34, borderRadius: "50%",
+                objectFit: "cover", objectPosition: "center top",
+                border: `2px solid ${C.accent}`,
+                flexShrink: 0,
+              }}
+            />
           </div>
           {/* Nav tabs — grouped */}
           {(() => {
