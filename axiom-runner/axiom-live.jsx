@@ -4625,7 +4625,24 @@ function SoccerIPTVPlayer({ C, MONO, SANS }) {
   }, []);
 
   React.useEffect(() => {
-    setChannels(DEFAULT_CHANNELS);
+    // Auto-load the bundled sports playlist on mount
+    (async () => {
+      setLoadingM3u(true);
+      setM3uError(null);
+      try {
+        const r = await fetch("/axiom-runner/assets/playlist.m3u8");
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const text = await r.text();
+        const parsed = parseM3U(text);
+        if (!parsed.length) throw new Error("No channels found");
+        setChannels(parsed);
+      } catch (e) {
+        setM3uError(`Could not load playlist: ${e.message}`);
+        setChannels(DEFAULT_CHANNELS);
+      } finally {
+        setLoadingM3u(false);
+      }
+    })();
   }, []);
 
   const playStream = React.useCallback((url, name) => {
@@ -4762,7 +4779,7 @@ function SoccerIPTVPlayer({ C, MONO, SANS }) {
           style={{ ...btnStyle(false), background: C.accent, color: "#fff", border: "none", padding: "6px 14px", fontWeight: 800 }}>
           {loadingM3u ? "LOADING…" : "LOAD"}
         </button>
-        <button onClick={() => setChannels(DEFAULT_CHANNELS)}
+        <button onClick={() => loadM3U("/axiom-runner/assets/playlist.m3u8")}
           style={{ ...btnStyle(false), padding: "6px 10px" }}>
           RESET
         </button>
