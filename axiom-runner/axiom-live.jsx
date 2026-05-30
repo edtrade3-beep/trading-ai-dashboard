@@ -63,7 +63,8 @@ const C = { ...THEME_LIGHT };
 const SANS = `'Inter', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif`;
 // MONO  — true monospace for prices, tickers, percentages, scores — much crisper digits
 const MONO = `'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Roboto Mono', 'Courier New', monospace`;
-const UI_ZOOM = 1.18;   // slightly larger = easier to read without changing every font-size
+const UI_ZOOM = 1.18;        // desktop zoom
+const UI_ZOOM_TABLET = 1.32; // iPad zoom — noticeably larger for comfortable reading
 const LAYOUT = {
   pageMaxWidth: 1880,
   contentPadding: "18px 20px 28px",
@@ -5649,10 +5650,11 @@ Risk small and follow the stop.`
 export default function App() {
   const [appUnlocked, setAppUnlocked] = useState(true);
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+  const [isTablet, setIsTablet] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768 && window.innerWidth <= 1200);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   useEffect(() => {
-    const fn = () => setIsMobile(window.innerWidth < 768);
+    const fn = () => { setIsMobile(window.innerWidth < 768); setIsTablet(window.innerWidth >= 768 && window.innerWidth <= 1200); };
     window.addEventListener("resize", fn);
     return () => window.removeEventListener("resize", fn);
   }, []);
@@ -9054,7 +9056,7 @@ export default function App() {
   );
 
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: SANS, zoom: isMobile ? 1 : UI_ZOOM, lineHeight: 1.5, width: "100%", maxWidth: "100vw", overflowX: "hidden" }}>
+    <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: SANS, zoom: isMobile ? 1 : isTablet ? UI_ZOOM_TABLET : UI_ZOOM, lineHeight: 1.5, width: "100%", maxWidth: "100vw", overflowX: "hidden" }}>
       {/* Google Fonts — Inter (UI) + JetBrains Mono (data/numbers) */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
