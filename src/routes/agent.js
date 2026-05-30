@@ -649,7 +649,7 @@ function buildTradeSetup(body) {
     `Position sizing: Risk no more than 1-2% of portfolio on this trade.`,
   ].filter(s => s !== "").join("\n");
 
-  return { output: plan, ticker: ticker.toUpperCase(), bias, conviction, generatedAt: now() };
+  return { ok: true, plan, ticker: ticker.toUpperCase(), bias, conviction, generatedAt: now() };
 }
 
 // ── Macro scenario (rule-based templates) ────────────────────────────────────
