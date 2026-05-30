@@ -3543,10 +3543,12 @@ function generateSetup(q) {
   };
 }
 
-function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpenTerminal }) {
-  const [filter, setFilter]   = useState("ALL"); // ALL | LONG | SHORT
-  const [minConv, setMinConv] = useState(3);
+function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpenTerminal, onAddSymbols }) {
+  const [filter, setFilter]     = useState("ALL"); // ALL | LONG | SHORT
+  const [minConv, setMinConv]   = useState(3);
   const [expanded, setExpanded] = useState(null);
+  const [addInput, setAddInput] = useState("");
+  const [addMsg, setAddMsg]     = useState("");
 
   const setups = useMemo(() => {
     if (!watchlistData?.length) return [];
@@ -3606,10 +3608,37 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
         </div>
       </div>
 
+      {/* Quick-add symbols bar */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 14, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, whiteSpace: "nowrap" }}>+ ADD TO WATCHLIST:</span>
+        <input
+          value={addInput}
+          onChange={e => setAddInput(e.target.value.toUpperCase())}
+          onKeyDown={e => {
+            if (e.key === "Enter") {
+              const syms = addInput.split(/[\s,]+/).map(s => s.trim().toUpperCase()).filter(s => /^[A-Z]{1,5}(\.[A-Z]{1,2})?$/.test(s));
+              if (syms.length) { onAddSymbols(syms); setAddMsg(`✓ Added: ${syms.join(", ")}`); setAddInput(""); setTimeout(() => setAddMsg(""), 3000); }
+            }
+          }}
+          placeholder="e.g. AAPL, MSFT, SPY  (press Enter)"
+          style={{ flex: 1, minWidth: 200, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "7px 10px", borderRadius: 4 }}
+        />
+        <button onClick={() => {
+          const syms = addInput.split(/[\s,]+/).map(s => s.trim().toUpperCase()).filter(s => /^[A-Z]{1,5}(\.[A-Z]{1,2})?$/.test(s));
+          if (syms.length) { onAddSymbols(syms); setAddMsg(`✓ Added: ${syms.join(", ")}`); setAddInput(""); setTimeout(() => setAddMsg(""), 3000); }
+        }} style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 4, padding: "7px 14px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+          ADD
+        </button>
+        {addMsg && <span style={{ fontFamily: MONO, fontSize: 10, color: C.green }}>{addMsg}</span>}
+        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: "auto" }}>
+          Scanning {watchlistSymbols?.length || 0} stocks
+        </span>
+      </div>
+
       {/* No data */}
       {!watchlistData?.length && (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 30, textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>
-          Waiting for watchlist data to load… Make sure your WATCHLIST has symbols and data has refreshed.
+          Waiting for watchlist data to load… Add stocks above and wait for a refresh.
         </div>
       )}
 
@@ -11489,6 +11518,18 @@ export default function App() {
             watchlistData={watchlistData}
             watchlistSymbols={watchlistSymbols}
             onOpenTerminal={(sym) => { setTerminalSymbol(sym); setActiveTab("terminal"); }}
+            onAddSymbols={(syms) => {
+              setWatchlistSymbols(prev => {
+                const existing = new Set(prev.map(s => s.toUpperCase()));
+                const newOnes = syms.filter(s => !existing.has(s));
+                return newOnes.length ? [...prev, ...newOnes] : prev;
+              });
+              setWatchlistInput(prev => {
+                const existing = new Set(prev.split(",").map(s => s.trim().toUpperCase()));
+                const newOnes = syms.filter(s => !existing.has(s));
+                return newOnes.length ? [prev, ...newOnes].join(",") : prev;
+              });
+            }}
           />
         )}
 
