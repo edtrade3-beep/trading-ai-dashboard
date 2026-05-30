@@ -9488,6 +9488,7 @@ export default function App() {
               { id: "research",   label: "RESEARCH",  tabs: ["options", "sec-filings", "telegram"] },
               { id: "tools",     label: "TOOLS",     tabs: ["tools", "backtest", "workflow", "agent", "deals", "fibonacci", "ailab", "dca", "options-calc"] },
               { id: "islamic",   label: "☪",         tabs: ["quran", "athan", "athkar", "tasbih", "halal"] },
+              { id: "soccer",    label: "⚽",         tabs: ["soccer"] },
             ];
             const scannerBadge = scannerRows.filter(r => r.scannerScore >= 70).length || null;
             return (
@@ -19772,6 +19773,228 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* ⚽ SOCCER WATCH */}
+      {activeTab === "soccer" && (() => {
+        const LEAGUES = [
+          { id: "eng.1",           name: "Premier League",    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", color: "#3d195b" },
+          { id: "esp.1",           name: "La Liga",           flag: "🇪🇸", color: "#c60b1e" },
+          { id: "ger.1",           name: "Bundesliga",        flag: "🇩🇪", color: "#d20515" },
+          { id: "ita.1",           name: "Serie A",           flag: "🇮🇹", color: "#024494" },
+          { id: "fra.1",           name: "Ligue 1",           flag: "🇫🇷", color: "#003189" },
+          { id: "uefa.champions",  name: "Champions League",  flag: "🏆", color: "#0b1560" },
+          { id: "uefa.europa",     name: "Europa League",     flag: "🥈", color: "#f4782a" },
+          { id: "usa.1",           name: "MLS",               flag: "🇺🇸", color: "#1c3d7a" },
+          { id: "tur.1",           name: "Süper Lig",         flag: "🇹🇷", color: "#e30a17" },
+          { id: "sau.1",           name: "Saudi Pro League",  flag: "🇸🇦", color: "#006c35" },
+        ];
+
+        const FREE_SITES = [
+          { name: "LiveSoccerTV",  url: "https://www.livesoccertv.com",       icon: "📡", desc: "Find which channel is broadcasting every match worldwide" },
+          { name: "BBC Sport",     url: "https://www.bbc.co.uk/sport/football", icon: "🎙", desc: "Free live streams — FA Cup, Women's football, highlights (UK)" },
+          { name: "ITVX",          url: "https://www.itv.com/watch/sports",   icon: "📺", desc: "Free live UEFA Champions League matches (UK)" },
+          { name: "ViX",           url: "https://www.vix.com",                icon: "🌎", desc: "Free Spanish-language soccer — Liga MX, USMNT, Copa América" },
+          { name: "TUDN",          url: "https://www.tudn.com",               icon: "⚽", desc: "Free tier — Liga MX, Mexican national team, MLS highlights" },
+          { name: "Pluto TV",      url: "https://pluto.tv/en/live-tv/sports", icon: "🆓", desc: "Free sports channels including soccer replays, no sign-up needed" },
+          { name: "YouTube Soccer",url: "https://www.youtube.com/@premierleague", icon: "▶", desc: "Official Premier League, UEFA, and club YouTube channels — free highlights & live streams" },
+          { name: "SofaScore",     url: "https://www.sofascore.com",          icon: "📊", desc: "Live scores, lineups, stats, and free match stream links" },
+          { name: "ESPN+",         url: "https://www.espn.com/watch/soccer",  icon: "🏟", desc: "Some free matches — Bundesliga, MLS, FA Cup (US)" },
+          { name: "OneFootball",   url: "https://www.onefootball.com",        icon: "🌐", desc: "Free match highlights and some live streams — global coverage" },
+          { name: "Paramount+",    url: "https://www.paramountplus.com",      icon: "📱", desc: "Free trial includes Champions League, Serie A (US)" },
+          { name: "FlashScore",    url: "https://www.flashscore.com",         icon: "⚡", desc: "Live scores, live text commentary, and stream finder for all leagues" },
+        ];
+
+        const [soccerLeague, setSoccerLeague] = React.useState("eng.1");
+        const [soccerGames, setSoccerGames] = React.useState([]);
+        const [soccerLoading, setSoccerLoading] = React.useState(false);
+        const [soccerFetched, setSoccerFetched] = React.useState(false);
+        const [soccerError, setSoccerError] = React.useState(null);
+
+        const fetchLeague = React.useCallback(async (leagueId) => {
+          setSoccerLoading(true);
+          setSoccerError(null);
+          setSoccerGames([]);
+          try {
+            const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/scoreboard`);
+            const d = await r.json();
+            const games = (d.events || []).map(ev => {
+              const comp = ev.competitions?.[0] || {};
+              const home = comp.competitors?.find(c => c.homeAway === "home") || {};
+              const away = comp.competitors?.find(c => c.homeAway === "away") || {};
+              const status = comp.status?.type;
+              const inProgress = status?.state === "in";
+              const finished   = status?.state === "post";
+              const upcoming   = status?.state === "pre";
+              return {
+                id: ev.id,
+                name: ev.name,
+                date: ev.date,
+                home: home.team?.displayName || "Home",
+                homeLogo: home.team?.logo || null,
+                homeScore: home.score || "—",
+                away: away.team?.displayName || "Away",
+                awayLogo: away.team?.logo || null,
+                awayScore: away.score || "—",
+                clock: status?.displayClock || "",
+                period: status?.period || 0,
+                inProgress, finished, upcoming,
+                shortDetail: status?.shortDetail || "",
+              };
+            });
+            setSoccerGames(games);
+            setSoccerFetched(true);
+          } catch (e) {
+            setSoccerError("Could not load schedule. Check your internet connection.");
+          } finally {
+            setSoccerLoading(false);
+          }
+        }, []);
+
+        React.useEffect(() => {
+          fetchLeague(soccerLeague);
+        }, [soccerLeague]);
+
+        const selectedLeague = LEAGUES.find(l => l.id === soccerLeague) || LEAGUES[0];
+        const live = soccerGames.filter(g => g.inProgress);
+        const upcoming = soccerGames.filter(g => g.upcoming);
+        const finished = soccerGames.filter(g => g.finished);
+
+        const GameCard = ({ g }) => {
+          const stColor = g.inProgress ? C.green : g.finished ? C.textDim : C.amber;
+          const stLabel = g.inProgress ? `🔴 LIVE ${g.clock}` : g.finished ? "FT" : (() => {
+            try { return new Date(g.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+            catch { return g.shortDetail; }
+          })();
+          return (
+            <div style={{ background: C.card, border: `1px solid ${g.inProgress ? C.green + "55" : C.border}`, borderRadius: 8, padding: "12px 16px", boxShadow: g.inProgress ? `0 0 12px ${C.green}22` : "none" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                {/* Home */}
+                <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+                  <span style={{ fontFamily: SANS, fontSize: 13, color: C.text, fontWeight: 600, textAlign: "right" }}>{g.home}</span>
+                  {g.homeLogo && <img src={g.homeLogo} alt="" style={{ width: 28, height: 28, objectFit: "contain" }} onError={e => { e.target.style.display = "none"; }} />}
+                </div>
+                {/* Score / Time */}
+                <div style={{ textAlign: "center", minWidth: 80 }}>
+                  {!g.upcoming ? (
+                    <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 800, color: C.text }}>{g.homeScore} – {g.awayScore}</div>
+                  ) : (
+                    <div style={{ fontFamily: MONO, fontSize: 13, color: C.amber, fontWeight: 700 }}>VS</div>
+                  )}
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: stColor, fontWeight: 700, marginTop: 2 }}>{stLabel}</div>
+                </div>
+                {/* Away */}
+                <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+                  {g.awayLogo && <img src={g.awayLogo} alt="" style={{ width: 28, height: 28, objectFit: "contain" }} onError={e => { e.target.style.display = "none"; }} />}
+                  <span style={{ fontFamily: SANS, fontSize: 13, color: C.text, fontWeight: 600 }}>{g.away}</span>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        return (
+          <div style={{ paddingBottom: 40 }}>
+            {/* Header */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: 2 }}>⚽ SOCCER WATCH</div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>Live scores, schedules & free streaming links</div>
+            </div>
+
+            {/* Free Streaming Sites */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, marginBottom: 24, overflow: "hidden" }}>
+              <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, letterSpacing: "0.08em" }}>🆓 FREE STREAMING SITES</span>
+                <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Click to open in new tab</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr 1fr" : "repeat(4, 1fr)", gap: 0 }}>
+                {FREE_SITES.map((s, i) => (
+                  <a key={s.name} href={s.url} target="_blank" rel="noreferrer"
+                    style={{ display: "block", padding: "12px 14px", textDecoration: "none", borderRight: (i % (isTablet ? 2 : 4)) === (isTablet ? 1 : 3) ? "none" : `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: "transparent", transition: "background 0.15s" }}
+                    onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                    onTouchStart={e => e.currentTarget.style.background = C.cardHover}
+                    onTouchEnd={e => { setTimeout(() => { if (e.currentTarget) e.currentTarget.style.background = "transparent"; }, 400); }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <span style={{ fontSize: 14 }}>{s.icon}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>{s.name}</span>
+                    </div>
+                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.5 }}>{s.desc}</div>
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            {/* League Selector */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+              <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, letterSpacing: "0.08em" }}>📅 TODAY'S SCHEDULE</span>
+                <button onClick={() => fetchLeague(soccerLeague)} disabled={soccerLoading}
+                  style={{ fontFamily: MONO, fontSize: 10, background: C.surface, border: `1px solid ${C.border}`, color: C.textSec, borderRadius: 4, padding: "5px 10px", cursor: "pointer" }}>
+                  {soccerLoading ? "LOADING…" : "↻ REFRESH"}
+                </button>
+              </div>
+
+              {/* League tabs */}
+              <div style={{ display: "flex", overflowX: "auto", scrollbarWidth: "none", padding: "8px 12px", gap: 6, borderBottom: `1px solid ${C.border}` }}>
+                {LEAGUES.map(l => (
+                  <button key={l.id} onClick={() => setSoccerLeague(l.id)}
+                    style={{ fontFamily: MONO, fontSize: 10, fontWeight: soccerLeague === l.id ? 800 : 500, whiteSpace: "nowrap", border: soccerLeague === l.id ? `1px solid ${C.accent}` : `1px solid ${C.border}`, background: soccerLeague === l.id ? `${C.accent}22` : C.surface, color: soccerLeague === l.id ? C.accent : C.textSec, borderRadius: 4, padding: "5px 10px", cursor: "pointer" }}>
+                    {l.flag} {l.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Games list */}
+              <div style={{ padding: "14px 16px" }}>
+                {soccerLoading && (
+                  <div style={{ textAlign: "center", padding: "40px 0", fontFamily: MONO, fontSize: 11, color: C.textDim }}>Loading {selectedLeague.name} schedule…</div>
+                )}
+                {soccerError && !soccerLoading && (
+                  <div style={{ textAlign: "center", padding: "30px 0", fontFamily: MONO, fontSize: 11, color: C.red }}>{soccerError}</div>
+                )}
+                {!soccerLoading && !soccerError && soccerFetched && soccerGames.length === 0 && (
+                  <div style={{ textAlign: "center", padding: "30px 0" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 14, color: C.textDim, marginBottom: 8 }}>No matches scheduled today</div>
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Check back on match days or try another league</div>
+                  </div>
+                )}
+                {!soccerLoading && soccerGames.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {live.length > 0 && (
+                      <div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.green, fontWeight: 800, letterSpacing: "0.1em", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: C.green, animation: "pulse 1.5s infinite" }} />
+                          LIVE NOW ({live.length})
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+                          {live.map(g => <GameCard key={g.id} g={g} />)}
+                        </div>
+                      </div>
+                    )}
+                    {upcoming.length > 0 && (
+                      <div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.amber, fontWeight: 800, letterSpacing: "0.1em", marginBottom: 8 }}>UPCOMING ({upcoming.length})</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+                          {upcoming.map(g => <GameCard key={g.id} g={g} />)}
+                        </div>
+                      </div>
+                    )}
+                    {finished.length > 0 && (
+                      <div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, fontWeight: 800, letterSpacing: "0.1em", marginBottom: 8 }}>FINAL RESULTS ({finished.length})</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          {finished.map(g => <GameCard key={g.id} g={g} />)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <style>{`
         @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.3 } }
