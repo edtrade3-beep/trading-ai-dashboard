@@ -9504,6 +9504,7 @@ export default function App() {
           watchlist: [
             { id: "fivex",     label: "🚀 5X PLAYS" },
             { id: "smartscan", label: "🧠 SMART SCAN" },
+            { id: "advisor",   label: "🤖 AI ADVISOR" },
           ],
           portfolio: [
             { id: "portfolio",   label: "POSITIONS" },
