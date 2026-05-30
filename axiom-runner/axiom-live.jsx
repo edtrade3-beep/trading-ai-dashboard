@@ -2117,6 +2117,36 @@ function TerminalWorkspace({
   const [showLeft, setShowLeft] = useState(true);
   const [showRight, setShowRight] = useState(true);
   const [drag, setDrag] = useState(null);
+  const dragRef = useRef(null);
+
+  // ── Column resize — mouse + touch (iPad) ────────────────────────────────────
+  useEffect(() => {
+    if (!drag) return;
+    const getX = (e) => e.touches ? e.touches[0].clientX : e.clientX;
+    let lastX = null;
+
+    const onMove = (e) => {
+      const x = getX(e);
+      if (lastX === null) { lastX = x; return; }
+      const dx = x - lastX;
+      lastX = x;
+      if (drag === "left")  setLeftW(w  => Math.max(120, Math.min(400, w  + dx)));
+      if (drag === "right") setRightW(w => Math.max(200, Math.min(600, w  - dx)));
+    };
+    const onUp = () => setDrag(null);
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup",   onUp);
+    window.addEventListener("touchmove", onMove, { passive: true });
+    window.addEventListener("touchend",  onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup",   onUp);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend",  onUp);
+    };
+  }, [drag]);
+
   const [alertFormOpen, setAlertFormOpen] = useState(false);
   const [alertTarget, setAlertTarget] = useState("");
   const [alertDir, setAlertDir] = useState("above");
@@ -2368,7 +2398,17 @@ function TerminalWorkspace({
           </div>
         </div>
       )}
-      {showLeft && <div onMouseDown={() => setDrag("left")} style={{ cursor: "col-resize", background: C.border, borderRadius: 6 }} />}
+      {showLeft && (
+        <div
+          onMouseDown={() => setDrag("left")}
+          onTouchStart={() => setDrag("left")}
+          style={{ cursor: "col-resize", background: drag === "left" ? C.accent : C.border, borderRadius: 6, width: 6, transition: "background 0.15s",
+            display: "flex", alignItems: "center", justifyContent: "center", userSelect: "none" }}
+          title="Drag to resize"
+        >
+          <div style={{ width: 2, height: 32, borderRadius: 2, background: drag === "left" ? "#fff" : C.textDim, opacity: 0.5 }} />
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateRows: "1fr auto", gap: 10, margin: "0 4px" }}>
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr auto" }}>
@@ -2755,7 +2795,17 @@ function TerminalWorkspace({
         </div>
       </div>
 
-      {showRight && <div onMouseDown={() => setDrag("right")} style={{ cursor: "col-resize", background: C.border, borderRadius: 6 }} />}
+      {showRight && (
+        <div
+          onMouseDown={() => setDrag("right")}
+          onTouchStart={() => setDrag("right")}
+          style={{ cursor: "col-resize", background: drag === "right" ? C.accent : C.border, borderRadius: 6, width: 6, transition: "background 0.15s",
+            display: "flex", alignItems: "center", justifyContent: "center", userSelect: "none" }}
+          title="Drag to resize"
+        >
+          <div style={{ width: 2, height: 32, borderRadius: 2, background: drag === "right" ? "#fff" : C.textDim, opacity: 0.5 }} />
+        </div>
+      )}
       {showRight && (
         <div style={{ display: "grid", gridTemplateRows: "auto auto auto auto auto 1fr", gap: 10, marginLeft: 4, overflowY: "auto" }}>
 
