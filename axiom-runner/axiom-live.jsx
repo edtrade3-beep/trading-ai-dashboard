@@ -3421,6 +3421,342 @@ function parsePortfolioCSV(text) {
   return { rows: [], format: "unknown", errors: ["Could not recognise CSV format. Expected columns: Symbol, Shares/Quantity, Avg Cost."] };
 }
 
+// ─── Trade Advisor ────────────────────────────────────────────────────────────
+const r2 = (n) => Math.round(n * 100) / 100; // round to 2 decimal places
+function generateSetup(q) {
+  if (!q || !q.price || q.price <= 0) return null;
+
+  const price   = Number(q.price);
+  const chg     = Number(q.changesPercentage || 0);
+  const sma50   = Number(q.priceAvg50  || 0);
+  const sma200  = Number(q.priceAvg200 || 0);
+  const yHigh   = Number(q.yearHigh || 0);
+  const yLow    = Number(q.yearLow  || 0);
+  const rvol    = q.avgVolume ? (q.volume / q.avgVolume) : 1;
+  const mtf     = computeMTFSignal(q);
+  const scores  = computeScores(q);
+
+  if (mtf.signal === "HOLD" && scores.composite < 65) return null;
+  if (mtf.score === 0) return null;
+
+  const isBull  = mtf.signal === "BUY";
+  const isBear  = mtf.signal === "SELL";
+  if (!isBull && !isBear) return null;
+
+  // ── Identify setup type ──
+  const nearYearHigh  = yHigh > 0 && price >= yHigh * 0.97;
+  const breakoutYHigh = yHigh > 0 && price >= yHigh * 0.995;
+  const aboveSma50    = sma50  > 0 && price > sma50;
+  const aboveSma200   = sma200 > 0 && price > sma200;
+  const goldenCross   = sma50  > 0 && sma200 > 0 && sma50 > sma200 && price > sma50;
+  const nearYearLow   = yLow  > 0 && price <= yLow * 1.05;
+  const highRvol      = rvol >= 1.5;
+  const veryHighRvol  = rvol >= 2.5;
+
+  let setupType = "";
+  let conviction = mtf.score; // base conviction from MTF score
+
+  if (isBull) {
+    if (breakoutYHigh && highRvol)        { setupType = "52W Breakout"; conviction += 3; }
+    else if (nearYearHigh && highRvol)    { setupType = "Momentum Breakout"; conviction += 2; }
+    else if (goldenCross)                 { setupType = "Golden Cross"; conviction += 2; }
+    else if (veryHighRvol && chg > 2)     { setupType = "Volume Surge"; conviction += 2; }
+    else if (aboveSma50 && aboveSma200)   { setupType = "Trend Continuation"; conviction += 1; }
+    else if (aboveSma200 && chg > 0)      { setupType = "Bull Trend Entry"; conviction += 1; }
+    else                                  { setupType = "Momentum"; }
+  } else {
+    if (nearYearLow && highRvol)          { setupType = "Breakdown"; conviction += 2; }
+    else if (!aboveSma200 && chg < -2)    { setupType = "Bear Continuation"; conviction += 2; }
+    else if (veryHighRvol && chg < -2)    { setupType = "Distribution"; conviction += 2; }
+    else                                  { setupType = "Short Signal"; }
+  }
+
+  // ── Calculate entry / stop / targets ──
+  // ATR estimate: use 2% of price as a rough ATR proxy (standard for large-caps)
+  const atrPct  = price < 10 ? 0.05 : price < 50 ? 0.03 : 0.02;
+  const atr     = price * atrPct;
+
+  let entry, stop, target1, target2, stopPct, t1Pct, t2Pct;
+
+  if (isBull) {
+    entry   = price;
+    // Stop: 1.5× ATR below entry, or below SMA50 if close
+    const smaBuff = sma50 > 0 && price - sma50 < atr * 3 ? sma50 - atr * 0.5 : null;
+    stop    = smaBuff ? Math.min(price - atr * 1.5, smaBuff) : price - atr * 1.5;
+    target1 = price + (price - stop) * 2;   // 2:1 R:R
+    target2 = price + (price - stop) * 3.5; // 3.5:1 R:R
+    stopPct = ((stop - price) / price * 100).toFixed(1);
+    t1Pct   = ((target1 - price) / price * 100).toFixed(1);
+    t2Pct   = ((target2 - price) / price * 100).toFixed(1);
+  } else {
+    entry   = price;
+    stop    = price + atr * 1.5;
+    target1 = price - (stop - price) * 2;
+    target2 = price - (stop - price) * 3.5;
+    stopPct = ((stop - price) / price * 100).toFixed(1);
+    t1Pct   = ((target1 - price) / price * 100).toFixed(1);
+    t2Pct   = ((target2 - price) / price * 100).toFixed(1);
+  }
+
+  // ── Build reasoning bullets ──
+  const reasons = [];
+  if (veryHighRvol)                  reasons.push(`🔥 Volume ${rvol.toFixed(1)}× avg — strong institutional interest`);
+  else if (highRvol)                 reasons.push(`📈 Volume ${rvol.toFixed(1)}× avg — above-average activity`);
+  if (breakoutYHigh)                 reasons.push(`🚀 Breaking 52-week high — new all-time territory, no overhead resistance`);
+  else if (nearYearHigh && isBull)   reasons.push(`⚡ Near 52-week high ($${yHigh?.toFixed(2)}) — momentum in control`);
+  if (goldenCross)                   reasons.push(`✨ Golden Cross: 50-day SMA above 200-day — long-term uptrend confirmed`);
+  else if (aboveSma50 && isBull)     reasons.push(`📊 Price above 50-day SMA ($${sma50?.toFixed(2)}) — medium-term trend bullish`);
+  if (aboveSma200 && isBull)         reasons.push(`🏔 Above 200-day SMA ($${sma200?.toFixed(2)}) — long-term structure intact`);
+  if (chg > 3 && isBull)             reasons.push(`💪 Up ${chg.toFixed(1)}% today — strong buying momentum`);
+  else if (chg > 1 && isBull)        reasons.push(`📗 Up ${chg.toFixed(1)}% on the day — positive price action`);
+  if (nearYearLow && isBear)         reasons.push(`⚠️ Near 52-week low ($${yLow?.toFixed(2)}) — support failing`);
+  if (!aboveSma200 && isBear)        reasons.push(`📉 Below 200-day SMA — long-term downtrend`);
+  if (chg < -3 && isBear)            reasons.push(`🔴 Down ${Math.abs(chg).toFixed(1)}% today — heavy selling pressure`);
+  // MTF alignment
+  const bullTFs = mtf.timeframes.filter(t => !t.neutral && t.bull).map(t => t.label);
+  if (bullTFs.length >= 3 && isBull) reasons.push(`⏱ Bullish across ${bullTFs.join(", ")} timeframes — aligned momentum`);
+  const bearTFs = mtf.timeframes.filter(t => !t.neutral && !t.bull).map(t => t.label);
+  if (bearTFs.length >= 3 && isBear) reasons.push(`⏱ Bearish across ${bearTFs.join(", ")} timeframes — selling across the board`);
+
+  if (reasons.length === 0) reasons.push(`Score ${scores.composite}/100 — multi-factor analysis supports this direction`);
+
+  return {
+    symbol: q.symbol,
+    price,
+    side: isBull ? "LONG" : "SHORT",
+    setupType,
+    conviction: Math.min(10, conviction),
+    entry: r2(entry),
+    stop: r2(stop),
+    target1: r2(target1),
+    target2: r2(target2),
+    stopPct,
+    t1Pct,
+    t2Pct,
+    rrRatio: "2:1 / 3.5:1",
+    reasons,
+    mtfScore: mtf.score,
+    composite: scores.composite,
+    rvol,
+    chg,
+    q,
+  };
+}
+
+function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpenTerminal }) {
+  const [filter, setFilter]   = useState("ALL"); // ALL | LONG | SHORT
+  const [minConv, setMinConv] = useState(3);
+  const [expanded, setExpanded] = useState(null);
+
+  const setups = useMemo(() => {
+    if (!watchlistData?.length) return [];
+    return watchlistData
+      .map(generateSetup)
+      .filter(Boolean)
+      .filter(s => filter === "ALL" || s.side === filter)
+      .filter(s => s.conviction >= minConv)
+      .sort((a, b) => b.conviction - a.conviction || b.composite - a.composite);
+  }, [watchlistData, filter, minConv]);
+
+  const longCount  = watchlistData ? watchlistData.map(generateSetup).filter(s => s?.side === "LONG").length : 0;
+  const shortCount = watchlistData ? watchlistData.map(generateSetup).filter(s => s?.side === "SHORT").length : 0;
+
+  const convBar = (n, max = 10) => (
+    <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
+      {Array.from({ length: max }, (_, i) => (
+        <div key={i} style={{ width: 8, height: 8, borderRadius: 2, background: i < n ? (n >= 7 ? C.green : n >= 5 ? C.amber : C.accent) : C.border }} />
+      ))}
+      <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 4 }}>{n}/10</span>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 0 40px" }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 4 }}>
+            🤖 AI TRADE ADVISOR
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+            Real-time setups from your watchlist · entry, stop loss, targets &amp; reasoning
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          {/* Side filter */}
+          {[
+            { v: "ALL",   label: `ALL (${longCount + shortCount})`, col: C.accent },
+            { v: "LONG",  label: `▲ LONG (${longCount})`,   col: C.green },
+            { v: "SHORT", label: `▼ SHORT (${shortCount})`, col: C.red },
+          ].map(({ v, label, col }) => (
+            <button key={v} onClick={() => setFilter(v)}
+              style={{ fontFamily: MONO, fontSize: 10, fontWeight: filter === v ? 800 : 400,
+                border: `1px solid ${filter === v ? col : C.border}`,
+                background: filter === v ? `${col}18` : C.surface,
+                color: filter === v ? col : C.textDim,
+                borderRadius: 5, padding: "5px 12px", cursor: "pointer" }}>
+              {label}
+            </button>
+          ))}
+          {/* Min conviction */}
+          <select value={minConv} onChange={e => setMinConv(Number(e.target.value))}
+            style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 10, padding: "5px 8px", borderRadius: 4 }}>
+            {[1,2,3,4,5,6,7].map(n => <option key={n} value={n}>Min conviction: {n}+</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* No data */}
+      {!watchlistData?.length && (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 30, textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>
+          Waiting for watchlist data to load… Make sure your WATCHLIST has symbols and data has refreshed.
+        </div>
+      )}
+
+      {watchlistData?.length > 0 && setups.length === 0 && (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 30, textAlign: "center" }}>
+          <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginBottom: 8 }}>No high-conviction setups right now</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+            Try lowering the minimum conviction, or wait for stronger signals to develop.
+          </div>
+        </div>
+      )}
+
+      {/* Setup cards */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {setups.map((s, i) => {
+          const sideCol  = s.side === "LONG" ? C.green : C.red;
+          const isOpen   = expanded === s.symbol;
+          return (
+            <div key={s.symbol} style={{ background: C.card, border: `2px solid ${isOpen ? sideCol + "66" : C.border}`, borderRadius: 10, overflow: "hidden", transition: "border-color 0.2s" }}>
+              {/* Card header */}
+              <div
+                onClick={() => setExpanded(isOpen ? null : s.symbol)}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", cursor: "pointer", flexWrap: "wrap" }}
+              >
+                {/* Rank */}
+                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, minWidth: 20 }}>#{i + 1}</div>
+
+                {/* Symbol */}
+                <button onClick={e => { e.stopPropagation(); onOpenTerminal(s.symbol); }}
+                  style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 18, fontWeight: 900, cursor: "pointer", padding: 0, letterSpacing: "-0.01em" }}>
+                  {s.symbol}
+                </button>
+
+                {/* Side badge */}
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: sideCol, background: `${sideCol}20`, border: `1px solid ${sideCol}55`, borderRadius: 4, padding: "3px 9px" }}>
+                  {s.side === "LONG" ? "▲ LONG" : "▼ SHORT"}
+                </span>
+
+                {/* Setup type */}
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.accent, background: `${C.accent}12`, borderRadius: 4, padding: "3px 8px" }}>
+                  {s.setupType}
+                </span>
+
+                {/* Price + chg */}
+                <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: C.text }}>${s.price.toFixed(2)}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: s.chg >= 0 ? C.green : C.red, fontWeight: 700 }}>
+                  {s.chg >= 0 ? "+" : ""}{s.chg.toFixed(2)}%
+                </span>
+
+                {/* Conviction dots */}
+                <div style={{ marginLeft: "auto" }}>
+                  {convBar(s.conviction)}
+                </div>
+
+                {/* Expand arrow */}
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, transition: "transform 0.2s", display: "inline-block", transform: isOpen ? "rotate(180deg)" : "none" }}>▼</span>
+              </div>
+
+              {/* Quick stats bar (always visible) */}
+              <div style={{ display: "flex", gap: 0, borderTop: `1px solid ${C.border}`, background: C.surface }}>
+                {[
+                  { label: "ENTRY",   val: `$${s.entry}`,   col: C.text },
+                  { label: "STOP",    val: `$${s.stop} (${s.stopPct}%)`, col: C.red },
+                  { label: "TARGET 1", val: `$${s.target1} (+${s.t1Pct}%)`, col: C.green },
+                  { label: "TARGET 2", val: `$${s.target2} (+${s.t2Pct}%)`, col: C.green },
+                  { label: "R:R",     val: s.rrRatio,        col: C.amber },
+                  { label: "RVOL",    val: `${s.rvol.toFixed(1)}×`, col: s.rvol >= 2 ? C.accent : C.textSec },
+                  { label: "SCORE",   val: `${s.composite}/100`, col: C.accent },
+                ].map(({ label, val, col }) => (
+                  <div key={label} style={{ flex: 1, padding: "8px 10px", borderRight: `1px solid ${C.border}`, minWidth: 0 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, marginBottom: 2, letterSpacing: "0.06em" }}>{label}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: col, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{val}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Expanded detail */}
+              {isOpen && (
+                <div style={{ padding: "16px 16px 18px", borderTop: `1px solid ${C.border}` }}>
+                  {/* Reasoning */}
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700, marginBottom: 10, letterSpacing: "0.06em" }}>WHY THIS SETUP</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+                    {s.reasons.map((r, ri) => (
+                      <div key={ri} style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, display: "flex", gap: 8, alignItems: "flex-start" }}>
+                        <span>{r}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Trade plan */}
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700, marginBottom: 10, letterSpacing: "0.06em" }}>TRADE PLAN</div>
+                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", fontFamily: SANS, fontSize: 13, color: C.textSec, lineHeight: 1.8 }}>
+                    <strong style={{ color: C.text }}>Direction:</strong> {s.side === "LONG" ? "Buy / Long" : "Sell short"}<br />
+                    <strong style={{ color: C.text }}>Entry zone:</strong> ${s.entry} (current market price)<br />
+                    <strong style={{ color: C.text }}>Stop loss:</strong> ${s.stop} — {s.side === "LONG" ? `${Math.abs(s.stopPct)}% below entry. Exit immediately if price closes below this level.` : `${Math.abs(s.stopPct)}% above entry.`}<br />
+                    <strong style={{ color: C.text }}>Target 1:</strong> ${s.target1} (+{s.t1Pct}%) — take partial profits here (50% of position)<br />
+                    <strong style={{ color: C.text }}>Target 2:</strong> ${s.target2} (+{s.t2Pct}%) — trail stop on remainder<br />
+                    <strong style={{ color: C.text }}>Risk/Reward:</strong> {s.rrRatio} — only take trades where you risk $1 to make $2+<br />
+                    <strong style={{ color: C.text }}>Position size:</strong> Risk no more than 1–2% of your account on this trade
+                  </div>
+
+                  {/* MTF breakdown */}
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700, marginBottom: 8, letterSpacing: "0.06em" }}>TIMEFRAME ALIGNMENT</div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {computeMTFSignal(s.q).timeframes.map(tf => {
+                        const col = tf.neutral ? C.textDim : (tf.bull ? C.green : C.red);
+                        const label = tf.neutral ? "—" : (tf.bull ? "▲" : "▼");
+                        return (
+                          <div key={tf.label} style={{ background: C.card, border: `1px solid ${col}44`, borderRadius: 6, padding: "6px 12px", textAlign: "center" }}>
+                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{tf.label}</div>
+                            <div style={{ fontFamily: MONO, fontSize: 14, color: col, fontWeight: 800 }}>{label}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                    <button onClick={() => onOpenTerminal(s.symbol)}
+                      style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 6, padding: "8px 16px", fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                      📈 OPEN CHART
+                    </button>
+                    <button onClick={async () => {
+                      const msg = `${s.side === "LONG" ? "🟢" : "🔴"} *${s.symbol}* — ${s.setupType} ${s.side}\n💰 Entry: $${s.entry} | Stop: $${s.stop} (${s.stopPct}%) | T1: $${s.target1} (+${s.t1Pct}%)\n📊 Conviction: ${s.conviction}/10 | Score: ${s.composite}/100\n${s.reasons[0] || ""}`;
+                      try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
+                    }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "8px 14px", fontFamily: MONO, fontSize: 11, cursor: "pointer" }}>
+                      📬 SEND TO TELEGRAM
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {setups.length > 0 && (
+        <div style={{ marginTop: 14, fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: "center" }}>
+          ⚠ These are algorithmic signals based on price action &amp; momentum data. Always confirm with your own analysis. Never risk more than you can afford to lose.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── TelegramAlertsTab ───────────────────────────────────────────────────────
 function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onOpenTerminal }) {
   const [status, setStatus]       = useState(null);   // { ok, configured, botName, chatId, ... }
@@ -8787,7 +9123,7 @@ export default function App() {
               { id: "scanner",   label: "SCANNER",   tabs: ["scanner", "early", "analyzer", "cot", "flow", "screener", "shortint", "smartmoney", "social"] },
               { id: "crypto",    label: "₿ CRYPTO",  tabs: ["crypto"] },
               { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "calendar", "analyst", "ipo", "feargreed", "breadth", "seasonality"] },
-              { id: "watchlist", label: "WATCHLIST", tabs: ["fivex", "smartscan"] },
+              { id: "watchlist", label: "WATCHLIST", tabs: ["fivex", "smartscan", "advisor"] },
               { id: "portfolio", label: "PORTFOLIO", tabs: ["portfolio", "performance", "journal", "alerts", "heatmap", "correlation", "risklab"] },
               { id: "research",   label: "RESEARCH",  tabs: ["options", "sec-filings", "telegram"] },
               { id: "tools",     label: "TOOLS",     tabs: ["tools", "backtest", "workflow", "agent", "deals", "fibonacci", "ailab", "dca", "options-calc"] },
@@ -11145,6 +11481,15 @@ export default function App() {
             </div>
           );
         })()}
+
+        {activeTab === "advisor" && (
+          <TradeAdvisorTab
+            C={C} MONO={MONO} SANS={SANS}
+            watchlistData={watchlistData}
+            watchlistSymbols={watchlistSymbols}
+            onOpenTerminal={(sym) => { setTerminalSymbol(sym); setActiveTab("terminal"); }}
+          />
+        )}
 
         {activeTab === "smartscan" && (() => {
           // ── Signal badge style helper ─────────────────────────────────────
