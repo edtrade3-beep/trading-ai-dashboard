@@ -9734,114 +9734,15 @@ export default function App() {
             );
           })()}
         </div>
-        {/* Right side: status chips + all action buttons */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "nowrap", justifyContent: "flex-end", flexShrink: 0 }}>
-          {/* Live dot — always visible */}
-          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: C.card, borderRadius: 4, border: `1px solid ${C.border}` }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: dataBadge === "LIVE" ? C.green : dataBadge === "STALE" ? C.amber : C.red, boxShadow: `0 0 5px ${dataBadge === "LIVE" ? C.green : C.amber}`, animation: "pulse 2s infinite", flexShrink: 0 }} />
-            {!isMobile && (
-              <span style={{ fontSize: 9, fontFamily: MONO, color: C.textDim, whiteSpace: "nowrap" }}>
-                {lastUpdate ? `Updated ${lastUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "CONNECTING…"}
-              </span>
-            )}
-          </div>
-
-          {/* Weather chip — desktop only */}
-          {!isMobile && (
-            <div style={{
-              display: "flex", alignItems: "center", gap: 6,
-              border: `1px solid ${C.border}`,
-              background: C.card, borderRadius: 5, padding: "4px 10px",
-              fontSize: 10, fontFamily: MONO, color: C.textSec, whiteSpace: "nowrap",
-            }}>
-              <span style={{ color: C.accent, fontWeight: 700 }}>WEATHER {WEATHER_ZIP}</span>
-              {weatherData ? (
-                <>
-                  <span style={{ fontWeight: 800, color: weatherData.temp >= 85 ? C.red : weatherData.temp <= 40 ? C.cyan : C.text }}>
-                    {weatherData.temp.toFixed(0)}°F
-                  </span>
-                  <span style={{ color: C.textDim }}>{weatherCodeLabel(weatherData.code)}</span>
-                </>
-              ) : (
-                <span style={{ color: C.textDim }}>—</span>
-              )}
-            </div>
-          )}
-
-          {/* Session countdown — desktop only */}
-          {!isMobile && (() => {
-            const cdColor = sessionCountdown.session === "REGULAR" ? C.green
-              : sessionCountdown.session === "PREMARKET" ? C.accent
-              : sessionCountdown.session === "AFTERMARKET" ? C.amber : C.textDim;
-            return (
-              <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", background: `${cdColor}0e`, borderRadius: 4, border: `1px solid ${cdColor}2a` }}>
-                <span style={{ fontSize: 9, fontFamily: MONO, color: C.textDim }}>{sessionCountdown.label}</span>
-                <span style={{ fontSize: 10, fontFamily: MONO, color: cdColor, fontWeight: 800 }}>{fmtCountdownShort(sessionCountdown.secs)}</span>
-              </div>
-            );
-          })()}
-
-          {/* Hijri date */}
-          {athanHijri && (
-            <div onClick={() => setActiveTab("athan")} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: "#c9a84c0e", borderRadius: 4, border: "1px solid #c9a84c2a", cursor: "pointer", direction: "rtl" }}>
-              <span style={{ fontSize: isMobile ? 11 : 10, fontFamily: "Arial, sans-serif", color: "#c9a84c", fontWeight: 700 }}>
-                {isMobile ? `${athanHijri.day} هـ` : `${athanHijri.day} ${athanHijri.month?.ar} ${athanHijri.year} هـ`}
-              </span>
-            </div>
-          )}
-
-          {/* Portfolio P/L chip — desktop only */}
-          {!isMobile && portfolioSummary.totalCost > 0 && portfolioSummary.totalValue > 0 && (
-            <div onClick={() => setActiveTab("portfolio")} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 4, border: `1px solid ${portfolioSummary.totalPnl >= 0 ? C.green : C.red}44`, background: portfolioSummary.totalPnl >= 0 ? `${C.green}0e` : `${C.red}0e`, cursor: "pointer" }}>
-              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>PORT</span>
-              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red }}>
-                {portfolioSummary.totalPnl >= 0 ? "+" : ""}{portfolioSummary.totalPnlPct.toFixed(2)}%
-              </span>
-            </div>
-          )}
-
-          {/* Today P/L chip — always visible (important KPI) */}
-          {(() => {
-            const today = new Date().toISOString().slice(0, 10);
-            const todayClosed = journalEntries.filter(e => e.status === "closed" && e.pnl != null && (e.closedAt || "").slice(0, 10) === today);
-            if (!todayClosed.length) return null;
-            const todayPnl = todayClosed.reduce((s, e) => s + e.pnl, 0);
-            const color = todayPnl >= 0 ? C.green : C.red;
-            return (
-              <div onClick={() => setActiveTab("journal")} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 4, border: `1px solid ${color}44`, background: `${color}0e`, cursor: "pointer" }}>
-                <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>TODAY</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color }}>
-                  {todayPnl >= 0 ? "+" : ""}${Math.round(todayPnl)}
-                </span>
-              </div>
-            );
-          })()}
-
-          {/* Quran playing indicator */}
-          {quranPlaying && (
+        {/* Mobile: theme toggle — shown on mobile only here */}
+        {isMobile && (
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <button
-              onClick={() => { if (quranAudioRef.current) quranAudioRef.current.pause(); }}
-              style={{ background: `#c9a84c18`, border: `1px solid #c9a84c55`, color: "#c9a84c", fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "5px 9px", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, maxWidth: isMobile ? 80 : 140 }}
-            >
-              <span>▐▌</span>
-              {!isMobile && (
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 90 }}>
-                  {SURAH_LIST.find(s => s[0] === quranSurah)?.[1] || `سورة ${quranSurah}`}
-                </span>
-              )}
-            </button>
-          )}
-
-          {/* Mobile: theme toggle only — all actions in left ☰ drawer */}
-          {isMobile && (
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <button
-                onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))}
-                style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, width: 40, height: 40, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-              >{themeMode === "dark" ? "☀" : "🌙"}</button>
-            </div>
-          )}
-        </div>
+              onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))}
+              style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, width: 40, height: 40, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+            >{themeMode === "dark" ? "☀" : "🌙"}</button>
+          </div>
+        )}
 
         {/* Desktop action buttons — right side of nav bar */}
         {!isMobile && (
@@ -9897,6 +9798,83 @@ export default function App() {
             <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>
               {themeMode === "dark" ? "☀" : "●"}
             </button>
+
+            {/* ── Status chips (inline after ● button) ── */}
+            <span style={{ width: 1, height: 14, background: C.border, flexShrink: 0, marginLeft: 2 }} />
+
+            {/* Live dot + timestamp */}
+            <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: C.card, borderRadius: 4, border: `1px solid ${C.border}` }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: dataBadge === "LIVE" ? C.green : dataBadge === "STALE" ? C.amber : C.red, boxShadow: `0 0 5px ${dataBadge === "LIVE" ? C.green : C.amber}`, animation: "pulse 2s infinite", flexShrink: 0 }} />
+              <span style={{ fontSize: 9, fontFamily: MONO, color: C.textDim, whiteSpace: "nowrap" }}>
+                {lastUpdate ? `Updated ${lastUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "CONNECTING…"}
+              </span>
+            </div>
+
+            {/* Weather */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${C.border}`, background: C.card, borderRadius: 5, padding: "4px 10px", fontSize: 10, fontFamily: MONO, color: C.textSec, whiteSpace: "nowrap" }}>
+              <span style={{ color: C.accent, fontWeight: 700 }}>WEATHER {WEATHER_ZIP}</span>
+              {weatherData ? (
+                <>
+                  <span style={{ fontWeight: 800, color: weatherData.temp >= 85 ? C.red : weatherData.temp <= 40 ? C.cyan : C.text }}>{weatherData.temp.toFixed(0)}°F</span>
+                  <span style={{ color: C.textDim }}>{weatherCodeLabel(weatherData.code)}</span>
+                </>
+              ) : <span style={{ color: C.textDim }}>—</span>}
+            </div>
+
+            {/* Session countdown */}
+            {(() => {
+              const cdColor = sessionCountdown.session === "REGULAR" ? C.green : sessionCountdown.session === "PREMARKET" ? C.accent : sessionCountdown.session === "AFTERMARKET" ? C.amber : C.textDim;
+              return (
+                <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", background: `${cdColor}0e`, borderRadius: 4, border: `1px solid ${cdColor}2a` }}>
+                  <span style={{ fontSize: 9, fontFamily: MONO, color: C.textDim }}>{sessionCountdown.label}</span>
+                  <span style={{ fontSize: 10, fontFamily: MONO, color: cdColor, fontWeight: 800 }}>{fmtCountdownShort(sessionCountdown.secs)}</span>
+                </div>
+              );
+            })()}
+
+            {/* Hijri date */}
+            {athanHijri && (
+              <div onClick={() => setActiveTab("athan")} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: "#c9a84c0e", borderRadius: 4, border: "1px solid #c9a84c2a", cursor: "pointer", direction: "rtl" }}>
+                <span style={{ fontSize: 10, fontFamily: "Arial, sans-serif", color: "#c9a84c", fontWeight: 700 }}>
+                  {athanHijri.day} {athanHijri.month?.ar} {athanHijri.year} هـ
+                </span>
+              </div>
+            )}
+
+            {/* Portfolio P/L */}
+            {portfolioSummary.totalCost > 0 && portfolioSummary.totalValue > 0 && (
+              <div onClick={() => setActiveTab("portfolio")} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 4, border: `1px solid ${portfolioSummary.totalPnl >= 0 ? C.green : C.red}44`, background: portfolioSummary.totalPnl >= 0 ? `${C.green}0e` : `${C.red}0e`, cursor: "pointer" }}>
+                <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>PORT</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red }}>
+                  {portfolioSummary.totalPnl >= 0 ? "+" : ""}{portfolioSummary.totalPnlPct.toFixed(2)}%
+                </span>
+              </div>
+            )}
+
+            {/* Today P/L */}
+            {(() => {
+              const today = new Date().toISOString().slice(0, 10);
+              const todayClosed = journalEntries.filter(e => e.status === "closed" && e.pnl != null && (e.closedAt || "").slice(0, 10) === today);
+              if (!todayClosed.length) return null;
+              const todayPnl = todayClosed.reduce((s, e) => s + e.pnl, 0);
+              const color = todayPnl >= 0 ? C.green : C.red;
+              return (
+                <div onClick={() => setActiveTab("journal")} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 4, border: `1px solid ${color}44`, background: `${color}0e`, cursor: "pointer" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>TODAY</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color }}>{todayPnl >= 0 ? "+" : ""}${Math.round(todayPnl)}</span>
+                </div>
+              );
+            })()}
+
+            {/* Quran playing */}
+            {quranPlaying && (
+              <button onClick={() => { if (quranAudioRef.current) quranAudioRef.current.pause(); }} style={{ background: `#c9a84c18`, border: `1px solid #c9a84c55`, color: "#c9a84c", fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "5px 9px", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                <span>▐▌</span>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 90 }}>
+                  {SURAH_LIST.find(s => s[0] === quranSurah)?.[1] || `سورة ${quranSurah}`}
+                </span>
+              </button>
+            )}
           </div>
         )}
       </div>
