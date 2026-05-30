@@ -3873,7 +3873,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
                   {/* Position size calculator */}
                   {(() => {
                     const riskDollars = Number(accountSize) * Number(riskPct) / 100;
-                    const riskPerShare = s.price - Number(s.stop.replace("$",""));
+                    const riskPerShare = Math.abs(s.price - s.stop);
                     const shares = riskPerShare > 0 ? Math.floor(riskDollars / riskPerShare) : 0;
                     const totalCost = shares * s.price;
                     return (
