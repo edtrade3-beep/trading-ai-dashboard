@@ -9835,7 +9835,7 @@ export default function App() {
         )}
 
         {activeTab === "dashboard" && watchlistData.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: `minmax(860px, 1fr) minmax(340px, ${LAYOUT.sidebarWidth}px)`, gap: LAYOUT.gridGap, alignItems: "start" }}>
+          <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : `minmax(860px, 1fr) minmax(340px, ${LAYOUT.sidebarWidth}px)`, gap: LAYOUT.gridGap, alignItems: "start" }}>
             {/* Watchlist Table */}
             <div>
               {/* ── Named Watchlist Tabs ── */}
@@ -10491,6 +10491,12 @@ export default function App() {
 
             {/* Right Sidebar */}
             <div style={{ display: "flex", flexDirection: "column", gap: 12, alignSelf: "start" }}>
+              {/* Tablet: show a divider label */}
+              {isTablet && (
+                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.textDim, padding: "8px 0", borderTop: `2px solid ${C.border}`, letterSpacing: "0.08em" }}>
+                  ▼ BRIEF &amp; ALERTS
+                </div>
+              )}
               {/* Morning Brief */}
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
