@@ -2119,6 +2119,14 @@ function TerminalWorkspace({
   const [drag, setDrag] = useState(null);
   const dragRef = useRef(null);
 
+  // ── Tablet detection inside Terminal ────────────────────────────────────────
+  const [termIsTablet, setTermIsTablet] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768 && window.innerWidth <= 1200);
+  useEffect(() => {
+    const fn = () => setTermIsTablet(window.innerWidth >= 768 && window.innerWidth <= 1200);
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
+  }, []);
+
   // ── Column resize — mouse + touch (iPad) ────────────────────────────────────
   useEffect(() => {
     if (!drag) return;
@@ -2412,26 +2420,26 @@ function TerminalWorkspace({
 
       <div style={{ display: "grid", gridTemplateRows: "1fr auto", gap: 10, margin: "0 4px" }}>
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr auto" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface }}>
-            <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-              <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800 }}>{selected.symbol}</span>
-              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>${selected.price?.toFixed(2)}</span>
-              <span style={{ fontFamily: MONO, fontSize: 11, color: chg >= 0 ? C.green : C.red }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span>
+          <div style={{ display: "flex", flexDirection: termIsTablet ? "column" : "row", justifyContent: "space-between", alignItems: termIsTablet ? "flex-start" : "center", padding: "8px 12px", gap: termIsTablet ? 6 : 0, borderBottom: `1px solid ${C.border}`, background: C.surface }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+              <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 20 : 18, fontWeight: 800 }}>{selected.symbol}</span>
+              <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 13 : 11, color: C.textDim }}>${selected.price?.toFixed(2)}</span>
+              <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 13 : 11, color: chg >= 0 ? C.green : C.red }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span>
             </div>
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              {!showLeft && <button onClick={() => setShowLeft(true)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 10, padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}>SHOW WL</button>}
-              {!showRight && <button onClick={() => setShowRight(true)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 10, padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}>SHOW INTEL</button>}
-              {["1", "2", "4"].map((l) => (
+            <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+              {!showLeft && <button onClick={() => setShowLeft(true)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 10, padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}>WL</button>}
+              {!showRight && <button onClick={() => setShowRight(true)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 10, padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}>AI</button>}
+              {!termIsTablet && ["1", "2", "4"].map((l) => (
                 <button key={`layout-${l}`} onClick={() => onLayoutChange(l)} style={{ border: `1px solid ${terminalLayout === l ? C.accent : C.border}`, background: terminalLayout === l ? `${C.accent}12` : C.surface, color: terminalLayout === l ? C.accent : C.textDim, fontFamily: MONO, fontSize: 10, padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}>
                   {l}x
                 </button>
               ))}
-              <select value={hotkeyProfile} onChange={(e) => onHotkeyProfileChange(e.target.value)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 10, padding: "4px 6px", borderRadius: 4 }}>
+              {!termIsTablet && <select value={hotkeyProfile} onChange={(e) => onHotkeyProfileChange(e.target.value)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 10, padding: "4px 6px", borderRadius: 4 }}>
                 <option value="classic">HK Classic</option>
                 <option value="scalper">HK Scalper</option>
-              </select>
-              {["5M", "15M", "1H", "1D", "1W"].map((tf) => (
-                <button key={tf} onClick={() => onTimeframeChange(tf)} style={{ border: `1px solid ${timeframe === tf && chartMode === "canvas" ? C.accent : C.border}`, background: timeframe === tf && chartMode === "canvas" ? `${C.accent}12` : C.surface, color: timeframe === tf && chartMode === "canvas" ? C.accent : C.textDim, fontFamily: MONO, fontSize: 10, padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}>
+              </select>}
+              {(termIsTablet ? ["5M", "15M", "1H", "1D"] : ["5M", "15M", "1H", "1D", "1W"]).map((tf) => (
+                <button key={tf} onClick={() => onTimeframeChange(tf)} style={{ border: `1px solid ${timeframe === tf && chartMode === "canvas" ? C.accent : C.border}`, background: timeframe === tf && chartMode === "canvas" ? `${C.accent}12` : C.surface, color: timeframe === tf && chartMode === "canvas" ? C.accent : C.textDim, fontFamily: MONO, fontSize: termIsTablet ? 11 : 10, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>
                   {tf}
                 </button>
               ))}
@@ -2533,7 +2541,7 @@ function TerminalWorkspace({
             </div>
           )}
           <div style={{ overflow: "auto" }}>
-          <div style={{ padding: 10, background: "linear-gradient(180deg,#ffffff 0%,#f8fbff 100%)", display: "grid", gap: 10, gridTemplateColumns: "1.15fr 1fr" }}>
+          <div style={{ padding: 10, background: "linear-gradient(180deg,#ffffff 0%,#f8fbff 100%)", display: "grid", gap: 10, gridTemplateColumns: termIsTablet ? "1fr" : "1.15fr 1fr" }}>
             <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, background: C.surface, overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr" }}>
               <div style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em" }}>INSTITUTIONAL RANKING LADDER</span>
@@ -2546,13 +2554,14 @@ function TerminalWorkspace({
                     onClick={() => onSelectSymbol(q.symbol)}
                     style={{ width: "100%", border: "none", borderBottom: `1px solid ${C.border}`, background: selected.symbol === q.symbol ? C.cardHover : C.surface, padding: "8px 10px", textAlign: "left", cursor: "pointer" }}
                   >
-                    <div style={{ display: "grid", gridTemplateColumns: "28px 56px 1fr 68px 64px 72px", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>#{idx + 1}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{q.symbol}</span>
-                      <span style={{ fontSize: 10, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.name}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 10, color: (q.changesPercentage || 0) >= 0 ? C.green : C.red }}>{(q.changesPercentage || 0) >= 0 ? "+" : ""}{(q.changesPercentage || 0).toFixed(2)}%</span>
-                      <span style={{ fontFamily: MONO, fontSize: 10, color: q.r >= 1.2 ? C.green : C.textDim }}>R {q.r.toFixed(2)}x</span>
-                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.accent }}>S {q.s.composite}</span>
+                    <div style={{ display: "grid", gridTemplateColumns: termIsTablet ? "32px 64px 1fr 76px 72px" : "28px 56px 1fr 68px 64px 72px", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 12 : 10, color: C.textDim }}>#{idx + 1}</span>
+                      <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 13 : 11, fontWeight: 700, color: C.text }}>{q.symbol}</span>
+                      {!termIsTablet && <span style={{ fontSize: 10, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.name}</span>}
+                      {termIsTablet && <span style={{ fontSize: 11, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.name}</span>}
+                      <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 12 : 10, color: (q.changesPercentage || 0) >= 0 ? C.green : C.red }}>{(q.changesPercentage || 0) >= 0 ? "+" : ""}{(q.changesPercentage || 0).toFixed(2)}%</span>
+                      <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 12 : 10, color: q.r >= 1.2 ? C.green : C.textDim }}>R {q.r.toFixed(2)}x</span>
+                      {!termIsTablet && <span style={{ fontFamily: MONO, fontSize: 10, color: C.accent }}>S {q.s.composite}</span>}
                     </div>
                   </button>
                 ))}
