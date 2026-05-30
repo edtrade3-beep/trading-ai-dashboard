@@ -494,7 +494,7 @@ Entry near current
 Stop maybe $180
 Target $190`,
 
-`ðŸ”¥ META LONG SWING 1D
+`🔥 META LONG SWING 1D
 Price: $485
 Above VWAP ($478)
 EMA 9 > 21 bullish
@@ -1306,7 +1306,7 @@ function computeMTFSignal(q) {
     if (!tf.neutral) score += tf.bull ? 1 : -1;
   }
 
-  // Volume confirms the direction (bonus Â±1)
+  // Volume confirms the direction (bonus ±1)
   if (rvol > 1.25) score += chg >= 0 ? 1 : -1;
 
   // 52W range position as tie-breaker
@@ -1673,11 +1673,11 @@ function MacroTape({ data, cryptoSnapshot }) {
   const spyChg  = spyRow?.changesPercentage || 0;
   let regime, regimeColor, regimeBg;
   if (vixChg >= 3 || (vixChg >= 1 && spyChg <= -1)) {
-    regime = "FEAR ðŸ”´"; regimeColor = C.red; regimeBg = `${C.red}14`;
+    regime = "FEAR 🔴"; regimeColor = C.red; regimeBg = `${C.red}14`;
   } else if (vixChg <= -2 || (vixChg < 0 && spyChg >= 0.5)) {
-    regime = "CALM ðŸŸ¢"; regimeColor = C.green; regimeBg = `${C.green}14`;
+    regime = "CALM 🟢"; regimeColor = C.green; regimeBg = `${C.green}14`;
   } else {
-    regime = "NEUTRAL ðŸŸ¡"; regimeColor = C.amber; regimeBg = `${C.amber}14`;
+    regime = "NEUTRAL 🟡"; regimeColor = C.amber; regimeBg = `${C.amber}14`;
   }
 
   return (
@@ -3067,7 +3067,7 @@ function TerminalWorkspace({
                   {/* Confirmed banner */}
                   {orderConfirmed && (
                     <div style={{ background: `${C.green}18`, border: `1px solid ${C.green}55`, borderRadius: 4, padding: "7px 10px", marginBottom: 8, fontFamily: MONO, fontSize: 10, color: C.green, textAlign: "center" }}>
-                      ✓ {orderConfirmed.side.toUpperCase()} {orderConfirmed.qty}Ã—{orderConfirmed.symbol} @ ${orderConfirmed.price} — Logged to Journal
+                      ✓ {orderConfirmed.side.toUpperCase()} {orderConfirmed.qty}×{orderConfirmed.symbol} @ ${orderConfirmed.price} — Logged to Journal
                     </div>
                   )}
 
@@ -3264,7 +3264,7 @@ function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTerminal }) {
                 {v.toUpperCase()}
               </button>
             ))}
-            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Â± STRIKES:</span>
+            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>± STRIKES:</span>
             <select value={strikeRange} onChange={e => setStrikeRange(Number(e.target.value))}
               style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "3px 6px", borderRadius: 4 }}>
               {[5,10,15,20,30].map(n => <option key={n} value={n}>{n}</option>)}
@@ -3540,7 +3540,7 @@ function generateSetup(q) {
 
   if (isBull) {
     entry   = price;
-    // Stop: 1.5Ã— ATR below entry, or below SMA50 if close
+    // Stop: 1.5× ATR below entry, or below SMA50 if close
     const smaBuff = sma50 > 0 && price - sma50 < atr * 3 ? sma50 - atr * 0.5 : null;
     stop    = smaBuff ? Math.min(price - atr * 1.5, smaBuff) : price - atr * 1.5;
     target1 = price + (price - stop) * 2;   // 2:1 R:R
@@ -3560,18 +3560,18 @@ function generateSetup(q) {
 
   // â”€â”€ Build reasoning bullets â”€â”€
   const reasons = [];
-  if (veryHighRvol)                  reasons.push(`ðŸ”¥ Volume ${rvol.toFixed(1)}Ã— avg — strong institutional interest`);
-  else if (highRvol)                 reasons.push(`ðŸ“ˆ Volume ${rvol.toFixed(1)}Ã— avg — above-average activity`);
-  if (breakoutYHigh)                 reasons.push(`ðŸš€ Breaking 52-week high — new all-time territory, no overhead resistance`);
-  else if (nearYearHigh && isBull)   reasons.push(`âš¡ Near 52-week high ($${yHigh?.toFixed(2)}) — momentum in control`);
-  if (goldenCross)                   reasons.push(`âœ¨ Golden Cross: 50-day SMA above 200-day — long-term uptrend confirmed`);
-  else if (aboveSma50 && isBull)     reasons.push(`ðŸ“Š Price above 50-day SMA ($${sma50?.toFixed(2)}) — medium-term trend bullish`);
+  if (veryHighRvol)                  reasons.push(`🔥 Volume ${rvol.toFixed(1)}× avg — strong institutional interest`);
+  else if (highRvol)                 reasons.push(`📈 Volume ${rvol.toFixed(1)}× avg — above-average activity`);
+  if (breakoutYHigh)                 reasons.push(`🚀 Breaking 52-week high — new all-time territory, no overhead resistance`);
+  else if (nearYearHigh && isBull)   reasons.push(`⚡ Near 52-week high ($${yHigh?.toFixed(2)}) — momentum in control`);
+  if (goldenCross)                   reasons.push(`✨ Golden Cross: 50-day SMA above 200-day — long-term uptrend confirmed`);
+  else if (aboveSma50 && isBull)     reasons.push(`📊 Price above 50-day SMA ($${sma50?.toFixed(2)}) — medium-term trend bullish`);
   if (aboveSma200 && isBull)         reasons.push(`ðŸ” Above 200-day SMA ($${sma200?.toFixed(2)}) — long-term structure intact`);
   if (chg > 3 && isBull)             reasons.push(`ðŸ’ª Up ${chg.toFixed(1)}% today — strong buying momentum`);
   else if (chg > 1 && isBull)        reasons.push(`ðŸ“— Up ${chg.toFixed(1)}% on the day — positive price action`);
   if (nearYearLow && isBear)         reasons.push(`⚠ï¸ Near 52-week low ($${yLow?.toFixed(2)}) — support failing`);
-  if (!aboveSma200 && isBear)        reasons.push(`ðŸ“‰ Below 200-day SMA — long-term downtrend`);
-  if (chg < -3 && isBear)            reasons.push(`ðŸ”´ Down ${Math.abs(chg).toFixed(1)}% today — heavy selling pressure`);
+  if (!aboveSma200 && isBear)        reasons.push(`📉 Below 200-day SMA — long-term downtrend`);
+  if (chg < -3 && isBear)            reasons.push(`🔴 Down ${Math.abs(chg).toFixed(1)}% today — heavy selling pressure`);
   // MTF alignment
   const bullTFs = mtf.timeframes.filter(t => !t.neutral && t.bull).map(t => t.label);
   if (bullTFs.length >= 3 && isBull) reasons.push(`â± Bullish across ${bullTFs.join(", ")} timeframes — aligned momentum`);
@@ -3628,7 +3628,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
       .filter(s => s && s.conviction >= 7 && !alertedSet.has(s.symbol));
     if (!highConv.length) return;
     highConv.forEach(s => {
-      const msg = `ðŸš¨ *HIGH CONVICTION SETUP*\n${s.side === "LONG" ? "ðŸŸ¢" : "ðŸ”´"} *${s.symbol}* — ${s.setupType} ${s.side}\nðŸ’° Entry: $${s.entry} | Stop: $${s.stop} | T1: $${s.target1}\nðŸ“Š Conviction: ${s.conviction}/10 | Score: ${s.composite}/100\n${s.reasons[0] || ""}`;
+      const msg = `ðŸš¨ *HIGH CONVICTION SETUP*\n${s.side === "LONG" ? "🟢" : "🔴"} *${s.symbol}* — ${s.setupType} ${s.side}\n💰 Entry: $${s.entry} | Stop: $${s.stop} | T1: $${s.target1}\n📊 Conviction: ${s.conviction}/10 | Score: ${s.composite}/100\n${s.reasons[0] || ""}`;
       fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
     });
     setAlertedSet(prev => new Set([...prev, ...highConv.map(s => s.symbol)]));
@@ -3662,7 +3662,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
         <div>
           <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 4 }}>
-            ðŸ¤– AI TRADE ADVISOR
+            🤖 AI TRADE ADVISOR
           </div>
           <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
             Real-time setups from your watchlist · entry, stop loss, targets &amp; reasoning
@@ -3697,7 +3697,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
               color: autoAlert ? C.green : C.textDim,
               borderRadius: 5, padding: advisorTablet ? "8px 14px" : "5px 12px", cursor: "pointer",
               minHeight: advisorTablet ? 44 : "auto" }}>
-            {autoAlert ? "ðŸ”” ALERTS ON" : "ðŸ”• ALERTS OFF"}
+            {autoAlert ? "🔔 ALERTS ON" : "🔕 ALERTS OFF"}
           </button>
         </div>
       </div>
@@ -3718,7 +3718,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
         <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 11 : 9, color: C.textDim }}>
           = <strong style={{ color: C.amber }}>${(Number(accountSize) * Number(riskPct) / 100).toFixed(0)}</strong> risk per trade
         </span>
-        {autoAlert && <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 11 : 9, color: C.green, marginLeft: "auto" }}>ðŸ”” Auto-alerting conviction 7+ setups via Telegram</span>}
+        {autoAlert && <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 11 : 9, color: C.green, marginLeft: "auto" }}>🔔 Auto-alerting conviction 7+ setups via Telegram</span>}
       </div>
 
       {/* Quick-add symbols bar */}
@@ -3818,7 +3818,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
                   { label: "TARGET 1", val: `$${s.target1} (+${s.t1Pct}%)`, col: C.green },
                   { label: "TARGET 2", val: `$${s.target2} (+${s.t2Pct}%)`, col: C.green },
                   { label: "R:R",      val: s.rrRatio,                  col: C.amber },
-                  { label: "RVOL",     val: `${s.rvol.toFixed(1)}Ã—`,   col: s.rvol >= 2 ? C.accent : C.textSec },
+                  { label: "RVOL",     val: `${s.rvol.toFixed(1)}×`,   col: s.rvol >= 2 ? C.accent : C.textSec },
                   { label: "SCORE",    val: `${s.composite}/100`,       col: C.accent },
                 ].map(({ label, val, col }) => (
                   <div key={label} style={{ flex: advisorTablet ? "1 1 33%" : 1, padding: advisorTablet ? "10px 12px" : "8px 10px", borderRight: `1px solid ${C.border}`, borderBottom: advisorTablet ? `1px solid ${C.border}` : "none", minWidth: 0 }}>
@@ -3905,10 +3905,10 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
                   <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
                     <button onClick={() => onOpenTerminal(s.symbol)}
                       style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 6, padding: advisorTablet ? "12px 20px" : "8px 16px", fontFamily: MONO, fontSize: advisorTablet ? 13 : 11, fontWeight: 700, cursor: "pointer", minHeight: advisorTablet ? 44 : "auto" }}>
-                      ðŸ“ˆ OPEN CHART
+                      📈 OPEN CHART
                     </button>
                     <button onClick={async () => {
-                      const msg = `${s.side === "LONG" ? "ðŸŸ¢" : "ðŸ”´"} *${s.symbol}* — ${s.setupType} ${s.side}\nðŸ’° Entry: $${s.entry} | Stop: $${s.stop} (${s.stopPct}%) | T1: $${s.target1} (+${s.t1Pct}%)\nðŸ“Š Conviction: ${s.conviction}/10 | Score: ${s.composite}/100\n${s.reasons[0] || ""}`;
+                      const msg = `${s.side === "LONG" ? "🟢" : "🔴"} *${s.symbol}* — ${s.setupType} ${s.side}\n💰 Entry: $${s.entry} | Stop: $${s.stop} (${s.stopPct}%) | T1: $${s.target1} (+${s.t1Pct}%)\n📊 Conviction: ${s.conviction}/10 | Score: ${s.composite}/100\n${s.reasons[0] || ""}`;
                       try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
                     }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: advisorTablet ? "12px 18px" : "8px 14px", fontFamily: MONO, fontSize: advisorTablet ? 13 : 11, cursor: "pointer", minHeight: advisorTablet ? 44 : "auto" }}>
                       ðŸ“¬ SEND TO TELEGRAM
@@ -4108,7 +4108,7 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
             style={{ flex: 1, minWidth: 200, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "8px 10px", borderRadius: 4 }} />
           <button onClick={sendNotify} disabled={notifySending || !isConfigured}
             style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 4, padding: "8px 16px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: isConfigured ? "pointer" : "not-allowed", opacity: isConfigured ? 1 : 0.4 }}>
-            {notifySending ? "SENDING…" : "SEND â–¶"}
+            {notifySending ? "SENDING…" : "SEND ▶"}
           </button>
         </div>
         {notifyMsg && <div style={{ marginTop: 6, fontFamily: MONO, fontSize: 10, color: notifyMsg.startsWith("✓") ? C.green : C.red }}>{notifyMsg}</div>}
@@ -4140,8 +4140,8 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
             style={{ width: 100, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "7px 10px", borderRadius: 4 }} />
           <select value={paDir} onChange={e => setPaDir(e.target.value)}
             style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "7px 10px", borderRadius: 4 }}>
-            <option value="above">Above â†‘</option>
-            <option value="below">Below â†“</option>
+            <option value="above">Above ↑</option>
+            <option value="below">Below ↓</option>
           </select>
           <input value={paTarget} onChange={e => setPaTarget(e.target.value.replace(/[^\d.]/g, ""))} placeholder="$ price"
             style={{ width: 100, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "7px 10px", borderRadius: 4 }} />
@@ -4221,9 +4221,9 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
 
       {/* â”€â”€ Footer info â”€â”€ */}
       <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, lineHeight: 1.7 }}>
-        ðŸ“Œ Price alerts are checked server-side every 90 s &nbsp;·&nbsp;
+        📌 Price alerts are checked server-side every 90 s &nbsp;·&nbsp;
         ðŸ“¬ Telegram message fires automatically when a target is hit &nbsp;·&nbsp;
-        ðŸ”” Set up TradingView webhooks → Portfolio → Alerts for chart-based signals
+        🔔 Set up TradingView webhooks → Portfolio → Alerts for chart-based signals
       </div>
     </div>
   );
@@ -4553,8 +4553,8 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
     { id: "ger.1",           name: "Bundesliga",        flag: "ðŸ‡©ðŸ‡ª" },
     { id: "ita.1",           name: "Serie A",           flag: "ðŸ‡®ðŸ‡¹" },
     { id: "fra.1",           name: "Ligue 1",           flag: "ðŸ‡«ðŸ‡·" },
-    { id: "uefa.champions",  name: "Champions League",  flag: "ðŸ†" },
-    { id: "uefa.europa",     name: "Europa League",     flag: "ðŸ¥ˆ" },
+    { id: "uefa.champions",  name: "Champions League",  flag: "🏆" },
+    { id: "uefa.europa",     name: "Europa League",     flag: "🥈" },
     { id: "usa.1",           name: "MLS",               flag: "ðŸ‡ºðŸ‡¸" },
     { id: "tur.1",           name: "SÃ¼per Lig",         flag: "ðŸ‡¹ðŸ‡·" },
     { id: "sau.1",           name: "Saudi Pro League",  flag: "ðŸ‡¸ðŸ‡¦" },
@@ -4564,15 +4564,15 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
     { name: "LiveSoccerTV",   url: "https://www.livesoccertv.com",              icon: "ðŸ“¡", desc: "Find which channel broadcasts every match worldwide" },
     { name: "BBC Sport",      url: "https://www.bbc.co.uk/sport/football",      icon: "ðŸŽ™", desc: "Free live FA Cup, Women's football & highlights (UK)" },
     { name: "ITVX",           url: "https://www.itv.com/watch/sports",          icon: "ðŸ“º", desc: "Free live Champions League matches (UK)" },
-    { name: "ViX",            url: "https://www.vix.com",                       icon: "ðŸŒŽ", desc: "Free Spanish-language — Liga MX, Copa AmÃ©rica" },
+    { name: "ViX",            url: "https://www.vix.com",                       icon: "🌎", desc: "Free Spanish-language — Liga MX, Copa AmÃ©rica" },
     { name: "TUDN",           url: "https://www.tudn.com",                      icon: "⚽", desc: "Free tier — Liga MX, Mexican national team" },
     { name: "Pluto TV",       url: "https://pluto.tv/en/live-tv/sports",        icon: "ðŸ†“", desc: "Free sports channels, no sign-up needed" },
-    { name: "YouTube Soccer", url: "https://www.youtube.com/@premierleague",    icon: "â–¶", desc: "Official Premier League, UEFA & club channels" },
-    { name: "SofaScore",      url: "https://www.sofascore.com",                 icon: "ðŸ“Š", desc: "Live scores, lineups, stats & stream links" },
+    { name: "YouTube Soccer", url: "https://www.youtube.com/@premierleague",    icon: "▶", desc: "Official Premier League, UEFA & club channels" },
+    { name: "SofaScore",      url: "https://www.sofascore.com",                 icon: "📊", desc: "Live scores, lineups, stats & stream links" },
     { name: "ESPN Soccer",    url: "https://www.espn.com/soccer/",              icon: "ðŸŸ", desc: "Free highlights — Bundesliga, MLS, FA Cup (US)" },
     { name: "OneFootball",    url: "https://www.onefootball.com",               icon: "ðŸŒ", desc: "Free highlights and some live streams — global" },
-    { name: "Paramount+",     url: "https://www.paramountplus.com",             icon: "ðŸ“±", desc: "Free trial — Champions League, Serie A (US)" },
-    { name: "FlashScore",     url: "https://www.flashscore.com",                icon: "âš¡", desc: "Live scores, text commentary & stream finder" },
+    { name: "Paramount+",     url: "https://www.paramountplus.com",             icon: "📱", desc: "Free trial — Champions League, Serie A (US)" },
+    { name: "FlashScore",     url: "https://www.flashscore.com",                icon: "⚡", desc: "Live scores, text commentary & stream finder" },
   ];
 
   const [soccerLeague, setSoccerLeague] = useState("eng.1");
@@ -4627,7 +4627,7 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
   const GameCard = ({ g }) => {
     const stColor = g.inProgress ? C.green : g.finished ? C.textDim : C.amber;
     const stLabel = g.inProgress
-      ? `ðŸ”´ LIVE ${g.clock}`
+      ? `🔴 LIVE ${g.clock}`
       : g.finished ? "FT"
       : (() => { try { return new Date(g.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); } catch { return g.shortDetail; } })();
     return (
@@ -4691,7 +4691,7 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
       {/* Schedule */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
         <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, letterSpacing: "0.08em" }}>ðŸ“… TODAY'S SCHEDULE</span>
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, letterSpacing: "0.08em" }}>📅 TODAY'S SCHEDULE</span>
           <button onClick={() => fetchLeague(soccerLeague)} disabled={soccerLoading}
             style={{ fontFamily: MONO, fontSize: 10, background: C.surface, border: `1px solid ${C.border}`, color: C.textSec, borderRadius: 4, padding: "5px 10px", cursor: "pointer" }}>
             {soccerLoading ? "LOADING…" : "â†» REFRESH"}
@@ -4767,7 +4767,7 @@ function CryptoNews({ C, MONO, SANS }) {
   return (
     <div style={card}>
       <div style={{ padding: "14px 18px 10px", borderBottom: `1px solid ${C.border}` }}>
-        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>ðŸ“° CRYPTO NEWS</span>
+        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>📰 CRYPTO NEWS</span>
         <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 10 }}>BTC · ETH · COIN · MSTR</span>
       </div>
       {loading ? (
@@ -5335,8 +5335,8 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
             },
             {
               active: rvolNum >= 1.2,
-              label: `Relative Volume â‰¥ 1.2x (${rvolNum > 0 ? rvolNum.toFixed(2) : "—"}x)`,
-              explain: "Relative Volume (RVOL) = today's volume Ã· average daily volume. RVOL > 1.2 means 20%+ more buyers than usual are participating. Breakouts on high RVOL are more likely to hold. Low RVOL moves often fail — big players aren't committed.",
+              label: `Relative Volume ≥ 1.2x (${rvolNum > 0 ? rvolNum.toFixed(2) : "—"}x)`,
+              explain: "Relative Volume (RVOL) = today's volume ÷ average daily volume. RVOL > 1.2 means 20%+ more buyers than usual are participating. Breakouts on high RVOL are more likely to hold. Low RVOL moves often fail — big players aren't committed.",
             },
             {
               active: yearPos52 >= 70,
@@ -5391,7 +5391,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
 
           const SignalRow = ({ s, type }) => {
             const color = s.active ? (type === "bull" ? C.green : C.red) : C.textDim;
-            const icon  = s.active ? (type === "bull" ? "✅" : "ðŸ”´") : "â—‹";
+            const icon  = s.active ? (type === "bull" ? "✅" : "🔴") : "â—‹";
             const [open2, setOpen2] = React.useState(false);
             return (
               <div style={{ borderBottom: `1px solid ${C.border}`, padding: "10px 0" }}>
@@ -5422,7 +5422,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
               {/* Header */}
               <div style={{ background: C.surface, padding: "16px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                 <div>
-                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, letterSpacing: "0.1em" }}>ðŸ“ˆ TECHNICAL ANALYSIS SCHOOL</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, letterSpacing: "0.1em" }}>📈 TECHNICAL ANALYSIS SCHOOL</div>
                   <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 3 }}>Tap any signal to learn what it means and how to use it</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
@@ -5457,7 +5457,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
                   </div>
                   {bearSignals.map((s, i) => <SignalRow key={i} s={s} type="bear" />)}
                   <div style={{ marginTop: 14, padding: "12px 14px", background: `${C.red}0f`, border: `1px solid ${C.red}33`, borderRadius: 6 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.red, marginBottom: 4 }}>â›” AVOID WHEN</div>
+                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.red, marginBottom: 4 }}>⛔ AVOID WHEN</div>
                     <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.7 }}>
                       Price is below both the 50D and 200D SMA with declining RVOL. That combination means the stock is in a distribution phase — professional sellers are quietly offloading to retail buyers.
                     </div>
@@ -5467,7 +5467,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
 
               {/* Bottom: how to read the chart */}
               <div style={{ borderTop: `1px solid ${C.border}`, padding: "14px 20px", background: C.surface }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.amber, marginBottom: 10, letterSpacing: "0.08em" }}>ðŸ“Š HOW TO READ A CHART — QUICK REFERENCE</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.amber, marginBottom: 10, letterSpacing: "0.08em" }}>📊 HOW TO READ A CHART — QUICK REFERENCE</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
                   {[
                     { title: "Support & Resistance", body: "Support = price floor where buyers step in. Resistance = price ceiling where sellers dominate. A breakout above resistance on high volume is a buy signal. A break below support on high volume is a sell signal." },
@@ -5790,15 +5790,15 @@ Risk small and follow the stop.`
         <SummaryCard label="MARKET BIAS"       value={marketBias.label}                 color={marketBias.color}  sub={`SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}%  QQQ ${qqqChg >= 0 ? "+" : ""}${qqqChg.toFixed(2)}%`} />
         <SummaryCard label="BEST EARLY ENTRY"  value={bestEntry?.q.symbol || "—"}       color={C.accent}          sub={bestEntry ? `Score ${bestEntry.scored.score} · ${bestEntry.setup}` : "No setups yet"} onClick={() => bestEntry && onSelectSymbol(bestEntry.q.symbol)} />
         <SummaryCard label="STRONGEST SECTOR"  value={bestSector.split(" ")[0] || "—"}  color={C.cyan}            sub={bestSector} />
-        <SummaryCard label="A+ EARLY SETUPS"   value={aPlusCount}                        color={aPlusCount > 0 ? C.green : C.textDim}  sub="Score â‰¥ 85 — act now" />
+        <SummaryCard label="A+ EARLY SETUPS"   value={aPlusCount}                        color={aPlusCount > 0 ? C.green : C.textDim}  sub="Score ≥ 85 — act now" />
         <SummaryCard label="NEAR BREAKOUT"     value={nearBreakout}                      color={C.amber}           sub="Within 3% of 52W high" />
         <SummaryCard label="TRAP / AVOID"      value={trapZones.length}                  color={trapZones.length > 0 ? C.red : C.textDim}  sub="Flagged — do not chase" />
         <button
           onClick={async () => {
             const bias = marketBias.label;
-            const biasIcon = bias === "Risk-On" ? "ðŸŸ¢" : bias === "Risk-Off" ? "ðŸ”´" : "âšª";
+            const biasIcon = bias === "Risk-On" ? "🟢" : bias === "Risk-Off" ? "🔴" : "⚪";
             const top3 = filteredEntries.slice(0, 3).map(r =>
-              `${r.scored.score >= 85 ? "ðŸŒŸ" : r.scored.score >= 75 ? "â­" : "•"} ${r.q.symbol}  Score ${r.scored.score}  ${r.setup}  Entry $${r.entry.toFixed(2)}  Stop $${r.stop.toFixed(2)}  T1 $${r.t1.toFixed(2)}  RR ${r.rr.toFixed(1)}R`
+              `${r.scored.score >= 85 ? "🌟" : r.scored.score >= 75 ? "⭐" : "•"} ${r.q.symbol}  Score ${r.scored.score}  ${r.setup}  Entry $${r.entry.toFixed(2)}  Stop $${r.stop.toFixed(2)}  T1 $${r.t1.toFixed(2)}  RR ${r.rr.toFixed(1)}R`
             ).join("\n");
             const brk3 = preBreakout.slice(0, 3).map(r => `• ${r.q.symbol}  $${Number(r.q.price||0).toFixed(2)}  Score ${r.scored.score}  ${r.scored.distToHigh.toFixed(1)}% to breakout`).join("\n");
             const traps = trapZones.slice(0, 3).map(r => `⚠ ${r.q.symbol}`).join("  ");
@@ -5821,7 +5821,7 @@ Risk small and follow the stop.`
             } catch(e) { alert("Send failed: " + e.message); }
           }}
           style={{ background: "#2563eb18", border: "1px solid #2563eb55", color: "#2563eb", borderRadius: 8, padding: "10px 16px", fontFamily: MONO, fontSize: 10, fontWeight: 800, cursor: "pointer", alignSelf: "stretch", display: "flex", alignItems: "center", gap: 6 }}
-        >ðŸ“± PUSH BRIEF</button>
+        >📱 PUSH BRIEF</button>
       </div>
 
       {/* â”€â”€ Filter bar â”€â”€ */}
@@ -5928,7 +5928,7 @@ Risk small and follow the stop.`
             {buildAlertText(alertPreview)}
           </pre>
           <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 9, color: C.textDim }}>
-            Alert rules: Score â‰¥85 = A+ Early Entry Alert · Score 75–84 = Watch Closely · Duplicate suppressed for 30 min per ticker
+            Alert rules: Score ≥85 = A+ Early Entry Alert · Score 75–84 = Watch Closely · Duplicate suppressed for 30 min per ticker
           </div>
         </div>
       )}
@@ -5957,9 +5957,9 @@ Risk small and follow the stop.`
                     <TD right color={row.scored.rvol >= 1.5 ? C.green : C.textDim}>{row.scored.rvol.toFixed(2)}x</TD>
                     <TD right><ScoreBadge score={row.scored.score} /></TD>
                     <TD><button onClick={async () => {
-                      const msg = `ðŸ“ˆ VWAP RECLAIM — ${row.q.symbol}\nPrice: $${Number(row.q.price||0).toFixed(2)}  CHG: ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%\nRVOL: ${row.scored.rvol.toFixed(2)}x  Score: ${row.scored.score}\nSetup: VWAP Reclaim — price closed above open with volume`;
+                      const msg = `📈 VWAP RECLAIM — ${row.q.symbol}\nPrice: $${Number(row.q.price||0).toFixed(2)}  CHG: ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%\nRVOL: ${row.scored.rvol.toFixed(2)}x  Score: ${row.scored.score}\nSetup: VWAP Reclaim — price closed above open with volume`;
                       await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
-                    }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 3, padding: "2px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>ðŸ“±</button></TD>
+                    }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 3, padding: "2px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>📱</button></TD>
                   </tr>
                 );
               })}
@@ -6001,7 +6001,7 @@ Risk small and follow the stop.`
                       const d50str = distTo50 != null ? `${distTo50 >= 0 ? "+" : ""}${distTo50.toFixed(1)}% vs 50D` : "";
                       const msg = `ðŸ”„ 21 EMA PULLBACK — ${row.q.symbol}\nPrice: $${price.toFixed(2)}  ${d50str}\nRVOL: ${row.scored.rvol.toFixed(2)}x  Score: ${row.scored.score}\nSetup: Pulling back to 21 EMA / 50D support — watch for green bounce`;
                       await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
-                    }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 3, padding: "2px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>ðŸ“±</button></TD>
+                    }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 3, padding: "2px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>📱</button></TD>
                   </tr>
                 );
               })}
@@ -6025,9 +6025,9 @@ Risk small and follow the stop.`
               const lines = preBreakout.slice(0, 8).map(r =>
                 `• ${r.q.symbol}  $${Number(r.q.price||0).toFixed(2)}  Score ${r.scored.score}  ${r.scored.distToHigh.toFixed(1)}% to ${r.yHigh > 0 ? "$" + r.yHigh.toFixed(2) : "52W high"}  RVOL ${r.scored.rvol.toFixed(2)}x`
               ).join("\n");
-              const msg = `ðŸš€ PRE-BREAKOUT WATCHLIST (${preBreakout.length})\nStocks within 5% of 52W high with compression building:\n\n${lines}`;
+              const msg = `🚀 PRE-BREAKOUT WATCHLIST (${preBreakout.length})\nStocks within 5% of 52W high with compression building:\n\n${lines}`;
               await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
-            }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 4, padding: "4px 12px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 800 }}>ðŸ“± PUSH LIST</button>
+            }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 4, padding: "4px 12px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 800 }}>📱 PUSH LIST</button>
           )}
         </div>
         <div style={{ overflowX: "auto" }}>
@@ -6068,9 +6068,9 @@ Risk small and follow the stop.`
                     <TD right><ScoreBadge score={scored.score} /></TD>
                     <TD mono={false}><span style={{ fontSize: 10, color: scored.distToHigh <= 1.5 ? C.green : scored.distToHigh <= 3 ? C.amber : C.textDim }}>{plan}</span></TD>
                     <TD><button onClick={async () => {
-                      const msg = `ðŸš€ PRE-BREAKOUT — ${q.symbol}\nPrice: $${price.toFixed(2)}  Score: ${scored.score}\nBreakout level: ${yHigh > 0 ? "$" + yHigh.toFixed(2) : "—"}  Dist: ${scored.distToHigh.toFixed(1)}%\nRVOL: ${scored.rvol.toFixed(2)}x  Rel Str: ${relStr >= 0 ? "+" : ""}${relStr.toFixed(2)}%\nPlan: ${plan}`;
+                      const msg = `🚀 PRE-BREAKOUT — ${q.symbol}\nPrice: $${price.toFixed(2)}  Score: ${scored.score}\nBreakout level: ${yHigh > 0 ? "$" + yHigh.toFixed(2) : "—"}  Dist: ${scored.distToHigh.toFixed(1)}%\nRVOL: ${scored.rvol.toFixed(2)}x  Rel Str: ${relStr >= 0 ? "+" : ""}${relStr.toFixed(2)}%\nPlan: ${plan}`;
                       await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
-                    }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 3, padding: "2px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>ðŸ“±</button></TD>
+                    }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 3, padding: "2px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>📱</button></TD>
                   </tr>
                 );
               })}
@@ -6140,7 +6140,7 @@ Risk small and follow the stop.`
             ["Above VWAP", "15 pts"],
             ["EMA Alignment", "15 pts"],
             ["Near Breakout", "15 pts"],
-            ["RVOL â‰¥ 1.5x", "15 pts"],
+            ["RVOL ≥ 1.5x", "15 pts"],
             ["Relative Strength", "15 pts"],
             ["Pullback Support", "10 pts"],
             ["OBV Accumulation", "10 pts"],
@@ -6460,7 +6460,7 @@ export default function App() {
     { id: 3, label: "RSI not overbought (< 70)",           done: false },
     { id: 4, label: "MACD bullish cross confirmed",        done: false },
     { id: 5, label: "Volume above 20-day average",         done: false },
-    { id: 6, label: "Risk/Reward â‰¥ 2:1",                   done: false },
+    { id: 6, label: "Risk/Reward ≥ 2:1",                   done: false },
     { id: 7, label: "Position size within risk limit",     done: false },
     { id: 8, label: "Stop-loss level defined",             done: false },
     { id: 9, label: "No major news catalyst today",        done: false },
@@ -6974,7 +6974,7 @@ export default function App() {
         const histNow  = Number(macdLast.histogram);
         const histPrev = Number(macdPrev.histogram);
         if (!isNaN(histNow) && !isNaN(histPrev) && histNow > histPrev) {
-          score += 5; signals.push({ txt: "MACD HISTOGRAM RISING â†‘", bull: true });
+          score += 5; signals.push({ txt: "MACD HISTOGRAM RISING ↑", bull: true });
         }
       }
     }
@@ -6986,7 +6986,7 @@ export default function App() {
     const ema21v   = ema21Arr.length ? Number(ema21Arr.at(-1)?.value) : null;
     if (ema9v  && price > 0) {
       if (price > ema9v)           { score += 5;  signals.push({ txt: "ABOVE EMA9",          bull: true  }); }
-      if (price < ema9v * 0.94)    { score += 8;  signals.push({ txt: "FAR BELOW EMA9 â† BOUNCE?", bull: true }); }
+      if (price < ema9v * 0.94)    { score += 8;  signals.push({ txt: "FAR BELOW EMA9 ← BOUNCE?", bull: true }); }
     }
     if (ema21v && price > 0) {
       if (price > ema21v)          { score += 8;  signals.push({ txt: "ABOVE EMA21",         bull: true  }); }
@@ -6996,9 +6996,9 @@ export default function App() {
     // â”€â”€ Entry zone vs 5X ref data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (ref && price > 0) {
       if      (price <= ref.stop)    { score -= 20; signals.push({ txt: "⚠ BELOW STOP LEVEL",    bull: false }); }
-      else if (price <= ref.e3)      { score += 20; signals.push({ txt: "ðŸŸ¢ DEEP VALUE ZONE",     bull: true  }); }
-      else if (price <= ref.e2)      { score += 13; signals.push({ txt: "âš¡ BETTER ENTRY ZONE",   bull: true  }); }
-      else if (price <= ref.e1)      { score +=  7; signals.push({ txt: "ðŸ”µ STARTER ENTRY ZONE",  bull: true  }); }
+      else if (price <= ref.e3)      { score += 20; signals.push({ txt: "🟢 DEEP VALUE ZONE",     bull: true  }); }
+      else if (price <= ref.e2)      { score += 13; signals.push({ txt: "⚡ BETTER ENTRY ZONE",   bull: true  }); }
+      else if (price <= ref.e1)      { score +=  7; signals.push({ txt: "🔵 STARTER ENTRY ZONE",  bull: true  }); }
       else if (price >= ref.trigger) { score -=  5; signals.push({ txt: "ABOVE BREAKOUT TRIGGER", bull: false }); }
     }
 
@@ -7007,7 +7007,7 @@ export default function App() {
     const yL = Number(quote?.yearLow  || 0);
     if (yH > yL && price > 0) {
       const pos = (price - yL) / (yH - yL);
-      if      (pos < 0.20) { score += 15; signals.push({ txt: "NEAR 52W LOW â† VALUE",    bull: true  }); }
+      if      (pos < 0.20) { score += 15; signals.push({ txt: "NEAR 52W LOW ← VALUE",    bull: true  }); }
       else if (pos < 0.35) { score +=  8; }
       else if (pos > 0.90) { score -=  8; signals.push({ txt: "NEAR 52W HIGH → CAUTION", bull: false }); }
       else if (pos > 0.75) { score -=  3; }
@@ -7018,16 +7018,16 @@ export default function App() {
     const avgVol = Number(quote?.avgVolume || 0);
     if (vol > 0 && avgVol > 0) {
       const vr = vol / avgVol;
-      if      (vr > 2.5) { score += 12; signals.push({ txt: `VOL SPIKE ${vr.toFixed(1)}Ã—`,  bull: true  }); }
+      if      (vr > 2.5) { score += 12; signals.push({ txt: `VOL SPIKE ${vr.toFixed(1)}×`,  bull: true  }); }
       else if (vr > 1.5) { score +=  6; signals.push({ txt: "VOL ABOVE AVG",                 bull: true  }); }
       else if (vr < 0.4) { score -=  5; signals.push({ txt: "LOW VOLUME — WEAK CONVICTION",  bull: false }); }
     }
 
     // â”€â”€ Momentum (1-week move) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const d1w = Number(quote?.delta1w || 0);
-    if      (d1w < -15) { score += 12; signals.push({ txt: `OVERSOLD 1W (${d1w.toFixed(1)}%) â† REVERSAL?`, bull: true  }); }
+    if      (d1w < -15) { score += 12; signals.push({ txt: `OVERSOLD 1W (${d1w.toFixed(1)}%) ← REVERSAL?`, bull: true  }); }
     else if (d1w < -6)  { score +=  6; signals.push({ txt: `PULLBACK 1W (${d1w.toFixed(1)}%)`,              bull: true  }); }
-    else if (d1w > 20)  { score -=  8; signals.push({ txt: `EXTENDED 1W (+${d1w.toFixed(1)}%) â† CHASING`,  bull: false }); }
+    else if (d1w > 20)  { score -=  8; signals.push({ txt: `EXTENDED 1W (+${d1w.toFixed(1)}%) ← CHASING`,  bull: false }); }
 
     // â”€â”€ Sentiment from news keywords â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const BULL_KW = ["win","award","contract","surge","beat","record","launch","expand","partnership","upgrade","buy","strong","profit","revenue","growth","milestone"];
@@ -7041,8 +7041,8 @@ export default function App() {
     });
     const sentScore = Math.min(10, bullKw) - Math.min(10, bearKw);
     score += sentScore;
-    if (sentScore >= 4)  signals.push({ txt: "SENTIMENT BULLISH ðŸ“°", bull: true  });
-    if (sentScore <= -4) signals.push({ txt: "SENTIMENT BEARISH ðŸ“°", bull: false });
+    if (sentScore >= 4)  signals.push({ txt: "SENTIMENT BULLISH 📰", bull: true  });
+    if (sentScore <= -4) signals.push({ txt: "SENTIMENT BEARISH 📰", bull: false });
 
     // Clamp 5-97
     score = Math.max(5, Math.min(97, Math.round(score)));
@@ -7329,7 +7329,7 @@ export default function App() {
     try {
       // Use available candle data from scanDeepData
       const syms = Object.keys(scanDeepData).filter(t => scanDeepData[t]?.candles?.length >= 20);
-      if (syms.length < 2) { setCorrMatrix({ error: "Run Smart Scan first to load candle data (need â‰¥2 tickers)" }); setCorrLoading(false); return; }
+      if (syms.length < 2) { setCorrMatrix({ error: "Run Smart Scan first to load candle data (need ≥2 tickers)" }); setCorrLoading(false); return; }
       // Build returns matrix
       const returnsBySym = {};
       for (const s of syms) {
@@ -8166,7 +8166,7 @@ export default function App() {
           const newScore = scores.composite;
           const oldScore = prevScoresRef.current[sym];
           if (oldScore !== undefined && oldScore < 70 && newScore >= 70) {
-            const msg = `ðŸš€ *SCORE ALERT*: ${sym} just crossed above 70 (now ${Math.round(newScore)}/100)\n$${(q.price||0).toFixed(2)} · ${(q.changesPercentage||0) >= 0 ? "+" : ""}${(q.changesPercentage||0).toFixed(2)}%`;
+            const msg = `🚀 *SCORE ALERT*: ${sym} just crossed above 70 (now ${Math.round(newScore)}/100)\n$${(q.price||0).toFixed(2)} · ${(q.changesPercentage||0) >= 0 ? "+" : ""}${(q.changesPercentage||0).toFixed(2)}%`;
             fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
           }
           prevScoresRef.current[sym] = newScore;
@@ -9758,7 +9758,7 @@ export default function App() {
               {weatherData ? (
                 <>
                   <span style={{ fontWeight: 800, color: weatherData.temp >= 85 ? C.red : weatherData.temp <= 40 ? C.cyan : C.text }}>
-                    {weatherData.temp.toFixed(0)}Â°F
+                    {weatherData.temp.toFixed(0)}°F
                   </span>
                   <span style={{ color: C.textDim }}>{weatherCodeLabel(weatherData.code)}</span>
                 </>
@@ -9894,22 +9894,22 @@ export default function App() {
             <button
               onClick={() => { generateMarketReport(); setMobileMenuOpen(false); }}
               style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}44`, color: C.accent, fontFamily: MONO, fontSize: 12, padding: "12px 8px", borderRadius: 8, cursor: "pointer", minHeight: 48, fontWeight: 700 }}
-            >ðŸ“Š REPORT</button>
+            >📊 REPORT</button>
             <button
               onClick={() => { setPaletteOpen(true); setMobileMenuOpen(false); }}
               style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "12px 8px", borderRadius: 8, cursor: "pointer", minHeight: 48, fontWeight: 700 }}
-            >âŒ¨ CMD</button>
+            >⌨ CMD</button>
             <button
               onClick={() => { handleLock(); setMobileMenuOpen(false); }}
               style={{ background: `${C.red}10`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 12, padding: "12px 8px", borderRadius: 8, cursor: "pointer", minHeight: 48, fontWeight: 700 }}
-            >ðŸ”’ LOCK</button>
+            >🔒 LOCK</button>
           </div>
           {/* Status info row */}
           <div style={{ padding: "0 12px 10px", display: "flex", gap: 8, flexWrap: "wrap" }}>
             {weatherData && (
               <div style={{ display: "flex", alignItems: "center", gap: 5, border: `1px solid ${C.border}`, background: C.card, borderRadius: 6, padding: "7px 12px", fontSize: 11, fontFamily: MONO, color: C.textSec }}>
                 <span>☁</span>
-                <span style={{ fontWeight: 800 }}>{weatherData.temp.toFixed(0)}Â°F</span>
+                <span style={{ fontWeight: 800 }}>{weatherData.temp.toFixed(0)}°F</span>
                 <span style={{ color: C.textDim }}>{weatherCodeLabel(weatherData.code)}</span>
               </div>
             )}
@@ -10017,11 +10017,11 @@ export default function App() {
       {(() => {
         const SUB_GROUPS = {
           dashboard: [
-            { id: "dashboard", label: "ðŸ“Š MONITOR" },
-            { id: "briefing",  label: "ðŸŒ… BRIEFING" },
+            { id: "dashboard", label: "📊 MONITOR" },
+            { id: "briefing",  label: "🌅 BRIEFING" },
           ],
           terminal: [
-            { id: "terminal",  label: "ðŸ“ˆ CHART" },
+            { id: "terminal",  label: "📈 CHART" },
             { id: "openstock", label: "STOCKS" },
             { id: "tv",        label: "TV LIVE" },
             { id: "multitf",   label: "â± MULTI-TF" },
@@ -10030,11 +10030,11 @@ export default function App() {
             { id: "scanner",    label: "SCANNER" },
             { id: "early",      label: "EARLY ENTRY" },
             { id: "analyzer",   label: "ANALYZER" },
-            { id: "cot",        label: "ðŸ“Š COT" },
-            { id: "flow",       label: "âš¡ FLOW" },
+            { id: "cot",        label: "📊 COT" },
+            { id: "flow",       label: "⚡ FLOW" },
             { id: "screener",   label: "ðŸ” SCREENER" },
             { id: "shortint",   label: "ðŸ©³ SHORT INT" },
-            { id: "smartmoney", label: "ðŸ¦ SMART $" },
+            { id: "smartmoney", label: "🏦 SMART $" },
             { id: "social",     label: "ðŸ’¬ SOCIAL" },
           ],
           markets: [
@@ -10043,25 +10043,25 @@ export default function App() {
             { id: "macro",    label: "MACRO" },
             { id: "sectors",  label: "SECTORS" },
             { id: "rotation", label: "ROTATION" },
-            { id: "calendar", label: "ðŸ“… CALENDAR" },
-            { id: "analyst",  label: "ðŸŽ¯ ANALYST" },
-            { id: "ipo",      label: "ðŸ’¸ DIVIDENDS" },
+            { id: "calendar", label: "📅 CALENDAR" },
+            { id: "analyst",  label: "🎯 ANALYST" },
+            { id: "ipo",      label: "💸 DIVIDENDS" },
             { id: "feargreed",   label: "ðŸ˜¨ FEAR/GREED" },
-            { id: "breadth",     label: "ðŸ“Š BREADTH" },
-            { id: "seasonality", label: "ðŸ“… SEASONAL" },
+            { id: "breadth",     label: "📊 BREADTH" },
+            { id: "seasonality", label: "📅 SEASONAL" },
           ],
           watchlist: [
-            { id: "fivex",     label: "ðŸš€ 5X PLAYS" },
+            { id: "fivex",     label: "🚀 5X PLAYS" },
             { id: "smartscan", label: "ðŸ§  SMART SCAN" },
-            { id: "advisor",   label: "ðŸ¤– AI ADVISOR" },
+            { id: "advisor",   label: "🤖 AI ADVISOR" },
           ],
           portfolio: [
             { id: "portfolio",   label: "POSITIONS" },
-            { id: "performance", label: "ðŸ“Š PERFORMANCE" },
+            { id: "performance", label: "📊 PERFORMANCE" },
             { id: "journal",     label: "JOURNAL" },
             { id: "alerts",      label: "ALERTS" },
-            { id: "heatmap",     label: "ðŸ”¥ HEAT MAP" },
-            { id: "correlation", label: "ðŸ”— CORRELATION" },
+            { id: "heatmap",     label: "🔥 HEAT MAP" },
+            { id: "correlation", label: "🔗 CORRELATION" },
             { id: "risklab",     label: "⚠ RISK LAB" },
           ],
           tools: [
@@ -10071,9 +10071,9 @@ export default function App() {
             { id: "agent",       label: "AI AGENT" },
             { id: "deals",       label: "ðŸ›’ DEALS" },
             { id: "fibonacci",   label: "ðŸŒ€ FIBONACCI" },
-            { id: "ailab",       label: "ðŸ¤– AI LAB" },
-            { id: "dca",         label: "ðŸ“ˆ DCA" },
-            { id: "options-calc", label: "ðŸŽ° OPTIONS" },
+            { id: "ailab",       label: "🤖 AI LAB" },
+            { id: "dca",         label: "📈 DCA" },
+            { id: "options-calc", label: "🎰 OPTIONS" },
           ],
           islamic: [
             { id: "quran",  label: "Ù‚Ø±Ø¢Ù†" },
@@ -10141,7 +10141,7 @@ export default function App() {
           const isRiskOn   = regime === "Risk-On" || regime === "Growth" || regime === "Goldilocks";
           const bannerColor = isRiskOff ? C.red : isRiskOn ? C.green : C.amber;
           const bannerBg    = isRiskOff ? C.redBg : isRiskOn ? C.greenBg : C.amberBg;
-          const icon  = isRiskOff ? "⚠ï¸" : isRiskOn ? "ðŸŸ¢" : "ðŸŸ¡";
+          const icon  = isRiskOff ? "⚠ï¸" : isRiskOn ? "🟢" : "🟡";
           const strategy = isRiskOff
             ? "RISK-OFF MODE: Reduce size, prefer hedges/shorts, tighten stops on longs. Avoid chasing."
             : isRiskOn
@@ -10373,7 +10373,7 @@ export default function App() {
                     }}
                     style={{ background: `${C.green}12`, border: `1px solid ${C.green}44`, color: C.green, fontFamily: MONO, fontSize: 10, padding: "6px 8px", cursor: "pointer", borderRadius: 3 }}
                     title="Push current watchlist to the bot"
-                  >â†‘ BOT</button>
+                  >↑ BOT</button>
                   <button
                     onClick={async () => {
                       try {
@@ -10388,7 +10388,7 @@ export default function App() {
                     }}
                     style={{ background: `${C.accent}12`, border: `1px solid ${C.accent}44`, color: C.accent, fontFamily: MONO, fontSize: 10, padding: "6px 8px", cursor: "pointer", borderRadius: 3 }}
                     title="Load bot watchlist into platform"
-                  >â†“ BOT</button>
+                  >↓ BOT</button>
                   <select
                     value={String(settings.refreshMs)}
                     onChange={(e) => setSettings((s) => ({ ...s, refreshMs: Number(e.target.value) }))}
@@ -10572,7 +10572,7 @@ export default function App() {
                         {/* RVOL */}
                         {rvol > 0 && (
                           <div style={{ fontFamily: MONO, fontSize: 10, color: rvol >= 2 ? C.accent : rvol >= 1.2 ? C.amber : C.textDim, marginTop: 4 }}>
-                            RVOL {rvol.toFixed(1)}Ã—
+                            RVOL {rvol.toFixed(1)}×
                           </div>
                         )}
                       </div>
@@ -10676,7 +10676,7 @@ export default function App() {
                                   style={{ border: `1px solid ${C.red}44`, background: C.surface, color: C.red, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
                                   title={`Remove ${q.symbol} from watchlist`}
                                 >
-                                  Ã—
+                                  ×
                                 </button>
                               </div>
                               {watchlistNotes[q.symbol] && openNoteSymbol !== q.symbol && (
@@ -10804,7 +10804,7 @@ export default function App() {
                             <tr style={{ background: C.card }}>
                               <td colSpan={colSpan} style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}` }}>
                                 <div style={{ display: "flex", gap: 8, alignItems: "center" }} onClick={e => e.stopPropagation()}>
-                                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber, fontWeight: 700 }}>ðŸ”” ALERT {q.symbol}</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber, fontWeight: 700 }}>🔔 ALERT {q.symbol}</span>
                                   <select value={wlAlertDir} onChange={e => setWlAlertDir(e.target.value)}
                                     style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "4px 8px", borderRadius: 4 }}>
                                     <option value="above">Above</option>
@@ -11046,12 +11046,12 @@ export default function App() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                     <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface }}>
                       <div style={{ fontSize: 10, color: C.textDim }}>{weatherData.location}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 800, color: C.text }}>{weatherData.temp.toFixed(0)}Â°F</div>
+                      <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 800, color: C.text }}>{weatherData.temp.toFixed(0)}°F</div>
                       <div style={{ fontSize: 10, color: C.textSec }}>{weatherCodeLabel(weatherData.code)}</div>
                     </div>
                     <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface }}>
                       <div style={{ fontSize: 10, color: C.textDim }}>High / Low</div>
-                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700 }}>{weatherData.high.toFixed(0)}Â° / {weatherData.low.toFixed(0)}Â°</div>
+                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700 }}>{weatherData.high.toFixed(0)}° / {weatherData.low.toFixed(0)}°</div>
                       <div style={{ fontSize: 10, color: C.textDim }}>Wind {weatherData.wind.toFixed(0)} mph</div>
                     </div>
                   </div>
@@ -11257,7 +11257,7 @@ export default function App() {
                   title="AI-score each headline with Claude"
                   style={{ border: `1px solid ${C.accent}44`, background: `${C.accent}11`, color: newsSentLoading ? C.textDim : C.accent, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: newsSentLoading || !newsData.length ? "default" : "pointer" }}
                 >
-                  {newsSentLoading ? "ðŸ¤– SCORING…" : "ðŸ¤– AI SENTIMENT"}
+                  {newsSentLoading ? "🤖 SCORING…" : "🤖 AI SENTIMENT"}
                 </button>
               </div>
             </div>
@@ -11290,7 +11290,7 @@ export default function App() {
                   // AI sentiment badge (from Claude scoring)
                   const aiSent = newsSentiments[n.title || ""];
                   const aiColor = aiSent?.s === "bull" ? C.green : aiSent?.s === "bear" ? C.red : C.textDim;
-                  const aiLabel = aiSent?.s === "bull" ? "ðŸŸ¢ AI BULL" : aiSent?.s === "bear" ? "ðŸ”´ AI BEAR" : aiSent ? "âšª AI NEUTRAL" : null;
+                  const aiLabel = aiSent?.s === "bull" ? "🟢 AI BULL" : aiSent?.s === "bear" ? "🔴 AI BEAR" : aiSent ? "⚪ AI NEUTRAL" : null;
                   const sentBorderColor = sent === "bullish" ? C.green : sent === "bearish" ? C.red : C.border;
                   return (
                     <div key={`${n.ticker}-${i}`} style={{ background: C.card, border: `1px solid ${aiSent ? (aiSent.s === "bull" ? `${C.green}44` : aiSent.s === "bear" ? `${C.red}44` : C.border) : C.border}`, borderLeft: `4px solid ${sentBorderColor}`, borderRadius: 6, padding: 12, position: "relative" }}>
@@ -11327,7 +11327,7 @@ export default function App() {
                               </button>
                               <button
                                 onClick={async () => {
-                                  const icon = sent === "bullish" ? "ðŸŸ¢" : sent === "bearish" ? "ðŸ”´" : "âšª";
+                                  const icon = sent === "bullish" ? "🟢" : sent === "bearish" ? "🔴" : "⚪";
                                   const msg = `${icon} *${n.ticker}* — ${sent.toUpperCase()} News\n_${(n.title || "").slice(0, 120)}_\n${n.publisher || ""}`;
                                   try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
                                 }}
@@ -11433,7 +11433,7 @@ export default function App() {
                         </button>
                         <button
                           onClick={async () => {
-                            const msg = `ðŸ“… *${e.symbol}* Earnings ${e.timing ? e.timing : dateLabel}\nPrice: $${px.toFixed(2)}  CHG: ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%  Score: ${Math.round(Number(e.score || 0))}`;
+                            const msg = `📅 *${e.symbol}* Earnings ${e.timing ? e.timing : dateLabel}\nPrice: $${px.toFixed(2)}  CHG: ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%  Score: ${Math.round(Number(e.score || 0))}`;
                             try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
                           }}
                           style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }} title="Push to Telegram">PUSH</button>
@@ -11548,7 +11548,7 @@ export default function App() {
                 padding: "12px 16px", background: C.card,
                 border: `1px solid ${C.border}`, borderRadius: 10 }}>
                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900,
-                  color: C.text, letterSpacing: "0.05em" }}>ðŸ“ˆ STOCKS</span>
+                  color: C.text, letterSpacing: "0.05em" }}>📈 STOCKS</span>
                 <input
                   value={tvOsInput}
                   onChange={e => setTvOsInput(e.target.value.toUpperCase())}
@@ -11589,14 +11589,14 @@ export default function App() {
 
               {/* â”€â”€ Symbol info strip (price, change, key stats) â”€â”€ */}
               <div key={`si-${sym}-${tvTheme}`} style={card()}>
-                {sectionLabel("ðŸ“Œ", `${sym} — OVERVIEW`)}
+                {sectionLabel("📌", `${sym} — OVERVIEW`)}
                 {tvFrame("symbol-info", { ...D, symbol: sym, largeChartUrl: "" }, 90)}
               </div>
 
               {/* â”€â”€ Main row: Chart (left) + Technical Analysis (right) â”€â”€ */}
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.6fr 1fr", gap: 12 }}>
                 <div key={`ch-${sym}-${tvTheme}`} style={card()}>
-                  {sectionLabel("ðŸ“Š", "ADVANCED CHART — RSI + MACD")}
+                  {sectionLabel("📊", "ADVANCED CHART — RSI + MACD")}
                   {tvFrame("advanced-chart", {
                     ...D, symbol: sym, interval: "D", style: "1",
                     details: false, hotlist: false, calendar: false,
@@ -11606,7 +11606,7 @@ export default function App() {
                   }, isMobile ? 360 : 520)}
                 </div>
                 <div key={`ta-${sym}-${tvTheme}`} style={card()}>
-                  {sectionLabel("ðŸŽ¯", "TECHNICAL ANALYSIS — MULTI TIMEFRAME")}
+                  {sectionLabel("🎯", "TECHNICAL ANALYSIS — MULTI TIMEFRAME")}
                   {tvFrame("technical-analysis", {
                     ...D, symbol: sym, interval: "1D", showIntervalTabs: true,
                     displayMode: "multiple",
@@ -11617,13 +11617,13 @@ export default function App() {
               {/* â”€â”€ Bottom row: Financials (left) + News (right) â”€â”€ */}
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.2fr 1fr", gap: 12 }}>
                 <div key={`fn-${sym}-${tvTheme}`} style={card()}>
-                  {sectionLabel("ðŸ’°", "FINANCIALS — INCOME / BALANCE / CASH FLOW")}
+                  {sectionLabel("💰", "FINANCIALS — INCOME / BALANCE / CASH FLOW")}
                   {tvFrame("financials", {
                     ...D, symbol: sym, displayMode: "regular",
                   }, isMobile ? 400 : 500)}
                 </div>
                 <div key={`nl-${sym}-${tvTheme}`} style={card()}>
-                  {sectionLabel("ðŸ“°", `NEWS — ${sym}`)}
+                  {sectionLabel("📰", `NEWS — ${sym}`)}
                   {tvFrame("timeline", {
                     ...D, feedMode: "symbol", symbol: sym, displayMode: "regular",
                   }, isMobile ? 300 : 500)}
@@ -11640,17 +11640,17 @@ export default function App() {
 
           const SECTOR_META = {
             "Defense AI":        { color: "#4488ff", icon: "ðŸ›¡ï¸" },
-            "Robotics":          { color: "#00d4ff", icon: "ðŸ¤–" },
+            "Robotics":          { color: "#00d4ff", icon: "🤖" },
             "Nuclear":           { color: "#ffaa00", icon: "âš›ï¸" },
-            "Space":             { color: "#b06cff", icon: "ðŸš€" },
-            "Satellite AI":      { color: "#00ffd4", icon: "ðŸ›°ï¸" },
-            "Automation":        { color: "#66ff88", icon: "âš™ï¸" },
-            "AI Energy":         { color: "#ff6633", icon: "âš¡" },
+            "Space":             { color: "#b06cff", icon: "🚀" },
+            "Satellite AI":      { color: "#00ffd4", icon: "🛰ï¸" },
+            "Automation":        { color: "#66ff88", icon: "⚙ï¸" },
+            "AI Energy":         { color: "#ff6633", icon: "⚡" },
             "Infrastructure":    { color: "#88a0b8", icon: "ðŸ—ï¸" },
-            "AI Infrastructure": { color: "#cc66ff", icon: "ðŸ–¥ï¸" },
-            "Quantum AI":        { color: "#ff44cc", icon: "âš›ï¸ðŸ¤–" },
+            "AI Infrastructure": { color: "#cc66ff", icon: "🖥ï¸" },
+            "Quantum AI":        { color: "#ff44cc", icon: "âš›ï¸🤖" },
             "AI Voice":          { color: "#44ffdd", icon: "ðŸŽ™ï¸" },
-            "Air Mobility":      { color: "#88ccff", icon: "âœˆï¸" },
+            "Air Mobility":      { color: "#88ccff", icon: "✈ï¸" },
           };
 
           const RISK_COLOR = {
@@ -11720,7 +11720,7 @@ export default function App() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
                 <div>
                   <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>
-                    ðŸš€ HIGH-GROWTH THEMATIC WATCHLIST — 5Ã— AND UP
+                    🚀 HIGH-GROWTH THEMATIC WATCHLIST — 5× AND UP
                   </div>
                   <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 4 }}>
                     AI · INFRASTRUCTURE · ROBOTICS · NUCLEAR · SATELLITE · SPACE · AI ENERGY · DEFENCE AI &nbsp;|&nbsp;
@@ -11751,12 +11751,12 @@ export default function App() {
                   </button>
                   <button
                     onClick={async () => {
-                      const lines = ["ðŸš€ *5X Growth Watchlist*\n"];
+                      const lines = ["🚀 *5X Growth Watchlist*\n"];
                       visible.forEach(s => {
                         const lv = fivexPrices[s.ticker];
                         const sm = SECTOR_META[s.sector];
                         const priceStr = lv ? ` @ $${lv.price.toFixed(2)} (${lv.pct >= 0 ? "+" : ""}${lv.pct.toFixed(1)}%)` : "";
-                        const zone = lv ? (lv.price <= s.e3 ? " ðŸŸ¢ DEEP VALUE" : lv.price <= s.e2 ? " ðŸŸ¡ IN ZONE" : lv.price <= s.e1 ? " ðŸ”µ STARTER" : "") : "";
+                        const zone = lv ? (lv.price <= s.e3 ? " 🟢 DEEP VALUE" : lv.price <= s.e2 ? " 🟡 IN ZONE" : lv.price <= s.e1 ? " 🔵 STARTER" : "") : "";
                         lines.push(`${sm ? sm.icon : "•"} *${s.ticker}*${priceStr}${zone} ${s.upside} — ${s.thesis}`);
                       });
                       try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: lines.join("\n") }) }); } catch {}
@@ -11774,10 +11774,10 @@ export default function App() {
                   padding: "10px 14px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, alignItems: "center" }}>
                   <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginRight: 4 }}>LIVE ZONES:</span>
                   {[
-                    { key: "deep",     label: "ðŸŸ¢ DEEP VALUE",  color: "#00e676" },
-                    { key: "better",   label: "âš¡ BETTER ENTRY", color: "#4caf50" },
-                    { key: "starter",  label: "ðŸ”µ STARTER",      color: "#26a69a" },
-                    { key: "breakout", label: "ðŸš€ BREAKOUT",     color: "#ffd700" },
+                    { key: "deep",     label: "🟢 DEEP VALUE",  color: "#00e676" },
+                    { key: "better",   label: "⚡ BETTER ENTRY", color: "#4caf50" },
+                    { key: "starter",  label: "🔵 STARTER",      color: "#26a69a" },
+                    { key: "breakout", label: "🚀 BREAKOUT",     color: "#ffd700" },
                     { key: "wait",     label: "⏳ WAIT",         color: C.textDim },
                     { key: "stop",     label: "⚠ BELOW STOP",   color: C.red     },
                   ].map(({ key, label, color }) => zoneCounts[key] > 0 && (
@@ -11881,10 +11881,10 @@ export default function App() {
                       let zoneBadge = null;
                       if (liveP) {
                         if (isBelowStop)          zoneBadge = { label: "⚠ STOP", color: C.red };
-                        else if (isInEntry3)      zoneBadge = { label: "ðŸŸ¢ DEEP", color: "#00e676" };
-                        else if (isInEntry2)      zoneBadge = { label: "âš¡ BETTER", color: "#4caf50" };
-                        else if (isInEntry1)      zoneBadge = { label: "ðŸ”µ STARTER", color: "#26a69a" };
-                        else if (isAboveBreakout) zoneBadge = { label: "ðŸš€ BREAK", color: "#ffd700" };
+                        else if (isInEntry3)      zoneBadge = { label: "🟢 DEEP", color: "#00e676" };
+                        else if (isInEntry2)      zoneBadge = { label: "⚡ BETTER", color: "#4caf50" };
+                        else if (isInEntry1)      zoneBadge = { label: "🔵 STARTER", color: "#26a69a" };
+                        else if (isAboveBreakout) zoneBadge = { label: "🚀 BREAK", color: "#ffd700" };
                         else                      zoneBadge = { label: "WAIT", color: C.textDim };
                       }
                       return (
@@ -12134,7 +12134,7 @@ export default function App() {
                       border: `1px solid ${scanLoading ? C.border : C.green}`,
                       color: scanLoading ? C.textDim : C.green,
                       borderRadius: 6, padding: "7px 18px", cursor: scanLoading ? "default" : "pointer" }}>
-                    {scanLoading ? "âŒ› SCANNING…" : "â–¶ RUN SCAN"}
+                    {scanLoading ? "âŒ› SCANNING…" : "▶ RUN SCAN"}
                   </button>
                 </div>
               </div>
@@ -12152,7 +12152,7 @@ export default function App() {
               {!scanLoading && !scanError && scanResults.length === 0 && (
                 <div style={{ textAlign: "center", padding: "60px 0",
                   fontFamily: MONO, fontSize: 12, color: C.textDim }}>
-                  Press <strong style={{ color: C.green }}>â–¶ RUN SCAN</strong> to analyse all 30 watchlist stocks
+                  Press <strong style={{ color: C.green }}>▶ RUN SCAN</strong> to analyse all 30 watchlist stocks
                   <div style={{ fontSize: 9, marginTop: 8, color: C.textDim }}>
                     RSI · MACD · EMA · Entry zones · Volume · 52W position · News sentiment
                   </div>
@@ -12209,9 +12209,9 @@ export default function App() {
                         let zoneLbl = "—", zoneCol = C.textDim;
                         if (ref && livePrice > 0) {
                           if      (livePrice <= ref.stop)    { zoneLbl = "⚠ STOP";   zoneCol = C.red; }
-                          else if (livePrice <= ref.e3)      { zoneLbl = "ðŸŸ¢ DEEP";   zoneCol = "#00e676"; }
-                          else if (livePrice <= ref.e2)      { zoneLbl = "âš¡ BETTER"; zoneCol = "#4caf50"; }
-                          else if (livePrice <= ref.e1)      { zoneLbl = "ðŸ”µ STARTER"; zoneCol = "#26a69a"; }
+                          else if (livePrice <= ref.e3)      { zoneLbl = "🟢 DEEP";   zoneCol = "#00e676"; }
+                          else if (livePrice <= ref.e2)      { zoneLbl = "⚡ BETTER"; zoneCol = "#4caf50"; }
+                          else if (livePrice <= ref.e1)      { zoneLbl = "🔵 STARTER"; zoneCol = "#26a69a"; }
                           else if (livePrice >= ref.trigger) { zoneLbl = "ðŸ”¶ ABOVE"; zoneCol = "#ff9900"; }
                           else                               { zoneLbl = "WAIT";      zoneCol = C.textDim; }
                         }
@@ -12393,7 +12393,7 @@ export default function App() {
                                       <div style={{ flex: "0 0 340px", minWidth: 280 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
-                                          ðŸ“Š CHART
+                                          📊 CHART
                                         </div>
                                         <div style={{ borderRadius: 6, overflow: "hidden",
                                           border: `1px solid ${C.border}` }}>
@@ -12410,7 +12410,7 @@ export default function App() {
                                       <div style={{ flex: "1 1 200px", minWidth: 180 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
-                                          âš¡ SIGNALS ({row.signals?.length || 0})
+                                          ⚡ SIGNALS ({row.signals?.length || 0})
                                         </div>
                                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                                           {(row.signals || []).length === 0 ? (
@@ -12432,7 +12432,7 @@ export default function App() {
                                           <div style={{ marginTop: 12 }}>
                                             <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                               color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
-                                              ðŸŽ¯ ENTRY ZONES
+                                              🎯 ENTRY ZONES
                                             </div>
                                             {[
                                               { label: "Deep Value", val: ref.e3, col: "#00e676" },
@@ -12458,7 +12458,7 @@ export default function App() {
                                       <div style={{ flex: "1 1 200px", minWidth: 180 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
-                                          ðŸ“‹ FUNDAMENTALS
+                                          📋 FUNDAMENTALS
                                         </div>
                                         {fd ? (
                                           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
@@ -12467,8 +12467,8 @@ export default function App() {
                                               ["Revenue TTM",   fd.revenue   ? `$${(fd.revenue/1e9).toFixed(2)}B`   : "—"],
                                               ["Gross Margin",  fd.grossMargin  ? `${(fd.grossMargin*100).toFixed(1)}%`  : "—"],
                                               ["Rev Growth",    fd.revenueGrowth ? `${(fd.revenueGrowth*100).toFixed(1)}%` : "—"],
-                                              ["P/S Ratio",     fd.priceToSales ? `${Number(fd.priceToSales).toFixed(1)}Ã—`  : "—"],
-                                              ["P/E Ratio",     fd.trailingPE   ? `${Number(fd.trailingPE).toFixed(1)}Ã—`   : "—"],
+                                              ["P/S Ratio",     fd.priceToSales ? `${Number(fd.priceToSales).toFixed(1)}×`  : "—"],
+                                              ["P/E Ratio",     fd.trailingPE   ? `${Number(fd.trailingPE).toFixed(1)}×`   : "—"],
                                               ["Debt/Equity",   fd.debtToEquity ? `${Number(fd.debtToEquity).toFixed(2)}` : "—"],
                                               ["Cash",          fd.totalCash    ? `$${(fd.totalCash/1e9).toFixed(2)}B`     : "—"],
                                               ["52W Range",     (yH > 0 && yL > 0) ? `$${yL.toFixed(2)} – $${yH.toFixed(2)}` : "—"],
@@ -12492,7 +12492,7 @@ export default function App() {
                                       <div style={{ flex: "1 1 220px", minWidth: 200 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
-                                          ðŸ“° RECENT NEWS
+                                          📰 RECENT NEWS
                                         </div>
                                         {deepData?.news?.length > 0 ? (
                                           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -12539,7 +12539,7 @@ export default function App() {
                                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                                           <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                             color: C.textDim, letterSpacing: "0.06em" }}>
-                                            ðŸ¤– AI TRADE SETUP
+                                            🤖 AI TRADE SETUP
                                           </div>
                                           {!tradeSetups[row.ticker] && (
                                             <button
@@ -12551,7 +12551,7 @@ export default function App() {
                                                 color: tradeSetupLoad[row.ticker] ? C.textDim : C.purple,
                                                 borderRadius: 4, padding: "3px 10px",
                                                 cursor: tradeSetupLoad[row.ticker] ? "default" : "pointer" }}>
-                                              {tradeSetupLoad[row.ticker] ? "âŒ› Generating…" : "â–¶ GENERATE"}
+                                              {tradeSetupLoad[row.ticker] ? "âŒ› Generating…" : "▶ GENERATE"}
                                             </button>
                                           )}
                                           {tradeSetups[row.ticker] && (
@@ -12629,7 +12629,7 @@ export default function App() {
                                             background: themeMode === "dark" ? "#0a1628" : "#f5f9ff",
                                             border: `1px dashed ${C.border}`, borderRadius: 6,
                                             padding: "16px 12px", textAlign: "center", lineHeight: 1.6 }}>
-                                            Click <span style={{ color: C.purple, fontWeight: 700 }}>â–¶ GENERATE</span> for a complete AI trade plan:<br/>
+                                            Click <span style={{ color: C.purple, fontWeight: 700 }}>▶ GENERATE</span> for a complete AI trade plan:<br/>
                                             <span style={{ color: C.textDim, fontSize: 8 }}>
                                               entry · stop · targets · R:R · catalysts · risks · verdict
                                             </span>
@@ -12662,7 +12662,7 @@ export default function App() {
                     ))}
                   </div>
                   <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginLeft: "auto" }}>
-                    Click any row to expand deep dive â†“ · Score = RSI + MACD + EMA + Zone + Volume + Sentiment
+                    Click any row to expand deep dive ↓ · Score = RSI + MACD + EMA + Zone + Volume + Sentiment
                   </div>
                 </div>
               )}
@@ -12683,7 +12683,7 @@ export default function App() {
                     const lines = ["ðŸ­ *Sector Snapshot*\n"];
                     sorted.forEach((q, i) => {
                       const chg = q.changesPercentage || 0;
-                      const icon = chg >= 0 ? "ðŸŸ¢" : "ðŸ”´";
+                      const icon = chg >= 0 ? "🟢" : "🔴";
                       const tag = i < 3 ? " â–² LEADING" : i >= sorted.length - 3 ? " â–¼ LAGGING" : "";
                       lines.push(`${icon} *${q.symbol}* ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%${tag}`);
                     });
@@ -12708,9 +12708,9 @@ export default function App() {
                 {!weatherError && !weatherData && <div style={{ fontSize: 11, color: C.textDim }}>Loading weather...</div>}
                 {!weatherError && weatherData && (
                   <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{weatherData.temp.toFixed(0)}Â°F</span>
+                    <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{weatherData.temp.toFixed(0)}°F</span>
                     <span style={{ fontSize: 11, color: C.textSec }}>{weatherCodeLabel(weatherData.code)}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>H/L {weatherData.high.toFixed(0)}Â°/{weatherData.low.toFixed(0)}Â°</span>
+                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>H/L {weatherData.high.toFixed(0)}°/{weatherData.low.toFixed(0)}°</span>
                     <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Wind {weatherData.wind.toFixed(0)} mph</span>
                     <span style={{ fontFamily: MONO, fontSize: 11, color: weatherData.rainChance >= 50 ? C.red : C.green }}>Rain {weatherData.rainChance.toFixed(0)}%</span>
                   </div>
@@ -12757,7 +12757,7 @@ export default function App() {
                         >CHART</button>
                         <button
                           onClick={async () => {
-                            const msg = `ðŸ­ *${q.symbol}* ${q._sectorName || ""}\n${chg >= 0 ? "ðŸŸ¢" : "ðŸ”´"} ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%  $${q.price?.toFixed(2)}${isLeader ? "  â–² LEADING" : isLagger ? "  â–¼ LAGGING" : ""}`;
+                            const msg = `ðŸ­ *${q.symbol}* ${q._sectorName || ""}\n${chg >= 0 ? "🟢" : "🔴"} ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%  $${q.price?.toFixed(2)}${isLeader ? "  â–² LEADING" : isLagger ? "  â–¼ LAGGING" : ""}`;
                             try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
                           }}
                           style={{ fontFamily: MONO, fontSize: 9, padding: "3px 5px", background: C.surface, color: C.textDim, border: `1px solid ${C.textDim}44`, borderRadius: 3, cursor: "pointer" }}
@@ -12788,7 +12788,7 @@ export default function App() {
                     const vix = macroData.find(m => m._label === "VIX" || m.symbol === "VIXY");
                     const usd = macroData.find(m => m.symbol === "UUP");
                     const lines = [
-                      `ðŸ“Š *Macro Snapshot*  — ${macroTone}`,
+                      `📊 *Macro Snapshot*  — ${macroTone}`,
                       `SPY ${spy ? (spy.changesPercentage >= 0 ? "+" : "") + spy.changesPercentage.toFixed(2) + "%" : "—"}  QQQ ${qqq ? (qqq.changesPercentage >= 0 ? "+" : "") + qqq.changesPercentage.toFixed(2) + "%" : "—"}`,
                       `VIX ${vix ? (vix.changesPercentage >= 0 ? "+" : "") + vix.changesPercentage.toFixed(2) + "%" : "—"}  USD ${usd ? (usd.changesPercentage >= 0 ? "+" : "") + usd.changesPercentage.toFixed(2) + "%" : "—"}`,
                     ];
@@ -13026,7 +13026,7 @@ export default function App() {
                         >LOG</button>
                         <button
                           onClick={async () => {
-                            const emoji = a.type === "risk" ? "ðŸ”´" : a.type === "flow" ? "ðŸŸ¡" : "ðŸŸ¢";
+                            const emoji = a.type === "risk" ? "🔴" : a.type === "flow" ? "🟡" : "🟢";
                             const msg = `${emoji} *${a.symbol}* — ${a.type.toUpperCase()} Alert\nPriority: ${a.score}/100\n_${a.text}_`;
                             try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
                           }}
@@ -13314,7 +13314,7 @@ export default function App() {
                       onClick={async () => {
                         try {
                           const truncated = agentOutput.length > 4000 ? agentOutput.slice(0, 4000) + "\n…(truncated)" : agentOutput;
-                          await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `ðŸ¤– *AI Agent — ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}*\n\n${truncated}` }) });
+                          await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `🤖 *AI Agent — ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}*\n\n${truncated}` }) });
                         } catch {}
                       }}
                       style={{ border: `1px solid ${telegramOk ? C.green + "44" : C.border}`, background: telegramOk ? `${C.green}0f` : C.surface, color: telegramOk ? C.green : C.textDim, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: telegramOk ? "pointer" : "not-allowed" }}
@@ -13675,7 +13675,7 @@ export default function App() {
                   {/* Header */}
                   <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
-                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>ðŸ“‹ PASTE & SCAN PORTFOLIO</div>
+                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>📋 PASTE & SCAN PORTFOLIO</div>
                       <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>
                         {pasteModal === "input"
                           ? "Paste tickers, or tickers + shares + cost — any format"
@@ -13810,7 +13810,7 @@ export default function App() {
                           </span>
                           <button onClick={() => { setPasteModal("input"); }}
                             style={{ fontFamily: MONO, fontSize: 11, background: "none", border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, padding: "8px 14px", cursor: "pointer" }}>
-                            â† EDIT PASTE
+                            ← EDIT PASTE
                           </button>
                           <button
                             onClick={() => {
@@ -13978,7 +13978,7 @@ export default function App() {
                     style={{ border: `1px solid ${C.green}66`, background: `${C.green}15`, color: C.green, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}
                     title="Paste tickers or positions and scan live prices"
                   >
-                    ðŸ“‹ PASTE & SCAN
+                    📋 PASTE & SCAN
                   </button>
                   <button
                     onClick={() => csvFileRef.current?.click()}
@@ -14135,7 +14135,7 @@ export default function App() {
               <div style={{ display: "flex", align: "center", gap: 10 }}>
                 {scannerRows.filter(r => r.scannerScore >= 70).length > 0 && (
                   <span style={{ fontFamily: MONO, fontSize: 10, color: C.green, fontWeight: 700 }}>
-                    â­ {scannerRows.filter(r => r.scannerScore >= 70).length} HIGH-SCORE SETUP{scannerRows.filter(r => r.scannerScore >= 70).length !== 1 ? "S" : ""}
+                    ⭐ {scannerRows.filter(r => r.scannerScore >= 70).length} HIGH-SCORE SETUP{scannerRows.filter(r => r.scannerScore >= 70).length !== 1 ? "S" : ""}
                   </span>
                 )}
                 {lastUpdate && (
@@ -14593,7 +14593,7 @@ export default function App() {
                 padding: "12px 16px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 10 }}>
                 <div>
                   <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: "0.06em" }}>
-                    ðŸ“… ECONOMIC CALENDAR
+                    📅 ECONOMIC CALENDAR
                   </div>
                   <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>
                     Upcoming market-moving events — Fed · CPI · NFP · GDP · Earnings · Central Banks
@@ -14660,7 +14660,7 @@ export default function App() {
                       const msg = rotationRank.slice(0, 10).map((q, i) =>
                         `${i + 1}. *${q.symbol}* RS ${q.relVsSpy >= 0 ? "+" : ""}${q.relVsSpy.toFixed(2)}% RVOL ${q.rvol.toFixed(2)}x`
                       ).join("\n");
-                      try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `ðŸ“Š *Rotation Top 10*\n\n${msg}` }) }); } catch {}
+                      try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `📊 *Rotation Top 10*\n\n${msg}` }) }); } catch {}
                     }}
                     style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "5px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
                   >PUSH TOP 10</button>
@@ -14689,9 +14689,9 @@ export default function App() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 10 }}>
                   {[
                     { label: "TOTAL", value: rotationRank.length, color: C.text },
-                    { label: "LEADERS (RS â‰¥ +1%)", value: leaders, color: C.green },
+                    { label: "LEADERS (RS ≥ +1%)", value: leaders, color: C.green },
                     { label: "NEUTRAL", value: neutral, color: C.amber },
-                    { label: "LAGGERS (RS â‰¤ -1%)", value: laggers, color: C.red },
+                    { label: "LAGGERS (RS ≤ -1%)", value: laggers, color: C.red },
                   ].map(({ label, value, color }) => (
                     <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 12px" }}>
                       <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{label}</div>
@@ -15062,7 +15062,7 @@ export default function App() {
                 background: C.card, border: `1px solid ${C.border}`, borderRadius: 10 }}>
                 <div>
                   <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: "0.06em" }}>
-                    ðŸ“Š P&amp;L PERFORMANCE
+                    📊 P&amp;L PERFORMANCE
                   </div>
                   <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>
                     Equity curve from {closed.length} closed trade{closed.length !== 1 ? "s" : ""}
@@ -15085,8 +15085,8 @@ export default function App() {
                   { label: "WIN RATE",      value: `${winRate}%`,        color: Number(winRate) >= 50 ? C.green : C.amber, sub: `${wins.length}W / ${losses.length}L` },
                   { label: "AVG WIN",       value: `+$${avgWin.toFixed(0)}`,  color: C.green,    sub: `per winning trade` },
                   { label: "AVG LOSS",      value: `-$${avgLoss.toFixed(0)}`, color: C.red,      sub: `per losing trade` },
-                  { label: "RISK/REWARD",   value: `${rr}:1`,             color: C.cyan,     sub: `avg win Ã· avg loss` },
-                  { label: "PROFIT FACTOR", value: profitFactor,           color: C.accent,   sub: `gross win Ã· gross loss` },
+                  { label: "RISK/REWARD",   value: `${rr}:1`,             color: C.cyan,     sub: `avg win ÷ avg loss` },
+                  { label: "PROFIT FACTOR", value: profitFactor,           color: C.accent,   sub: `gross win ÷ gross loss` },
                   { label: "TOTAL TRADES",  value: closed.length,          color: C.text,     sub: `closed positions` },
                 ].map(({ label, value, color, sub }) => (
                   <div key={label} style={{ flex: "1 1 100px", minWidth: 90,
@@ -15182,7 +15182,7 @@ export default function App() {
                   <div style={{ flex: "1 1 240px", background: C.card,
                     border: `1px solid ${C.green}44`, borderLeft: `3px solid ${C.green}`,
                     borderRadius: 8, padding: "10px 14px" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, letterSpacing: "0.06em" }}>ðŸ† BEST TRADE</div>
+                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, letterSpacing: "0.06em" }}>🏆 BEST TRADE</div>
                     <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.green, marginTop: 2 }}>
                       +${bestTrade.pnl.toFixed(2)} — {bestTrade.ticker}
                     </div>
@@ -15195,7 +15195,7 @@ export default function App() {
                   <div style={{ flex: "1 1 240px", background: C.card,
                     border: `1px solid ${C.red}44`, borderLeft: `3px solid ${C.red}`,
                     borderRadius: 8, padding: "10px 14px" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, letterSpacing: "0.06em" }}>ðŸ“‰ WORST TRADE</div>
+                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, letterSpacing: "0.06em" }}>📉 WORST TRADE</div>
                     <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.red, marginTop: 2 }}>
                       ${worstTrade.pnl.toFixed(2)} — {worstTrade.ticker}
                     </div>
@@ -15220,7 +15220,7 @@ export default function App() {
                   background: journalRevLoad ? C.surface : `${C.purple}22`,
                   border: `1px solid ${C.purple}66`, color: journalRevLoad ? C.textDim : C.purple,
                   borderRadius: 6, padding: "7px 14px", cursor: journalRevLoad ? "default" : "pointer" }}>
-                {journalRevLoad ? "ðŸ¤– ANALYZING…" : "ðŸ¤– AI COACHING REVIEW"}
+                {journalRevLoad ? "🤖 ANALYZING…" : "🤖 AI COACHING REVIEW"}
               </button>
             </div>
 
@@ -15233,7 +15233,7 @@ export default function App() {
                 ) : (
                   <>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.purple }}>ðŸ¤– AI COACHING REVIEW</div>
+                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.purple }}>🤖 AI COACHING REVIEW</div>
                       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{journalReview?.at ? new Date(journalReview.at).toLocaleString() : ""}</span>
                         <button onClick={() => setJournalReview(null)} style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", fontSize: 12 }}>✕</button>
@@ -15259,7 +15259,7 @@ export default function App() {
               const weekPnl  = weekTrades.reduce((s, e) => s + e.pnl, 0);
               const todayWins = todayTrades.filter(e => e.pnl > 0).length;
               const curStreak = journalStats?.currentStreak || 0;
-              const streakLabel = curStreak > 0 ? `ðŸ”¥ ${curStreak}W` : curStreak < 0 ? `â„ï¸ ${Math.abs(curStreak)}L` : "—";
+              const streakLabel = curStreak > 0 ? `🔥 ${curStreak}W` : curStreak < 0 ? `❄ï¸ ${Math.abs(curStreak)}L` : "—";
               const streakColor = curStreak > 0 ? C.green : curStreak < 0 ? C.red : C.textDim;
               return (
                 <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
@@ -15557,7 +15557,7 @@ export default function App() {
                   return (
                     <th onClick={sortable ? () => setJournalSort(s => ({ col, dir: s.col === col && s.dir === "desc" ? "asc" : "desc" })) : undefined}
                       style={{ padding: "8px 10px", textAlign: align || "center", fontFamily: MONO, fontSize: 10, color: active ? C.accent : C.textDim, fontWeight: 600, cursor: sortable ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
-                      {children}{active ? (journalSort.dir === "desc" ? " â†“" : " â†‘") : ""}
+                      {children}{active ? (journalSort.dir === "desc" ? " ↓" : " ↑") : ""}
                     </th>
                   );
                 };
@@ -16190,8 +16190,8 @@ export default function App() {
       {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• DEALS TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {activeTab === "deals" && (() => {
         const DEAL_CATS = [
-          { id: "electronics", label: "ðŸ–¥ï¸ Electronics" },
-          { id: "realestate",  label: "ðŸ  Real Estate" },
+          { id: "electronics", label: "🖥ï¸ Electronics" },
+          { id: "realestate",  label: "🏠 Real Estate" },
           { id: "cars",        label: "ðŸš— Cars" },
           { id: "furniture",   label: "ðŸ›‹ï¸ Furniture" },
           { id: "general",     label: "ðŸ›’ General" },
@@ -16217,11 +16217,11 @@ export default function App() {
                 <button
                   onClick={() => fetch("/api/deals/debug").then(r => r.json()).then(d => alert("Source test:\n" + Object.entries(d.status || {}).map(([k,v]) => `${k}: ${v}`).join("\n"))).catch(e => alert("❌ " + e.message))}
                   style={{ background: "#7c3aed18", border: "1px solid #7c3aed44", color: "#7c3aed", fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "6px 12px", borderRadius: 5, cursor: "pointer" }}
-                >ðŸ”¬ DEBUG</button>
+                >🔬 DEBUG</button>
                 <button
                   onClick={() => fetch("/api/deals/test-alert", { method: "POST" }).then(() => alert("Test Telegram alert sent!"))}
                   style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}44`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "6px 12px", borderRadius: 5, cursor: "pointer" }}
-                >ðŸ“± TEST TELEGRAM</button>
+                >📱 TEST TELEGRAM</button>
               </div>
             </div>
 
@@ -16263,7 +16263,7 @@ export default function App() {
                     <button onClick={addDealsWatch} disabled={!dealsQuery.trim() || dealsWatchesLoading}
                       title="Save this search — get Telegram alerts when new deals appear"
                       style={{ background: `${C.green}14`, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 6, padding: "9px 14px", fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer", opacity: !dealsQuery.trim() ? 0.5 : 1, flexShrink: 0 }}>
-                      ðŸ”” WATCH
+                      🔔 WATCH
                     </button>
                   </div>
 
@@ -16344,7 +16344,7 @@ export default function App() {
                       {dealsResults.map(deal => {
                         const srcColors = { reddit:"#ff4500", slickdeals:"#e31c23", dealnews:"#0066cc", google:"#4285f4", dealslist:"#16a34a" };
                         const srcLabels = { reddit:"Reddit", slickdeals:"SlickDeals", dealnews:"DealNews", google:"Google News", dealslist:"DealsList" };
-                        const catIcons  = { electronics:"ðŸ’»", realestate:"ðŸ ", cars:"ðŸš—", furniture:"ðŸ›‹ï¸", jobs:"ðŸ’¼", luxury:"ðŸ’Ž", general:"ðŸ›’" };
+                        const catIcons  = { electronics:"💻", realestate:"🏠", cars:"ðŸš—", furniture:"ðŸ›‹ï¸", jobs:"ðŸ’¼", luxury:"💎", general:"ðŸ›’" };
                         const srcColor  = srcColors[deal.sourceKey] || C.accent;
                         const srcLabel  = srcLabels[deal.sourceKey] || deal.source || "Deal";
                         const catIcon   = catIcons[deal.category]   || "ðŸ›’";
@@ -16422,13 +16422,13 @@ export default function App() {
                 {/* Active watches */}
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
                   <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.text, marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span>ðŸ”” TELEGRAM WATCHES ({dealsWatches.length})</span>
+                    <span>🔔 TELEGRAM WATCHES ({dealsWatches.length})</span>
                     <button onClick={fetchDealsWatches} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>REFRESH</button>
                   </div>
                   {dealsWatches.length === 0 ? (
                     <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, padding: "12px 0" }}>
                       No watches yet.<br/>
-                      Search for something then click ðŸ”” WATCH to get Telegram alerts every 30 min when new deals appear.
+                      Search for something then click 🔔 WATCH to get Telegram alerts every 30 min when new deals appear.
                     </div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
@@ -16478,7 +16478,7 @@ export default function App() {
                   <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, marginBottom: 6 }}>HOW DEAL ALERTS WORK</div>
                   <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.6 }}>
                     1. Search or browse hot deals by category<br/>
-                    2. Click ðŸ”” WATCH to save the search<br/>
+                    2. Click 🔔 WATCH to save the search<br/>
                     3. Server checks Reddit every 30 min<br/>
                     4. New posts → instant Telegram message<br/>
                     5. Works 24/7 even when browser is closed<br/><br/>
@@ -16556,7 +16556,7 @@ export default function App() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
               <div>
                 <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>
-                  ðŸ“Š COMMITMENTS OF TRADERS
+                  📊 COMMITMENTS OF TRADERS
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: 9, color: dim, marginTop: 3, letterSpacing: "0.06em" }}>
                   CFTC WEEKLY INSTITUTIONAL POSITIONING DATA
@@ -16728,8 +16728,8 @@ export default function App() {
                             <td style={{ padding: "6px 10px" }}>
                               <span style={{ color: b.primaryPct52 >= 90 ? yellow : b.primaryPct52 <= 10 ? yellow : dim }}>
                                 {b.primaryPct52 !== undefined ? `${b.primaryPct52}%` : "—"}
-                                {b.crowdedLong  ? " ðŸŸ¡CL" : ""}
-                                {b.crowdedShort ? " ðŸŸ¡CS" : ""}
+                                {b.crowdedLong  ? " 🟡CL" : ""}
+                                {b.crowdedShort ? " 🟡CS" : ""}
                               </span>
                             </td>
                             <td style={{ padding: "6px 10px",
@@ -16923,7 +16923,7 @@ export default function App() {
                   }}
                   style={{ background: quranAudioError ? C.red : gold, border: "none", color: "#fff", borderRadius: 999, width: 68, height: 68, fontSize: quranLoading ? 18 : 28, cursor: "pointer", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 4px 20px ${gold}44`, transition: "transform 0.1s", flexShrink: 0 }}
                 >
-                  {quranLoading ? "âŒ›" : quranPlaying ? "â¸" : "â–¶"}
+                  {quranLoading ? "âŒ›" : quranPlaying ? "â¸" : "▶"}
                 </button>
 
                 {/* Forward 10s */}
@@ -16948,7 +16948,7 @@ export default function App() {
 
               {/* â”€â”€ Volume slider â”€â”€ */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, direction: "ltr" }}>
-                <span style={{ fontSize: 16 }}>{quranVolume === 0 ? "ðŸ”‡" : quranVolume < 0.5 ? "ðŸ”‰" : "ðŸ”Š"}</span>
+                <span style={{ fontSize: 16 }}>{quranVolume === 0 ? "🔇" : quranVolume < 0.5 ? "🔉" : "🔊"}</span>
                 <input
                   type="range" min="0" max="1" step="0.05"
                   value={quranVolume}
@@ -16964,13 +16964,13 @@ export default function App() {
                   onClick={() => setQuranRepeat(r => !r)}
                   style={{ background: quranRepeat ? `${gold}22` : C.surface, border: `1px solid ${quranRepeat ? gold : C.border}`, color: quranRepeat ? gold : C.textDim, borderRadius: 6, padding: "7px 14px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}
                 >
-                  ðŸ”‚ <span>ØªÙƒØ±Ø§Ø± Ø§Ù„Ø³ÙˆØ±Ø©</span>
+                  🔂 <span>ØªÙƒØ±Ø§Ø± Ø§Ù„Ø³ÙˆØ±Ø©</span>
                 </button>
                 <button
                   onClick={() => setQuranAutoNext(a => !a)}
                   style={{ background: quranAutoNext ? `${gold}22` : C.surface, border: `1px solid ${quranAutoNext ? gold : C.border}`, color: quranAutoNext ? gold : C.textDim, borderRadius: 6, padding: "7px 14px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}
                 >
-                  â–¶â–¶ <span>ØªØ´ØºÙŠÙ„ ØªÙ„Ù‚Ø§Ø¦ÙŠ</span>
+                  ▶▶ <span>ØªØ´ØºÙŠÙ„ ØªÙ„Ù‚Ø§Ø¦ÙŠ</span>
                 </button>
                 <a
                   href={qUrl(quranReciter, surahNum)}
@@ -16990,7 +16990,7 @@ export default function App() {
                     <div style={{ fontFamily: MONO, fontSize: 9, color: "#cc7755", marginTop: 4 }}>
                       {quranReciter.full
                         ? <>Ù…Ù„Ù Ø§Ù„ØµÙˆØª ØºÙŠØ± Ù…ØªØ§Ø­ Ù…Ø¤Ù‚ØªØ§Ù‹ — Audio file temporarily unavailable.<br/>Try a different surah or click RETRY.</>
-                        : <>Ù‡Ø°Ù‡ Ø§Ù„Ø³ÙˆØ±Ø© ØºÙŠØ± Ù…ØªÙˆÙØ±Ø© Ù„Ù‡Ø°Ø§ Ø§Ù„Ù‚Ø§Ø±Ø¦ — surah not available for this reciter.<br/>Switch to a â˜… reciter (Al-Afasy or Maher Al-Muaiqly have all 114 surahs).</>
+                        : <>Ù‡Ø°Ù‡ Ø§Ù„Ø³ÙˆØ±Ø© ØºÙŠØ± Ù…ØªÙˆÙØ±Ø© Ù„Ù‡Ø°Ø§ Ø§Ù„Ù‚Ø§Ø±Ø¦ — surah not available for this reciter.<br/>Switch to a ★ reciter (Al-Afasy or Maher Al-Muaiqly have all 114 surahs).</>
                       }
                     </div>
                   </div>
@@ -17016,7 +17016,7 @@ export default function App() {
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.1em" }}>Ø§Ù„Ù‚Ø§Ø±Ø¦ — RECITER</div>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>â˜… = Ù…ÙƒØªØ¨Ø© ÙƒØ§Ù…Ù„Ø© 114 Ø³ÙˆØ±Ø©</div>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>★ = Ù…ÙƒØªØ¨Ø© ÙƒØ§Ù…Ù„Ø© 114 Ø³ÙˆØ±Ø©</div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 6 }}>
                 {QURAN_RECITERS.map(r => (
@@ -17039,7 +17039,7 @@ export default function App() {
                   >
                     {r.label}
                     {r.full && (
-                      <span style={{ position: "absolute", top: 5, left: 7, fontFamily: MONO, fontSize: 9, color: r.id === quranReciter.id ? gold : "#c9a84c88", lineHeight: 1 }}>â˜…</span>
+                      <span style={{ position: "absolute", top: 5, left: 7, fontFamily: MONO, fontSize: 9, color: r.id === quranReciter.id ? gold : "#c9a84c88", lineHeight: 1 }}>★</span>
                     )}
                   </button>
                 ))}
@@ -17208,7 +17208,7 @@ export default function App() {
                 </select>
                 <button onClick={loadByGeo}
                   style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.accent, borderRadius: 6, padding: "9px 12px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
-                  ðŸ“ Ù…ÙˆÙ‚Ø¹ÙŠ
+                  📍 Ù…ÙˆÙ‚Ø¹ÙŠ
                 </button>
                 <button onClick={() => { if (athanCity && athanCountry) fetchPrayerTimes(null, null, athanCity, athanCountry); else loadByGeo(); }}
                   style={{ background: `${gold}18`, border: `1px solid ${gold}55`, color: gold, borderRadius: 6, padding: "9px 12px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
@@ -17236,7 +17236,7 @@ export default function App() {
               <div style={{ textAlign: "center" }}>
                 <button onClick={loadByGeo}
                   style={{ background: `${gold}18`, border: `1px solid ${gold}66`, color: gold, borderRadius: 10, padding: "14px 28px", fontFamily: "Arial, sans-serif", fontSize: 16, cursor: "pointer", fontWeight: 700 }}>
-                  ðŸ“ Ø§Ø¹Ø±Ø¶ Ø£ÙˆÙ‚Ø§Øª Ø§Ù„ØµÙ„Ø§Ø© Ù„Ù…ÙˆÙ‚Ø¹ÙŠ
+                  📍 Ø§Ø¹Ø±Ø¶ Ø£ÙˆÙ‚Ø§Øª Ø§Ù„ØµÙ„Ø§Ø© Ù„Ù…ÙˆÙ‚Ø¹ÙŠ
                 </button>
               </div>
             )}
@@ -17465,7 +17465,7 @@ export default function App() {
             {/* Header */}
             <div style={{ ...card(), padding: "14px 18px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>ðŸŒ… PRE-MARKET BRIEFING</div>
+                <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>🌅 PRE-MARKET BRIEFING</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>
                   {premktAt ? `Generated ${new Date(premktAt).toLocaleTimeString()}` : "AI-powered morning analysis using live market data"}
                 </div>
@@ -17474,14 +17474,14 @@ export default function App() {
                 style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 700,
                   background: premktLoading ? C.surface : C.accent, border: "none", color: premktLoading ? C.textDim : "#fff",
                   borderRadius: 7, padding: "10px 22px", cursor: premktLoading ? "default" : "pointer" }}>
-                {premktLoading ? "⏳ GENERATING…" : "ðŸŒ… GENERATE BRIEFING"}
+                {premktLoading ? "⏳ GENERATING…" : "🌅 GENERATE BRIEFING"}
               </button>
             </div>
 
             {/* Content */}
             {!premktBriefing && !premktLoading && (
               <div style={{ ...card(), padding: 40, textAlign: "center" }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>ðŸŒ…</div>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>🌅</div>
                 <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 6 }}>Ready when you are</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Generates a personalized morning briefing using your live watchlist, macro data, and earnings calendar.</div>
               </div>
@@ -17492,11 +17492,11 @@ export default function App() {
               </div>
             )}
             {premktBriefing && !premktLoading && (() => {
-              const ICONS = { "MORNING VERDICT": "âš–ï¸", "KEY THEMES": "ðŸŽ¯", "EARNINGS WATCH": "ðŸ“…", "MACRO EVENTS": "ðŸ“Š", "TOP 3 SETUPS": "ðŸš€", "WHAT TO AVOID": "⚠ï¸", "GAME PLAN": "ðŸ—ºï¸" };
+              const ICONS = { "MORNING VERDICT": "âš–ï¸", "KEY THEMES": "🎯", "EARNINGS WATCH": "📅", "MACRO EVENTS": "📊", "TOP 3 SETUPS": "🚀", "WHAT TO AVOID": "⚠ï¸", "GAME PLAN": "ðŸ—ºï¸" };
               return sections.length > 1 ? (
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(340px, 1fr))", gap: 12 }}>
                   {sections.map((s, i) => {
-                    const icon = Object.entries(ICONS).find(([k]) => s.title.includes(k.split(" ")[0]))?.[1] || "ðŸ“Œ";
+                    const icon = Object.entries(ICONS).find(([k]) => s.title.includes(k.split(" ")[0]))?.[1] || "📌";
                     const isGamePlan = s.title.includes("GAME PLAN");
                     return (
                       <div key={i} style={{ ...card({ padding: 16 }), gridColumn: isGamePlan ? "1 / -1" : undefined,
@@ -17772,7 +17772,7 @@ export default function App() {
                             </td>
                             <td style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: sfColor, textAlign: "right", padding: "9px 14px" }}>
                               {sf != null ? sf.toFixed(1) + "%" : "—"}
-                              {sf != null && sf > 15 && <span style={{ marginLeft: 6, fontSize: 10, color: C.red }}>ðŸ”¥ SQUEEZE</span>}
+                              {sf != null && sf > 15 && <span style={{ marginLeft: 6, fontSize: 10, color: C.red }}>🔥 SQUEEZE</span>}
                             </td>
                             <td style={{ fontFamily: MONO, fontSize: 12, color: row.shortRatio > 5 ? C.amber : C.text, textAlign: "right", padding: "9px 14px" }}>
                               {row.shortRatio != null ? row.shortRatio.toFixed(1) + " days" : "—"}
@@ -17830,7 +17830,7 @@ export default function App() {
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>ðŸ”¥ PORTFOLIO HEAT MAP</div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>🔥 PORTFOLIO HEAT MAP</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>Tile size = position value · Color = P&L</div>
               </div>
               <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
@@ -17911,7 +17911,7 @@ export default function App() {
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>ðŸ”— CORRELATION MATRIX</div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>🔗 CORRELATION MATRIX</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>
                   Pearson correlation of daily returns · {availSyms.length} tickers with candle data loaded
                 </div>
@@ -17938,7 +17938,7 @@ export default function App() {
             {availSyms.length < 2 && (
               <div style={{ ...card({ padding: 32 }), textAlign: "center" }}>
                 <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 8 }}>
-                  Need â‰¥2 tickers with candle data
+                  Need ≥2 tickers with candle data
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
                   Go to <strong style={{ color: C.accent }}>WATCHLIST → SMART SCAN</strong> and expand any ticker to load candle data, then come back here.
@@ -18233,7 +18233,7 @@ export default function App() {
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>ðŸ¦ SMART MONEY TRACKER</div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>🏦 SMART MONEY TRACKER</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>Insider transactions + institutional ownership from SEC filings</div>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: "auto", flexWrap: "wrap" }}>
@@ -18320,7 +18320,7 @@ export default function App() {
             })()}
             {!insiderData && !insiderLoading && (
               <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
-                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>ðŸ¦</div>
+                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>🏦</div>
                 <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Enter a ticker to track smart money</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>See who's buying and selling before price moves</div>
               </div>
@@ -18371,11 +18371,11 @@ export default function App() {
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
                     <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.green}` }) }}>
                       <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.green }}>{bullPct.toFixed(0)}%</div>
-                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>ðŸŸ¢ BULLISH</div>
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>🟢 BULLISH</div>
                     </div>
                     <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.red}` }) }}>
                       <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.red }}>{bearPct.toFixed(0)}%</div>
-                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>ðŸ”´ BEARISH</div>
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>🔴 BEARISH</div>
                     </div>
                     <div style={{ ...card({ padding: 18, textAlign: "center" }) }}>
                       <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.text }}>{total}</div>
@@ -18405,7 +18405,7 @@ export default function App() {
                           <div key={i} style={{ padding: "10px 12px", background: C.surface, borderRadius: 6, borderLeft: `3px solid ${m.sentiment === "Bullish" ? C.green : m.sentiment === "Bearish" ? C.red : C.border}` }}>
                             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                               <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: m.sentiment === "Bullish" ? C.green : m.sentiment === "Bearish" ? C.red : C.textDim }}>
-                                {m.sentiment === "Bullish" ? "ðŸŸ¢" : m.sentiment === "Bearish" ? "ðŸ”´" : "âšª"} {m.user}
+                                {m.sentiment === "Bullish" ? "🟢" : m.sentiment === "Bearish" ? "🔴" : "⚪"} {m.user}
                               </span>
                               <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{m.likes > 0 ? `❤ ${m.likes}` : ""}</span>
                             </div>
@@ -18443,7 +18443,7 @@ export default function App() {
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>ðŸŽ¯ ANALYST RATINGS</div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>🎯 ANALYST RATINGS</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>Wall Street consensus · price targets · upgrade/downgrade history</div>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: "auto", flexWrap: "wrap" }}>
@@ -18554,7 +18554,7 @@ export default function App() {
             })()}
             {!analystData && !analystLoading && (
               <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
-                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>ðŸŽ¯</div>
+                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>🎯</div>
                 <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Enter a ticker for analyst ratings</div>
               </div>
             )}
@@ -18569,7 +18569,7 @@ export default function App() {
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.green }}>ðŸ’¸ DIVIDEND TRACKER</div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.green }}>💸 DIVIDEND TRACKER</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>Ex-dividend dates, yields, payout ratios & stock splits</div>
               </div>
               <button onClick={fetchDividendCalendar} disabled={dividendLoading} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 700, background: dividendLoading ? C.surface : C.green, border: "none", color: dividendLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 18px", cursor: dividendLoading ? "default" : "pointer" }}>
@@ -18624,7 +18624,7 @@ export default function App() {
             })()}
             {!dividendData && !dividendLoading && (
               <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
-                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>ðŸ’¸</div>
+                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>💸</div>
                 <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Click LOAD DIVIDENDS to fetch your watchlist</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>Shows dividend yields, ex-dates, payout ratios, and stock splits</div>
               </div>
@@ -18756,16 +18756,16 @@ export default function App() {
       {activeTab === "ailab" && (() => {
         const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
         const sections = [
-          { id: "pattern",    label: "ðŸ“Š PATTERN" },
+          { id: "pattern",    label: "📊 PATTERN" },
           { id: "scenario",   label: "ðŸŒ SCENARIO" },
           { id: "earnings",   label: "ðŸ“ž EARNINGS" },
-          { id: "recap",      label: "ðŸ“‹ RECAP" },
+          { id: "recap",      label: "📋 RECAP" },
           { id: "checklist",  label: "✅ CHECKLIST" },
         ];
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ ...card({ padding: "10px 16px" }) }}>
-              <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.purple, marginBottom: 10 }}>ðŸ¤– AI LABORATORY</div>
+              <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.purple, marginBottom: 10 }}>🤖 AI LABORATORY</div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {sections.map(s => (
                   <button key={s.id} onClick={() => setAilabSection(s.id)}
@@ -18925,7 +18925,7 @@ export default function App() {
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ ...card({ padding: "14px 18px" }) }}>
-              <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.green, marginBottom: 14 }}>ðŸ“ˆ DCA PLANNER</div>
+              <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.green, marginBottom: 14 }}>📈 DCA PLANNER</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
                 <div>
                   <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>TICKER</div>
@@ -19009,7 +19009,7 @@ export default function App() {
             })()}
             {!dcaResult && (
               <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
-                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>ðŸ“ˆ</div>
+                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>📈</div>
                 <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Set parameters and click CALCULATE</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>Projects the future value of regular investments using compound growth</div>
               </div>
@@ -19024,7 +19024,7 @@ export default function App() {
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ ...card({ padding: "14px 18px" }) }}>
-              <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.amber, marginBottom: 14 }}>ðŸŽ° OPTIONS BREAK-EVEN CALCULATOR</div>
+              <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.amber, marginBottom: 14 }}>🎰 OPTIONS BREAK-EVEN CALCULATOR</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
                 <div>
                   <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>TYPE</div>
@@ -19118,7 +19118,7 @@ export default function App() {
             })()}
             {!optionResult && (
               <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
-                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>ðŸŽ°</div>
+                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>🎰</div>
                 <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Enter option details and click CALCULATE</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>Computes break-even, max profit/loss, intrinsic value, time value, and P&L</div>
               </div>
@@ -19798,7 +19798,7 @@ export default function App() {
           <div onClick={e => e.stopPropagation()} style={{ width: 560, maxWidth: "92vw", maxHeight: "80vh", overflowY: "auto", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, boxShadow: "0 24px 60px rgba(15,27,45,0.25)", padding: 24 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
               <div style={{ fontFamily: MONO, fontSize: 13, color: C.text, fontWeight: 700 }}>KEYBOARD SHORTCUTS</div>
-              <button onClick={() => setShortcutHelpOpen(false)} style={{ border: "none", background: "transparent", color: C.textDim, cursor: "pointer", fontSize: 18, padding: "0 4px" }}>Ã—</button>
+              <button onClick={() => setShortcutHelpOpen(false)} style={{ border: "none", background: "transparent", color: C.textDim, cursor: "pointer", fontSize: 18, padding: "0 4px" }}>×</button>
             </div>
             {[
               { section: "GLOBAL" },
@@ -19845,7 +19845,7 @@ export default function App() {
                 <span style={{ fontFamily: MONO, fontSize: 11, color: quickLogModal.chg >= 0 ? C.green : C.red, marginLeft: 8, fontWeight: 700 }}>{quickLogModal.chg >= 0 ? "+" : ""}{quickLogModal.chg.toFixed(2)}%</span>
                 {quickLogModal.score > 0 && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 10 }}>Score {Math.round(quickLogModal.score)}</span>}
               </div>
-              <button onClick={() => setQuickLogModal(null)} style={{ border: "none", background: "transparent", color: C.textDim, cursor: "pointer", fontSize: 20, lineHeight: 1, padding: "0 2px" }}>Ã—</button>
+              <button onClick={() => setQuickLogModal(null)} style={{ border: "none", background: "transparent", color: C.textDim, cursor: "pointer", fontSize: 20, lineHeight: 1, padding: "0 2px" }}>×</button>
             </div>
 
             {/* BUY / SELL toggle */}
@@ -19926,7 +19926,7 @@ export default function App() {
                   const target = Number(m.target) || 0;
                   const rr = entry > 0 && stop > 0 && target > 0 ? (Math.abs(target - entry) / Math.abs(entry - stop)).toFixed(1) : "?";
                   const plan = [
-                    `ðŸ“‹ ${m.symbol} | ${m.side} | ${m.style} | ${m.timeframe}`,
+                    `📋 ${m.symbol} | ${m.side} | ${m.style} | ${m.timeframe}`,
                     `Entry: $${entry.toFixed(2)} | Stop: $${stop.toFixed(2)} | Target: $${target.toFixed(2)}`,
                     `Size: ${Number(m.size) || "?"} shares | R:R ${rr}:1`,
                     m.notes ? `Notes: ${m.notes}` : "",
