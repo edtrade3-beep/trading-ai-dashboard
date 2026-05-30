@@ -4764,24 +4764,28 @@ function SoccerIPTVPlayer({ C, MONO, SANS }) {
         )}
       </div>
 
-      {/* Custom M3U loader */}
+      {/* Playlist presets + custom M3U loader */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber, flexShrink: 0 }}>💡 Paste your IPTV subscription M3U URL for SSC, beIN, Al Kass etc.</span>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, flexShrink: 0, width: "100%" }}>M3U URL:</span>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, flexShrink: 0 }}>PRESET:</span>
+        <button onClick={() => loadM3U("/axiom-runner/assets/playlist.m3u8")} disabled={loadingM3u}
+          style={{ ...btnStyle(false), padding: "5px 12px", color: C.green, borderColor: C.green }}>
+          🏆 SPORTS
+        </button>
+        <button onClick={() => loadM3U("/axiom-runner/assets/playlist2.m3u8")} disabled={loadingM3u}
+          style={{ ...btnStyle(false), padding: "5px 12px", color: C.accent, borderColor: C.accent }}>
+          📺 FREE TV
+        </button>
+        <span style={{ width: 1, height: 18, background: C.border, flexShrink: 0 }} />
         <input
           value={m3uInput}
           onChange={e => setM3uInput(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter") loadM3U(); }}
-          placeholder="Paste your IPTV M3U subscription URL…"
-          style={{ flex: 1, minWidth: 200, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 11, outline: "none" }}
+          placeholder="…or paste a custom M3U URL (SSC, beIN, Al Kass…)"
+          style={{ flex: 1, minWidth: 180, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 11, outline: "none" }}
         />
         <button onClick={() => loadM3U()} disabled={loadingM3u || !m3uInput.trim()}
           style={{ ...btnStyle(false), background: C.accent, color: "#fff", border: "none", padding: "6px 14px", fontWeight: 800 }}>
           {loadingM3u ? "LOADING…" : "LOAD"}
-        </button>
-        <button onClick={() => loadM3U("/axiom-runner/assets/playlist.m3u8")}
-          style={{ ...btnStyle(false), padding: "6px 10px" }}>
-          RESET
         </button>
         {m3uError && <span style={{ fontFamily: MONO, fontSize: 10, color: C.red, width: "100%" }}>{m3uError}</span>}
       </div>
