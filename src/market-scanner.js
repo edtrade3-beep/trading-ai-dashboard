@@ -479,14 +479,20 @@ async function runScan(options = {}) {
     return { skipped: true, reason: "outside market hours" };
   }
 
+  const weekend = isWeekend();
+
   isRunning = true;
   const hits   = [];
   const errors = [];
   let symbolsScanned = 0;
 
   try {
-    const symbols = (cfg.symbols || DEFAULT_SYMBOLS)
+    let symbols = (cfg.symbols || DEFAULT_SYMBOLS)
       .map(s => String(s).trim().toUpperCase()).filter(Boolean).slice(0, 500);
+
+    // Weekend: crypto-only — stock market is closed
+    if (weekend) symbols = symbols.filter(isCryptoSymbol);
+
     symbolsScanned = symbols.length;
 
     const concurrency = Math.max(1, Math.min(16, cfg.concurrency || 8));
@@ -504,7 +510,8 @@ async function runScan(options = {}) {
 
     // ── Macro regime alert — ONLY fires on a genuine regime CHANGE ────────────
     // e.g. RISK-OFF → RISK-ON or RISK-ON → RISK-OFF. No periodic repeat messages.
-    if (telegramConfigured()) {
+    // Skipped on weekends — stock indices are closed, regime is meaningless.
+    if (telegramConfigured() && !weekend) {
       const macro = computeMacroRegime(analysisMap);
       if (macro.regime !== lastMacroRegime) {
         const prev = lastMacroRegime || "UNKNOWN";
@@ -638,7 +645,9 @@ async function runScan(options = {}) {
             timeZone: "America/New_York", hour: "2-digit", minute: "2-digit",
           });
 
-          let msg = `📊 15-MIN SCAN  •  ${symbolsScanned} symbols\n`;
+          let msg = weekend
+            ? `🪙 WEEKEND CRYPTO SCAN  •  ${symbolsScanned} symbols\n`
+            : `📊 15-MIN SCAN  •  ${symbolsScanned} symbols\n`;
           msg    += `⏰ ${time} ET\n`;
           msg    += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
 
@@ -1311,6 +1320,16 @@ async function sendAfterCloseReport() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Symbols that trade 24/7 — the only ones sent on weekends
+const CRYPTO_SYMBOLS = new Set([
+  "BTC-USD","ETH-USD","SOL-USD","BNB-USD","XRP-USD","DOGE-USD","ADA-USD",
+  "IBIT","FBTC","GBTC","MSTR","COIN","HOOD",
+]);
+
+function isCryptoSymbol(sym) {
+  return CRYPTO_SYMBOLS.has(sym.toUpperCase());
+}
+
 function getEtTime() {
   try {
     const fmt = new Intl.DateTimeFormat("en-US", {
@@ -1320,6 +1339,11 @@ function getEtTime() {
     const [wd, time] = fmt.split(", ");
     return { wd, time };
   } catch { return { wd: "Mon", time: "00:00" }; }
+}
+
+function isWeekend() {
+  const { wd } = getEtTime();
+  return wd === "Sat" || wd === "Sun";
 }
 
 // ── Scheduler ─────────────────────────────────────────────────────────────────
