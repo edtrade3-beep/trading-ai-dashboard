@@ -4716,6 +4716,17 @@ export default function App() {
   const [apiKey, setApiKey] = useState("YAHOO_LOCAL");
   const [watchlistSymbols, setWatchlistSymbols] = useState(WATCHLIST_SYMBOLS);
   const [watchlistInput, setWatchlistInput] = useState(WATCHLIST_SYMBOLS.join(","));
+  // Multiple named watchlists — active list drives watchlistSymbols
+  const [watchlists, setWatchlists] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("ax_watchlists") || "null");
+      if (Array.isArray(saved) && saved.length) return saved;
+    } catch {}
+    return [{ id: "main", name: "Main", symbols: WATCHLIST_SYMBOLS }];
+  });
+  const [activeWlistId, setActiveWlistId] = useState("main");
+  const [wlistRenaming, setWlistRenaming] = useState(null); // id being renamed
+  const [wlistRenameVal, setWlistRenameVal] = useState("");
   const [wlSearchQuery, setWlSearchQuery] = useState("");
   const [wlSearchFocused, setWlSearchFocused] = useState(false);
   const [watchlistNotes, setWatchlistNotes] = useState(() => { try { return JSON.parse(localStorage.getItem("ax_wl_notes") || "{}"); } catch { return {}; } });
@@ -6284,6 +6295,25 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem("ax_wl_notes", JSON.stringify(watchlistNotes)); } catch {}
   }, [watchlistNotes]);
+
+  // Persist named watchlists
+  useEffect(() => {
+    try { localStorage.setItem("ax_watchlists", JSON.stringify(watchlists)); } catch {}
+  }, [watchlists]);
+
+  // When active list changes, load its symbols into the main watchlistSymbols state
+  useEffect(() => {
+    const list = watchlists.find(w => w.id === activeWlistId);
+    if (list) {
+      setWatchlistSymbols(list.symbols);
+      setWatchlistInput(list.symbols.join(","));
+    }
+  }, [activeWlistId]);
+
+  // When watchlistSymbols changes, keep the active named list in sync
+  useEffect(() => {
+    setWatchlists(prev => prev.map(w => w.id === activeWlistId ? { ...w, symbols: watchlistSymbols } : w));
+  }, [watchlistSymbols]);
 
   useEffect(() => {
     try { localStorage.setItem("ax_game_plan", dailyGamePlan); } catch {}
@@ -8445,6 +8475,38 @@ export default function App() {
           <button onClick={() => openTradingView(symbolSearch || terminalSymbol)} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.accent, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10, cursor: "pointer", height: 24 }}>TV</button>
           <span style={{ width: 1, height: 14, background: C.border, flexShrink: 0 }} />
           <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>{loading ? "⟳" : "REFRESH"}</button>
+          <button
+            title="Save watchlists, portfolio & settings to server"
+            onClick={async () => {
+              try {
+                const payload = { watchlists, portfolioHoldings, activeWlistId };
+                const r = await fetch("/api/cloud/save", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                const d = await r.json();
+                if (d.ok) alert(`☁ Saved to cloud at ${new Date(d.savedAt).toLocaleTimeString()}`);
+                else alert("Save failed: " + d.error);
+              } catch (e) { alert("Save failed: " + e.message); }
+            }}
+            style={{ background: `${C.green}14`, border: `1px solid ${C.green}55`, color: C.green, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}
+          >☁ SAVE</button>
+          <button
+            title="Load watchlists, portfolio & settings from server"
+            onClick={async () => {
+              try {
+                const r = await fetch("/api/cloud/load");
+                const d = await r.json();
+                if (!d.ok || !d.data) { alert("No cloud save found."); return; }
+                if (!window.confirm(`Load cloud save from ${new Date(d.data.savedAt).toLocaleString()}? This will overwrite your current data.`)) return;
+                if (Array.isArray(d.data.watchlists) && d.data.watchlists.length) {
+                  setWatchlists(d.data.watchlists);
+                  const aid = d.data.activeWlistId || d.data.watchlists[0].id;
+                  setActiveWlistId(aid);
+                }
+                if (Array.isArray(d.data.portfolioHoldings)) setPortfolioHoldings(d.data.portfolioHoldings);
+                alert("☁ Loaded from cloud!");
+              } catch (e) { alert("Load failed: " + e.message); }
+            }}
+            style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}
+          >☁ LOAD</button>
           <a href="/dealer" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>DEALER</a>
           <a href="/workstation" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>WS</a>
           <button onClick={generateMarketReport} style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>MARKET RESET</button>
@@ -8665,9 +8727,75 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: `minmax(860px, 1fr) minmax(340px, ${LAYOUT.sidebarWidth}px)`, gap: LAYOUT.gridGap, alignItems: "start" }}>
             {/* Watchlist Table */}
             <div>
+              {/* ── Named Watchlist Tabs ── */}
+              <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
+                {watchlists.map(wl => (
+                  <div key={wl.id} style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                    {wlistRenaming === wl.id ? (
+                      <input
+                        autoFocus
+                        value={wlistRenameVal}
+                        onChange={e => setWlistRenameVal(e.target.value)}
+                        onBlur={() => {
+                          if (wlistRenameVal.trim()) setWatchlists(prev => prev.map(w => w.id === wl.id ? { ...w, name: wlistRenameVal.trim() } : w));
+                          setWlistRenaming(null);
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") e.target.blur();
+                          if (e.key === "Escape") { setWlistRenaming(null); }
+                        }}
+                        style={{ width: 90, background: C.surface, border: `1px solid ${C.accent}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "4px 8px", borderRadius: "5px 0 0 5px" }}
+                      />
+                    ) : (
+                      <button
+                        onClick={() => setActiveWlistId(wl.id)}
+                        onDoubleClick={() => { setWlistRenaming(wl.id); setWlistRenameVal(wl.name); }}
+                        title={`${wl.symbols.length} symbols · double-click to rename`}
+                        style={{
+                          fontFamily: MONO, fontSize: 11, fontWeight: activeWlistId === wl.id ? 800 : 400,
+                          color: activeWlistId === wl.id ? C.accent : C.textDim,
+                          background: activeWlistId === wl.id ? C.accentGlow : "transparent",
+                          border: `1px solid ${activeWlistId === wl.id ? C.accent : C.border}`,
+                          borderRight: "none", borderRadius: "5px 0 0 5px",
+                          padding: "4px 12px", cursor: "pointer", whiteSpace: "nowrap",
+                        }}
+                      >
+                        {wl.name} <span style={{ opacity: 0.6, fontSize: 9 }}>({wl.symbols.length})</span>
+                      </button>
+                    )}
+                    {watchlists.length > 1 && (
+                      <button
+                        onClick={() => {
+                          if (!window.confirm(`Delete list "${wl.name}"?`)) return;
+                          const remaining = watchlists.filter(w => w.id !== wl.id);
+                          setWatchlists(remaining);
+                          if (activeWlistId === wl.id) setActiveWlistId(remaining[0].id);
+                        }}
+                        style={{ fontFamily: MONO, fontSize: 10, color: C.red, background: "transparent", border: `1px solid ${C.border}`, borderRadius: "0 5px 5px 0", padding: "4px 6px", cursor: "pointer" }}
+                        title="Delete this list"
+                      >✕</button>
+                    )}
+                    {watchlists.length === 1 && (
+                      <div style={{ width: 1, height: 28, background: C.border, borderRadius: "0 5px 5px 0", border: `1px solid ${C.border}`, borderLeft: "none" }} />
+                    )}
+                  </div>
+                ))}
+                {/* New list button */}
+                <button
+                  onClick={() => {
+                    const id = `list_${Date.now()}`;
+                    const name = `List ${watchlists.length + 1}`;
+                    setWatchlists(prev => [...prev, { id, name, symbols: [] }]);
+                    setActiveWlistId(id);
+                  }}
+                  style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, background: "transparent", border: `1px dashed ${C.border}`, borderRadius: 5, padding: "4px 10px", cursor: "pointer" }}
+                  title="New watchlist"
+                >+ NEW LIST</button>
+              </div>
+
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <span style={{ fontFamily: SANS, fontSize: 15, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em" }}>
-                  WATCHLIST — {watchlistData.length} SYMBOLS — REAL-TIME QUOTES
+                  {watchlists.find(w => w.id === activeWlistId)?.name?.toUpperCase() || "WATCHLIST"} — {watchlistData.length} SYMBOLS — REAL-TIME QUOTES
                 </span>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   {/* ── Search + Add ── */}
