@@ -8769,11 +8769,11 @@ export default function App() {
             borderRadius: 999, padding: "2px", flexShrink: 0,
           }}>
             <img
-              src="./assets/avatar.jpg"
-              alt="Dixie"
+              src="/axiom-runner/assets/avatar.jpg"
+              alt=""
               style={{
-                width: 34, height: 34, borderRadius: "50%",
-                objectFit: "cover", objectPosition: "center top",
+                width: 36, height: 36, borderRadius: "50%",
+                objectFit: "cover", objectPosition: "center 15%",
                 border: `2px solid ${C.accent}`,
                 flexShrink: 0,
               }}
