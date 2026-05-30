@@ -5793,11 +5793,11 @@ Risk small and follow the stop.`
 export default function App() {
   const [appUnlocked, setAppUnlocked] = useState(true);
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
-  const [isTablet, setIsTablet] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768 && window.innerWidth <= 1200);
+  const [isTablet, setIsTablet] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768 && window.innerWidth <= 1400);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   useEffect(() => {
-    const fn = () => { setIsMobile(window.innerWidth < 768); setIsTablet(window.innerWidth >= 768 && window.innerWidth <= 1200); };
+    const fn = () => { setIsMobile(window.innerWidth < 768); setIsTablet(window.innerWidth >= 768 && window.innerWidth <= 1400); };
     window.addEventListener("resize", fn);
     return () => window.removeEventListener("resize", fn);
   }, []);
@@ -9835,7 +9835,7 @@ export default function App() {
         )}
 
         {activeTab === "dashboard" && watchlistData.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : `minmax(860px, 1fr) minmax(340px, ${LAYOUT.sidebarWidth}px)`, gap: LAYOUT.gridGap, alignItems: "start" }}>
+          <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : `1fr minmax(300px, ${LAYOUT.sidebarWidth}px)`, gap: LAYOUT.gridGap, alignItems: "start" }}>
             {/* Watchlist Table */}
             <div>
               {/* ── Named Watchlist Tabs ── */}
