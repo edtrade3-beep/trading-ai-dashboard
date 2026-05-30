@@ -87,20 +87,20 @@ const DEFAULT_SYMBOLS = [
 const DEFAULT_CONFIG = {
   enabled: true,
   symbols: DEFAULT_SYMBOLS,
-  intervalMinutes: 15,   // background scan every 15 min — best/worst summary sent each cycle
-  buyScoreMin: 65,       // entry threshold — must score ≥ 65 to qualify
-  sellScoreMax: 35,      // exit threshold — must score ≤ 35 to qualify
-  minRvol: 1.1,          // minimum relative volume — no low-volume signals
-  cooldownHours: 3,      // never re-alert same symbol:signal within 3 hours
+  intervalMinutes: 15,   // background scan every 15 min
+  buyScoreMin: 75,       // A+ entry only — score ≥ 75 (raised from 65)
+  sellScoreMax: 25,      // Strong exit only — score ≤ 25 (tightened from 35)
+  minRvol: 1.5,          // High-volume moves only — no low-volume noise (raised from 1.1)
+  cooldownHours: 6,      // Never re-alert same symbol within 6 hours (raised from 3)
   marketHoursOnly: false,// OFF — crypto + AH stocks run 24/7
   concurrency: 16,
 };
 
 // ── Alert tiers ──────────────────────────────────────────────────────────────
-// Tier 1 — FIRE ALERT (standalone immediate message): very high conviction
-const FIRE_BUY_SCORE  = 75;   // score ≥ 75 → standalone fire alert
-const FIRE_SELL_SCORE = 25;   // score ≤ 25 → standalone fire alert
-const FIRE_MAX_PER_SCAN = 3;  // never more than 3 standalone fire alerts per scan run
+// Tier 1 — FIRE ALERT (standalone immediate message): very high conviction only
+const FIRE_BUY_SCORE  = 82;   // score ≥ 82 → standalone fire alert (raised from 75)
+const FIRE_SELL_SCORE = 18;   // score ≤ 18 → standalone fire alert (tightened from 25)
+const FIRE_MAX_PER_SCAN = 2;  // max 2 standalone fire alerts per scan (reduced from 3)
 
 // Tier 2 — SUMMARY SIGNAL (appears in scheduled scan summary): standard entry/exit
 // Uses buyScoreMin / sellScoreMax from config (65/35)
@@ -131,7 +131,7 @@ const cooldownMap   = new Map(); // "NVDA:BUY" → timestamp
 const lastSignalMap = new Map(); // "NVDA"     → "BUY"|"SELL"
 
 // Hard minimum gap between alerts for the same symbol:signal
-const MIN_ALERT_GAP_MS = 30 * 60_000; // 30 minutes — prevents noise between scans
+const MIN_ALERT_GAP_MS = 60 * 60_000; // 60 minutes — prevents noise between scans (raised from 30)
 
 let lastRunAt      = null;
 let lastRunResults = [];
@@ -579,9 +579,9 @@ async function runScan(options = {}) {
       // summary — they do NOT get a separate standalone message. No duplicates.
       const time  = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
       const buys  = hits.filter(h => h.signal === "BUY")
-                        .sort((a,b) => b.composite - a.composite).slice(0, 3);
+                        .sort((a,b) => b.composite - a.composite).slice(0, 2);
       const sells = hits.filter(h => h.signal === "SELL")
-                        .sort((a,b) => a.composite - b.composite).slice(0, 3);
+                        .sort((a,b) => a.composite - b.composite).slice(0, 2);
 
       if ((buys.length || sells.length) && telegramConfigured()) {
         let msg = `📡 ${scheduledLabel.toUpperCase()}\n`;
@@ -634,11 +634,11 @@ async function runScan(options = {}) {
         const buys  = hits
           .filter(h => h.signal === "BUY")
           .sort((a, b) => b.composite - a.composite)
-          .slice(0, 3);
+          .slice(0, 2);
         const sells = hits
           .filter(h => h.signal === "SELL")
           .sort((a, b) => a.composite - b.composite)
-          .slice(0, 3);
+          .slice(0, 2);
 
         if (buys.length || sells.length) {
           const time = new Date().toLocaleTimeString("en-US", {

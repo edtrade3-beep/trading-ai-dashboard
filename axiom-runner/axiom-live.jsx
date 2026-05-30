@@ -4559,31 +4559,59 @@ function SoccerIPTVPlayer({ C, MONO, SANS }) {
   const [playerErr,   setPlayerErr]   = React.useState(null);
   const [hlsReady,    setHlsReady]    = React.useState(false);
 
-  // Pre-loaded public free sports channels (iptv-org verified streams)
+  // Verified free public sports channels — no subscription, no auth required.
+  // All streams are HLS (M3U8). If a stream shows an error, use the M3U loader below
+  // to paste your own IPTV subscription URL.
   const DEFAULT_CHANNELS = [
-    // ── Arabic Sports ──────────────────────────────────────────────
-    { name: "Al Kass Sports 1",   url: "https://kass.com.qa/live/kass1/playlist.m3u8",                                                      flag: "🇶🇦", group: "Arabic" },
-    { name: "Al Kass Sports 2",   url: "https://kass.com.qa/live/kass2/playlist.m3u8",                                                      flag: "🇶🇦", group: "Arabic" },
-    { name: "Al Kass Sports 4",   url: "https://kass.com.qa/live/kass4/playlist.m3u8",                                                      flag: "🇶🇦", group: "Arabic" },
-    { name: "Al Kass Sports 5",   url: "https://kass.com.qa/live/kass5/playlist.m3u8",                                                      flag: "🇶🇦", group: "Arabic" },
-    { name: "SSC Sports 1",       url: "https://cdn.live.ssc.tv/ssc1hls/index.m3u8",                                                        flag: "🇸🇦", group: "Arabic" },
-    { name: "SSC Sports 2",       url: "https://cdn.live.ssc.tv/ssc2hls/index.m3u8",                                                        flag: "🇸🇦", group: "Arabic" },
-    { name: "SSC Sports 3",       url: "https://cdn.live.ssc.tv/ssc3hls/index.m3u8",                                                        flag: "🇸🇦", group: "Arabic" },
-    { name: "SSC Extra 1",        url: "https://cdn.live.ssc.tv/sscsportextra1hls/index.m3u8",                                              flag: "🇸🇦", group: "Arabic" },
-    { name: "Abu Dhabi Sports 1", url: "https://adtv-live.abudhabi.ae/abudhabisports1/smil:abudhabisports1.smil/playlist.m3u8",             flag: "🇦🇪", group: "Arabic" },
-    { name: "Abu Dhabi Sports 2", url: "https://adtv-live.abudhabi.ae/abudhabisports2/smil:abudhabisports2.smil/playlist.m3u8",             flag: "🇦🇪", group: "Arabic" },
-    { name: "Dubai Sports 1",     url: "https://www.dsports.ae/live/ds1.m3u8",                                                              flag: "🇦🇪", group: "Arabic" },
-    { name: "MBC Action",         url: "https://shls-mbcaction-live-us.shahid.net/out/v1/ddbfe64d6e664e57942de4e5bedb4e5f/index.m3u8",      flag: "🇸🇦", group: "Arabic" },
-    // ── International Sports ────────────────────────────────────────
-    { name: "Eurosport 1",        url: "https://i.mjh.nz/PlutoTV/8b1a9b09-af6c-4fed-ad69-7e8cf7e61f8b.m3u8",                               flag: "🇪🇺", group: "Euro" },
-    { name: "Sky Sports Football",url: "https://i.mjh.nz/PlutoTV/84b14c6f-3891-47a5-84fc-6f4d61bbbc6d.m3u8",                               flag: "🇬🇧", group: "Euro" },
-    { name: "Sky Sports News",    url: "https://i.mjh.nz/PlutoTV/2e48de29-4d5f-4f05-8b56-ed0a2e47e36c.m3u8",                               flag: "🇬🇧", group: "Euro" },
-    { name: "ESPN Deportes",      url: "https://i.mjh.nz/PlutoTV/8028d53b-1de0-4c09-a7f7-cf3bb10f2c9c.m3u8",                               flag: "🇺🇸", group: "Americas" },
-    { name: "FOX Sports",         url: "https://i.mjh.nz/PlutoTV/sports-tv.m3u8",                                                          flag: "🇺🇸", group: "Americas" },
-    { name: "beIN Sports Xtra",   url: "https://i.mjh.nz/PlutoTV/bein-sports-xtra.m3u8",                                                   flag: "🌍", group: "International" },
-    { name: "Sports News 24/7",   url: "https://i.mjh.nz/PlutoTV/sports-news-247.m3u8",                                                    flag: "🌍", group: "International" },
-    // ── Public M3U playlists (free, no key) ────────────────────────
-    { name: "⚽ IPTV-Org Sports", url: "https://iptv-org.github.io/iptv/categories/sports.m3u", flag: "📋", group: "Playlist", isPlaylist: true },
+    // ── Pluto TV Sports (free, ad-supported, no login) ─────────────
+    // Loaded via server proxy to bypass CORS
+    {
+      name:  "beIN Sports XTRA",
+      url:   "/api/proxy/m3u?url=" + encodeURIComponent("https://service-stitcher.clusters.pluto.tv/v1/stitch/hls/channel/5d3c6d37abe5cc3b1cf44bd2/master.m3u8?deviceId=free&deviceType=web&deviceMake=chrome&deviceModel=chrome&appName=web&appVersion=na&clientTime=0&serverSideAds=false"),
+      flag:  "⚽", group: "Pluto TV Free",
+    },
+    {
+      name:  "Fox Sports On Pluto TV",
+      url:   "/api/proxy/m3u?url=" + encodeURIComponent("https://service-stitcher.clusters.pluto.tv/v1/stitch/hls/channel/5cf3d7b6aab9d1a50e30e27e/master.m3u8?deviceId=free&deviceType=web&deviceMake=chrome&deviceModel=chrome&appName=web&appVersion=na&clientTime=0&serverSideAds=false"),
+      flag:  "🇺🇸", group: "Pluto TV Free",
+    },
+    {
+      name:  "Sky Sports News",
+      url:   "/api/proxy/m3u?url=" + encodeURIComponent("https://service-stitcher.clusters.pluto.tv/v1/stitch/hls/channel/5d3c6e06abe5cc3b1cf44d87/master.m3u8?deviceId=free&deviceType=web&deviceMake=chrome&deviceModel=chrome&appName=web&appVersion=na&clientTime=0&serverSideAds=false"),
+      flag:  "🇬🇧", group: "Pluto TV Free",
+    },
+    {
+      name:  "Sports News 24/7",
+      url:   "/api/proxy/m3u?url=" + encodeURIComponent("https://service-stitcher.clusters.pluto.tv/v1/stitch/hls/channel/5e3ce1e0d0a6a9a17d77a5db/master.m3u8?deviceId=free&deviceType=web&deviceMake=chrome&deviceModel=chrome&appName=web&appVersion=na&clientTime=0&serverSideAds=false"),
+      flag:  "📰", group: "Pluto TV Free",
+    },
+    // ── Free public broadcaster streams (no auth) ───────────────────
+    {
+      name:  "Al Jazeera English",
+      url:   "/api/proxy/m3u?url=" + encodeURIComponent("https://live-hls-web-aje.getaj.net/AJE/index.m3u8"),
+      flag:  "🇶🇦", group: "News / Sports",
+    },
+    {
+      name:  "Euronews",
+      url:   "/api/proxy/m3u?url=" + encodeURIComponent("https://euronews-euronews-1-de.samsung.wurl.com/manifest/playlist.m3u8"),
+      flag:  "🇪🇺", group: "News / Sports",
+    },
+    {
+      name:  "France 24 English",
+      url:   "/api/proxy/m3u?url=" + encodeURIComponent("https://stream.france24.com/hls/live/2037163/F24_EN_LO_HLS/master.m3u8"),
+      flag:  "🇫🇷", group: "News / Sports",
+    },
+    // ── Load full free sports playlists (click → populates channel list) ──
+    {
+      name:  "📋 Load IPTV-Org Sports (1000+ channels)",
+      url:   "https://iptv-org.github.io/iptv/categories/sports.m3u",
+      flag:  "📋", group: "Free Playlists", isPlaylist: true,
+    },
+    {
+      name:  "📋 Load IPTV-Org Football Only",
+      url:   "https://iptv-org.github.io/iptv/categories/football.m3u",
+      flag:  "📋", group: "Free Playlists", isPlaylist: true,
+    },
   ];
 
   // Load HLS.js from CDN once
@@ -4721,7 +4749,8 @@ function SoccerIPTVPlayer({ C, MONO, SANS }) {
 
       {/* Custom M3U loader */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, flexShrink: 0 }}>M3U URL:</span>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber, flexShrink: 0 }}>💡 Paste your IPTV subscription M3U URL for SSC, beIN, Al Kass etc.</span>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, flexShrink: 0, width: "100%" }}>M3U URL:</span>
         <input
           value={m3uInput}
           onChange={e => setM3uInput(e.target.value)}
