@@ -57,7 +57,7 @@ const THEME_DARK = {
   cyan:       "#42c9d8",   // teal-cyan — softer
   purple:     "#a57ff0",   // soft violet
 };
-const C = { ...THEME_LIGHT };
+const C = { ...THEME_DARK };
 
 // SANS  — clean system UI font for navigation, labels, body copy
 const SANS = `'Inter', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif`;
@@ -436,7 +436,7 @@ const DEFAULT_SETTINGS = {
   refreshMs: 180000,
   terminalLayout: "1",
   hotkeyProfile: "classic",
-  themeMode: "dark",
+  themeMode: "dark", // permanent default
   econCalendarView: "today",
   econCalendarRegion: "US",
   econAutoRisk30m: true,
@@ -2541,7 +2541,7 @@ function TerminalWorkspace({
             </div>
           )}
           <div style={{ overflow: "auto" }}>
-          <div style={{ padding: 10, background: "linear-gradient(180deg,#ffffff 0%,#f8fbff 100%)", display: "grid", gap: 10, gridTemplateColumns: termIsTablet ? "1fr" : "1.15fr 1fr" }}>
+          <div style={{ padding: 10, background: C.surface, display: "grid", gap: 10, gridTemplateColumns: termIsTablet ? "1fr" : "1.15fr 1fr" }}>
             <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, background: C.surface, overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr" }}>
               <div style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em" }}>INSTITUTIONAL RANKING LADDER</span>
@@ -2566,7 +2566,7 @@ function TerminalWorkspace({
                   </button>
                 ))}
               </div>
-              <div style={{ borderTop: `1px solid ${C.border}`, background: "#f9fbff", padding: 10 }}>
+              <div style={{ borderTop: `1px solid ${C.border}`, background: C.surface, padding: 10 }}>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
                   MACRO RELATION MATRIX
                 </div>
@@ -2674,7 +2674,7 @@ function TerminalWorkspace({
                       </div>
                     </div>
                   </div>
-                  <div style={{ padding: 10, background: "#f8fbff" }}>
+                  <div style={{ padding: 10, background: C.surface }}>
                     <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
                       MARKET PULSE
                     </div>
@@ -4695,7 +4695,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
 
   return (
     <div onClick={onClose} style={{
-      position: "fixed", inset: 0, background: "linear-gradient(180deg, #f4f8ff 0%, #edf3fb 100%)",
+      position: "fixed", inset: 0, background: C.bg,
       zIndex: 1000, overflowY: "auto", overflowX: "hidden",
     }}>
       <div onClick={e => e.stopPropagation()} style={{
@@ -4708,7 +4708,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
           padding: "20px 24px", borderBottom: `1px solid ${C.borderLit}`,
           display: "flex", justifyContent: "space-between", alignItems: "flex-start",
           flexWrap: "wrap", gap: 10,
-          background: "linear-gradient(180deg, #ffffff 0%, #f2f7ff 100%)",
+          background: C.card,
           boxShadow: "0 8px 24px rgba(25, 55, 98, 0.08)",
         }}>
           <div>
