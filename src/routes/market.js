@@ -934,6 +934,113 @@ async function handleMarket(req, res, requestUrl) {
     }
   }
 
+  // GET /api/market/options?symbol=AAPL&expiry=2025-01-17
+  if (pathname === "/api/market/options" && req.method === "GET") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { error: "symbol required" });
+    const requestedExpiry = searchParams.get("expiry") || null;
+    try {
+      const url = requestedExpiry
+        ? `https://query2.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}?date=${Math.floor(new Date(requestedExpiry).getTime() / 1000)}`
+        : `https://query2.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}`;
+      const H = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Accept": "application/json", "Referer": "https://finance.yahoo.com/" };
+      const res2 = await withTimeout(fetch(url, { headers: H }), 10000, null);
+      if (!res2 || !res2.ok) return writeJson(res, 502, { error: "Options data unavailable" });
+      const payload = await res2.json();
+      const result = payload?.optionChain?.result?.[0];
+      if (!result) return writeJson(res, 404, { error: "No options data for " + symbol });
+
+      const quote = result.quote || {};
+      const expiryDates = (result.expirationDates || []).map(ts => new Date(ts * 1000).toISOString().slice(0, 10));
+      const options = result.options?.[0] || {};
+
+      const mapContract = (c) => ({
+        contractSymbol: c.contractSymbol,
+        strike: round2(c.strike),
+        lastPrice: round2(c.lastPrice || 0),
+        bid: round2(c.bid || 0),
+        ask: round2(c.ask || 0),
+        change: round2(c.change || 0),
+        changePct: round2(c.percentChange || 0),
+        volume: c.volume || 0,
+        openInterest: c.openInterest || 0,
+        iv: round2((c.impliedVolatility || 0) * 100), // as %
+        inTheMoney: c.inTheMoney || false,
+        expiry: new Date((c.expiration || 0) * 1000).toISOString().slice(0, 10),
+      });
+
+      return writeJson(res, 200, {
+        ok: true,
+        symbol,
+        underlying: round2(quote.regularMarketPrice || 0),
+        expiryDates,
+        selectedExpiry: expiryDates[0] || null,
+        calls: (options.calls || []).map(mapContract),
+        puts:  (options.puts  || []).map(mapContract),
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("[market/options] Error:", err?.message);
+      return writeJson(res, 502, { error: "Options fetch failed: " + err?.message });
+    }
+  }
+
+  // GET /api/market/sec?symbol=AAPL — recent SEC filings from EDGAR RSS
+  if (pathname === "/api/market/sec" && req.method === "GET") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { error: "symbol required" });
+    try {
+      const H = { "User-Agent": "axiom-platform/1.0 contact@example.com", "Accept": "application/json" };
+      // Step 1: resolve CIK from ticker
+      const tickerRes = await withTimeout(
+        fetch(`https://efts.sec.gov/LATEST/search-index?q=%22${encodeURIComponent(symbol)}%22&dateRange=custom&startdt=2020-01-01&forms=8-K,4,13F-HR&hits.hits._source.period_of_report=true`, { headers: H }),
+        8000, null
+      );
+      // Use the simpler company search endpoint
+      const cikRes = await withTimeout(
+        fetch(`https://efts.sec.gov/LATEST/search-index?q=%22${symbol}%22&forms=8-K,4&hits.hits.total.value=5`, { headers: H }),
+        8000, null
+      );
+
+      // Fallback: use SEC full-text search API
+      const searchRes = await withTimeout(
+        fetch(`https://efts.sec.gov/LATEST/search-index?q=%22${symbol}%22&forms=8-K,4&dateRange=custom&startdt=2024-01-01`, { headers: H }).then(r => r.ok ? r.json() : null).catch(() => null),
+        8000, null
+      );
+
+      // Use EDGAR company search to get filings
+      const edgarSearch = await withTimeout(
+        fetch(`https://efts.sec.gov/LATEST/search-index?q="${symbol}"&forms=8-K,4&dateRange=custom&startdt=2025-01-01&hits.hits._source=period_of_report,entity_name,file_date,form_type,file_num`, { headers: H })
+          .then(r => r.ok ? r.json() : null).catch(() => null),
+        8000, null
+      );
+
+      // Best approach: use EDGAR full-text search
+      const ftSearch = await withTimeout(
+        fetch(`https://efts.sec.gov/LATEST/search-index?q=%22${symbol}%22&dateRange=custom&startdt=2025-01-01&forms=8-K%2C4%2C13F-HR`, { headers: H })
+          .then(r => r.ok ? r.json() : null).catch(() => null),
+        8000, null
+      );
+
+      const hits = ftSearch?.hits?.hits || [];
+      const filings = hits.slice(0, 10).map(h => {
+        const s = h._source || {};
+        return {
+          type:   s.form_type || "—",
+          date:   s.file_date || s.period_of_report || "",
+          entity: s.entity_name || symbol,
+          desc:   s.display_names ? s.display_names.join(", ") : (s.form_type || ""),
+          url:    `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${encodeURIComponent(symbol)}&type=${encodeURIComponent(s.form_type || "8-K")}&dateb=&owner=include&count=5`,
+        };
+      });
+
+      return writeJson(res, 200, { ok: true, symbol, filings, generatedAt: new Date().toISOString() });
+    } catch (err) {
+      console.error("[market/sec] Error:", err?.message);
+      return writeJson(res, 200, { ok: true, symbol, filings: [], generatedAt: new Date().toISOString() });
+    }
+  }
+
   return writeJson(res, 404, { error: "Unknown market endpoint." });
 }
 
