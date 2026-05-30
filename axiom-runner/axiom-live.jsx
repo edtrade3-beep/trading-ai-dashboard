@@ -17,7 +17,7 @@ const THEME_LIGHT = {
   // Text — dark navy-grey instead of near-black, much gentler on eyes
   text:       "#1e2d3d",   // dark navy-grey — readable but not harsh black
   textSec:    "#3d5068",   // medium navy-grey — secondary info
-  textDim:    "#6b7e92",   // soft grey-blue — hints, captions
+  textDim:    "#4a6070",   // darker than before — no more unreadable light gray
   // Brand accent
   accent:     "#2563eb",
   accentGlow: "rgba(37,99,235,0.16)",
@@ -2501,8 +2501,8 @@ function TerminalWorkspace({
                   onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.nextElementSibling.style.display = "flex"; }}
                 />
                 <div style={{ display: "none", position: "absolute", inset: 0, alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 6 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: "#888" }}>Finviz chart unavailable</span>
-                  <button onClick={() => setChartMode("canvas")} style={{ border: "1px solid #444", background: "#222", color: "#aaa", fontFamily: MONO, fontSize: 10, padding: "4px 10px", borderRadius: 4, cursor: "pointer" }}>Switch to Canvas</button>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Finviz chart unavailable</span>
+                  <button onClick={() => setChartMode("canvas")} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "4px 10px", borderRadius: 4, cursor: "pointer" }}>Switch to Canvas</button>
                 </div>
               </div>
             ) : (
