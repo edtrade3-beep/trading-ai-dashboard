@@ -6,30 +6,30 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 // ═══════════════════════════════════════════════════════════════
 
 const THEME_LIGHT = {
-  // Backgrounds — soft off-white reduces eye strain vs pure white
-  bg:         "#f0f4f9",
-  surface:    "#ffffff",
-  card:       "#ffffff",
-  cardHover:  "#e8f0fa",
-  // Borders — clearly visible but not harsh
-  border:     "#ccd8ea",
-  borderLit:  "#b3c8e2",
-  // Text — strong 3-level hierarchy
-  text:       "#0d1117",   // near-black — primary labels
-  textSec:    "#374151",   // dark grey — secondary info
-  textDim:    "#6b7b8d",   // medium grey — hints, timestamps, captions
+  // Backgrounds — warm soft off-white, easier than pure white
+  bg:         "#eef2f7",
+  surface:    "#f8fafc",
+  card:       "#f8fafc",
+  cardHover:  "#e4ecf6",
+  // Borders
+  border:     "#c8d6e8",
+  borderLit:  "#afc4db",
+  // Text — dark navy-grey instead of near-black, much gentler on eyes
+  text:       "#1e2d3d",   // dark navy-grey — readable but not harsh black
+  textSec:    "#3d5068",   // medium navy-grey — secondary info
+  textDim:    "#6b7e92",   // soft grey-blue — hints, captions
   // Brand accent
-  accent:     "#2563eb",   // Tailwind blue-600 — crisp, accessible
+  accent:     "#2563eb",
   accentGlow: "rgba(37,99,235,0.16)",
-  // Semantic colours — WCAG AA+ on white
-  green:      "#059669",   // emerald-600
-  greenBg:    "rgba(5,150,105,0.10)",
-  red:        "#dc2626",   // red-600
-  redBg:      "rgba(220,38,38,0.10)",
-  amber:      "#d97706",   // amber-600
-  amberBg:    "rgba(217,119,6,0.10)",
-  cyan:       "#0891b2",   // cyan-600
-  purple:     "#7c3aed",   // violet-600
+  // Semantic — slightly softer than pure saturated
+  green:      "#0d9465",   // slightly muted emerald
+  greenBg:    "rgba(13,148,101,0.10)",
+  red:        "#c8282a",   // slightly softer red
+  redBg:      "rgba(200,40,42,0.10)",
+  amber:      "#c96f00",   // warm amber
+  amberBg:    "rgba(201,111,0,0.10)",
+  cyan:       "#0882a8",
+  purple:     "#6d32cc",
 };
 const THEME_DARK = {
   // Backgrounds — warm dark slate, easier on eyes than cold navy
