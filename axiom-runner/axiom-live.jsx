@@ -1,9 +1,9 @@
 ﻿import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════
 // AXIOM — Professional Market Intelligence Platform
 // Real Data Edition — multi-provider (Finnhub + FMP + Yahoo fallback)
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════
 
 const THEME_LIGHT = {
   // Backgrounds — warm soft off-white, easier than pure white
@@ -73,27 +73,27 @@ const LAYOUT = {
 };
 const WEATHER_ZIP = "45014";
 
-// â”€â”€ Islamic Module Constants â”€â”€
+// ── Islamic Module Constants ──
 // CDN: download.quranicaudio.com/quran/{reciter.path}/{surahNum_padded3}.mp3
 // All reciters verified to have complete 114-surah libraries on quranicaudio.com
 const QURAN_BASE = "https://download.quranicaudio.com/quran";
 const qUrl = (r, n) => `${QURAN_BASE}/${r.path}/${String(n).padStart(3, "0")}.mp3`;
 const QURAN_RECITERS = [
-  { id: "alafasy",  path: "mishaari_raashid_al_3afaasee",     label: "Ù…Ø´Ø§Ø±ÙŠ Ø§Ù„Ø¹ÙØ§Ø³ÙŠ — Mishary Al-Afasy",       full: true },
-  { id: "maher",    path: "maher_almu3aiqly/year1440",        label: "Ù…Ø§Ù‡Ø± Ø§Ù„Ù…Ø¹ÙŠÙ‚Ù„ÙŠ — Maher Al-Muaiqly",       full: true },
-  { id: "husary",   path: "mahmood_khaleel_al-husaree_iza3a", label: "Ù…Ø­Ù…ÙˆØ¯ Ø®Ù„ÙŠÙ„ Ø§Ù„Ø­ØµØ±ÙŠ — Al-Husary",           full: true },
-  { id: "minshawi", path: "muhammad_siddeeq_al-minshaawee",   label: "Ù…Ø­Ù…Ø¯ Ø§Ù„Ù…Ù†Ø´Ø§ÙˆÙŠ — Al-Minshawi",             full: true },
-  { id: "sudais",   path: "abdurrahmaan_as-sudays",           label: "Ø¹Ø¨Ø¯ Ø§Ù„Ø±Ø­Ù…Ù† Ø§Ù„Ø³Ø¯ÙŠØ³ — Sudais",              full: true },
-  { id: "shuraym",  path: "sa3ood_al-shuraym",                label: "Ø³Ø¹ÙˆØ¯ Ø§Ù„Ø´Ø±ÙŠÙ… — Shuraym",                   full: true },
-  { id: "ghamdi",   path: "sa3d_al-ghaamidi/complete",        label: "Ø³Ø¹Ø¯ Ø§Ù„ØºØ§Ù…Ø¯ÙŠ — Saad Al-Ghamdi",            full: true },
-  { id: "shatri",   path: "abu_bakr_ash-shatri_tarawee7",     label: "Ø£Ø¨Ùˆ Ø¨ÙƒØ± Ø§Ù„Ø´Ø§Ø·Ø±ÙŠ — Abu Bakr Al-Shatri",   full: true },
-  { id: "hudhaify", path: "huthayfi",                         label: "Ø¹Ù„ÙŠ Ø§Ù„Ø­Ø°ÙŠÙÙŠ — Ali Al-Hudhaify",           full: true },
-  { id: "ajamy",    path: "ahmed_ibn_3ali_al-3ajamy",         label: "Ø£Ø­Ù…Ø¯ Ø§Ù„Ø¹Ø¬Ù…ÙŠ — Ahmed Al-Ajamy",            full: true },
-  { id: "basfar",   path: "abdullaah_basfar",                 label: "Ø¹Ø¨Ø¯ Ø§Ù„Ù„Ù‡ Ø¨ØµÙØ± — Abdullah Basfar",         full: true },
-  { id: "ayyoub",   path: "muhammad_ayyoob_hq",               label: "Ù…Ø­Ù…Ø¯ Ø£ÙŠÙˆØ¨ — Muhammad Ayyoub",             full: true },
-  { id: "akhdar",   path: "ibrahim_al_akhdar",                label: "Ø¥Ø¨Ø±Ø§Ù‡ÙŠÙ… Ø§Ù„Ø£Ø®Ø¶Ø± — Ibrahim Al-Akhdar",     full: true },
+  { id: "alafasy",  path: "mishaari_raashid_al_3afaasee",     label: "مشاري العفاسي — Mishary Al-Afasy",       full: true },
+  { id: "maher",    path: "maher_almu3aiqly/year1440",        label: "ماهر المعيقلي — Maher Al-Muaiqly",       full: true },
+  { id: "husary",   path: "mahmood_khaleel_al-husaree_iza3a", label: "محمود خليل الحصري — Al-Husary",           full: true },
+  { id: "minshawi", path: "muhammad_siddeeq_al-minshaawee",   label: "محمد المنشاوي — Al-Minshawi",             full: true },
+  { id: "sudais",   path: "abdurrahmaan_as-sudays",           label: "عبد الرحمن السديس — Sudais",              full: true },
+  { id: "shuraym",  path: "sa3ood_al-shuraym",                label: "سعود الشريم — Shuraym",                   full: true },
+  { id: "ghamdi",   path: "sa3d_al-ghaamidi/complete",        label: "سعد الغامدي — Saad Al-Ghamdi",            full: true },
+  { id: "shatri",   path: "abu_bakr_ash-shatri_tarawee7",     label: "أبو بكر الشاطري — Abu Bakr Al-Shatri",   full: true },
+  { id: "hudhaify", path: "huthayfi",                         label: "علي الحذيفي — Ali Al-Hudhaify",           full: true },
+  { id: "ajamy",    path: "ahmed_ibn_3ali_al-3ajamy",         label: "أحمد العجمي — Ahmed Al-Ajamy",            full: true },
+  { id: "basfar",   path: "abdullaah_basfar",                 label: "عبد الله بصفر — Abdullah Basfar",         full: true },
+  { id: "ayyoub",   path: "muhammad_ayyoob_hq",               label: "محمد أيوب — Muhammad Ayyoub",             full: true },
+  { id: "akhdar",   path: "ibrahim_al_akhdar",                label: "إبراهيم الأخضر — Ibrahim Al-Akhdar",     full: true },
 ];
-// â”€â”€ 5X Thematic Watchlist — shared by 5X PLAYS tab + Smart Scanner â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── 5X Thematic Watchlist — shared by 5X PLAYS tab + Smart Scanner ─────────
 const FIVEX_DATA = [
   { rank:1,  ticker:"BBAI",  company:"BigBear.ai",          sector:"Defense AI",        price:4.37,   e1:4.15,   e2:3.85,   e3:3.50,   trigger:4.72,   stop:3.71,   risk:"Very High",   upside:"5x-8x",  thesis:"Government AI systems" },
   { rank:2,  ticker:"SERV",  company:"Serve Robotics",       sector:"Robotics",          price:8.84,   e1:8.40,   e2:7.78,   e3:7.07,   trigger:9.55,   stop:7.51,   risk:"Extreme",     upside:"10x+",   thesis:"Autonomous delivery robots" },
@@ -130,210 +130,210 @@ const FIVEX_DATA = [
 const FIVEX_REF = Object.fromEntries(FIVEX_DATA.map(s => [s.ticker, s]));
 
 const SURAH_LIST = [
-  [1,"Ø§Ù„ÙØ§ØªØ­Ø©","Al-Fatiha"],
-  [2,"Ø§Ù„Ø¨Ù‚Ø±Ø©","Al-Baqarah"],
-  [3,"Ø¢Ù„ Ø¹Ù…Ø±Ø§Ù†","Ali 'Imran"],
-  [4,"Ø§Ù„Ù†Ø³Ø§Ø¡","An-Nisa"],
-  [5,"Ø§Ù„Ù…Ø§Ø¦Ø¯Ø©","Al-Ma'idah"],
-  [6,"Ø§Ù„Ø£Ù†Ø¹Ø§Ù…","Al-An'am"],
-  [7,"Ø§Ù„Ø£Ø¹Ø±Ø§Ù","Al-A'raf"],
-  [8,"Ø§Ù„Ø£Ù†ÙØ§Ù„","Al-Anfal"],
-  [9,"Ø§Ù„ØªÙˆØ¨Ø©","At-Tawbah"],
-  [10,"ÙŠÙˆÙ†Ø³","Yunus"],
-  [11,"Ù‡ÙˆØ¯","Hud"],
-  [12,"ÙŠÙˆØ³Ù","Yusuf"],
-  [13,"Ø§Ù„Ø±Ø¹Ø¯","Ar-Ra'd"],
-  [14,"Ø¥Ø¨Ø±Ø§Ù‡ÙŠÙ…","Ibrahim"],
-  [15,"Ø§Ù„Ø­Ø¬Ø±","Al-Hijr"],
-  [16,"Ø§Ù„Ù†Ø­Ù„","An-Nahl"],
-  [17,"Ø§Ù„Ø¥Ø³Ø±Ø§Ø¡","Al-Isra"],
-  [18,"Ø§Ù„ÙƒÙ‡Ù","Al-Kahf"],
-  [19,"Ù…Ø±ÙŠÙ…","Maryam"],
-  [20,"Ø·Ù‡","Ta-Ha"],
-  [21,"Ø§Ù„Ø£Ù†Ø¨ÙŠØ§Ø¡","Al-Anbiya"],
-  [22,"Ø§Ù„Ø­Ø¬","Al-Hajj"],
-  [23,"Ø§Ù„Ù…Ø¤Ù…Ù†ÙˆÙ†","Al-Mu'minun"],
-  [24,"Ø§Ù„Ù†ÙˆØ±","An-Nur"],
-  [25,"Ø§Ù„ÙØ±Ù‚Ø§Ù†","Al-Furqan"],
-  [26,"Ø§Ù„Ø´Ø¹Ø±Ø§Ø¡","Ash-Shu'ara"],
-  [27,"Ø§Ù„Ù†Ù…Ù„","An-Naml"],
-  [28,"Ø§Ù„Ù‚ØµØµ","Al-Qasas"],
-  [29,"Ø§Ù„Ø¹Ù†ÙƒØ¨ÙˆØª","Al-'Ankabut"],
-  [30,"Ø§Ù„Ø±ÙˆÙ…","Ar-Rum"],
-  [31,"Ù„Ù‚Ù…Ø§Ù†","Luqman"],
-  [32,"Ø§Ù„Ø³Ø¬Ø¯Ø©","As-Sajdah"],
-  [33,"Ø§Ù„Ø£Ø­Ø²Ø§Ø¨","Al-Ahzab"],
-  [34,"Ø³Ø¨Ø£","Saba"],
-  [35,"ÙØ§Ø·Ø±","Fatir"],
-  [36,"ÙŠØ³","Ya-Sin"],
-  [37,"Ø§Ù„ØµØ§ÙØ§Øª","As-Saffat"],
-  [38,"Øµ","Sad"],
-  [39,"Ø§Ù„Ø²Ù…Ø±","Az-Zumar"],
-  [40,"ØºØ§ÙØ±","Ghafir"],
-  [41,"ÙØµÙ„Øª","Fussilat"],
-  [42,"Ø§Ù„Ø´ÙˆØ±Ù‰","Ash-Shura"],
-  [43,"Ø§Ù„Ø²Ø®Ø±Ù","Az-Zukhruf"],
-  [44,"Ø§Ù„Ø¯Ø®Ø§Ù†","Ad-Dukhan"],
-  [45,"Ø§Ù„Ø¬Ø§Ø«ÙŠØ©","Al-Jathiyah"],
-  [46,"Ø§Ù„Ø£Ø­Ù‚Ø§Ù","Al-Ahqaf"],
-  [47,"Ù…Ø­Ù…Ø¯","Muhammad"],
-  [48,"Ø§Ù„ÙØªØ­","Al-Fath"],
-  [49,"Ø§Ù„Ø­Ø¬Ø±Ø§Øª","Al-Hujurat"],
-  [50,"Ù‚","Qaf"],
-  [51,"Ø§Ù„Ø°Ø§Ø±ÙŠØ§Øª","Adh-Dhariyat"],
-  [52,"Ø§Ù„Ø·ÙˆØ±","At-Tur"],
-  [53,"Ø§Ù„Ù†Ø¬Ù…","An-Najm"],
-  [54,"Ø§Ù„Ù‚Ù…Ø±","Al-Qamar"],
-  [55,"Ø§Ù„Ø±Ø­Ù…Ù†","Ar-Rahman"],
-  [56,"Ø§Ù„ÙˆØ§Ù‚Ø¹Ø©","Al-Waqi'ah"],
-  [57,"Ø§Ù„Ø­Ø¯ÙŠØ¯","Al-Hadid"],
-  [58,"Ø§Ù„Ù…Ø¬Ø§Ø¯Ù„Ø©","Al-Mujadila"],
-  [59,"Ø§Ù„Ø­Ø´Ø±","Al-Hashr"],
-  [60,"Ø§Ù„Ù…Ù…ØªØ­Ù†Ø©","Al-Mumtahanah"],
-  [61,"Ø§Ù„ØµÙ","As-Saf"],
-  [62,"Ø§Ù„Ø¬Ù…Ø¹Ø©","Al-Jumu'ah"],
-  [63,"Ø§Ù„Ù…Ù†Ø§ÙÙ‚ÙˆÙ†","Al-Munafiqun"],
-  [64,"Ø§Ù„ØªØºØ§Ø¨Ù†","At-Taghabun"],
-  [65,"Ø§Ù„Ø·Ù„Ø§Ù‚","At-Talaq"],
-  [66,"Ø§Ù„ØªØ­Ø±ÙŠÙ…","At-Tahrim"],
-  [67,"Ø§Ù„Ù…Ù„Ùƒ","Al-Mulk"],
-  [68,"Ø§Ù„Ù‚Ù„Ù…","Al-Qalam"],
-  [69,"Ø§Ù„Ø­Ø§Ù‚Ø©","Al-Haqqah"],
-  [70,"Ø§Ù„Ù…Ø¹Ø§Ø±Ø¬","Al-Ma'arij"],
-  [71,"Ù†ÙˆØ­","Nuh"],
-  [72,"Ø§Ù„Ø¬Ù†","Al-Jinn"],
-  [73,"Ø§Ù„Ù…Ø²Ù…Ù„","Al-Muzzammil"],
-  [74,"Ø§Ù„Ù…Ø¯Ø«Ø±","Al-Muddaththir"],
-  [75,"Ø§Ù„Ù‚ÙŠØ§Ù…Ø©","Al-Qiyamah"],
-  [76,"Ø§Ù„Ø¥Ù†Ø³Ø§Ù†","Al-Insan"],
-  [77,"Ø§Ù„Ù…Ø±Ø³Ù„Ø§Øª","Al-Mursalat"],
-  [78,"Ø§Ù„Ù†Ø¨Ø£","An-Naba"],
-  [79,"Ø§Ù„Ù†Ø§Ø²Ø¹Ø§Øª","An-Nazi'at"],
-  [80,"Ø¹Ø¨Ø³","'Abasa"],
-  [81,"Ø§Ù„ØªÙƒÙˆÙŠØ±","At-Takwir"],
-  [82,"Ø§Ù„Ø¥Ù†ÙØ·Ø§Ø±","Al-Infitar"],
-  [83,"Ø§Ù„Ù…Ø·ÙÙÙŠÙ†","Al-Mutaffifin"],
-  [84,"Ø§Ù„Ø¥Ù†Ø´Ù‚Ø§Ù‚","Al-Inshiqaq"],
-  [85,"Ø§Ù„Ø¨Ø±ÙˆØ¬","Al-Buruj"],
-  [86,"Ø§Ù„Ø·Ø§Ø±Ù‚","At-Tariq"],
-  [87,"Ø§Ù„Ø£Ø¹Ù„Ù‰","Al-A'la"],
-  [88,"Ø§Ù„ØºØ§Ø´ÙŠØ©","Al-Ghashiyah"],
-  [89,"Ø§Ù„ÙØ¬Ø±","Al-Fajr"],
-  [90,"Ø§Ù„Ø¨Ù„Ø¯","Al-Balad"],
-  [91,"Ø§Ù„Ø´Ù…Ø³","Ash-Shams"],
-  [92,"Ø§Ù„Ù„ÙŠÙ„","Al-Layl"],
-  [93,"Ø§Ù„Ø¶Ø­Ù‰","Ad-Duha"],
-  [94,"Ø§Ù„Ø´Ø±Ø­","Ash-Sharh"],
-  [95,"Ø§Ù„ØªÙŠÙ†","At-Tin"],
-  [96,"Ø§Ù„Ø¹Ù„Ù‚","Al-'Alaq"],
-  [97,"Ø§Ù„Ù‚Ø¯Ø±","Al-Qadr"],
-  [98,"Ø§Ù„Ø¨ÙŠÙ†Ø©","Al-Bayyinah"],
-  [99,"Ø§Ù„Ø²Ù„Ø²Ù„Ø©","Az-Zalzalah"],
-  [100,"Ø§Ù„Ø¹Ø§Ø¯ÙŠØ§Øª","Al-'Adiyat"],
-  [101,"Ø§Ù„Ù‚Ø§Ø±Ø¹Ø©","Al-Qari'ah"],
-  [102,"Ø§Ù„ØªÙƒØ§Ø«Ø±","At-Takathur"],
-  [103,"Ø§Ù„Ø¹ØµØ±","Al-'Asr"],
-  [104,"Ø§Ù„Ù‡Ù…Ø²Ø©","Al-Humazah"],
-  [105,"Ø§Ù„ÙÙŠÙ„","Al-Fil"],
-  [106,"Ù‚Ø±ÙŠØ´","Quraysh"],
-  [107,"Ø§Ù„Ù…Ø§Ø¹ÙˆÙ†","Al-Ma'un"],
-  [108,"Ø§Ù„ÙƒÙˆØ«Ø±","Al-Kawthar"],
-  [109,"Ø§Ù„ÙƒØ§ÙØ±ÙˆÙ†","Al-Kafirun"],
-  [110,"Ø§Ù„Ù†ØµØ±","An-Nasr"],
-  [111,"Ø§Ù„Ù…Ø³Ø¯","Al-Masad"],
-  [112,"Ø§Ù„Ø¥Ø®Ù„Ø§Øµ","Al-Ikhlas"],
-  [113,"Ø§Ù„ÙÙ„Ù‚","Al-Falaq"],
-  [114,"Ø§Ù„Ù†Ø§Ø³","An-Nas"],
+  [1,"الفاتحة","Al-Fatiha"],
+  [2,"البقرة","Al-Baqarah"],
+  [3,"آل عمران","Ali 'Imran"],
+  [4,"النساء","An-Nisa"],
+  [5,"المائدة","Al-Ma'idah"],
+  [6,"الأنعام","Al-An'am"],
+  [7,"الأعراف","Al-A'raf"],
+  [8,"الأنفال","Al-Anfal"],
+  [9,"التوبة","At-Tawbah"],
+  [10,"يونس","Yunus"],
+  [11,"هود","Hud"],
+  [12,"يوسف","Yusuf"],
+  [13,"الرعد","Ar-Ra'd"],
+  [14,"إبراهيم","Ibrahim"],
+  [15,"الحجر","Al-Hijr"],
+  [16,"النحل","An-Nahl"],
+  [17,"الإسراء","Al-Isra"],
+  [18,"الكهف","Al-Kahf"],
+  [19,"مريم","Maryam"],
+  [20,"طه","Ta-Ha"],
+  [21,"الأنبياء","Al-Anbiya"],
+  [22,"الحج","Al-Hajj"],
+  [23,"المؤمنون","Al-Mu'minun"],
+  [24,"النور","An-Nur"],
+  [25,"الفرقان","Al-Furqan"],
+  [26,"الشعراء","Ash-Shu'ara"],
+  [27,"النمل","An-Naml"],
+  [28,"القصص","Al-Qasas"],
+  [29,"العنكبوت","Al-'Ankabut"],
+  [30,"الروم","Ar-Rum"],
+  [31,"لقمان","Luqman"],
+  [32,"السجدة","As-Sajdah"],
+  [33,"الأحزاب","Al-Ahzab"],
+  [34,"سبأ","Saba"],
+  [35,"فاطر","Fatir"],
+  [36,"يس","Ya-Sin"],
+  [37,"الصافات","As-Saffat"],
+  [38,"ص","Sad"],
+  [39,"الزمر","Az-Zumar"],
+  [40,"غافر","Ghafir"],
+  [41,"فصلت","Fussilat"],
+  [42,"الشورى","Ash-Shura"],
+  [43,"الزخرف","Az-Zukhruf"],
+  [44,"الدخان","Ad-Dukhan"],
+  [45,"الجاثية","Al-Jathiyah"],
+  [46,"الأحقاف","Al-Ahqaf"],
+  [47,"محمد","Muhammad"],
+  [48,"الفتح","Al-Fath"],
+  [49,"الحجرات","Al-Hujurat"],
+  [50,"ق","Qaf"],
+  [51,"الذاريات","Adh-Dhariyat"],
+  [52,"الطور","At-Tur"],
+  [53,"النجم","An-Najm"],
+  [54,"القمر","Al-Qamar"],
+  [55,"الرحمن","Ar-Rahman"],
+  [56,"الواقعة","Al-Waqi'ah"],
+  [57,"الحديد","Al-Hadid"],
+  [58,"المجادلة","Al-Mujadila"],
+  [59,"الحشر","Al-Hashr"],
+  [60,"الممتحنة","Al-Mumtahanah"],
+  [61,"الصف","As-Saf"],
+  [62,"الجمعة","Al-Jumu'ah"],
+  [63,"المنافقون","Al-Munafiqun"],
+  [64,"التغابن","At-Taghabun"],
+  [65,"الطلاق","At-Talaq"],
+  [66,"التحريم","At-Tahrim"],
+  [67,"الملك","Al-Mulk"],
+  [68,"القلم","Al-Qalam"],
+  [69,"الحاقة","Al-Haqqah"],
+  [70,"المعارج","Al-Ma'arij"],
+  [71,"نوح","Nuh"],
+  [72,"الجن","Al-Jinn"],
+  [73,"المزمل","Al-Muzzammil"],
+  [74,"المدثر","Al-Muddaththir"],
+  [75,"القيامة","Al-Qiyamah"],
+  [76,"الإنسان","Al-Insan"],
+  [77,"المرسلات","Al-Mursalat"],
+  [78,"النبأ","An-Naba"],
+  [79,"النازعات","An-Nazi'at"],
+  [80,"عبس","'Abasa"],
+  [81,"التكوير","At-Takwir"],
+  [82,"الإنفطار","Al-Infitar"],
+  [83,"المطففين","Al-Mutaffifin"],
+  [84,"الإنشقاق","Al-Inshiqaq"],
+  [85,"البروج","Al-Buruj"],
+  [86,"الطارق","At-Tariq"],
+  [87,"الأعلى","Al-A'la"],
+  [88,"الغاشية","Al-Ghashiyah"],
+  [89,"الفجر","Al-Fajr"],
+  [90,"البلد","Al-Balad"],
+  [91,"الشمس","Ash-Shams"],
+  [92,"الليل","Al-Layl"],
+  [93,"الضحى","Ad-Duha"],
+  [94,"الشرح","Ash-Sharh"],
+  [95,"التين","At-Tin"],
+  [96,"العلق","Al-'Alaq"],
+  [97,"القدر","Al-Qadr"],
+  [98,"البينة","Al-Bayyinah"],
+  [99,"الزلزلة","Az-Zalzalah"],
+  [100,"العاديات","Al-'Adiyat"],
+  [101,"القارعة","Al-Qari'ah"],
+  [102,"التكاثر","At-Takathur"],
+  [103,"العصر","Al-'Asr"],
+  [104,"الهمزة","Al-Humazah"],
+  [105,"الفيل","Al-Fil"],
+  [106,"قريش","Quraysh"],
+  [107,"الماعون","Al-Ma'un"],
+  [108,"الكوثر","Al-Kawthar"],
+  [109,"الكافرون","Al-Kafirun"],
+  [110,"النصر","An-Nasr"],
+  [111,"المسد","Al-Masad"],
+  [112,"الإخلاص","Al-Ikhlas"],
+  [113,"الفلق","Al-Falaq"],
+  [114,"الناس","An-Nas"],
 ];
 const ATHKAR_DATA = {
   morning: {
-    title: "Ø£Ø°ÙƒØ§Ø± Ø§Ù„ØµØ¨Ø§Ø­",
+    title: "أذكار الصباح",
     items: [
-      { id: "m1", text: "Ø£ÙŽØ¹ÙÙˆØ°Ù Ø¨ÙØ§Ù„Ù„Ù‡Ù Ù…ÙÙ†ÙŽ Ø§Ù„Ø´ÙŽÙ‘ÙŠÙ’Ø·ÙŽØ§Ù†Ù Ø§Ù„Ø±ÙŽÙ‘Ø¬ÙÙŠÙ…Ù\nØ§Ù„Ù„ÙŽÙ‘Ù‡Ù Ù„ÙŽØ§ Ø¥ÙÙ„ÙŽÙ°Ù‡ÙŽ Ø¥ÙÙ„ÙŽÙ‘Ø§ Ù‡ÙÙˆÙŽ Ø§Ù„Ù’Ø­ÙŽÙŠÙÙ‘ Ø§Ù„Ù’Ù‚ÙŽÙŠÙÙ‘ÙˆÙ…Ù Ûš Ù„ÙŽØ§ ØªÙŽØ£Ù’Ø®ÙØ°ÙÙ‡Ù Ø³ÙÙ†ÙŽØ©ÙŒ ÙˆÙŽÙ„ÙŽØ§ Ù†ÙŽÙˆÙ’Ù…ÙŒ", count: 1, label: "Ø¢ÙŠØ© Ø§Ù„ÙƒØ±Ø³ÙŠ" },
-      { id: "m2", text: "Ø¨ÙØ³Ù’Ù…Ù Ø§Ù„Ù„ÙŽÙ‘Ù‡Ù Ø§Ù„Ø±ÙŽÙ‘Ø­Ù’Ù…ÙŽÙ°Ù†Ù Ø§Ù„Ø±ÙŽÙ‘Ø­ÙÙŠÙ…Ù\nÙ‚ÙÙ„Ù’ Ù‡ÙÙˆÙŽ Ø§Ù„Ù„ÙŽÙ‘Ù‡Ù Ø£ÙŽØ­ÙŽØ¯ÙŒØŒ Ø§Ù„Ù„ÙŽÙ‘Ù‡Ù Ø§Ù„ØµÙŽÙ‘Ù…ÙŽØ¯ÙØŒ Ù„ÙŽÙ…Ù’ ÙŠÙŽÙ„ÙØ¯Ù’ ÙˆÙŽÙ„ÙŽÙ…Ù’ ÙŠÙÙˆÙ„ÙŽØ¯Ù’ØŒ ÙˆÙŽÙ„ÙŽÙ…Ù’ ÙŠÙŽÙƒÙÙ† Ù„ÙŽÙ‘Ù‡Ù ÙƒÙÙÙÙˆÙ‹Ø§ Ø£ÙŽØ­ÙŽØ¯ÙŒ", count: 3, label: "Ø³ÙˆØ±Ø© Ø§Ù„Ø¥Ø®Ù„Ø§Øµ" },
-      { id: "m3", text: "Ø£ÙŽØµÙ’Ø¨ÙŽØ­Ù’Ù†ÙŽØ§ ÙˆÙŽØ£ÙŽØµÙ’Ø¨ÙŽØ­ÙŽ Ø§Ù„Ù’Ù…ÙÙ„Ù’ÙƒÙ Ù„ÙÙ„ÙŽÙ‘Ù‡ÙØŒ ÙˆÙŽØ§Ù„Ù’Ø­ÙŽÙ…Ù’Ø¯Ù Ù„ÙÙ„ÙŽÙ‘Ù‡ÙØŒ Ù„ÙŽØ§ Ø¥ÙÙ„ÙŽÙ‡ÙŽ Ø¥ÙÙ„ÙŽÙ‘Ø§ Ø§Ù„Ù„ÙŽÙ‘Ù‡Ù ÙˆÙŽØ­Ù’Ø¯ÙŽÙ‡Ù Ù„ÙŽØ§ Ø´ÙŽØ±ÙÙŠÙƒÙŽ Ù„ÙŽÙ‡ÙØŒ Ù„ÙŽÙ‡Ù Ø§Ù„Ù’Ù…ÙÙ„Ù’ÙƒÙ ÙˆÙŽÙ„ÙŽÙ‡Ù Ø§Ù„Ù’Ø­ÙŽÙ…Ù’Ø¯Ù ÙˆÙŽÙ‡ÙÙˆÙŽ Ø¹ÙŽÙ„ÙŽÙ‰ ÙƒÙÙ„ÙÙ‘ Ø´ÙŽÙŠÙ’Ø¡Ù Ù‚ÙŽØ¯ÙÙŠØ±ÙŒ", count: 1, label: "Ø¯Ø¹Ø§Ø¡ Ø§Ù„ØµØ¨Ø§Ø­" },
-      { id: "m4", text: "Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙÙ…ÙŽÙ‘ Ø¨ÙÙƒÙŽ Ø£ÙŽØµÙ’Ø¨ÙŽØ­Ù’Ù†ÙŽØ§ØŒ ÙˆÙŽØ¨ÙÙƒÙŽ Ø£ÙŽÙ…Ù’Ø³ÙŽÙŠÙ’Ù†ÙŽØ§ØŒ ÙˆÙŽØ¨ÙÙƒÙŽ Ù†ÙŽØ­Ù’ÙŠÙŽØ§ØŒ ÙˆÙŽØ¨ÙÙƒÙŽ Ù†ÙŽÙ…ÙÙˆØªÙ ÙˆÙŽØ¥ÙÙ„ÙŽÙŠÙ’ÙƒÙŽ Ø§Ù„Ù†ÙÙ‘Ø´ÙÙˆØ±Ù", count: 1, label: "Ø¯Ø¹Ø§Ø¡ Ø§Ù„Ø§Ø³ØªÙŠÙ‚Ø§Ø¸" },
-      { id: "m5", text: "Ø³ÙØ¨Ù’Ø­ÙŽØ§Ù†ÙŽ Ø§Ù„Ù„ÙŽÙ‘Ù‡Ù ÙˆÙŽØ¨ÙØ­ÙŽÙ…Ù’Ø¯ÙÙ‡Ù", count: 100, label: "ØªØ³Ø¨ÙŠØ­ Ø§Ù„ØµØ¨Ø§Ø­" },
-      { id: "m6", text: "Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙÙ…ÙŽÙ‘ Ø£ÙŽÙ†Ù’ØªÙŽ Ø±ÙŽØ¨ÙÙ‘ÙŠ Ù„ÙŽØ§ Ø¥ÙÙ„ÙŽÙ‡ÙŽ Ø¥ÙÙ„ÙŽÙ‘Ø§ Ø£ÙŽÙ†Ù’ØªÙŽØŒ Ø®ÙŽÙ„ÙŽÙ‚Ù’ØªÙŽÙ†ÙÙŠ ÙˆÙŽØ£ÙŽÙ†ÙŽØ§ Ø¹ÙŽØ¨Ù’Ø¯ÙÙƒÙŽØŒ ÙˆÙŽØ£ÙŽÙ†ÙŽØ§ Ø¹ÙŽÙ„ÙŽÙ‰ Ø¹ÙŽÙ‡Ù’Ø¯ÙÙƒÙŽ ÙˆÙŽÙˆÙŽØ¹Ù’Ø¯ÙÙƒÙŽ Ù…ÙŽØ§ Ø§Ø³Ù’ØªÙŽØ·ÙŽØ¹Ù’ØªÙØŒ Ø£ÙŽØ¹ÙÙˆØ°Ù Ø¨ÙÙƒÙŽ Ù…ÙÙ†Ù’ Ø´ÙŽØ±ÙÙ‘ Ù…ÙŽØ§ ØµÙŽÙ†ÙŽØ¹Ù’ØªÙ", count: 1, label: "Ø³ÙŠØ¯ Ø§Ù„Ø§Ø³ØªØºÙØ§Ø±" },
-      { id: "m7", text: "Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙÙ…ÙŽÙ‘ Ø¹ÙŽØ§ÙÙÙ†ÙÙŠ ÙÙÙŠ Ø¨ÙŽØ¯ÙŽÙ†ÙÙŠØŒ Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙÙ…ÙŽÙ‘ Ø¹ÙŽØ§ÙÙÙ†ÙÙŠ ÙÙÙŠ Ø³ÙŽÙ…Ù’Ø¹ÙÙŠØŒ Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙÙ…ÙŽÙ‘ Ø¹ÙŽØ§ÙÙÙ†ÙÙŠ ÙÙÙŠ Ø¨ÙŽØµÙŽØ±ÙÙŠØŒ Ù„ÙŽØ§ Ø¥ÙÙ„ÙŽÙ‡ÙŽ Ø¥ÙÙ„ÙŽÙ‘Ø§ Ø£ÙŽÙ†Ù’ØªÙŽ", count: 3, label: "Ø¯Ø¹Ø§Ø¡ Ø§Ù„Ø¹Ø§ÙÙŠØ©" },
-      { id: "m8", text: "Ø±ÙŽØ¶ÙÙŠØªÙ Ø¨ÙØ§Ù„Ù„ÙŽÙ‘Ù‡Ù Ø±ÙŽØ¨Ù‹Ù‘Ø§ØŒ ÙˆÙŽØ¨ÙØ§Ù„Ø¥ÙØ³Ù’Ù„ÙŽØ§Ù…Ù Ø¯ÙÙŠÙ†Ø§Ù‹ØŒ ÙˆÙŽØ¨ÙÙ…ÙØ­ÙŽÙ…ÙŽÙ‘Ø¯Ù ØµÙŽÙ„ÙŽÙ‘Ù‰ Ø§Ù„Ù„ÙŽÙ‘Ù‡Ù Ø¹ÙŽÙ„ÙŽÙŠÙ’Ù‡Ù ÙˆÙŽØ³ÙŽÙ„ÙŽÙ‘Ù…ÙŽ Ù†ÙŽØ¨ÙÙŠÙ‹Ù‘Ø§", count: 3, label: "Ø§Ù„Ø±Ø¶Ø§ Ø¨Ø§Ù„Ù„Ù‡" },
+      { id: "m1", text: "أَعُوذُ بِاللهِ مِنَ الشَّيْطَانِ الرَّجِيمِ\nاللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ ۚ لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ", count: 1, label: "آية الكرسي" },
+      { id: "m2", text: "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ\nقُلْ هُوَ اللَّهُ أَحَدٌ، اللَّهُ الصَّمَدُ، لَمْ يَلِدْ وَلَمْ يُولَدْ، وَلَمْ يَكُن لَّهُ كُفُوًا أَحَدٌ", count: 3, label: "سورة الإخلاص" },
+      { id: "m3", text: "أَصْبَحْنَا وَأَصْبَحَ الْمُلْكُ لِلَّهِ، وَالْحَمْدُ لِلَّهِ، لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ", count: 1, label: "دعاء الصباح" },
+      { id: "m4", text: "اللَّهُمَّ بِكَ أَصْبَحْنَا، وَبِكَ أَمْسَيْنَا، وَبِكَ نَحْيَا، وَبِكَ نَمُوتُ وَإِلَيْكَ النُّشُورُ", count: 1, label: "دعاء الاستيقاظ" },
+      { id: "m5", text: "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ", count: 100, label: "تسبيح الصباح" },
+      { id: "m6", text: "اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ", count: 1, label: "سيد الاستغفار" },
+      { id: "m7", text: "اللَّهُمَّ عَافِنِي فِي بَدَنِي، اللَّهُمَّ عَافِنِي فِي سَمْعِي، اللَّهُمَّ عَافِنِي فِي بَصَرِي، لَا إِلَهَ إِلَّا أَنْتَ", count: 3, label: "دعاء العافية" },
+      { id: "m8", text: "رَضِيتُ بِاللَّهِ رَبًّا، وَبِالإِسْلَامِ دِيناً، وَبِمُحَمَّدٍ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ نَبِيًّا", count: 3, label: "الرضا بالله" },
     ],
   },
   evening: {
-    title: "Ø£Ø°ÙƒØ§Ø± Ø§Ù„Ù…Ø³Ø§Ø¡",
+    title: "أذكار المساء",
     items: [
-      { id: "e1", text: "Ø£ÙŽØ¹ÙÙˆØ°Ù Ø¨ÙØ§Ù„Ù„Ù‡Ù Ù…ÙÙ†ÙŽ Ø§Ù„Ø´ÙŽÙ‘ÙŠÙ’Ø·ÙŽØ§Ù†Ù Ø§Ù„Ø±ÙŽÙ‘Ø¬ÙÙŠÙ…Ù\nØ§Ù„Ù„ÙŽÙ‘Ù‡Ù Ù„ÙŽØ§ Ø¥ÙÙ„ÙŽÙ°Ù‡ÙŽ Ø¥ÙÙ„ÙŽÙ‘Ø§ Ù‡ÙÙˆÙŽ Ø§Ù„Ù’Ø­ÙŽÙŠÙÙ‘ Ø§Ù„Ù’Ù‚ÙŽÙŠÙÙ‘ÙˆÙ…Ù Ûš Ù„ÙŽØ§ ØªÙŽØ£Ù’Ø®ÙØ°ÙÙ‡Ù Ø³ÙÙ†ÙŽØ©ÙŒ ÙˆÙŽÙ„ÙŽØ§ Ù†ÙŽÙˆÙ’Ù…ÙŒ", count: 1, label: "Ø¢ÙŠØ© Ø§Ù„ÙƒØ±Ø³ÙŠ" },
-      { id: "e2", text: "Ø£ÙŽÙ…Ù’Ø³ÙŽÙŠÙ’Ù†ÙŽØ§ ÙˆÙŽØ£ÙŽÙ…Ù’Ø³ÙŽÙ‰ Ø§Ù„Ù’Ù…ÙÙ„Ù’ÙƒÙ Ù„ÙÙ„ÙŽÙ‘Ù‡ÙØŒ ÙˆÙŽØ§Ù„Ù’Ø­ÙŽÙ…Ù’Ø¯Ù Ù„ÙÙ„ÙŽÙ‘Ù‡ÙØŒ Ù„ÙŽØ§ Ø¥ÙÙ„ÙŽÙ‡ÙŽ Ø¥ÙÙ„ÙŽÙ‘Ø§ Ø§Ù„Ù„ÙŽÙ‘Ù‡Ù ÙˆÙŽØ­Ù’Ø¯ÙŽÙ‡Ù Ù„ÙŽØ§ Ø´ÙŽØ±ÙÙŠÙƒÙŽ Ù„ÙŽÙ‡Ù", count: 1, label: "Ø¯Ø¹Ø§Ø¡ Ø§Ù„Ù…Ø³Ø§Ø¡" },
-      { id: "e3", text: "Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙÙ…ÙŽÙ‘ Ø¨ÙÙƒÙŽ Ø£ÙŽÙ…Ù’Ø³ÙŽÙŠÙ’Ù†ÙŽØ§ØŒ ÙˆÙŽØ¨ÙÙƒÙŽ Ø£ÙŽØµÙ’Ø¨ÙŽØ­Ù’Ù†ÙŽØ§ØŒ ÙˆÙŽØ¨ÙÙƒÙŽ Ù†ÙŽØ­Ù’ÙŠÙŽØ§ØŒ ÙˆÙŽØ¨ÙÙƒÙŽ Ù†ÙŽÙ…ÙÙˆØªÙ ÙˆÙŽØ¥ÙÙ„ÙŽÙŠÙ’ÙƒÙŽ Ø§Ù„Ù’Ù…ÙŽØµÙÙŠØ±Ù", count: 1, label: "Ø¯Ø¹Ø§Ø¡ Ø§Ù„Ù…Ø³Ø§Ø¡" },
-      { id: "e4", text: "Ø³ÙØ¨Ù’Ø­ÙŽØ§Ù†ÙŽ Ø§Ù„Ù„ÙŽÙ‘Ù‡Ù ÙˆÙŽØ¨ÙØ­ÙŽÙ…Ù’Ø¯ÙÙ‡Ù", count: 100, label: "ØªØ³Ø¨ÙŠØ­ Ø§Ù„Ù…Ø³Ø§Ø¡" },
-      { id: "e5", text: "Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙÙ…ÙŽÙ‘ Ø£ÙŽÙ†Ù’ØªÙŽ Ø±ÙŽØ¨ÙÙ‘ÙŠ Ù„ÙŽØ§ Ø¥ÙÙ„ÙŽÙ‡ÙŽ Ø¥ÙÙ„ÙŽÙ‘Ø§ Ø£ÙŽÙ†Ù’ØªÙŽØŒ Ø®ÙŽÙ„ÙŽÙ‚Ù’ØªÙŽÙ†ÙÙŠ ÙˆÙŽØ£ÙŽÙ†ÙŽØ§ Ø¹ÙŽØ¨Ù’Ø¯ÙÙƒÙŽØŒ ÙˆÙŽØ£ÙŽÙ†ÙŽØ§ Ø¹ÙŽÙ„ÙŽÙ‰ Ø¹ÙŽÙ‡Ù’Ø¯ÙÙƒÙŽ ÙˆÙŽÙˆÙŽØ¹Ù’Ø¯ÙÙƒÙŽ Ù…ÙŽØ§ Ø§Ø³Ù’ØªÙŽØ·ÙŽØ¹Ù’ØªÙ", count: 1, label: "Ø³ÙŠØ¯ Ø§Ù„Ø§Ø³ØªØºÙØ§Ø±" },
-      { id: "e6", text: "Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙÙ…ÙŽÙ‘ Ø¹ÙŽØ§ÙÙÙ†ÙÙŠ ÙÙÙŠ Ø¨ÙŽØ¯ÙŽÙ†ÙÙŠØŒ Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙÙ…ÙŽÙ‘ Ø¹ÙŽØ§ÙÙÙ†ÙÙŠ ÙÙÙŠ Ø³ÙŽÙ…Ù’Ø¹ÙÙŠØŒ Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙÙ…ÙŽÙ‘ Ø¹ÙŽØ§ÙÙÙ†ÙÙŠ ÙÙÙŠ Ø¨ÙŽØµÙŽØ±ÙÙŠØŒ Ù„ÙŽØ§ Ø¥ÙÙ„ÙŽÙ‡ÙŽ Ø¥ÙÙ„ÙŽÙ‘Ø§ Ø£ÙŽÙ†Ù’ØªÙŽ", count: 3, label: "Ø¯Ø¹Ø§Ø¡ Ø§Ù„Ø¹Ø§ÙÙŠØ©" },
+      { id: "e1", text: "أَعُوذُ بِاللهِ مِنَ الشَّيْطَانِ الرَّجِيمِ\nاللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ ۚ لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ", count: 1, label: "آية الكرسي" },
+      { id: "e2", text: "أَمْسَيْنَا وَأَمْسَى الْمُلْكُ لِلَّهِ، وَالْحَمْدُ لِلَّهِ، لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ", count: 1, label: "دعاء المساء" },
+      { id: "e3", text: "اللَّهُمَّ بِكَ أَمْسَيْنَا، وَبِكَ أَصْبَحْنَا، وَبِكَ نَحْيَا، وَبِكَ نَمُوتُ وَإِلَيْكَ الْمَصِيرُ", count: 1, label: "دعاء المساء" },
+      { id: "e4", text: "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ", count: 100, label: "تسبيح المساء" },
+      { id: "e5", text: "اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ", count: 1, label: "سيد الاستغفار" },
+      { id: "e6", text: "اللَّهُمَّ عَافِنِي فِي بَدَنِي، اللَّهُمَّ عَافِنِي فِي سَمْعِي، اللَّهُمَّ عَافِنِي فِي بَصَرِي، لَا إِلَهَ إِلَّا أَنْتَ", count: 3, label: "دعاء العافية" },
     ],
   },
   afterPrayer: {
-    title: "Ø£Ø°ÙƒØ§Ø± Ø¨Ø¹Ø¯ Ø§Ù„ØµÙ„Ø§Ø©",
+    title: "أذكار بعد الصلاة",
     items: [
-      { id: "p1", text: "Ø£ÙŽØ³Ù’ØªÙŽØºÙ’ÙÙØ±Ù Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙŽ", count: 3, label: "Ø§Ù„Ø§Ø³ØªØºÙØ§Ø±" },
-      { id: "p2", text: "Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙÙ…ÙŽÙ‘ Ø£ÙŽÙ†Ù’ØªÙŽ Ø§Ù„Ø³ÙŽÙ‘Ù„ÙŽØ§Ù…Ù ÙˆÙŽÙ…ÙÙ†Ù’ÙƒÙŽ Ø§Ù„Ø³ÙŽÙ‘Ù„ÙŽØ§Ù…ÙØŒ ØªÙŽØ¨ÙŽØ§Ø±ÙŽÙƒÙ’ØªÙŽ ÙŠÙŽØ§ Ø°ÙŽØ§ Ø§Ù„Ù’Ø¬ÙŽÙ„ÙŽØ§Ù„Ù ÙˆÙŽØ§Ù„Ù’Ø¥ÙÙƒÙ’Ø±ÙŽØ§Ù…Ù", count: 1, label: "Ø¯Ø¹Ø§Ø¡ Ø§Ù„ØªØ³Ù„ÙŠÙ…" },
-      { id: "p3", text: "Ù„ÙŽØ§ Ø¥ÙÙ„ÙŽÙ‡ÙŽ Ø¥ÙÙ„ÙŽÙ‘Ø§ Ø§Ù„Ù„ÙŽÙ‘Ù‡Ù ÙˆÙŽØ­Ù’Ø¯ÙŽÙ‡Ù Ù„ÙŽØ§ Ø´ÙŽØ±ÙÙŠÙƒÙŽ Ù„ÙŽÙ‡ÙØŒ Ù„ÙŽÙ‡Ù Ø§Ù„Ù’Ù…ÙÙ„Ù’ÙƒÙ ÙˆÙŽÙ„ÙŽÙ‡Ù Ø§Ù„Ù’Ø­ÙŽÙ…Ù’Ø¯Ù ÙˆÙŽÙ‡ÙÙˆÙŽ Ø¹ÙŽÙ„ÙŽÙ‰ ÙƒÙÙ„ÙÙ‘ Ø´ÙŽÙŠÙ’Ø¡Ù Ù‚ÙŽØ¯ÙÙŠØ±ÙŒ", count: 1, label: "Ø§Ù„ØªÙ‡Ù„ÙŠÙ„" },
-      { id: "p4", text: "Ø³ÙØ¨Ù’Ø­ÙŽØ§Ù†ÙŽ Ø§Ù„Ù„ÙŽÙ‘Ù‡Ù", count: 33, label: "Ø§Ù„ØªØ³Ø¨ÙŠØ­" },
-      { id: "p5", text: "Ø§Ù„Ù’Ø­ÙŽÙ…Ù’Ø¯Ù Ù„ÙÙ„ÙŽÙ‘Ù‡Ù", count: 33, label: "Ø§Ù„ØªØ­Ù…ÙŠØ¯" },
-      { id: "p6", text: "Ø§Ù„Ù„ÙŽÙ‘Ù‡Ù Ø£ÙŽÙƒÙ’Ø¨ÙŽØ±Ù", count: 34, label: "Ø§Ù„ØªÙƒØ¨ÙŠØ±" },
-      { id: "p7", text: "Ø¢ÙŠÙŽØ©Ù Ø§Ù„Ù’ÙƒÙØ±Ù’Ø³ÙÙŠÙÙ‘", count: 1, label: "Ø¢ÙŠØ© Ø§Ù„ÙƒØ±Ø³ÙŠ Ø¨Ø¹Ø¯ ÙƒÙ„ ØµÙ„Ø§Ø©" },
+      { id: "p1", text: "أَسْتَغْفِرُ اللَّهَ", count: 3, label: "الاستغفار" },
+      { id: "p2", text: "اللَّهُمَّ أَنْتَ السَّلَامُ وَمِنْكَ السَّلَامُ، تَبَارَكْتَ يَا ذَا الْجَلَالِ وَالْإِكْرَامِ", count: 1, label: "دعاء التسليم" },
+      { id: "p3", text: "لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ", count: 1, label: "التهليل" },
+      { id: "p4", text: "سُبْحَانَ اللَّهِ", count: 33, label: "التسبيح" },
+      { id: "p5", text: "الْحَمْدُ لِلَّهِ", count: 33, label: "التحميد" },
+      { id: "p6", text: "اللَّهُ أَكْبَرُ", count: 34, label: "التكبير" },
+      { id: "p7", text: "آيَةُ الْكُرْسِيِّ", count: 1, label: "آية الكرسي بعد كل صلاة" },
     ],
   },
   sleep: {
-    title: "Ø£Ø°ÙƒØ§Ø± Ø§Ù„Ù†ÙˆÙ…",
+    title: "أذكار النوم",
     items: [
-      { id: "s1", text: "Ø¨ÙØ§Ø³Ù’Ù…ÙÙƒÙŽ Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙÙ…ÙŽÙ‘ Ø£ÙŽÙ…ÙÙˆØªÙ ÙˆÙŽØ£ÙŽØ­Ù’ÙŠÙŽØ§", count: 1, label: "Ø¯Ø¹Ø§Ø¡ Ø§Ù„Ù†ÙˆÙ…" },
-      { id: "s2", text: "Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙÙ…ÙŽÙ‘ Ù‚ÙÙ†ÙÙŠ Ø¹ÙŽØ°ÙŽØ§Ø¨ÙŽÙƒÙŽ ÙŠÙŽÙˆÙ’Ù…ÙŽ ØªÙŽØ¨Ù’Ø¹ÙŽØ«Ù Ø¹ÙØ¨ÙŽØ§Ø¯ÙŽÙƒÙŽ", count: 3, label: "Ø§Ù„Ø¯Ø¹Ø§Ø¡ Ù‚Ø¨Ù„ Ø§Ù„Ù†ÙˆÙ…" },
-      { id: "s3", text: "Ø³ÙØ¨Ù’Ø­ÙŽØ§Ù†ÙŽ Ø§Ù„Ù„ÙŽÙ‘Ù‡Ù", count: 33, label: "ØªØ³Ø¨ÙŠØ­ Ø§Ù„Ù†ÙˆÙ…" },
-      { id: "s4", text: "Ø§Ù„Ù’Ø­ÙŽÙ…Ù’Ø¯Ù Ù„ÙÙ„ÙŽÙ‘Ù‡Ù", count: 33, label: "ØªØ­Ù…ÙŠØ¯ Ø§Ù„Ù†ÙˆÙ…" },
-      { id: "s5", text: "Ø§Ù„Ù„ÙŽÙ‘Ù‡Ù Ø£ÙŽÙƒÙ’Ø¨ÙŽØ±Ù", count: 34, label: "ØªÙƒØ¨ÙŠØ± Ø§Ù„Ù†ÙˆÙ…" },
-      { id: "s6", text: "Ù‚ÙÙ„Ù’ Ù‡ÙÙˆÙŽ Ø§Ù„Ù„ÙŽÙ‘Ù‡Ù Ø£ÙŽØ­ÙŽØ¯ÙŒ ...", count: 3, label: "Ø³ÙˆØ±Ø© Ø§Ù„Ø¥Ø®Ù„Ø§Øµ" },
+      { id: "s1", text: "بِاسْمِكَ اللَّهُمَّ أَمُوتُ وَأَحْيَا", count: 1, label: "دعاء النوم" },
+      { id: "s2", text: "اللَّهُمَّ قِنِي عَذَابَكَ يَوْمَ تَبْعَثُ عِبَادَكَ", count: 3, label: "الدعاء قبل النوم" },
+      { id: "s3", text: "سُبْحَانَ اللَّهِ", count: 33, label: "تسبيح النوم" },
+      { id: "s4", text: "الْحَمْدُ لِلَّهِ", count: 33, label: "تحميد النوم" },
+      { id: "s5", text: "اللَّهُ أَكْبَرُ", count: 34, label: "تكبير النوم" },
+      { id: "s6", text: "قُلْ هُوَ اللَّهُ أَحَدٌ ...", count: 3, label: "سورة الإخلاص" },
     ],
   },
   istighfar: {
-    title: "Ø§Ù„Ø§Ø³ØªØºÙØ§Ø±",
+    title: "الاستغفار",
     items: [
-      { id: "i1", text: "Ø£ÙŽØ³Ù’ØªÙŽØºÙ’ÙÙØ±Ù Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙŽ Ø§Ù„Ù’Ø¹ÙŽØ¸ÙÙŠÙ…ÙŽ Ø§Ù„ÙŽÙ‘Ø°ÙÙŠ Ù„ÙŽØ§ Ø¥ÙÙ„ÙŽÙ‡ÙŽ Ø¥ÙÙ„ÙŽÙ‘Ø§ Ù‡ÙÙˆÙŽ Ø§Ù„Ù’Ø­ÙŽÙŠÙÙ‘ Ø§Ù„Ù’Ù‚ÙŽÙŠÙÙ‘ÙˆÙ…Ù ÙˆÙŽØ£ÙŽØªÙÙˆØ¨Ù Ø¥ÙÙ„ÙŽÙŠÙ’Ù‡Ù", count: 100, label: "Ø§Ù„Ø§Ø³ØªØºÙØ§Ø± Ø§Ù„ÙƒØ§Ù…Ù„" },
-      { id: "i2", text: "Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙÙ…ÙŽÙ‘ Ø£ÙŽÙ†Ù’ØªÙŽ Ø±ÙŽØ¨ÙÙ‘ÙŠ Ù„ÙŽØ§ Ø¥ÙÙ„ÙŽÙ‡ÙŽ Ø¥ÙÙ„ÙŽÙ‘Ø§ Ø£ÙŽÙ†Ù’ØªÙŽØŒ Ø®ÙŽÙ„ÙŽÙ‚Ù’ØªÙŽÙ†ÙÙŠ ÙˆÙŽØ£ÙŽÙ†ÙŽØ§ Ø¹ÙŽØ¨Ù’Ø¯ÙÙƒÙŽØŒ ÙˆÙŽØ£ÙŽÙ†ÙŽØ§ Ø¹ÙŽÙ„ÙŽÙ‰ Ø¹ÙŽÙ‡Ù’Ø¯ÙÙƒÙŽ ÙˆÙŽÙˆÙŽØ¹Ù’Ø¯ÙÙƒÙŽ Ù…ÙŽØ§ Ø§Ø³Ù’ØªÙŽØ·ÙŽØ¹Ù’ØªÙØŒ Ø£ÙŽØ¹ÙÙˆØ°Ù Ø¨ÙÙƒÙŽ Ù…ÙÙ†Ù’ Ø´ÙŽØ±ÙÙ‘ Ù…ÙŽØ§ ØµÙŽÙ†ÙŽØ¹Ù’ØªÙØŒ Ø£ÙŽØ¨ÙÙˆØ¡Ù Ù„ÙŽÙƒÙŽ Ø¨ÙÙ†ÙØ¹Ù’Ù…ÙŽØªÙÙƒÙŽ Ø¹ÙŽÙ„ÙŽÙŠÙŽÙ‘ ÙˆÙŽØ£ÙŽØ¨ÙÙˆØ¡Ù Ø¨ÙØ°ÙŽÙ†Ù’Ø¨ÙÙŠ ÙÙŽØ§ØºÙ’ÙÙØ±Ù’ Ù„ÙÙŠ ÙÙŽØ¥ÙÙ†ÙŽÙ‘Ù‡Ù Ù„ÙŽØ§ ÙŠÙŽØºÙ’ÙÙØ±Ù Ø§Ù„Ø°ÙÙ‘Ù†ÙÙˆØ¨ÙŽ Ø¥ÙÙ„ÙŽÙ‘Ø§ Ø£ÙŽÙ†Ù’ØªÙŽ", count: 1, label: "Ø³ÙŠØ¯ Ø§Ù„Ø§Ø³ØªØºÙØ§Ø±" },
+      { id: "i1", text: "أَسْتَغْفِرُ اللَّهَ الْعَظِيمَ الَّذِي لَا إِلَهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ وَأَتُوبُ إِلَيْهِ", count: 100, label: "الاستغفار الكامل" },
+      { id: "i2", text: "اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ، أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ وَأَبُوءُ بِذَنْبِي فَاغْفِرْ لِي فَإِنَّهُ لَا يَغْفِرُ الذُّنُوبَ إِلَّا أَنْتَ", count: 1, label: "سيد الاستغفار" },
     ],
   },
   salawat: {
-    title: "Ø§Ù„ØµÙ„Ø§Ø© Ø¹Ù„Ù‰ Ø§Ù„Ù†Ø¨ÙŠ ï·º",
+    title: "الصلاة على النبي ﷺ",
     items: [
-      { id: "sl1", text: "Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙÙ…ÙŽÙ‘ ØµÙŽÙ„ÙÙ‘ ÙˆÙŽØ³ÙŽÙ„ÙÙ‘Ù…Ù’ Ø¹ÙŽÙ„ÙŽÙ‰ Ù†ÙŽØ¨ÙÙŠÙÙ‘Ù†ÙŽØ§ Ù…ÙØ­ÙŽÙ…ÙŽÙ‘Ø¯Ù", count: 10, label: "Ø§Ù„ØµÙ„Ø§Ø© Ø§Ù„Ù…Ø®ØªØµØ±Ø©" },
-      { id: "sl2", text: "Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙÙ…ÙŽÙ‘ ØµÙŽÙ„ÙÙ‘ Ø¹ÙŽÙ„ÙŽÙ‰ Ù…ÙØ­ÙŽÙ…ÙŽÙ‘Ø¯Ù ÙˆÙŽØ¹ÙŽÙ„ÙŽÙ‰ Ø¢Ù„Ù Ù…ÙØ­ÙŽÙ…ÙŽÙ‘Ø¯ÙØŒ ÙƒÙŽÙ…ÙŽØ§ ØµÙŽÙ„ÙŽÙ‘ÙŠÙ’ØªÙŽ Ø¹ÙŽÙ„ÙŽÙ‰ Ø¥ÙØ¨Ù’Ø±ÙŽØ§Ù‡ÙÙŠÙ…ÙŽ ÙˆÙŽØ¹ÙŽÙ„ÙŽÙ‰ Ø¢Ù„Ù Ø¥ÙØ¨Ù’Ø±ÙŽØ§Ù‡ÙÙŠÙ…ÙŽØŒ Ø¥ÙÙ†ÙŽÙ‘ÙƒÙŽ Ø­ÙŽÙ…ÙÙŠØ¯ÙŒ Ù…ÙŽØ¬ÙÙŠØ¯ÙŒ", count: 10, label: "Ø§Ù„ØµÙ„Ø§Ø© Ø§Ù„Ø¥Ø¨Ø±Ø§Ù‡ÙŠÙ…ÙŠØ©" },
+      { id: "sl1", text: "اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَى نَبِيِّنَا مُحَمَّدٍ", count: 10, label: "الصلاة المختصرة" },
+      { id: "sl2", text: "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ، كَمَا صَلَّيْتَ عَلَى إِبْرَاهِيمَ وَعَلَى آلِ إِبْرَاهِيمَ، إِنَّكَ حَمِيدٌ مَجِيدٌ", count: 10, label: "الصلاة الإبراهيمية" },
     ],
   },
   duaa: {
-    title: "Ø£Ø¯Ø¹ÙŠØ© Ù…Ø®ØªØ§Ø±Ø©",
+    title: "أدعية مختارة",
     items: [
-      { id: "d1", text: "Ø±ÙŽØ¨ÙŽÙ‘Ù†ÙŽØ§ Ø¢ØªÙÙ†ÙŽØ§ ÙÙÙŠ Ø§Ù„Ø¯ÙÙ‘Ù†Ù’ÙŠÙŽØ§ Ø­ÙŽØ³ÙŽÙ†ÙŽØ©Ù‹ ÙˆÙŽÙÙÙŠ Ø§Ù„Ù’Ø¢Ø®ÙØ±ÙŽØ©Ù Ø­ÙŽØ³ÙŽÙ†ÙŽØ©Ù‹ ÙˆÙŽÙ‚ÙÙ†ÙŽØ§ Ø¹ÙŽØ°ÙŽØ§Ø¨ÙŽ Ø§Ù„Ù†ÙŽÙ‘Ø§Ø±Ù", count: 1, label: "Ø¯Ø¹Ø§Ø¡ Ø§Ù„Ø¯Ù†ÙŠØ§ ÙˆØ§Ù„Ø¢Ø®Ø±Ø©" },
-      { id: "d2", text: "Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙÙ…ÙŽÙ‘ Ø¥ÙÙ†ÙÙ‘ÙŠ Ø£ÙŽØ³Ù’Ø£ÙŽÙ„ÙÙƒÙŽ Ø§Ù„Ù’Ø¹ÙŽÙÙ’ÙˆÙŽ ÙˆÙŽØ§Ù„Ù’Ø¹ÙŽØ§ÙÙÙŠÙŽØ©ÙŽ ÙÙÙŠ Ø§Ù„Ø¯ÙÙ‘Ù†Ù’ÙŠÙŽØ§ ÙˆÙŽØ§Ù„Ù’Ø¢Ø®ÙØ±ÙŽØ©Ù", count: 3, label: "Ø¯Ø¹Ø§Ø¡ Ø§Ù„Ø¹ÙÙˆ ÙˆØ§Ù„Ø¹Ø§ÙÙŠØ©" },
-      { id: "d3", text: "Ø­ÙŽØ³Ù’Ø¨ÙÙŠÙŽ Ø§Ù„Ù„ÙŽÙ‘Ù‡Ù Ù„ÙŽØ§ Ø¥ÙÙ„ÙŽÙ‡ÙŽ Ø¥ÙÙ„ÙŽÙ‘Ø§ Ù‡ÙÙˆÙŽØŒ Ø¹ÙŽÙ„ÙŽÙŠÙ’Ù‡Ù ØªÙŽÙˆÙŽÙƒÙŽÙ‘Ù„Ù’ØªÙ ÙˆÙŽÙ‡ÙÙˆÙŽ Ø±ÙŽØ¨ÙÙ‘ Ø§Ù„Ù’Ø¹ÙŽØ±Ù’Ø´Ù Ø§Ù„Ù’Ø¹ÙŽØ¸ÙÙŠÙ…Ù", count: 7, label: "Ø¯Ø¹Ø§Ø¡ Ø§Ù„ØªÙˆÙƒÙ„" },
-      { id: "d4", text: "Ø§Ù„Ù„ÙŽÙ‘Ù‡ÙÙ…ÙŽÙ‘ Ø£ÙŽØµÙ’Ù„ÙØ­Ù’ Ù„ÙÙŠ Ø¯ÙÙŠÙ†ÙÙŠ Ø§Ù„ÙŽÙ‘Ø°ÙÙŠ Ù‡ÙÙˆÙŽ Ø¹ÙØµÙ’Ù…ÙŽØ©Ù Ø£ÙŽÙ…Ù’Ø±ÙÙŠØŒ ÙˆÙŽØ£ÙŽØµÙ’Ù„ÙØ­Ù’ Ù„ÙÙŠ Ø¯ÙÙ†Ù’ÙŠÙŽØ§ÙŠÙŽ Ø§Ù„ÙŽÙ‘ØªÙÙŠ ÙÙÙŠÙ‡ÙŽØ§ Ù…ÙŽØ¹ÙŽØ§Ø´ÙÙŠØŒ ÙˆÙŽØ£ÙŽØµÙ’Ù„ÙØ­Ù’ Ù„ÙÙŠ Ø¢Ø®ÙØ±ÙŽØªÙÙŠ Ø§Ù„ÙŽÙ‘ØªÙÙŠ ÙÙÙŠÙ‡ÙŽØ§ Ù…ÙŽØ¹ÙŽØ§Ø¯ÙÙŠ", count: 1, label: "Ø¯Ø¹Ø§Ø¡ Ø§Ù„ØµÙ„Ø§Ø­" },
+      { id: "d1", text: "رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً وَقِنَا عَذَابَ النَّارِ", count: 1, label: "دعاء الدنيا والآخرة" },
+      { id: "d2", text: "اللَّهُمَّ إِنِّي أَسْأَلُكَ الْعَفْوَ وَالْعَافِيَةَ فِي الدُّنْيَا وَالْآخِرَةِ", count: 3, label: "دعاء العفو والعافية" },
+      { id: "d3", text: "حَسْبِيَ اللَّهُ لَا إِلَهَ إِلَّا هُوَ، عَلَيْهِ تَوَكَّلْتُ وَهُوَ رَبُّ الْعَرْشِ الْعَظِيمِ", count: 7, label: "دعاء التوكل" },
+      { id: "d4", text: "اللَّهُمَّ أَصْلِحْ لِي دِينِي الَّذِي هُوَ عِصْمَةُ أَمْرِي، وَأَصْلِحْ لِي دُنْيَايَ الَّتِي فِيهَا مَعَاشِي، وَأَصْلِحْ لِي آخِرَتِي الَّتِي فِيهَا مَعَادِي", count: 1, label: "دعاء الصلاح" },
     ],
   },
 };
 const TASBIH_DHIKR = [
-  { id: "t1", text: "Ø³Ø¨Ø­Ø§Ù† Ø§Ù„Ù„Ù‡", transliteration: "Subhan Allah" },
-  { id: "t2", text: "Ø§Ù„Ø­Ù…Ø¯ Ù„Ù„Ù‡", transliteration: "Alhamdulillah" },
-  { id: "t3", text: "Ø§Ù„Ù„Ù‡ Ø£ÙƒØ¨Ø±", transliteration: "Allahu Akbar" },
-  { id: "t4", text: "Ù„Ø§ Ø¥Ù„Ù‡ Ø¥Ù„Ø§ Ø§Ù„Ù„Ù‡", transliteration: "La ilaha illallah" },
-  { id: "t5", text: "Ø£Ø³ØªØºÙØ± Ø§Ù„Ù„Ù‡", transliteration: "Astaghfirullah" },
-  { id: "t6", text: "Ø§Ù„Ù„Ù‡Ù… ØµÙ„ÙÙ‘ Ø¹Ù„Ù‰ Ù…Ø­Ù…Ø¯", transliteration: "Allahumma salli 'ala Muhammad" },
-  { id: "t7", text: "Ø³Ø¨Ø­Ø§Ù† Ø§Ù„Ù„Ù‡ ÙˆØ¨Ø­Ù…Ø¯Ù‡", transliteration: "Subhan Allahi wa bihamdih" },
-  { id: "t8", text: "Ø³Ø¨Ø­Ø§Ù† Ø§Ù„Ù„Ù‡ Ø§Ù„Ø¹Ø¸ÙŠÙ…", transliteration: "Subhan Allahil Azeem" },
-  { id: "t9", text: "Ù„Ø§ Ø­ÙˆÙ„ ÙˆÙ„Ø§ Ù‚ÙˆØ© Ø¥Ù„Ø§ Ø¨Ø§Ù„Ù„Ù‡", transliteration: "La hawla wa la quwwata illa billah" },
-  { id: "t10", text: "Ø­Ø³Ø¨ÙŠ Ø§Ù„Ù„Ù‡ ÙˆÙ†Ø¹Ù… Ø§Ù„ÙˆÙƒÙŠÙ„", transliteration: "Hasbiyallahu wa ni'mal wakeel" },
+  { id: "t1", text: "سبحان الله", transliteration: "Subhan Allah" },
+  { id: "t2", text: "الحمد لله", transliteration: "Alhamdulillah" },
+  { id: "t3", text: "الله أكبر", transliteration: "Allahu Akbar" },
+  { id: "t4", text: "لا إله إلا الله", transliteration: "La ilaha illallah" },
+  { id: "t5", text: "أستغفر الله", transliteration: "Astaghfirullah" },
+  { id: "t6", text: "اللهم صلِّ على محمد", transliteration: "Allahumma salli 'ala Muhammad" },
+  { id: "t7", text: "سبحان الله وبحمده", transliteration: "Subhan Allahi wa bihamdih" },
+  { id: "t8", text: "سبحان الله العظيم", transliteration: "Subhan Allahil Azeem" },
+  { id: "t9", text: "لا حول ولا قوة إلا بالله", transliteration: "La hawla wa la quwwata illa billah" },
+  { id: "t10", text: "حسبي الله ونعم الوكيل", transliteration: "Hasbiyallahu wa ni'mal wakeel" },
 ];
 
 const MARKET_BASE_URL = "/api/market";
 const CANDLE_BASE_URL = "/api/yahoo";
 
-// â”€â”€ Symbols â”€â”€
+// ── Symbols ──
 const WATCHLIST_SYMBOLS = [
   // Mega-cap tech & AI
   "NVDA","AAPL","MSFT","AMZN","META","GOOGL","TSLA","AVGO","CRM","ADBE","ORCL","NFLX",
@@ -472,10 +472,10 @@ function fmtCountdownShort(secs) {
   return `${ss}s`;
 }
 
-// â”€â”€ Telegram / TradingView Alert Analyzer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Telegram / TradingView Alert Analyzer ──────────────────────────────────
 
 const ANALYZER_SAMPLES = [
-`ðŸš¨ NVDA LONG — Breakout Setup
+`🚨 NVDA LONG — Breakout Setup
 Price: $875.50
 VWAP: Above ($868.20)
 EMA: 9 > 21 Bullish
@@ -618,7 +618,7 @@ function scoreAlert(parsed) {
   const warnings = [], risks = [], positives = [];
   const { direction, vwapStatus, emaTrend, rvol, price, stop, entryLow, entryHigh, t1, t2, t3, setupType } = parsed;
 
-  // â”€â”€ VWAP alignment (+/-15)
+  // ── VWAP alignment (+/-15)
   if (!vwapStatus) {
     warnings.push("VWAP status unknown — bias unconfirmed");
   } else if (vwapStatus === "above" && direction === "LONG") {
@@ -633,7 +633,7 @@ function scoreAlert(parsed) {
     score += 2; warnings.push("Price AT VWAP — wait for decisive break in either direction");
   }
 
-  // â”€â”€ EMA trend (+/-12)
+  // ── EMA trend (+/-12)
   if (!emaTrend) {
     warnings.push("EMA data missing — trend confirmation unavailable");
   } else if (emaTrend === "bullish" && direction === "LONG") {
@@ -650,7 +650,7 @@ function scoreAlert(parsed) {
     score -= 5; warnings.push("EMAs flat — choppy price action, no clear trend");
   }
 
-  // â”€â”€ RVOL (+/-15)
+  // ── RVOL (+/-15)
   if (rvol === null) {
     score -= 5; warnings.push("RVOL not specified — volume confirmation unknown");
   } else if (rvol >= 2.5) {
@@ -665,7 +665,7 @@ function scoreAlert(parsed) {
     score -= 12; risks.push(`RVOL ${rvol.toFixed(1)}x — below-average volume, breakout suspect`);
   }
 
-  // â”€â”€ Stop loss & R:R
+  // ── Stop loss & R:R
   const entryRef = entryLow || price;
   let rrRatio = null;
   if (!stop) {
@@ -685,19 +685,19 @@ function scoreAlert(parsed) {
     else if (stopPct > 3)  { warnings.push(`Stop ${stopPct.toFixed(1)}% from entry — moderate risk`); }
   }
 
-  // â”€â”€ VWAP extension risk
+  // ── VWAP extension risk
   if (parsed.vwapValue && price) {
     const extPct = Math.abs(price - parsed.vwapValue) / parsed.vwapValue * 100;
     if (extPct > 3)       { score -= 12; risks.push(`Price ${extPct.toFixed(1)}% from VWAP — chasing an extended move`); }
     else if (extPct > 2)  { score -= 6;  warnings.push(`Price ${extPct.toFixed(1)}% from VWAP — slightly extended, prefer pullback entry`); }
   }
 
-  // â”€â”€ Setup type bonus/penalty
+  // ── Setup type bonus/penalty
   if (setupType === "breakout")     { score += 5; positives.push("Breakout setup — momentum trade"); }
   else if (setupType === "pullback"){ score += 7; positives.push("Pullback to key level — higher R:R potential"); }
   else if (setupType === "reversal"){ score -= 3; warnings.push("Reversal trade — statistically lower probability, need volume confirmation"); }
 
-  // â”€â”€ Missing data penalties
+  // ── Missing data penalties
   if (!direction)  { score -= 15; risks.push("No trade direction specified"); }
   if (!t1)         { score -= 8;  warnings.push("No targets defined — exit plan unclear"); }
 
@@ -963,7 +963,7 @@ function appendProviderKeys(url, providerKeys = {}) {
   return `${u.pathname}${u.search}`;
 }
 
-// â”€â”€ API Fetch Helpers â”€â”€
+// ── API Fetch Helpers ──
 function getApiErrorMessage(data, text, status) {
   const fromJson = data?.["Error Message"] || data?.message || data?.error || data?.code;
   if (fromJson) return String(fromJson);
@@ -1195,7 +1195,7 @@ async function fetchGainersLosers(apiKey) {
   return [];
 }
 
-// â”€â”€ Score Computation (heuristic from quote data) â”€â”€
+// ── Score Computation (heuristic from quote data) ──
 function computeScores(q) {
   if (!q) return { tech: 0, fund: 0, macro: 0, composite: 0 };
   
@@ -1468,7 +1468,7 @@ function classifyMacroTone(macroData) {
   return "Balanced";
 }
 
-// â”€â”€ Tiny Components â”€â”€
+// ── Tiny Components ──
 const Badge = ({ children, color = C.accent, bg }) => (
   <span style={{
     fontSize: 9, fontFamily: MONO, fontWeight: 700, padding: "2px 6px",
@@ -1492,8 +1492,8 @@ const ScoreBar = ({ value, color, w = "100%" }) => (
 
 const TrendTag = ({ trend }) => {
   const m = {
-    "Strong Up": { c: C.green, i: "â–²â–²" }, "Up": { c: C.green, i: "â–²" },
-    "Flat": { c: C.amber, i: "â—†" }, "Weak": { c: C.red, i: "â–½" }, "Down": { c: C.red, i: "â–¼â–¼" },
+    "Strong Up": { c: C.green, i: "▲▲" }, "Up": { c: C.green, i: "▲" },
+    "Flat": { c: C.amber, i: "◆" }, "Weak": { c: C.red, i: "▽" }, "Down": { c: C.red, i: "▼▼" },
     "—": { c: C.textDim, i: "—" },
   };
   const { c, i } = m[trend] || m["—"];
@@ -1517,7 +1517,7 @@ const Pill = ({ active, onClick, children }) => (
   }}>{children}</button>
 );
 
-// â”€â”€ API Key Screen â”€â”€
+// ── API Key Screen ──
 function PasswordLockScreen({ value, error, onChange, onSubmit }) {
   return (
     <div style={{
@@ -1649,7 +1649,7 @@ function ApiKeyScreen({ onSubmit }) {
   );
 }
 
-// â”€â”€ Macro Tape â”€â”€
+// ── Macro Tape ──
 function MacroTape({ data, cryptoSnapshot }) {
   if (!data.length) return null;
 
@@ -1734,7 +1734,7 @@ function MacroTape({ data, cryptoSnapshot }) {
   );
 }
 
-// â”€â”€ Sector Heatmap â”€â”€
+// ── Sector Heatmap ──
 function SectorHeatmap({ data }) {
   if (!data.length) return <div style={{ fontSize: 11, color: C.textDim, fontFamily: MONO, padding: 16 }}>Loading sectors…</div>;
   const sorted = [...data].sort((a, b) => (b.changesPercentage || 0) - (a.changesPercentage || 0));
@@ -1771,7 +1771,7 @@ function SectorHeatmap({ data }) {
   );
 }
 
-// â”€â”€ Canvas Chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Canvas Chart ─────────────────────────────────────────────────────────────
 function drawChart(ctx, W, H, candleData, drawTools, hover) {
   ctx.save();
   const bars     = (candleData?.bars || []).slice(-120);
@@ -1825,7 +1825,7 @@ function drawChart(ctx, W, H, candleData, drawTools, hover) {
   const toYP  = (p) => pY + pH - ((p - loP) / pSpan) * pH;
   const decs  = hiP >= 1000 ? 1 : hiP >= 100 ? 2 : hiP >= 10 ? 3 : 4;
 
-  // â”€â”€ Price gridlines + Y labels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Price gridlines + Y labels ──────────────────────────────────────────
   ctx.font = "9px monospace";
   ctx.textAlign = "left";
   for (let i = 0; i <= 5; i++) {
@@ -1840,7 +1840,7 @@ function drawChart(ctx, W, H, candleData, drawTools, hover) {
     ctx.fillText(`$${p.toFixed(decs)}`, W - PR + 4, y + 3);
   }
 
-  // â”€â”€ Volume â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Volume ───────────────────────────────────────────────────────────────
   const maxV = Math.max(...bars.map(b => b.volume || 0), 1);
   bars.forEach((b, i) => {
     const up = b.close >= b.open;
@@ -1851,7 +1851,7 @@ function drawChart(ctx, W, H, candleData, drawTools, hover) {
   ctx.fillStyle = C.textDim; ctx.font = "8px monospace"; ctx.textAlign = "left";
   ctx.fillText("VOL", W - PR + 4, vY + 9);
 
-  // â”€â”€ RSI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── RSI ──────────────────────────────────────────────────────────────────
   [30, 50, 70].forEach(lv => {
     const y = rY + rH * (1 - lv / 100);
     ctx.strokeStyle = lv === 50 ? C.border : `${C.textDim}55`;
@@ -1878,7 +1878,7 @@ function drawChart(ctx, W, H, candleData, drawTools, hover) {
     }
   }
 
-  // â”€â”€ MACD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── MACD ─────────────────────────────────────────────────────────────────
   const macdAbsMax = Math.max(
     ...macdHist.map(m => Math.abs(m.value)),
     ...macdLine.map(m => Math.abs(m.value)),
@@ -1914,7 +1914,7 @@ function drawChart(ctx, W, H, candleData, drawTools, hover) {
   ctx.fillStyle = C.textDim; ctx.font = "8px monospace"; ctx.textAlign = "left";
   ctx.fillText("MACD", W - PR + 4, mY + 9);
 
-  // â”€â”€ Candles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Candles ───────────────────────────────────────────────────────────────
   bars.forEach((b, i) => {
     const up = b.close >= b.open;
     const x  = toX(i);
@@ -1927,7 +1927,7 @@ function drawChart(ctx, W, H, candleData, drawTools, hover) {
     ctx.strokeRect(x - candW / 2, by, candW, bh);
   });
 
-  // â”€â”€ Overlays â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Overlays ──────────────────────────────────────────────────────────────
   const drawLine = (arr, color, lw) => {
     if (arr.length < 2) return;
     const aW = cW / arr.length;
@@ -1939,7 +1939,7 @@ function drawChart(ctx, W, H, candleData, drawTools, hover) {
   drawLine(ema21arr, C.purple, 1.2);
   drawLine(vwapArr,  C.amber,  1.5);
 
-  // â”€â”€ Draw tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Draw tools ────────────────────────────────────────────────────────────
   const fibLo = Number(drawTools?.fibLow), fibHi = Number(drawTools?.fibHigh);
   if (Number.isFinite(fibLo) && Number.isFinite(fibHi) && fibHi > fibLo) {
     ctx.font = "8px monospace"; ctx.textAlign = "right";
@@ -1960,7 +1960,7 @@ function drawChart(ctx, W, H, candleData, drawTools, hover) {
     ctx.setLineDash([]);
   }
 
-  // â”€â”€ Legend â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Legend ────────────────────────────────────────────────────────────────
   ctx.font = "9px monospace"; ctx.textAlign = "left";
   const le9  = ema9arr.length  ? ema9arr[ema9arr.length - 1].value.toFixed(decs)   : "";
   const le21 = ema21arr.length ? ema21arr[ema21arr.length - 1].value.toFixed(decs) : "";
@@ -1970,7 +1970,7 @@ function drawChart(ctx, W, H, candleData, drawTools, hover) {
     ctx.fillText(lbl, PL + 4 + i * 115, PT + 11);
   });
 
-  // â”€â”€ X-axis labels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── X-axis labels ─────────────────────────────────────────────────────────
   ctx.fillStyle = C.textDim; ctx.font = "9px monospace"; ctx.textAlign = "center";
   const xStep = Math.max(1, Math.floor(n / 8));
   for (let i = 0; i < n; i += xStep) {
@@ -1980,7 +1980,7 @@ function drawChart(ctx, W, H, candleData, drawTools, hover) {
     ctx.fillText(`${d.getMonth() + 1}/${d.getDate()}`, toX(i), H - 8);
   }
 
-  // â”€â”€ Crosshair â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Crosshair ─────────────────────────────────────────────────────────────
   if (hover) {
     const cx = toX(hover.idx);
     ctx.strokeStyle = `${C.textDim}88`;
@@ -2119,7 +2119,7 @@ function TerminalWorkspace({
   const [drag, setDrag] = useState(null);
   const dragRef = useRef(null);
 
-  // â”€â”€ Tablet detection inside Terminal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Tablet detection inside Terminal ────────────────────────────────────────
   const [termIsTablet, setTermIsTablet] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768 && window.innerWidth <= 1200);
   useEffect(() => {
     const fn = () => setTermIsTablet(window.innerWidth >= 768 && window.innerWidth <= 1200);
@@ -2127,7 +2127,7 @@ function TerminalWorkspace({
     return () => window.removeEventListener("resize", fn);
   }, []);
 
-  // â”€â”€ Column resize — mouse + touch (iPad) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Column resize — mouse + touch (iPad) ────────────────────────────────────
   useEffect(() => {
     if (!drag) return;
     const getX = (e) => e.touches ? e.touches[0].clientX : e.clientX;
@@ -2169,7 +2169,7 @@ function TerminalWorkspace({
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderConfirmed, setOrderConfirmed] = useState(null);
 
-  // â”€â”€ Chart mode (canvas = interactive / finviz = image) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Chart mode (canvas = interactive / finviz = image) ───────────────────
   const [chartMode, setChartMode] = useState("canvas");
   const [fvPeriod, setFvPeriod]   = useState("d");
   const [fvStats,  setFvStats]    = useState(null);
@@ -2191,7 +2191,7 @@ function TerminalWorkspace({
     if (chartMode === "finviz" && selected?.symbol) loadFvStats(selected.symbol);
   }, [chartMode, selected?.symbol]); // eslint-disable-line
 
-  // â”€â”€ AI Insight â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── AI Insight ──────────────────────────────────────────────────────────────
   const [insightText, setInsightText]       = useState(null);
   const [insightLoading, setInsightLoading] = useState(false);
   const [insightSymbol, setInsightSymbol]   = useState(null);
@@ -2818,7 +2818,7 @@ function TerminalWorkspace({
       {showRight && (
         <div style={{ display: "grid", gridTemplateRows: "auto auto auto auto auto 1fr", gap: 10, marginLeft: 4, overflowY: "auto" }}>
 
-          {/* â”€â”€ AI INSIGHT card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* ── AI INSIGHT card ──────────────────────────────────────── */}
           <div style={{ background: C.card, border: `1px solid ${insightLoading ? C.accent + "66" : C.border}`, borderRadius: 8, overflow: "hidden", transition: "border-color 0.3s" }}>
             {/* Header */}
             <div style={{ padding: "8px 12px", background: C.surface, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
@@ -2831,7 +2831,7 @@ function TerminalWorkspace({
                 onClick={() => runInsight(selected.symbol, Number(selected.price || 0), Number(selected.changesPercentage || 0), scores)}
                 disabled={insightLoading}
                 style={{ border: `1px solid ${C.border}`, borderRadius: 3, background: "transparent", color: insightLoading ? C.textDim : C.accent, fontFamily: MONO, fontSize: 9, cursor: insightLoading ? "default" : "pointer", padding: "2px 7px", letterSpacing: "0.04em" }}
-              >{insightLoading ? "…" : "â†»"}</button>
+              >{insightLoading ? "…" : "↻"}</button>
             </div>
             {/* Body */}
             <div style={{ padding: "10px 12px", minHeight: 64 }}>
@@ -2879,7 +2879,7 @@ function TerminalWorkspace({
               <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 11, color: C.textDim }}>Earnings</span><span style={{ fontFamily: MONO, fontSize: 11, color: C.text }}>{fundamentals?.earningsDate ? new Date(fundamentals.earningsDate).toLocaleDateString() : "TBD"}</span></div>
             </div>
           </div>
-          {/* â”€â”€ ORDER ENTRY PANEL â”€â”€ */}
+          {/* ── ORDER ENTRY PANEL ── */}
           {(() => {
             const price = Number(selected?.price || 0);
             const spread = Math.max(0.01, price * 0.0003);
@@ -3109,7 +3109,7 @@ function TerminalWorkspace({
   );
 }
 
-// â”€â”€â”€ OptionsChainTab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── OptionsChainTab ────────────────────────────────────────────────────────
 function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTerminal }) {
   const [symbol, setSymbol] = useState(defaultSymbol || "AAPL");
   const [input, setInput] = useState(defaultSymbol || "AAPL");
@@ -3294,7 +3294,7 @@ function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTerminal }) {
   );
 }
 
-// â”€â”€â”€ SecFilingsTab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── SecFilingsTab ───────────────────────────────────────────────────────────
 function SecFilingsTab({ C, MONO, SANS, watchlistSymbols }) {
   const [symbol, setSymbol] = useState(watchlistSymbols?.[0] || "AAPL");
   const [input, setInput] = useState(watchlistSymbols?.[0] || "AAPL");
@@ -3390,8 +3390,8 @@ function SecFilingsTab({ C, MONO, SANS, watchlistSymbols }) {
   );
 }
 
-// â”€â”€â”€ CryptoTab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// â”€â”€â”€ parsePortfolioCSV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── CryptoTab ──────────────────────────────────────────────────────────────
+// ─── parsePortfolioCSV ────────────────────────────────────────────────────────
 // Handles three formats:
 //  1. Robinhood Activity export (Activity Date, Instrument, Trans Code, Quantity, Price)
 //  2. Generic positions CSV (symbol/ticker, shares/quantity, avgcost/average_cost/price)
@@ -3417,7 +3417,7 @@ function parsePortfolioCSV(text) {
   const headers = parseRow(lines[0]).map(h => h.toLowerCase().replace(/[\s_-]+/g, ""));
   const rows = lines.slice(1).map(parseRow);
 
-  // â”€â”€ Format 1: Robinhood Activity export â”€â”€
+  // ── Format 1: Robinhood Activity export ──
   // Columns: Activity Date, Process Date, Settle Date, Instrument, Description, Trans Code, Quantity, Price, Amount
   const iRH = {
     instrument: headers.findIndex(h => h === "instrument"),
@@ -3456,7 +3456,7 @@ function parsePortfolioCSV(text) {
     return { rows: result, format: "Robinhood Activity", errors: result.length ? [] : ["No open positions found — all positions appear to be closed."] };
   }
 
-  // â”€â”€ Format 2 & 3: Generic positions CSV â”€â”€
+  // ── Format 2 & 3: Generic positions CSV ──
   const colMap = {
     symbol:  headers.findIndex(h => ["symbol","ticker","instrument","stock"].includes(h)),
     shares:  headers.findIndex(h => ["shares","quantity","qty","units","sharesowned"].includes(h)),
@@ -3481,7 +3481,7 @@ function parsePortfolioCSV(text) {
   return { rows: [], format: "unknown", errors: ["Could not recognise CSV format. Expected columns: Symbol, Shares/Quantity, Avg Cost."] };
 }
 
-// â”€â”€â”€ Trade Advisor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Trade Advisor ────────────────────────────────────────────────────────────
 const r2 = (n) => Math.round(n * 100) / 100; // round to 2 decimal places
 function generateSetup(q) {
   if (!q || !q.price || q.price <= 0) return null;
@@ -3503,7 +3503,7 @@ function generateSetup(q) {
   const isBear  = mtf.signal === "SELL";
   if (!isBull && !isBear) return null;
 
-  // â”€â”€ Identify setup type â”€â”€
+  // ── Identify setup type ──
   const nearYearHigh  = yHigh > 0 && price >= yHigh * 0.97;
   const breakoutYHigh = yHigh > 0 && price >= yHigh * 0.995;
   const aboveSma50    = sma50  > 0 && price > sma50;
@@ -3531,7 +3531,7 @@ function generateSetup(q) {
     else                                  { setupType = "Short Signal"; }
   }
 
-  // â”€â”€ Calculate entry / stop / targets â”€â”€
+  // ── Calculate entry / stop / targets ──
   // ATR estimate: use 2% of price as a rough ATR proxy (standard for large-caps)
   const atrPct  = price < 10 ? 0.05 : price < 50 ? 0.03 : 0.02;
   const atr     = price * atrPct;
@@ -3558,7 +3558,7 @@ function generateSetup(q) {
     t2Pct   = ((target2 - price) / price * 100).toFixed(1);
   }
 
-  // â”€â”€ Build reasoning bullets â”€â”€
+  // ── Build reasoning bullets ──
   const reasons = [];
   if (veryHighRvol)                  reasons.push(`🔥 Volume ${rvol.toFixed(1)}× avg — strong institutional interest`);
   else if (highRvol)                 reasons.push(`📈 Volume ${rvol.toFixed(1)}× avg — above-average activity`);
@@ -3566,17 +3566,17 @@ function generateSetup(q) {
   else if (nearYearHigh && isBull)   reasons.push(`⚡ Near 52-week high ($${yHigh?.toFixed(2)}) — momentum in control`);
   if (goldenCross)                   reasons.push(`✨ Golden Cross: 50-day SMA above 200-day — long-term uptrend confirmed`);
   else if (aboveSma50 && isBull)     reasons.push(`📊 Price above 50-day SMA ($${sma50?.toFixed(2)}) — medium-term trend bullish`);
-  if (aboveSma200 && isBull)         reasons.push(`ðŸ” Above 200-day SMA ($${sma200?.toFixed(2)}) — long-term structure intact`);
-  if (chg > 3 && isBull)             reasons.push(`ðŸ’ª Up ${chg.toFixed(1)}% today — strong buying momentum`);
-  else if (chg > 1 && isBull)        reasons.push(`ðŸ“— Up ${chg.toFixed(1)}% on the day — positive price action`);
-  if (nearYearLow && isBear)         reasons.push(`⚠ï¸ Near 52-week low ($${yLow?.toFixed(2)}) — support failing`);
+  if (aboveSma200 && isBull)         reasons.push(`🏔 Above 200-day SMA ($${sma200?.toFixed(2)}) — long-term structure intact`);
+  if (chg > 3 && isBull)             reasons.push(`💪 Up ${chg.toFixed(1)}% today — strong buying momentum`);
+  else if (chg > 1 && isBull)        reasons.push(`📗 Up ${chg.toFixed(1)}% on the day — positive price action`);
+  if (nearYearLow && isBear)         reasons.push(`⚠️ Near 52-week low ($${yLow?.toFixed(2)}) — support failing`);
   if (!aboveSma200 && isBear)        reasons.push(`📉 Below 200-day SMA — long-term downtrend`);
   if (chg < -3 && isBear)            reasons.push(`🔴 Down ${Math.abs(chg).toFixed(1)}% today — heavy selling pressure`);
   // MTF alignment
   const bullTFs = mtf.timeframes.filter(t => !t.neutral && t.bull).map(t => t.label);
-  if (bullTFs.length >= 3 && isBull) reasons.push(`â± Bullish across ${bullTFs.join(", ")} timeframes — aligned momentum`);
+  if (bullTFs.length >= 3 && isBull) reasons.push(`⏱ Bullish across ${bullTFs.join(", ")} timeframes — aligned momentum`);
   const bearTFs = mtf.timeframes.filter(t => !t.neutral && !t.bull).map(t => t.label);
-  if (bearTFs.length >= 3 && isBear) reasons.push(`â± Bearish across ${bearTFs.join(", ")} timeframes — selling across the board`);
+  if (bearTFs.length >= 3 && isBear) reasons.push(`⏱ Bearish across ${bearTFs.join(", ")} timeframes — selling across the board`);
 
   if (reasons.length === 0) reasons.push(`Score ${scores.composite}/100 — multi-factor analysis supports this direction`);
 
@@ -3628,7 +3628,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
       .filter(s => s && s.conviction >= 7 && !alertedSet.has(s.symbol));
     if (!highConv.length) return;
     highConv.forEach(s => {
-      const msg = `ðŸš¨ *HIGH CONVICTION SETUP*\n${s.side === "LONG" ? "🟢" : "🔴"} *${s.symbol}* — ${s.setupType} ${s.side}\n💰 Entry: $${s.entry} | Stop: $${s.stop} | T1: $${s.target1}\n📊 Conviction: ${s.conviction}/10 | Score: ${s.composite}/100\n${s.reasons[0] || ""}`;
+      const msg = `🚨 *HIGH CONVICTION SETUP*\n${s.side === "LONG" ? "🟢" : "🔴"} *${s.symbol}* — ${s.setupType} ${s.side}\n💰 Entry: $${s.entry} | Stop: $${s.stop} | T1: $${s.target1}\n📊 Conviction: ${s.conviction}/10 | Score: ${s.composite}/100\n${s.reasons[0] || ""}`;
       fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
     });
     setAlertedSet(prev => new Set([...prev, ...highConv.map(s => s.symbol)]));
@@ -3672,8 +3672,8 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
           {/* Side filter */}
           {[
             { v: "ALL",   label: `ALL (${longCount + shortCount})`, col: C.accent },
-            { v: "LONG",  label: `â–² LONG (${longCount})`,   col: C.green },
-            { v: "SHORT", label: `â–¼ SHORT (${shortCount})`, col: C.red },
+            { v: "LONG",  label: `▲ LONG (${longCount})`,   col: C.green },
+            { v: "SHORT", label: `▼ SHORT (${shortCount})`, col: C.red },
           ].map(({ v, label, col }) => (
             <button key={v} onClick={() => setFilter(v)}
               style={{ fontFamily: MONO, fontSize: 10, fontWeight: filter === v ? 800 : 400,
@@ -3704,7 +3704,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
 
       {/* Position Sizer */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 12 : 10, color: C.textDim, whiteSpace: "nowrap" }}>ðŸ’¼ POSITION SIZER:</span>
+        <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 12 : 10, color: C.textDim, whiteSpace: "nowrap" }}>💼 POSITION SIZER:</span>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 11 : 9, color: C.textDim }}>Account $</span>
           <input type="number" value={accountSize} onChange={e => setAccountSize(e.target.value)}
@@ -3787,7 +3787,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
 
                 {/* Side badge */}
                 <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 13 : 11, fontWeight: 800, color: sideCol, background: `${sideCol}20`, border: `1px solid ${sideCol}55`, borderRadius: 4, padding: advisorTablet ? "5px 12px" : "3px 9px" }}>
-                  {s.side === "LONG" ? "â–² LONG" : "â–¼ SHORT"}
+                  {s.side === "LONG" ? "▲ LONG" : "▼ SHORT"}
                 </span>
 
                 {/* Setup type */}
@@ -3807,7 +3807,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
                 </div>
 
                 {/* Expand arrow */}
-                <span style={{ fontFamily: MONO, fontSize: 14, color: C.textDim, transition: "transform 0.2s", display: "inline-block", transform: isOpen ? "rotate(180deg)" : "none" }}>â–¼</span>
+                <span style={{ fontFamily: MONO, fontSize: 14, color: C.textDim, transition: "transform 0.2s", display: "inline-block", transform: isOpen ? "rotate(180deg)" : "none" }}>▼</span>
               </div>
 
               {/* Quick stats bar (always visible) */}
@@ -3859,7 +3859,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       {computeMTFSignal(s.q).timeframes.map(tf => {
                         const col = tf.neutral ? C.textDim : (tf.bull ? C.green : C.red);
-                        const label = tf.neutral ? "—" : (tf.bull ? "â–²" : "â–¼");
+                        const label = tf.neutral ? "—" : (tf.bull ? "▲" : "▼");
                         return (
                           <div key={tf.label} style={{ background: C.card, border: `1px solid ${col}44`, borderRadius: 6, padding: "6px 12px", textAlign: "center" }}>
                             <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{tf.label}</div>
@@ -3878,7 +3878,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
                     const totalCost = shares * s.price;
                     return (
                       <div style={{ marginTop: 14, background: C.surface, border: `1px solid ${C.accent}33`, borderRadius: 8, padding: "12px 14px" }}>
-                        <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700, marginBottom: 10, letterSpacing: "0.06em" }}>ðŸ’¼ POSITION SIZE (based on your ${Number(accountSize).toLocaleString()} account)</div>
+                        <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700, marginBottom: 10, letterSpacing: "0.06em" }}>💼 POSITION SIZE (based on your ${Number(accountSize).toLocaleString()} account)</div>
                         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                           <div>
                             <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>RISK AMOUNT</div>
@@ -3911,7 +3911,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
                       const msg = `${s.side === "LONG" ? "🟢" : "🔴"} *${s.symbol}* — ${s.setupType} ${s.side}\n💰 Entry: $${s.entry} | Stop: $${s.stop} (${s.stopPct}%) | T1: $${s.target1} (+${s.t1Pct}%)\n📊 Conviction: ${s.conviction}/10 | Score: ${s.composite}/100\n${s.reasons[0] || ""}`;
                       try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
                     }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: advisorTablet ? "12px 18px" : "8px 14px", fontFamily: MONO, fontSize: advisorTablet ? 13 : 11, cursor: "pointer", minHeight: advisorTablet ? 44 : "auto" }}>
-                      ðŸ“¬ SEND TO TELEGRAM
+                      📬 SEND TO TELEGRAM
                     </button>
                   </div>
                 </div>
@@ -3930,7 +3930,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
   );
 }
 
-// â”€â”€â”€ TelegramAlertsTab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── TelegramAlertsTab ───────────────────────────────────────────────────────
 function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onOpenTerminal }) {
   const [status, setStatus]       = useState(null);   // { ok, configured, botName, chatId, ... }
   const [checking, setChecking]   = useState(false);
@@ -4013,14 +4013,14 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
       const r = await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: notifyText }) });
       const d = await r.json();
       if (d.ok) { setNotifyMsg("✓ Sent!"); setNotifyText(""); }
-      else setNotifyMsg("âœ— " + (d.error || "Failed"));
-    } catch (e) { setNotifyMsg("âœ— " + e.message); }
+      else setNotifyMsg("✗ " + (d.error || "Failed"));
+    } catch (e) { setNotifyMsg("✗ " + e.message); }
     setNotifySending(false);
   };
 
   const isConfigured = status?.configured;
   const statusColor  = status === null ? C.textDim : (status.ok ? C.green : (status.configured ? C.red : C.amber));
-  const statusLabel  = status === null ? "Checking…" : (status.ok ? `✓ Connected — @${status.botUsername || status.botName || "bot"}` : (status.configured ? `âœ— Error: ${status.telegramError || status.error}` : "⚠ Not configured"));
+  const statusLabel  = status === null ? "Checking…" : (status.ok ? `✓ Connected — @${status.botUsername || status.botName || "bot"}` : (status.configured ? `✗ Error: ${status.telegramError || status.error}` : "⚠ Not configured"));
 
   const ROW = { borderTop: `1px solid ${C.border}` };
   const TH  = (align = "center") => ({ padding: "6px 10px", textAlign: align, fontFamily: MONO, fontSize: 10, color: C.textDim, fontWeight: 400 });
@@ -4033,11 +4033,11 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
         <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>TELEGRAM ALERTS — REAL-TIME NOTIFICATIONS</div>
         <button onClick={checkStatus} disabled={checking}
           style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "5px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
-          {checking ? "CHECKING…" : "â†º REFRESH"}
+          {checking ? "CHECKING…" : "↺ REFRESH"}
         </button>
       </div>
 
-      {/* â”€â”€ Status Card â”€â”€ */}
+      {/* ── Status Card ── */}
       <div style={{ background: C.card, border: `1px solid ${isConfigured ? (status?.ok ? C.green + "44" : C.red + "44") : C.amber + "44"}`, borderRadius: 8, padding: "14px 16px", marginBottom: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
           <div>
@@ -4077,7 +4077,7 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
         )}
       </div>
 
-      {/* â”€â”€ Setup Guide (only if not configured) â”€â”€ */}
+      {/* ── Setup Guide (only if not configured) ── */}
       {!isConfigured && status !== null && (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 16px", marginBottom: 14 }}>
           <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700, marginBottom: 10 }}>HOW TO CONNECT TELEGRAM</div>
@@ -4099,7 +4099,7 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
         </div>
       )}
 
-      {/* â”€â”€ Quick Notify â”€â”€ */}
+      {/* ── Quick Notify ── */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 16px", marginBottom: 14 }}>
         <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700, marginBottom: 10 }}>QUICK NOTIFY</div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -4115,7 +4115,7 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
         {!isConfigured && status !== null && <div style={{ marginTop: 6, fontFamily: MONO, fontSize: 10, color: C.amber }}>Configure Telegram above to enable sending.</div>}
       </div>
 
-      {/* â”€â”€ Price Target Alerts â”€â”€ */}
+      {/* ── Price Target Alerts ── */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", marginBottom: 14 }}>
         <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
           <div>
@@ -4129,7 +4129,7 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
             )}
             <button onClick={loadAlerts} disabled={aLoading}
               style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>
-              {aLoading ? "…" : "â†º"}
+              {aLoading ? "…" : "↺"}
             </button>
           </div>
         </div>
@@ -4185,7 +4185,7 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
                     const away = Math.abs(dist).toFixed(1);
                     const isBull = a.direction === "above";
                     distColor = Math.abs(dist) < 1.5 ? C.amber : (isBull ? (dist > 0 ? C.green : C.red) : (dist < 0 ? C.green : C.red));
-                    distLabel = isBull ? (dist > 0 ? `${away}% away â–²` : "BREACHED ✓") : (dist < 0 ? `${away}% away â–¼` : "BREACHED ✓");
+                    distLabel = isBull ? (dist > 0 ? `${away}% away ▲` : "BREACHED ✓") : (dist < 0 ? `${away}% away ▼` : "BREACHED ✓");
                   }
                   const statusBg = a.status === "active" ? `${C.green}22` : a.status === "triggered" ? `${C.accent}22` : `${C.amber}22`;
                   const statusClr = a.status === "active" ? C.green : a.status === "triggered" ? C.accent : C.amber;
@@ -4219,10 +4219,10 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
         )}
       </div>
 
-      {/* â”€â”€ Footer info â”€â”€ */}
+      {/* ── Footer info ── */}
       <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, lineHeight: 1.7 }}>
         📌 Price alerts are checked server-side every 90 s &nbsp;·&nbsp;
-        ðŸ“¬ Telegram message fires automatically when a target is hit &nbsp;·&nbsp;
+        📬 Telegram message fires automatically when a target is hit &nbsp;·&nbsp;
         🔔 Set up TradingView webhooks → Portfolio → Alerts for chart-based signals
       </div>
     </div>
@@ -4301,7 +4301,7 @@ function CryptoTab({ C, MONO, SANS }) {
       {/* Header bar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 20 }}>â‚¿</span>
+          <span style={{ fontSize: 20 }}>₿</span>
           <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>CRYPTO MARKET</span>
           {data?.globalMacro && (
             <span style={{
@@ -4400,7 +4400,7 @@ function CryptoTab({ C, MONO, SANS }) {
                 ["ETH Dominance", `${g.ethDominance}%`, C.purple],
                 ["Total Mkt Cap", fmt(g.totalMarketCap), C.text],
                 ["24h Volume",    fmt(g.totalVolume24h), C.text],
-                ["Mkt Cap Î” 24h", `${g.marketCapChange24h > 0 ? "+" : ""}${g.marketCapChange24h}%`, g.marketCapChange24h >= 0 ? C.green : C.red],
+                ["Mkt Cap Δ 24h", `${g.marketCapChange24h > 0 ? "+" : ""}${g.marketCapChange24h}%`, g.marketCapChange24h >= 0 ? C.green : C.red],
                 ["Active Coins",  g.activeCurrencies?.toLocaleString(), C.textDim],
               ].map(([k, v, col]) => (
                 <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
@@ -4447,12 +4447,12 @@ function CryptoTab({ C, MONO, SANS }) {
         const MoverCard = ({ coin, rank }) => {
           const isUp = coin.changesPercentage >= 0;
           const col = isUp ? C.green : C.red;
-          const COIN_ICONS = { BTC:"â‚¿",ETH:"Îž",SOL:"â—Ž",BNB:"â¬¡",XRP:"✕",DOGE:"Ã",ADA:"â‚³",AVAX:"â–³",LINK:"â¬¡",DOT:"â—",MATIC:"â¬Ÿ",UNI:"ðŸ¦„",LTC:"Å",BCH:"Éƒ",ATOM:"âš›" };
+          const COIN_ICONS = { BTC:"₿",ETH:"Ξ",SOL:"◎",BNB:"⬡",XRP:"✕",DOGE:"Ð",ADA:"₳",AVAX:"△",LINK:"⬡",DOT:"●",MATIC:"⬟",UNI:"🦄",LTC:"Ł",BCH:"Ƀ",ATOM:"⚛" };
           return (
             <div style={{ ...card, padding: "12px 16px", borderLeft: `3px solid ${col}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 16 }}>{COIN_ICONS[coin.symbol] || "â—†"}</span>
+                  <span style={{ fontSize: 16 }}>{COIN_ICONS[coin.symbol] || "◆"}</span>
                   <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>{coin.symbol}</span>
                 </div>
                 <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: col }}>
@@ -4468,13 +4468,13 @@ function CryptoTab({ C, MONO, SANS }) {
         return (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
             <div>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.green, letterSpacing: "0.08em", marginBottom: 8, fontWeight: 700 }}>â–² TOP GAINERS (24H)</div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.green, letterSpacing: "0.08em", marginBottom: 8, fontWeight: 700 }}>▲ TOP GAINERS (24H)</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {top3.map((c, i) => <MoverCard key={c.symbol} coin={c} rank={i+1} />)}
               </div>
             </div>
             <div>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.red, letterSpacing: "0.08em", marginBottom: 8, fontWeight: 700 }}>â–¼ TOP LOSERS (24H)</div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.red, letterSpacing: "0.08em", marginBottom: 8, fontWeight: 700 }}>▼ TOP LOSERS (24H)</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {bot3.map((c, i) => <MoverCard key={c.symbol} coin={c} rank={i+1} />)}
               </div>
@@ -4506,8 +4506,8 @@ function CryptoTab({ C, MONO, SANS }) {
         ) : (data?.coins || []).map((coin, idx) => {
           const isUp = coin.changesPercentage >= 0;
           const col = isUp ? C.green : C.red;
-          const COIN_ICONS = { BTC:"â‚¿",ETH:"Îž",SOL:"â—Ž",BNB:"â¬¡",XRP:"✕",DOGE:"Ã",ADA:"â‚³",AVAX:"â–³",LINK:"â¬¡",DOT:"â—",MATIC:"â¬Ÿ",UNI:"ðŸ¦„",LTC:"Å",BCH:"Éƒ",ATOM:"âš›" };
-          const icon = COIN_ICONS[coin.symbol] || "â—†";
+          const COIN_ICONS = { BTC:"₿",ETH:"Ξ",SOL:"◎",BNB:"⬡",XRP:"✕",DOGE:"Ð",ADA:"₳",AVAX:"△",LINK:"⬡",DOT:"●",MATIC:"⬟",UNI:"🦄",LTC:"Ł",BCH:"Ƀ",ATOM:"⚛" };
+          const icon = COIN_ICONS[coin.symbol] || "◆";
           const fmtPrice = (p) => p >= 1000 ? `$${p.toLocaleString()}` : `$${p.toFixed(p >= 1 ? 2 : 6)}`;
           return (
             <div key={coin.symbol} style={{
@@ -4529,7 +4529,7 @@ function CryptoTab({ C, MONO, SANS }) {
                 {fmtPrice(coin.price)}
               </div>
               <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: col, textAlign: "right", alignSelf: "center" }}>
-                {isUp ? "â–²" : "â–¼"} {Math.abs(coin.changesPercentage).toFixed(2)}%
+                {isUp ? "▲" : "▼"} {Math.abs(coin.changesPercentage).toFixed(2)}%
               </div>
               <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "right", alignSelf: "center" }}>{fmtPrice(coin.high24h)}</div>
               <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "right", alignSelf: "center" }}>{fmtPrice(coin.low24h)}</div>
@@ -4548,29 +4548,29 @@ function CryptoTab({ C, MONO, SANS }) {
 
 function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
   const LEAGUES = [
-    { id: "eng.1",           name: "Premier League",    flag: "ðŸ´ó §ó ¢ó ¥ó ®ó §ó ¿", },
-    { id: "esp.1",           name: "La Liga",           flag: "ðŸ‡ªðŸ‡¸" },
-    { id: "ger.1",           name: "Bundesliga",        flag: "ðŸ‡©ðŸ‡ª" },
-    { id: "ita.1",           name: "Serie A",           flag: "ðŸ‡®ðŸ‡¹" },
-    { id: "fra.1",           name: "Ligue 1",           flag: "ðŸ‡«ðŸ‡·" },
+    { id: "eng.1",           name: "Premier League",    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", },
+    { id: "esp.1",           name: "La Liga",           flag: "🇪🇸" },
+    { id: "ger.1",           name: "Bundesliga",        flag: "🇩🇪" },
+    { id: "ita.1",           name: "Serie A",           flag: "🇮🇹" },
+    { id: "fra.1",           name: "Ligue 1",           flag: "🇫🇷" },
     { id: "uefa.champions",  name: "Champions League",  flag: "🏆" },
     { id: "uefa.europa",     name: "Europa League",     flag: "🥈" },
-    { id: "usa.1",           name: "MLS",               flag: "ðŸ‡ºðŸ‡¸" },
-    { id: "tur.1",           name: "SÃ¼per Lig",         flag: "ðŸ‡¹ðŸ‡·" },
-    { id: "sau.1",           name: "Saudi Pro League",  flag: "ðŸ‡¸ðŸ‡¦" },
+    { id: "usa.1",           name: "MLS",               flag: "🇺🇸" },
+    { id: "tur.1",           name: "Süper Lig",         flag: "🇹🇷" },
+    { id: "sau.1",           name: "Saudi Pro League",  flag: "🇸🇦" },
   ];
 
   const FREE_SITES = [
-    { name: "LiveSoccerTV",   url: "https://www.livesoccertv.com",              icon: "ðŸ“¡", desc: "Find which channel broadcasts every match worldwide" },
-    { name: "BBC Sport",      url: "https://www.bbc.co.uk/sport/football",      icon: "ðŸŽ™", desc: "Free live FA Cup, Women's football & highlights (UK)" },
-    { name: "ITVX",           url: "https://www.itv.com/watch/sports",          icon: "ðŸ“º", desc: "Free live Champions League matches (UK)" },
-    { name: "ViX",            url: "https://www.vix.com",                       icon: "🌎", desc: "Free Spanish-language — Liga MX, Copa AmÃ©rica" },
+    { name: "LiveSoccerTV",   url: "https://www.livesoccertv.com",              icon: "📡", desc: "Find which channel broadcasts every match worldwide" },
+    { name: "BBC Sport",      url: "https://www.bbc.co.uk/sport/football",      icon: "🎙", desc: "Free live FA Cup, Women's football & highlights (UK)" },
+    { name: "ITVX",           url: "https://www.itv.com/watch/sports",          icon: "📺", desc: "Free live Champions League matches (UK)" },
+    { name: "ViX",            url: "https://www.vix.com",                       icon: "🌎", desc: "Free Spanish-language — Liga MX, Copa América" },
     { name: "TUDN",           url: "https://www.tudn.com",                      icon: "⚽", desc: "Free tier — Liga MX, Mexican national team" },
-    { name: "Pluto TV",       url: "https://pluto.tv/en/live-tv/sports",        icon: "ðŸ†“", desc: "Free sports channels, no sign-up needed" },
+    { name: "Pluto TV",       url: "https://pluto.tv/en/live-tv/sports",        icon: "🆓", desc: "Free sports channels, no sign-up needed" },
     { name: "YouTube Soccer", url: "https://www.youtube.com/@premierleague",    icon: "▶", desc: "Official Premier League, UEFA & club channels" },
     { name: "SofaScore",      url: "https://www.sofascore.com",                 icon: "📊", desc: "Live scores, lineups, stats & stream links" },
-    { name: "ESPN Soccer",    url: "https://www.espn.com/soccer/",              icon: "ðŸŸ", desc: "Free highlights — Bundesliga, MLS, FA Cup (US)" },
-    { name: "OneFootball",    url: "https://www.onefootball.com",               icon: "ðŸŒ", desc: "Free highlights and some live streams — global" },
+    { name: "ESPN Soccer",    url: "https://www.espn.com/soccer/",              icon: "🏟", desc: "Free highlights — Bundesliga, MLS, FA Cup (US)" },
+    { name: "OneFootball",    url: "https://www.onefootball.com",               icon: "🌐", desc: "Free highlights and some live streams — global" },
     { name: "Paramount+",     url: "https://www.paramountplus.com",             icon: "📱", desc: "Free trial — Champions League, Serie A (US)" },
     { name: "FlashScore",     url: "https://www.flashscore.com",                icon: "⚡", desc: "Live scores, text commentary & stream finder" },
   ];
@@ -4665,7 +4665,7 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
       {/* Free streaming sites */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, marginBottom: 24, overflow: "hidden" }}>
         <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}` }}>
-          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, letterSpacing: "0.08em" }}>ðŸ†“ FREE STREAMING SITES — tap to open</span>
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, letterSpacing: "0.08em" }}>🆓 FREE STREAMING SITES — tap to open</span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: cols }}>
           {FREE_SITES.map((s, i) => (
@@ -4694,7 +4694,7 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
           <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, letterSpacing: "0.08em" }}>📅 TODAY'S SCHEDULE</span>
           <button onClick={() => fetchLeague(soccerLeague)} disabled={soccerLoading}
             style={{ fontFamily: MONO, fontSize: 10, background: C.surface, border: `1px solid ${C.border}`, color: C.textSec, borderRadius: 4, padding: "5px 10px", cursor: "pointer" }}>
-            {soccerLoading ? "LOADING…" : "â†» REFRESH"}
+            {soccerLoading ? "LOADING…" : "↻ REFRESH"}
           </button>
         </div>
         <div style={{ display: "flex", overflowX: "auto", scrollbarWidth: "none", padding: "8px 12px", gap: 6, borderBottom: `1px solid ${C.border}` }}>
@@ -5148,7 +5148,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
                 <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginBottom: 8 }}>TECHNICAL CHECKLIST</div>
                 <div style={{ fontSize: 13, color: C.textSec, lineHeight: 1.6 }}>
-                  Trend: <strong>{stock.price > (stock.priceAvg50 || 0) ? "Aligned ✅" : "Weak ⚠ï¸"}</strong> ·
+                  Trend: <strong>{stock.price > (stock.priceAvg50 || 0) ? "Aligned ✅" : "Weak ⚠️"}</strong> ·
                   RVOL: <strong>{rvol}x</strong> ·
                   52W pos: <strong>{stock.yearHigh && stock.yearLow ? `${(((stock.price - stock.yearLow) / Math.max(0.01, (stock.yearHigh - stock.yearLow))) * 100).toFixed(0)}%` : "n/a"}</strong>
                 </div>
@@ -5288,7 +5288,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
                 </div>
               ))}
               <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}`, fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>
-                {technicalDeepScore >= 70 ? "✅ Institutional-quality continuation profile." : technicalDeepScore >= 55 ? "⚠ï¸ Tradable with confirmation and tighter risk." : "❌ Weak technical quality — avoid forcing entries."}
+                {technicalDeepScore >= 70 ? "✅ Institutional-quality continuation profile." : technicalDeepScore >= 55 ? "⚠️ Tradable with confirmation and tighter risk." : "❌ Weak technical quality — avoid forcing entries."}
               </div>
             </div>
             <div style={{ ...panelCard, padding: 20 }}>
@@ -5314,7 +5314,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
           </div>
         </div>
 
-        {/* â”€â”€ TECHNICAL ANALYSIS SCHOOL â”€â”€ */}
+        {/* ── TECHNICAL ANALYSIS SCHOOL ── */}
         {(() => {
           const price = Number(stock.price || 0);
           const open  = Number(stock.open || price);
@@ -5391,7 +5391,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
 
           const SignalRow = ({ s, type }) => {
             const color = s.active ? (type === "bull" ? C.green : C.red) : C.textDim;
-            const icon  = s.active ? (type === "bull" ? "✅" : "🔴") : "â—‹";
+            const icon  = s.active ? (type === "bull" ? "✅" : "🔴") : "○";
             const [open2, setOpen2] = React.useState(false);
             return (
               <div style={{ borderBottom: `1px solid ${C.border}`, padding: "10px 0" }}>
@@ -5401,7 +5401,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
                 >
                   <span style={{ fontSize: 14, width: 20, flexShrink: 0 }}>{icon}</span>
                   <span style={{ fontFamily: MONO, fontSize: 11, color, fontWeight: s.active ? 700 : 400, flex: 1 }}>{s.label}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{open2 ? "â–²" : "â–¼ learn"}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{open2 ? "▲" : "▼ learn"}</span>
                 </div>
                 {open2 && (
                   <div style={{ marginTop: 8, marginLeft: 30, padding: "10px 14px", background: C.bg, borderLeft: `3px solid ${color}`, borderRadius: 4, fontSize: 12, fontFamily: SANS, color: C.textSec, lineHeight: 1.7 }}>
@@ -5442,7 +5442,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
                   </div>
                   {bullSignals.map((s, i) => <SignalRow key={i} s={s} type="bull" />)}
                   <div style={{ marginTop: 14, padding: "12px 14px", background: `${C.green}0f`, border: `1px solid ${C.green}33`, borderRadius: 6 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.green, marginBottom: 4 }}>ðŸ“– RULE OF THUMB</div>
+                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.green, marginBottom: 4 }}>📖 RULE OF THUMB</div>
                     <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.7 }}>
                       A strong bull setup checks at least 4 of these 6 signals. Price above 50D + Golden Cross + RVOL &gt; 1.2 = institutional sponsorship. Never buy a stock without at least 2 active bullish signals.
                     </div>
@@ -5494,9 +5494,9 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
   );
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════
 // EARLY ENTRY SCANNER
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════
 
 function computeEarlyScore(q, spyChg, qqqChg) {
   if (!q || !q.price) return { score: 0, breakdown: {}, reasons: [], flags: [] };
@@ -5688,7 +5688,7 @@ function EarlyEntryScanner({ watchlistData, macroData, sectorData, onSelectSymbo
     const { q, scored, setup, lbl, entry, stop, t1, t2, rr } = row;
     const whys = scored.reasons.slice(0, 5).map(r => `✅ ${r}`).join("\n");
     return (
-`ðŸš¨ EARLY ${lbl.label.toUpperCase()} ALERT
+`🚨 EARLY ${lbl.label.toUpperCase()} ALERT
 
 Ticker: ${q.symbol}
 Score: ${scored.score}/100
@@ -5714,7 +5714,7 @@ Risk small and follow the stop.`
     const now = Date.now();
     const last = sentRef.current[row.q.symbol] || 0;
     if (now - last < 30 * 60 * 1000) {
-      setAlertStatus(`â± Alert for ${row.q.symbol} already sent < 30 min ago`);
+      setAlertStatus(`⏱ Alert for ${row.q.symbol} already sent < 30 min ago`);
       setTimeout(() => setAlertStatus(""), 3000);
       return;
     }
@@ -5785,7 +5785,7 @@ Risk small and follow the stop.`
   return (
     <div style={{ display: "grid", gap: 14 }}>
 
-      {/* â”€â”€ Summary Cards â”€â”€ */}
+      {/* ── Summary Cards ── */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "stretch" }}>
         <SummaryCard label="MARKET BIAS"       value={marketBias.label}                 color={marketBias.color}  sub={`SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}%  QQQ ${qqqChg >= 0 ? "+" : ""}${qqqChg.toFixed(2)}%`} />
         <SummaryCard label="BEST EARLY ENTRY"  value={bestEntry?.q.symbol || "—"}       color={C.accent}          sub={bestEntry ? `Score ${bestEntry.scored.score} · ${bestEntry.setup}` : "No setups yet"} onClick={() => bestEntry && onSelectSymbol(bestEntry.q.symbol)} />
@@ -5824,7 +5824,7 @@ Risk small and follow the stop.`
         >📱 PUSH BRIEF</button>
       </div>
 
-      {/* â”€â”€ Filter bar â”€â”€ */}
+      {/* ── Filter bar ── */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.07em" }}>SETUP:</span>
         {setupOptions.map(s => (
@@ -5845,7 +5845,7 @@ Risk small and follow the stop.`
         )}
       </div>
 
-      {/* â”€â”€ Best Early Entries Table â”€â”€ */}
+      {/* ── Best Early Entries Table ── */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
         <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <SectionHeader title="BEST EARLY ENTRIES" count={filteredEntries.length} color={C.green} />
@@ -5908,7 +5908,7 @@ Risk small and follow the stop.`
         </div>
       </div>
 
-      {/* â”€â”€ Alert Preview Panel â”€â”€ */}
+      {/* ── Alert Preview Panel ── */}
       {alertPreview && (
         <div style={{ background: C.card, border: `2px solid ${C.amber}66`, borderRadius: 8, padding: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -5933,7 +5933,7 @@ Risk small and follow the stop.`
         </div>
       )}
 
-      {/* â”€â”€ Two-column: VWAP Reclaim + EMA Pullback â”€â”€ */}
+      {/* ── Two-column: VWAP Reclaim + EMA Pullback ── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
 
         {/* VWAP Reclaim */}
@@ -5999,7 +5999,7 @@ Risk small and follow the stop.`
                     <TD right><ScoreBadge score={row.scored.score} /></TD>
                     <TD><button onClick={async () => {
                       const d50str = distTo50 != null ? `${distTo50 >= 0 ? "+" : ""}${distTo50.toFixed(1)}% vs 50D` : "";
-                      const msg = `ðŸ”„ 21 EMA PULLBACK — ${row.q.symbol}\nPrice: $${price.toFixed(2)}  ${d50str}\nRVOL: ${row.scored.rvol.toFixed(2)}x  Score: ${row.scored.score}\nSetup: Pulling back to 21 EMA / 50D support — watch for green bounce`;
+                      const msg = `🔄 21 EMA PULLBACK — ${row.q.symbol}\nPrice: $${price.toFixed(2)}  ${d50str}\nRVOL: ${row.scored.rvol.toFixed(2)}x  Score: ${row.scored.score}\nSetup: Pulling back to 21 EMA / 50D support — watch for green bounce`;
                       await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
                     }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 3, padding: "2px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>📱</button></TD>
                   </tr>
@@ -6016,7 +6016,7 @@ Risk small and follow the stop.`
         </div>
       </div>
 
-      {/* â”€â”€ Pre-Breakout Watchlist â”€â”€ */}
+      {/* ── Pre-Breakout Watchlist ── */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
         <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <SectionHeader title="PRE-BREAKOUT WATCHLIST" count={preBreakout.length} color={C.amber} badge="within 5% of 52W high · compression building" />
@@ -6079,7 +6079,7 @@ Risk small and follow the stop.`
         </div>
       </div>
 
-      {/* â”€â”€ Avoid / Trap Zone â”€â”€ */}
+      {/* ── Avoid / Trap Zone ── */}
       <div style={{ background: C.card, border: `1px solid ${C.red}33`, borderRadius: 8, overflow: "hidden" }}>
         <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <SectionHeader title="AVOID / TRAP ZONE" count={trapZones.length} color={C.red} badge="do not chase these" />
@@ -6119,7 +6119,7 @@ Risk small and follow the stop.`
         </div>
       </div>
 
-      {/* â”€â”€ Scoring Legend â”€â”€ */}
+      {/* ── Scoring Legend ── */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px" }}>
         <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.07em", marginBottom: 10 }}>EARLY ENTRY SCORING MODEL</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 12 }}>
@@ -6161,9 +6161,9 @@ Risk small and follow the stop.`
   );
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════
 // MAIN APP
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════
 export default function App() {
   const [appUnlocked, setAppUnlocked] = useState(true);
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
@@ -6330,24 +6330,24 @@ export default function App() {
   const lastAlertsTabVisit = useRef(0);
   const [triggeredAlertBadge, setTriggeredAlertBadge] = useState(0);
 
-  // â”€â”€ Alert Analyzer state
+  // ── Alert Analyzer state
   const [analyzerInput, setAnalyzerInput] = useState("");
   const [analyzerResults, setAnalyzerResults] = useState([]);
   const [analyzerExpanded, setAnalyzerExpanded] = useState(null);
   const [tgStatus, setTgStatus] = useState(null); // null | "sending" | "ok" | "error" | "unconfigured"
   const [tgMsg, setTgMsg] = useState("");
 
-  // â”€â”€ COT State â”€â”€
+  // ── COT State ──
   const [cotData, setCotData]           = useState(null);   // full API response
   const [cotLoading, setCotLoading]     = useState(false);
   const [cotError, setCotError]         = useState("");
   const [cotRunning, setCotRunning]     = useState(false);  // manual scan in progress
   const [cotLastSent, setCotLastSent]   = useState(null);   // last Telegram send result
 
-  // â”€â”€ OpenStock / TradingView Widget State â”€â”€
+  // ── OpenStock / TradingView Widget State ──
   const [tvOsInput,  setTvOsInput]  = useState("SPY");
   const [tvOsSymbol, setTvOsSymbol] = useState("SPY");
-  // â”€â”€ Smart Scanner state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Smart Scanner state ──────────────────────────────────────────────────
   const [scanResults,  setScanResults]  = useState([]);
   const [scanLoading,  setScanLoading]  = useState(false);
   const [scanProgress, setScanProgress] = useState({ done: 0, total: 30 });
@@ -6360,100 +6360,100 @@ export default function App() {
   const [autoScanMins, setAutoScanMins] = useState(5);
   const [autoScanCountdown, setAutoScanCountdown] = useState(0);
   const autoScanRef = useRef(null);
-  // â”€â”€ AI Trade Setup state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── AI Trade Setup state ─────────────────────────────────────────────────
   const [tradeSetups,     setTradeSetups]     = useState({});  // { BBAI: { plan, generatedAt } }
   const [tradeSetupLoad,  setTradeSetupLoad]  = useState({});  // { BBAI: true/false }
   const [tradeSetupError, setTradeSetupError] = useState({});  // { BBAI: "msg" }
 
-  // â”€â”€ Pre-Market Briefing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Pre-Market Briefing ───────────────────────────────────────────────────
   const [premktBriefing,  setPremktBriefing]  = useState("");
   const [premktLoading,   setPremktLoading]   = useState(false);
   const [premktAt,        setPremktAt]        = useState("");
 
-  // â”€â”€ Custom Screener â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Custom Screener ───────────────────────────────────────────────────────
   const [screenerRules,   setScreenerRules]   = useState([{ field: "score", op: ">=", val: "70" }]);
   const [screenerResults, setScreenerResults] = useState([]);
   const [screenerRan,     setScreenerRan]     = useState(false);
 
-  // â”€â”€ Short Interest â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Short Interest ────────────────────────────────────────────────────────
   const [shortIntData,    setShortIntData]    = useState([]);
   const [shortIntLoading, setShortIntLoading] = useState(false);
   const [shortIntInput,   setShortIntInput]   = useState("");
 
-  // â”€â”€ Correlation Matrix â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Correlation Matrix ────────────────────────────────────────────────────
   const [corrMatrix,      setCorrMatrix]      = useState(null);
   const [corrLoading,     setCorrLoading]     = useState(false);
 
-  // â”€â”€ Fibonacci Calculator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Fibonacci Calculator ──────────────────────────────────────────────────
   const [fibTicker,       setFibTicker]       = useState("SPY");
   const [fibInput,        setFibInput]        = useState("SPY");
   const [fibData,         setFibData]         = useState(null);
   const [fibLoading,      setFibLoading]      = useState(false);
   const [fibError,        setFibError]        = useState("");
 
-  // â”€â”€ Multi-Timeframe â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Multi-Timeframe ───────────────────────────────────────────────────────
   const [multitfSymbol,   setMultitfSymbol]   = useState("SPY");
   const [multitfInput,    setMultitfInput]    = useState("SPY");
 
-  // â”€â”€ Halal Screener â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Halal Screener ────────────────────────────────────────────────────────
   const [halalInput,      setHalalInput]      = useState("");
   const [halalReport,     setHalalReport]     = useState(null);
   const [halalLoading,    setHalalLoading]    = useState(false);
   const [halalError,      setHalalError]      = useState("");
 
-  // â”€â”€ AI Journal Review â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── AI Journal Review ─────────────────────────────────────────────────────
   const [journalReview,   setJournalReview]   = useState(null);
   const [journalRevLoad,  setJournalRevLoad]  = useState(false);
   const [journalRevError, setJournalRevError] = useState("");
 
-  // â”€â”€ News Sentiment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── News Sentiment ────────────────────────────────────────────────────────
   const [newsSentiments,  setNewsSentiments]  = useState({});  // headline text → {s, score}
   const [newsSentLoading, setNewsSentLoading] = useState(false);
 
-  // â”€â”€ Smart Money (Insider + Institutional) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Smart Money (Insider + Institutional) ────────────────────────────────
   const [insiderTicker,   setInsiderTicker]   = useState("AAPL");
   const [insiderInput,    setInsiderInput]    = useState("AAPL");
   const [insiderData,     setInsiderData]     = useState(null);
   const [instData,        setInstData]        = useState(null);
   const [insiderLoading,  setInsiderLoading]  = useState(false);
 
-  // â”€â”€ Social Sentiment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Social Sentiment ──────────────────────────────────────────────────────
   const [socialTicker,    setSocialTicker]    = useState("TSLA");
   const [socialInput,     setSocialInput]     = useState("TSLA");
   const [socialData,      setSocialData]      = useState(null);
   const [socialLoading,   setSocialLoading]   = useState(false);
 
-  // â”€â”€ Analyst Ratings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Analyst Ratings ───────────────────────────────────────────────────────
   const [analystTicker,   setAnalystTicker]   = useState("AAPL");
   const [analystInput,    setAnalystInput]    = useState("AAPL");
   const [analystData,     setAnalystData]     = useState(null);
   const [analystLoading,  setAnalystLoading]  = useState(false);
 
-  // â”€â”€ Dividend / IPO Calendar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Dividend / IPO Calendar ───────────────────────────────────────────────
   const [dividendData,    setDividendData]    = useState(null);
   const [dividendLoading, setDividendLoading] = useState(false);
 
-  // â”€â”€ AI Pattern Recognizer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── AI Pattern Recognizer ─────────────────────────────────────────────────
   const [patternTicker,   setPatternTicker]   = useState("SPY");
   const [patternInput,    setPatternInput]    = useState("SPY");
   const [patternResult,   setPatternResult]   = useState(null);
   const [patternLoading,  setPatternLoading]  = useState(false);
 
-  // â”€â”€ Macro Scenario Planner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Macro Scenario Planner ────────────────────────────────────────────────
   const [scenarioInput,   setScenarioInput]   = useState("");
   const [scenarioResult,  setScenarioResult]  = useState(null);
   const [scenarioLoading, setScenarioLoading] = useState(false);
 
-  // â”€â”€ Earnings Call Summarizer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Earnings Call Summarizer ──────────────────────────────────────────────
   const [earningsCallText,   setEarningsCallText]   = useState("");
   const [earningsCallResult, setEarningsCallResult] = useState(null);
   const [earningsCallLoad,   setEarningsCallLoad]   = useState(false);
 
-  // â”€â”€ Session Recap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Session Recap ─────────────────────────────────────────────────────────
   const [sessionRecapResult, setSessionRecapResult] = useState(null);
   const [sessionRecapLoad,   setSessionRecapLoad]   = useState(false);
 
-  // â”€â”€ Trade Checklist â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Trade Checklist ───────────────────────────────────────────────────────
   const [checklistItems, setChecklistItems] = useState([
     { id: 1, label: "Trend aligned on D1 chart",           done: false },
     { id: 2, label: "Above key support level",             done: false },
@@ -6467,7 +6467,7 @@ export default function App() {
     { id: 10, label: "Halal screening passed",             done: false },
   ]);
 
-  // â”€â”€ DCA Planner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── DCA Planner ───────────────────────────────────────────────────────────
   const [dcaTicker,  setDcaTicker]  = useState("SPY");
   const [dcaAmount,  setDcaAmount]  = useState("500");
   const [dcaPeriod,  setDcaPeriod]  = useState("monthly");
@@ -6475,7 +6475,7 @@ export default function App() {
   const [dcaReturn,  setDcaReturn]  = useState("10");
   const [dcaResult,  setDcaResult]  = useState(null);
 
-  // â”€â”€ Options Break-Even Calculator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Options Break-Even Calculator ─────────────────────────────────────────
   const [optionType,    setOptionType]    = useState("call");
   const [optionStock,   setOptionStock]   = useState("");
   const [optionStrike,  setOptionStrike]  = useState("");
@@ -6483,7 +6483,7 @@ export default function App() {
   const [optionExpiry,  setOptionExpiry]  = useState("");
   const [optionResult,  setOptionResult]  = useState(null);
 
-  // â”€â”€ AI Lab sub-section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── AI Lab sub-section ────────────────────────────────────────────────────
   const [ailabSection,  setAilabSection]  = useState("pattern");
   // Fear & Greed
   const [fearGreedData,    setFearGreedData]    = useState(null);
@@ -6504,7 +6504,7 @@ export default function App() {
   const [fivexFetchedAt, setFivexFetchedAt] = useState(null);
   const [fivexError,     setFivexError]     = useState(null);
 
-  // â”€â”€ Quran Player State â”€â”€
+  // ── Quran Player State ──
   const [quranReciter, setQuranReciter] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("quran_reciter") || "null");
@@ -6526,7 +6526,7 @@ export default function App() {
   const [quranSearchQuery, setQuranSearchQuery] = useState("");
   const quranAudioRef = useRef(null);
 
-  // â”€â”€ Athan State â”€â”€
+  // ── Athan State ──
   const [athanCity, setAthanCity] = useState(() => localStorage.getItem("athan_city") || "");
   const [athanCountry, setAthanCountry] = useState(() => localStorage.getItem("athan_country") || "");
   const [athanMethod, setAthanMethod] = useState(() => Number(localStorage.getItem("athan_method") || "4"));
@@ -6560,11 +6560,11 @@ export default function App() {
       }
       const res = await fetch(url);
       const data = await res.json();
-      if (data.code !== 200) throw new Error(data.data || "Ø®Ø·Ø£ ÙÙŠ Ø¬Ù„Ø¨ Ø£ÙˆÙ‚Ø§Øª Ø§Ù„ØµÙ„Ø§Ø©");
+      if (data.code !== 200) throw new Error(data.data || "خطأ في جلب أوقات الصلاة");
       setAthanTimes(data.data.timings);
       setAthanHijri(data.data.date?.hijri);
     } catch (err) {
-      setAthanError(String(err.message || "ÙØ´Ù„ ÙÙŠ Ø¬Ù„Ø¨ Ø£ÙˆÙ‚Ø§Øª Ø§Ù„ØµÙ„Ø§Ø©"));
+      setAthanError(String(err.message || "فشل في جلب أوقات الصلاة"));
     }
     setAthanLoading(false);
   }, [athanMethod]);
@@ -6583,7 +6583,7 @@ export default function App() {
   useEffect(() => {
     if (!athanTimes || !athanReminder) return;
     const PRAYER_KEYS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
-    const PRAYER_NAMES_AR = { Fajr: "Ø§Ù„ÙØ¬Ø±", Dhuhr: "Ø§Ù„Ø¸Ù‡Ø±", Asr: "Ø§Ù„Ø¹ØµØ±", Maghrib: "Ø§Ù„Ù…ØºØ±Ø¨", Isha: "Ø§Ù„Ø¹Ø´Ø§Ø¡" };
+    const PRAYER_NAMES_AR = { Fajr: "الفجر", Dhuhr: "الظهر", Asr: "العصر", Maghrib: "المغرب", Isha: "العشاء" };
     const today = new Date().toISOString().slice(0, 10);
 
     const t = setInterval(() => {
@@ -6603,8 +6603,8 @@ export default function App() {
           if (!athanFiredReminders.current.has(key2)) {
             athanFiredReminders.current.add(key2);
             try {
-              new Notification(`ðŸ•Œ ${PRAYER_NAMES_AR[key]} Ø®Ù„Ø§Ù„ ${athanReminder} Ø¯Ù‚ÙŠÙ‚Ø©`, {
-                body: `ÙˆÙ‚Øª ØµÙ„Ø§Ø© ${PRAYER_NAMES_AR[key]} Ø§Ù„Ø³Ø§Ø¹Ø© ${timeStr}`,
+              new Notification(`🕌 ${PRAYER_NAMES_AR[key]} خلال ${athanReminder} دقيقة`, {
+                body: `وقت صلاة ${PRAYER_NAMES_AR[key]} الساعة ${timeStr}`,
                 icon: "/axiom-runner/assets/am-trading-logo.png",
                 tag: key2,
               });
@@ -6690,7 +6690,7 @@ export default function App() {
     localStorage.setItem("quran_volume", String(quranVolume));
   }, [quranVolume]);
 
-  // â”€â”€ Deals State â”€â”€
+  // ── Deals State ──
   const [dealsQuery,    setDealsQuery]    = useState("");
   const [dealsCategory, setDealsCategory] = useState("electronics");
   const [dealsMaxPrice, setDealsMaxPrice] = useState("");
@@ -6714,7 +6714,7 @@ export default function App() {
     if (activeTab === "deals") fetchDealsWatches();
   }, [activeTab, fetchDealsWatches]);
 
-  // â”€â”€ COT: fetch on tab open â”€â”€
+  // ── COT: fetch on tab open ──
   const fetchCOTData = useCallback(() => {
     setCotLoading(true); setCotError("");
     fetch("/api/cot/status")
@@ -6775,7 +6775,7 @@ export default function App() {
       .then(() => fetchDealsWatches());
   }, [fetchDealsWatches]);
 
-  // â”€â”€ Athkar State â”€â”€
+  // ── Athkar State ──
   const [athkarCategory, setAthkarCategory] = useState("morning");
   const [athkarProgress, setAthkarProgress] = useState(() => {
     try {
@@ -6796,7 +6796,7 @@ export default function App() {
     } catch { return {}; }
   });
 
-  // â”€â”€ Tasbih State â”€â”€
+  // ── Tasbih State ──
   const [tasbihDhikr, setTasbihDhikr] = useState(TASBIH_DHIKR[0]);
   const [tasbihTarget, setTasbihTarget] = useState(33);
   const [tasbihCustomTarget, setTasbihCustomTarget] = useState("");
@@ -6908,7 +6908,7 @@ export default function App() {
     if (activeTab === "journal") loadJournalTab();
   }, [activeTab]);
 
-  // â”€â”€ 5X PLAYS: live price fetch (component level — hooks must not be inside IIFEs) â”€â”€
+  // ── 5X PLAYS: live price fetch (component level — hooks must not be inside IIFEs) ──
   const FIVEX_TICKERS = ["BBAI","SERV","SMR","RDW","NNE","LUNR","PL","SYM","OKLO","ASTS","PLTR","RKLB","NBIS","VRT","PWR","GSAT","APLD","ACHR","SOUN","RGTI","CORZ","PATH","KTOS","IONQ","SMCI","CCJ","BWXT","VST","CEG","GEV"];
   async function fetchLivePrices() {
     setFivexLoading(true);
@@ -6943,14 +6943,14 @@ export default function App() {
     return () => clearInterval(t);
   }, [activeTab, fivexLoading]);
 
-  // â”€â”€ Smart Scanner: scoring + scan + deep-dive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Smart Scanner: scoring + scan + deep-dive ───────────────────────────
   function scoreTicker(ticker, quote, candles) {
     let score = 50;
     const signals = [];
     const price   = Number(quote?.price || 0);
     const ref     = FIVEX_REF[ticker];
 
-    // â”€â”€ RSI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── RSI ────────────────────────────────────────────────────────────────
     const rsiArr = candles?.indicators?.rsi || [];
     const rsiVal = rsiArr.length ? Number(rsiArr.at(-1)?.value) : null;
     if (rsiVal !== null && !isNaN(rsiVal)) {
@@ -6961,7 +6961,7 @@ export default function App() {
       else if (rsiVal > 65) { score -=  5; }
     }
 
-    // â”€â”€ MACD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── MACD ───────────────────────────────────────────────────────────────
     const macdArr  = candles?.indicators?.macd || [];
     const macdLast = macdArr.length ? macdArr.at(-1)  : null;
     const macdPrev = macdArr.length >= 2 ? macdArr.at(-2) : null;
@@ -6979,7 +6979,7 @@ export default function App() {
       }
     }
 
-    // â”€â”€ EMA position â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── EMA position ──────────────────────────────────────────────────────
     const ema9Arr  = candles?.indicators?.ema9  || [];
     const ema21Arr = candles?.indicators?.ema21 || [];
     const ema9v    = ema9Arr.length  ? Number(ema9Arr.at(-1)?.value)  : null;
@@ -6993,7 +6993,7 @@ export default function App() {
       else                         { score -= 3;  signals.push({ txt: "BELOW EMA21",          bull: false }); }
     }
 
-    // â”€â”€ Entry zone vs 5X ref data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Entry zone vs 5X ref data ─────────────────────────────────────────
     if (ref && price > 0) {
       if      (price <= ref.stop)    { score -= 20; signals.push({ txt: "⚠ BELOW STOP LEVEL",    bull: false }); }
       else if (price <= ref.e3)      { score += 20; signals.push({ txt: "🟢 DEEP VALUE ZONE",     bull: true  }); }
@@ -7002,7 +7002,7 @@ export default function App() {
       else if (price >= ref.trigger) { score -=  5; signals.push({ txt: "ABOVE BREAKOUT TRIGGER", bull: false }); }
     }
 
-    // â”€â”€ 52-week range position â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 52-week range position ────────────────────────────────────────────
     const yH = Number(quote?.yearHigh || 0);
     const yL = Number(quote?.yearLow  || 0);
     if (yH > yL && price > 0) {
@@ -7013,7 +7013,7 @@ export default function App() {
       else if (pos > 0.75) { score -=  3; }
     }
 
-    // â”€â”€ Volume vs average â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Volume vs average ─────────────────────────────────────────────────
     const vol    = Number(quote?.volume    || 0);
     const avgVol = Number(quote?.avgVolume || 0);
     if (vol > 0 && avgVol > 0) {
@@ -7023,13 +7023,13 @@ export default function App() {
       else if (vr < 0.4) { score -=  5; signals.push({ txt: "LOW VOLUME — WEAK CONVICTION",  bull: false }); }
     }
 
-    // â”€â”€ Momentum (1-week move) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Momentum (1-week move) ────────────────────────────────────────────
     const d1w = Number(quote?.delta1w || 0);
     if      (d1w < -15) { score += 12; signals.push({ txt: `OVERSOLD 1W (${d1w.toFixed(1)}%) ← REVERSAL?`, bull: true  }); }
     else if (d1w < -6)  { score +=  6; signals.push({ txt: `PULLBACK 1W (${d1w.toFixed(1)}%)`,              bull: true  }); }
     else if (d1w > 20)  { score -=  8; signals.push({ txt: `EXTENDED 1W (+${d1w.toFixed(1)}%) ← CHASING`,  bull: false }); }
 
-    // â”€â”€ Sentiment from news keywords â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Sentiment from news keywords ──────────────────────────────────────
     const BULL_KW = ["win","award","contract","surge","beat","record","launch","expand","partnership","upgrade","buy","strong","profit","revenue","growth","milestone"];
     const BEAR_KW = ["fall","drop","loss","miss","cut","layoff","lawsuit","probe","fraud","decline","sell","downgrade","concern","risk","fail","delay","cancel","warning"];
     const news = (scanDeepData[ticker]?.news || []);
@@ -7083,7 +7083,7 @@ export default function App() {
     setScanLoading(false);
   }
 
-  // â”€â”€ Auto-scan interval â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Auto-scan interval ───────────────────────────────────────────────────
   useEffect(() => {
     if (autoScanRef.current) { clearInterval(autoScanRef.current); autoScanRef.current = null; }
     if (!autoScanOn) { setAutoScanCountdown(0); return; }
@@ -7155,7 +7155,7 @@ export default function App() {
     setTradeSetupLoad(prev => ({ ...prev, [ticker]: false }));
   }
 
-  // â”€â”€ Pre-Market Briefing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Pre-Market Briefing ───────────────────────────────────────────────────
   async function fetchPremarketBriefing() {
     setPremktLoading(true);
     try {
@@ -7225,7 +7225,7 @@ export default function App() {
     setPremktLoading(false);
   }
 
-  // â”€â”€ Fibonacci Calculator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Fibonacci Calculator ──────────────────────────────────────────────────
   async function fetchFibonacci(ticker) {
     setFibLoading(true); setFibError(""); setFibData(null);
     try {
@@ -7254,7 +7254,7 @@ export default function App() {
     setFibLoading(false);
   }
 
-  // â”€â”€ Halal Check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Halal Check ───────────────────────────────────────────────────────────
   async function fetchHalalCheck(ticker) {
     setHalalLoading(true); setHalalError(""); setHalalReport(null);
     try {
@@ -7275,7 +7275,7 @@ export default function App() {
     setHalalLoading(false);
   }
 
-  // â”€â”€ Journal AI Review â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Journal AI Review ─────────────────────────────────────────────────────
   async function fetchJournalReview() {
     setJournalRevLoad(true); setJournalRevError("");
     try {
@@ -7292,7 +7292,7 @@ export default function App() {
     setJournalRevLoad(false);
   }
 
-  // â”€â”€ News Sentiment Scorer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── News Sentiment Scorer ─────────────────────────────────────────────────
   async function scoreNewsSentiment() {
     setNewsSentLoading(true);
     try {
@@ -7311,7 +7311,7 @@ export default function App() {
     setNewsSentLoading(false);
   }
 
-  // â”€â”€ Short Interest Fetch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Short Interest Fetch ──────────────────────────────────────────────────
   async function fetchShortInterest(tickerStr) {
     setShortIntLoading(true);
     try {
@@ -7323,7 +7323,7 @@ export default function App() {
     setShortIntLoading(false);
   }
 
-  // â”€â”€ Correlation Calculator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Correlation Calculator ────────────────────────────────────────────────
   async function computeCorrelation() {
     setCorrLoading(true);
     try {
@@ -7359,7 +7359,7 @@ export default function App() {
     setCorrLoading(false);
   }
 
-  // â”€â”€ Smart Money: Insider + Institutional â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Smart Money: Insider + Institutional ─────────────────────────────────
   async function fetchInsiderData(ticker) {
     setInsiderLoading(true);
     setInsiderData(null); setInstData(null);
@@ -7387,7 +7387,7 @@ export default function App() {
     setInsiderLoading(false);
   }
 
-  // â”€â”€ Social Sentiment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Social Sentiment ──────────────────────────────────────────────────────
   async function fetchSocialSentiment(ticker) {
     setSocialLoading(true);
     setSocialData(null);
@@ -7402,7 +7402,7 @@ export default function App() {
     setSocialLoading(false);
   }
 
-  // â”€â”€ Analyst Ratings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Analyst Ratings ───────────────────────────────────────────────────────
   async function fetchAnalystRatings(ticker) {
     setAnalystLoading(true);
     setAnalystData(null);
@@ -7418,7 +7418,7 @@ export default function App() {
     setAnalystLoading(false);
   }
 
-  // â”€â”€ Dividend Calendar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Dividend Calendar ─────────────────────────────────────────────────────
   async function fetchDividendCalendar() {
     setDividendLoading(true);
     try {
@@ -7435,7 +7435,7 @@ export default function App() {
     setDividendLoading(false);
   }
 
-  // â”€â”€ AI Pattern Recognizer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── AI Pattern Recognizer ─────────────────────────────────────────────────
   async function fetchAIPattern(ticker) {
     setPatternLoading(true);
     setPatternResult(null);
@@ -7459,7 +7459,7 @@ export default function App() {
     setPatternLoading(false);
   }
 
-  // â”€â”€ Macro Scenario Planner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Macro Scenario Planner ────────────────────────────────────────────────
   async function fetchMacroScenario(prompt) {
     if (!prompt.trim()) return;
     setScenarioLoading(true);
@@ -7479,7 +7479,7 @@ export default function App() {
     setScenarioLoading(false);
   }
 
-  // â”€â”€ Earnings Call Summarizer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Earnings Call Summarizer ──────────────────────────────────────────────
   async function summarizeEarningsCall() {
     if (!earningsCallText.trim()) return;
     setEarningsCallLoad(true);
@@ -7498,7 +7498,7 @@ export default function App() {
     setEarningsCallLoad(false);
   }
 
-  // â”€â”€ Session Recap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Session Recap ─────────────────────────────────────────────────────────
   async function generateSessionRecap() {
     setSessionRecapLoad(true);
     setSessionRecapResult(null);
@@ -7522,7 +7522,7 @@ export default function App() {
     setSessionRecapLoad(false);
   }
 
-  // â”€â”€ DCA Calculator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── DCA Calculator ────────────────────────────────────────────────────────
   function computeDCA() {
     const amount   = parseFloat(dcaAmount)  || 0;
     const months   = parseInt(dcaMonths)    || 24;
@@ -7544,7 +7544,7 @@ export default function App() {
     setDcaResult({ fv, invested, gain, gainPct: (gain / invested) * 100, curve, periods: Math.round(periods) });
   }
 
-  // â”€â”€ Options Break-Even â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Options Break-Even ────────────────────────────────────────────────────
   function computeOptions() {
     const strike   = parseFloat(optionStrike)  || 0;
     const premium  = parseFloat(optionPremium) || 0;
@@ -8159,7 +8159,7 @@ export default function App() {
       wl = await withClientTimeout(fetchQuotes(watchlistSymbols, providerKeys), 25000, []);
       if (Array.isArray(wl) && wl.length > 0) {
         setWatchlistData(wl);
-        // â”€â”€ Score-crossing alert: fire Telegram when composite crosses above 70 â”€â”€
+        // ── Score-crossing alert: fire Telegram when composite crosses above 70 ──
         wl.forEach(q => {
           const sym = q.symbol;
           const scores = computeScores(q);
@@ -9583,7 +9583,7 @@ export default function App() {
       color: sortCol === col ? C.accent : C.textDim, textAlign: align, cursor: "pointer",
       borderBottom: `1px solid ${C.border}`, userSelect: "none", whiteSpace: "nowrap",
     }}>
-      {children}{sortCol === col ? (sortDir === "desc" ? " â–¼" : " â–²") : ""}
+      {children}{sortCol === col ? (sortDir === "desc" ? " ▼" : " ▲") : ""}
     </th>
   );
 
@@ -9684,7 +9684,7 @@ export default function App() {
               { id: "dashboard", label: "MONITOR",   tabs: ["dashboard", "briefing"] },
               { id: "terminal",  label: "TERMINAL",  tabs: ["terminal", "openstock", "tv", "multitf"] },
               { id: "scanner",   label: "SCANNER",   tabs: ["scanner", "early", "analyzer", "cot", "flow", "screener", "shortint", "smartmoney", "social"] },
-              { id: "crypto",    label: "â‚¿ CRYPTO",  tabs: ["crypto"] },
+              { id: "crypto",    label: "₿ CRYPTO",  tabs: ["crypto"] },
               { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "calendar", "analyst", "ipo", "feargreed", "breadth", "seasonality"] },
               { id: "watchlist", label: "WATCHLIST", tabs: ["fivex", "smartscan", "advisor"] },
               { id: "portfolio", label: "PORTFOLIO", tabs: ["portfolio", "performance", "journal", "alerts", "heatmap", "correlation", "risklab"] },
@@ -9785,7 +9785,7 @@ export default function App() {
           {athanHijri && (
             <div onClick={() => setActiveTab("athan")} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: "#c9a84c0e", borderRadius: 4, border: "1px solid #c9a84c2a", cursor: "pointer", direction: "rtl" }}>
               <span style={{ fontSize: isMobile ? 11 : 10, fontFamily: "Arial, sans-serif", color: "#c9a84c", fontWeight: 700 }}>
-                {isMobile ? `${athanHijri.day} Ù‡Ù€` : `${athanHijri.day} ${athanHijri.month?.ar} ${athanHijri.year} Ù‡Ù€`}
+                {isMobile ? `${athanHijri.day} هـ` : `${athanHijri.day} ${athanHijri.month?.ar} ${athanHijri.year} هـ`}
               </span>
             </div>
           )}
@@ -9823,10 +9823,10 @@ export default function App() {
               onClick={() => { if (quranAudioRef.current) quranAudioRef.current.pause(); }}
               style={{ background: `#c9a84c18`, border: `1px solid #c9a84c55`, color: "#c9a84c", fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "5px 9px", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, maxWidth: isMobile ? 80 : 140 }}
             >
-              <span>â–â–Œ</span>
+              <span>▐▌</span>
               {!isMobile && (
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 90 }}>
-                  {SURAH_LIST.find(s => s[0] === quranSurah)?.[1] || `Ø³ÙˆØ±Ø© ${quranSurah}`}
+                  {SURAH_LIST.find(s => s[0] === quranSurah)?.[1] || `سورة ${quranSurah}`}
                 </span>
               )}
             </button>
@@ -9838,7 +9838,7 @@ export default function App() {
               <button
                 onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))}
                 style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, width: 40, height: 40, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-              >{themeMode === "dark" ? "☀" : "ðŸŒ™"}</button>
+              >{themeMode === "dark" ? "☀" : "🌙"}</button>
             </div>
           )}
         </div>
@@ -9859,7 +9859,7 @@ export default function App() {
               value={symbolSearch}
               onChange={(e) => setSymbolSearch(e.target.value.toUpperCase())}
               onKeyDown={(e) => { if (e.key === "Enter") { handleSymbolSearch(); setMobileMenuOpen(false); } }}
-              placeholder="ðŸ”  Search ticker (e.g. NVDA)"
+              placeholder="🔍  Search ticker (e.g. NVDA)"
               style={{
                 flex: 1, border: `1px solid ${C.border}`, background: C.surface,
                 color: C.text, borderRadius: 8, padding: "12px 14px",
@@ -9985,7 +9985,7 @@ export default function App() {
           <button onClick={handleLock} style={{ background: `${C.red}10`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>LOCK</button>
           <button onClick={() => setPaletteOpen(true)} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>CMD</button>
           <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>
-            {themeMode === "dark" ? "☀" : "â—"}
+            {themeMode === "dark" ? "☀" : "●"}
           </button>
         </div>
       </div>}
@@ -10024,7 +10024,7 @@ export default function App() {
             { id: "terminal",  label: "📈 CHART" },
             { id: "openstock", label: "STOCKS" },
             { id: "tv",        label: "TV LIVE" },
-            { id: "multitf",   label: "â± MULTI-TF" },
+            { id: "multitf",   label: "⏱ MULTI-TF" },
           ],
           scanner: [
             { id: "scanner",    label: "SCANNER" },
@@ -10032,10 +10032,10 @@ export default function App() {
             { id: "analyzer",   label: "ANALYZER" },
             { id: "cot",        label: "📊 COT" },
             { id: "flow",       label: "⚡ FLOW" },
-            { id: "screener",   label: "ðŸ” SCREENER" },
-            { id: "shortint",   label: "ðŸ©³ SHORT INT" },
+            { id: "screener",   label: "🔍 SCREENER" },
+            { id: "shortint",   label: "🩳 SHORT INT" },
             { id: "smartmoney", label: "🏦 SMART $" },
-            { id: "social",     label: "ðŸ’¬ SOCIAL" },
+            { id: "social",     label: "💬 SOCIAL" },
           ],
           markets: [
             { id: "news",     label: "NEWS" },
@@ -10046,13 +10046,13 @@ export default function App() {
             { id: "calendar", label: "📅 CALENDAR" },
             { id: "analyst",  label: "🎯 ANALYST" },
             { id: "ipo",      label: "💸 DIVIDENDS" },
-            { id: "feargreed",   label: "ðŸ˜¨ FEAR/GREED" },
+            { id: "feargreed",   label: "😨 FEAR/GREED" },
             { id: "breadth",     label: "📊 BREADTH" },
             { id: "seasonality", label: "📅 SEASONAL" },
           ],
           watchlist: [
             { id: "fivex",     label: "🚀 5X PLAYS" },
-            { id: "smartscan", label: "ðŸ§  SMART SCAN" },
+            { id: "smartscan", label: "🧠 SMART SCAN" },
             { id: "advisor",   label: "🤖 AI ADVISOR" },
           ],
           portfolio: [
@@ -10069,17 +10069,17 @@ export default function App() {
             { id: "backtest",    label: "BACKTEST" },
             { id: "workflow",    label: "WORKFLOW" },
             { id: "agent",       label: "AI AGENT" },
-            { id: "deals",       label: "ðŸ›’ DEALS" },
-            { id: "fibonacci",   label: "ðŸŒ€ FIBONACCI" },
+            { id: "deals",       label: "🛒 DEALS" },
+            { id: "fibonacci",   label: "🌀 FIBONACCI" },
             { id: "ailab",       label: "🤖 AI LAB" },
             { id: "dca",         label: "📈 DCA" },
             { id: "options-calc", label: "🎰 OPTIONS" },
           ],
           islamic: [
-            { id: "quran",  label: "Ù‚Ø±Ø¢Ù†" },
-            { id: "athan",  label: "Ø§Ù„ØµÙ„Ø§Ø©" },
-            { id: "athkar", label: "Ø£Ø°ÙƒØ§Ø±" },
-            { id: "tasbih", label: "ØªØ³Ø¨ÙŠØ­" },
+            { id: "quran",  label: "قرآن" },
+            { id: "athan",  label: "الصلاة" },
+            { id: "athkar", label: "أذكار" },
+            { id: "tasbih", label: "تسبيح" },
             { id: "halal",  label: "☪ HALAL" },
           ],
         };
@@ -10135,13 +10135,13 @@ export default function App() {
       {/* Content */}
       <div className={isMobile ? "mobile-content" : ""} style={{ padding: isMobile ? "10px 10px 24px" : LAYOUT.contentPadding, maxWidth: LAYOUT.pageMaxWidth, margin: "0 auto" }}>
 
-        {/* â”€â”€ Regime Strategy Banner â”€â”€ shows on scanner/watchlist tabs */}
+        {/* ── Regime Strategy Banner ── shows on scanner/watchlist tabs */}
         {["scanner","early","smartscan","screener","fivex","shortint"].includes(activeTab) && regime && regime !== "Loading…" && (() => {
           const isRiskOff  = regime === "Risk-Off" || regime === "Defensive";
           const isRiskOn   = regime === "Risk-On" || regime === "Growth" || regime === "Goldilocks";
           const bannerColor = isRiskOff ? C.red : isRiskOn ? C.green : C.amber;
           const bannerBg    = isRiskOff ? C.redBg : isRiskOn ? C.greenBg : C.amberBg;
-          const icon  = isRiskOff ? "⚠ï¸" : isRiskOn ? "🟢" : "🟡";
+          const icon  = isRiskOff ? "⚠️" : isRiskOn ? "🟢" : "🟡";
           const strategy = isRiskOff
             ? "RISK-OFF MODE: Reduce size, prefer hedges/shorts, tighten stops on longs. Avoid chasing."
             : isRiskOn
@@ -10198,7 +10198,7 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : `1fr minmax(300px, ${LAYOUT.sidebarWidth}px)`, gap: LAYOUT.gridGap, alignItems: "start" }}>
             {/* Watchlist Table */}
             <div>
-              {/* â”€â”€ Named Watchlist Tabs â”€â”€ */}
+              {/* ── Named Watchlist Tabs ── */}
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
                 {watchlists.map(wl => (
                   <div key={wl.id} style={{ display: "flex", alignItems: "center", gap: 0 }}>
@@ -10269,10 +10269,10 @@ export default function App() {
                   {watchlists.find(w => w.id === activeWlistId)?.name?.toUpperCase() || "WATCHLIST"} — {watchlistData.length} SYMBOLS — REAL-TIME QUOTES
                 </span>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  {/* â”€â”€ Search + Add â”€â”€ */}
+                  {/* ── Search + Add ── */}
                   <div style={{ position: "relative" }}>
                     <div style={{ display: "flex", alignItems: "center", border: `1px solid ${wlSearchFocused ? C.accent : C.border}`, borderRadius: 6, background: C.surface, overflow: "visible" }}>
-                      <span style={{ padding: "0 8px", color: C.textDim, fontSize: 13 }}>ðŸ”</span>
+                      <span style={{ padding: "0 8px", color: C.textDim, fontSize: 13 }}>🔍</span>
                       <input
                         value={wlSearchQuery}
                         onChange={e => setWlSearchQuery(e.target.value.toUpperCase())}
@@ -10357,7 +10357,7 @@ export default function App() {
                               style={{ padding: "9px 14px", fontFamily: MONO, fontSize: 12, color: C.accent, cursor: "pointer", display: "flex", justifyContent: "space-between" }}
                             >
                               <span>Add "{wlSearchQuery}"</span>
-                              <span style={{ fontWeight: 700 }}>â†µ</span>
+                              <span style={{ fontWeight: 700 }}>↵</span>
                             </div>
                           )}
                         </div>
@@ -10411,7 +10411,7 @@ export default function App() {
                     borderRadius: 5, padding: "3px 10px", cursor: "pointer", transition: "all 0.12s",
                   }}>{children}</button>
                 );
-                const Sep = () => <span style={{ color: C.border, fontSize: 14, userSelect: "none" }}>â”‚</span>;
+                const Sep = () => <span style={{ color: C.border, fontSize: 14, userSelect: "none" }}>│</span>;
                 return (
                   <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 7, padding: "8px 12px", marginBottom: 8, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
 
@@ -10432,11 +10432,11 @@ export default function App() {
                     <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>TREND</span>
                     {[
                       { v: "ALL",        label: "ALL"   },
-                      { v: "Strong Up",  label: "â–²â–²"   },
-                      { v: "Up",         label: "â–²"    },
-                      { v: "Flat",       label: "â”€"    },
-                      { v: "Weak",       label: "â–¼"    },
-                      { v: "Down",       label: "â–¼â–¼"   },
+                      { v: "Strong Up",  label: "▲▲"   },
+                      { v: "Up",         label: "▲"    },
+                      { v: "Flat",       label: "─"    },
+                      { v: "Weak",       label: "▼"    },
+                      { v: "Down",       label: "▼▼"   },
                     ].map(({ v, label }) => {
                       const col = v === "Strong Up" ? C.green : v === "Up" ? C.green : v === "Flat" ? C.textDim : v === "Weak" ? C.red : v === "Down" ? C.red : C.text;
                       const bg  = v === "Strong Up" || v === "Up" ? C.greenBg : v === "Weak" || v === "Down" ? C.redBg : C.card;
@@ -10482,7 +10482,7 @@ export default function App() {
                     <button onClick={() => setWlCardView(v => !v)}
                       title={wlCardView ? "Switch to table view" : "Switch to card view"}
                       style={{ border: `1px solid ${C.border}`, background: wlCardView ? `${C.accent}18` : C.surface, color: wlCardView ? C.accent : C.textDim, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
-                      {wlCardView ? "âŠž CARDS" : "☰ TABLE"}
+                      {wlCardView ? "⊞ CARDS" : "☰ TABLE"}
                     </button>
                   </div>
                 );
@@ -10532,7 +10532,7 @@ export default function App() {
                 );
               })()}
               {wlCardView ? (
-                /* â”€â”€ CARD VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+                /* ── CARD VIEW ─────────────────────────────────────────── */
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10, marginBottom: 6 }}>
                   {signalFiltered.map(q => {
                     const chg    = q.changesPercentage || 0;
@@ -10542,7 +10542,7 @@ export default function App() {
                     const rvol   = q.avgVolume ? (q.volume / q.avgVolume) : 0;
                     const mtf    = computeMTFSignal(q);
                     const sigCol = mtf.signal === "BUY" ? C.green : mtf.signal === "SELL" ? C.red : C.amber;
-                    const trendArrow = trend.includes("Up") ? "â–²" : trend.includes("Down") ? "â–¼" : "â”€";
+                    const trendArrow = trend.includes("Up") ? "▲" : trend.includes("Down") ? "▼" : "─";
                     const trendCol   = trend.includes("Up") ? C.green : trend.includes("Down") ? C.red : C.textDim;
                     return (
                       <div key={q.symbol}
@@ -10580,7 +10580,7 @@ export default function App() {
                   })}
                 </div>
               ) : (
-              /* â”€â”€ TABLE VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+              /* ── TABLE VIEW ────────────────────────────────────────────── */
               <div style={{
                 background: C.card, border: `1px solid ${C.border}`, borderRadius: 5,
                 overflow: "hidden",
@@ -10681,7 +10681,7 @@ export default function App() {
                               </div>
                               {watchlistNotes[q.symbol] && openNoteSymbol !== q.symbol && (
                                 <div style={{ fontFamily: MONO, fontSize: 9, color: C.amber, marginTop: 3, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                  ðŸ“ {watchlistNotes[q.symbol]}
+                                  📝 {watchlistNotes[q.symbol]}
                                 </div>
                               )}
                             </td>
@@ -10854,7 +10854,7 @@ export default function App() {
               {/* Tablet: show a divider label */}
               {isTablet && (
                 <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.textDim, padding: "8px 0", borderTop: `2px solid ${C.border}`, letterSpacing: "0.08em" }}>
-                  â–¼ BRIEF &amp; ALERTS
+                  ▼ BRIEF &amp; ALERTS
                 </div>
               )}
               {/* Morning Brief */}
@@ -10881,7 +10881,7 @@ export default function App() {
                       onClick={() => setBriefExpanded(x => !x)}
                       style={{ marginTop: 6, border: "none", background: "none", color: C.accent, fontFamily: MONO, fontSize: 9, cursor: "pointer", padding: 0 }}
                     >
-                      {briefExpanded ? "COLLAPSE â–²" : "EXPAND â–¼"}
+                      {briefExpanded ? "COLLAPSE ▲" : "EXPAND ▼"}
                     </button>
                   </>
                 ) : (
@@ -11323,7 +11323,7 @@ export default function App() {
                                 onClick={() => setWatchlistSymbols(prev => onWatchlist ? prev.filter(s => s !== n.ticker) : Array.from(new Set([...prev, n.ticker])))}
                                 title={onWatchlist ? `Remove ${n.ticker} from watchlist` : `Add ${n.ticker} to watchlist`}
                                 style={{ border: `1px solid ${onWatchlist ? C.red : C.green}55`, background: onWatchlist ? C.redBg : C.greenBg, color: onWatchlist ? C.red : C.green, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>
-                                {onWatchlist ? "âˆ’WL" : "+WL"}
+                                {onWatchlist ? "−WL" : "+WL"}
                               </button>
                               <button
                                 onClick={async () => {
@@ -11429,7 +11429,7 @@ export default function App() {
                         <button
                           onClick={() => setWatchlistSymbols(prev => onWl ? prev.filter(s => s !== e.symbol) : Array.from(new Set([...prev, e.symbol])))}
                           style={{ border: `1px solid ${onWl ? C.red : C.green}55`, background: C.surface, color: onWl ? C.red : C.green, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>
-                          {onWl ? "âˆ’WL" : "+WL"}
+                          {onWl ? "−WL" : "+WL"}
                         </button>
                         <button
                           onClick={async () => {
@@ -11500,7 +11500,7 @@ export default function App() {
           </div>
         )}
 
-        {/* â”€â”€ STOCKS: Single-page stock deep dive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ── STOCKS: Single-page stock deep dive ──────────────────────────── */}
         {activeTab === "openstock" && (() => {
           const tvTheme = themeMode === "dark" ? "dark" : "light";
           const bgColor = C.bg;
@@ -11543,7 +11543,7 @@ export default function App() {
           return (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-              {/* â”€â”€ Search bar â”€â”€ */}
+              {/* ── Search bar ── */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
                 padding: "12px 16px", background: C.card,
                 border: `1px solid ${C.border}`, borderRadius: 10 }}>
@@ -11583,17 +11583,17 @@ export default function App() {
                   style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, color: C.textDim,
                     textDecoration: "none", border: `1px solid ${C.border}`,
                     borderRadius: 4, padding: "5px 10px" }}>
-                  Open in TradingView â†—
+                  Open in TradingView ↗
                 </a>
               </div>
 
-              {/* â”€â”€ Symbol info strip (price, change, key stats) â”€â”€ */}
+              {/* ── Symbol info strip (price, change, key stats) ── */}
               <div key={`si-${sym}-${tvTheme}`} style={card()}>
                 {sectionLabel("📌", `${sym} — OVERVIEW`)}
                 {tvFrame("symbol-info", { ...D, symbol: sym, largeChartUrl: "" }, 90)}
               </div>
 
-              {/* â”€â”€ Main row: Chart (left) + Technical Analysis (right) â”€â”€ */}
+              {/* ── Main row: Chart (left) + Technical Analysis (right) ── */}
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.6fr 1fr", gap: 12 }}>
                 <div key={`ch-${sym}-${tvTheme}`} style={card()}>
                   {sectionLabel("📊", "ADVANCED CHART — RSI + MACD")}
@@ -11614,7 +11614,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* â”€â”€ Bottom row: Financials (left) + News (right) â”€â”€ */}
+              {/* ── Bottom row: Financials (left) + News (right) ── */}
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.2fr 1fr", gap: 12 }}>
                 <div key={`fn-${sym}-${tvTheme}`} style={card()}>
                   {sectionLabel("💰", "FINANCIALS — INCOME / BALANCE / CASH FLOW")}
@@ -11634,23 +11634,23 @@ export default function App() {
           );
         })()}
 
-        {/* â”€â”€ 5X PLAYS: High-Growth Thematic Watchlist â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ── 5X PLAYS: High-Growth Thematic Watchlist ──────────────────────── */}
         {activeTab === "fivex" && (() => {
           const FIVEX = FIVEX_DATA; // module-level constant — shared with Smart Scanner
 
           const SECTOR_META = {
-            "Defense AI":        { color: "#4488ff", icon: "ðŸ›¡ï¸" },
+            "Defense AI":        { color: "#4488ff", icon: "🛡️" },
             "Robotics":          { color: "#00d4ff", icon: "🤖" },
-            "Nuclear":           { color: "#ffaa00", icon: "âš›ï¸" },
+            "Nuclear":           { color: "#ffaa00", icon: "⚛️" },
             "Space":             { color: "#b06cff", icon: "🚀" },
-            "Satellite AI":      { color: "#00ffd4", icon: "🛰ï¸" },
-            "Automation":        { color: "#66ff88", icon: "⚙ï¸" },
+            "Satellite AI":      { color: "#00ffd4", icon: "🛰️" },
+            "Automation":        { color: "#66ff88", icon: "⚙️" },
             "AI Energy":         { color: "#ff6633", icon: "⚡" },
-            "Infrastructure":    { color: "#88a0b8", icon: "ðŸ—ï¸" },
-            "AI Infrastructure": { color: "#cc66ff", icon: "🖥ï¸" },
-            "Quantum AI":        { color: "#ff44cc", icon: "âš›ï¸🤖" },
-            "AI Voice":          { color: "#44ffdd", icon: "ðŸŽ™ï¸" },
-            "Air Mobility":      { color: "#88ccff", icon: "✈ï¸" },
+            "Infrastructure":    { color: "#88a0b8", icon: "🏗️" },
+            "AI Infrastructure": { color: "#cc66ff", icon: "🖥️" },
+            "Quantum AI":        { color: "#ff44cc", icon: "⚛️🤖" },
+            "AI Voice":          { color: "#44ffdd", icon: "🎙️" },
+            "Air Mobility":      { color: "#88ccff", icon: "✈️" },
           };
 
           const RISK_COLOR = {
@@ -11716,7 +11716,7 @@ export default function App() {
 
           return (
             <div>
-              {/* â”€â”€ Header â”€â”€ */}
+              {/* ── Header ── */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
                 <div>
                   <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>
@@ -11727,11 +11727,11 @@ export default function App() {
                     {FIVEX.length} STOCKS &nbsp;|&nbsp; REF PRICES: 2026-05-27
                   </div>
                   <div style={{ fontFamily: MONO, fontSize: 9, color: "#ff9900", marginTop: 3 }}>
-                    ⚠ Entry zones rule-based (âˆ’5% / âˆ’12% / âˆ’20% from ref price). Not financial advice.
+                    ⚠ Entry zones rule-based (−5% / −12% / −20% from ref price). Not financial advice.
                   </div>
                   {fivexFetchedAt && (
                     <div style={{ fontFamily: MONO, fontSize: 9, color: C.green, marginTop: 3 }}>
-                      â— LIVE PRICES as of {fivexFetchedAt.toLocaleTimeString()}
+                      ● LIVE PRICES as of {fivexFetchedAt.toLocaleTimeString()}
                     </div>
                   )}
                   {fivexError && (
@@ -11747,7 +11747,7 @@ export default function App() {
                       border: `1px solid ${fivexLoading ? C.border : C.green}`,
                       color: fivexLoading ? C.textDim : C.green,
                       borderRadius: 4, padding: "5px 12px", cursor: fivexLoading ? "default" : "pointer", whiteSpace: "nowrap" }}>
-                    {fivexLoading ? "âŒ› LOADING…" : "â†» LIVE PRICES"}
+                    {fivexLoading ? "⌛ LOADING…" : "↻ LIVE PRICES"}
                   </button>
                   <button
                     onClick={async () => {
@@ -11768,7 +11768,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* â”€â”€ Zone summary bar â”€â”€ */}
+              {/* ── Zone summary bar ── */}
               {Object.keys(fivexPrices).length > 0 && (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12,
                   padding: "10px 14px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, alignItems: "center" }}>
@@ -11791,7 +11791,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* â”€â”€ Sort + Sector pills row â”€â”€ */}
+              {/* ── Sort + Sector pills row ── */}
               <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
                 <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>SORT:</span>
                 {[["rank","RANK"],["zone","ZONE"],["upside","UPSIDE"],["risk","RISK"]].map(([val, lbl]) => (
@@ -11807,7 +11807,7 @@ export default function App() {
                 <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>SECTOR:</span>
               </div>
 
-              {/* â”€â”€ Sector summary pills â”€â”€ */}
+              {/* ── Sector summary pills ── */}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
                 {sectors.map(sec => {
                   const meta = SECTOR_META[sec];
@@ -11830,7 +11830,7 @@ export default function App() {
                 })}
               </div>
 
-              {/* â”€â”€ Table â”€â”€ */}
+              {/* ── Table ── */}
               <div style={{ overflowX: "auto", borderRadius: 8, border: `1px solid ${C.border}` }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1050 }}>
                   <thead style={{ background: C.surface }}>
@@ -11842,11 +11842,11 @@ export default function App() {
                       {TH("REF PRICE", "Reference capture price (2026-05-27)")}
                       {TH("LIVE", "Live market price + today's change")}
                       {TH("ZONE", "Current entry zone based on live price")}
-                      {TH("STARTER âˆ’5%", "Starter entry zone")}
-                      {TH("BETTER âˆ’12%", "Better entry zone")}
-                      {TH("DEEP âˆ’20%", "Deep value entry zone")}
+                      {TH("STARTER −5%", "Starter entry zone")}
+                      {TH("BETTER −12%", "Better entry zone")}
+                      {TH("DEEP −20%", "Deep value entry zone")}
                       {TH("BREAKOUT +8%", "Breakout trigger level")}
-                      {TH("STOP âˆ’15%", "Suggested stop loss")}
+                      {TH("STOP −15%", "Suggested stop loss")}
                       {TH("RISK", "Risk classification")}
                       {TH("UPSIDE", "Potential upside multiple")}
                       {TH("THESIS", "Investment thesis")}
@@ -12012,25 +12012,25 @@ export default function App() {
                 </table>
               </div>
 
-              {/* â”€â”€ Legend â”€â”€ */}
+              {/* ── Legend ── */}
               <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginTop: 14, padding: "10px 14px",
                 background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }}>
                 <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
-                  <span style={{ color: "#26a69a" }}>â– </span> STARTER âˆ’5% &nbsp;
-                  <span style={{ color: "#4caf50" }}>â– </span> BETTER âˆ’12% &nbsp;
-                  <span style={{ color: "#00e676", fontWeight: 700 }}>â– </span> DEEP âˆ’20% &nbsp;&nbsp;
-                  <span style={{ color: "#ff9900" }}>â– </span> BREAKOUT +8% &nbsp;
-                  <span style={{ color: C.red }}>â– </span> STOP âˆ’15%
+                  <span style={{ color: "#26a69a" }}>■</span> STARTER −5% &nbsp;
+                  <span style={{ color: "#4caf50" }}>■</span> BETTER −12% &nbsp;
+                  <span style={{ color: "#00e676", fontWeight: 700 }}>■</span> DEEP −20% &nbsp;&nbsp;
+                  <span style={{ color: "#ff9900" }}>■</span> BREAKOUT +8% &nbsp;
+                  <span style={{ color: C.red }}>■</span> STOP −15%
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
                   {["Extreme","Very High","High","Medium-High","Medium"].map(r => (
                     <span key={r} style={{ marginRight: 10 }}>
-                      <span style={{ color: RISK_COLOR[r] }}>â– </span> {r}
+                      <span style={{ color: RISK_COLOR[r] }}>■</span> {r}
                     </span>
                   ))}
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginLeft: "auto" }}>
-                  Click any row → Stock Deep Dive â†—
+                  Click any row → Stock Deep Dive ↗
                 </div>
               </div>
             </div>
@@ -12059,14 +12059,14 @@ export default function App() {
         )}
 
         {activeTab === "smartscan" && (() => {
-          // â”€â”€ Signal badge style helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+          // ── Signal badge style helper ─────────────────────────────────────
           const SIG_STYLE = (sColor) => ({
             display: "inline-block", fontFamily: MONO, fontSize: 9, fontWeight: 800,
             color: sColor, background: sColor + "22", border: `1px solid ${sColor}44`,
             borderRadius: 4, padding: "2px 7px", whiteSpace: "nowrap",
           });
 
-          // â”€â”€ Summary counts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+          // ── Summary counts ────────────────────────────────────────────────
           const sigCounts = { "STRONG BUY": 0, "BUY": 0, "WATCH": 0, "NEUTRAL": 0, "AVOID": 0 };
           scanResults.forEach(r => { if (sigCounts[r.signal] !== undefined) sigCounts[r.signal]++; });
 
@@ -12081,13 +12081,13 @@ export default function App() {
           return (
             <div style={{ padding: "0 2px" }}>
 
-              {/* â”€â”€ Header â”€â”€ */}
+              {/* ── Header ── */}
               <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12,
                 marginBottom: 14, padding: "12px 16px",
                 background: C.card, border: `1px solid ${C.border}`, borderRadius: 10 }}>
                 <div>
                   <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text,
-                    letterSpacing: "0.06em" }}>ðŸ§  SMART SCANNER</div>
+                    letterSpacing: "0.06em" }}>🧠 SMART SCANNER</div>
                   <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>
                     AI-scored technical + entry zone + volume + sentiment — 30 high-growth tickers
                   </div>
@@ -12100,7 +12100,7 @@ export default function App() {
                   )}
                   {scanLoading && (
                     <div style={{ fontFamily: MONO, fontSize: 9, color: C.accent }}>
-                      âŒ› Scanning {scanProgress.done}/{scanProgress.total}…
+                      ⌛ Scanning {scanProgress.done}/{scanProgress.total}…
                       <div style={{ marginTop: 4, width: 160, height: 4, background: C.border, borderRadius: 2, overflow: "hidden" }}>
                         <div style={{ width: `${Math.round((scanProgress.done / scanProgress.total) * 100)}%`,
                           height: "100%", background: C.accent, borderRadius: 2, transition: "width 0.3s" }} />
@@ -12125,7 +12125,7 @@ export default function App() {
                       color: autoScanOn ? C.amber : C.textDim,
                       borderRadius: 6, padding: "7px 12px", cursor: "pointer", minWidth: 90, textAlign: "center" }}>
                     {autoScanOn
-                      ? `â± ${Math.floor(autoScanCountdown / 60)}:${String(autoScanCountdown % 60).padStart(2, "0")}`
+                      ? `⏱ ${Math.floor(autoScanCountdown / 60)}:${String(autoScanCountdown % 60).padStart(2, "0")}`
                       : "AUTO OFF"}
                   </button>
                   <button onClick={runSmartScan} disabled={scanLoading}
@@ -12134,12 +12134,12 @@ export default function App() {
                       border: `1px solid ${scanLoading ? C.border : C.green}`,
                       color: scanLoading ? C.textDim : C.green,
                       borderRadius: 6, padding: "7px 18px", cursor: scanLoading ? "default" : "pointer" }}>
-                    {scanLoading ? "âŒ› SCANNING…" : "▶ RUN SCAN"}
+                    {scanLoading ? "⌛ SCANNING…" : "▶ RUN SCAN"}
                   </button>
                 </div>
               </div>
 
-              {/* â”€â”€ Error â”€â”€ */}
+              {/* ── Error ── */}
               {scanError && (
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.red,
                   background: C.redBg, border: `1px solid ${C.red}44`,
@@ -12148,7 +12148,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* â”€â”€ Empty state â”€â”€ */}
+              {/* ── Empty state ── */}
               {!scanLoading && !scanError && scanResults.length === 0 && (
                 <div style={{ textAlign: "center", padding: "60px 0",
                   fontFamily: MONO, fontSize: 12, color: C.textDim }}>
@@ -12159,7 +12159,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* â”€â”€ Summary stat cards â”€â”€ */}
+              {/* ── Summary stat cards ── */}
               {scanResults.length > 0 && (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
                   {STAT_CARDS.map(sc => (
@@ -12179,7 +12179,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* â”€â”€ Results table â”€â”€ */}
+              {/* ── Results table ── */}
               {scanResults.length > 0 && (
                 <div style={{ background: C.card, border: `1px solid ${C.border}`,
                   borderRadius: 10, overflow: "hidden" }}>
@@ -12212,12 +12212,12 @@ export default function App() {
                           else if (livePrice <= ref.e3)      { zoneLbl = "🟢 DEEP";   zoneCol = "#00e676"; }
                           else if (livePrice <= ref.e2)      { zoneLbl = "⚡ BETTER"; zoneCol = "#4caf50"; }
                           else if (livePrice <= ref.e1)      { zoneLbl = "🔵 STARTER"; zoneCol = "#26a69a"; }
-                          else if (livePrice >= ref.trigger) { zoneLbl = "ðŸ”¶ ABOVE"; zoneCol = "#ff9900"; }
+                          else if (livePrice >= ref.trigger) { zoneLbl = "🔶 ABOVE"; zoneCol = "#ff9900"; }
                           else                               { zoneLbl = "WAIT";      zoneCol = C.textDim; }
                         }
 
                         const emaLabel = (row.ema9v && row.ema21v)
-                          ? (row.ema9v > row.ema21v ? "9>21 â–²" : "9<21 â–¼")
+                          ? (row.ema9v > row.ema21v ? "9>21 ▲" : "9<21 ▼")
                           : "—";
                         const emaCol   = (row.ema9v && row.ema21v)
                           ? (row.ema9v > row.ema21v ? C.green : C.red)
@@ -12232,7 +12232,7 @@ export default function App() {
 
                         return (
                           <React.Fragment key={row.ticker}>
-                            {/* â”€â”€ Main row â”€â”€ */}
+                            {/* ── Main row ── */}
                             <tr
                               onClick={() => {
                                 if (scanExpanded === row.ticker) {
@@ -12333,9 +12333,9 @@ export default function App() {
                                 {row.macdBull === null ? (
                                   <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>—</span>
                                 ) : row.macdBull ? (
-                                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.green }}>â–² BULL</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.green }}>▲ BULL</span>
                                 ) : (
-                                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.red }}>â–¼ BEAR</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.red }}>▼ BEAR</span>
                                 )}
                               </td>
 
@@ -12367,12 +12367,12 @@ export default function App() {
                                 whiteSpace: "nowrap" }}>
                                 {ref?.thesis || "—"}
                                 <span style={{ marginLeft: 6, color: C.accent, fontSize: 9 }}>
-                                  {isExpanded ? "â–²" : "â–¼"}
+                                  {isExpanded ? "▲" : "▼"}
                                 </span>
                               </td>
                             </tr>
 
-                            {/* â”€â”€ Deep Dive row â”€â”€ */}
+                            {/* ── Deep Dive row ── */}
                             {isExpanded && (
                               <tr>
                                 <td colSpan={12}
@@ -12384,12 +12384,12 @@ export default function App() {
                                   {isLoading ? (
                                     <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
                                       textAlign: "center", padding: "24px 0" }}>
-                                      âŒ› Loading deep dive data for {row.ticker}…
+                                      ⌛ Loading deep dive data for {row.ticker}…
                                     </div>
                                   ) : (
                                     <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
 
-                                      {/* â”€â”€ Left: TradingView mini chart â”€â”€ */}
+                                      {/* ── Left: TradingView mini chart ── */}
                                       <div style={{ flex: "0 0 340px", minWidth: 280 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
@@ -12406,7 +12406,7 @@ export default function App() {
                                         </div>
                                       </div>
 
-                                      {/* â”€â”€ Middle: Signals + Technicals â”€â”€ */}
+                                      {/* ── Middle: Signals + Technicals ── */}
                                       <div style={{ flex: "1 1 200px", minWidth: 180 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
@@ -12421,7 +12421,7 @@ export default function App() {
                                             <div key={si} style={{ display: "flex", alignItems: "center",
                                               gap: 6, fontFamily: MONO, fontSize: 9,
                                               color: sig.bull ? C.green : C.red }}>
-                                              <span>{sig.bull ? "â–²" : "â–¼"}</span>
+                                              <span>{sig.bull ? "▲" : "▼"}</span>
                                               <span>{sig.txt}</span>
                                             </div>
                                           ))}
@@ -12438,8 +12438,8 @@ export default function App() {
                                               { label: "Deep Value", val: ref.e3, col: "#00e676" },
                                               { label: "Better",     val: ref.e2, col: "#4caf50" },
                                               { label: "Starter",    val: ref.e1, col: "#26a69a" },
-                                              { label: "Trigger â–²",  val: ref.trigger, col: "#ffd700" },
-                                              { label: "Stop âœ‚",     val: ref.stop,    col: C.red },
+                                              { label: "Trigger ▲",  val: ref.trigger, col: "#ffd700" },
+                                              { label: "Stop ✂",     val: ref.stop,    col: C.red },
                                             ].map(z => (
                                               <div key={z.label} style={{ display: "flex", justifyContent: "space-between",
                                                 fontFamily: MONO, fontSize: 9, padding: "2px 0",
@@ -12454,7 +12454,7 @@ export default function App() {
                                         )}
                                       </div>
 
-                                      {/* â”€â”€ Right: Fundamentals â”€â”€ */}
+                                      {/* ── Right: Fundamentals ── */}
                                       <div style={{ flex: "1 1 200px", minWidth: 180 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
@@ -12488,7 +12488,7 @@ export default function App() {
                                         )}
                                       </div>
 
-                                      {/* â”€â”€ Far right: News â”€â”€ */}
+                                      {/* ── Far right: News ── */}
                                       <div style={{ flex: "1 1 220px", minWidth: 200 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
@@ -12534,7 +12534,7 @@ export default function App() {
                                         )}
                                       </div>
 
-                                      {/* â”€â”€ AI Trade Setup panel â”€â”€ */}
+                                      {/* ── AI Trade Setup panel ── */}
                                       <div style={{ flex: "1 1 260px", minWidth: 240 }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                                           <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
@@ -12551,7 +12551,7 @@ export default function App() {
                                                 color: tradeSetupLoad[row.ticker] ? C.textDim : C.purple,
                                                 borderRadius: 4, padding: "3px 10px",
                                                 cursor: tradeSetupLoad[row.ticker] ? "default" : "pointer" }}>
-                                              {tradeSetupLoad[row.ticker] ? "âŒ› Generating…" : "▶ GENERATE"}
+                                              {tradeSetupLoad[row.ticker] ? "⌛ Generating…" : "▶ GENERATE"}
                                             </button>
                                           )}
                                           {tradeSetups[row.ticker] && (
@@ -12559,7 +12559,7 @@ export default function App() {
                                               onClick={() => { setTradeSetups(prev => { const n = {...prev}; delete n[row.ticker]; return n; }); }}
                                               style={{ fontFamily: MONO, fontSize: 8, color: C.textDim,
                                                 background: "none", border: "none", cursor: "pointer" }}>
-                                              â†º Regenerate
+                                              ↺ Regenerate
                                             </button>
                                           )}
                                         </div>
@@ -12575,7 +12575,7 @@ export default function App() {
                                           <div style={{ fontFamily: MONO, fontSize: 9, color: C.purple,
                                             background: `${C.purple}10`, borderRadius: 4, padding: "10px 8px",
                                             textAlign: "center" }}>
-                                            âŒ› Claude is analysing {row.ticker}…
+                                            ⌛ Claude is analysing {row.ticker}…
                                           </div>
                                         )}
 
@@ -12649,7 +12649,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* â”€â”€ Legend â”€â”€ */}
+              {/* ── Legend ── */}
               {scanResults.length > 0 && (
                 <div style={{ marginTop: 10, padding: "8px 14px",
                   background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
@@ -12657,7 +12657,7 @@ export default function App() {
                   <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
                     {[["STRONG BUY","#00e676"],["BUY","#4caf50"],["WATCH","#26a69a"],["NEUTRAL","#ffaa00"],["AVOID","#ff4444"]].map(([l,c]) => (
                       <span key={l} style={{ marginRight: 14 }}>
-                        <span style={{ color: c }}>â– </span> {l}
+                        <span style={{ color: c }}>■</span> {l}
                       </span>
                     ))}
                   </div>
@@ -12680,11 +12680,11 @@ export default function App() {
                 <button
                   onClick={async () => {
                     const sorted = [...sectorData].sort((a, b) => (b.changesPercentage || 0) - (a.changesPercentage || 0));
-                    const lines = ["ðŸ­ *Sector Snapshot*\n"];
+                    const lines = ["🏭 *Sector Snapshot*\n"];
                     sorted.forEach((q, i) => {
                       const chg = q.changesPercentage || 0;
                       const icon = chg >= 0 ? "🟢" : "🔴";
-                      const tag = i < 3 ? " â–² LEADING" : i >= sorted.length - 3 ? " â–¼ LAGGING" : "";
+                      const tag = i < 3 ? " ▲ LEADING" : i >= sorted.length - 3 ? " ▼ LAGGING" : "";
                       lines.push(`${icon} *${q.symbol}* ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%${tag}`);
                     });
                     try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: lines.join("\n") }) }); } catch {}
@@ -12750,14 +12750,14 @@ export default function App() {
                         <button
                           onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(q.symbol) ? prev.filter(s => s !== q.symbol) : Array.from(new Set([...prev, q.symbol])))}
                           style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: watchlistSymbols.includes(q.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(q.symbol) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(q.symbol) ? C.red : C.green}44`, borderRadius: 3, cursor: "pointer" }}
-                        >{watchlistSymbols.includes(q.symbol) ? "âˆ’WL" : "+WL"}</button>
+                        >{watchlistSymbols.includes(q.symbol) ? "−WL" : "+WL"}</button>
                         <button
                           onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
                           style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 3, cursor: "pointer" }}
                         >CHART</button>
                         <button
                           onClick={async () => {
-                            const msg = `ðŸ­ *${q.symbol}* ${q._sectorName || ""}\n${chg >= 0 ? "🟢" : "🔴"} ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%  $${q.price?.toFixed(2)}${isLeader ? "  â–² LEADING" : isLagger ? "  â–¼ LAGGING" : ""}`;
+                            const msg = `🏭 *${q.symbol}* ${q._sectorName || ""}\n${chg >= 0 ? "🟢" : "🔴"} ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%  $${q.price?.toFixed(2)}${isLeader ? "  ▲ LEADING" : isLagger ? "  ▼ LAGGING" : ""}`;
                             try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
                           }}
                           style={{ fontFamily: MONO, fontSize: 9, padding: "3px 5px", background: C.surface, color: C.textDim, border: `1px solid ${C.textDim}44`, borderRadius: 3, cursor: "pointer" }}
@@ -12873,7 +12873,7 @@ export default function App() {
                       <button
                         onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(k) ? prev.filter(s => s !== k) : Array.from(new Set([...prev, k])))}
                         style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: watchlistSymbols.includes(k) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(k) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(k) ? C.red : C.green}44`, borderRadius: 3, cursor: "pointer" }}
-                      >{watchlistSymbols.includes(k) ? "âˆ’WL" : "+WL"}</button>
+                      >{watchlistSymbols.includes(k) ? "−WL" : "+WL"}</button>
                       <button
                         onClick={() => { setTerminalSymbol(k); setActiveTab("terminal"); }}
                         style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 3, cursor: "pointer" }}
@@ -12945,7 +12945,7 @@ export default function App() {
                       <button
                         onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(q.symbol) ? prev.filter(s => s !== q.symbol) : Array.from(new Set([...prev, q.symbol])))}
                         style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: watchlistSymbols.includes(q.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(q.symbol) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(q.symbol) ? C.red : C.green}44`, borderRadius: 3, cursor: "pointer" }}
-                      >{watchlistSymbols.includes(q.symbol) ? "âˆ’WL" : "+WL"}</button>
+                      >{watchlistSymbols.includes(q.symbol) ? "−WL" : "+WL"}</button>
                       <button
                         onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
                         style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 3, cursor: "pointer" }}
@@ -13115,7 +13115,7 @@ export default function App() {
                           const isBull = a.direction === "above";
                           const isClose = Math.abs(dist) < 1.5;
                           const distColor = isClose ? C.amber : (isBull ? (dist > 0 ? C.green : C.red) : (dist < 0 ? C.green : C.red));
-                          const label = isBull ? (dist > 0 ? `${away}% away â–²` : `BREACHED ✓`) : (dist < 0 ? `${away}% away â–¼` : `BREACHED ✓`);
+                          const label = isBull ? (dist > 0 ? `${away}% away ▲` : `BREACHED ✓`) : (dist < 0 ? `${away}% away ▼` : `BREACHED ✓`);
                           return (
                             <>
                               <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.text }}>${livePrice.toFixed(2)}</td>
@@ -13667,7 +13667,7 @@ export default function App() {
                 <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: C.text }}>{portfolioSummary.winners} / {portfolioSummary.losers}</div>
               </div>
             </div>
-            {/* â”€â”€ Paste & Scan Modal â”€â”€ */}
+            {/* ── Paste & Scan Modal ── */}
             {pasteModal && (
               <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, width: "100%", maxWidth: 700, maxHeight: "88vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
@@ -13845,7 +13845,7 @@ export default function App() {
                   {/* Modal header */}
                   <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
-                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>ðŸ“¥ IMPORT PORTFOLIO</div>
+                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>📥 IMPORT PORTFOLIO</div>
                       <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>
                         Format detected: <span style={{ color: C.accent }}>{csvImportModal.parseInfo.format}</span>
                         {csvImportModal.parseInfo.errors.length > 0 && (
@@ -13985,7 +13985,7 @@ export default function App() {
                     style={{ border: `1px solid ${C.accent}66`, background: `${C.accent}15`, color: C.accent, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}
                     title="Import from Robinhood CSV or any broker CSV"
                   >
-                    ðŸ“¥ IMPORT CSV
+                    📥 IMPORT CSV
                   </button>
                   <a
                     href="/api/portfolio/export.csv"
@@ -14060,7 +14060,7 @@ export default function App() {
                               <button
                                 onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(row.symbol) ? prev.filter(s => s !== row.symbol) : Array.from(new Set([...prev, row.symbol])))}
                                 style={{ border: `1px solid ${watchlistSymbols.includes(row.symbol) ? C.red : C.green}44`, background: watchlistSymbols.includes(row.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(row.symbol) ? C.red : C.green, borderRadius: 4, padding: "5px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
-                              >{watchlistSymbols.includes(row.symbol) ? "âˆ’WL" : "+WL"}</button>
+                              >{watchlistSymbols.includes(row.symbol) ? "−WL" : "+WL"}</button>
                             )}
                             <button
                               onClick={() => setPortfolioHoldings((prev) => prev.filter((_, i) => i !== row.idx))}
@@ -14245,7 +14245,7 @@ export default function App() {
                               >LOG</button>
                               <button
                                 onClick={async () => {
-                                  const msg = `ðŸ” *${q.symbol}* Scanner Hit\nPrice: $${q.price.toFixed(2)}  CHG: ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%\nRVOL: ${q.rvol.toFixed(2)}x  Score: ${q.scannerScore}${q.sectorEtf ? "\nSector: " + q.sectorEtf : ""}`;
+                                  const msg = `🔍 *${q.symbol}* Scanner Hit\nPrice: $${q.price.toFixed(2)}  CHG: ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%\nRVOL: ${q.rvol.toFixed(2)}x  Score: ${q.scannerScore}${q.sectorEtf ? "\nSector: " + q.sectorEtf : ""}`;
                                   try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
                                 }}
                                 style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
@@ -14311,7 +14311,7 @@ export default function App() {
                                 <button onClick={() => setWatchlistSymbols((prev) => Array.from(new Set([...prev, q.symbol])))} style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>+WL</button>
                                 <button onClick={() => setQuickLogModal({ symbol: q.symbol, price: Number(q.price) || 0, entry: (Number(q.price) || 0).toFixed(2), stopLoss: "", target: "", size: "", side: chg >= 0 ? "BUY" : "SELL", timeframe: "1D", style: "Breakout", notes: `Server scan · RVOL ${Number(q.rvol || 0).toFixed(2)}x · Score ${q.composite}`, score: Number(q.composite || 0), chg, rvol: Number(q.rvol || 0) })} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>LOG</button>
                                 <button onClick={async () => {
-                                  const msg = `ðŸ” *${q.symbol}* Server Screen Hit\nPrice: $${Number(q.price || 0).toFixed(2)}  CHG: ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%\nRVOL: ${Number(q.rvol || 0).toFixed(2)}x  Score: ${q.composite}`;
+                                  const msg = `🔍 *${q.symbol}* Server Screen Hit\nPrice: $${Number(q.price || 0).toFixed(2)}  CHG: ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%\nRVOL: ${Number(q.rvol || 0).toFixed(2)}x  Score: ${q.composite}`;
                                   try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
                                 }} style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }} title="Send to Telegram">PUSH</button>
                               </div>
@@ -14525,7 +14525,7 @@ export default function App() {
                         <button
                           onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(row.symbol) ? prev.filter(s => s !== row.symbol) : Array.from(new Set([...prev, row.symbol])))}
                           style={{ fontFamily: MONO, fontSize: 9, padding: "2px 7px", background: watchlistSymbols.includes(row.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(row.symbol) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(row.symbol) ? C.red : C.green}44`, borderRadius: 3, cursor: "pointer" }}
-                        >{watchlistSymbols.includes(row.symbol) ? "âˆ’WL" : "+WL"}</button>
+                        >{watchlistSymbols.includes(row.symbol) ? "−WL" : "+WL"}</button>
                       </div>
                     </div>
                   ))}
@@ -14726,7 +14726,7 @@ export default function App() {
                     <button
                       onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(q.symbol) ? prev.filter(s => s !== q.symbol) : Array.from(new Set([...prev, q.symbol])))}
                       style={{ border: `1px solid ${watchlistSymbols.includes(q.symbol) ? C.red : C.green}55`, background: C.surface, color: watchlistSymbols.includes(q.symbol) ? C.red : C.green, borderRadius: 4, padding: "5px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
-                    >{watchlistSymbols.includes(q.symbol) ? "âˆ’WL" : "+WL"}</button>
+                    >{watchlistSymbols.includes(q.symbol) ? "−WL" : "+WL"}</button>
                     <button
                       onClick={async () => {
                         try {
@@ -14749,7 +14749,7 @@ export default function App() {
                     >LOG</button>
                     <button
                       onClick={async () => {
-                        const msg = `ðŸ”„ *${q.symbol}* Rotation #${idx + 1}\nRS vs SPY: ${q.relVsSpy >= 0 ? "+" : ""}${q.relVsSpy.toFixed(2)}%  RVOL: ${q.rvol.toFixed(2)}x\nStatus: ${idx < 3 ? "LEADER" : idx > 8 ? "LAGGER" : "NEUTRAL"}`;
+                        const msg = `🔄 *${q.symbol}* Rotation #${idx + 1}\nRS vs SPY: ${q.relVsSpy >= 0 ? "+" : ""}${q.relVsSpy.toFixed(2)}%  RVOL: ${q.rvol.toFixed(2)}x\nStatus: ${idx < 3 ? "LEADER" : idx > 8 ? "LAGGER" : "NEUTRAL"}`;
                         try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
                       }}
                       style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "5px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
@@ -15259,7 +15259,7 @@ export default function App() {
               const weekPnl  = weekTrades.reduce((s, e) => s + e.pnl, 0);
               const todayWins = todayTrades.filter(e => e.pnl > 0).length;
               const curStreak = journalStats?.currentStreak || 0;
-              const streakLabel = curStreak > 0 ? `🔥 ${curStreak}W` : curStreak < 0 ? `❄ï¸ ${Math.abs(curStreak)}L` : "—";
+              const streakLabel = curStreak > 0 ? `🔥 ${curStreak}W` : curStreak < 0 ? `❄️ ${Math.abs(curStreak)}L` : "—";
               const streakColor = curStreak > 0 ? C.green : curStreak < 0 ? C.red : C.textDim;
               return (
                 <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
@@ -15373,15 +15373,15 @@ export default function App() {
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8 }}>
                     <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>AVG WIN</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.green }}>+${avgWin.toFixed(0)}</div></div>
                     <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>AVG LOSS</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.red }}>-${avgLoss.toFixed(0)}</div></div>
-                    <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>R-FACTOR</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: rFactor >= 1.5 ? C.green : rFactor >= 1 ? C.amber : C.red }}>{isFinite(rFactor) ? rFactor.toFixed(2) : "âˆž"}</div></div>
-                    <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>PROFIT FACTOR</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: profitFactor >= 1.5 ? C.green : profitFactor >= 1 ? C.amber : C.red }}>{isFinite(profitFactor) ? profitFactor.toFixed(2) : "âˆž"}</div></div>
+                    <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>R-FACTOR</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: rFactor >= 1.5 ? C.green : rFactor >= 1 ? C.amber : C.red }}>{isFinite(rFactor) ? rFactor.toFixed(2) : "∞"}</div></div>
+                    <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>PROFIT FACTOR</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: profitFactor >= 1.5 ? C.green : profitFactor >= 1 ? C.amber : C.red }}>{isFinite(profitFactor) ? profitFactor.toFixed(2) : "∞"}</div></div>
                     <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>EXPECTANCY</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: expectancy >= 0 ? C.green : C.red }}>{expectancy >= 0 ? "+" : ""}${expectancy.toFixed(0)}</div></div>
                     <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>MAX DRAWDOWN</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: maxDd > 0 ? C.red : C.textDim }}>{maxDd > 0 ? `-$${maxDd.toFixed(0)}` : "—"}</div></div>
                     <div>
                       <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>STREAKS</div>
                       <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700 }}>
                         <span style={{ color: closed.length ? (closed[closed.length-1].pnl > 0 ? C.green : C.red) : C.textDim }}>
-                          {closed.length ? `${closed[closed.length-1].pnl > 0 ? "â–²" : "â–¼"}${curStreak}` : "—"}
+                          {closed.length ? `${closed[closed.length-1].pnl > 0 ? "▲" : "▼"}${curStreak}` : "—"}
                         </span>
                         <span style={{ color: C.textDim, fontSize: 9 }}>{" "}NOW</span>
                       </div>
@@ -15874,7 +15874,7 @@ export default function App() {
               <textarea
                 value={analyzerInput}
                 onChange={e => setAnalyzerInput(e.target.value)}
-                placeholder={`Paste alert(s) here. Separate multiple alerts with a blank line or ---\n\nExample:\nðŸš¨ NVDA LONG\nPrice: $875\nVWAP: Above\nEMA: 9 > 21 Bullish\nRVOL: 2.4x\nEntry: $872–875\nStop: $862\nT1: $895  T2: $912  T3: $930`}
+                placeholder={`Paste alert(s) here. Separate multiple alerts with a blank line or ---\n\nExample:\n🚨 NVDA LONG\nPrice: $875\nVWAP: Above\nEMA: 9 > 21 Bullish\nRVOL: 2.4x\nEntry: $872–875\nStop: $862\nT1: $895  T2: $912  T3: $930`}
                 style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "10px 12px", borderRadius: 6, resize: "vertical", minHeight: 160, lineHeight: 1.6, width: "100%", boxSizing: "border-box" }}
               />
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -15993,7 +15993,7 @@ export default function App() {
                             <button
                               onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(p.symbol) ? prev.filter(s => s !== p.symbol) : Array.from(new Set([...prev, p.symbol])))}
                               style={{ border: `1px solid ${watchlistSymbols.includes(p.symbol) ? C.red : C.green}44`, background: watchlistSymbols.includes(p.symbol) ? `${C.red}15` : `${C.green}15`, color: watchlistSymbols.includes(p.symbol) ? C.red : C.green, borderRadius: 4, padding: "4px 9px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
-                            >{watchlistSymbols.includes(p.symbol) ? "âˆ’WL" : "+WL"}</button>
+                            >{watchlistSymbols.includes(p.symbol) ? "−WL" : "+WL"}</button>
                           )}
                         </div>
                         <button onClick={() => setAnalyzerExpanded(null)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>CLOSE ✕</button>
@@ -16086,7 +16086,7 @@ export default function App() {
 
                           {s.risks.length > 0 && (
                             <div>
-                              <div style={{ fontFamily: MONO, fontSize: 9, color: C.red, fontWeight: 700, marginBottom: 5, letterSpacing: "0.06em" }}>âœ— RISK FLAGS</div>
+                              <div style={{ fontFamily: MONO, fontSize: 9, color: C.red, fontWeight: 700, marginBottom: 5, letterSpacing: "0.06em" }}>✗ RISK FLAGS</div>
                               {s.risks.map((r, i) => (
                                 <div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 4 }}>
                                   <span style={{ color: C.red, fontSize: 10, flexShrink: 0, marginTop: 1 }}>✕</span>
@@ -16187,15 +16187,15 @@ export default function App() {
         );
       })()}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• DEALS TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════ DEALS TAB ══════════════════ */}
       {activeTab === "deals" && (() => {
         const DEAL_CATS = [
-          { id: "electronics", label: "🖥ï¸ Electronics" },
+          { id: "electronics", label: "🖥️ Electronics" },
           { id: "realestate",  label: "🏠 Real Estate" },
-          { id: "cars",        label: "ðŸš— Cars" },
-          { id: "furniture",   label: "ðŸ›‹ï¸ Furniture" },
-          { id: "general",     label: "ðŸ›’ General" },
-          { id: "jobs",        label: "ðŸ’¼ Jobs" },
+          { id: "cars",        label: "🚗 Cars" },
+          { id: "furniture",   label: "🛋️ Furniture" },
+          { id: "general",     label: "🛒 General" },
+          { id: "jobs",        label: "💼 Jobs" },
         ];
         const catLabel = DEAL_CATS.find(c => c.id === dealsCategory)?.label || dealsCategory;
         const showLocation = dealsCategory === "realestate" || dealsCategory === "cars";
@@ -16206,14 +16206,14 @@ export default function App() {
             {/* Header */}
             <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
               <div>
-                <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>ðŸ›’ DEALS FINDER</div>
+                <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>🛒 DEALS FINDER</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>Powered by Reddit deal communities — 100% free · Set Telegram alerts</div>
               </div>
               <div style={{ display: "flex", gap: 6 }}>
                 <button
                   onClick={() => fetch("/api/deals/ping").then(r => r.json()).then(d => alert(d.ok ? "✅ Server alive — deals endpoint working!" : "❌ Endpoint error")).catch(e => alert("❌ " + e.message))}
                   style={{ background: `${C.green}14`, border: `1px solid ${C.green}44`, color: C.green, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "6px 12px", borderRadius: 5, cursor: "pointer" }}
-                >ðŸ”Œ PING</button>
+                >🔌 PING</button>
                 <button
                   onClick={() => fetch("/api/deals/debug").then(r => r.json()).then(d => alert("Source test:\n" + Object.entries(d.status || {}).map(([k,v]) => `${k}: ${v}`).join("\n"))).catch(e => alert("❌ " + e.message))}
                   style={{ background: "#7c3aed18", border: "1px solid #7c3aed44", color: "#7c3aed", fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "6px 12px", borderRadius: 5, cursor: "pointer" }}
@@ -16293,7 +16293,7 @@ export default function App() {
                 )}
                 {!dealsLoading && dealsResults.length === 0 && !dealsError && dealsSearched && (
                   <div style={{ textAlign: "center", padding: 40, fontFamily: MONO, fontSize: 11, color: C.textDim }}>
-                    <div style={{ fontSize: 24, marginBottom: 8 }}>{allSourcesBlocked ? "ðŸš«" : "ðŸ”"}</div>
+                    <div style={{ fontSize: 24, marginBottom: 8 }}>{allSourcesBlocked ? "🚫" : "🔍"}</div>
                     {allSourcesBlocked ? (
                       <div>
                         <span style={{ color: C.red, fontWeight: 700 }}>All deal sources blocked or unreachable.</span><br/>
@@ -16344,10 +16344,10 @@ export default function App() {
                       {dealsResults.map(deal => {
                         const srcColors = { reddit:"#ff4500", slickdeals:"#e31c23", dealnews:"#0066cc", google:"#4285f4", dealslist:"#16a34a" };
                         const srcLabels = { reddit:"Reddit", slickdeals:"SlickDeals", dealnews:"DealNews", google:"Google News", dealslist:"DealsList" };
-                        const catIcons  = { electronics:"💻", realestate:"🏠", cars:"ðŸš—", furniture:"ðŸ›‹ï¸", jobs:"ðŸ’¼", luxury:"💎", general:"ðŸ›’" };
+                        const catIcons  = { electronics:"💻", realestate:"🏠", cars:"🚗", furniture:"🛋️", jobs:"💼", luxury:"💎", general:"🛒" };
                         const srcColor  = srcColors[deal.sourceKey] || C.accent;
                         const srcLabel  = srcLabels[deal.sourceKey] || deal.source || "Deal";
-                        const catIcon   = catIcons[deal.category]   || "ðŸ›’";
+                        const catIcon   = catIcons[deal.category]   || "🛒";
                         return (
                           <div key={deal.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column" }}>
                             {/* Image area */}
@@ -16378,7 +16378,7 @@ export default function App() {
                               {/* Upvote score bottom-left (Reddit only) */}
                               {deal.score > 0 && (
                                 <div style={{ position: "absolute", bottom: 8, left: 8, background: "rgba(0,0,0,0.65)", borderRadius: 5, padding: "2px 6px" }}>
-                                  <span style={{ fontFamily: MONO, fontSize: 9, color: "#f59e0b", fontWeight: 700 }}>â–² {deal.score?.toLocaleString()}</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 9, color: "#f59e0b", fontWeight: 700 }}>▲ {deal.score?.toLocaleString()}</span>
                                 </div>
                               )}
                             </div>
@@ -16394,7 +16394,7 @@ export default function App() {
                               )}
                               <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "auto", paddingTop: 6 }}>
                                 {deal.price && <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.green }}>{deal.price}</span>}
-                                {deal.comments > 0 && <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>ðŸ’¬ {deal.comments}</span>}
+                                {deal.comments > 0 && <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>💬 {deal.comments}</span>}
                               </div>
                               <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
                                 <a href={deal.link} target="_blank" rel="noopener noreferrer"
@@ -16404,7 +16404,7 @@ export default function App() {
                                 {deal.sourceKey === "reddit" && deal.redditLink && deal.redditLink !== deal.link && (
                                   <a href={deal.redditLink} target="_blank" rel="noopener noreferrer"
                                     style={{ background: "#ff4500", color: "#fff", textDecoration: "none", borderRadius: 5, padding: "6px 8px", fontFamily: MONO, fontSize: 10, fontWeight: 700, display: "block" }}>
-                                    ðŸ’¬
+                                    💬
                                   </a>
                                 )}
                               </div>
@@ -16455,7 +16455,7 @@ export default function App() {
                 {dealsAlerts.length > 0 && (
                   <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
                     <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.text, marginBottom: 10 }}>
-                      ðŸ“¨ RECENT TELEGRAM ALERTS
+                      📨 RECENT TELEGRAM ALERTS
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                       {dealsAlerts.slice(0, 10).map(a => (
@@ -16493,7 +16493,7 @@ export default function App() {
         );
       })()}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• COT TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════ COT TAB ══════════════════ */}
       {activeTab === "cot" && (() => {
         const green  = "#00c878";
         const red    = "#ff4455";
@@ -16511,10 +16511,10 @@ export default function App() {
         }
 
         function scoreBar(score) {
-          if (score === undefined || score === null) return "â”€";
+          if (score === undefined || score === null) return "─";
           const pct = Math.round(((score + 100) / 200) * 20);
           const filled = Math.max(0, Math.min(20, pct));
-          const bar = "â–ˆ".repeat(filled) + "â–‘".repeat(20 - filled);
+          const bar = "█".repeat(filled) + "░".repeat(20 - filled);
           return bar;
         }
 
@@ -16552,7 +16552,7 @@ export default function App() {
         return (
           <div style={{ padding: isMobile ? "10px 8px" : "18px 20px", maxWidth: 1100, margin: "0 auto" }}>
 
-            {/* â”€â”€ Header â”€â”€ */}
+            {/* ── Header ── */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
               <div>
                 <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>
@@ -16568,7 +16568,7 @@ export default function App() {
                   background: fresh ? `${green}18` : `${yellow}18`,
                   border: `1px solid ${fresh ? green : yellow}44`,
                   color: fresh ? green : yellow }}>
-                  {fresh ? "✅ DATA FRESH" : "⚠ï¸ MAY BE STALE"}
+                  {fresh ? "✅ DATA FRESH" : "⚠️ MAY BE STALE"}
                 </div>
                 {repDate && (
                   <div style={{ fontFamily: MONO, fontSize: 9, color: dim, padding: "4px 10px",
@@ -16606,7 +16606,7 @@ export default function App() {
                   style={{ background: cotRunning ? C.surface : `${blue}1a`, border: `1px solid ${blue}55`,
                     color: blue, fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "5px 12px",
                     borderRadius: 5, cursor: cotRunning ? "not-allowed" : "pointer", letterSpacing: "0.05em" }}>
-                  {cotRunning ? "⏳ DOWNLOADING…" : "â¬‡ UPDATE COT"}
+                  {cotRunning ? "⏳ DOWNLOADING…" : "⬇ UPDATE COT"}
                 </button>
                 {/* Send Telegram button */}
                 <button
@@ -16622,7 +16622,7 @@ export default function App() {
                   style={{ background: cotRunning ? C.surface : `${green}1a`, border: `1px solid ${green}55`,
                     color: green, fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "5px 12px",
                     borderRadius: 5, cursor: cotRunning ? "not-allowed" : "pointer", letterSpacing: "0.05em" }}>
-                  ðŸ“¤ SEND TELEGRAM
+                  📤 SEND TELEGRAM
                 </button>
                 {cotLastSent && (
                   <span style={{ fontFamily: MONO, fontSize: 9, color: cotLastSent.startsWith("✅") ? green : red }}>
@@ -16636,7 +16636,7 @@ export default function App() {
             {summary.staleWarning && (
               <div style={{ background: `${yellow}14`, border: `1px solid ${yellow}44`, borderRadius: 8,
                 padding: "8px 14px", fontFamily: MONO, fontSize: 10, color: yellow, marginBottom: 14 }}>
-                ⚠ï¸ {summary.staleWarning}
+                ⚠️ {summary.staleWarning}
               </div>
             )}
 
@@ -16661,7 +16661,7 @@ export default function App() {
 
             {cotData && !cotLoading && (
               <>
-                {/* â”€â”€ Macro Bias Summary Row â”€â”€ */}
+                {/* ── Macro Bias Summary Row ── */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8, marginBottom: 16 }}>
                   {[
                     { label: "Equity Indexes", value: summary.equityBias },
@@ -16684,7 +16684,7 @@ export default function App() {
                   })}
                 </div>
 
-                {/* â”€â”€ Market-by-market table â”€â”€ */}
+                {/* ── Market-by-market table ── */}
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12,
                   padding: "14px 16px", marginBottom: 16, overflowX: "auto" }}>
                   <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text,
@@ -16743,7 +16743,7 @@ export default function App() {
                             </td>
                             <td style={{ padding: "6px 10px", fontSize: 9 }}>
                               {extreme
-                                ? <span style={{ color: yellow }}>⚠ï¸ EXTREME</span>
+                                ? <span style={{ color: yellow }}>⚠️ EXTREME</span>
                                 : <span style={{ color: `${green}88` }}>OK</span>}
                             </td>
                           </tr>
@@ -16760,7 +16760,7 @@ export default function App() {
                   </table>
                 </div>
 
-                {/* â”€â”€ Score bars â”€â”€ */}
+                {/* ── Score bars ── */}
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 16 }}>
                   {Object.entries(allBiases).map(([key, b]) => {
                     const sc = b.score || 0;
@@ -16786,23 +16786,23 @@ export default function App() {
                           <span style={{ fontFamily: MONO, fontSize: 8, color: dim }}>NEUTRAL</span>
                           <span style={{ fontFamily: MONO, fontSize: 8, color: green }}>BULLISH</span>
                         </div>
-                        {b.crowdedLong  && <div style={{ fontFamily: MONO, fontSize: 8, color: yellow, marginTop: 3 }}>⚠ï¸ Crowded Long — monitor for reversal</div>}
-                        {b.crowdedShort && <div style={{ fontFamily: MONO, fontSize: 8, color: yellow, marginTop: 3 }}>⚠ï¸ Crowded Short — squeeze risk</div>}
+                        {b.crowdedLong  && <div style={{ fontFamily: MONO, fontSize: 8, color: yellow, marginTop: 3 }}>⚠️ Crowded Long — monitor for reversal</div>}
+                        {b.crowdedShort && <div style={{ fontFamily: MONO, fontSize: 8, color: yellow, marginTop: 3 }}>⚠️ Crowded Short — squeeze risk</div>}
                       </div>
                     );
                   })}
                 </div>
 
-                {/* â”€â”€ COT Methodology note â”€â”€ */}
+                {/* ── COT Methodology note ── */}
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
                   padding: "12px 16px", fontFamily: MONO, fontSize: 9, color: dim, lineHeight: 1.7 }}>
-                  <div style={{ color: C.text, fontWeight: 700, marginBottom: 6 }}>â„¹ï¸ COT METHODOLOGY</div>
+                  <div style={{ color: C.text, fontWeight: 700, marginBottom: 6 }}>ℹ️ COT METHODOLOGY</div>
                   COT data is released by the CFTC each Friday at 3:30 PM ET, reflecting positions as of the prior Tuesday close.<br/>
                   <strong style={{ color: C.text }}>TFF</strong> (Traders in Financial Futures) is used for equity indexes, rates, FX, and bonds.<br/>
                   <strong style={{ color: C.text }}>Disaggregated</strong> is used for commodities (gold, oil, gas).<br/>
                   <strong style={{ color: C.text }}>Legacy</strong> is used for Bitcoin.<br/>
                   Scores run from -100 (strong bearish) to +100 (strong bullish) based on asset-manager and leveraged-fund net positioning percentiles.<br/>
-                  <strong style={{ color: yellow }}>⚠ï¸ Crowded Long/Short</strong>: 52-week percentile above 90 or below 10 — high reversal risk.
+                  <strong style={{ color: yellow }}>⚠️ Crowded Long/Short</strong>: 52-week percentile above 90 or below 10 — high reversal risk.
                   <strong style={{ color: C.text }}>  COT is a higher-timeframe positioning bias, not a live entry signal.</strong>
                 </div>
               </>
@@ -16811,7 +16811,7 @@ export default function App() {
         );
       })()}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• QURAN TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════ QURAN TAB ══════════════════ */}
       {activeTab === "quran" && (() => {
         const surahNum = quranSurah;
         const surahInfo = SURAH_LIST[surahNum - 1];
@@ -16836,15 +16836,15 @@ export default function App() {
 
         return (
           <div style={{ maxWidth: 760, margin: "0 auto" }}>
-            {/* â”€â”€ Bismillah header â”€â”€ */}
+            {/* ── Bismillah header ── */}
             <div style={{ textAlign: "center", marginBottom: 18 }}>
               <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 20, color: gold, letterSpacing: "0.08em", marginBottom: 4, direction: "rtl" }}>
-                Ø¨ÙØ³Ù’Ù…Ù Ù±Ù„Ù„ÙŽÙ‘Ù‡Ù Ù±Ù„Ø±ÙŽÙ‘Ø­Ù’Ù…ÙŽÙ°Ù†Ù Ù±Ù„Ø±ÙŽÙ‘Ø­ÙÙŠÙ…Ù
+                بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
               </div>
               <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.14em" }}>QURAN RECITATION PLAYER</div>
             </div>
 
-            {/* â”€â”€ Main player card â”€â”€ */}
+            {/* ── Main player card ── */}
             <div style={{ background: C.card, border: `1px solid ${goldDim}`, borderRadius: 18, padding: "22px 20px 18px", marginBottom: 14, boxShadow: `0 0 50px ${gold}08` }}>
 
               {/* Surah name */}
@@ -16857,7 +16857,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* â”€â”€ Progress bar â”€â”€ */}
+              {/* ── Progress bar ── */}
               <div style={{ marginBottom: 12 }}>
                 <input
                   type="range"
@@ -16878,7 +16878,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* â”€â”€ Transport controls â”€â”€ */}
+              {/* ── Transport controls ── */}
               <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 14, marginBottom: 16 }}>
                 {/* Prev surah */}
                 <button
@@ -16888,14 +16888,14 @@ export default function App() {
                     setQuranSurah(prev);
                     localStorage.setItem("quran_surah", String(prev));
                   }}
-                  title="Ø§Ù„Ø³ÙˆØ±Ø© Ø§Ù„Ø³Ø§Ø¨Ù‚Ø©"
+                  title="السورة السابقة"
                   style={{ background: C.surface, border: `1px solid ${goldDim}`, color: gold, borderRadius: 999, width: 46, height: 46, fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-                >â®</button>
+                >⏮</button>
 
                 {/* Rewind 10s */}
                 <button
                   onClick={() => { if (quranAudioRef.current) quranAudioRef.current.currentTime = Math.max(0, quranCurrentTime - 10); }}
-                  title="-10 Ø«Ø§Ù†ÙŠØ©"
+                  title="-10 ثانية"
                   style={{ background: C.surface, border: `1px solid ${goldDim}`, color: gold, borderRadius: 999, width: 40, height: 40, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO }}
                 >-10</button>
 
@@ -16923,13 +16923,13 @@ export default function App() {
                   }}
                   style={{ background: quranAudioError ? C.red : gold, border: "none", color: "#fff", borderRadius: 999, width: 68, height: 68, fontSize: quranLoading ? 18 : 28, cursor: "pointer", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 4px 20px ${gold}44`, transition: "transform 0.1s", flexShrink: 0 }}
                 >
-                  {quranLoading ? "âŒ›" : quranPlaying ? "â¸" : "▶"}
+                  {quranLoading ? "⌛" : quranPlaying ? "⏸" : "▶"}
                 </button>
 
                 {/* Forward 10s */}
                 <button
                   onClick={() => { if (quranAudioRef.current && quranDuration) quranAudioRef.current.currentTime = Math.min(quranDuration, quranCurrentTime + 10); }}
-                  title="+10 Ø«Ø§Ù†ÙŠØ©"
+                  title="+10 ثانية"
                   style={{ background: C.surface, border: `1px solid ${goldDim}`, color: gold, borderRadius: 999, width: 40, height: 40, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO }}
                 >+10</button>
 
@@ -16941,12 +16941,12 @@ export default function App() {
                     setQuranSurah(next);
                     localStorage.setItem("quran_surah", String(next));
                   }}
-                  title="Ø§Ù„Ø³ÙˆØ±Ø© Ø§Ù„ØªØ§Ù„ÙŠØ©"
+                  title="السورة التالية"
                   style={{ background: C.surface, border: `1px solid ${goldDim}`, color: gold, borderRadius: 999, width: 46, height: 46, fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-                >â­</button>
+                >⏭</button>
               </div>
 
-              {/* â”€â”€ Volume slider â”€â”€ */}
+              {/* ── Volume slider ── */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, direction: "ltr" }}>
                 <span style={{ fontSize: 16 }}>{quranVolume === 0 ? "🔇" : quranVolume < 0.5 ? "🔉" : "🔊"}</span>
                 <input
@@ -16958,19 +16958,19 @@ export default function App() {
                 <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, minWidth: 30 }}>{Math.round(quranVolume * 100)}%</span>
               </div>
 
-              {/* â”€â”€ Mode toggles â”€â”€ */}
+              {/* ── Mode toggles ── */}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", direction: "ltr", justifyContent: "center" }}>
                 <button
                   onClick={() => setQuranRepeat(r => !r)}
                   style={{ background: quranRepeat ? `${gold}22` : C.surface, border: `1px solid ${quranRepeat ? gold : C.border}`, color: quranRepeat ? gold : C.textDim, borderRadius: 6, padding: "7px 14px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}
                 >
-                  🔂 <span>ØªÙƒØ±Ø§Ø± Ø§Ù„Ø³ÙˆØ±Ø©</span>
+                  🔂 <span>تكرار السورة</span>
                 </button>
                 <button
                   onClick={() => setQuranAutoNext(a => !a)}
                   style={{ background: quranAutoNext ? `${gold}22` : C.surface, border: `1px solid ${quranAutoNext ? gold : C.border}`, color: quranAutoNext ? gold : C.textDim, borderRadius: 6, padding: "7px 14px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}
                 >
-                  ▶▶ <span>ØªØ´ØºÙŠÙ„ ØªÙ„Ù‚Ø§Ø¦ÙŠ</span>
+                  ▶▶ <span>تشغيل تلقائي</span>
                 </button>
                 <a
                   href={qUrl(quranReciter, surahNum)}
@@ -16978,7 +16978,7 @@ export default function App() {
                   target="_blank" rel="noopener noreferrer"
                   style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, padding: "7px 14px", fontFamily: MONO, fontSize: 10, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", gap: 5 }}
                 >
-                  â¬‡ <span>ØªÙ†Ø²ÙŠÙ„</span>
+                  ⬇ <span>تنزيل</span>
                 </a>
               </div>
 
@@ -16986,11 +16986,11 @@ export default function App() {
               {quranAudioError && (
                 <div style={{ marginTop: 14, background: "#2a120a", border: "1px solid #cc4400", borderRadius: 10, padding: "12px 14px", direction: "ltr", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#ff6633" }}>⚠ ØªØ¹Ø°Ù‘Ø± ØªØ´ØºÙŠÙ„ Ø§Ù„ØµÙˆØª — Audio unavailable</div>
+                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#ff6633" }}>⚠ تعذّر تشغيل الصوت — Audio unavailable</div>
                     <div style={{ fontFamily: MONO, fontSize: 9, color: "#cc7755", marginTop: 4 }}>
                       {quranReciter.full
-                        ? <>Ù…Ù„Ù Ø§Ù„ØµÙˆØª ØºÙŠØ± Ù…ØªØ§Ø­ Ù…Ø¤Ù‚ØªØ§Ù‹ — Audio file temporarily unavailable.<br/>Try a different surah or click RETRY.</>
-                        : <>Ù‡Ø°Ù‡ Ø§Ù„Ø³ÙˆØ±Ø© ØºÙŠØ± Ù…ØªÙˆÙØ±Ø© Ù„Ù‡Ø°Ø§ Ø§Ù„Ù‚Ø§Ø±Ø¦ — surah not available for this reciter.<br/>Switch to a ★ reciter (Al-Afasy or Maher Al-Muaiqly have all 114 surahs).</>
+                        ? <>ملف الصوت غير متاح مؤقتاً — Audio file temporarily unavailable.<br/>Try a different surah or click RETRY.</>
+                        : <>هذه السورة غير متوفرة لهذا القارئ — surah not available for this reciter.<br/>Switch to a ★ reciter (Al-Afasy or Maher Al-Muaiqly have all 114 surahs).</>
                       }
                     </div>
                   </div>
@@ -17012,11 +17012,11 @@ export default function App() {
               )}
             </div>
 
-            {/* â”€â”€ Reciter selector â”€â”€ */}
+            {/* ── Reciter selector ── */}
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.1em" }}>Ø§Ù„Ù‚Ø§Ø±Ø¦ — RECITER</div>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>★ = Ù…ÙƒØªØ¨Ø© ÙƒØ§Ù…Ù„Ø© 114 Ø³ÙˆØ±Ø©</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.1em" }}>القارئ — RECITER</div>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>★ = مكتبة كاملة 114 سورة</div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 6 }}>
                 {QURAN_RECITERS.map(r => (
@@ -17046,16 +17046,16 @@ export default function App() {
               </div>
             </div>
 
-            {/* â”€â”€ Surah list (all 114, searchable) â”€â”€ */}
+            {/* ── Surah list (all 114, searchable) ── */}
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.1em" }}>
-                  Ø§Ù„Ø³ÙˆØ± — ALL SURAHS ({filteredSurahs.length}/114)
+                  السور — ALL SURAHS ({filteredSurahs.length}/114)
                 </div>
                 <input
                   value={quranSearchQuery}
                   onChange={e => setQuranSearchQuery(e.target.value)}
-                  placeholder="Ø§Ø¨Ø­Ø« Ø¹Ù† Ø³ÙˆØ±Ø©  /  Search surah..."
+                  placeholder="ابحث عن سورة  /  Search surah..."
                   style={{
                     border: `1px solid ${C.border}`, background: C.surface, color: C.text,
                     borderRadius: 6, padding: "7px 12px", fontFamily: "Arial, sans-serif", fontSize: 13,
@@ -17094,10 +17094,10 @@ export default function App() {
         );
       })()}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• ATHAN TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════ ATHAN TAB ══════════════════ */}
       {activeTab === "athan" && (() => {
         const gold = "#c9a84c";
-        const PRAYER_NAMES = ["Ø§Ù„ÙØ¬Ø±", "Ø§Ù„Ø´Ø±ÙˆÙ‚", "Ø§Ù„Ø¸Ù‡Ø±", "Ø§Ù„Ø¹ØµØ±", "Ø§Ù„Ù…ØºØ±Ø¨", "Ø§Ù„Ø¹Ø´Ø§Ø¡"];
+        const PRAYER_NAMES = ["الفجر", "الشروق", "الظهر", "العصر", "المغرب", "العشاء"];
         const PRAYER_KEYS = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"];
         const METHODS = [
           { id: 1, label: "University of Islamic Sciences, Karachi" },
@@ -17112,10 +17112,10 @@ export default function App() {
         ];
 
         const loadByGeo = () => {
-          if (!navigator.geolocation) { setAthanError("Ø§Ù„Ù…ØªØµÙØ­ Ù„Ø§ ÙŠØ¯Ø¹Ù… ØªØ­Ø¯ÙŠØ¯ Ø§Ù„Ù…ÙˆÙ‚Ø¹"); return; }
+          if (!navigator.geolocation) { setAthanError("المتصفح لا يدعم تحديد الموقع"); return; }
           navigator.geolocation.getCurrentPosition(
             pos => { fetchPrayerTimes(pos.coords.latitude, pos.coords.longitude, null, null); },
-            () => { setAthanError("Ø±ÙÙØ¶ Ø¥Ø°Ù† Ø§Ù„Ù…ÙˆÙ‚Ø¹ — Ø£Ø¯Ø®Ù„ Ø§Ù„Ù…Ø¯ÙŠÙ†Ø© ÙŠØ¯ÙˆÙŠØ§Ù‹"); }
+            () => { setAthanError("رُفض إذن الموقع — أدخل المدينة يدوياً"); }
           );
         };
 
@@ -17145,7 +17145,7 @@ export default function App() {
           <div dir="rtl" style={{ maxWidth: 780, margin: "0 auto" }}>
             {/* Header */}
             <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{ fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 900, color: gold }}>Ø£ÙˆÙ‚Ø§Øª Ø§Ù„ØµÙ„Ø§Ø©</div>
+              <div style={{ fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 900, color: gold }}>أوقات الصلاة</div>
               <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, direction: "ltr", marginTop: 4 }}>PRAYER TIMES</div>
             </div>
 
@@ -17153,7 +17153,7 @@ export default function App() {
             <div style={{ background: C.card, border: `1px solid ${gold}44`, borderRadius: 12, padding: "12px 16px", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
               <div>
                 <div style={{ fontSize: 13, color: C.text, fontWeight: 700 }}>{now.toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</div>
-                {athanHijri && <div style={{ fontSize: 12, color: gold, marginTop: 2 }}>{athanHijri.day} {athanHijri.month?.ar} {athanHijri.year} Ù‡Ù€</div>}
+                {athanHijri && <div style={{ fontSize: 12, color: gold, marginTop: 2 }}>{athanHijri.day} {athanHijri.month?.ar} {athanHijri.year} هـ</div>}
               </div>
               <div style={{ fontFamily: MONO, fontSize: 18, color: C.text, fontWeight: 700, direction: "ltr" }}>
                 {now.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
@@ -17163,7 +17163,7 @@ export default function App() {
             {/* Next prayer countdown */}
             {nextPrayer && countdown != null && (
               <div style={{ background: `${gold}12`, border: `1px solid ${gold}66`, borderRadius: 12, padding: "16px 20px", marginBottom: 14, textAlign: "center" }}>
-                <div style={{ fontSize: 12, color: gold, marginBottom: 4 }}>Ø§Ù„ÙˆÙ‚Øª Ø§Ù„Ù…ØªØ¨Ù‚ÙŠ Ø¹Ù„Ù‰ {nextPrayer.name}</div>
+                <div style={{ fontSize: 12, color: gold, marginBottom: 4 }}>الوقت المتبقي على {nextPrayer.name}</div>
                 <div style={{ fontFamily: MONO, fontSize: 30, fontWeight: 900, color: gold, direction: "ltr" }}>
                   {String(cdH).padStart(2, "0")}:{String(cdM).padStart(2, "0")}:{String(cdS).padStart(2, "0")}
                 </div>
@@ -17180,24 +17180,24 @@ export default function App() {
                     <div key={p.key} style={{ background: isNext ? `${gold}18` : C.card, border: `1px solid ${isNext ? gold : C.border}`, borderRadius: 10, padding: "14px 10px", textAlign: "center" }}>
                       <div style={{ fontSize: 16, fontWeight: 700, color: isNext ? gold : C.text, fontFamily: "Arial, sans-serif", marginBottom: 6 }}>{p.name}</div>
                       <div style={{ fontFamily: MONO, fontSize: 14, color: isPast ? C.textDim : C.text, direction: "ltr" }}>{p.timeStr}</div>
-                      {isNext && <div style={{ fontSize: 9, color: gold, fontFamily: MONO, marginTop: 4 }}>Ø§Ù„ØªØ§Ù„ÙŠØ©</div>}
+                      {isNext && <div style={{ fontSize: 9, color: gold, fontFamily: MONO, marginTop: 4 }}>التالية</div>}
                     </div>
                   );
                 })}
               </div>
             )}
 
-            {athanLoading && <div style={{ textAlign: "center", color: C.textDim, fontFamily: MONO, fontSize: 12, marginBottom: 14 }}>Ø¬Ø§Ø±ÙŠ ØªØ­Ù…ÙŠÙ„ Ø£ÙˆÙ‚Ø§Øª Ø§Ù„ØµÙ„Ø§Ø©…</div>}
+            {athanLoading && <div style={{ textAlign: "center", color: C.textDim, fontFamily: MONO, fontSize: 12, marginBottom: 14 }}>جاري تحميل أوقات Ø§Ù„ØµÙ„Ø§Ø©…</div>}
             {athanError && <div style={{ background: `${C.red}12`, border: `1px solid ${C.red}44`, borderRadius: 8, padding: "10px 14px", color: C.red, fontSize: 13, marginBottom: 14 }}>{athanError}</div>}
 
             {/* Location + Settings */}
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 10 }}>Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª</div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 10 }}>الإعدادات</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                <input value={athanCity} onChange={e => setAthanCity(e.target.value)} placeholder="Ø§Ù„Ù…Ø¯ÙŠÙ†Ø© (Ù…Ø«Ù„: Ù…ÙƒØ©)" dir="rtl"
+                <input value={athanCity} onChange={e => setAthanCity(e.target.value)} placeholder="المدينة (مثل: مكة)" dir="rtl"
                   style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "9px 10px", borderRadius: 6, fontSize: 13, fontFamily: "Arial, sans-serif" }}
                   onBlur={() => localStorage.setItem("athan_city", athanCity)} />
-                <input value={athanCountry} onChange={e => setAthanCountry(e.target.value)} placeholder="Ø§Ù„Ø¯ÙˆÙ„Ø© (Ù…Ø«Ù„: SA)" dir="rtl"
+                <input value={athanCountry} onChange={e => setAthanCountry(e.target.value)} placeholder="الدولة (مثل: SA)" dir="rtl"
                   style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "9px 10px", borderRadius: 6, fontSize: 13, fontFamily: "Arial, sans-serif" }}
                   onBlur={() => localStorage.setItem("athan_country", athanCountry)} />
               </div>
@@ -17208,26 +17208,26 @@ export default function App() {
                 </select>
                 <button onClick={loadByGeo}
                   style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.accent, borderRadius: 6, padding: "9px 12px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
-                  📍 Ù…ÙˆÙ‚Ø¹ÙŠ
+                  📍 موقعي
                 </button>
                 <button onClick={() => { if (athanCity && athanCountry) fetchPrayerTimes(null, null, athanCity, athanCountry); else loadByGeo(); }}
                   style={{ background: `${gold}18`, border: `1px solid ${gold}55`, color: gold, borderRadius: 6, padding: "9px 12px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
-                  ØªØ­Ø¯ÙŠØ«
+                  تحديث
                 </button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: C.textSec, cursor: "pointer" }}>
                   <input type="checkbox" checked={athanSoundOn} onChange={e => { setAthanSoundOn(e.target.checked); localStorage.setItem("athan_sound", e.target.checked ? "on" : "off"); }}
                     style={{ accentColor: gold }} />
-                  ØªØ´ØºÙŠÙ„ ØµÙˆØª Ø§Ù„Ø£Ø°Ø§Ù†
+                  تشغيل صوت الأذان
                 </label>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 12, color: C.textSec }}>ØªÙ†Ø¨ÙŠÙ‡ Ù‚Ø¨Ù„ Ø§Ù„ØµÙ„Ø§Ø©:</span>
+                  <span style={{ fontSize: 12, color: C.textSec }}>تنبيه قبل الصلاة:</span>
                   <select value={athanReminder} onChange={e => { setAthanReminder(Number(e.target.value)); localStorage.setItem("athan_reminder", e.target.value); }}
                     style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "4px 8px", borderRadius: 4, fontSize: 12, fontFamily: "Arial, sans-serif" }}>
-                    <option value={5}>5 Ø¯Ù‚Ø§Ø¦Ù‚</option>
-                    <option value={10}>10 Ø¯Ù‚Ø§Ø¦Ù‚</option>
-                    <option value={15}>15 Ø¯Ù‚ÙŠÙ‚Ø©</option>
+                    <option value={5}>5 دقائق</option>
+                    <option value={10}>10 دقائق</option>
+                    <option value={15}>15 دقيقة</option>
                   </select>
                 </div>
               </div>
@@ -17236,7 +17236,7 @@ export default function App() {
               <div style={{ textAlign: "center" }}>
                 <button onClick={loadByGeo}
                   style={{ background: `${gold}18`, border: `1px solid ${gold}66`, color: gold, borderRadius: 10, padding: "14px 28px", fontFamily: "Arial, sans-serif", fontSize: 16, cursor: "pointer", fontWeight: 700 }}>
-                  📍 Ø§Ø¹Ø±Ø¶ Ø£ÙˆÙ‚Ø§Øª Ø§Ù„ØµÙ„Ø§Ø© Ù„Ù…ÙˆÙ‚Ø¹ÙŠ
+                  📍 اعرض أوقات الصلاة لموقعي
                 </button>
               </div>
             )}
@@ -17244,17 +17244,17 @@ export default function App() {
         );
       })()}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• ATHKAR TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════ ATHKAR TAB ══════════════════ */}
       {activeTab === "athkar" && (() => {
         const gold = "#c9a84c";
         const CATEGORIES = [
-          { id: "morning", label: "Ø£Ø°ÙƒØ§Ø± Ø§Ù„ØµØ¨Ø§Ø­" },
-          { id: "evening", label: "Ø£Ø°ÙƒØ§Ø± Ø§Ù„Ù…Ø³Ø§Ø¡" },
-          { id: "afterPrayer", label: "Ø£Ø°ÙƒØ§Ø± Ø¨Ø¹Ø¯ Ø§Ù„ØµÙ„Ø§Ø©" },
-          { id: "sleep", label: "Ø£Ø°ÙƒØ§Ø± Ø§Ù„Ù†ÙˆÙ…" },
-          { id: "istighfar", label: "Ø§Ù„Ø§Ø³ØªØºÙØ§Ø±" },
-          { id: "salawat", label: "Ø§Ù„ØµÙ„Ø§Ø© Ø¹Ù„Ù‰ Ø§Ù„Ù†Ø¨ÙŠ" },
-          { id: "duaa", label: "Ø£Ø¯Ø¹ÙŠØ©" },
+          { id: "morning", label: "أذكار الصباح" },
+          { id: "evening", label: "أذكار المساء" },
+          { id: "afterPrayer", label: "أذكار بعد الصلاة" },
+          { id: "sleep", label: "أذكار النوم" },
+          { id: "istighfar", label: "الاستغفار" },
+          { id: "salawat", label: "الصلاة على النبي" },
+          { id: "duaa", label: "أدعية" },
         ];
         const catData = ATHKAR_DATA[athkarCategory];
         const saveProgress = (updated) => {
@@ -17267,7 +17267,7 @@ export default function App() {
         return (
           <div dir="rtl" style={{ maxWidth: 760, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{ fontFamily: "Georgia, serif", fontSize: 24, fontWeight: 900, color: gold }}>Ø§Ù„Ø£Ø°ÙƒØ§Ø±</div>
+              <div style={{ fontFamily: "Georgia, serif", fontSize: 24, fontWeight: 900, color: gold }}>الأذكار</div>
               <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, direction: "ltr", marginTop: 4 }}>ISLAMIC REMEMBRANCE</div>
             </div>
 
@@ -17283,14 +17283,14 @@ export default function App() {
 
             {allDone && (
               <div style={{ background: `${gold}14`, border: `1px solid ${gold}66`, borderRadius: 10, padding: "14px 16px", textAlign: "center", marginBottom: 14 }}>
-                <div style={{ fontSize: 18, color: gold, fontFamily: "Arial, sans-serif", fontWeight: 700 }}>✓ ØªÙ… Ø¥ÙƒÙ…Ø§Ù„ {catData.title}</div>
-                <div style={{ fontSize: 12, color: C.textSec, marginTop: 4 }}>Ø¨Ø§Ø±Ùƒ Ø§Ù„Ù„Ù‡ ÙÙŠÙƒ ÙˆØªÙ‚Ø¨Ù„ Ù…Ù†Ùƒ</div>
+                <div style={{ fontSize: 18, color: gold, fontFamily: "Arial, sans-serif", fontWeight: 700 }}>✓ تم إكمال {catData.title}</div>
+                <div style={{ fontSize: 12, color: C.textSec, marginTop: 4 }}>بارك الله فيك وتقبل منك</div>
                 <button onClick={() => {
                   const reset = { ...athkarProgress };
                   catItems.forEach(item => { reset[item.id] = 0; });
                   saveProgress(reset);
                 }} style={{ marginTop: 10, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "6px 14px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
-                  Ø¥Ø¹Ø§Ø¯Ø©
+                  إعادة
                 </button>
               </div>
             )}
@@ -17323,11 +17323,11 @@ export default function App() {
                         }}
                         disabled={done}
                         style={{ flex: 1, background: done ? `${gold}18` : C.accent, border: "none", color: done ? gold : "#fff", borderRadius: 8, padding: "11px 0", fontFamily: "Arial, sans-serif", fontSize: 15, cursor: done ? "default" : "pointer", fontWeight: 700 }}>
-                        {done ? "✓ Ù…ÙƒØªÙ…Ù„" : "Ø¹Ø¯ — " + (item.count - current) + " Ù…ØªØ¨Ù‚Ù"}
+                        {done ? "✓ مكتمل" : "عد — " + (item.count - current) + " متبقٍ"}
                       </button>
                       <button onClick={() => saveProgress({ ...athkarProgress, [item.id]: 0 })}
                         style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textSec, borderRadius: 8, padding: "11px 14px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
-                        Ø¥Ø¹Ø§Ø¯Ø©
+                        إعادة
                       </button>
                     </div>
                   </div>
@@ -17338,7 +17338,7 @@ export default function App() {
         );
       })()}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• TASBIH TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════ TASBIH TAB ══════════════════ */}
       {activeTab === "tasbih" && (() => {
         const gold = "#c9a84c";
         const effectiveTarget = tasbihCustomTarget ? Number(tasbihCustomTarget) : tasbihTarget;
@@ -17362,7 +17362,7 @@ export default function App() {
         return (
           <div dir="rtl" style={{ maxWidth: 560, margin: "0 auto", textAlign: "center" }}>
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 900, color: gold }}>Ø§Ù„ØªØ³Ø¨ÙŠØ­</div>
+              <div style={{ fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 900, color: gold }}>التسبيح</div>
               <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, direction: "ltr", marginTop: 4 }}>DIGITAL TASBIH</div>
             </div>
 
@@ -17398,15 +17398,15 @@ export default function App() {
                 onMouseDown={e => { if (!done) e.currentTarget.style.transform = "scale(0.94)"; }}
                 onMouseUp={e => { e.currentTarget.style.transform = "scale(1)"; }}
               >
-                {done ? "✓" : "â˜"}
+                {done ? "✓" : "☝"}
               </button>
             </div>
 
             {/* Completed message */}
             {(done || tasbihCompleted) && (
               <div style={{ background: `${gold}14`, border: `1px solid ${gold}66`, borderRadius: 12, padding: "16px 20px", marginBottom: 14 }}>
-                <div style={{ fontSize: 18, color: gold, fontWeight: 700 }}>ØªÙ… Ø¥ÙƒÙ…Ø§Ù„ Ø§Ù„Ø°ÙƒØ±</div>
-                <div style={{ fontSize: 13, color: C.textSec, marginTop: 4 }}>Ø¨Ø§Ø±Ùƒ Ø§Ù„Ù„Ù‡ ÙÙŠÙƒ</div>
+                <div style={{ fontSize: 18, color: gold, fontWeight: 700 }}>تم إكمال الذكر</div>
+                <div style={{ fontSize: 13, color: C.textSec, marginTop: 4 }}>بارك الله فيك</div>
               </div>
             )}
 
@@ -17414,14 +17414,14 @@ export default function App() {
             <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 16, flexWrap: "wrap" }}>
               <button onClick={doReset}
                 style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textSec, borderRadius: 8, padding: "10px 22px", fontFamily: "Arial, sans-serif", fontSize: 14, cursor: "pointer" }}>
-                Ø¥Ø¹Ø§Ø¯Ø©
+                إعادة
               </button>
-              {tasbihCount > 0 && <div style={{ display: "flex", alignItems: "center", fontFamily: MONO, fontSize: 11, color: C.textDim }}>Ø§Ù„Ø¹Ø¯Ø¯ Ø§Ù„Ø­Ø§Ù„ÙŠ: {tasbihCount}</div>}
+              {tasbihCount > 0 && <div style={{ display: "flex", alignItems: "center", fontFamily: MONO, fontSize: 11, color: C.textDim }}>العدد الحالي: {tasbihCount}</div>}
             </div>
 
             {/* Dhikr selector */}
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 8 }}>Ø§Ù„Ø°ÙƒØ±</div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 8 }}>الذكر</div>
               <div style={{ display: "grid", gap: 6 }}>
                 {TASBIH_DHIKR.map(d => (
                   <button key={d.id} onClick={() => { setTasbihDhikr(d); doReset(); }}
@@ -17434,7 +17434,7 @@ export default function App() {
 
             {/* Target selector */}
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 8 }}>Ø§Ù„Ù‡Ø¯Ù</div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 8 }}>الهدف</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 10 }}>
                 {[33, 99, 100, 1000].map(t => (
                   <button key={t} onClick={() => { setTasbihTarget(t); setTasbihCustomTarget(""); }}
@@ -17443,14 +17443,14 @@ export default function App() {
                   </button>
                 ))}
               </div>
-              <input type="number" value={tasbihCustomTarget} onChange={e => setTasbihCustomTarget(e.target.value)} placeholder="Ù‡Ø¯Ù Ù…Ø®ØµØµ…"
+              <input type="number" value={tasbihCustomTarget} onChange={e => setTasbihCustomTarget(e.target.value)} placeholder="هدف Ù…Ø®ØµØµ…"
                 style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "9px 12px", borderRadius: 8, fontFamily: MONO, fontSize: 12, textAlign: "center" }} />
             </div>
           </div>
         );
       })()}
 
-      {/* â”€â”€ PRE-MARKET BRIEFING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── PRE-MARKET BRIEFING ──────────────────────────────────────────── */}
       {activeTab === "briefing" && (() => {
         const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
         const sectionRe = /^([A-Z][A-Z\s\/]{3,})\n/gm;
@@ -17492,7 +17492,7 @@ export default function App() {
               </div>
             )}
             {premktBriefing && !premktLoading && (() => {
-              const ICONS = { "MORNING VERDICT": "âš–ï¸", "KEY THEMES": "🎯", "EARNINGS WATCH": "📅", "MACRO EVENTS": "📊", "TOP 3 SETUPS": "🚀", "WHAT TO AVOID": "⚠ï¸", "GAME PLAN": "ðŸ—ºï¸" };
+              const ICONS = { "MORNING VERDICT": "⚖️", "KEY THEMES": "🎯", "EARNINGS WATCH": "📅", "MACRO EVENTS": "📊", "TOP 3 SETUPS": "🚀", "WHAT TO AVOID": "⚠️", "GAME PLAN": "🗺️" };
               return sections.length > 1 ? (
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(340px, 1fr))", gap: 12 }}>
                   {sections.map((s, i) => {
@@ -17517,7 +17517,7 @@ export default function App() {
         );
       })()}
 
-      {/* â”€â”€ MULTI-TIMEFRAME DASHBOARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── MULTI-TIMEFRAME DASHBOARD ────────────────────────────────────── */}
       {activeTab === "multitf" && (() => {
         const tvTheme = themeMode === "dark" ? "dark" : "light";
         const TFS = [
@@ -17532,7 +17532,7 @@ export default function App() {
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {/* Ticker bar */}
             <div style={{ ...card({ overflow: "visible" }), padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>â± MULTI-TIMEFRAME</span>
+              <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>⏱ MULTI-TIMEFRAME</span>
               <input value={multitfInput} onChange={e => setMultitfInput(e.target.value.toUpperCase())}
                 onKeyDown={e => { if (e.key === "Enter") setMultitfSymbol(multitfInput.trim() || "SPY"); }}
                 placeholder="Ticker…"
@@ -17545,7 +17545,7 @@ export default function App() {
               </div>
               <a href={`https://www.tradingview.com/chart/?symbol=${sym}`} target="_blank" rel="noopener noreferrer"
                 style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, color: C.textDim, textDecoration: "none", border: `1px solid ${C.border}`, borderRadius: 4, padding: "5px 10px" }}>
-                Full Chart â†—
+                Full Chart ↗
               </a>
             </div>
             {/* 4 charts grid */}
@@ -17570,7 +17570,7 @@ export default function App() {
         );
       })()}
 
-      {/* â”€â”€ CUSTOM SCREENER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── CUSTOM SCREENER ──────────────────────────────────────────────── */}
       {activeTab === "screener" && (() => {
         const FIELDS = [
           { id: "score",    label: "AI Score",    get: r => r.score },
@@ -17622,7 +17622,7 @@ export default function App() {
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {/* Header */}
             <div style={{ ...card({ padding: "14px 18px" }) }}>
-              <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text, marginBottom: 6 }}>ðŸ” CUSTOM SCREENER</div>
+              <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text, marginBottom: 6 }}>🔍 CUSTOM SCREENER</div>
               <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Build filter rules and screen against Smart Scanner results. Run Smart Scan first to populate data.</div>
             </div>
 
@@ -17656,7 +17656,7 @@ export default function App() {
                     background: scanResults.length ? C.accent : C.surface,
                     border: "none", color: scanResults.length ? "#fff" : C.textDim,
                     borderRadius: 6, padding: "8px 20px", cursor: scanResults.length ? "pointer" : "default" }}>
-                  ðŸ” RUN SCREEN ({scanResults.length} rows)
+                  🔍 RUN SCREEN ({scanResults.length} rows)
                 </button>
               </div>
             </div>
@@ -17713,7 +17713,7 @@ export default function App() {
         );
       })()}
 
-      {/* â”€â”€ SHORT INTEREST DASHBOARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── SHORT INTEREST DASHBOARD ─────────────────────────────────────── */}
       {activeTab === "shortint" && (() => {
         const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
         const defaultTickers = watchlistSymbols.slice(0, 20).join(",");
@@ -17722,7 +17722,7 @@ export default function App() {
             {/* Header */}
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>ðŸ©³ SHORT INTEREST</div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>🩳 SHORT INTEREST</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>Short float %, days-to-cover, squeeze potential</div>
               </div>
               <input value={shortIntInput || defaultTickers}
@@ -17796,7 +17796,7 @@ export default function App() {
             )}
             {!shortIntData.length && !shortIntLoading && (
               <div style={{ ...card({ padding: 32 }), textAlign: "center" }}>
-                <div style={{ fontSize: 32, marginBottom: 10 }}>ðŸ©³</div>
+                <div style={{ fontSize: 32, marginBottom: 10 }}>🩳</div>
                 <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Enter tickers above and click Fetch Data</div>
               </div>
             )}
@@ -17804,7 +17804,7 @@ export default function App() {
         );
       })()}
 
-      {/* â”€â”€ PORTFOLIO HEAT MAP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── PORTFOLIO HEAT MAP ────────────────────────────────────────────── */}
       {activeTab === "heatmap" && (() => {
         const positions = (portfolioHoldings || []).filter(h => h.shares > 0);
         const enriched = positions.map(h => {
@@ -17884,7 +17884,7 @@ export default function App() {
                       <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{h.symbol}</div>
                       <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>{h.shares} shares @ ${Number(h.avgPrice || 0).toFixed(2)}</div>
                       <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: h.pnlPct >= 0 ? C.green : C.red, marginTop: 4 }}>
-                        {h.pnlPct >= 0 ? "â–²" : "â–¼"} {Math.abs(h.pnlPct).toFixed(2)}%
+                        {h.pnlPct >= 0 ? "▲" : "▼"} {Math.abs(h.pnlPct).toFixed(2)}%
                       </div>
                       <div style={{ fontFamily: MONO, fontSize: 10, color: C.textSec }}>${h.value.toFixed(0)} ({totalValue > 0 ? (h.value / totalValue * 100).toFixed(1) : 0}%)</div>
                     </div>
@@ -17896,7 +17896,7 @@ export default function App() {
         );
       })()}
 
-      {/* â”€â”€ CORRELATION MATRIX â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── CORRELATION MATRIX ───────────────────────────────────────────── */}
       {activeTab === "correlation" && (() => {
         const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
         const corrColor = (v) => {
@@ -17994,14 +17994,14 @@ export default function App() {
         );
       })()}
 
-      {/* â”€â”€ FIBONACCI CALCULATOR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── FIBONACCI CALCULATOR ──────────────────────────────────────────── */}
       {activeTab === "fibonacci" && (() => {
         const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>ðŸŒ€ FIBONACCI CALCULATOR</div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>🌀 FIBONACCI CALCULATOR</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>Auto-detects swing high/low from 90-day daily candles</div>
               </div>
               <input value={fibInput} onChange={e => setFibInput(e.target.value.toUpperCase())}
@@ -18065,14 +18065,14 @@ export default function App() {
                           background: lvl.isExt ? C.purple : lvl.isKey ? C.amber : lvl.ratio === 0 || lvl.ratio === 1 ? C.textDim : C.border }} />
                         <div style={{ flex: 1 }}>
                           <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: lvl.isKey ? C.amber : lvl.isExt ? C.purple : C.textSec }}>
-                            {lvl.label} {isCurrent && <span style={{ color: C.amber }}>â—„ PRICE IS HERE</span>}
+                            {lvl.label} {isCurrent && <span style={{ color: C.amber }}>◄ PRICE IS HERE</span>}
                           </div>
                         </div>
                         <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: lvl.isKey ? C.amber : C.text, minWidth: 90, textAlign: "right" }}>
                           ${lvl.price.toFixed(2)}
                         </div>
                         <div style={{ fontFamily: MONO, fontSize: 10, color: above ? C.green : C.red, minWidth: 70, textAlign: "right" }}>
-                          {above ? "â–¼ " : "â–² "}{distPct}% away
+                          {above ? "▼ " : "▲ "}{distPct}% away
                         </div>
                         {/* Mini price bar visualization */}
                         <div style={{ width: 80, height: 8, background: C.border, borderRadius: 4, overflow: "hidden", flexShrink: 0 }}>
@@ -18088,7 +18088,7 @@ export default function App() {
 
             {!fibData && !fibLoading && !fibError && (
               <div style={{ ...card({ padding: 40 }), textAlign: "center" }}>
-                <div style={{ fontSize: 36, marginBottom: 12 }}>ðŸŒ€</div>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>🌀</div>
                 <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 6 }}>Enter a ticker and click Calculate</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Automatically finds swing high/low over last 90 days and draws all key Fibonacci levels</div>
               </div>
@@ -18097,7 +18097,7 @@ export default function App() {
         );
       })()}
 
-      {/* â”€â”€ HALAL SCREENER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── HALAL SCREENER ────────────────────────────────────────────────── */}
       {activeTab === "halal" && (() => {
         const gold = "#c9a84c";
         const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
@@ -18155,7 +18155,7 @@ export default function App() {
 
             {halalLoading && (
               <div style={{ ...card({ padding: 40 }), textAlign: "center" }}>
-                <div style={{ fontFamily: "Georgia, serif", fontSize: 24, color: gold, marginBottom: 12 }}>Ø¨ÙØ³Ù’Ù…Ù Ø§Ù„Ù„ÙŽÙ‘Ù‡Ù</div>
+                <div style={{ fontFamily: "Georgia, serif", fontSize: 24, color: gold, marginBottom: 12 }}>بِسْمِ اللَّهِ</div>
                 <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Consulting Islamic finance principles…</div>
               </div>
             )}
@@ -18225,7 +18225,7 @@ export default function App() {
         );
       })()}
 
-      {/* â”€â”€ SMART MONEY TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── SMART MONEY TAB ─────────────────────────────────────────────────── */}
       {activeTab === "smartmoney" && (() => {
         const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
         const SM_TICKERS = ["AAPL","MSFT","NVDA","TSLA","AMZN","GOOGL","META","PLTR","RKLB","BBAI"];
@@ -18329,7 +18329,7 @@ export default function App() {
         );
       })()}
 
-      {/* â”€â”€ SOCIAL SENTIMENT TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── SOCIAL SENTIMENT TAB ─────────────────────────────────────────────── */}
       {activeTab === "social" && (() => {
         const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
         const SOC_TICKERS = ["TSLA","GME","AMC","BBAI","PLTR","NVDA","AAPL","MSTR","SMCI","RKLB"];
@@ -18337,7 +18337,7 @@ export default function App() {
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.cyan }}>ðŸ’¬ SOCIAL SENTIMENT</div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.cyan }}>💬 SOCIAL SENTIMENT</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>StockTwits bull/bear + Reddit WallStreetBets mentions</div>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: "auto", flexWrap: "wrap" }}>
@@ -18420,7 +18420,7 @@ export default function App() {
             })()}
             {!socialData && !socialLoading && (
               <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
-                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>ðŸ’¬</div>
+                <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>💬</div>
                 <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Enter a ticker to see social sentiment</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>StockTwits real-time bull/bear ratio + Reddit WSB mentions</div>
               </div>
@@ -18429,7 +18429,7 @@ export default function App() {
         );
       })()}
 
-      {/* â”€â”€ ANALYST RATINGS TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── ANALYST RATINGS TAB ─────────────────────────────────────────────── */}
       {activeTab === "analyst" && (() => {
         const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
         const AN_TICKERS = ["AAPL","MSFT","NVDA","TSLA","AMZN","GOOGL","META","PLTR","RKLB","BBAI","SMR","OKLO"];
@@ -18562,7 +18562,7 @@ export default function App() {
         );
       })()}
 
-      {/* â”€â”€ DIVIDEND / IPO CALENDAR TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── DIVIDEND / IPO CALENDAR TAB ─────────────────────────────────────── */}
       {activeTab === "ipo" && (() => {
         const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
         return (
@@ -18633,7 +18633,7 @@ export default function App() {
         );
       })()}
 
-      {/* â”€â”€ RISK LAB TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── RISK LAB TAB ─────────────────────────────────────────────────────── */}
       {activeTab === "risklab" && (() => {
         const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
         // Compute portfolio metrics from positions
@@ -18737,7 +18737,7 @@ export default function App() {
                       {losers.map((l, i) => (
                         <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: C.redBg, borderRadius: 6 }}>
                           <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{l.ticker}</div>
-                          <div style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>Loss: ${l.lossAmt.toFixed(0)} · Tax savings â‰ˆ ${(l.lossAmt * 0.22).toFixed(0)} (22%)</div>
+                          <div style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>Loss: ${l.lossAmt.toFixed(0)} · Tax savings ≈ ${(l.lossAmt * 0.22).toFixed(0)} (22%)</div>
                         </div>
                       ))}
                       <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 6 }}>
@@ -18752,13 +18752,13 @@ export default function App() {
         );
       })()}
 
-      {/* â”€â”€ AI LAB TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── AI LAB TAB ───────────────────────────────────────────────────────── */}
       {activeTab === "ailab" && (() => {
         const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
         const sections = [
           { id: "pattern",    label: "📊 PATTERN" },
-          { id: "scenario",   label: "ðŸŒ SCENARIO" },
-          { id: "earnings",   label: "ðŸ“ž EARNINGS" },
+          { id: "scenario",   label: "🌐 SCENARIO" },
+          { id: "earnings",   label: "📞 EARNINGS" },
           { id: "recap",      label: "📋 RECAP" },
           { id: "checklist",  label: "✅ CHECKLIST" },
         ];
@@ -18919,7 +18919,7 @@ export default function App() {
         );
       })()}
 
-      {/* â”€â”€ DCA PLANNER TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── DCA PLANNER TAB ──────────────────────────────────────────────────── */}
       {activeTab === "dca" && (() => {
         const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
         return (
@@ -19018,7 +19018,7 @@ export default function App() {
         );
       })()}
 
-      {/* â”€â”€ OPTIONS CALCULATOR TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── OPTIONS CALCULATOR TAB ───────────────────────────────────────────── */}
       {activeTab === "options-calc" && (() => {
         const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
         return (
@@ -19833,7 +19833,7 @@ export default function App() {
         </div>
       )}
 
-      {/* â”€â”€ Quick-Log Modal â”€â”€ */}
+      {/* ── Quick-Log Modal ── */}
       {quickLogModal && (
         <div onClick={() => setQuickLogModal(null)} style={{ position: "fixed", inset: 0, background: "rgba(8,18,34,0.58)", zIndex: 1350, display: "grid", placeItems: "center" }}>
           <div onClick={e => e.stopPropagation()} style={{ width: 420, maxWidth: "94vw", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, boxShadow: "0 24px 60px rgba(15,27,45,0.30)", padding: 24 }}>
@@ -19884,7 +19884,7 @@ export default function App() {
                 const rr = Math.abs(target - entry) / Math.abs(entry - stop);
                 return (
                   <div style={{ fontFamily: MONO, fontSize: 10, color: rr >= 2 ? C.green : rr >= 1 ? C.amber : C.red, textAlign: "right", marginBottom: 10, fontWeight: 700 }}>
-                    R:R {rr.toFixed(1)}:1 {rr >= 2 ? "✓" : rr >= 1 ? "~" : "âœ—"}
+                    R:R {rr.toFixed(1)}:1 {rr >= 2 ? "✓" : rr >= 1 ? "~" : "✗"}
                   </div>
                 );
               }
