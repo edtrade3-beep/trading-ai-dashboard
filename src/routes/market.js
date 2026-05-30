@@ -791,61 +791,88 @@ async function handleMarket(req, res, requestUrl) {
 
   // GET /api/market/crypto — live crypto prices + Fear & Greed + BTC dominance
   if (pathname === "/api/market/crypto" && req.method === "GET") {
-    const CRYPTO_SYMBOLS = [
-      "BTC-USD","ETH-USD","SOL-USD","BNB-USD","XRP-USD",
-      "DOGE-USD","ADA-USD","AVAX-USD","LINK-USD","DOT-USD",
-      "MATIC-USD","UNI-USD","LTC-USD","BCH-USD","ATOM-USD",
+    // Binance symbol → display info
+    const BINANCE_MAP = [
+      { binance: "BTCUSDT",  symbol: "BTC",   name: "Bitcoin" },
+      { binance: "ETHUSDT",  symbol: "ETH",   name: "Ethereum" },
+      { binance: "SOLUSDT",  symbol: "SOL",   name: "Solana" },
+      { binance: "BNBUSDT",  symbol: "BNB",   name: "BNB" },
+      { binance: "XRPUSDT",  symbol: "XRP",   name: "XRP" },
+      { binance: "DOGEUSDT", symbol: "DOGE",  name: "Dogecoin" },
+      { binance: "ADAUSDT",  symbol: "ADA",   name: "Cardano" },
+      { binance: "AVAXUSDT", symbol: "AVAX",  name: "Avalanche" },
+      { binance: "LINKUSDT", symbol: "LINK",  name: "Chainlink" },
+      { binance: "DOTUSDT",  symbol: "DOT",   name: "Polkadot" },
+      { binance: "MATICUSDT",symbol: "MATIC", name: "Polygon" },
+      { binance: "UNIUSDT",  symbol: "UNI",   name: "Uniswap" },
+      { binance: "LTCUSDT",  symbol: "LTC",   name: "Litecoin" },
+      { binance: "BCHUSDT",  symbol: "BCH",   name: "Bitcoin Cash" },
+      { binance: "ATOMUSDT", symbol: "ATOM",  name: "Cosmos" },
     ];
+
+    const H = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" };
+
     try {
-      // Fetch crypto quotes from Yahoo Finance (same provider already in use)
-      const [quoteRows, fngData, globalData] = await Promise.allSettled([
-        fetchYahooQuoteBatch(CRYPTO_SYMBOLS),
-        // Fear & Greed — free, no API key
+      const symbolList = JSON.stringify(BINANCE_MAP.map(m => m.binance));
+      const binanceUrl = `https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(symbolList)}`;
+
+      const [binanceResult, geckoMarketsResult, fngResult, globalResult] = await Promise.allSettled([
+        // Binance 24h ticker — public, no key, very fast
         withTimeout(
-          fetch("https://api.alternative.me/fng/?limit=7", { headers: { "User-Agent": "Mozilla/5.0" } })
+          fetch(binanceUrl, { headers: H }).then(r => r.ok ? r.json() : null).catch(() => null),
+          8000, null
+        ),
+        // CoinGecko markets — market caps + prices as backup
+        withTimeout(
+          fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,solana,binancecoin,ripple,dogecoin,cardano,avalanche-2,chainlink,polkadot,matic-network,uniswap,litecoin,bitcoin-cash,cosmos&order=market_cap_desc&per_page=15&page=1&sparkline=false", { headers: H })
+            .then(r => r.ok ? r.json() : null).catch(() => null),
+          10000, null
+        ),
+        // Fear & Greed
+        withTimeout(
+          fetch("https://api.alternative.me/fng/?limit=7", { headers: H })
             .then(r => r.ok ? r.json() : null).catch(() => null),
           6000, null
         ),
-        // CoinGecko global — free, no API key
+        // CoinGecko global
         withTimeout(
-          fetch("https://api.coingecko.com/api/v3/global", { headers: { "User-Agent": "Mozilla/5.0" } })
+          fetch("https://api.coingecko.com/api/v3/global", { headers: H })
             .then(r => r.ok ? r.json() : null).catch(() => null),
-          6000, null
+          8000, null
         ),
       ]);
 
-      const rows = (quoteRows.status === "fulfilled" ? quoteRows.value : []) || [];
-      const bySymbol = Object.fromEntries(rows.map(r => [String(r?.symbol || "").toUpperCase(), r]));
+      // Build coin list from Binance data (primary) with CoinGecko mcap as supplement
+      const binanceTickers = binanceResult.status === "fulfilled" && Array.isArray(binanceResult.value)
+        ? binanceResult.value : [];
+      const geckoMarkets = geckoMarketsResult.status === "fulfilled" && Array.isArray(geckoMarketsResult.value)
+        ? geckoMarketsResult.value : [];
 
-      const coins = CRYPTO_SYMBOLS.map(sym => {
-        const live = bySymbol[sym.toUpperCase()];
-        if (!live) return null;
-        const price = Number(live.regularMarketPrice);
+      const binanceBySymbol = Object.fromEntries(binanceTickers.map(t => [t.symbol, t]));
+      const geckoBySymbol = Object.fromEntries(geckoMarkets.map(g => [
+        // Map CoinGecko symbol to Binance base
+        String(g.symbol || "").toUpperCase() + "USDT", g
+      ]));
+
+      const coins = BINANCE_MAP.map(({ binance, symbol, name }) => {
+        const b = binanceBySymbol[binance];
+        const g = geckoBySymbol[binance];
+        // Use Binance for price/changes, CoinGecko for marketCap if available
+        const price = b ? round2(Number(b.lastPrice)) : (g ? round2(g.current_price) : 0);
         if (!price) return null;
-        const chgPct = round2(Number(live.regularMarketChangePercent) || 0);
-        const h24 = round2(Number(live.regularMarketDayHigh) || price);
-        const l24 = round2(Number(live.regularMarketDayLow) || price);
-        const vol = Number(live.regularMarketVolume) || 0;
-        const mcap = Number(live.marketCap) || 0;
-        const y52h = round2(Number(live.fiftyTwoWeekHigh) || 0);
-        const y52l = round2(Number(live.fiftyTwoWeekLow) || 0);
-        return {
-          symbol: sym.replace("-USD", ""),
-          name: live.longName || live.shortName || sym,
-          price: round2(price),
-          changesPercentage: chgPct,
-          high24h: h24,
-          low24h: l24,
-          volume: vol,
-          marketCap: mcap,
-          yearHigh: y52h,
-          yearLow: y52l,
-        };
+        const chgPct = b
+          ? round2(Number(b.priceChangePercent))
+          : (g ? round2(g.price_change_percentage_24h) : 0);
+        const high24h = b ? round2(Number(b.highPrice)) : (g ? round2(g.high_24h) : price);
+        const low24h  = b ? round2(Number(b.lowPrice))  : (g ? round2(g.low_24h)  : price);
+        const volume  = b ? Number(b.quoteVolume) : (g ? g.total_volume : 0);
+        const marketCap = g ? g.market_cap : 0;
+        return { symbol, name, price, changesPercentage: chgPct, high24h, low24h, volume, marketCap };
       }).filter(Boolean);
 
       // Fear & Greed
       let fearGreed = null;
-      const fng = fngData.status === "fulfilled" ? fngData.value : null;
+      const fng = fngResult.status === "fulfilled" ? fngResult.value : null;
       if (fng?.data?.length) {
         fearGreed = {
           value: Number(fng.data[0].value),
@@ -858,9 +885,9 @@ async function handleMarket(req, res, requestUrl) {
         };
       }
 
-      // BTC Dominance + Total Market Cap
+      // Global macro — CoinGecko or derived from coin data
       let globalMacro = null;
-      const gd = globalData.status === "fulfilled" ? globalData.value : null;
+      const gd = globalResult.status === "fulfilled" ? globalResult.value : null;
       if (gd?.data) {
         globalMacro = {
           totalMarketCap: gd.data.total_market_cap?.usd || 0,
@@ -870,6 +897,21 @@ async function handleMarket(req, res, requestUrl) {
           activeCurrencies: gd.data.active_cryptocurrencies || 0,
           marketCapChange24h: round2(gd.data.market_cap_change_percentage_24h_usd || 0),
         };
+      } else if (geckoMarkets.length) {
+        // Derive from CoinGecko markets data if global endpoint failed
+        const totalMcap = geckoMarkets.reduce((s, g) => s + (g.market_cap || 0), 0);
+        const btcMcap = geckoMarkets.find(g => g.symbol === "btc")?.market_cap || 0;
+        const ethMcap = geckoMarkets.find(g => g.symbol === "eth")?.market_cap || 0;
+        if (totalMcap > 0) {
+          globalMacro = {
+            totalMarketCap: totalMcap,
+            totalVolume24h: geckoMarkets.reduce((s, g) => s + (g.total_volume || 0), 0),
+            btcDominance: round2((btcMcap / totalMcap) * 100),
+            ethDominance: round2((ethMcap / totalMcap) * 100),
+            activeCurrencies: 0,
+            marketCapChange24h: 0,
+          };
+        }
       }
 
       return writeJson(res, 200, { ok: true, coins, fearGreed, globalMacro, generatedAt: new Date().toISOString() });

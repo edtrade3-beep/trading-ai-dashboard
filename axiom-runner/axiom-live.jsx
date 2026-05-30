@@ -3305,7 +3305,7 @@ function CryptoNews({ C, MONO, SANS }) {
 
   useEffect(() => {
     setLoading(true);
-    fetch("/api/market/news?tickers=BTC-USD,ETH-USD,COIN,MSTR&limit=20")
+    fetch("/api/market/news?tickers=COIN,MSTR,RIOT,MARA,CLSK&limit=20")
       .then(r => r.json())
       .then(d => { setNews(Array.isArray(d) ? d : (d.news || [])); })
       .catch(() => {})
