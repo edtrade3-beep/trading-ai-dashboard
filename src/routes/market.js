@@ -935,150 +935,117 @@ async function handleMarket(req, res, requestUrl) {
   }
 
   // GET /api/market/options?symbol=AAPL&expiry=2025-01-17
-  // Tries Tradier first (if TRADIER_API_KEY set), then falls back to Yahoo Finance (free, no key needed)
+  // Uses Polygon.io (POLYGON_API_KEY) — free tier supported
   if (pathname === "/api/market/options" && req.method === "GET") {
     const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
     if (!symbol) return writeJson(res, 400, { error: "symbol required" });
     const requestedExpiry = searchParams.get("expiry") || null;
+    const polyKey = process.env.POLYGON_API_KEY || "";
 
-    // ── Helper: fetch Yahoo Finance options with crumb auth ──────────────────
-    async function fetchYahooOptions(sym, expiry) {
-      const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-      // Step 1: get cookies + crumb
-      const cookieRes = await withTimeout(
-        fetch("https://finance.yahoo.com/", {
-          headers: { "User-Agent": BROWSER_UA, "Accept-Language": "en-US,en;q=0.9" },
-          redirect: "follow",
-        }), 8000, null
-      );
-      if (!cookieRes) throw new Error("Yahoo cookie fetch timed out");
-      const rawCookies = (cookieRes.headers.get("set-cookie") || "").split(/,(?=[^ ])/).map(c => c.split(";")[0]).join("; ");
-
-      const crumbRes = await withTimeout(
-        fetch("https://query2.finance.yahoo.com/v1/test/getcrumb", {
-          headers: { "User-Agent": BROWSER_UA, "Cookie": rawCookies, "Accept": "text/plain" },
-        }), 6000, null
-      );
-      const crumb = crumbRes?.ok ? (await crumbRes.text()).trim() : "";
-
-      // Step 2: fetch options chain
-      const dateParam = expiry ? `&date=${Math.floor(new Date(expiry).getTime() / 1000)}` : "";
-      const crumbParam = crumb ? `&crumb=${encodeURIComponent(crumb)}` : "";
-      const url = `https://query2.finance.yahoo.com/v7/finance/options/${encodeURIComponent(sym)}?formatted=false${dateParam}${crumbParam}`;
-      const optRes = await withTimeout(
-        fetch(url, {
-          headers: { "User-Agent": BROWSER_UA, "Cookie": rawCookies, "Accept": "application/json", "Referer": "https://finance.yahoo.com/" },
-        }), 10000, null
-      );
-      if (!optRes?.ok) throw new Error(`Yahoo returned ${optRes?.status || "timeout"}`);
-      const payload = await optRes.json();
-      const result = payload?.optionChain?.result?.[0];
-      if (!result) throw new Error("No options data in Yahoo response");
-
-      const quote = result.quote || {};
-      const underlying = quote.regularMarketPrice || quote.ask || 0;
-      const expiryDates = (result.expirationDates || []).map(ts => new Date(ts * 1000).toISOString().slice(0, 10));
-      const chosenExpiry = expiry && expiryDates.includes(expiry) ? expiry : (expiryDates[0] || "");
-      const opts = result.options?.[0] || {};
-
-      const mapY = (c, type) => ({
-        contractSymbol: c.contractSymbol || "",
-        strike: round2(c.strike || 0),
-        lastPrice: round2(c.lastPrice || 0),
-        bid: round2(c.bid || 0),
-        ask: round2(c.ask || 0),
-        change: round2(c.change || 0),
-        changePct: round2(c.percentChange || 0),
-        volume: Number(c.volume) || 0,
-        openInterest: Number(c.openInterest) || 0,
-        iv: round2((c.impliedVolatility || 0) * 100),
-        inTheMoney: c.inTheMoney || false,
-        expiry: new Date((c.expiration || 0) * 1000).toISOString().slice(0, 10),
-        delta: null,
-      });
-
-      return {
-        underlying: round2(underlying),
-        expiryDates,
-        selectedExpiry: chosenExpiry,
-        calls: (opts.calls || []).map(c => mapY(c, "call")),
-        puts:  (opts.puts  || []).map(c => mapY(c, "put")),
-        source: "yahoo",
-      };
+    if (!polyKey) {
+      return writeJson(res, 503, { error: "POLYGON_API_KEY not set — add it in Render → Environment." });
     }
 
-    // ── Helper: fetch Tradier options ────────────────────────────────────────
-    async function fetchTradierOptions(sym, expiry, apiKey) {
-      const TH = { "Authorization": `Bearer ${apiKey}`, "Accept": "application/json" };
-      const [expRes, quoteRes] = await Promise.all([
-        withTimeout(fetch(`https://api.tradier.com/v1/markets/options/expirations?symbol=${sym}&includeAllRoots=false`, { headers: TH }), 8000, null),
-        withTimeout(fetch(`https://api.tradier.com/v1/markets/quotes?symbols=${sym}&greeks=false`, { headers: TH }), 8000, null),
-      ]);
-      const expJson   = expRes?.ok  ? await expRes.json().catch(() => ({})) : {};
-      const quoteJson = quoteRes?.ok ? await quoteRes.json().catch(() => ({})) : {};
-
-      const expiryDates = expJson?.expirations?.date
-        ? (Array.isArray(expJson.expirations.date) ? expJson.expirations.date : [expJson.expirations.date])
-        : [];
-      if (expiryDates.length === 0) throw new Error(`No options found for ${sym}`);
-
-      const underlying = quoteJson?.quotes?.quote?.last || quoteJson?.quotes?.quote?.bid || 0;
-      const chosenExpiry = expiry && expiryDates.includes(expiry) ? expiry : expiryDates[0];
-
-      const chainRes = await withTimeout(
-        fetch(`https://api.tradier.com/v1/markets/options/chains?symbol=${sym}&expiration=${chosenExpiry}&greeks=true`, { headers: TH }),
-        10000, null
-      );
-      if (!chainRes?.ok) throw new Error("Tradier chain fetch failed");
-      const chainJson = await chainRes.json().catch(() => ({}));
-      const contracts = chainJson?.options?.option || [];
-      const arr = Array.isArray(contracts) ? contracts : [contracts];
-
-      const mapT = (c) => ({
-        contractSymbol: c.symbol || "",
-        strike: round2(c.strike || 0),
-        lastPrice: round2(c.last || 0),
-        bid: round2(c.bid || 0),
-        ask: round2(c.ask || 0),
-        change: round2(c.change || 0),
-        changePct: round2(c.change_percentage || 0),
-        volume: Number(c.volume) || 0,
-        openInterest: Number(c.open_interest) || 0,
-        iv: round2((c.greeks?.mid_iv || c.implied_volatility || 0) * 100),
-        inTheMoney: underlying > 0 && (c.option_type === "call" ? c.strike <= underlying : c.strike >= underlying),
-        expiry: chosenExpiry,
-        delta: c.greeks?.delta ? round2(c.greeks.delta) : null,
-      });
-
-      return {
-        underlying: round2(underlying),
-        expiryDates,
-        selectedExpiry: chosenExpiry,
-        calls: arr.filter(c => c.option_type === "call").map(mapT),
-        puts:  arr.filter(c => c.option_type === "put").map(mapT),
-        source: "tradier",
-      };
-    }
-
-    // ── Try Tradier first, fall back to Yahoo ────────────────────────────────
     try {
-      const tradierKey = process.env.TRADIER_API_KEY || "";
-      let result;
+      const PH = { "Accept": "application/json" };
 
-      if (tradierKey) {
-        try {
-          result = await fetchTradierOptions(symbol, requestedExpiry, tradierKey);
-        } catch (tradierErr) {
-          console.warn("[market/options] Tradier failed, trying Yahoo:", tradierErr.message);
-          result = await fetchYahooOptions(symbol, requestedExpiry);
-        }
-      } else {
-        result = await fetchYahooOptions(symbol, requestedExpiry);
+      // Step 1: get underlying price from Polygon snapshot
+      const snapRes = await withTimeout(
+        fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}?apiKey=${polyKey}`, { headers: PH }),
+        8000, null
+      );
+      const snapJson = snapRes?.ok ? await snapRes.json().catch(() => ({})) : {};
+      const underlying = round2(
+        snapJson?.ticker?.lastTrade?.p ||
+        snapJson?.ticker?.day?.c ||
+        snapJson?.ticker?.prevDay?.c || 0
+      );
+
+      // Step 2: get all option contracts for this symbol (first page to extract expiry dates)
+      // Polygon free tier: up to 5 req/min, returns up to 250 contracts per page
+      const expiryParam = requestedExpiry ? `&expiration_date=${requestedExpiry}` : "";
+      const contractsUrl = `https://api.polygon.io/v3/snapshot/options/${symbol}?limit=250&sort=expiration_date${expiryParam}&apiKey=${polyKey}`;
+      const contractsRes = await withTimeout(fetch(contractsUrl, { headers: PH }), 12000, null);
+
+      if (!contractsRes?.ok) {
+        const errBody = contractsRes ? await contractsRes.text().catch(() => "") : "timeout";
+        throw new Error(`Polygon returned ${contractsRes?.status || "timeout"}: ${errBody.slice(0, 120)}`);
       }
 
-      return writeJson(res, 200, { ok: true, symbol, ...result, generatedAt: new Date().toISOString() });
+      const contractsJson = await contractsRes.json().catch(() => ({}));
+      const results = contractsJson?.results || [];
+
+      if (results.length === 0) {
+        return writeJson(res, 404, { error: `No options found for ${symbol}. Try a major symbol like AAPL, NVDA, SPY.` });
+      }
+
+      // Extract unique sorted expiry dates from returned contracts
+      const expirySet = new Set();
+      for (const r of results) {
+        const exp = r.details?.expiration_date;
+        if (exp) expirySet.add(exp);
+      }
+      const expiryDates = [...expirySet].sort();
+      const chosenExpiry = requestedExpiry && expiryDates.includes(requestedExpiry)
+        ? requestedExpiry : expiryDates[0];
+
+      // Step 3: if a different expiry was requested, fetch again for that specific date
+      let chainResults = results;
+      if (requestedExpiry && requestedExpiry !== expiryDates[0]) {
+        const expRes2 = await withTimeout(
+          fetch(`https://api.polygon.io/v3/snapshot/options/${symbol}?limit=250&expiration_date=${requestedExpiry}&apiKey=${polyKey}`, { headers: PH }),
+          12000, null
+        );
+        if (expRes2?.ok) {
+          const expJson2 = await expRes2.json().catch(() => ({}));
+          if ((expJson2?.results || []).length > 0) chainResults = expJson2.results;
+        }
+      }
+
+      // Filter to chosen expiry only
+      const forExpiry = chainResults.filter(r => r.details?.expiration_date === chosenExpiry);
+
+      const underlyingFinal = underlying || 0;
+      const mapP = (r) => {
+        const d = r.details || {};
+        const day = r.day || {};
+        const greeks = r.greeks || {};
+        const strike = round2(d.strike_price || 0);
+        const isCall = d.contract_type === "call";
+        const itm = underlyingFinal > 0 && (isCall ? strike <= underlyingFinal : strike >= underlyingFinal);
+        return {
+          contractSymbol: d.ticker || r.ticker || "",
+          strike,
+          lastPrice: round2(day.last_price || day.close || 0),
+          bid: round2(r.last_quote?.bid || 0),
+          ask: round2(r.last_quote?.ask || 0),
+          change: round2(day.change || 0),
+          changePct: round2(day.change_percent || 0),
+          volume: Number(day.volume) || 0,
+          openInterest: Number(r.open_interest) || 0,
+          iv: round2((r.implied_volatility || 0) * 100),
+          inTheMoney: itm,
+          expiry: d.expiration_date || chosenExpiry,
+          delta: greeks.delta != null ? round2(greeks.delta) : null,
+        };
+      };
+
+      const calls = forExpiry.filter(r => r.details?.contract_type === "call").map(mapP)
+        .sort((a, b) => a.strike - b.strike);
+      const puts  = forExpiry.filter(r => r.details?.contract_type === "put").map(mapP)
+        .sort((a, b) => a.strike - b.strike);
+
+      return writeJson(res, 200, {
+        ok: true, symbol,
+        underlying: underlyingFinal,
+        expiryDates,
+        selectedExpiry: chosenExpiry,
+        calls, puts,
+        source: "polygon",
+        generatedAt: new Date().toISOString(),
+      });
     } catch (err) {
-      console.error("[market/options] Both sources failed:", err?.message);
+      console.error("[market/options] Polygon error:", err?.message);
       return writeJson(res, 502, { error: "Options data unavailable: " + err?.message });
     }
   }
