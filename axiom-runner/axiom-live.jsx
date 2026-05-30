@@ -3050,6 +3050,88 @@ function TerminalWorkspace({
 }
 
 // ─── CryptoTab ──────────────────────────────────────────────────────────────
+// ─── parsePortfolioCSV ────────────────────────────────────────────────────────
+// Handles three formats:
+//  1. Robinhood Activity export (Activity Date, Instrument, Trans Code, Quantity, Price)
+//  2. Generic positions CSV (symbol/ticker, shares/quantity, avgcost/average_cost/price)
+//  3. Brokerage export with "Symbol", "Quantity", "Average Cost" headers
+function parsePortfolioCSV(text) {
+  const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return { rows: [], format: "empty", errors: ["File is empty or has only a header row."] };
+
+  // Parse CSV line respecting quoted fields
+  const parseRow = (line) => {
+    const fields = [];
+    let cur = "", inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQuote = !inQuote; }
+      else if (ch === ',' && !inQuote) { fields.push(cur.trim()); cur = ""; }
+      else cur += ch;
+    }
+    fields.push(cur.trim());
+    return fields;
+  };
+
+  const headers = parseRow(lines[0]).map(h => h.toLowerCase().replace(/[\s_-]+/g, ""));
+  const rows = lines.slice(1).map(parseRow);
+
+  // ── Format 1: Robinhood Activity export ──
+  // Columns: Activity Date, Process Date, Settle Date, Instrument, Description, Trans Code, Quantity, Price, Amount
+  const iRH = {
+    instrument: headers.findIndex(h => h === "instrument"),
+    transCode:  headers.findIndex(h => h.includes("trans") || h === "transcode"),
+    quantity:   headers.findIndex(h => h === "quantity"),
+    price:      headers.findIndex(h => h === "price"),
+  };
+  if (iRH.instrument >= 0 && iRH.transCode >= 0 && iRH.quantity >= 0) {
+    const positions = {};
+    for (const row of rows) {
+      const sym      = (row[iRH.instrument] || "").trim().toUpperCase();
+      const code     = (row[iRH.transCode]  || "").trim().toUpperCase();
+      const qty      = Math.abs(parseFloat(row[iRH.quantity] || "0") || 0);
+      const price    = parseFloat(row[iRH.price] || "0") || 0;
+      if (!sym || sym === "INSTRUMENT" || !qty) continue;
+      const isBuy  = /BUY|BCSA|ACATS|REC/.test(code);
+      const isSell = /SELL|SLL/.test(code);
+      if (!isBuy && !isSell) continue;
+      if (!positions[sym]) positions[sym] = { totalQty: 0, totalCost: 0 };
+      if (isBuy)  { positions[sym].totalQty += qty; positions[sym].totalCost += qty * price; }
+      if (isSell) { positions[sym].totalQty -= qty; }
+    }
+    const result = Object.entries(positions)
+      .filter(([, p]) => p.totalQty > 0.0001)
+      .map(([sym, p]) => ({
+        symbol:  sym,
+        shares:  p.totalQty.toFixed(6).replace(/\.?0+$/, ""),
+        avgCost: p.totalQty > 0 ? (p.totalCost / p.totalQty).toFixed(2) : "0",
+      }));
+    return { rows: result, format: "Robinhood Activity", errors: result.length ? [] : ["No open positions found — all positions appear to be closed."] };
+  }
+
+  // ── Format 2 & 3: Generic positions CSV ──
+  const colMap = {
+    symbol:  headers.findIndex(h => ["symbol","ticker","instrument","stock"].includes(h)),
+    shares:  headers.findIndex(h => ["shares","quantity","qty","units","sharesowned"].includes(h)),
+    avgCost: headers.findIndex(h => ["avgcost","averagecost","costpershare","avgprice","purchaseprice","price","averageprice"].includes(h)),
+  };
+  if (colMap.symbol >= 0 && colMap.shares >= 0) {
+    const result = [];
+    const errors = [];
+    for (const row of rows) {
+      const sym  = (row[colMap.symbol] || "").trim().toUpperCase().replace(/[^A-Z.]/g, "");
+      const qty  = parseFloat(row[colMap.shares] || "0");
+      const cost = colMap.avgCost >= 0 ? parseFloat(row[colMap.avgCost] || "0") : 0;
+      if (!sym || !qty || qty <= 0) continue;
+      if (!/^[A-Z.]{1,10}$/.test(sym)) { errors.push(`Skipped unrecognised symbol: ${sym}`); continue; }
+      result.push({ symbol: sym, shares: qty.toFixed(6).replace(/\.?0+$/, ""), avgCost: cost > 0 ? cost.toFixed(2) : "0" });
+    }
+    return { rows: result, format: "Generic Positions CSV", errors };
+  }
+
+  return { rows: [], format: "unknown", errors: ["Could not recognise CSV format. Expected columns: Symbol, Shares/Quantity, Avg Cost."] };
+}
+
 function CryptoTab({ C, MONO, SANS }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -4727,6 +4809,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [loading, setLoading] = useState(false);
   const [portfolioHoldings, setPortfolioHoldings] = useState(DEFAULT_PORTFOLIO);
+  const [csvImportModal, setCsvImportModal] = useState(null); // null | { rows, parseInfo }
+  const csvFileRef = useRef(null);
   const [scannerFilters, setScannerFilters] = useState(DEFAULT_SCANNER_FILTERS);
   const [serverScreenLoading, setServerScreenLoading] = useState(false);
   const [serverScreenResults, setServerScreenResults] = useState(null);
@@ -11798,10 +11882,148 @@ export default function App() {
                 <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: C.text }}>{portfolioSummary.winners} / {portfolioSummary.losers}</div>
               </div>
             </div>
+            {/* CSV Import Modal */}
+            {csvImportModal && (
+              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, width: "100%", maxWidth: 680, maxHeight: "85vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  {/* Modal header */}
+                  <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>📥 IMPORT PORTFOLIO</div>
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>
+                        Format detected: <span style={{ color: C.accent }}>{csvImportModal.parseInfo.format}</span>
+                        {csvImportModal.parseInfo.errors.length > 0 && (
+                          <span style={{ color: C.amber, marginLeft: 10 }}>⚠ {csvImportModal.parseInfo.errors[0]}</span>
+                        )}
+                      </div>
+                    </div>
+                    <button onClick={() => setCsvImportModal(null)} style={{ background: "none", border: "none", color: C.textDim, fontSize: 20, cursor: "pointer" }}>✕</button>
+                  </div>
+                  {/* Preview table */}
+                  <div style={{ overflowY: "auto", flex: 1 }}>
+                    {csvImportModal.rows.length === 0 ? (
+                      <div style={{ padding: 30, textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.red }}>
+                        No positions could be parsed from this file.
+                        <div style={{ color: C.textDim, marginTop: 8, fontSize: 11 }}>
+                          Expected: Robinhood Activity CSV, or a file with Symbol / Shares / Avg Cost columns.
+                        </div>
+                      </div>
+                    ) : (
+                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead>
+                          <tr style={{ background: C.surface }}>
+                            {["Symbol","Shares","Avg Cost","Action"].map(h => (
+                              <th key={h} style={{ padding: "10px 14px", fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: h === "Action" ? "center" : h === "Shares" || h === "Avg Cost" ? "right" : "left", borderBottom: `1px solid ${C.border}` }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {csvImportModal.rows.map((row, i) => (
+                            <tr key={i} style={{ background: i % 2 === 0 ? "transparent" : C.surface }}>
+                              <td style={{ padding: "9px 14px", fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text, borderBottom: `1px solid ${C.border}` }}>
+                                <input
+                                  value={row.symbol}
+                                  onChange={e => setCsvImportModal(prev => ({ ...prev, rows: prev.rows.map((r, j) => j === i ? { ...r, symbol: e.target.value.toUpperCase() } : r) }))}
+                                  style={{ width: 80, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "4px 6px", fontFamily: MONO, fontSize: 12 }}
+                                />
+                              </td>
+                              <td style={{ padding: "9px 14px", textAlign: "right", borderBottom: `1px solid ${C.border}` }}>
+                                <input
+                                  value={row.shares}
+                                  onChange={e => setCsvImportModal(prev => ({ ...prev, rows: prev.rows.map((r, j) => j === i ? { ...r, shares: e.target.value } : r) }))}
+                                  style={{ width: 80, textAlign: "right", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "4px 6px", fontFamily: MONO, fontSize: 12 }}
+                                />
+                              </td>
+                              <td style={{ padding: "9px 14px", textAlign: "right", borderBottom: `1px solid ${C.border}` }}>
+                                <input
+                                  value={row.avgCost}
+                                  onChange={e => setCsvImportModal(prev => ({ ...prev, rows: prev.rows.map((r, j) => j === i ? { ...r, avgCost: e.target.value } : r) }))}
+                                  style={{ width: 90, textAlign: "right", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "4px 6px", fontFamily: MONO, fontSize: 12 }}
+                                />
+                              </td>
+                              <td style={{ padding: "9px 14px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>
+                                <button
+                                  onClick={() => setCsvImportModal(prev => ({ ...prev, rows: prev.rows.filter((_, j) => j !== i) }))}
+                                  style={{ background: "none", border: "none", color: C.red, cursor: "pointer", fontSize: 14, fontWeight: 700 }}
+                                >✕</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                  {/* Footer buttons */}
+                  {csvImportModal.rows.length > 0 && (
+                    <div style={{ padding: "14px 20px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, flex: 1 }}>
+                        {csvImportModal.rows.length} position{csvImportModal.rows.length !== 1 ? "s" : ""} ready to import
+                      </span>
+                      <button
+                        onClick={() => {
+                          const valid = csvImportModal.rows.filter(r => r.symbol && parseFloat(r.shares) > 0);
+                          // MERGE: keep existing, update matching, add new
+                          setPortfolioHoldings(prev => {
+                            const merged = [...prev];
+                            for (const r of valid) {
+                              const idx = merged.findIndex(h => h.symbol === r.symbol);
+                              if (idx >= 0) merged[idx] = { ...merged[idx], shares: r.shares, avgCost: r.avgCost };
+                              else merged.push(r);
+                            }
+                            return merged;
+                          });
+                          setCsvImportModal(null);
+                        }}
+                        style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: C.accentGlow, border: `1px solid ${C.accent}`, color: C.accent, borderRadius: 6, padding: "8px 18px", cursor: "pointer" }}
+                      >
+                        MERGE INTO EXISTING
+                      </button>
+                      <button
+                        onClick={() => {
+                          const valid = csvImportModal.rows.filter(r => r.symbol && parseFloat(r.shares) > 0);
+                          setPortfolioHoldings(valid);
+                          setCsvImportModal(null);
+                        }}
+                        style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: C.greenBg, border: `1px solid ${C.green}`, color: C.green, borderRadius: 6, padding: "8px 18px", cursor: "pointer" }}
+                      >
+                        REPLACE ALL
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>POSITIONS</span>
-                <div style={{ display: "flex", gap: 6 }}>
+              {/* Hidden file input */}
+              <input
+                ref={csvFileRef}
+                type="file"
+                accept=".csv,text/csv"
+                style={{ display: "none" }}
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = ev => {
+                    const text = ev.target.result;
+                    const parseInfo = parsePortfolioCSV(text);
+                    setCsvImportModal({ rows: parseInfo.rows, parseInfo });
+                  };
+                  reader.readAsText(file);
+                  e.target.value = ""; // allow re-upload same file
+                }}
+              />
+              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>POSITIONS ({portfolioHoldings.length})</span>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <button
+                    onClick={() => csvFileRef.current?.click()}
+                    style={{ border: `1px solid ${C.accent}66`, background: `${C.accent}15`, color: C.accent, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}
+                    title="Import from Robinhood CSV or any broker CSV"
+                  >
+                    📥 IMPORT CSV
+                  </button>
                   <a
                     href="/api/portfolio/export.csv"
                     download
@@ -11813,7 +12035,7 @@ export default function App() {
                     onClick={() => setPortfolioHoldings((prev) => [...prev, { symbol: "", shares: "0", avgCost: "0" }])}
                     style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
                   >
-                    ADD POSITION
+                    + ADD ROW
                   </button>
                 </div>
               </div>
