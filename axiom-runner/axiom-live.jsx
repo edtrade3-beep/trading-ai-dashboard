@@ -4546,6 +4546,274 @@ function CryptoTab({ C, MONO, SANS }) {
   );
 }
 
+// ── Gap Scanner ───────────────────────────────────────────────────────────────
+(function() {
+  const GAP_CATALYSTS = ["Earnings Beat","FDA Approval","Analyst Upgrade","M&A News","Revenue Guidance","Sector Rotation","Short Squeeze","Insider Buy"];
+  const GAP_SECTORS   = ["Tech","Biotech","Energy","Finance","Consumer","Healthcare","Industrials"];
+  const GAP_TICKERS   = [
+    "NVDA","TSLA","AAPL","META","AMZN","GOOGL","MSFT","AMD","NFLX","COIN",
+    "SMCI","ARM","PLTR","RIVN","LCID","SOFI","MARA","RIOT","HOOD","RBLX",
+    "UPST","AFRM","DKNG","SNOW","PATH","AI","CRWD","ZS","PANW","NET",
+  ];
+
+  function generateGapStock(ticker) {
+    const gapPct   = +(Math.random() * 24 - 8).toFixed(2);
+    const prevClose = +(Math.random() * 180 + 20).toFixed(2);
+    const price     = +(prevClose * (1 + gapPct / 100)).toFixed(2);
+    const vol       = Math.floor(Math.random() * 9000000 + 500000);
+    const float_    = Math.floor(Math.random() * 400 + 5);
+    const catalyst  = GAP_CATALYSTS[Math.floor(Math.random() * GAP_CATALYSTS.length)];
+    const sector    = GAP_SECTORS[Math.floor(Math.random() * GAP_SECTORS.length)];
+    const setupType = gapPct > 0
+      ? (Math.random() > 0.4 ? "Gap & Go" : "Gap Fill Risk")
+      : (Math.random() > 0.4 ? "Short Squeeze" : "Gap Fill");
+    return { ticker, gapPct, price, prevClose, vol, float: float_, catalyst, sector, setupType };
+  }
+
+  function randomizeGapStocks() {
+    return [...GAP_TICKERS].sort(() => Math.random() - 0.5).slice(0, 14)
+      .map(generateGapStock).sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct));
+  }
+
+  function fmtGapVol(v) {
+    if (v >= 1e6) return (v / 1e6).toFixed(1) + "M";
+    if (v >= 1e3) return (v / 1e3).toFixed(0) + "K";
+    return v;
+  }
+
+  window._GapScannerHelpers = { randomizeGapStocks, fmtGapVol };
+})();
+
+function GapScanner() {
+  const { randomizeGapStocks, fmtGapVol } = window._GapScannerHelpers;
+  const [stocks,      setStocks]      = React.useState(randomizeGapStocks);
+  const [filter,      setFilter]      = React.useState("All");
+  const [minGap,      setMinGap]      = React.useState(0);
+  const [selected,    setSelected]    = React.useState(null);
+  const [lastRefresh, setLastRefresh] = React.useState(new Date());
+  const [flashing,    setFlashing]    = React.useState({});
+  const [sortBy,      setSortBy]      = React.useState("gap");
+  const prevRef  = React.useRef({});
+  const timerRef = React.useRef(null);
+
+  const refresh = React.useCallback(() => {
+    const next = randomizeGapStocks();
+    const flashMap = {};
+    next.forEach(s => {
+      const prev = prevRef.current[s.ticker];
+      if (prev && prev.price !== s.price) flashMap[s.ticker] = s.price > prev.price ? "up" : "down";
+    });
+    prevRef.current = Object.fromEntries(next.map(s => [s.ticker, s]));
+    setFlashing(flashMap);
+    setTimeout(() => setFlashing({}), 600);
+    setStocks(next);
+    setLastRefresh(new Date());
+  }, [randomizeGapStocks]);
+
+  React.useEffect(() => {
+    timerRef.current = setInterval(refresh, 6000);
+    return () => clearInterval(timerRef.current);
+  }, [refresh]);
+
+  const SETUP_COLORS = {
+    "Gap & Go":       { bg: "#0d2b1a", border: "#00ff88", text: "#00ff88" },
+    "Gap Fill Risk":  { bg: "#2b1a0d", border: "#ff9900", text: "#ff9900" },
+    "Short Squeeze":  { bg: "#1a0d2b", border: "#bf7fff", text: "#bf7fff" },
+    "Gap Fill":       { bg: "#2b0d0d", border: "#ff4466", text: "#ff4466" },
+  };
+  const SETUP_DESC = {
+    "Gap & Go":       "Strong momentum setup. Watch for ORB break with volume confirmation above opening range.",
+    "Gap Fill Risk":  "Weak open likely. Watch for rejection at VWAP and potential fade back to previous close.",
+    "Short Squeeze":  "Low float with heavy short interest. Volatile — use tight stops and small size.",
+    "Gap Fill":       "Gap fill candidate. Previous close acts as magnet. Watch downside momentum continuation.",
+  };
+
+  const filters  = ["All","Gap & Go","Gap Fill","Short Squeeze","Gap Fill Risk"];
+  const displayed = stocks
+    .filter(s => filter === "All" || s.setupType === filter)
+    .filter(s => Math.abs(s.gapPct) >= minGap)
+    .sort((a, b) => {
+      if (sortBy === "gap")   return Math.abs(b.gapPct) - Math.abs(a.gapPct);
+      if (sortBy === "vol")   return b.vol - a.vol;
+      if (sortBy === "float") return a.float - b.float;
+      return 0;
+    });
+  const sel = selected ? stocks.find(s => s.ticker === selected) : null;
+
+  const MONO_GAP = "'DM Mono','Courier New',monospace";
+  const BEBAS    = "'Bebas Neue',sans-serif";
+
+  return (
+    <div style={{ background: "#07070f", fontFamily: MONO_GAP, color: "#c8d0e0", borderRadius: 10, overflow: "hidden", border: "1px solid #1a1a2e" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
+        .gap-row:hover { background: #0f0f1e !important; cursor: pointer; }
+        .gap-flash-up   { animation: gFlashUp   0.6s ease; }
+        .gap-flash-down { animation: gFlashDown 0.6s ease; }
+        @keyframes gFlashUp   { 0%,100%{background:transparent} 30%{background:rgba(0,255,136,0.13)} }
+        @keyframes gFlashDown { 0%,100%{background:transparent} 30%{background:rgba(255,68,102,0.13)} }
+        .gap-sort-btn:hover { color:#fff !important; }
+        .gap-filter-btn:hover { border-color:#4a4a8a !important; }
+      `}</style>
+
+      {/* Header */}
+      <div style={{ borderBottom: "1px solid #1a1a2e", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+          <span style={{ fontFamily: BEBAS, fontSize: 22, letterSpacing: "0.08em", color: "#fff" }}>GAP SCANNER</span>
+          <span style={{ fontSize: 10, color: "#4a4a6a", letterSpacing: "0.12em" }}>PRE-MARKET · EQUITIES · SIMULATED</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <span style={{ fontSize: 10, color: "#4a4a6a" }}>
+            LAST REFRESH <span style={{ color: "#8888aa" }}>{lastRefresh.toLocaleTimeString()}</span>
+          </span>
+          <button onClick={refresh} style={{ background: "none", border: "1px solid #2a2a4a", color: "#8888aa", fontSize: 10, padding: "4px 12px", borderRadius: 3, cursor: "pointer", letterSpacing: "0.08em", fontFamily: MONO_GAP }}>
+            ↺ REFRESH
+          </button>
+        </div>
+      </div>
+
+      {/* Stat strip */}
+      <div style={{ display: "flex", borderBottom: "1px solid #1a1a2e" }}>
+        {[
+          { label: "GAPPERS", val: stocks.length },
+          { label: "GAP UP",   val: stocks.filter(s => s.gapPct > 0).length,  color: "#00ff88" },
+          { label: "GAP DOWN", val: stocks.filter(s => s.gapPct < 0).length,  color: "#ff4466" },
+          { label: "AVG GAP",  val: (stocks.reduce((a, s) => a + Math.abs(s.gapPct), 0) / stocks.length).toFixed(1) + "%" },
+          { label: "TOP SECTOR", val: (() => { const c = {}; stocks.forEach(s => c[s.sector] = (c[s.sector]||0)+1); return Object.entries(c).sort((a,b) => b[1]-a[1])[0][0]; })() },
+        ].map(({ label, val, color }) => (
+          <div key={label} style={{ flex: 1, padding: "10px 16px", borderRight: "1px solid #1a1a2e" }}>
+            <div style={{ fontSize: 9, color: "#4a4a6a", letterSpacing: "0.12em", marginBottom: 3 }}>{label}</div>
+            <div style={{ fontSize: 16, fontFamily: BEBAS, letterSpacing: "0.06em", color: color || "#c8d0e0" }}>{val}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex" }}>
+        {/* Main panel */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Filters */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 16px", borderBottom: "1px solid #1a1a2e", flexWrap: "wrap" }}>
+            {filters.map(f => (
+              <button key={f} className="gap-filter-btn" onClick={() => setFilter(f)} style={{
+                background: filter === f ? "#1a1a2e" : "none",
+                border: `1px solid ${filter === f ? "#4a4a8a" : "#1a1a2e"}`,
+                color: filter === f ? "#fff" : "#5a5a7a",
+                fontSize: 9, padding: "3px 10px", borderRadius: 3, cursor: "pointer", fontFamily: MONO_GAP, letterSpacing: "0.06em",
+              }}>{f}</button>
+            ))}
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 9, color: "#4a4a6a" }}>MIN GAP</span>
+              <input type="range" min={0} max={15} value={minGap} onChange={e => setMinGap(+e.target.value)} style={{ accentColor: "#4a4aff", width: 70 }} />
+              <span style={{ fontSize: 9, color: "#8888aa", width: 26 }}>{minGap}%</span>
+            </div>
+          </div>
+
+          {/* Table header */}
+          <div style={{ display: "grid", gridTemplateColumns: "70px 65px 80px 72px 72px 68px 80px 1fr 100px", padding: "6px 16px", borderBottom: "1px solid #1a1a2e" }}>
+            {[
+              { label: "TICKER", key: null },
+              { label: "PRICE",  key: null },
+              { label: "GAP %",  key: "gap" },
+              { label: "PREV",   key: null },
+              { label: "VOLUME", key: "vol" },
+              { label: "FLOAT M",key: "float" },
+              { label: "SECTOR", key: null },
+              { label: "CATALYST",key: null },
+              { label: "SETUP",  key: null },
+            ].map(({ label, key }) => (
+              <span key={label} className={key ? "gap-sort-btn" : ""} onClick={() => key && setSortBy(key)}
+                style={{ fontSize: 8, color: sortBy === key ? "#8888ff" : "#3a3a5a", letterSpacing: "0.1em", cursor: key ? "pointer" : "default" }}>
+                {label}{key && sortBy === key ? " ▲" : ""}
+              </span>
+            ))}
+          </div>
+
+          {/* Rows */}
+          <div style={{ overflowY: "auto", maxHeight: 460 }}>
+            {displayed.map(s => {
+              const isUp     = s.gapPct >= 0;
+              const fClass   = flashing[s.ticker] === "up" ? "gap-flash-up" : flashing[s.ticker] === "down" ? "gap-flash-down" : "";
+              const isSel    = selected === s.ticker;
+              const sc       = SETUP_COLORS[s.setupType] || SETUP_COLORS["Gap & Go"];
+              return (
+                <div key={s.ticker} className={`gap-row ${fClass}`} onClick={() => setSelected(isSel ? null : s.ticker)}
+                  style={{ display: "grid", gridTemplateColumns: "70px 65px 80px 72px 72px 68px 80px 1fr 100px", padding: "9px 16px", borderBottom: "1px solid #0f0f1e", background: isSel ? "#10102a" : "transparent", alignItems: "center" }}>
+                  <span style={{ fontFamily: BEBAS, fontSize: 14, letterSpacing: "0.06em", color: "#fff" }}>{s.ticker}</span>
+                  <span style={{ fontSize: 11, color: "#c8d0e0" }}>${s.price.toFixed(2)}</span>
+                  <div>
+                    <div style={{ fontSize: 11, color: isUp ? "#00ff88" : "#ff4466", fontWeight: 500 }}>{isUp ? "+" : ""}{s.gapPct.toFixed(2)}%</div>
+                    <div style={{ width: 50, height: 3, background: "#1a1a2e", borderRadius: 2, overflow: "hidden", marginTop: 3 }}>
+                      <div style={{ width: `${Math.min(Math.abs(s.gapPct)/25*100,100)}%`, height: "100%", background: isUp ? "#00ff88" : "#ff4466", borderRadius: 2 }} />
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 10, color: "#5a5a7a" }}>${s.prevClose.toFixed(2)}</span>
+                  <span style={{ fontSize: 10, color: "#8888aa" }}>{fmtGapVol(s.vol)}</span>
+                  <span style={{ fontSize: 10, color: s.float < 20 ? "#ffcc00" : "#8888aa" }}>{s.float}M{s.float < 20 ? " ⚡" : ""}</span>
+                  <span style={{ fontSize: 9, color: "#5a5a7a" }}>{s.sector}</span>
+                  <span style={{ fontSize: 9, color: "#6a6a8a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.catalyst}</span>
+                  <span style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.text, fontSize: 9, fontFamily: MONO_GAP, padding: "2px 6px", borderRadius: 3, whiteSpace: "nowrap" }}>{s.setupType}</span>
+                </div>
+              );
+            })}
+            {displayed.length === 0 && (
+              <div style={{ padding: "32px 16px", textAlign: "center", color: "#3a3a5a", fontSize: 11 }}>NO STOCKS MATCH CURRENT FILTERS</div>
+            )}
+          </div>
+        </div>
+
+        {/* Detail side-panel */}
+        <div style={{ width: sel ? 230 : 0, overflow: "hidden", transition: "width 0.25s ease", borderLeft: "1px solid #1a1a2e", background: "#09090f", flexShrink: 0 }}>
+          {sel && (() => {
+            const sc = SETUP_COLORS[sel.setupType] || SETUP_COLORS["Gap & Go"];
+            return (
+              <div style={{ padding: "16px 14px", width: 230 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <span style={{ fontFamily: BEBAS, fontSize: 20, color: "#fff", letterSpacing: "0.06em" }}>{sel.ticker}</span>
+                  <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", color: "#3a3a5a", cursor: "pointer", fontSize: 14 }}>✕</button>
+                </div>
+                {[
+                  { label: "PRICE",    val: `$${sel.price.toFixed(2)}` },
+                  { label: "PREV CLOSE",val: `$${sel.prevClose.toFixed(2)}` },
+                  { label: "GAP %",    val: `${sel.gapPct > 0 ? "+" : ""}${sel.gapPct.toFixed(2)}%`, color: sel.gapPct >= 0 ? "#00ff88" : "#ff4466" },
+                  { label: "GAP $",    val: `${sel.gapPct >= 0 ? "+" : ""}$${(sel.price - sel.prevClose).toFixed(2)}`, color: sel.gapPct >= 0 ? "#00ff88" : "#ff4466" },
+                  { label: "PRE-MKT VOL",val: fmtGapVol(sel.vol) },
+                  { label: "FLOAT",    val: `${sel.float}M shares` },
+                  { label: "SECTOR",   val: sel.sector },
+                  { label: "CATALYST", val: sel.catalyst },
+                ].map(({ label, val, color }) => (
+                  <div key={label} style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 8, color: "#3a3a5a", letterSpacing: "0.1em", marginBottom: 2 }}>{label}</div>
+                    <div style={{ fontSize: 12, color: color || "#c8d0e0" }}>{val}</div>
+                  </div>
+                ))}
+                <div style={{ marginTop: 14, padding: "10px", background: "#0f0f1e", borderRadius: 4 }}>
+                  <div style={{ fontSize: 8, color: "#3a3a5a", letterSpacing: "0.1em", marginBottom: 6 }}>SETUP</div>
+                  <span style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.text, fontSize: 9, padding: "2px 6px", borderRadius: 3 }}>{sel.setupType}</span>
+                  <div style={{ marginTop: 8, fontSize: 9, color: "#5a5a7a", lineHeight: 1.6 }}>{SETUP_DESC[sel.setupType]}</div>
+                </div>
+                <div style={{ marginTop: 10, padding: "10px", background: "#0d1a0d", borderRadius: 4, border: "1px solid #1a2e1a" }}>
+                  <div style={{ fontSize: 8, color: "#3a3a5a", letterSpacing: "0.1em", marginBottom: 6 }}>KEY LEVELS</div>
+                  {[
+                    { l: "Resistance", v: `$${(sel.price * 1.035).toFixed(2)}` },
+                    { l: "VWAP Est.",  v: `$${((sel.price + sel.prevClose) / 2).toFixed(2)}` },
+                    { l: "Support",    v: `$${(sel.price * 0.965).toFixed(2)}` },
+                    { l: "Fill Target",v: `$${sel.prevClose.toFixed(2)}` },
+                  ].map(({ l, v }) => (
+                    <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ fontSize: 9, color: "#4a4a6a" }}>{l}</span>
+                      <span style={{ fontSize: 9, color: "#8888aa" }}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Auto-Execute Panel ────────────────────────────────────────────────────────
 function AutoExecPanel({ C, MONO, SANS }) {
   const [cfg,       setCfg]       = React.useState(null);
@@ -10239,7 +10507,7 @@ export default function App() {
             const NAV_GROUPS = [
               { id: "dashboard", label: "MONITOR",   tabs: ["dashboard", "briefing"] },
               { id: "terminal",  label: "TERMINAL",  tabs: ["terminal", "openstock", "tv", "multitf"] },
-              { id: "scanner",   label: "SCANNER",   tabs: ["scanner", "early", "analyzer", "cot", "flow", "screener", "shortint", "smartmoney", "social", "autoexec"] },
+              { id: "scanner",   label: "SCANNER",   tabs: ["scanner", "early", "analyzer", "cot", "flow", "screener", "shortint", "smartmoney", "social", "autoexec", "gap"] },
               { id: "crypto",    label: "₿ CRYPTO",  tabs: ["crypto"] },
               { id: "markets",   label: "MARKETS",   tabs: ["news", "earnings", "macro", "sectors", "rotation", "calendar", "analyst", "ipo", "feargreed", "breadth", "seasonality"] },
               { id: "watchlist", label: "WATCHLIST", tabs: ["fivex", "smartscan", "advisor"] },
@@ -10569,6 +10837,7 @@ export default function App() {
             { id: "smartmoney", label: "🏦 SMART $" },
             { id: "social",     label: "💬 SOCIAL" },
             { id: "autoexec",   label: "🤖 AUTO-EXEC" },
+            { id: "gap",        label: "⚡ GAP SCAN" },
           ],
           markets: [
             { id: "news",     label: "NEWS" },
@@ -19112,6 +19381,9 @@ export default function App() {
       {activeTab === "autoexec" && (
         <AutoExecPanel C={C} MONO={MONO} SANS={SANS} />
       )}
+
+      {/* ── GAP SCANNER TAB ─────────────────────────────────────────────────── */}
+      {activeTab === "gap" && <GapScanner />}
 
       {/* ── ANALYST RATINGS TAB ─────────────────────────────────────────────── */}
       {activeTab === "analyst" && (() => {
