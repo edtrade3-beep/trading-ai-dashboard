@@ -6913,6 +6913,12 @@ export default function App() {
   const [tradeSetups,     setTradeSetups]     = useState({});  // { BBAI: { plan, generatedAt } }
   const [tradeSetupLoad,  setTradeSetupLoad]  = useState({});  // { BBAI: true/false }
   const [tradeSetupError, setTradeSetupError] = useState({});  // { BBAI: "msg" }
+  // ── Custom scan tickers (persisted) ──────────────────────────────────────
+  const [customScanTickers, setCustomScanTickers] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("custom_scan_tickers") || "[]"); } catch { return []; }
+  });
+  const [scanTickerInput, setScanTickerInput] = useState("");
+  const [autoExecStatus,  setAutoExecStatus]  = useState({});  // { BBAI: "placing"|"done"|"error" }
 
   // ── Pre-Market Briefing ───────────────────────────────────────────────────
   const [premktBriefing,  setPremktBriefing]  = useState("");
@@ -7458,7 +7464,8 @@ export default function App() {
   }, [activeTab]);
 
   // ── 5X PLAYS: live price fetch (component level — hooks must not be inside IIFEs) ──
-  const FIVEX_TICKERS = ["BBAI","SERV","SMR","RDW","NNE","LUNR","PL","SYM","OKLO","ASTS","PLTR","RKLB","NBIS","VRT","PWR","GSAT","APLD","ACHR","SOUN","RGTI","CORZ","PATH","KTOS","IONQ","SMCI","CCJ","BWXT","VST","CEG","GEV"];
+  const FIVEX_TICKERS_DEFAULT = ["BBAI","SERV","SMR","RDW","NNE","LUNR","PL","SYM","OKLO","ASTS","PLTR","RKLB","NBIS","VRT","PWR","GSAT","APLD","ACHR","SOUN","RGTI","CORZ","PATH","KTOS","IONQ","SMCI","CCJ","BWXT","VST","CEG","GEV"];
+  const FIVEX_TICKERS = [...new Set([...FIVEX_TICKERS_DEFAULT, ...customScanTickers])];
   async function fetchLivePrices() {
     setFivexLoading(true);
     setFivexError(null);
@@ -12665,6 +12672,95 @@ export default function App() {
                 </div>
               </div>
 
+              {/* ── Add / Remove custom tickers ── */}
+              {(() => {
+                const SUGGESTIONS = [
+                  "NVDA","TSLA","MSFT","AAPL","AMZN","META","GOOGL","AMD","AVGO","ARM",
+                  "MSTR","COIN","HOOD","IBIT","SHOP","UBER","CRWD","SNOW","DDOG","NET",
+                  "ENPH","FSLR","NEE","WOLF","ON","LAZR","AEHR","ANET","FTNT","ZS",
+                  "RXRX","BEAM","EDIT","NTLA","CRSP","MRNA","BNTX","TDOC","HIMS","ACMR",
+                ];
+                const allCurrent = new Set(FIVEX_TICKERS);
+                const suggestions = SUGGESTIONS.filter(s => !allCurrent.has(s));
+
+                function addTicker(sym) {
+                  sym = sym.trim().toUpperCase().replace(/[^A-Z0-9.-]/g, "");
+                  if (!sym || allCurrent.has(sym)) return;
+                  const next = [...customScanTickers, sym];
+                  setCustomScanTickers(next);
+                  localStorage.setItem("custom_scan_tickers", JSON.stringify(next));
+                  setScanTickerInput("");
+                }
+                function removeTicker(sym) {
+                  const next = customScanTickers.filter(s => s !== sym);
+                  setCustomScanTickers(next);
+                  localStorage.setItem("custom_scan_tickers", JSON.stringify(next));
+                }
+
+                return (
+                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
+                    padding: "12px 16px", marginBottom: 10 }}>
+                    {/* Add row */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                      <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, whiteSpace: "nowrap" }}>
+                        ➕ ADD STOCK:
+                      </span>
+                      <input
+                        value={scanTickerInput}
+                        onChange={e => setScanTickerInput(e.target.value.toUpperCase().replace(/[^A-Z0-9.-]/g, ""))}
+                        onKeyDown={e => { if (e.key === "Enter") addTicker(scanTickerInput); }}
+                        placeholder="TICKER…"
+                        style={{ width: 100, background: C.surface, border: `1px solid ${C.border}`, color: C.text,
+                          fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 4, outline: "none" }}
+                      />
+                      <button onClick={() => addTicker(scanTickerInput)} disabled={!scanTickerInput.trim()}
+                        style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                          background: scanTickerInput.trim() ? `${C.green}18` : C.surface,
+                          border: `1px solid ${scanTickerInput.trim() ? C.green : C.border}`,
+                          color: scanTickerInput.trim() ? C.green : C.textDim,
+                          borderRadius: 4, padding: "5px 14px", cursor: scanTickerInput.trim() ? "pointer" : "default" }}>
+                        ADD
+                      </button>
+                      <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                        {FIVEX_TICKERS.length} stocks in scan
+                      </span>
+                    </div>
+
+                    {/* Custom tickers chips */}
+                    {customScanTickers.length > 0 && (
+                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 8 }}>
+                        {customScanTickers.map(sym => (
+                          <span key={sym} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                            color: C.accent, background: `${C.accent}18`, border: `1px solid ${C.accent}44`,
+                            borderRadius: 4, padding: "3px 8px", display: "flex", alignItems: "center", gap: 4 }}>
+                            {sym}
+                            <span onClick={() => removeTicker(sym)}
+                              style={{ cursor: "pointer", color: C.red, fontWeight: 900, fontSize: 10, lineHeight: 1 }}>
+                              ×
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Suggestion chips */}
+                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                      <span style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, whiteSpace: "nowrap", marginRight: 4 }}>
+                        💡 SUGGESTIONS:
+                      </span>
+                      {suggestions.slice(0, 20).map(sym => (
+                        <button key={sym} onClick={() => addTicker(sym)}
+                          style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700,
+                            color: C.textSec, background: C.surface, border: `1px solid ${C.border}`,
+                            borderRadius: 3, padding: "2px 7px", cursor: "pointer" }}>
+                          + {sym}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* ── Error ── */}
               {scanError && (
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.red,
@@ -13161,6 +13257,63 @@ export default function App() {
                                             </span>
                                           </div>
                                         )}
+
+                                        {/* ── Auto-Execute button ── */}
+                                        {(() => {
+                                          const signal  = row.signal === "STRONG BUY" || row.signal === "BUY" ? "buy" : row.signal === "AVOID" ? "sell" : null;
+                                          const price   = Number(row.quote?.price || 0);
+                                          const status  = autoExecStatus[row.ticker];
+                                          if (!signal || !price) return null;
+                                          return (
+                                            <div style={{ marginTop: 10, padding: "10px 12px",
+                                              background: signal === "buy" ? `${C.green}0d` : `${C.red}0d`,
+                                              border: `1px solid ${signal === "buy" ? C.green : C.red}33`,
+                                              borderRadius: 6 }}>
+                                              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 6 }}>
+                                                🤖 AUTO TRADE
+                                              </div>
+                                              {status === "placing" && (
+                                                <div style={{ fontFamily: MONO, fontSize: 9, color: C.amber }}>⌛ Placing order…</div>
+                                              )}
+                                              {status === "done" && (
+                                                <div style={{ fontFamily: MONO, fontSize: 9, color: C.green }}>✅ Order placed! Check Telegram for confirmation.</div>
+                                              )}
+                                              {status === "error" && (
+                                                <div style={{ fontFamily: MONO, fontSize: 9, color: C.red }}>⚠ Order failed — check AUTO-EXEC tab.</div>
+                                              )}
+                                              {!status && (
+                                                <button
+                                                  onClick={async () => {
+                                                    setAutoExecStatus(p => ({ ...p, [row.ticker]: "placing" }));
+                                                    try {
+                                                      const cfgR = await fetch("/api/autoexec/config");
+                                                      const cfg  = await cfgR.json();
+                                                      const qty  = Math.max(1, Math.floor((cfg.positionSize || 500) / price));
+                                                      const r    = await fetch("/api/autoexec/order", {
+                                                        method: "POST",
+                                                        headers: { "Content-Type": "application/json" },
+                                                        body: JSON.stringify({ side: signal, symbol: row.ticker, quantity: qty, type: cfg.orderType || "market" }),
+                                                      });
+                                                      const d = await r.json();
+                                                      if (d.error) throw new Error(d.error);
+                                                      setAutoExecStatus(p => ({ ...p, [row.ticker]: "done" }));
+                                                    } catch {
+                                                      setAutoExecStatus(p => ({ ...p, [row.ticker]: "error" }));
+                                                    }
+                                                  }}
+                                                  style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800,
+                                                    background: signal === "buy" ? C.green : C.red,
+                                                    color: "#fff", border: "none", borderRadius: 5,
+                                                    padding: "7px 16px", cursor: "pointer", width: "100%" }}>
+                                                  {signal === "buy" ? "🟢 BUY" : "🔴 SELL"} {row.ticker} NOW
+                                                </button>
+                                              )}
+                                              <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, marginTop: 5 }}>
+                                                Uses position size from AUTO-EXEC settings · Confirm in Telegram
+                                              </div>
+                                            </div>
+                                          );
+                                        })()}
                                       </div>
                                     </div>
                                   )}
