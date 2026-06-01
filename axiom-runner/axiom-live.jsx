@@ -13512,6 +13512,7 @@ export default function App() {
                                 padding: "9px 8px", borderBottom: `1px solid ${C.border}22`,
                                 color: zoneCol, fontWeight: 700, whiteSpace: "nowrap" }}>
                                 {zoneLbl}
+                              </td>
 
                               {/* Vol Pace */}
                               {(() => {
@@ -13591,7 +13592,7 @@ export default function App() {
                             {/* ── Deep Dive row ── */}
                             {isExpanded && (
                               <tr>
-                                <td colSpan={12}
+                                <td colSpan={15}
                                   style={{ background: C.bg,
                                     borderLeft: `3px solid ${row.sColor}`,
                                     borderBottom: `2px solid ${row.sColor}44`,
