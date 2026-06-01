@@ -13392,7 +13392,7 @@ export default function App() {
                                   style={{ background: C.bg,
                                     borderLeft: `3px solid ${row.sColor}`,
                                     borderBottom: `2px solid ${row.sColor}44`,
-                                    padding: "16px 18px" }}>
+                                    padding: "20px 22px" }}>
 
                                   {isLoading ? (
                                     <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
@@ -13400,33 +13400,33 @@ export default function App() {
                                       ⌛ Loading deep dive data for {row.ticker}…
                                     </div>
                                   ) : (
-                                    <div style={{ display: "grid", gridTemplateColumns: "280px repeat(4, minmax(0,1fr)) minmax(0,1.4fr) minmax(0,1.8fr)", gap: 14, width: "100%", alignItems: "stretch" }}>
+                                    <div style={{ display: "grid", gridTemplateColumns: "280px repeat(4, minmax(0,1fr)) minmax(0,1.4fr) minmax(0,1.8fr)", gap: 16, width: "100%", alignItems: "stretch" }}>
 
                                       {/* ── Col 1: TradingView mini chart ── */}
                                       <div style={{ display: "flex", flexDirection: "column" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
-                                          color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
+                                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                          color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           📊 CHART
                                         </div>
-                                        <div style={{ borderRadius: 6, overflow: "hidden",
+                                        <div style={{ borderRadius: 6, overflow: "hidden", flex: 1,
                                           border: `1px solid ${C.border}` }}>
                                           <iframe
                                             title={`tv-${row.ticker}`}
                                             scrolling="no"
-                                            style={{ width: "100%", height: 200, border: "none" }}
-                                            src={`/client/tv-widget.html?w=mini-symbol-overview&s=${encodeURIComponent(row.ticker)}&t=${themeMode === "dark" ? "dark" : "light"}&h=200`}
+                                            style={{ width: "100%", height: "100%", minHeight: 240, border: "none" }}
+                                            src={`/client/tv-widget.html?w=mini-symbol-overview&s=${encodeURIComponent(row.ticker)}&t=${themeMode === "dark" ? "dark" : "light"}&h=240`}
                                           />
                                         </div>
                                       </div>
 
                                       {/* ── Col 2: TECHNICALS (indicators + signals + entry zones) ── */}
                                       <div style={{ display: "flex", flexDirection: "column" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
-                                          color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
+                                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                          color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           ⚡ TECHNICALS
                                         </div>
                                         {/* Key indicator values */}
-                                        <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 10 }}>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 1, marginBottom: 12 }}>
                                           {[
                                             { k: "RSI (14)", v: row.rsiVal != null ? row.rsiVal.toFixed(0) : "—",
                                               col: row.rsiVal == null ? C.textDim : row.rsiVal < 30 ? C.green : row.rsiVal > 70 ? C.red : C.text },
@@ -13438,7 +13438,7 @@ export default function App() {
                                             { k: "Score", v: `${row.score} / 100`, col: row.sColor },
                                           ].map(({ k, v, col }) => (
                                             <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                              fontFamily: MONO, fontSize: 9, padding: "3px 0",
+                                              fontFamily: MONO, fontSize: 11, padding: "5px 0",
                                               borderBottom: `1px solid ${C.border}22` }}>
                                               <span style={{ color: C.textDim }}>{k}</span>
                                               <span style={{ color: col, fontWeight: 700 }}>{v}</span>
@@ -13448,12 +13448,12 @@ export default function App() {
                                         {/* Signal reasons */}
                                         {(row.signals || []).length > 0 && (
                                           <>
-                                            <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim,
-                                              letterSpacing: "0.08em", marginBottom: 4 }}>REASONS</div>
-                                            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                              letterSpacing: "0.08em", marginBottom: 5 }}>REASONS</div>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                                               {(row.signals || []).map((sig, si) => (
                                                 <div key={si} style={{ display: "flex", alignItems: "center",
-                                                  gap: 5, fontFamily: MONO, fontSize: 8,
+                                                  gap: 5, fontFamily: MONO, fontSize: 10,
                                                   color: sig.bull ? C.green : C.red }}>
                                                   <span>{sig.bull ? "▲" : "▼"}</span>
                                                   <span>{sig.txt}</span>
@@ -13464,9 +13464,9 @@ export default function App() {
                                         )}
                                         {/* Entry zones */}
                                         {ref && (
-                                          <div style={{ marginTop: 10 }}>
-                                            <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim,
-                                              letterSpacing: "0.08em", marginBottom: 4 }}>ENTRY ZONES</div>
+                                          <div style={{ marginTop: 12 }}>
+                                            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                              letterSpacing: "0.08em", marginBottom: 5 }}>ENTRY ZONES</div>
                                             {[
                                               { label: "Deep", val: ref.e3, col: "#00e676" },
                                               { label: "Better", val: ref.e2, col: "#4caf50" },
@@ -13475,7 +13475,7 @@ export default function App() {
                                               { label: "Stop ✂", val: ref.stop, col: C.red },
                                             ].map(z => (
                                               <div key={z.label} style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 9, padding: "2px 0",
+                                                fontFamily: MONO, fontSize: 11, padding: "4px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
                                                 <span style={{ color: z.col }}>{z.label}</span>
                                                 <span style={{ color: z.col, fontWeight: 700 }}>${Number(z.val).toFixed(2)}</span>
@@ -13488,12 +13488,12 @@ export default function App() {
 
                                       {/* ── Col 3: FUNDAMENTALS + SHORT INTEREST + OPTIONS ── */}
                                       <div style={{ display: "flex", flexDirection: "column" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
-                                          color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
+                                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                          color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           📋 FUNDAMENTALS
                                         </div>
                                         {fd ? (
-                                          <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 10 }}>
+                                          <div style={{ display: "flex", flexDirection: "column", gap: 1, marginBottom: 12 }}>
                                             {[
                                               ["Mkt Cap",    fd.marketCap ? `$${(fd.marketCap/1e9).toFixed(1)}B` : "—"],
                                               ["Revenue",    fd.revenue   ? `$${(fd.revenue/1e9).toFixed(1)}B`   : "—"],
@@ -13506,7 +13506,7 @@ export default function App() {
                                               ["52W",        (yH > 0 && yL > 0) ? `${yL.toFixed(0)}–${yH.toFixed(0)}` : "—"],
                                             ].map(([k, v]) => (
                                               <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 9, padding: "3px 0",
+                                                fontFamily: MONO, fontSize: 11, padding: "5px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
                                                 <span style={{ color: C.textDim }}>{k}</span>
                                                 <span style={{ color: C.text, fontWeight: 600 }}>{v}</span>
@@ -13514,7 +13514,7 @@ export default function App() {
                                             ))}
                                           </div>
                                         ) : (
-                                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 10 }}>
+                                          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 12 }}>
                                             {deepData ? "No data" : "Loading…"}
                                           </div>
                                         )}
@@ -13526,16 +13526,16 @@ export default function App() {
                                           const sf = si.shortFloat;
                                           const sfColor = sf == null ? C.textDim : sf > 20 ? C.red : sf > 10 ? C.amber : C.green;
                                           return (
-                                            <div style={{ marginBottom: 10 }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim,
-                                                letterSpacing: "0.08em", marginBottom: 4 }}>🩳 SHORT INTEREST</div>
+                                            <div style={{ marginBottom: 12 }}>
+                                              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                                letterSpacing: "0.08em", marginBottom: 5 }}>🩳 SHORT INTEREST</div>
                                               {[
                                                 ["Float Short", sf != null ? `${sf.toFixed(1)}%` : "—", sfColor],
                                                 ["Days Cover",  si.shortRatio != null ? `${si.shortRatio.toFixed(1)}d` : "—", C.text],
                                                 ["Updated",     si.dateShortInterest || "—", C.textDim],
                                               ].map(([k, v, col]) => (
                                                 <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 9, padding: "2px 0",
+                                                  fontFamily: MONO, fontSize: 11, padding: "4px 0",
                                                   borderBottom: `1px solid ${C.border}22` }}>
                                                   <span style={{ color: C.textDim }}>{k}</span>
                                                   <span style={{ color: col, fontWeight: 700 }}>{v}</span>
@@ -13554,23 +13554,23 @@ export default function App() {
                                           const cprLabel = cpr > 1.5 ? "BULLISH" : cpr < 0.7 ? "BEARISH" : "NEUTRAL";
                                           return (
                                             <div>
-                                              <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim,
-                                                letterSpacing: "0.08em", marginBottom: 4 }}>📊 OPTIONS FLOW</div>
+                                              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                                letterSpacing: "0.08em", marginBottom: 5 }}>📊 OPTIONS FLOW</div>
                                               <div style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 9, padding: "2px 0",
+                                                fontFamily: MONO, fontSize: 11, padding: "4px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
                                                 <span style={{ color: C.textDim }}>C/P Ratio</span>
                                                 <span style={{ color: cprColor, fontWeight: 700 }}>{cpr.toFixed(2)}×</span>
                                               </div>
                                               <div style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 9, padding: "2px 0",
+                                                fontFamily: MONO, fontSize: 11, padding: "4px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
                                                 <span style={{ color: C.textDim }}>Bias</span>
                                                 <span style={{ color: cprColor, fontWeight: 700 }}>{cprLabel}</span>
                                               </div>
                                               {opt.expiration && (
                                                 <div style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 9, padding: "2px 0" }}>
+                                                  fontFamily: MONO, fontSize: 11, padding: "4px 0" }}>
                                                   <span style={{ color: C.textDim }}>Exp</span>
                                                   <span style={{ color: C.textSec }}>{opt.expiration}</span>
                                                 </div>
@@ -13583,16 +13583,16 @@ export default function App() {
 
                                       {/* ── Col 4: SOCIAL SENTIMENT + INSIDER BUYS ── */}
                                       <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
-                                          color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
+                                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                          color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           💬 SOCIAL SENTIMENT
                                         </div>
                                         {deepSocialLoad[row.ticker] ? (
-                                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Loading…</div>
+                                          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Loading…</div>
                                         ) : (() => {
                                           const sd = deepSocialData[row.ticker];
                                           if (!sd || (!sd.stocktwits && !sd.redditMentions)) {
-                                            return <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>No data</div>;
+                                            return <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>No data</div>;
                                           }
                                           const stwits  = sd.stocktwits || {};
                                           const bullPct = stwits.bullPct ?? 50;
@@ -13602,23 +13602,23 @@ export default function App() {
                                           return (
                                             <div>
                                               {/* Bull / Bear numbers */}
-                                              <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                                                <div style={{ flex: 1, padding: "8px 6px", borderRadius: 5,
+                                              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                                                <div style={{ flex: 1, padding: "10px 8px", borderRadius: 6,
                                                   background: `${C.green}18`, border: `1px solid ${C.green}44`,
                                                   textAlign: "center" }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.green }}>{bullPct.toFixed(0)}%</div>
-                                                  <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim }}>BULL</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.green }}>{bullPct.toFixed(0)}%</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>BULL</div>
                                                 </div>
-                                                <div style={{ flex: 1, padding: "8px 6px", borderRadius: 5,
+                                                <div style={{ flex: 1, padding: "10px 8px", borderRadius: 6,
                                                   background: `${C.red}18`, border: `1px solid ${C.red}44`,
                                                   textAlign: "center" }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.red }}>{bearPct.toFixed(0)}%</div>
-                                                  <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim }}>BEAR</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.red }}>{bearPct.toFixed(0)}%</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>BEAR</div>
                                                 </div>
                                               </div>
                                               {/* Sentiment bar */}
-                                              <div style={{ height: 6, borderRadius: 4, overflow: "hidden",
-                                                display: "flex", marginBottom: 6 }}>
+                                              <div style={{ height: 8, borderRadius: 4, overflow: "hidden",
+                                                display: "flex", marginBottom: 8 }}>
                                                 <div style={{ width: `${bullPct}%`, background: C.green, minWidth: bullPct > 0 ? 2 : 0 }} />
                                                 <div style={{ flex: 1, background: C.red }} />
                                               </div>
@@ -13628,7 +13628,7 @@ export default function App() {
                                                 ["WSB", sd.redditMentions ?? "—"],
                                               ].map(([k, v]) => (
                                                 <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 9, padding: "3px 0",
+                                                  fontFamily: MONO, fontSize: 11, padding: "5px 0",
                                                   borderBottom: `1px solid ${C.border}22` }}>
                                                   <span style={{ color: C.textDim }}>{k}</span>
                                                   <span style={{ color: C.text, fontWeight: 700 }}>{v}</span>
@@ -13636,19 +13636,19 @@ export default function App() {
                                               ))}
                                               {/* Top 3 recent posts */}
                                               {msgs.length > 0 && (
-                                                <div style={{ marginTop: 8 }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim,
-                                                    letterSpacing: "0.08em", marginBottom: 5 }}>RECENT</div>
-                                                  <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 160, overflowY: "auto" }}>
+                                                <div style={{ marginTop: 10 }}>
+                                                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                                    letterSpacing: "0.08em", marginBottom: 6 }}>RECENT</div>
+                                                  <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 180, overflowY: "auto" }}>
                                                     {msgs.slice(0, 3).map((m, mi) => (
-                                                      <div key={mi} style={{ padding: "5px 7px", borderRadius: 4,
+                                                      <div key={mi} style={{ padding: "6px 8px", borderRadius: 4,
                                                         background: C.surface,
                                                         borderLeft: `2px solid ${m.sentiment === "Bullish" ? C.green : m.sentiment === "Bearish" ? C.red : C.border}` }}>
-                                                        <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, marginBottom: 2 }}>
+                                                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 2 }}>
                                                           {m.sentiment === "Bullish" ? "🟢" : m.sentiment === "Bearish" ? "🔴" : "⚪"} {m.user}
                                                         </div>
-                                                        <div style={{ fontFamily: MONO, fontSize: 8, color: C.textSec, lineHeight: 1.4 }}>
-                                                          {(m.body || "").slice(0, 80)}{m.body?.length > 80 ? "…" : ""}
+                                                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textSec, lineHeight: 1.4 }}>
+                                                          {(m.body || "").slice(0, 90)}{m.body?.length > 90 ? "…" : ""}
                                                         </div>
                                                       </div>
                                                     ))}
@@ -13669,22 +13669,22 @@ export default function App() {
                                           if (!all.length) return null;
                                           const fmtVal = v => v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v}`;
                                           return (
-                                            <div style={{ marginTop: 10 }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim,
-                                                letterSpacing: "0.08em", marginBottom: 5 }}>🏦 INSIDER TRANSACTIONS</div>
-                                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                            <div style={{ marginTop: 12 }}>
+                                              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                                letterSpacing: "0.08em", marginBottom: 6 }}>🏦 INSIDER TRANSACTIONS</div>
+                                              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                                                 {all.map((t, ti) => (
-                                                  <div key={ti} style={{ padding: "4px 6px", borderRadius: 4,
+                                                  <div key={ti} style={{ padding: "6px 8px", borderRadius: 4,
                                                     background: C.surface,
                                                     borderLeft: `2px solid ${t.type === "BUY" ? C.green : C.red}` }}>
                                                     <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                                      <span style={{ fontFamily: MONO, fontSize: 8,
+                                                      <span style={{ fontFamily: MONO, fontSize: 10,
                                                         color: t.type === "BUY" ? C.green : C.red, fontWeight: 700 }}>
                                                         {t.type === "BUY" ? "▲ BUY" : "▼ SELL"}
                                                       </span>
-                                                      <span style={{ fontFamily: MONO, fontSize: 8, color: C.textDim }}>{t.date}</span>
+                                                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{t.date}</span>
                                                     </div>
-                                                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.textSec, marginTop: 1 }}>
+                                                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textSec, marginTop: 2 }}>
                                                       {(t.name || "").split(" ").slice(0,2).join(" ")} · {t.value > 0 ? fmtVal(t.value) : `${(t.shares||0).toLocaleString()} sh`}
                                                     </div>
                                                   </div>
@@ -13697,12 +13697,12 @@ export default function App() {
 
                                       {/* ── Col 5: RECENT NEWS ── */}
                                       <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
-                                          color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
+                                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                          color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           📰 RECENT NEWS
                                         </div>
                                         {deepData?.news?.length > 0 ? (
-                                          <div style={{ display: "flex", flexDirection: "column", gap: 5, flex: 1, overflowY: "auto", maxHeight: 220 }}>
+                                          <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, overflowY: "auto", maxHeight: 280 }}>
                                             {deepData.news.slice(0, 5).map((n, ni) => {
                                               const title = n.title || n.headline || "";
                                               const src   = n.source || n.publisher || "";
@@ -13716,17 +13716,17 @@ export default function App() {
                                               return (
                                                 <a key={ni} href={url} target="_blank" rel="noopener noreferrer"
                                                   style={{ display: "block", textDecoration: "none",
-                                                    padding: "5px 7px", borderRadius: 4,
+                                                    padding: "7px 9px", borderRadius: 5,
                                                     background: bear ? `${C.red}0d` : bull ? `${C.green}0d` : C.card,
                                                     border: `1px solid ${bear ? C.red : bull ? C.green : C.border}44` }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 8,
+                                                  <div style={{ fontFamily: MONO, fontSize: 10,
                                                     color: bear ? C.red : bull ? C.green : C.text,
-                                                    lineHeight: 1.4 }}>
-                                                    {title.length > 80 ? title.slice(0, 80) + "…" : title}
+                                                    lineHeight: 1.5 }}>
+                                                    {title.length > 90 ? title.slice(0, 90) + "…" : title}
                                                   </div>
                                                   {src && (
-                                                    <div style={{ fontFamily: MONO, fontSize: 7,
-                                                      color: C.textDim, marginTop: 2 }}>
+                                                    <div style={{ fontFamily: MONO, fontSize: 9,
+                                                      color: C.textDim, marginTop: 3 }}>
                                                       {src}
                                                     </div>
                                                   )}
@@ -13735,7 +13735,7 @@ export default function App() {
                                             })}
                                           </div>
                                         ) : (
-                                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                                          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
                                             {deepData ? "No news found" : "Loading…"}
                                           </div>
                                         )}
@@ -13743,8 +13743,8 @@ export default function App() {
 
                                       {/* ── Col 6: AI Trade Setup + Auto-Execute ── */}
                                       <div style={{ display: "flex", flexDirection: "column" }}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                                          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                                          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
                                             color: C.textDim, letterSpacing: "0.06em" }}>
                                             🤖 AI TRADE SETUP
                                           </div>
@@ -13752,11 +13752,11 @@ export default function App() {
                                             <button
                                               onClick={() => { if (!deepData) { loadDeepDive(row.ticker).then(() => fetchTradeSetup(row.ticker, row)); } else { fetchTradeSetup(row.ticker, row); } }}
                                               disabled={tradeSetupLoad[row.ticker]}
-                                              style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                                              style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
                                                 background: tradeSetupLoad[row.ticker] ? C.surface : `${C.purple}18`,
                                                 border: `1px solid ${tradeSetupLoad[row.ticker] ? C.border : C.purple}`,
                                                 color: tradeSetupLoad[row.ticker] ? C.textDim : C.purple,
-                                                borderRadius: 4, padding: "3px 10px",
+                                                borderRadius: 4, padding: "4px 12px",
                                                 cursor: tradeSetupLoad[row.ticker] ? "default" : "pointer" }}>
                                               {tradeSetupLoad[row.ticker] ? "⌛ Generating…" : "▶ GENERATE"}
                                             </button>
@@ -13764,7 +13764,7 @@ export default function App() {
                                           {tradeSetups[row.ticker] && (
                                             <button
                                               onClick={() => { setTradeSetups(prev => { const n = {...prev}; delete n[row.ticker]; return n; }); }}
-                                              style={{ fontFamily: MONO, fontSize: 8, color: C.textDim,
+                                              style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
                                                 background: "none", border: "none", cursor: "pointer" }}>
                                               ↺ Regenerate
                                             </button>
@@ -13772,15 +13772,15 @@ export default function App() {
                                         </div>
 
                                         {tradeSetupError[row.ticker] && (
-                                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.red,
-                                            background: C.redBg, borderRadius: 4, padding: "6px 8px" }}>
+                                          <div style={{ fontFamily: MONO, fontSize: 11, color: C.red,
+                                            background: C.redBg, borderRadius: 4, padding: "8px 10px" }}>
                                             ⚠ {tradeSetupError[row.ticker]}
                                           </div>
                                         )}
 
                                         {tradeSetupLoad[row.ticker] && (
-                                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.purple,
-                                            background: `${C.purple}10`, borderRadius: 4, padding: "10px 8px",
+                                          <div style={{ fontFamily: MONO, fontSize: 11, color: C.purple,
+                                            background: `${C.purple}10`, borderRadius: 4, padding: "12px 10px",
                                             textAlign: "center" }}>
                                             ⌛ Claude is analysing {row.ticker}…
                                           </div>
@@ -13803,27 +13803,27 @@ export default function App() {
                                             return null;
                                           };
                                           return (
-                                            <div style={{ maxHeight: 320, overflowY: "auto",
+                                            <div style={{ flex: 1, overflowY: "auto",
                                               background: C.surface,
                                               border: `1px solid ${C.border}`, borderRadius: 6,
-                                              padding: "10px 12px" }}>
+                                              padding: "12px 14px" }}>
                                               {plan.split("\n").map((line, li) => {
                                                 const col = getCol(line.trim());
                                                 const isEmpty = !line.trim();
                                                 return (
                                                   <div key={li} style={{
                                                     fontFamily: MONO,
-                                                    fontSize: col ? 10 : 9,
+                                                    fontSize: col ? 11 : 10,
                                                     fontWeight: col ? 800 : 400,
                                                     color: col || C.textSec,
                                                     marginTop: (col || isEmpty) ? (col ? 8 : 4) : 0,
-                                                    lineHeight: 1.55,
+                                                    lineHeight: 1.6,
                                                   }}>
                                                     {isEmpty ? null : line}
                                                   </div>
                                                 );
                                               })}
-                                              <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim,
+                                              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim,
                                                 marginTop: 10, borderTop: `1px solid ${C.border}`, paddingTop: 6 }}>
                                                 Generated {new Date(tradeSetups[row.ticker].generatedAt).toLocaleTimeString()} · Claude AI
                                               </div>
@@ -13832,13 +13832,13 @@ export default function App() {
                                         })()}
 
                                         {!tradeSetups[row.ticker] && !tradeSetupLoad[row.ticker] && !tradeSetupError[row.ticker] && (
-                                          <div style={{ flex: 1, fontFamily: MONO, fontSize: 9, color: C.textDim,
+                                          <div style={{ flex: 1, fontFamily: MONO, fontSize: 11, color: C.textDim,
                                             background: themeMode === "dark" ? "#0a1628" : "#f5f9ff",
                                             border: `1px dashed ${C.border}`, borderRadius: 6,
-                                            padding: "16px 12px", textAlign: "center", lineHeight: 1.6,
+                                            padding: "20px 14px", textAlign: "center", lineHeight: 1.7,
                                             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                                             Click <span style={{ color: C.purple, fontWeight: 700 }}>▶ GENERATE</span> for a complete AI trade plan:<br/>
-                                            <span style={{ color: C.textDim, fontSize: 8 }}>
+                                            <span style={{ color: C.textDim, fontSize: 10 }}>
                                               entry · stop · targets · R:R · catalysts · risks · verdict
                                             </span>
                                           </div>
