@@ -5659,6 +5659,9 @@ function CryptoNews({ C, MONO, SANS }) {
 }
 
 function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, onOpenTradingView }) {
+  const [learnOpen, setLearnOpen] = React.useState({});
+  const toggleLearn = (key) => setLearnOpen(prev => ({ ...prev, [key]: !prev[key] }));
+
   if (!stock) return null;
   const chg = stock.changesPercentage || 0;
   const isUp = chg >= 0;
@@ -6229,9 +6232,6 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
               explain: "A day drop of -2% or more, especially on high volume, signals active institutional selling or stop-loss cascades. The safest response is to wait for the stock to stabilize (3-5 days of quiet) before reassessing.",
             },
           ];
-
-          const [learnOpen, setLearnOpen] = React.useState({});
-          const toggleLearn = (key) => setLearnOpen(prev => ({ ...prev, [key]: !prev[key] }));
 
           const SignalRow = ({ s, type, id }) => {
             const color  = s.active ? (type === "bull" ? C.green : C.red) : C.textDim;
