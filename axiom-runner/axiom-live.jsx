@@ -7907,6 +7907,45 @@ export default function App() {
     setScanLoading(false);
   }
 
+  // ── Add / remove a custom ticker — scans it immediately ─────────────────
+  async function addScanTicker(rawSym) {
+    const sym = rawSym.trim().toUpperCase().replace(/[^A-Z0-9.-]/g, "");
+    if (!sym) return;
+    const allCurrent = new Set([...FIVEX_TICKERS_DEFAULT, ...customScanTickers]);
+    if (allCurrent.has(sym)) { setScanTickerInput(""); return; }
+
+    // Persist immediately so FIVEX_TICKERS picks it up
+    const next = [...customScanTickers, sym];
+    setCustomScanTickers(next);
+    localStorage.setItem("custom_scan_tickers", JSON.stringify(next));
+    setScanTickerInput("");
+
+    // Instantly scan this one ticker and merge into results
+    try {
+      const res  = await fetch(`/api/scanner/smart-scan?tickers=${sym}`);
+      const data = await res.json();
+      if (!data.ok || !data.results?.length) return;
+      const [{ ticker, quote, candles }] = data.results;
+      const scored = { ...scoreTicker(ticker, quote, candles), quote, candles };
+      setScanResults(prev => {
+        // Replace if already present, otherwise prepend
+        const exists = prev.some(r => r.ticker === ticker);
+        const updated = exists
+          ? prev.map(r => r.ticker === ticker ? scored : r)
+          : [scored, ...prev];
+        return updated.sort((a, b) => b.score - a.score);
+      });
+    } catch { /* silent — ticker still added to list */ }
+  }
+
+  function removeScanTicker(sym) {
+    const next = customScanTickers.filter(s => s !== sym);
+    setCustomScanTickers(next);
+    localStorage.setItem("custom_scan_tickers", JSON.stringify(next));
+    // Remove from results too
+    setScanResults(prev => prev.filter(r => r.ticker !== sym));
+  }
+
   // ── Auto-scan interval ───────────────────────────────────────────────────
   useEffect(() => {
     if (autoScanRef.current) { clearInterval(autoScanRef.current); autoScanRef.current = null; }
@@ -12952,19 +12991,8 @@ export default function App() {
                 const allCurrent = new Set(FIVEX_TICKERS);
                 const suggestions = SUGGESTIONS.filter(s => !allCurrent.has(s));
 
-                function addTicker(sym) {
-                  sym = sym.trim().toUpperCase().replace(/[^A-Z0-9.-]/g, "");
-                  if (!sym || allCurrent.has(sym)) return;
-                  const next = [...customScanTickers, sym];
-                  setCustomScanTickers(next);
-                  localStorage.setItem("custom_scan_tickers", JSON.stringify(next));
-                  setScanTickerInput("");
-                }
-                function removeTicker(sym) {
-                  const next = customScanTickers.filter(s => s !== sym);
-                  setCustomScanTickers(next);
-                  localStorage.setItem("custom_scan_tickers", JSON.stringify(next));
-                }
+                const addTicker    = (sym) => addScanTicker(sym);
+                const removeTicker = (sym) => removeScanTicker(sym);
 
                 return (
                   <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
