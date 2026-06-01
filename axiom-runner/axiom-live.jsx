@@ -13400,7 +13400,7 @@ export default function App() {
                                       ⌛ Loading deep dive data for {row.ticker}…
                                     </div>
                                   ) : (
-                                    <div style={{ display: "grid", gridTemplateColumns: "280px 200px 200px 200px 220px 220px 300px", gridTemplateRows: "400px", gap: 12, width: "max-content", minWidth: "100%", overflowX: "auto" }}>
+                                    <div style={{ display: "grid", gridTemplateColumns: "220px repeat(5, minmax(130px,1fr)) minmax(180px,1.3fr)", gridTemplateRows: "340px", gap: 10, width: "100%", overflowX: "auto" }}>
 
                                       {/* ── Col 1: TradingView mini chart ── */}
                                       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
