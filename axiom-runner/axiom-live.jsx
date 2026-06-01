@@ -13400,7 +13400,7 @@ export default function App() {
                                       ⌛ Loading deep dive data for {row.ticker}…
                                     </div>
                                   ) : (
-                                    <div style={{ display: "grid", gridTemplateColumns: "260px minmax(150px,1fr) minmax(150px,1fr) minmax(150px,1fr) minmax(150px,1fr) minmax(220px,1.6fr)", gridTemplateRows: "360px", gap: 10, width: "100%", overflowX: "auto" }}>
+                                    <div style={{ display: "grid", gridTemplateColumns: "260px minmax(140px,1fr) minmax(140px,1fr) minmax(140px,1fr) minmax(140px,1fr) minmax(150px,1fr) minmax(210px,1.6fr)", gridTemplateRows: "360px", gap: 10, width: "100%", overflowX: "auto" }}>
 
                                       {/* ── Col 1: TradingView mini chart ── */}
                                       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
@@ -13741,7 +13741,112 @@ export default function App() {
                                         )}
                                       </div>
 
-                                      {/* ── Col 6: AI Trade Setup + Auto-Execute ── */}
+                                      {/* ── Col 6: ANALYST RATINGS + EARNINGS ── */}
+                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
+                                          color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
+                                          🎯 ANALYST & EARNINGS
+                                        </div>
+
+                                        {/* Analyst Ratings */}
+                                        {(() => {
+                                          const recKey = fd?.recommendationKey || fd?.recommendation;
+                                          const target  = Number(fd?.analystTarget || fd?.targetMeanPrice || 0);
+                                          const price   = Number(row.quote?.price || row.quote?.regularMarketPrice || 0);
+                                          const upside  = (target > 0 && price > 0) ? ((target - price) / price * 100) : null;
+                                          const numAnal = Number(fd?.numberOfAnalystOpinions || 0);
+                                          const strongBuy = Number(fd?.recommendationMean || 0);
+
+                                          const recLabel = recKey
+                                            ? recKey.replace(/_/g, " ").toUpperCase()
+                                            : "—";
+                                          const recColor = recKey
+                                            ? (recKey.includes("buy") || recKey.includes("outperform") ? C.green
+                                              : recKey.includes("sell") || recKey.includes("underperform") ? C.red
+                                              : C.amber)
+                                            : C.textDim;
+
+                                          return (
+                                            <div style={{ marginBottom: 12 }}>
+                                              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                                letterSpacing: "0.08em", marginBottom: 6 }}>📊 ANALYST CONSENSUS</div>
+
+                                              {/* Consensus badge */}
+                                              <div style={{ padding: "8px 10px", borderRadius: 6, marginBottom: 8,
+                                                background: `${recColor}18`, border: `1px solid ${recColor}44`,
+                                                textAlign: "center" }}>
+                                                <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: recColor }}>
+                                                  {recLabel}
+                                                </div>
+                                                {numAnal > 0 && (
+                                                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>
+                                                    {numAnal} analysts
+                                                  </div>
+                                                )}
+                                              </div>
+
+                                              {[
+                                                ["Price Target", target > 0 ? `$${target.toFixed(2)}` : "—", C.text],
+                                                ["Upside", upside != null ? `${upside > 0 ? "+" : ""}${upside.toFixed(1)}%` : "—",
+                                                  upside == null ? C.textDim : upside > 0 ? C.green : C.red],
+                                                ["Rating Score", strongBuy > 0 ? `${strongBuy.toFixed(1)} / 5` : "—", C.textSec],
+                                              ].map(([k, v, col]) => (
+                                                <div key={k} style={{ display: "flex", justifyContent: "space-between",
+                                                  fontFamily: MONO, fontSize: 12, padding: "4px 0",
+                                                  borderBottom: `1px solid ${C.border}22` }}>
+                                                  <span style={{ color: C.textDim }}>{k}</span>
+                                                  <span style={{ color: col, fontWeight: 700 }}>{v}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          );
+                                        })()}
+
+                                        {/* Earnings */}
+                                        {(() => {
+                                          const earnDate  = fd?.earningsDate;
+                                          const epsEst    = Number(fd?.epsForward || fd?.epsCurrentYear || 0);
+                                          const epsTrail  = Number(fd?.epsTrailingTwelveMonths || fd?.eps || 0);
+                                          const revGrowth = Number(fd?.revenueGrowth || 0);
+                                          const earnGrowth= Number(fd?.earningsGrowth || 0);
+
+                                          let daysToEarn  = null;
+                                          let earnLabel   = "—";
+                                          if (earnDate) {
+                                            const d = new Date(typeof earnDate === "number" ? earnDate * 1000 : earnDate);
+                                            const diff = Math.round((d - Date.now()) / 86400000);
+                                            daysToEarn = diff;
+                                            earnLabel = diff === 0 ? "TODAY 🔥"
+                                              : diff > 0 ? `in ${diff}d`
+                                              : `${Math.abs(diff)}d ago`;
+                                          }
+
+                                          return (
+                                            <div>
+                                              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                                letterSpacing: "0.08em", marginBottom: 6 }}>📅 EARNINGS</div>
+                                              {[
+                                                ["Next Report", earnLabel, daysToEarn != null && daysToEarn >= 0 && daysToEarn <= 7 ? C.amber : C.text],
+                                                ["EPS Est",  epsEst  ? `$${epsEst.toFixed(2)}`  : "—", C.text],
+                                                ["EPS TTM",  epsTrail? `$${epsTrail.toFixed(2)}` : "—", C.textSec],
+                                                ["Rev Grw",  revGrowth  ? `${(revGrowth*100).toFixed(1)}%`   : "—",
+                                                  revGrowth > 0 ? C.green : revGrowth < 0 ? C.red : C.textDim],
+                                                ["Earn Grw", earnGrowth ? `${(earnGrowth*100).toFixed(1)}%`  : "—",
+                                                  earnGrowth > 0 ? C.green : earnGrowth < 0 ? C.red : C.textDim],
+                                              ].map(([k, v, col]) => (
+                                                <div key={k} style={{ display: "flex", justifyContent: "space-between",
+                                                  fontFamily: MONO, fontSize: 12, padding: "4px 0",
+                                                  borderBottom: `1px solid ${C.border}22` }}>
+                                                  <span style={{ color: C.textDim }}>{k}</span>
+                                                  <span style={{ color: col, fontWeight: 700 }}>{v}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          );
+                                        })()}
+                                      </div>
+
+                                      {/* ── Col 7: AI Trade Setup + Auto-Execute ── */}
                                       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                                           <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
