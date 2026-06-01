@@ -13700,7 +13700,7 @@ export default function App() {
                                         })()}
                                       </div>
 
-                                        </div>{/* end row 1 */}
+                                        </div>
 
                                         {/* Row 2: News · Analyst & Earnings · AI Trade */}
                                         <div style={{ display: "flex", gap: 10, flex: 1, minWidth: 0 }}>
@@ -14016,9 +14016,9 @@ export default function App() {
                                           );
                                         })()}
                                       </div>
-                                        </div>{/* end row 2 */}
-                                      </div>{/* end right side */}
-                                    </div>{/* end outer flex */}
+                                        </div>
+                                      </div>
+                                    </div>
                                   )}
                                 </td>
                               </tr>
