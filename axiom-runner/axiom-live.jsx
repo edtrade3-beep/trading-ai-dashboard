@@ -5741,11 +5741,11 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
   };
 
   return (
-    <div onClick={onClose} style={{
+    <div style={{
       position: "fixed", inset: 0, background: C.bg,
       zIndex: 1000, overflowY: "auto", overflowX: "hidden",
     }}>
-      <div onClick={e => e.stopPropagation()} style={{
+      <div style={{
         width: "100%", maxWidth: "100%", minHeight: "100vh", background: "transparent",
         border: "none", borderRadius: 0, boxSizing: "border-box",
       }}>
