@@ -1204,6 +1204,68 @@ async function handleMarket(req, res, requestUrl) {
       riskScore = Math.min(100, riskScore);
       const alert = riskScore >= 65 ? "DANGER" : riskScore >= 40 ? "CAUTION" : riskScore >= 20 ? "WATCH" : "NORMAL";
 
+      // Always-visible status for every check (green = clear, amber = watch, red = alert)
+      const maxDistDays = Math.max(...Object.values(distDays));
+      const checkStatus = [
+        {
+          tag: "DIST",
+          label: "Distribution Days",
+          icon: "📊",
+          status: maxDistDays >= 4 ? "HIGH" : maxDistDays >= 2 ? "MED" : "OK",
+          detail: maxDistDays >= 2
+            ? `${maxDistDays} high-vol down days in 25 sessions`
+            : "No distribution — institutions not selling",
+        },
+        {
+          tag: "ROTATION",
+          label: "Sector Rotation",
+          icon: "🔄",
+          status: rotDiff > 0.8 ? "HIGH" : rotDiff > 0.3 ? "MED" : "OK",
+          detail: rotDiff > 0.3
+            ? `Defensives outperforming growth by ${rotDiff.toFixed(1)}%`
+            : `Growth leading defensives by ${Math.abs(rotDiff).toFixed(1)}% — risk-on`,
+        },
+        {
+          tag: "CREDIT",
+          label: "Credit Spreads (HYG)",
+          icon: "💳",
+          status: (hygChg < -0.5) ? "HIGH" : (hygChg < -0.2) ? "MED" : "OK",
+          detail: hygChg < -0.2
+            ? `HYG junk bonds ${hygChg.toFixed(2)}% — spreads widening`
+            : `HYG ${hygChg >= 0 ? "+" : ""}${hygChg.toFixed(2)}% — credit market healthy`,
+        },
+        {
+          tag: "DIVERGENCE",
+          label: "Volume Divergence",
+          icon: "📉",
+          status: warnings.some(w => w.tag === "DIVERGENCE") ? "MED" : "OK",
+          detail: warnings.some(w => w.tag === "DIVERGENCE")
+            ? "Price up on declining volume — possible distribution"
+            : "Volume confirming price moves — healthy",
+        },
+        {
+          tag: "MA",
+          label: "Index MA Breaks",
+          icon: "📏",
+          status: warnings.filter(w => w.tag === "MA").some(w => w.level === "HIGH") ? "HIGH"
+                : warnings.some(w => w.tag === "MA") ? "MED" : "OK",
+          detail: (() => {
+            const maW = warnings.filter(w => w.tag === "MA");
+            if (!maW.length) return "All indexes above key moving averages";
+            return maW.map(w => w.sig).join(" | ");
+          })(),
+        },
+        {
+          tag: "VIX",
+          label: "VIX / Fear",
+          icon: "😨",
+          status: vix > 25 ? "HIGH" : vix > 18 ? "MED" : "OK",
+          detail: vix > 0
+            ? `VIX ${vix.toFixed(1)} (${vix > 25 ? "elevated fear — size down" : vix > 18 ? "above normal — tighten stops" : "low — calm market"})${vixChg > 10 ? `, +${vixChg.toFixed(1)}% spike today` : ""}`
+            : "VIX data unavailable",
+        },
+      ];
+
       const indexSnapshot = INDEXES.map(sym => {
         const q = qMap[sym] || {};
         return {
@@ -1215,7 +1277,7 @@ async function handleMarket(req, res, requestUrl) {
       });
 
       return writeJson(res, 200, {
-        ok: true, riskScore, alert, warnings,
+        ok: true, riskScore, alert, warnings, checkStatus,
         vix: round2(vix), vixChg: round2(vixChg),
         rotationDiff: rotDiff,
         indexSnapshot,

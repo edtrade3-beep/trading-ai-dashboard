@@ -11152,36 +11152,36 @@ export default function App() {
               </div>
               {distExpanded && distData && (
                 <div style={{ padding: "12px 16px" }}>
-                  {distData.warnings.length === 0 ? (
-                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.green }}>✅ No distribution signals detected — market internals healthy.</div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {distData.warnings.map((w, i) => (
-                        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 12px", borderRadius: 6,
-                          background: w.level === "HIGH" ? C.red + "12" : w.level === "MED" ? C.amber + "0d" : C.green + "08",
-                          border: "1px solid " + (w.level === "HIGH" ? C.red : w.level === "MED" ? C.amber : C.green) + "33" }}>
-                          <span style={{ fontSize: 14, flexShrink: 0 }}>{w.level === "HIGH" ? "🔴" : w.level === "MED" ? "🟡" : "🟢"}</span>
-                          <div style={{ flex: 1 }}>
-                            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: TAG_COLORS[w.tag] || C.amber, marginRight: 8 }}>[{w.tag}]</span>
-                            <span style={{ fontFamily: SANS, fontSize: 12, color: C.textSec }}>{w.sig}</span>
+                  {/* Always show all 6 checks with status */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
+                    {(distData.checkStatus || []).map((c, i) => {
+                      const statusCol = c.status === "HIGH" ? C.red : c.status === "MED" ? C.amber : C.green;
+                      const statusIcon = c.status === "HIGH" ? "🔴" : c.status === "MED" ? "🟡" : "✅";
+                      return (
+                        <div key={i} style={{
+                          padding: "10px 12px", borderRadius: 8,
+                          background: c.status === "OK" ? C.surface : (c.status === "HIGH" ? C.red + "12" : C.amber + "0d"),
+                          border: "1px solid " + statusCol + (c.status === "OK" ? "33" : "55"),
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                            <span style={{ fontSize: 14 }}>{c.icon}</span>
+                            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: statusCol }}>{c.label}</span>
+                            <span style={{ marginLeft: "auto", fontSize: 12 }}>{statusIcon}</span>
                           </div>
-                          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: w.level === "HIGH" ? C.red : w.level === "MED" ? C.amber : C.green, flexShrink: 0 }}>{w.level}</span>
+                          <div style={{ fontFamily: SANS, fontSize: 11, color: c.status === "OK" ? C.textDim : C.textSec, lineHeight: 1.4 }}>
+                            {c.detail}
+                          </div>
+                          {c.status !== "OK" && (
+                            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: statusCol, marginTop: 4, letterSpacing: "0.06em" }}>
+                              {c.status === "HIGH" ? "⚠ HIGH ALERT" : "⚡ WATCH"}
+                            </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                  {distData.rotationDiff != null && (
-                    <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 6, background: C.surface, border: "1px solid " + C.border }}>
-                      <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim }}>SECTOR ROTATION: </span>
-                      <span style={{ fontFamily: SANS, fontSize: 12, color: distData.rotationDiff > 0.5 ? C.red : distData.rotationDiff > 0.1 ? C.amber : C.green }}>
-                        {distData.rotationDiff > 0.5 ? "🔴 Defensives outperforming growth — institutional risk-off in progress"
-                          : distData.rotationDiff > 0.1 ? "🟡 Mild rotation to defensives — stay alert"
-                          : "🟢 Growth leading — risk-on environment"}
-                      </span>
-                    </div>
-                  )}
-                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 8 }}>
-                    Last scan: {new Date(distData.scannedAt).toLocaleTimeString()} · Checks: distribution days · sector rotation · credit spreads · volume divergence · MA breaks · VIX
+                      );
+                    })}
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>
+                    Last scan: {new Date(distData.scannedAt).toLocaleTimeString()} · ✅ = clear  🟡 = watch  🔴 = alert
                   </div>
                 </div>
               )}
