@@ -14587,6 +14587,109 @@ export default function App() {
                                             </div>
                                           );
                                         })()}
+
+                                        {/* ── Options Trade Recommendation ── */}
+                                        {(() => {
+                                          const px    = Number(livePrice || row.quote?.price || 0);
+                                          const hi52  = Number(row.quote?.yearHigh || 0);
+                                          const lo52  = Number(row.quote?.yearLow  || 0);
+                                          const ivR   = (hi52 > lo52 && px > 0) ? Math.min(99, Math.round((hi52 - lo52) / px * 100 * 1.4)) : 40;
+                                          const score = row.score || 50;
+                                          if (px <= 0) return null;
+
+                                          // Determine option action from score + IV
+                                          const isBullish = score >= 60;
+                                          const isBearish = score <= 40;
+                                          if (!isBullish && !isBearish) return null;
+
+                                          const optAct  = isBullish
+                                            ? (ivR < 45 ? "BUY CALLS" : "SELL PUTS")
+                                            : (ivR < 45 ? "BUY PUTS"  : "SELL CALLS");
+                                          const optCol  = isBullish ? C.green : C.red;
+
+                                          // Strike calculation
+                                          const step = px < 25 ? 0.5 : px < 50 ? 1 : px < 100 ? 2 : px < 200 ? 5 : px < 500 ? 10 : 20;
+                                          const snap = v => Math.round(v / step) * step;
+                                          const strike = (() => {
+                                            if (optAct === "BUY CALLS")  return snap(px * 1.02);
+                                            if (optAct === "SELL PUTS")  return snap(px * 0.95);
+                                            if (optAct === "BUY PUTS")   return snap(px * 0.98);
+                                            if (optAct === "SELL CALLS") return snap(px * 1.05);
+                                            return snap(px);
+                                          })();
+
+                                          // Next 3rd-Friday expiry ≥14 days out
+                                          const expiry = (() => {
+                                            const today = new Date();
+                                            for (let m = 0; m < 4; m++) {
+                                              const d = new Date(today.getFullYear(), today.getMonth() + m, 1);
+                                              let fri = 0;
+                                              while (fri < 3) { if (d.getDay() === 5) fri++; if (fri < 3) d.setDate(d.getDate() + 1); }
+                                              const dte = Math.round((d - today) / 86400000);
+                                              if (dte >= 14) {
+                                                const mm = String(d.getMonth()+1).padStart(2,"0");
+                                                const dd = String(d.getDate()).padStart(2,"0");
+                                                const yy = String(d.getFullYear()).slice(2);
+                                                return { label: `${mm}/${dd}/${yy}`, dte };
+                                              }
+                                            }
+                                            return { label: "—", dte: 30 };
+                                          })();
+
+                                          // Simplified ATM premium estimate
+                                          const iv   = ivR / 100;
+                                          const T    = expiry.dte / 365;
+                                          const isCall = optAct.includes("CALL");
+                                          const mono  = isCall ? (px / strike) : (strike / px);
+                                          const adj   = mono > 1.05 ? 0.5 : mono > 1.02 ? 0.75 : 1.0;
+                                          const prem  = Math.round(px * iv * Math.sqrt(T) * 0.4 * adj * 100) / 100;
+                                          const contr = prem > 0 ? Math.max(1, Math.round(500 / (prem * 100))) : 1;
+                                          const cost  = prem > 0 ? Math.round(prem * contr * 100) : 0;
+
+                                          return (
+                                            <div style={{ marginTop: 12 }}>
+                                              <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text,
+                                                marginBottom: 8, paddingBottom: 5,
+                                                borderBottom: `2px solid ${C.border}`, letterSpacing: "0.05em" }}>
+                                                🎰 OPTIONS TRADE
+                                              </div>
+                                              <div style={{ padding: "10px 10px", borderRadius: 6,
+                                                background: `${optCol}12`, border: `1px solid ${optCol}44`, marginBottom: 10 }}>
+                                                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: optCol, marginBottom: 4 }}>
+                                                  {optAct}
+                                                </div>
+                                                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec }}>
+                                                  {ivR < 45 ? `IV ${ivR} — options cheap, buying has edge` :
+                                                   ivR > 65 ? `IV ${ivR} — premium elevated, selling is better` :
+                                                   `IV ${ivR} — moderate volatility`}
+                                                </div>
+                                              </div>
+                                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 5, marginBottom: 8 }}>
+                                                {[
+                                                  ["STRIKE",  `$${strike.toFixed(step < 1 ? 2 : 0)}`, C.purple],
+                                                  ["EXPIRY",  expiry.label, C.amber],
+                                                  ["DTE",     `${expiry.dte}d`, C.textSec],
+                                                  ["~PREM",   prem > 0 ? `$${prem.toFixed(2)}` : "—", C.green],
+                                                  ["CONT",    `${contr}×`, C.text],
+                                                  ["COST",    cost > 0 ? `$${cost}` : "—", C.textDim],
+                                                ].map(([lbl, val, col]) => (
+                                                  <div key={lbl} style={{ textAlign: "center", padding: "5px 0",
+                                                    background: C.surface, borderRadius: 4 }}>
+                                                    <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim }}>{lbl}</div>
+                                                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{val}</div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                              <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, lineHeight: 1.5 }}>
+                                                Full trade: <span style={{ fontFamily: MONO, color: C.purple, fontSize: 10, fontWeight: 700 }}>
+                                                  {optAct.includes("BUY") ? "BUY" : "SELL"} {contr}× {row.ticker} ${strike.toFixed(step < 1 ? 2 : 0)} {isCall ? "CALL" : "PUT"} {expiry.label}
+                                                </span>
+                                                <br />~${prem.toFixed(2)}/contract · Est. cost ${cost}
+                                                <br /><span style={{ color: C.amber }}>⚠ Estimate only — verify with broker</span>
+                                              </div>
+                                            </div>
+                                          );
+                                        })()}
                                       </div>
 
                                       {/* ── Col 7: AI Trade Setup + Auto-Execute ── */}
