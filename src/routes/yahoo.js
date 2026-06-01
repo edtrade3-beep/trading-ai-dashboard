@@ -3,7 +3,10 @@ const {
   fetchYahooQuotes,
   fetchYahooNews,
   fetchYahooCandlesWithIndicators,
-  fetchYahooFundamentals
+  fetchYahooFundamentals,
+  fetchYahooShortInterest,
+  fetchYahooInsiderTransactions,
+  fetchYahooOptionsFlowForSymbol,
 } = require("../providers/yahoo");
 
 async function handleYahoo(req, res, requestUrl) {
@@ -64,6 +67,30 @@ async function handleYahoo(req, res, requestUrl) {
     }
     const payload = await fetchYahooFundamentals(symbol);
     return writeJson(res, 200, payload);
+  }
+
+  // GET /api/yahoo/short-interest?symbol=BBAI
+  if (pathname === "/api/yahoo/short-interest") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { error: "Symbol is required." });
+    const payload = await fetchYahooShortInterest(symbol);
+    return writeJson(res, 200, payload);
+  }
+
+  // GET /api/yahoo/insider?symbol=BBAI
+  if (pathname === "/api/yahoo/insider") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { error: "Symbol is required." });
+    const payload = await fetchYahooInsiderTransactions(symbol);
+    return writeJson(res, 200, payload);
+  }
+
+  // GET /api/yahoo/options?symbol=BBAI
+  if (pathname === "/api/yahoo/options") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { error: "Symbol is required." });
+    const payload = await fetchYahooOptionsFlowForSymbol(symbol);
+    return writeJson(res, 200, payload || { symbol, callPutRatio: null, flowRows: [] });
   }
 
   return writeJson(res, 404, { error: "Unknown Yahoo endpoint." });

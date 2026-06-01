@@ -27,6 +27,7 @@ const { startMarketScanner, sendMacroReport } = require("./src/market-scanner");
 const { startTelegramBot }    = require("./src/telegram-bot");
 const { checkDealWatches }   = require("./src/routes/deals");
 const { startCOTScheduler }  = require("./src/cot/scheduler");
+const { startPreMarketAlerts } = require("./src/premarket-alerts");
 const { updateCOTData, isDataFresh } = require("./src/cot/cotService");
 
 const server = http.createServer(handleRequest);
@@ -46,6 +47,7 @@ server.listen(PORT, HOST, () => {
   startMarketScanner();   // 15-min stock scan → grouped BUY/SELL alerts
   startTelegramBot();
   startCOTScheduler();    // COT bias reports at 7 scheduled ET times M-F
+  startPreMarketAlerts(); // Gap scan Telegram alerts at 7:00 AM and 9:00 AM ET
 
   // Auto-download CFTC data on startup if not already fresh
   setTimeout(() => {

@@ -7995,15 +7995,21 @@ export default function App() {
     if (scanDeepData[ticker]) return;
     setScanDeepLoad(prev => ({ ...prev, [ticker]: true }));
     try {
-      const [fundR, newsR] = await Promise.allSettled([
+      const [fundR, newsR, shortR, insiderR, optionsR] = await Promise.allSettled([
         fetch(`/api/yahoo/fundamentals?symbol=${ticker}`).then(r => r.json()),
         fetch(`/api/yahoo/news?tickers=${ticker}&limit=6`).then(r => r.json()),
+        fetch(`/api/yahoo/short-interest?symbol=${ticker}`).then(r => r.json()),
+        fetch(`/api/yahoo/insider?symbol=${ticker}`).then(r => r.json()),
+        fetch(`/api/yahoo/options?symbol=${ticker}`).then(r => r.json()),
       ]);
       setScanDeepData(prev => ({
         ...prev,
         [ticker]: {
-          fundamentals: fundR.status === "fulfilled" ? fundR.value : null,
-          news: newsR.status === "fulfilled" ? (Array.isArray(newsR.value) ? newsR.value : []) : [],
+          fundamentals: fundR.status    === "fulfilled" ? fundR.value    : null,
+          news:         newsR.status    === "fulfilled" ? (Array.isArray(newsR.value) ? newsR.value : []) : [],
+          short:        shortR.status   === "fulfilled" ? shortR.value   : null,
+          insider:      insiderR.status === "fulfilled" ? insiderR.value : null,
+          options:      optionsR.status === "fulfilled" ? optionsR.value : null,
         },
       }));
     } catch {}
@@ -13147,7 +13153,7 @@ export default function App() {
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                       <tr style={{ background: C.surface }}>
-                        {["#","SCORE","SIGNAL","TICKER","SECTOR","LIVE $","RSI","MACD","EMA","ZONE","UPSIDE","THESIS"].map(h => (
+                        {["#","SCORE","SIGNAL","TICKER","SECTOR","LIVE $","RSI","MACD","EMA","ZONE","SHORT%","UPSIDE","THESIS"].map(h => (
                           <th key={h} style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700,
                             color: C.textDim, padding: "8px 10px", textAlign: h === "#" ? "center" : "left",
                             letterSpacing: "0.05em", borderBottom: `1px solid ${C.border}`,
@@ -13332,6 +13338,20 @@ export default function App() {
                                 {zoneLbl}
                               </td>
 
+                              {/* Short % */}
+                              {(() => {
+                                const sf = Number(row.quote?.shortFloat || row.quote?.shortPercentOfFloat || 0);
+                                const shortPct = sf > 1 ? sf : sf > 0 ? sf * 100 : null;
+                                const shortCol = shortPct == null ? C.textDim : shortPct > 20 ? C.red : shortPct > 10 ? C.amber : C.textSec;
+                                return (
+                                  <td style={{ fontFamily: MONO, fontSize: 9, textAlign: "center",
+                                    padding: "9px 8px", borderBottom: `1px solid ${C.border}22`,
+                                    color: shortCol, fontWeight: shortPct != null ? 700 : 400 }}>
+                                    {shortPct != null ? `${shortPct.toFixed(1)}%` : "—"}
+                                  </td>
+                                );
+                              })()}
+
                               {/* Upside */}
                               <td style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800,
                                 textAlign: "center", padding: "9px 8px",
@@ -13451,14 +13471,14 @@ export default function App() {
                                         )}
                                       </div>
 
-                                      {/* ── Col 3: FUNDAMENTALS ── */}
+                                      {/* ── Col 3: FUNDAMENTALS + SHORT INTEREST + OPTIONS ── */}
                                       <div style={{ flex: "1 1 175px", minWidth: 160 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
                                           📋 FUNDAMENTALS
                                         </div>
                                         {fd ? (
-                                          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                          <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 10 }}>
                                             {[
                                               ["Mkt Cap",    fd.marketCap ? `$${(fd.marketCap/1e9).toFixed(1)}B` : "—"],
                                               ["Revenue",    fd.revenue   ? `$${(fd.revenue/1e9).toFixed(1)}B`   : "—"],
@@ -13479,13 +13499,73 @@ export default function App() {
                                             ))}
                                           </div>
                                         ) : (
-                                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 10 }}>
                                             {deepData ? "No data" : "Loading…"}
                                           </div>
                                         )}
+
+                                        {/* Short Interest */}
+                                        {(() => {
+                                          const si = deepData?.short;
+                                          if (!si) return null;
+                                          const sf = si.shortFloat;
+                                          const sfColor = sf == null ? C.textDim : sf > 20 ? C.red : sf > 10 ? C.amber : C.green;
+                                          return (
+                                            <div style={{ marginBottom: 10 }}>
+                                              <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim,
+                                                letterSpacing: "0.08em", marginBottom: 4 }}>🩳 SHORT INTEREST</div>
+                                              {[
+                                                ["Float Short", sf != null ? `${sf.toFixed(1)}%` : "—", sfColor],
+                                                ["Days Cover",  si.shortRatio != null ? `${si.shortRatio.toFixed(1)}d` : "—", C.text],
+                                                ["Updated",     si.dateShortInterest || "—", C.textDim],
+                                              ].map(([k, v, col]) => (
+                                                <div key={k} style={{ display: "flex", justifyContent: "space-between",
+                                                  fontFamily: MONO, fontSize: 9, padding: "2px 0",
+                                                  borderBottom: `1px solid ${C.border}22` }}>
+                                                  <span style={{ color: C.textDim }}>{k}</span>
+                                                  <span style={{ color: col, fontWeight: 700 }}>{v}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          );
+                                        })()}
+
+                                        {/* Options Put/Call ratio */}
+                                        {(() => {
+                                          const opt = deepData?.options;
+                                          if (!opt || opt.callPutRatio == null) return null;
+                                          const cpr = Number(opt.callPutRatio);
+                                          const cprColor = cpr > 1.5 ? C.green : cpr < 0.7 ? C.red : C.amber;
+                                          const cprLabel = cpr > 1.5 ? "BULLISH" : cpr < 0.7 ? "BEARISH" : "NEUTRAL";
+                                          return (
+                                            <div>
+                                              <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim,
+                                                letterSpacing: "0.08em", marginBottom: 4 }}>📊 OPTIONS FLOW</div>
+                                              <div style={{ display: "flex", justifyContent: "space-between",
+                                                fontFamily: MONO, fontSize: 9, padding: "2px 0",
+                                                borderBottom: `1px solid ${C.border}22` }}>
+                                                <span style={{ color: C.textDim }}>C/P Ratio</span>
+                                                <span style={{ color: cprColor, fontWeight: 700 }}>{cpr.toFixed(2)}×</span>
+                                              </div>
+                                              <div style={{ display: "flex", justifyContent: "space-between",
+                                                fontFamily: MONO, fontSize: 9, padding: "2px 0",
+                                                borderBottom: `1px solid ${C.border}22` }}>
+                                                <span style={{ color: C.textDim }}>Bias</span>
+                                                <span style={{ color: cprColor, fontWeight: 700 }}>{cprLabel}</span>
+                                              </div>
+                                              {opt.expiration && (
+                                                <div style={{ display: "flex", justifyContent: "space-between",
+                                                  fontFamily: MONO, fontSize: 9, padding: "2px 0" }}>
+                                                  <span style={{ color: C.textDim }}>Exp</span>
+                                                  <span style={{ color: C.textSec }}>{opt.expiration}</span>
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
                                       </div>
 
-                                      {/* ── Col 4: SOCIAL SENTIMENT ── */}
+                                      {/* ── Col 4: SOCIAL SENTIMENT + INSIDER BUYS ── */}
                                       <div style={{ flex: "1 1 175px", minWidth: 160 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
@@ -13559,6 +13639,41 @@ export default function App() {
                                                   </div>
                                                 </div>
                                               )}
+                                            </div>
+                                          );
+                                        })()}
+
+                                        {/* Insider transactions */}
+                                        {(() => {
+                                          const ins = deepData?.insider;
+                                          if (!ins) return null;
+                                          const buys  = (ins.transactions || []).filter(t => t.type === "BUY").slice(0, 3);
+                                          const sells = (ins.transactions || []).filter(t => t.type === "SELL").slice(0, 2);
+                                          const all   = [...buys, ...sells];
+                                          if (!all.length) return null;
+                                          const fmtVal = v => v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v}`;
+                                          return (
+                                            <div style={{ marginTop: 10 }}>
+                                              <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim,
+                                                letterSpacing: "0.08em", marginBottom: 5 }}>🏦 INSIDER TRANSACTIONS</div>
+                                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                                {all.map((t, ti) => (
+                                                  <div key={ti} style={{ padding: "4px 6px", borderRadius: 4,
+                                                    background: C.surface,
+                                                    borderLeft: `2px solid ${t.type === "BUY" ? C.green : C.red}` }}>
+                                                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                                      <span style={{ fontFamily: MONO, fontSize: 8,
+                                                        color: t.type === "BUY" ? C.green : C.red, fontWeight: 700 }}>
+                                                        {t.type === "BUY" ? "▲ BUY" : "▼ SELL"}
+                                                      </span>
+                                                      <span style={{ fontFamily: MONO, fontSize: 8, color: C.textDim }}>{t.date}</span>
+                                                    </div>
+                                                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.textSec, marginTop: 1 }}>
+                                                      {(t.name || "").split(" ").slice(0,2).join(" ")} · {t.value > 0 ? fmtVal(t.value) : `${(t.shares||0).toLocaleString()} sh`}
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
                                             </div>
                                           );
                                         })()}
