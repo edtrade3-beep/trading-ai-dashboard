@@ -7197,6 +7197,8 @@ export default function App() {
   const [scanError,    setScanError]    = useState(null);
   const [scanDeepData, setScanDeepData] = useState({});
   const [scanDeepLoad, setScanDeepLoad] = useState({});
+  const [deepSocialData, setDeepSocialData] = useState({});
+  const [deepSocialLoad, setDeepSocialLoad] = useState({});
   const [autoScanOn,   setAutoScanOn]   = useState(false);
   const [autoScanMins, setAutoScanMins] = useState(5);
   const [autoScanCountdown, setAutoScanCountdown] = useState(0);
@@ -8006,6 +8008,19 @@ export default function App() {
       }));
     } catch {}
     setScanDeepLoad(prev => ({ ...prev, [ticker]: false }));
+  }
+
+  async function loadDeepSocial(ticker) {
+    if (deepSocialData[ticker]) return;
+    setDeepSocialLoad(prev => ({ ...prev, [ticker]: true }));
+    try {
+      const r = await fetch(`/api/market/social?ticker=${encodeURIComponent(ticker)}`);
+      const d = r.ok ? await r.json() : null;
+      setDeepSocialData(prev => ({ ...prev, [ticker]: d || {} }));
+    } catch {
+      setDeepSocialData(prev => ({ ...prev, [ticker]: {} }));
+    }
+    setDeepSocialLoad(prev => ({ ...prev, [ticker]: false }));
   }
 
   async function fetchTradeSetup(ticker, row) {
@@ -13203,6 +13218,7 @@ export default function App() {
                                 } else {
                                   setScanExpanded(row.ticker);
                                   loadDeepDive(row.ticker);
+                                  loadDeepSocial(row.ticker);
                                 }
                               }}
                               style={{
@@ -13350,10 +13366,10 @@ export default function App() {
                                       ⌛ Loading deep dive data for {row.ticker}…
                                     </div>
                                   ) : (
-                                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                                    <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
 
-                                      {/* ── Left: TradingView mini chart ── */}
-                                      <div style={{ flex: "0 0 340px", minWidth: 280 }}>
+                                      {/* ── Col 1: TradingView mini chart ── */}
+                                      <div style={{ flex: "0 0 320px", minWidth: 260 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
                                           📊 CHART
@@ -13363,62 +13379,80 @@ export default function App() {
                                           <iframe
                                             title={`tv-${row.ticker}`}
                                             scrolling="no"
-                                            style={{ width: "100%", height: 220, border: "none" }}
-                                            src={`/client/tv-widget.html?w=mini-symbol-overview&s=${encodeURIComponent(row.ticker)}&t=${themeMode === "dark" ? "dark" : "light"}&h=220`}
+                                            style={{ width: "100%", height: 200, border: "none" }}
+                                            src={`/client/tv-widget.html?w=mini-symbol-overview&s=${encodeURIComponent(row.ticker)}&t=${themeMode === "dark" ? "dark" : "light"}&h=200`}
                                           />
                                         </div>
                                       </div>
 
-                                      {/* ── Middle: Signals + Technicals ── */}
-                                      <div style={{ flex: "1 1 200px", minWidth: 180 }}>
+                                      {/* ── Col 2: TECHNICALS (indicators + signals + entry zones) ── */}
+                                      <div style={{ flex: "1 1 190px", minWidth: 170 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
-                                          ⚡ SIGNALS ({row.signals?.length || 0})
+                                          ⚡ TECHNICALS
                                         </div>
-                                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                          {(row.signals || []).length === 0 ? (
-                                            <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
-                                              No signals — run scan for live data
-                                            </span>
-                                          ) : (row.signals || []).map((sig, si) => (
-                                            <div key={si} style={{ display: "flex", alignItems: "center",
-                                              gap: 6, fontFamily: MONO, fontSize: 9,
-                                              color: sig.bull ? C.green : C.red }}>
-                                              <span>{sig.bull ? "▲" : "▼"}</span>
-                                              <span>{sig.txt}</span>
+                                        {/* Key indicator values */}
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 10 }}>
+                                          {[
+                                            { k: "RSI (14)", v: row.rsiVal != null ? row.rsiVal.toFixed(0) : "—",
+                                              col: row.rsiVal == null ? C.textDim : row.rsiVal < 30 ? C.green : row.rsiVal > 70 ? C.red : C.text },
+                                            { k: "MACD", v: row.macdBull == null ? "—" : row.macdBull ? "▲ BULLISH" : "▼ BEARISH",
+                                              col: row.macdBull == null ? C.textDim : row.macdBull ? C.green : C.red },
+                                            { k: "EMA 9/21", v: (row.ema9v && row.ema21v) ? (row.ema9v > row.ema21v ? "9 > 21 ▲" : "9 < 21 ▼") : "—",
+                                              col: (row.ema9v && row.ema21v) ? (row.ema9v > row.ema21v ? C.green : C.red) : C.textDim },
+                                            { k: "Zone", v: zoneLbl, col: zoneCol },
+                                            { k: "Score", v: `${row.score} / 100`, col: row.sColor },
+                                          ].map(({ k, v, col }) => (
+                                            <div key={k} style={{ display: "flex", justifyContent: "space-between",
+                                              fontFamily: MONO, fontSize: 9, padding: "3px 0",
+                                              borderBottom: `1px solid ${C.border}22` }}>
+                                              <span style={{ color: C.textDim }}>{k}</span>
+                                              <span style={{ color: col, fontWeight: 700 }}>{v}</span>
                                             </div>
                                           ))}
                                         </div>
-
+                                        {/* Signal reasons */}
+                                        {(row.signals || []).length > 0 && (
+                                          <>
+                                            <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim,
+                                              letterSpacing: "0.08em", marginBottom: 4 }}>REASONS</div>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                              {(row.signals || []).map((sig, si) => (
+                                                <div key={si} style={{ display: "flex", alignItems: "center",
+                                                  gap: 5, fontFamily: MONO, fontSize: 8,
+                                                  color: sig.bull ? C.green : C.red }}>
+                                                  <span>{sig.bull ? "▲" : "▼"}</span>
+                                                  <span>{sig.txt}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </>
+                                        )}
                                         {/* Entry zones */}
                                         {ref && (
-                                          <div style={{ marginTop: 12 }}>
-                                            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
-                                              color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
-                                              🎯 ENTRY ZONES
-                                            </div>
+                                          <div style={{ marginTop: 10 }}>
+                                            <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim,
+                                              letterSpacing: "0.08em", marginBottom: 4 }}>ENTRY ZONES</div>
                                             {[
-                                              { label: "Deep Value", val: ref.e3, col: "#00e676" },
-                                              { label: "Better",     val: ref.e2, col: "#4caf50" },
-                                              { label: "Starter",    val: ref.e1, col: "#26a69a" },
-                                              { label: "Trigger ▲",  val: ref.trigger, col: "#ffd700" },
-                                              { label: "Stop ✂",     val: ref.stop,    col: C.red },
+                                              { label: "Deep", val: ref.e3, col: "#00e676" },
+                                              { label: "Better", val: ref.e2, col: "#4caf50" },
+                                              { label: "Starter", val: ref.e1, col: "#26a69a" },
+                                              { label: "Trigger ▲", val: ref.trigger, col: "#ffd700" },
+                                              { label: "Stop ✂", val: ref.stop, col: C.red },
                                             ].map(z => (
                                               <div key={z.label} style={{ display: "flex", justifyContent: "space-between",
                                                 fontFamily: MONO, fontSize: 9, padding: "2px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
                                                 <span style={{ color: z.col }}>{z.label}</span>
-                                                <span style={{ color: z.col, fontWeight: 700 }}>
-                                                  ${Number(z.val).toFixed(2)}
-                                                </span>
+                                                <span style={{ color: z.col, fontWeight: 700 }}>${Number(z.val).toFixed(2)}</span>
                                               </div>
                                             ))}
                                           </div>
                                         )}
                                       </div>
 
-                                      {/* ── Right: Fundamentals ── */}
-                                      <div style={{ flex: "1 1 200px", minWidth: 180 }}>
+                                      {/* ── Col 3: FUNDAMENTALS ── */}
+                                      <div style={{ flex: "1 1 175px", minWidth: 160 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
                                           📋 FUNDAMENTALS
@@ -13426,18 +13460,18 @@ export default function App() {
                                         {fd ? (
                                           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                                             {[
-                                              ["Market Cap",    fd.marketCap ? `$${(fd.marketCap/1e9).toFixed(2)}B` : "—"],
-                                              ["Revenue TTM",   fd.revenue   ? `$${(fd.revenue/1e9).toFixed(2)}B`   : "—"],
-                                              ["Gross Margin",  fd.grossMargin  ? `${(fd.grossMargin*100).toFixed(1)}%`  : "—"],
-                                              ["Rev Growth",    fd.revenueGrowth ? `${(fd.revenueGrowth*100).toFixed(1)}%` : "—"],
-                                              ["P/S Ratio",     fd.priceToSales ? `${Number(fd.priceToSales).toFixed(1)}×`  : "—"],
-                                              ["P/E Ratio",     fd.trailingPE   ? `${Number(fd.trailingPE).toFixed(1)}×`   : "—"],
-                                              ["Debt/Equity",   fd.debtToEquity ? `${Number(fd.debtToEquity).toFixed(2)}` : "—"],
-                                              ["Cash",          fd.totalCash    ? `$${(fd.totalCash/1e9).toFixed(2)}B`     : "—"],
-                                              ["52W Range",     (yH > 0 && yL > 0) ? `$${yL.toFixed(2)} – $${yH.toFixed(2)}` : "—"],
+                                              ["Mkt Cap",    fd.marketCap ? `$${(fd.marketCap/1e9).toFixed(1)}B` : "—"],
+                                              ["Revenue",    fd.revenue   ? `$${(fd.revenue/1e9).toFixed(1)}B`   : "—"],
+                                              ["Margin",     fd.grossMargin  ? `${(fd.grossMargin*100).toFixed(1)}%`  : "—"],
+                                              ["Rev Grw",    fd.revenueGrowth ? `${(fd.revenueGrowth*100).toFixed(1)}%` : "—"],
+                                              ["P/S",        fd.priceToSales ? `${Number(fd.priceToSales).toFixed(1)}×`  : "—"],
+                                              ["P/E",        fd.trailingPE   ? `${Number(fd.trailingPE).toFixed(1)}×`   : "—"],
+                                              ["D/E",        fd.debtToEquity ? `${Number(fd.debtToEquity).toFixed(2)}` : "—"],
+                                              ["Cash",       fd.totalCash    ? `$${(fd.totalCash/1e9).toFixed(1)}B`     : "—"],
+                                              ["52W",        (yH > 0 && yL > 0) ? `${yL.toFixed(0)}–${yH.toFixed(0)}` : "—"],
                                             ].map(([k, v]) => (
                                               <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 9, padding: "2px 0",
+                                                fontFamily: MONO, fontSize: 9, padding: "3px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
                                                 <span style={{ color: C.textDim }}>{k}</span>
                                                 <span style={{ color: C.text, fontWeight: 600 }}>{v}</span>
@@ -13446,20 +13480,99 @@ export default function App() {
                                           </div>
                                         ) : (
                                           <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
-                                            {deepData ? "No fundamental data available" : "Loading…"}
+                                            {deepData ? "No data" : "Loading…"}
                                           </div>
                                         )}
                                       </div>
 
-                                      {/* ── Far right: News ── */}
-                                      <div style={{ flex: "1 1 220px", minWidth: 200 }}>
+                                      {/* ── Col 4: SOCIAL SENTIMENT ── */}
+                                      <div style={{ flex: "1 1 175px", minWidth: 160 }}>
+                                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                                          color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
+                                          💬 SOCIAL SENTIMENT
+                                        </div>
+                                        {deepSocialLoad[row.ticker] ? (
+                                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Loading…</div>
+                                        ) : (() => {
+                                          const sd = deepSocialData[row.ticker];
+                                          if (!sd || (!sd.stocktwits && !sd.redditMentions)) {
+                                            return <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>No data</div>;
+                                          }
+                                          const stwits  = sd.stocktwits || {};
+                                          const bullPct = stwits.bullPct ?? 50;
+                                          const bearPct = 100 - bullPct;
+                                          const total   = stwits.total ?? 0;
+                                          const msgs    = stwits.messages ?? [];
+                                          return (
+                                            <div>
+                                              {/* Bull / Bear numbers */}
+                                              <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                                                <div style={{ flex: 1, padding: "8px 6px", borderRadius: 5,
+                                                  background: `${C.green}18`, border: `1px solid ${C.green}44`,
+                                                  textAlign: "center" }}>
+                                                  <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.green }}>{bullPct.toFixed(0)}%</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim }}>BULL</div>
+                                                </div>
+                                                <div style={{ flex: 1, padding: "8px 6px", borderRadius: 5,
+                                                  background: `${C.red}18`, border: `1px solid ${C.red}44`,
+                                                  textAlign: "center" }}>
+                                                  <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.red }}>{bearPct.toFixed(0)}%</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim }}>BEAR</div>
+                                                </div>
+                                              </div>
+                                              {/* Sentiment bar */}
+                                              <div style={{ height: 6, borderRadius: 4, overflow: "hidden",
+                                                display: "flex", marginBottom: 6 }}>
+                                                <div style={{ width: `${bullPct}%`, background: C.green, minWidth: bullPct > 0 ? 2 : 0 }} />
+                                                <div style={{ flex: 1, background: C.red }} />
+                                              </div>
+                                              {/* Stats */}
+                                              {[
+                                                ["Posts", total],
+                                                ["WSB", sd.redditMentions ?? "—"],
+                                              ].map(([k, v]) => (
+                                                <div key={k} style={{ display: "flex", justifyContent: "space-between",
+                                                  fontFamily: MONO, fontSize: 9, padding: "3px 0",
+                                                  borderBottom: `1px solid ${C.border}22` }}>
+                                                  <span style={{ color: C.textDim }}>{k}</span>
+                                                  <span style={{ color: C.text, fontWeight: 700 }}>{v}</span>
+                                                </div>
+                                              ))}
+                                              {/* Top 3 recent posts */}
+                                              {msgs.length > 0 && (
+                                                <div style={{ marginTop: 8 }}>
+                                                  <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim,
+                                                    letterSpacing: "0.08em", marginBottom: 5 }}>RECENT</div>
+                                                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                                    {msgs.slice(0, 3).map((m, mi) => (
+                                                      <div key={mi} style={{ padding: "5px 7px", borderRadius: 4,
+                                                        background: C.surface,
+                                                        borderLeft: `2px solid ${m.sentiment === "Bullish" ? C.green : m.sentiment === "Bearish" ? C.red : C.border}` }}>
+                                                        <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, marginBottom: 2 }}>
+                                                          {m.sentiment === "Bullish" ? "🟢" : m.sentiment === "Bearish" ? "🔴" : "⚪"} {m.user}
+                                                        </div>
+                                                        <div style={{ fontFamily: MONO, fontSize: 8, color: C.textSec, lineHeight: 1.4 }}>
+                                                          {(m.body || "").slice(0, 80)}{m.body?.length > 80 ? "…" : ""}
+                                                        </div>
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
+                                      </div>
+
+                                      {/* ── Col 5: RECENT NEWS ── */}
+                                      <div style={{ flex: "1 1 200px", minWidth: 180 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
                                           📰 RECENT NEWS
                                         </div>
                                         {deepData?.news?.length > 0 ? (
-                                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                            {deepData.news.slice(0, 6).map((n, ni) => {
+                                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                                            {deepData.news.slice(0, 5).map((n, ni) => {
                                               const title = n.title || n.headline || "";
                                               const src   = n.source || n.publisher || "";
                                               const url   = n.url || n.link || "#";
@@ -13472,16 +13585,16 @@ export default function App() {
                                               return (
                                                 <a key={ni} href={url} target="_blank" rel="noopener noreferrer"
                                                   style={{ display: "block", textDecoration: "none",
-                                                    padding: "6px 8px", borderRadius: 4,
-                                                    background: bear ? C.redBg : bull ? C.greenBg : C.card,
+                                                    padding: "5px 7px", borderRadius: 4,
+                                                    background: bear ? `${C.red}0d` : bull ? `${C.green}0d` : C.card,
                                                     border: `1px solid ${bear ? C.red : bull ? C.green : C.border}44` }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 9,
+                                                  <div style={{ fontFamily: MONO, fontSize: 8,
                                                     color: bear ? C.red : bull ? C.green : C.text,
                                                     lineHeight: 1.4 }}>
-                                                    {title.length > 90 ? title.slice(0, 90) + "…" : title}
+                                                    {title.length > 80 ? title.slice(0, 80) + "…" : title}
                                                   </div>
                                                   {src && (
-                                                    <div style={{ fontFamily: MONO, fontSize: 8,
+                                                    <div style={{ fontFamily: MONO, fontSize: 7,
                                                       color: C.textDim, marginTop: 2 }}>
                                                       {src}
                                                     </div>
@@ -13492,13 +13605,13 @@ export default function App() {
                                           </div>
                                         ) : (
                                           <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
-                                            {deepData ? "No recent news found" : "Loading…"}
+                                            {deepData ? "No news found" : "Loading…"}
                                           </div>
                                         )}
                                       </div>
 
-                                      {/* ── AI Trade Setup panel ── */}
-                                      <div style={{ flex: "1 1 260px", minWidth: 240 }}>
+                                      {/* ── Col 6: AI Trade Setup + Auto-Execute ── */}
+                                      <div style={{ flex: "1 1 240px", minWidth: 220 }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                                           <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                             color: C.textDim, letterSpacing: "0.06em" }}>
