@@ -11238,7 +11238,103 @@ export default function App() {
                       );
                     })}
                   </div>
-                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>
+                  {/* ── Money Flow ── */}
+                  {distData.moneyFlow && distData.moneyFlow.length > 0 && (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text,
+                        letterSpacing: "0.06em", marginBottom: 10, paddingBottom: 6,
+                        borderBottom: `2px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+                        💰 WHERE IS THE MONEY FLOWING?
+                        <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 400, color: C.textDim }}>
+                          Volume-weighted sector rotation
+                        </span>
+                      </div>
+
+                      {/* Inflows */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                        <div>
+                          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.green,
+                            marginBottom: 6, letterSpacing: "0.05em" }}>⬆ INFLOWS — INSTITUTIONS BUYING</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            {(distData.topInflows || []).map((s, i) => (
+                              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8,
+                                padding: "7px 10px", borderRadius: 6,
+                                background: `${C.green}${i === 0 ? "18" : "0d"}`,
+                                border: `1px solid ${C.green}${i === 0 ? "44" : "22"}` }}>
+                                <span style={{ fontSize: 14 }}>{s.icon}</span>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{s.name}</div>
+                                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{s.sym} · RVOL {s.rvol}×</div>
+                                </div>
+                                <div style={{ textAlign: "right" }}>
+                                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900,
+                                    color: C.green }}>+{s.chg.toFixed(2)}%</div>
+                                  <div style={{ fontFamily: SANS, fontSize: 9, color: C.green }}>{s.flowLbl}</div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.red,
+                            marginBottom: 6, letterSpacing: "0.05em" }}>⬇ OUTFLOWS — INSTITUTIONS SELLING</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            {(distData.topOutflows || []).map((s, i) => (
+                              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8,
+                                padding: "7px 10px", borderRadius: 6,
+                                background: `${C.red}${i === 0 ? "12" : "08"}`,
+                                border: `1px solid ${C.red}${i === 0 ? "44" : "22"}` }}>
+                                <span style={{ fontSize: 14 }}>{s.icon}</span>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{s.name}</div>
+                                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{s.sym} · RVOL {s.rvol}×</div>
+                                </div>
+                                <div style={{ textAlign: "right" }}>
+                                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900,
+                                    color: C.red }}>{s.chg.toFixed(2)}%</div>
+                                  <div style={{ fontFamily: SANS, fontSize: 9, color: C.red }}>{s.flowLbl}</div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Full sector heat grid */}
+                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim,
+                        marginBottom: 6, letterSpacing: "0.05em" }}>ALL SECTORS</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 4 }}>
+                        {(distData.moneyFlow || []).map((s, i) => {
+                          const col = s.chg > 1.5 ? C.green : s.chg > 0.3 ? "#4caf50"
+                            : s.chg > 0 ? "#26a69a" : s.chg > -0.3 ? C.textDim
+                            : s.chg > -1.5 ? C.amber : C.red;
+                          const bg  = s.chg > 0 ? `${C.green}${s.chg > 1 ? "18" : "0d"}` : s.chg < 0 ? `${C.red}${s.chg < -1 ? "12" : "08"}` : C.surface;
+                          return (
+                            <div key={i} style={{ padding: "6px 8px", borderRadius: 5,
+                              background: bg, border: `1px solid ${col}33`,
+                              display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontSize: 12 }}>{s.icon}</span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontFamily: SANS, fontSize: 10, color: C.text,
+                                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</div>
+                                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: col }}>
+                                  {s.chg >= 0 ? "+" : ""}{s.chg.toFixed(2)}%
+                                  {s.ma50above !== null && (
+                                    <span style={{ marginLeft: 4, fontSize: 8, color: s.ma50above ? C.green : C.red }}>
+                                      {s.ma50above ? "▲MA50" : "▼MA50"}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 10 }}>
                     Last scan: {new Date(distData.scannedAt).toLocaleTimeString()} · ✅ = clear  🟡 = watch  🔴 = alert
                   </div>
                 </div>

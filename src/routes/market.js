@@ -1121,7 +1121,28 @@ async function handleMarket(req, res, requestUrl) {
       const GROWTH    = ["XLK", "XLY", "SMH", "ARKK"];
       const CREDIT    = ["HYG", "LQD"];
 
-      const allSyms = [...new Set([...INDEXES, ...DEFENSIVE, ...GROWTH, ...CREDIT])];
+      // All 11 S&P sectors + key macro ETFs for money flow
+      const SECTORS = [
+        { sym: "XLK",  name: "Tech",        icon: "💻" },
+        { sym: "XLF",  name: "Financials",  icon: "🏦" },
+        { sym: "XLV",  name: "Healthcare",  icon: "🏥" },
+        { sym: "XLE",  name: "Energy",      icon: "⚡" },
+        { sym: "XLI",  name: "Industrials", icon: "🏭" },
+        { sym: "XLY",  name: "Cons. Disc.", icon: "🛍" },
+        { sym: "XLP",  name: "Cons. Staples",icon: "🛒"},
+        { sym: "XLU",  name: "Utilities",   icon: "💡" },
+        { sym: "XLRE", name: "Real Estate", icon: "🏠" },
+        { sym: "XLB",  name: "Materials",   icon: "⛏" },
+        { sym: "XLC",  name: "Comm. Svcs",  icon: "📡" },
+        { sym: "GLD",  name: "Gold",        icon: "🥇" },
+        { sym: "TLT",  name: "Bonds (TLT)", icon: "📜" },
+        { sym: "IBIT", name: "Bitcoin",     icon: "₿"  },
+      ];
+
+      const allSyms = [...new Set([
+        ...INDEXES, ...DEFENSIVE, ...GROWTH, ...CREDIT,
+        ...SECTORS.map(s => s.sym),
+      ])];
       const quotes  = await fetchYahooQuoteBatch(allSyms).catch(() => []);
       const qMap    = Object.fromEntries(quotes.map(q => [String(q.symbol || "").toUpperCase(), q]));
 
@@ -1329,10 +1350,37 @@ async function handleMarket(req, res, requestUrl) {
         };
       });
 
+      // ── Money Flow: where institutions are rotating ─────────────────────────
+      const moneyFlow = SECTORS.map(sec => {
+        const q = qMap[sec.sym];
+        if (!q) return { ...sec, chg: 0, rvol: 0, flow: 0, flowLbl: "—", ma50above: null };
+
+        const price  = Number(q.regularMarketPrice || 0);
+        const prev   = Number(q.regularMarketPreviousClose || price);
+        const chg    = prev > 0 ? round2((price - prev) / prev * 100) : round2(Number(q.regularMarketChangePercent || 0));
+        const vol    = Number(q.regularMarketVolume || 0);
+        const avgVol = Number(q.averageDailyVolume3Month || q.averageDailyVolume10Day || 1);
+        const rvol   = avgVol > 0 ? round2(vol / avgVol) : 1;
+        const ma50   = Number(q.fiftyDayAverage || 0);
+        const ma50above = ma50 > 0 ? price > ma50 : null;
+
+        // Flow score: volume-weighted change — high rvol on up day = strong inflow
+        const flow = round2(chg * Math.min(rvol, 3));
+
+        const flowLbl = flow > 1.5 ? "STRONG IN" : flow > 0.5 ? "IN" : flow > 0 ? "MILD IN"
+          : flow < -1.5 ? "STRONG OUT" : flow < -0.5 ? "OUT" : flow < 0 ? "MILD OUT" : "NEUTRAL";
+
+        return { ...sec, chg, rvol, flow, flowLbl, ma50above, price };
+      }).sort((a, b) => b.flow - a.flow);
+
+      const topInflows  = moneyFlow.filter(s => s.flow > 0).slice(0, 5);
+      const topOutflows = moneyFlow.filter(s => s.flow < 0).slice(-4).reverse();
+
       const distResult = {
         ok: true, riskScore, alert, warnings, checkStatus,
         vix: round2(vix), vixChg: round2(vixChg),
         rotationDiff: rotDiff, indexSnapshot,
+        moneyFlow, topInflows, topOutflows,
         scannedAt: new Date().toISOString(),
       };
       _distCache.data = distResult;
