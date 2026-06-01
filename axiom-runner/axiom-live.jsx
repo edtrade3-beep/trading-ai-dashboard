@@ -13404,8 +13404,7 @@ export default function App() {
 
                                       {/* ── Col 1: TradingView mini chart ── */}
                                       <div style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
-                                          color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                           📊 CHART
                                         </div>
                                         <div style={{ borderRadius: 6, overflow: "hidden", flex: 1,
@@ -13426,8 +13425,7 @@ export default function App() {
 
                                       {/* ── Col 2: TECHNICALS (indicators + signals + entry zones) ── */}
                                       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
-                                          color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                           ⚡ TECHNICALS
                                         </div>
                                         {/* Key indicator values */}
@@ -13443,9 +13441,9 @@ export default function App() {
                                             { k: "Score", v: `${row.score} / 100`, col: row.sColor },
                                           ].map(({ k, v, col }) => (
                                             <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                              fontFamily: MONO, fontSize: 12, padding: "5px 0",
+                                              fontFamily: MONO, fontSize: 12, padding: "6px 0",
                                               borderBottom: `1px solid ${C.border}22` }}>
-                                              <span style={{ color: C.textDim }}>{k}</span>
+                                              <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>{k}</span>
                                               <span style={{ color: col, fontWeight: 700 }}>{v}</span>
                                             </div>
                                           ))}
@@ -13453,8 +13451,7 @@ export default function App() {
                                         {/* Signal reasons */}
                                         {(row.signals || []).length > 0 && (
                                           <>
-                                            <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
-                                              letterSpacing: "0.08em", marginBottom: 5 }}>REASONS</div>
+                                            <div style={{ fontFamily: MONO, fontSize: 10, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>REASONS</div>
                                             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                                               {(row.signals || []).map((sig, si) => (
                                                 <div key={si} style={{ display: "flex", alignItems: "center",
@@ -13470,8 +13467,7 @@ export default function App() {
                                         {/* Entry zones */}
                                         {ref && (
                                           <div style={{ marginTop: 12 }}>
-                                            <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
-                                              letterSpacing: "0.08em", marginBottom: 5 }}>ENTRY ZONES</div>
+                                            <div style={{ fontFamily: MONO, fontSize: 10, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>ENTRY ZONES</div>
                                             {[
                                               { label: "Deep", val: ref.e3, col: "#00e676" },
                                               { label: "Better", val: ref.e2, col: "#4caf50" },
@@ -13480,7 +13476,7 @@ export default function App() {
                                               { label: "Stop ✂", val: ref.stop, col: C.red },
                                             ].map(z => (
                                               <div key={z.label} style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 12, padding: "4px 0",
+                                                fontFamily: MONO, fontSize: 12, padding: "6px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
                                                 <span style={{ color: z.col }}>{z.label}</span>
                                                 <span style={{ color: z.col, fontWeight: 700 }}>${Number(z.val).toFixed(2)}</span>
@@ -13493,8 +13489,7 @@ export default function App() {
 
                                       {/* ── Col 3: FUNDAMENTALS + SHORT INTEREST + OPTIONS ── */}
                                       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
-                                          color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                           📋 FUNDS & DATA
                                         </div>
                                         {fd ? (
@@ -13511,9 +13506,9 @@ export default function App() {
                                               ["52W",        (yH > 0 && yL > 0) ? `${yL.toFixed(0)}–${yH.toFixed(0)}` : "—"],
                                             ].map(([k, v]) => (
                                               <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 12, padding: "5px 0",
+                                                fontFamily: MONO, fontSize: 12, padding: "6px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
-                                                <span style={{ color: C.textDim }}>{k}</span>
+                                                <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>{k}</span>
                                                 <span style={{ color: C.text, fontWeight: 600 }}>{v}</span>
                                               </div>
                                             ))}
@@ -13532,17 +13527,16 @@ export default function App() {
                                           const sfColor = sf == null ? C.textDim : sf > 20 ? C.red : sf > 10 ? C.amber : C.green;
                                           return (
                                             <div style={{ marginBottom: 12 }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
-                                                letterSpacing: "0.08em", marginBottom: 5 }}>🩳 SHORT INTEREST</div>
+                                              <div style={{ fontFamily: MONO, fontSize: 10, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>🩳 SHORT INTEREST</div>
                                               {[
                                                 ["Float Short", sf != null ? `${sf.toFixed(1)}%` : "—", sfColor],
                                                 ["Days Cover",  si.shortRatio != null ? `${si.shortRatio.toFixed(1)}d` : "—", C.text],
                                                 ["Updated",     si.dateShortInterest || "—", C.textDim],
                                               ].map(([k, v, col]) => (
                                                 <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 12, padding: "4px 0",
+                                                  fontFamily: MONO, fontSize: 12, padding: "6px 0",
                                                   borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ color: C.textDim }}>{k}</span>
+                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>{k}</span>
                                                   <span style={{ color: col, fontWeight: 700 }}>{v}</span>
                                                 </div>
                                               ))}
@@ -13559,24 +13553,23 @@ export default function App() {
                                           const cprLabel = cpr > 1.5 ? "BULLISH" : cpr < 0.7 ? "BEARISH" : "NEUTRAL";
                                           return (
                                             <div>
-                                              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
-                                                letterSpacing: "0.08em", marginBottom: 5 }}>📊 OPTIONS FLOW</div>
+                                              <div style={{ fontFamily: MONO, fontSize: 10, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>📊 OPTIONS FLOW</div>
                                               <div style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 12, padding: "4px 0",
+                                                fontFamily: MONO, fontSize: 12, padding: "6px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
-                                                <span style={{ color: C.textDim }}>C/P Ratio</span>
+                                                <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>C/P Ratio</span>
                                                 <span style={{ color: cprColor, fontWeight: 700 }}>{cpr.toFixed(2)}×</span>
                                               </div>
                                               <div style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 12, padding: "4px 0",
+                                                fontFamily: MONO, fontSize: 12, padding: "6px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
-                                                <span style={{ color: C.textDim }}>Bias</span>
+                                                <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>Bias</span>
                                                 <span style={{ color: cprColor, fontWeight: 700 }}>{cprLabel}</span>
                                               </div>
                                               {opt.expiration && (
                                                 <div style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 12, padding: "4px 0" }}>
-                                                  <span style={{ color: C.textDim }}>Exp</span>
+                                                  fontFamily: MONO, fontSize: 12, padding: "6px 0" }}>
+                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>Exp</span>
                                                   <span style={{ color: C.textSec }}>{opt.expiration}</span>
                                                 </div>
                                               )}
@@ -13588,8 +13581,7 @@ export default function App() {
 
                                       {/* ── Col 4: SOCIAL SENTIMENT + INSIDER BUYS ── */}
                                       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
-                                          color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                           💬 SENTIMENT
                                         </div>
                                         {deepSocialLoad[row.ticker] ? (
@@ -13633,17 +13625,16 @@ export default function App() {
                                                 ["WSB", sd.redditMentions ?? "—"],
                                               ].map(([k, v]) => (
                                                 <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 12, padding: "5px 0",
+                                                  fontFamily: MONO, fontSize: 12, padding: "6px 0",
                                                   borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ color: C.textDim }}>{k}</span>
+                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>{k}</span>
                                                   <span style={{ color: C.text, fontWeight: 700 }}>{v}</span>
                                                 </div>
                                               ))}
                                               {/* Top 3 recent posts */}
                                               {msgs.length > 0 && (
                                                 <div style={{ marginTop: 10 }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
-                                                    letterSpacing: "0.08em", marginBottom: 6 }}>RECENT</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 10, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6, marginTop: 8, textTransform: "uppercase" }}>RECENT</div>
                                                   <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                                                     {msgs.slice(0, 3).map((m, mi) => (
                                                       <div key={mi} style={{ padding: "6px 8px", borderRadius: 4,
@@ -13675,8 +13666,7 @@ export default function App() {
                                           const fmtVal = v => v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v}`;
                                           return (
                                             <div style={{ marginTop: 12 }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
-                                                letterSpacing: "0.08em", marginBottom: 6 }}>🏦 INSIDER TRANSACTIONS</div>
+                                              <div style={{ fontFamily: MONO, fontSize: 10, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6, marginTop: 8, textTransform: "uppercase" }}>🏦 INSIDER TRANSACTIONS</div>
                                               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                                                 {all.map((t, ti) => (
                                                   <div key={ti} style={{ padding: "6px 8px", borderRadius: 4,
@@ -13707,8 +13697,7 @@ export default function App() {
 
                                       {/* ── Col 5: RECENT NEWS ── */}
                                       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
-                                          color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                           📰 RECENT NEWS
                                         </div>
                                         {deepData?.news?.length > 0 ? (
@@ -13753,8 +13742,7 @@ export default function App() {
 
                                       {/* ── Col 6: ANALYST RATINGS + EARNINGS ── */}
                                       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
-                                          color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                           🎯 ANALYST & EARNINGS
                                         </div>
 
@@ -13802,9 +13790,9 @@ export default function App() {
                                                 ["Rating Score", strongBuy > 0 ? `${strongBuy.toFixed(1)} / 5` : "—", C.textSec],
                                               ].map(([k, v, col]) => (
                                                 <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 12, padding: "4px 0",
+                                                  fontFamily: MONO, fontSize: 12, padding: "6px 0",
                                                   borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ color: C.textDim }}>{k}</span>
+                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>{k}</span>
                                                   <span style={{ color: col, fontWeight: 700 }}>{v}</span>
                                                 </div>
                                               ))}
@@ -13845,9 +13833,9 @@ export default function App() {
                                                   earnGrowth > 0 ? C.green : earnGrowth < 0 ? C.red : C.textDim],
                                               ].map(([k, v, col]) => (
                                                 <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 12, padding: "4px 0",
+                                                  fontFamily: MONO, fontSize: 12, padding: "6px 0",
                                                   borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ color: C.textDim }}>{k}</span>
+                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>{k}</span>
                                                   <span style={{ color: col, fontWeight: 700 }}>{v}</span>
                                                 </div>
                                               ))}
