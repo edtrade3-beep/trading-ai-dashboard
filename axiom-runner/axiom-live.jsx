@@ -13392,7 +13392,7 @@ export default function App() {
                                   style={{ background: C.bg,
                                     borderLeft: `3px solid ${row.sColor}`,
                                     borderBottom: `2px solid ${row.sColor}44`,
-                                    padding: "20px 22px" }}>
+                                    padding: "20px 22px", minHeight: 380 }}>
 
                                   {isLoading ? (
                                     <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
@@ -13400,11 +13400,11 @@ export default function App() {
                                       ⌛ Loading deep dive data for {row.ticker}…
                                     </div>
                                   ) : (
-                                    <div style={{ display: "grid", gridTemplateColumns: "280px repeat(4, minmax(0,1fr)) minmax(0,1.4fr) minmax(0,1.8fr)", gap: 16, width: "100%", alignItems: "stretch" }}>
+                                    <div style={{ display: "grid", gridTemplateColumns: "280px repeat(4, minmax(0,1fr)) minmax(0,1.4fr) minmax(0,1.8fr)", gap: 16, width: "100%", alignItems: "stretch", minHeight: 340 }}>
 
                                       {/* ── Col 1: TradingView mini chart ── */}
-                                      <div style={{ display: "flex", flexDirection: "column" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           📊 CHART
                                         </div>
@@ -13413,15 +13413,15 @@ export default function App() {
                                           <iframe
                                             title={`tv-${row.ticker}`}
                                             scrolling="no"
-                                            style={{ width: "100%", height: "100%", minHeight: 240, border: "none" }}
-                                            src={`/client/tv-widget.html?w=mini-symbol-overview&s=${encodeURIComponent(row.ticker)}&t=${themeMode === "dark" ? "dark" : "light"}&h=240`}
+                                            style={{ width: "100%", height: "100%", minHeight: 280, border: "none" }}
+                                            src={`/client/tv-widget.html?w=mini-symbol-overview&s=${encodeURIComponent(row.ticker)}&t=${themeMode === "dark" ? "dark" : "light"}&h=280`}
                                           />
                                         </div>
                                       </div>
 
                                       {/* ── Col 2: TECHNICALS (indicators + signals + entry zones) ── */}
-                                      <div style={{ display: "flex", flexDirection: "column" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           ⚡ TECHNICALS
                                         </div>
@@ -13438,7 +13438,7 @@ export default function App() {
                                             { k: "Score", v: `${row.score} / 100`, col: row.sColor },
                                           ].map(({ k, v, col }) => (
                                             <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                              fontFamily: MONO, fontSize: 11, padding: "5px 0",
+                                              fontFamily: MONO, fontSize: 13, padding: "5px 0",
                                               borderBottom: `1px solid ${C.border}22` }}>
                                               <span style={{ color: C.textDim }}>{k}</span>
                                               <span style={{ color: col, fontWeight: 700 }}>{v}</span>
@@ -13448,7 +13448,7 @@ export default function App() {
                                         {/* Signal reasons */}
                                         {(row.signals || []).length > 0 && (
                                           <>
-                                            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                            <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
                                               letterSpacing: "0.08em", marginBottom: 5 }}>REASONS</div>
                                             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                                               {(row.signals || []).map((sig, si) => (
@@ -13465,7 +13465,7 @@ export default function App() {
                                         {/* Entry zones */}
                                         {ref && (
                                           <div style={{ marginTop: 12 }}>
-                                            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                            <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
                                               letterSpacing: "0.08em", marginBottom: 5 }}>ENTRY ZONES</div>
                                             {[
                                               { label: "Deep", val: ref.e3, col: "#00e676" },
@@ -13475,7 +13475,7 @@ export default function App() {
                                               { label: "Stop ✂", val: ref.stop, col: C.red },
                                             ].map(z => (
                                               <div key={z.label} style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 11, padding: "4px 0",
+                                                fontFamily: MONO, fontSize: 13, padding: "4px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
                                                 <span style={{ color: z.col }}>{z.label}</span>
                                                 <span style={{ color: z.col, fontWeight: 700 }}>${Number(z.val).toFixed(2)}</span>
@@ -13487,8 +13487,8 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 3: FUNDAMENTALS + SHORT INTEREST + OPTIONS ── */}
-                                      <div style={{ display: "flex", flexDirection: "column" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           📋 FUNDAMENTALS
                                         </div>
@@ -13506,7 +13506,7 @@ export default function App() {
                                               ["52W",        (yH > 0 && yL > 0) ? `${yL.toFixed(0)}–${yH.toFixed(0)}` : "—"],
                                             ].map(([k, v]) => (
                                               <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 11, padding: "5px 0",
+                                                fontFamily: MONO, fontSize: 13, padding: "5px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
                                                 <span style={{ color: C.textDim }}>{k}</span>
                                                 <span style={{ color: C.text, fontWeight: 600 }}>{v}</span>
@@ -13514,7 +13514,7 @@ export default function App() {
                                             ))}
                                           </div>
                                         ) : (
-                                          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 12 }}>
+                                          <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginBottom: 12 }}>
                                             {deepData ? "No data" : "Loading…"}
                                           </div>
                                         )}
@@ -13527,7 +13527,7 @@ export default function App() {
                                           const sfColor = sf == null ? C.textDim : sf > 20 ? C.red : sf > 10 ? C.amber : C.green;
                                           return (
                                             <div style={{ marginBottom: 12 }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
                                                 letterSpacing: "0.08em", marginBottom: 5 }}>🩳 SHORT INTEREST</div>
                                               {[
                                                 ["Float Short", sf != null ? `${sf.toFixed(1)}%` : "—", sfColor],
@@ -13535,7 +13535,7 @@ export default function App() {
                                                 ["Updated",     si.dateShortInterest || "—", C.textDim],
                                               ].map(([k, v, col]) => (
                                                 <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 11, padding: "4px 0",
+                                                  fontFamily: MONO, fontSize: 13, padding: "4px 0",
                                                   borderBottom: `1px solid ${C.border}22` }}>
                                                   <span style={{ color: C.textDim }}>{k}</span>
                                                   <span style={{ color: col, fontWeight: 700 }}>{v}</span>
@@ -13554,23 +13554,23 @@ export default function App() {
                                           const cprLabel = cpr > 1.5 ? "BULLISH" : cpr < 0.7 ? "BEARISH" : "NEUTRAL";
                                           return (
                                             <div>
-                                              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
                                                 letterSpacing: "0.08em", marginBottom: 5 }}>📊 OPTIONS FLOW</div>
                                               <div style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 11, padding: "4px 0",
+                                                fontFamily: MONO, fontSize: 13, padding: "4px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
                                                 <span style={{ color: C.textDim }}>C/P Ratio</span>
                                                 <span style={{ color: cprColor, fontWeight: 700 }}>{cpr.toFixed(2)}×</span>
                                               </div>
                                               <div style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 11, padding: "4px 0",
+                                                fontFamily: MONO, fontSize: 13, padding: "4px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
                                                 <span style={{ color: C.textDim }}>Bias</span>
                                                 <span style={{ color: cprColor, fontWeight: 700 }}>{cprLabel}</span>
                                               </div>
                                               {opt.expiration && (
                                                 <div style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 11, padding: "4px 0" }}>
+                                                  fontFamily: MONO, fontSize: 13, padding: "4px 0" }}>
                                                   <span style={{ color: C.textDim }}>Exp</span>
                                                   <span style={{ color: C.textSec }}>{opt.expiration}</span>
                                                 </div>
@@ -13582,17 +13582,17 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 4: SOCIAL SENTIMENT + INSIDER BUYS ── */}
-                                      <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                      <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
+                                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           💬 SOCIAL SENTIMENT
                                         </div>
                                         {deepSocialLoad[row.ticker] ? (
-                                          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Loading…</div>
+                                          <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>Loading…</div>
                                         ) : (() => {
                                           const sd = deepSocialData[row.ticker];
                                           if (!sd || (!sd.stocktwits && !sd.redditMentions)) {
-                                            return <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>No data</div>;
+                                            return <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>No data</div>;
                                           }
                                           const stwits  = sd.stocktwits || {};
                                           const bullPct = stwits.bullPct ?? 50;
@@ -13607,13 +13607,13 @@ export default function App() {
                                                   background: `${C.green}18`, border: `1px solid ${C.green}44`,
                                                   textAlign: "center" }}>
                                                   <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.green }}>{bullPct.toFixed(0)}%</div>
-                                                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>BULL</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>BULL</div>
                                                 </div>
                                                 <div style={{ flex: 1, padding: "10px 8px", borderRadius: 6,
                                                   background: `${C.red}18`, border: `1px solid ${C.red}44`,
                                                   textAlign: "center" }}>
                                                   <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.red }}>{bearPct.toFixed(0)}%</div>
-                                                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>BEAR</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>BEAR</div>
                                                 </div>
                                               </div>
                                               {/* Sentiment bar */}
@@ -13628,7 +13628,7 @@ export default function App() {
                                                 ["WSB", sd.redditMentions ?? "—"],
                                               ].map(([k, v]) => (
                                                 <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 11, padding: "5px 0",
+                                                  fontFamily: MONO, fontSize: 13, padding: "5px 0",
                                                   borderBottom: `1px solid ${C.border}22` }}>
                                                   <span style={{ color: C.textDim }}>{k}</span>
                                                   <span style={{ color: C.text, fontWeight: 700 }}>{v}</span>
@@ -13637,17 +13637,17 @@ export default function App() {
                                               {/* Top 3 recent posts */}
                                               {msgs.length > 0 && (
                                                 <div style={{ marginTop: 10 }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
                                                     letterSpacing: "0.08em", marginBottom: 6 }}>RECENT</div>
                                                   <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 180, overflowY: "auto" }}>
                                                     {msgs.slice(0, 3).map((m, mi) => (
                                                       <div key={mi} style={{ padding: "6px 8px", borderRadius: 4,
                                                         background: C.surface,
                                                         borderLeft: `2px solid ${m.sentiment === "Bullish" ? C.green : m.sentiment === "Bearish" ? C.red : C.border}` }}>
-                                                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 2 }}>
+                                                        <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 2 }}>
                                                           {m.sentiment === "Bullish" ? "🟢" : m.sentiment === "Bearish" ? "🔴" : "⚪"} {m.user}
                                                         </div>
-                                                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textSec, lineHeight: 1.4 }}>
+                                                        <div style={{ fontFamily: MONO, fontSize: 11, color: C.textSec, lineHeight: 1.4 }}>
                                                           {(m.body || "").slice(0, 90)}{m.body?.length > 90 ? "…" : ""}
                                                         </div>
                                                       </div>
@@ -13670,7 +13670,7 @@ export default function App() {
                                           const fmtVal = v => v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v}`;
                                           return (
                                             <div style={{ marginTop: 12 }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
                                                 letterSpacing: "0.08em", marginBottom: 6 }}>🏦 INSIDER TRANSACTIONS</div>
                                               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                                                 {all.map((t, ti) => (
@@ -13682,9 +13682,9 @@ export default function App() {
                                                         color: t.type === "BUY" ? C.green : C.red, fontWeight: 700 }}>
                                                         {t.type === "BUY" ? "▲ BUY" : "▼ SELL"}
                                                       </span>
-                                                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{t.date}</span>
+                                                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{t.date}</span>
                                                     </div>
-                                                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textSec, marginTop: 2 }}>
+                                                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textSec, marginTop: 2 }}>
                                                       {(t.name || "").split(" ").slice(0,2).join(" ")} · {t.value > 0 ? fmtVal(t.value) : `${(t.shares||0).toLocaleString()} sh`}
                                                     </div>
                                                   </div>
@@ -13696,8 +13696,8 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 5: RECENT NEWS ── */}
-                                      <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                      <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
+                                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           📰 RECENT NEWS
                                         </div>
@@ -13735,16 +13735,16 @@ export default function App() {
                                             })}
                                           </div>
                                         ) : (
-                                          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                                          <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>
                                             {deepData ? "No news found" : "Loading…"}
                                           </div>
                                         )}
                                       </div>
 
                                       {/* ── Col 6: AI Trade Setup + Auto-Execute ── */}
-                                      <div style={{ display: "flex", flexDirection: "column" }}>
+                                      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                                          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                             color: C.textDim, letterSpacing: "0.06em" }}>
                                             🤖 AI TRADE SETUP
                                           </div>
@@ -13752,7 +13752,7 @@ export default function App() {
                                             <button
                                               onClick={() => { if (!deepData) { loadDeepDive(row.ticker).then(() => fetchTradeSetup(row.ticker, row)); } else { fetchTradeSetup(row.ticker, row); } }}
                                               disabled={tradeSetupLoad[row.ticker]}
-                                              style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                                              style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
                                                 background: tradeSetupLoad[row.ticker] ? C.surface : `${C.purple}18`,
                                                 border: `1px solid ${tradeSetupLoad[row.ticker] ? C.border : C.purple}`,
                                                 color: tradeSetupLoad[row.ticker] ? C.textDim : C.purple,
@@ -13764,7 +13764,7 @@ export default function App() {
                                           {tradeSetups[row.ticker] && (
                                             <button
                                               onClick={() => { setTradeSetups(prev => { const n = {...prev}; delete n[row.ticker]; return n; }); }}
-                                              style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                              style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
                                                 background: "none", border: "none", cursor: "pointer" }}>
                                               ↺ Regenerate
                                             </button>
@@ -13832,7 +13832,7 @@ export default function App() {
                                         })()}
 
                                         {!tradeSetups[row.ticker] && !tradeSetupLoad[row.ticker] && !tradeSetupError[row.ticker] && (
-                                          <div style={{ flex: 1, fontFamily: MONO, fontSize: 11, color: C.textDim,
+                                          <div style={{ flex: 1, fontFamily: MONO, fontSize: 13, color: C.textDim,
                                             background: themeMode === "dark" ? "#0a1628" : "#f5f9ff",
                                             border: `1px dashed ${C.border}`, borderRadius: 6,
                                             padding: "20px 14px", textAlign: "center", lineHeight: 1.7,
