@@ -13746,16 +13746,26 @@ export default function App() {
 
                                         {/* Analyst Ratings */}
                                         {(() => {
-                                          const recKey = fd?.recommendationKey || fd?.recommendation;
+                                          const recKey  = fd?.recommendationKey;
                                           const target  = Number(fd?.analystTarget || fd?.targetMeanPrice || 0);
-                                          const price   = Number(row.quote?.price || row.quote?.regularMarketPrice || 0);
+                                          const tHigh   = Number(fd?.targetHighPrice || 0);
+                                          const tLow    = Number(fd?.targetLowPrice  || 0);
+                                          const price   = Number(livePrice || row.quote?.price || 0);
                                           const upside  = (target > 0 && price > 0) ? ((target - price) / price * 100) : null;
                                           const numAnal = Number(fd?.numberOfAnalystOpinions || 0);
-                                          const strongBuy = Number(fd?.recommendationMean || 0);
+                                          const ratingScore = Number(fd?.recommendationMean || 0);
+
+                                          // Breakdown counts from recommendationTrend
+                                          const sb = Number(fd?.analystStrongBuy  || 0);
+                                          const b  = Number(fd?.analystBuy        || 0);
+                                          const h  = Number(fd?.analystHold       || 0);
+                                          const s  = Number(fd?.analystSell       || 0);
+                                          const ss = Number(fd?.analystStrongSell || 0);
+                                          const totalRec = sb + b + h + s + ss;
 
                                           const recLabel = recKey
                                             ? recKey.replace(/_/g, " ").toUpperCase()
-                                            : "—";
+                                            : (numAnal > 0 ? "COVERAGE" : "—");
                                           const recColor = recKey
                                             ? (recKey.includes("buy") || recKey.includes("outperform") ? C.green
                                               : recKey.includes("sell") || recKey.includes("underperform") ? C.red
@@ -13764,7 +13774,7 @@ export default function App() {
 
                                           return (
                                             <div style={{ marginBottom: 12 }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                              <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim,
                                                 letterSpacing: "0.08em", marginBottom: 6 }}>📊 ANALYST CONSENSUS</div>
 
                                               {/* Consensus badge */}
@@ -13775,22 +13785,41 @@ export default function App() {
                                                   {recLabel}
                                                 </div>
                                                 {numAnal > 0 && (
-                                                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>
-                                                    {numAnal} analysts
+                                                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 2 }}>
+                                                    {numAnal} analyst{numAnal !== 1 ? "s" : ""}
+                                                    {ratingScore > 0 ? ` · score ${ratingScore.toFixed(1)}/5` : ""}
                                                   </div>
                                                 )}
                                               </div>
 
+                                              {/* Buy/Hold/Sell breakdown bar */}
+                                              {totalRec > 0 && (
+                                                <div style={{ marginBottom: 8 }}>
+                                                  <div style={{ height: 10, borderRadius: 5, overflow: "hidden",
+                                                    display: "flex", marginBottom: 4 }}>
+                                                    {[[sb + b, C.green], [h, C.amber], [s + ss, C.red]].map(([v, col], i) => (
+                                                      v > 0 ? <div key={i} style={{ width: `${(v / totalRec * 100).toFixed(1)}%`, background: col }} /> : null
+                                                    ))}
+                                                  </div>
+                                                  <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                                                    <span style={{ color: C.green }}>BUY {sb + b}</span>
+                                                    <span style={{ color: C.amber }}>HOLD {h}</span>
+                                                    <span style={{ color: C.red }}>SELL {s + ss}</span>
+                                                  </div>
+                                                </div>
+                                              )}
+
                                               {[
                                                 ["Price Target", target > 0 ? `$${target.toFixed(2)}` : "—", C.text],
+                                                ["High Target",  tHigh > 0  ? `$${tHigh.toFixed(2)}`  : "—", C.green],
+                                                ["Low Target",   tLow > 0   ? `$${tLow.toFixed(2)}`   : "—", C.red],
                                                 ["Upside", upside != null ? `${upside > 0 ? "+" : ""}${upside.toFixed(1)}%` : "—",
                                                   upside == null ? C.textDim : upside > 0 ? C.green : C.red],
-                                                ["Rating Score", strongBuy > 0 ? `${strongBuy.toFixed(1)} / 5` : "—", C.textSec],
                                               ].map(([k, v, col]) => (
                                                 <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 12, padding: "6px 0",
+                                                  fontFamily: MONO, fontSize: 12, padding: "5px 0",
                                                   borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>{k}</span>
+                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 10 }}>{k}</span>
                                                   <span style={{ color: col, fontWeight: 700 }}>{v}</span>
                                                 </div>
                                               ))}
@@ -14074,6 +14103,44 @@ export default function App() {
                                                         pct >= 0.37 ? { lbl: "MIXED",         col: C.amber } :
                                                                       { lbl: "WEAK",          col: C.red };
 
+                                        // ── Best Entry calculation (Minervini logic) ──────────────────
+                                        // How far above MA50 is the price? (extension %)
+                                        const extPct = (px > 0 && ma50 > 0) ? ((px - ma50) / ma50 * 100) : 0;
+                                        let entryNote, entryZone, entryColor, entryAction;
+                                        if (pct < 0.37) {
+                                          entryNote   = "Avoid — weak template";
+                                          entryZone   = null;
+                                          entryColor  = C.red;
+                                          entryAction = "WAIT";
+                                        } else if (extPct > 15) {
+                                          // Extended — wait for pullback to MA50
+                                          entryNote   = `Extended +${extPct.toFixed(1)}% above MA50 — wait for pullback`;
+                                          entryZone   = ma50 > 0 ? ma50 * 1.01 : null;
+                                          entryColor  = C.amber;
+                                          entryAction = "WAIT PULLBACK";
+                                        } else if (extPct > 0 && extPct <= 15) {
+                                          // In buy zone — within 15% of MA50
+                                          entryNote   = `${extPct.toFixed(1)}% above MA50 — buy zone`;
+                                          entryZone   = px;
+                                          entryColor  = C.green;
+                                          entryAction = "BUY NOW";
+                                        } else if (extPct <= 0 && ma50 > 0) {
+                                          // Below MA50 — wait for reclaim
+                                          entryNote   = `Below MA50 — wait for reclaim`;
+                                          entryZone   = ma50 * 1.005;
+                                          entryColor  = C.amber;
+                                          entryAction = "WAIT RECLAIM";
+                                        } else {
+                                          entryNote   = "Insufficient MA data";
+                                          entryZone   = px || null;
+                                          entryColor  = C.textDim;
+                                          entryAction = "—";
+                                        }
+                                        const entryStop = entryZone ? entryZone * 0.92 : null; // 8% stop
+                                        const entryR1   = entryZone ? entryZone * 1.10 : null; // +10% T1
+                                        const entryR2   = entryZone ? entryZone * 1.20 : null; // +20% T2
+                                        const rrRatio   = entryZone && entryStop ? ((entryR1 - entryZone) / (entryZone - entryStop)).toFixed(1) : null;
+
                                         // ── Price targets
                                         const support1 = ma50  > 0 ? ma50  : (lo52 > 0 ? lo52 * 1.05 : 0);
                                         const support2 = ma200 > 0 ? ma200 : (lo52 > 0 ? lo52 * 1.15 : 0);
@@ -14112,9 +14179,43 @@ export default function App() {
                                               ))}
                                             </div>
 
+                                            {/* ── Best Entry ── */}
+                                            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8, paddingBottom: 5, borderBottom: `2px solid ${C.border}`, letterSpacing: "0.05em" }}>
+                                              🎯 BEST ENTRY
+                                            </div>
+                                            <div style={{ padding: "10px 10px", borderRadius: 6, marginBottom: 12,
+                                              background: `${entryColor}15`, border: `1px solid ${entryColor}44` }}>
+                                              <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: entryColor, marginBottom: 4 }}>
+                                                {entryAction}
+                                              </div>
+                                              <div style={{ fontFamily: SANS, fontSize: 10, color: C.textSec, lineHeight: 1.5 }}>
+                                                {entryNote}
+                                              </div>
+                                            </div>
+                                            {entryZone && (
+                                              <div style={{ display: "flex", flexDirection: "column", gap: 1, marginBottom: 14 }}>
+                                                {[
+                                                  ["Entry Zone", entryZone, entryColor],
+                                                  ["Stop Loss",  entryStop, C.red],
+                                                  ["Target 1",   entryR1,   C.green],
+                                                  ["Target 2",   entryR2,   "#4caf50"],
+                                                  ["R:R Ratio",  null,      C.amber],
+                                                ].map(([k, v, col]) => (
+                                                  <div key={k} style={{ display: "flex", justifyContent: "space-between",
+                                                    fontFamily: MONO, fontSize: 12, padding: "5px 0",
+                                                    borderBottom: `1px solid ${C.border}22` }}>
+                                                    <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 10 }}>{k}</span>
+                                                    <span style={{ color: col, fontWeight: 700 }}>
+                                                      {k === "R:R Ratio" ? (rrRatio ? `${rrRatio} : 1` : "—") : (v > 0 ? `$${Number(v).toFixed(2)}` : "—")}
+                                                    </span>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+
                                             {/* Price prediction levels */}
                                             <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8, paddingBottom: 5, borderBottom: `2px solid ${C.border}`, letterSpacing: "0.05em" }}>
-                                              🎯 PRICE TARGETS
+                                              📊 PRICE TARGETS
                                             </div>
                                             <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
                                               {[

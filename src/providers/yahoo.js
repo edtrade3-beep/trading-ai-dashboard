@@ -374,7 +374,7 @@ async function fetchYahooFundamentals(symbol) {
   const liveEPS = Number(live?.epsTrailingTwelveMonths ?? live?.epsForward);
   const liveEarningsTs = Number((Array.isArray(live?.earningsTimestamp) ? live.earningsTimestamp[0] : live?.earningsTimestamp) || 0);
 
-  const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=price,summaryDetail,defaultKeyStatistics,calendarEvents,financialData`;
+  const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=price,summaryDetail,defaultKeyStatistics,calendarEvents,financialData,recommendationTrend`;
 
   function buildFallback(cap) {
     const p = Number.isFinite(livePE) ? livePE : null;
@@ -408,6 +408,7 @@ async function fetchYahooFundamentals(symbol) {
     const summary = result?.summaryDetail || {};
     const stats = result?.defaultKeyStatistics || {};
     const financial = result?.financialData || {};
+    const recTrend = result?.recommendationTrend?.trend?.[0] || {}; // most recent period
     const earningsRaw = result?.calendarEvents?.earnings?.earningsDate || [];
     const earningsTs = Array.isArray(earningsRaw) && earningsRaw.length ? Number(earningsRaw[0]?.raw || 0) : 0;
 
@@ -452,10 +453,20 @@ async function fetchYahooFundamentals(symbol) {
       beta:          n(summary?.beta?.raw),
       pegRatio:      n(stats?.pegRatio?.raw),
       priceToBook:   n(stats?.priceToBook?.raw),
-      // Analyst consensus
+      // Analyst consensus — pull from financialData + live quote for best coverage
       recommendationKey: financial?.recommendationKey || null,
       recommendationMean: n(financial?.recommendationMean?.raw),
-      numberOfAnalystOpinions: n(financial?.numberOfAnalystOpinions?.raw),
+      numberOfAnalystOpinions: n(financial?.numberOfAnalystOpinions?.raw) ?? n(live?.numberOfAnalystOpinions),
+      analystTarget:     n(financial?.targetMeanPrice?.raw) ?? n(live?.targetMeanPrice),
+      targetMeanPrice:   n(financial?.targetMeanPrice?.raw) ?? n(live?.targetMeanPrice),
+      targetHighPrice:   n(financial?.targetHighPrice?.raw) ?? n(live?.targetHighPrice),
+      targetLowPrice:    n(financial?.targetLowPrice?.raw)  ?? n(live?.targetLowPrice),
+      // Recommendation trend breakdown for the bar chart
+      analystStrongBuy:  Number(recTrend?.strongBuy  || 0) || null,
+      analystBuy:        Number(recTrend?.buy        || 0) || null,
+      analystHold:       Number(recTrend?.hold       || 0) || null,
+      analystSell:       Number(recTrend?.sell        || 0) || null,
+      analystStrongSell: Number(recTrend?.strongSell || 0) || null,
     };
   } catch {
     const cap = Number.isFinite(liveMarketCap) && liveMarketCap > 0
