@@ -13402,10 +13402,10 @@ export default function App() {
                                   ) : (
                                     <div
                                       ref={el => { if (!el) return; el.onmousedown = e => { const startX = e.pageX - el.offsetLeft; const scrollLeft = el.scrollLeft; el.style.cursor = "grabbing"; el.style.userSelect = "none"; const onMove = mv => { el.scrollLeft = scrollLeft - (mv.pageX - el.offsetLeft - startX); }; const onUp = () => { el.style.cursor = "grab"; el.style.userSelect = ""; window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); }; window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp); }; }}
-                                      style={{ display: "flex", gap: 12, height: 400, overflowX: "auto", overflowY: "hidden", cursor: "grab", scrollbarWidth: "thin", paddingBottom: 4 }}>
+                                      style={{ display: "flex", gap: 8, height: 400, overflowX: "auto", overflowY: "hidden", cursor: "grab", scrollbarWidth: "thin", paddingBottom: 4 }}>
 
                                       {/* ── Col 1: TradingView mini chart ── */}
-                                      <div style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%" }}>
+                                      <div style={{ width: 195, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%" }}>
                                         <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                           📊 CHART
                                         </div>
@@ -13421,7 +13421,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 2: TECHNICALS (indicators + signals + entry zones) ── */}
-                                      <div style={{ width: 210, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                      <div style={{ width: 190, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
                                         <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                           ⚡ TECHNICALS
                                         </div>
@@ -13485,7 +13485,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 3: FUNDAMENTALS + SHORT INTEREST + OPTIONS ── */}
-                                      <div style={{ width: 210, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                      <div style={{ width: 190, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
                                         <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                           📋 FUNDS & DATA
                                         </div>
@@ -13577,7 +13577,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 4: SOCIAL SENTIMENT + INSIDER BUYS ── */}
-                                      <div style={{ width: 210, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                      <div style={{ width: 190, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
                                         <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                           💬 SENTIMENT
                                         </div>
@@ -13688,7 +13688,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 5: RECENT NEWS ── */}
-                                      <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                      <div style={{ width: 195, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
                                         <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                           📰 RECENT NEWS
                                         </div>
@@ -13733,7 +13733,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 6: ANALYST RATINGS + EARNINGS ── */}
-                                      <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                      <div style={{ width: 195, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
                                         <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                           🎯 ANALYST & EARNINGS
                                         </div>
@@ -13837,7 +13837,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 7: AI Trade Setup + Auto-Execute ── */}
-                                      <div style={{ width: 280, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                      <div style={{ width: 255, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                                           <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                             color: C.textDim, letterSpacing: "0.06em" }}>
