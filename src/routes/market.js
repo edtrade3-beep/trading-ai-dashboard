@@ -1111,7 +1111,8 @@ async function handleMarket(req, res, requestUrl) {
   if (pathname === "/api/market/distribution" && req.method === "GET") {
     const _distCache = handleMarket._distCache || (handleMarket._distCache = { data: null, ts: 0 });
     const DIST_TTL = 5 * 60 * 1000;
-    if (_distCache.data && Date.now() - _distCache.ts < DIST_TTL) {
+    const forceRefresh = requestUrl.searchParams.get("refresh") === "1";
+    if (!forceRefresh && _distCache.data && Date.now() - _distCache.ts < DIST_TTL) {
       return writeJson(res, 200, _distCache.data);
     }
     try {
@@ -1163,8 +1164,20 @@ async function handleMarket(req, res, requestUrl) {
       else if (rotDiff > 0.3) { riskScore += 8; warnings.push({ level: "MED", sig: `Mild defensive rotation: defensives +${defAvg.toFixed(1)}% vs growth +${grwAvg.toFixed(1)}%`, tag: "ROTATION" }); }
 
       // ── 3. Credit stress: HYG weakening vs LQD ─────────────────────────────
-      const hygChg = Number(qMap["HYG"]?.regularMarketChangePercent || 0);
-      const lqdChg = Number(qMap["LQD"]?.regularMarketChangePercent || 0);
+      // Compute change % manually from price/prevClose in case regularMarketChangePercent is stale
+      const getChgPct = (sym) => {
+        const q = qMap[sym];
+        if (!q) return 0;
+        const price = Number(q.regularMarketPrice || 0);
+        const prev  = Number(q.regularMarketPreviousClose || q.regularMarketOpen || 0);
+        if (price > 0 && prev > 0) return round2((price - prev) / prev * 100);
+        // Fallback to Yahoo's field (already in percent)
+        const raw = Number(q.regularMarketChangePercent || 0);
+        return round2(Math.abs(raw) > 50 ? raw / 100 : raw); // normalise if returned as decimal
+      };
+      const hygChg = getChgPct("HYG");
+      const lqdChg = getChgPct("LQD");
+      const hygPrice = round2(Number(qMap["HYG"]?.regularMarketPrice || 0));
       const creditSpread = round2(lqdChg - hygChg);
       if (hygChg < -0.5 && creditSpread > 0.3) { riskScore += 15; warnings.push({ level: "HIGH", sig: `HYG (junk) ${hygChg.toFixed(2)}% — credit stress, risk-off signal`, tag: "CREDIT" }); }
       else if (hygChg < -0.2) { riskScore += 5; warnings.push({ level: "LOW", sig: `HYG softening (${hygChg.toFixed(2)}%) — monitor credit spreads`, tag: "CREDIT" }); }
@@ -1198,13 +1211,46 @@ async function handleMarket(req, res, requestUrl) {
         }
       }
 
-      // ── 6. Volatility spike (VIX-proxy from UVXY) ──────────────────────────
-      const uvxyQ = await fetchYahooQuoteBatch(["^VIX"]).catch(() => []);
-      const vix   = Number(uvxyQ[0]?.regularMarketPrice || 0);
-      const vixChg= Number(uvxyQ[0]?.regularMarketChangePercent || 0);
-      if (vix > 25) { riskScore += 20; warnings.push({ level: "HIGH", sig: `VIX at ${vix.toFixed(1)} — elevated fear, size down`, tag: "VIX" }); }
-      else if (vix > 18) { riskScore += 8; warnings.push({ level: "MED", sig: `VIX at ${vix.toFixed(1)} — above normal, tighten stops`, tag: "VIX" }); }
-      if (vixChg > 15) { riskScore += 10; warnings.push({ level: "HIGH", sig: `VIX up ${vixChg.toFixed(1)}% today — sudden fear spike`, tag: "VIX" }); }
+      // ── 6. VIX — fetch via chart meta (more reliable than batch for ^VIX) ────
+      let vix = 0, vixChg = 0, vixPrev = 0;
+      try {
+        // Try batch first (fast)
+        const vixBatch = await fetchYahooQuoteBatch(["^VIX"]).catch(() => []);
+        vix = Number(vixBatch[0]?.regularMarketPrice || 0);
+        vixPrev = Number(vixBatch[0]?.regularMarketPreviousClose || 0);
+        if (vix > 0 && vixPrev > 0) vixChg = round2((vix - vixPrev) / vixPrev * 100);
+
+        // Fallback: chart meta if batch failed
+        if (vix === 0) {
+          const { fetchYahooChartMeta } = require("../providers/yahoo");
+          const meta = await fetchYahooChartMeta("^VIX").catch(() => null);
+          if (meta) {
+            vix = round2(Number(meta.regularMarketPrice || meta.chartPreviousClose || 0));
+            vixPrev = round2(Number(meta.chartPreviousClose || 0));
+            if (vix > 0 && vixPrev > 0) vixChg = round2((vix - vixPrev) / vixPrev * 100);
+          }
+        }
+
+        // Second fallback: use UVXY as volatility proxy
+        if (vix === 0) {
+          const uvxyQ = await fetchYahooQuoteBatch(["UVXY"]).catch(() => []);
+          const uvxy  = uvxyQ[0];
+          if (uvxy) {
+            const uvxyPx   = Number(uvxy.regularMarketPrice || 0);
+            const uvxyPrev = Number(uvxy.regularMarketPreviousClose || 0);
+            if (uvxyPx > 0 && uvxyPrev > 0) {
+              vixChg = round2((uvxyPx - uvxyPrev) / uvxyPrev * 100);
+              // UVXY roughly 1.5× VIX daily moves; estimate VIX from its price range
+              vix = round2(uvxyPx * 0.6 + 10); // rough proxy
+            }
+          }
+        }
+      } catch {}
+
+      vix = round2(vix);
+      if (vix > 25) { riskScore += 20; warnings.push({ level: "HIGH", sig: `VIX ${vix.toFixed(1)} — elevated fear, reduce size and tighten stops`, tag: "VIX" }); }
+      else if (vix > 18) { riskScore += 8; warnings.push({ level: "MED", sig: `VIX ${vix.toFixed(1)} — above normal range, watch for spike`, tag: "VIX" }); }
+      if (vixChg > 15) { riskScore += 10; warnings.push({ level: "HIGH", sig: `VIX +${vixChg.toFixed(1)}% today — sudden fear spike, de-risk`, tag: "VIX" }); }
 
       riskScore = Math.min(100, riskScore);
       const alert = riskScore >= 65 ? "DANGER" : riskScore >= 40 ? "CAUTION" : riskScore >= 20 ? "WATCH" : "NORMAL";
@@ -1236,8 +1282,10 @@ async function handleMarket(req, res, requestUrl) {
           icon: "💳",
           status: (hygChg < -0.5) ? "HIGH" : (hygChg < -0.2) ? "MED" : "OK",
           detail: hygChg < -0.2
-            ? `HYG junk bonds ${hygChg.toFixed(2)}% — spreads widening`
-            : `HYG ${hygChg >= 0 ? "+" : ""}${hygChg.toFixed(2)}% — credit market healthy`,
+            ? `HYG $${hygPrice} (${hygChg.toFixed(2)}%) — junk bonds weakening, spreads widening`
+            : hygPrice > 0
+              ? `HYG $${hygPrice} (${hygChg >= 0 ? "+" : ""}${hygChg.toFixed(2)}%) — credit market healthy`
+              : "HYG credit data loading…",
         },
         {
           tag: "DIVERGENCE",
@@ -1262,12 +1310,12 @@ async function handleMarket(req, res, requestUrl) {
         },
         {
           tag: "VIX",
-          label: "VIX / Fear",
+          label: "VIX / Fear Index",
           icon: "😨",
           status: vix > 25 ? "HIGH" : vix > 18 ? "MED" : "OK",
           detail: vix > 0
-            ? `VIX ${vix.toFixed(1)} (${vix > 25 ? "elevated fear — size down" : vix > 18 ? "above normal — tighten stops" : "low — calm market"})${vixChg > 10 ? `, +${vixChg.toFixed(1)}% spike today` : ""}`
-            : "VIX data unavailable",
+            ? `VIX ${vix.toFixed(1)}${vixChg !== 0 ? ` (${vixChg >= 0 ? "+" : ""}${vixChg.toFixed(1)}% today)` : ""} — ${vix > 25 ? "ELEVATED: reduce size, tighten stops" : vix > 18 ? "ABOVE NORMAL: watch for spike" : vix > 12 ? "normal — calm market conditions" : "very low — complacency, stay alert"}`
+            : "Fetching VIX data — will show on next refresh",
         },
       ];
 
