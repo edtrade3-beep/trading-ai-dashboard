@@ -437,6 +437,7 @@ const DEFAULT_SETTINGS = {
   terminalLayout: "1",
   hotkeyProfile: "classic",
   themeMode: "dark", // permanent default
+  brightness: 100,   // 50–100 — CSS filter applied to whole app
   econCalendarView: "today",
   econCalendarRegion: "US",
   econAutoRisk30m: true,
@@ -7680,6 +7681,7 @@ export default function App() {
   const [tasbihCompleted, setTasbihCompleted] = useState(false);
 
   const themeMode = String(settings.themeMode || "light").toLowerCase() === "dark" ? "dark" : "light";
+  const brightness = Math.max(30, Math.min(100, Number(settings.brightness ?? 100)));
   // Sync module-level C on every render so all components see the current theme immediately
   Object.assign(C, themeMode === "dark" ? THEME_DARK : THEME_LIGHT);
 
@@ -10572,7 +10574,7 @@ export default function App() {
   );
 
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: SANS, zoom: isMobile ? 1 : isTablet ? UI_ZOOM_TABLET : UI_ZOOM, lineHeight: 1.5, width: "100%", maxWidth: "100vw", overflowX: "hidden" }}>
+    <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: SANS, zoom: isMobile ? 1 : isTablet ? UI_ZOOM_TABLET : UI_ZOOM, lineHeight: 1.5, width: "100%", maxWidth: "100vw", overflowX: "hidden", filter: brightness < 100 ? `brightness(${brightness}%)` : "none", transition: "filter 0.2s" }}>
       {/* Google Fonts — Inter (UI) + JetBrains Mono (data/numbers) */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -10728,11 +10730,18 @@ export default function App() {
         </div>
         {/* Mobile: theme toggle — shown on mobile only here */}
         {isMobile && (
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <button
               onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))}
               style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, width: 40, height: 40, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
             >{themeMode === "dark" ? "☀" : "🌙"}</button>
+            {/* Dimmer on mobile too */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+              <span style={{ fontSize: 12 }}>{brightness <= 60 ? "🌑" : brightness <= 80 ? "🌗" : "☀️"}</span>
+              <input type="range" min={30} max={100} step={5} value={brightness}
+                onChange={e => setSettings(s => ({ ...s, brightness: Number(e.target.value) }))}
+                style={{ width: 50, accentColor: C.accent, cursor: "pointer" }} />
+            </div>
           </div>
         )}
 
@@ -10790,6 +10799,19 @@ export default function App() {
             <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>
               {themeMode === "dark" ? "☀" : "●"}
             </button>
+
+            {/* ── Brightness dimmer ── */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 6px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 4, height: 24 }}
+              title={`Brightness ${brightness}% — drag to dim`}>
+              <span style={{ fontSize: 11 }}>{brightness <= 60 ? "🌑" : brightness <= 80 ? "🌗" : "☀️"}</span>
+              <input
+                type="range" min={30} max={100} step={5}
+                value={brightness}
+                onChange={e => setSettings(s => ({ ...s, brightness: Number(e.target.value) }))}
+                style={{ width: 60, height: 4, accentColor: C.accent, cursor: "pointer" }}
+              />
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, minWidth: 26 }}>{brightness}%</span>
+            </div>
 
             {/* ── Status chips (inline after ● button) ── */}
             <span style={{ width: 1, height: 14, background: C.border, flexShrink: 0, marginLeft: 2 }} />
