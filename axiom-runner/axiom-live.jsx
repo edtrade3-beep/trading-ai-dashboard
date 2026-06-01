@@ -4640,7 +4640,7 @@ function GapScanner() {
     : "—";
 
   return (
-    <div style={{ background: "#07070f", fontFamily: MONO_GAP, color: "#c8d0e0", borderRadius: 10, overflow: "hidden", border: "1px solid #1a1a2e" }}>
+    <div style={{ background: "#07070f", fontFamily: MONO_GAP, color: "#c8d0e0", borderRadius: 10, overflow: "hidden", border: "1px solid #1a1a2e", display: "flex", flexDirection: "column", height: "calc(100vh - 120px)" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
         .gap-row:hover { background: #0f0f1e !important; cursor: pointer; }
@@ -4697,9 +4697,9 @@ function GapScanner() {
         </div>
       )}
 
-      <div style={{ display: "flex" }}>
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         {/* Main panel */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           {/* Filters */}
           <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "10px 16px", borderBottom: "1px solid #1a1a2e", flexWrap: "wrap" }}>
             {filters.map(f => (
@@ -4746,7 +4746,7 @@ function GapScanner() {
           )}
 
           {/* Rows */}
-          <div style={{ overflowY: "auto", maxHeight: 520 }}>
+          <div style={{ overflowY: "auto", flex: 1 }}>
             {displayed.map(s => {
               const isUp   = s.gapPct >= 0;
               const fClass = flashing[s.ticker] === "up" ? "gap-flash-up" : flashing[s.ticker] === "down" ? "gap-flash-down" : "";
@@ -4782,7 +4782,7 @@ function GapScanner() {
         </div>
 
         {/* Detail side-panel */}
-        <div style={{ width: sel ? 230 : 0, overflow: "hidden", transition: "width 0.25s ease", borderLeft: "1px solid #1a1a2e", background: "#09090f", flexShrink: 0 }}>
+        <div style={{ width: sel ? 230 : 0, overflowY: "auto", overflowX: "hidden", transition: "width 0.25s ease", borderLeft: "1px solid #1a1a2e", background: "#09090f", flexShrink: 0 }}>
           {sel && (() => {
             const sc = SETUP_COLORS[sel.setupType] || SETUP_COLORS["Gap Fill Risk"];
             return (
