@@ -13392,7 +13392,7 @@ export default function App() {
                                   style={{ background: C.bg,
                                     borderLeft: `3px solid ${row.sColor}`,
                                     borderBottom: `2px solid ${row.sColor}44`,
-                                    padding: "20px 22px", minHeight: 380 }}>
+                                    padding: "20px 22px", overflowX: "auto" }}>
 
                                   {isLoading ? (
                                     <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
@@ -13400,7 +13400,7 @@ export default function App() {
                                       ⌛ Loading deep dive data for {row.ticker}…
                                     </div>
                                   ) : (
-                                    <div style={{ display: "grid", gridTemplateColumns: "260px minmax(140px,1fr) minmax(140px,1fr) minmax(140px,1fr) minmax(140px,1fr) minmax(150px,1fr) minmax(210px,1.6fr)", gridTemplateRows: "360px", gap: 10, width: "100%", overflowX: "auto" }}>
+                                    <div style={{ display: "grid", gridTemplateColumns: "280px 200px 200px 200px 220px 220px 300px", gridTemplateRows: "400px", gap: 12, width: "max-content", minWidth: "100%", overflowX: "auto" }}>
 
                                       {/* ── Col 1: TradingView mini chart ── */}
                                       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
