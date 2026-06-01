@@ -63,13 +63,13 @@ const C = { ...THEME_DARK };
 const SANS = `'Inter', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif`;
 // MONO  — true monospace for prices, tickers, percentages, scores — much crisper digits
 const MONO = `'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Roboto Mono', 'Courier New', monospace`;
-const UI_ZOOM = 1.18;        // desktop zoom
-const UI_ZOOM_TABLET = 1.32; // iPad zoom — noticeably larger for comfortable reading
+const UI_ZOOM = 1.0;         // no zoom — let the layout fill the viewport naturally
+const UI_ZOOM_TABLET = 1.08; // slight zoom for iPad readability
 const LAYOUT = {
-  pageMaxWidth: 1880,
-  contentPadding: "18px 20px 28px",
-  gridGap: 14,
-  sidebarWidth: 390,
+  pageMaxWidth: "100%",
+  contentPadding: "14px 18px 24px",
+  gridGap: 12,
+  sidebarWidth: 340,
 };
 const WEATHER_ZIP = "45014";
 
@@ -7008,11 +7008,11 @@ Risk small and follow the stop.`
 export default function App() {
   const [appUnlocked, setAppUnlocked] = useState(true);
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
-  const [isTablet, setIsTablet] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768 && window.innerWidth <= 1400);
+  const [isTablet, setIsTablet] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768 && window.innerWidth <= 1100);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   useEffect(() => {
-    const fn = () => { setIsMobile(window.innerWidth < 768); setIsTablet(window.innerWidth >= 768 && window.innerWidth <= 1400); };
+    const fn = () => { setIsMobile(window.innerWidth < 768); setIsTablet(window.innerWidth >= 768 && window.innerWidth <= 1100); };
     window.addEventListener("resize", fn);
     return () => window.removeEventListener("resize", fn);
   }, []);
@@ -11084,7 +11084,7 @@ export default function App() {
         )}
 
         {activeTab === "dashboard" && watchlistData.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : `1fr minmax(300px, ${LAYOUT.sidebarWidth}px)`, gap: LAYOUT.gridGap, alignItems: "start" }}>
+          <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : `minmax(0, 1fr) minmax(260px, ${LAYOUT.sidebarWidth}px)`, gap: LAYOUT.gridGap, alignItems: "start", width: "100%", overflow: "hidden" }}>
             {/* Watchlist Table */}
             <div>
               {/* ── Named Watchlist Tabs ── */}
