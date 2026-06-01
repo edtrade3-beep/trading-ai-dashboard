@@ -4547,7 +4547,7 @@ function CryptoTab({ C, MONO, SANS }) {
 }
 
 // ── Gap Scanner (real data) ───────────────────────────────────────────────────
-function GapScanner() {
+function GapScanner({ C, MONO, SANS }) {
   const [stocks,      setStocks]      = React.useState([]);
   const [loading,     setLoading]     = React.useState(false);
   const [error,       setError]       = React.useState(null);
@@ -4640,33 +4640,33 @@ function GapScanner() {
     : "—";
 
   return (
-    <div style={{ background: "#07070f", fontFamily: MONO_GAP, color: "#c8d0e0", borderRadius: 10, overflow: "hidden", border: "1px solid #1a1a2e", display: "flex", flexDirection: "column", height: "calc(100vh - 120px)" }}>
+    <div style={{ background: C.bg, fontFamily: MONO_GAP, color: C.text, borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", height: "calc(100vh - 120px)" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
-        .gap-row:hover { background: #0f0f1e !important; cursor: pointer; }
+        .gap-row:hover { background: var(--gap-hover) !important; cursor: pointer; }
         .gap-flash-up   { animation: gFlashUp   0.7s ease; }
         .gap-flash-down { animation: gFlashDown 0.7s ease; }
         @keyframes gFlashUp   { 0%,100%{background:transparent} 30%{background:rgba(0,255,136,0.15)} }
         @keyframes gFlashDown { 0%,100%{background:transparent} 30%{background:rgba(255,68,102,0.15)} }
-        .gap-sort-btn:hover { color:#fff !important; }
-        .gap-filter-btn:hover { border-color:#4a4a8a !important; }
+        .gap-sort-btn:hover { opacity:1 !important; }
+        .gap-filter-btn:hover { opacity:0.85 !important; }
       `}</style>
 
       {/* Header */}
-      <div style={{ borderBottom: "1px solid #1a1a2e", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+      <div style={{ borderBottom: `1px solid ${C.border}`, padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-          <span style={{ fontFamily: BEBAS, fontSize: 22, letterSpacing: "0.08em", color: "#fff" }}>GAP SCANNER</span>
-          <span style={{ fontSize: 9, color: "#4a4a6a", letterSpacing: "0.12em" }}>REAL DATA · YAHOO FINANCE · {stocks.length} GAPPERS</span>
-          {loading && <span style={{ fontSize: 9, color: "#4a4aff" }}>⌛ LOADING…</span>}
+          <span style={{ fontFamily: BEBAS, fontSize: 22, letterSpacing: "0.08em", color: C.text }}>GAP SCANNER</span>
+          <span style={{ fontSize: 9, color: C.textDim, letterSpacing: "0.12em" }}>REAL DATA · YAHOO FINANCE · {stocks.length} GAPPERS</span>
+          {loading && <span style={{ fontSize: 9, color: C.accent }}>⌛ LOADING…</span>}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          {lastRefresh && <span style={{ fontSize: 9, color: "#4a4a6a" }}>UPDATED <span style={{ color: "#8888aa" }}>{lastRefresh.toLocaleTimeString()}</span></span>}
+          {lastRefresh && <span style={{ fontSize: 9, color: C.textDim }}>UPDATED <span style={{ color: C.textSec }}>{lastRefresh.toLocaleTimeString()}</span></span>}
           <button onClick={() => setAutoRefresh(v => !v)}
-            style={{ background: autoRefresh ? "#0d1a0d" : "none", border: `1px solid ${autoRefresh ? "#00ff88" : "#2a2a4a"}`, color: autoRefresh ? "#00ff88" : "#8888aa", fontSize: 9, padding: "4px 10px", borderRadius: 3, cursor: "pointer", fontFamily: MONO_GAP }}>
+            style={{ background: autoRefresh ? `${C.green}18` : "none", border: `1px solid ${autoRefresh ? C.green : C.border}`, color: autoRefresh ? C.green : C.textSec, fontSize: 9, padding: "4px 10px", borderRadius: 3, cursor: "pointer", fontFamily: MONO_GAP }}>
             {autoRefresh ? "⏱ AUTO ON" : "⏱ AUTO OFF"}
           </button>
           <button onClick={fetchGaps} disabled={loading}
-            style={{ background: "none", border: "1px solid #2a2a4a", color: loading ? "#3a3a5a" : "#8888aa", fontSize: 9, padding: "4px 12px", borderRadius: 3, cursor: loading ? "default" : "pointer", letterSpacing: "0.08em", fontFamily: MONO_GAP }}>
+            style={{ background: "none", border: `1px solid ${C.border}`, color: loading ? C.textDim : C.textSec, fontSize: 9, padding: "4px 12px", borderRadius: 3, cursor: loading ? "default" : "pointer", letterSpacing: "0.08em", fontFamily: MONO_GAP }}>
             ↺ REFRESH
           </button>
         </div>
@@ -4674,24 +4674,24 @@ function GapScanner() {
 
       {/* Error */}
       {error && (
-        <div style={{ padding: "10px 20px", background: "#1a0d0d", borderBottom: "1px solid #2a1a1a", fontSize: 10, color: "#ff4466" }}>
+        <div style={{ padding: "10px 20px", background: `${C.red}18`, borderBottom: `1px solid ${C.red}44`, fontSize: 10, color: C.red }}>
           ⚠ {error}
         </div>
       )}
 
       {/* Stat strip */}
       {stocks.length > 0 && (
-        <div style={{ display: "flex", borderBottom: "1px solid #1a1a2e" }}>
+        <div style={{ display: "flex", borderBottom: `1px solid ${C.border}` }}>
           {[
             { label: "GAPPERS",    val: stocks.length },
-            { label: "GAP UP",     val: stocks.filter(s => s.gapPct > 0).length,  color: "#00ff88" },
-            { label: "GAP DOWN",   val: stocks.filter(s => s.gapPct < 0).length,  color: "#ff4466" },
+            { label: "GAP UP",     val: stocks.filter(s => s.gapPct > 0).length,  color: C.green },
+            { label: "GAP DOWN",   val: stocks.filter(s => s.gapPct < 0).length,  color: C.red },
             { label: "AVG GAP",    val: avgGap },
             { label: "TOP SECTOR", val: topSector },
           ].map(({ label, val, color }) => (
-            <div key={label} style={{ flex: 1, padding: "10px 14px", borderRight: "1px solid #1a1a2e" }}>
-              <div style={{ fontSize: 8, color: "#4a4a6a", letterSpacing: "0.12em", marginBottom: 3 }}>{label}</div>
-              <div style={{ fontSize: 15, fontFamily: BEBAS, letterSpacing: "0.06em", color: color || "#c8d0e0" }}>{val}</div>
+            <div key={label} style={{ flex: 1, padding: "10px 14px", borderRight: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: 8, color: C.textDim, letterSpacing: "0.12em", marginBottom: 3 }}>{label}</div>
+              <div style={{ fontSize: 15, fontFamily: BEBAS, letterSpacing: "0.06em", color: color || C.text }}>{val}</div>
             </div>
           ))}
         </div>
@@ -4701,24 +4701,24 @@ function GapScanner() {
         {/* Main panel */}
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           {/* Filters */}
-          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "10px 16px", borderBottom: "1px solid #1a1a2e", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "10px 16px", borderBottom: `1px solid ${C.border}`, flexWrap: "wrap" }}>
             {filters.map(f => (
               <button key={f} className="gap-filter-btn" onClick={() => setFilter(f)} style={{
-                background: filter === f ? "#1a1a2e" : "none",
-                border: `1px solid ${filter === f ? "#4a4a8a" : "#1a1a2e"}`,
-                color: filter === f ? "#fff" : "#5a5a7a",
+                background: filter === f ? C.surface : "none",
+                border: `1px solid ${filter === f ? C.accent : C.border}`,
+                color: filter === f ? C.text : C.textDim,
                 fontSize: 9, padding: "3px 10px", borderRadius: 3, cursor: "pointer", fontFamily: MONO_GAP, letterSpacing: "0.06em",
               }}>{f}</button>
             ))}
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 9, color: "#4a4a6a" }}>MIN GAP</span>
-              <input type="range" min={0} max={15} value={minGap} onChange={e => setMinGap(+e.target.value)} style={{ accentColor: "#4a4aff", width: 70 }} />
-              <span style={{ fontSize: 9, color: "#8888aa", width: 26 }}>{minGap}%</span>
+              <span style={{ fontSize: 9, color: C.textDim }}>MIN GAP</span>
+              <input type="range" min={0} max={15} value={minGap} onChange={e => setMinGap(+e.target.value)} style={{ accentColor: C.accent, width: 70 }} />
+              <span style={{ fontSize: 9, color: C.textSec, width: 26 }}>{minGap}%</span>
             </div>
           </div>
 
           {/* Table header */}
-          <div style={{ display: "grid", gridTemplateColumns: "72px 66px 80px 72px 72px 60px 70px 80px 100px", padding: "6px 16px", borderBottom: "1px solid #1a1a2e" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "72px 66px 80px 72px 72px 60px 70px 80px 100px", padding: "6px 16px", borderBottom: `1px solid ${C.border}` }}>
             {[
               { label: "TICKER", key: null },
               { label: "PRICE",  key: null },
@@ -4731,7 +4731,7 @@ function GapScanner() {
               { label: "SETUP",  key: null },
             ].map(({ label, key }) => (
               <span key={label} className={key ? "gap-sort-btn" : ""} onClick={() => key && setSortBy(key)}
-                style={{ fontSize: 8, color: sortBy === key ? "#8888ff" : "#3a3a5a", letterSpacing: "0.1em", cursor: key ? "pointer" : "default" }}>
+                style={{ fontSize: 8, color: sortBy === key ? C.accent : C.textDim, letterSpacing: "0.1em", cursor: key ? "pointer" : "default" }}>
                 {label}{key && sortBy === key ? " ▲" : ""}
               </span>
             ))}
@@ -4739,10 +4739,10 @@ function GapScanner() {
 
           {/* Empty / loading state */}
           {loading && stocks.length === 0 && (
-            <div style={{ padding: "50px 0", textAlign: "center", color: "#4a4a6a", fontSize: 11 }}>⌛ Fetching real gap data…</div>
+            <div style={{ padding: "50px 0", textAlign: "center", color: C.textDim, fontSize: 11 }}>⌛ Fetching real gap data…</div>
           )}
           {!loading && stocks.length === 0 && !error && (
-            <div style={{ padding: "50px 0", textAlign: "center", color: "#3a3a5a", fontSize: 11 }}>No gappers found — press ↺ REFRESH</div>
+            <div style={{ padding: "50px 0", textAlign: "center", color: C.textDim, fontSize: 11 }}>No gappers found — press ↺ REFRESH</div>
           )}
 
           {/* Rows */}
@@ -4754,69 +4754,69 @@ function GapScanner() {
               const sc     = SETUP_COLORS[s.setupType] || SETUP_COLORS["Gap Fill Risk"];
               return (
                 <div key={s.ticker} className={`gap-row ${fClass}`} onClick={() => setSelected(isSel ? null : s.ticker)}
-                  style={{ display: "grid", gridTemplateColumns: "72px 66px 80px 72px 72px 60px 70px 80px 100px", padding: "9px 16px", borderBottom: "1px solid #0f0f1e", background: isSel ? "#10102a" : "transparent", alignItems: "center" }}>
+                  style={{ display: "grid", gridTemplateColumns: "72px 66px 80px 72px 72px 60px 70px 80px 100px", padding: "9px 16px", borderBottom: `1px solid ${C.border}44`, background: isSel ? C.surface : "transparent", alignItems: "center" }}>
                   <div>
-                    <div style={{ fontFamily: BEBAS, fontSize: 14, letterSpacing: "0.06em", color: "#fff" }}>{s.ticker}</div>
-                    {s.hasPreMkt && <div style={{ fontSize: 7, color: "#4a4aff", letterSpacing: "0.06em" }}>PRE-MKT</div>}
+                    <div style={{ fontFamily: BEBAS, fontSize: 14, letterSpacing: "0.06em", color: C.text }}>{s.ticker}</div>
+                    {s.hasPreMkt && <div style={{ fontSize: 7, color: C.accent, letterSpacing: "0.06em" }}>PRE-MKT</div>}
                   </div>
-                  <span style={{ fontSize: 11, color: "#c8d0e0" }}>${s.price.toFixed(2)}</span>
+                  <span style={{ fontSize: 11, color: C.text }}>${s.price.toFixed(2)}</span>
                   <div>
-                    <div style={{ fontSize: 11, color: isUp ? "#00ff88" : "#ff4466", fontWeight: 500 }}>{isUp ? "+" : ""}{s.gapPct.toFixed(2)}%</div>
-                    <div style={{ width: 50, height: 3, background: "#1a1a2e", borderRadius: 2, overflow: "hidden", marginTop: 3 }}>
-                      <div style={{ width: `${Math.min(Math.abs(s.gapPct)/20*100,100)}%`, height: "100%", background: isUp ? "#00ff88" : "#ff4466", borderRadius: 2 }} />
+                    <div style={{ fontSize: 11, color: isUp ? C.green : C.red, fontWeight: 500 }}>{isUp ? "+" : ""}{s.gapPct.toFixed(2)}%</div>
+                    <div style={{ width: 50, height: 3, background: C.border, borderRadius: 2, overflow: "hidden", marginTop: 3 }}>
+                      <div style={{ width: `${Math.min(Math.abs(s.gapPct)/20*100,100)}%`, height: "100%", background: isUp ? C.green : C.red, borderRadius: 2 }} />
                     </div>
                   </div>
-                  <span style={{ fontSize: 10, color: "#5a5a7a" }}>${s.prevClose.toFixed(2)}</span>
-                  <span style={{ fontSize: 10, color: "#8888aa" }}>{fmtVol(s.vol)}</span>
-                  <span style={{ fontSize: 10, color: s.rvol >= 2 ? "#ffcc00" : "#8888aa" }}>{s.rvol > 0 ? s.rvol.toFixed(1) + "×" : "—"}</span>
-                  <span style={{ fontSize: 9, color: "#5a5a7a" }}>{s.mktCapB > 0 ? "$" + s.mktCapB.toFixed(1) + "B" : "—"}</span>
-                  <span style={{ fontSize: 9, color: "#5a5a7a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.sector}</span>
+                  <span style={{ fontSize: 10, color: C.textDim }}>${s.prevClose.toFixed(2)}</span>
+                  <span style={{ fontSize: 10, color: C.textSec }}>{fmtVol(s.vol)}</span>
+                  <span style={{ fontSize: 10, color: s.rvol >= 2 ? C.amber : C.textSec }}>{s.rvol > 0 ? s.rvol.toFixed(1) + "×" : "—"}</span>
+                  <span style={{ fontSize: 9, color: C.textDim }}>{s.mktCapB > 0 ? "$" + s.mktCapB.toFixed(1) + "B" : "—"}</span>
+                  <span style={{ fontSize: 9, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.sector}</span>
                   <span style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.text, fontSize: 8, fontFamily: MONO_GAP, padding: "2px 5px", borderRadius: 3, whiteSpace: "nowrap" }}>{s.setupType}</span>
                 </div>
               );
             })}
             {displayed.length === 0 && stocks.length > 0 && (
-              <div style={{ padding: "32px 16px", textAlign: "center", color: "#3a3a5a", fontSize: 11 }}>NO STOCKS MATCH CURRENT FILTERS</div>
+              <div style={{ padding: "32px 16px", textAlign: "center", color: C.textDim, fontSize: 11 }}>NO STOCKS MATCH CURRENT FILTERS</div>
             )}
           </div>
         </div>
 
         {/* Detail side-panel */}
-        <div style={{ width: sel ? 230 : 0, overflowY: "auto", overflowX: "hidden", transition: "width 0.25s ease", borderLeft: "1px solid #1a1a2e", background: "#09090f", flexShrink: 0 }}>
+        <div style={{ width: sel ? 230 : 0, overflowY: "auto", overflowX: "hidden", transition: "width 0.25s ease", borderLeft: `1px solid ${C.border}`, background: C.surface, flexShrink: 0 }}>
           {sel && (() => {
             const sc = SETUP_COLORS[sel.setupType] || SETUP_COLORS["Gap Fill Risk"];
             return (
               <div style={{ padding: "16px 14px", width: 230 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                   <div>
-                    <div style={{ fontFamily: BEBAS, fontSize: 20, color: "#fff", letterSpacing: "0.06em" }}>{sel.ticker}</div>
-                    <div style={{ fontSize: 8, color: "#5a5a7a", marginTop: 1 }}>{sel.name}</div>
+                    <div style={{ fontFamily: BEBAS, fontSize: 20, color: C.text, letterSpacing: "0.06em" }}>{sel.ticker}</div>
+                    <div style={{ fontSize: 8, color: C.textDim, marginTop: 1 }}>{sel.name}</div>
                   </div>
-                  <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", color: "#3a3a5a", cursor: "pointer", fontSize: 14 }}>✕</button>
+                  <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", fontSize: 14 }}>✕</button>
                 </div>
                 {[
                   { label: "CURRENT PRICE", val: `$${sel.price.toFixed(2)}` },
                   { label: "PREV CLOSE",    val: `$${sel.prevClose.toFixed(2)}` },
-                  { label: "GAP %",         val: `${sel.gapPct > 0 ? "+" : ""}${sel.gapPct.toFixed(2)}%`, color: sel.gapPct >= 0 ? "#00ff88" : "#ff4466" },
-                  { label: "GAP $",         val: `${sel.gapPct >= 0 ? "+" : ""}$${(sel.price - sel.prevClose).toFixed(2)}`, color: sel.gapPct >= 0 ? "#00ff88" : "#ff4466" },
+                  { label: "GAP %",         val: `${sel.gapPct > 0 ? "+" : ""}${sel.gapPct.toFixed(2)}%`, color: sel.gapPct >= 0 ? C.green : C.red },
+                  { label: "GAP $",         val: `${sel.gapPct >= 0 ? "+" : ""}$${(sel.price - sel.prevClose).toFixed(2)}`, color: sel.gapPct >= 0 ? C.green : C.red },
                   { label: "VOLUME",        val: fmtVol(sel.vol) },
-                  { label: "REL. VOLUME",   val: sel.rvol > 0 ? sel.rvol.toFixed(2) + "×" : "—", color: sel.rvol >= 2 ? "#ffcc00" : null },
+                  { label: "REL. VOLUME",   val: sel.rvol > 0 ? sel.rvol.toFixed(2) + "×" : "—", color: sel.rvol >= 2 ? C.amber : null },
                   { label: "MKT CAP",       val: sel.mktCapB > 0 ? `$${sel.mktCapB.toFixed(1)}B` : "—" },
                   { label: "SECTOR",        val: sel.sector },
                   { label: "DATA SOURCE",   val: sel.hasPreMkt ? "Pre-Market" : "Regular Market" },
                 ].map(({ label, val, color }) => (
                   <div key={label} style={{ marginBottom: 9 }}>
-                    <div style={{ fontSize: 8, color: "#3a3a5a", letterSpacing: "0.1em", marginBottom: 2 }}>{label}</div>
-                    <div style={{ fontSize: 11, color: color || "#c8d0e0" }}>{val}</div>
+                    <div style={{ fontSize: 8, color: C.textDim, letterSpacing: "0.1em", marginBottom: 2 }}>{label}</div>
+                    <div style={{ fontSize: 11, color: color || C.text }}>{val}</div>
                   </div>
                 ))}
-                <div style={{ marginTop: 12, padding: "10px", background: "#0f0f1e", borderRadius: 4 }}>
-                  <div style={{ fontSize: 8, color: "#3a3a5a", letterSpacing: "0.1em", marginBottom: 6 }}>SETUP</div>
+                <div style={{ marginTop: 12, padding: "10px", background: C.card || C.bg, borderRadius: 4, border: `1px solid ${C.border}` }}>
+                  <div style={{ fontSize: 8, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6 }}>SETUP</div>
                   <span style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.text, fontSize: 9, padding: "2px 6px", borderRadius: 3 }}>{sel.setupType}</span>
-                  <div style={{ marginTop: 8, fontSize: 9, color: "#5a5a7a", lineHeight: 1.6 }}>{SETUP_DESC[sel.setupType]}</div>
+                  <div style={{ marginTop: 8, fontSize: 9, color: C.textSec, lineHeight: 1.6 }}>{SETUP_DESC[sel.setupType]}</div>
                 </div>
-                <div style={{ marginTop: 10, padding: "10px", background: "#0d1a0d", borderRadius: 4, border: "1px solid #1a2e1a" }}>
-                  <div style={{ fontSize: 8, color: "#3a3a5a", letterSpacing: "0.1em", marginBottom: 6 }}>KEY LEVELS</div>
+                <div style={{ marginTop: 10, padding: "10px", background: `${C.green}12`, borderRadius: 4, border: `1px solid ${C.green}30` }}>
+                  <div style={{ fontSize: 8, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6 }}>KEY LEVELS</div>
                   {[
                     { l: "Resistance", v: `$${(sel.price * 1.035).toFixed(2)}` },
                     { l: "VWAP Est.",  v: `$${((sel.price + sel.prevClose) / 2).toFixed(2)}` },
@@ -4824,8 +4824,8 @@ function GapScanner() {
                     { l: "Fill Target",v: `$${sel.prevClose.toFixed(2)}` },
                   ].map(({ l, v }) => (
                     <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                      <span style={{ fontSize: 9, color: "#4a4a6a" }}>{l}</span>
-                      <span style={{ fontSize: 9, color: "#8888aa" }}>{v}</span>
+                      <span style={{ fontSize: 9, color: C.textDim }}>{l}</span>
+                      <span style={{ fontSize: 9, color: C.textSec }}>{v}</span>
                     </div>
                   ))}
                 </div>
@@ -13151,15 +13151,32 @@ export default function App() {
                         const yH = Number(row.quote?.yearHigh || 0);
                         const yL = Number(row.quote?.yearLow  || 0);
 
-                        // Zone label
+                        // Zone label — use ref levels if available, else compute from live price %
                         let zoneLbl = "—", zoneCol = C.textDim;
-                        if (ref && livePrice > 0) {
-                          if      (livePrice <= ref.stop)    { zoneLbl = "⚠ STOP";   zoneCol = C.red; }
-                          else if (livePrice <= ref.e3)      { zoneLbl = "🟢 DEEP";   zoneCol = "#00e676"; }
-                          else if (livePrice <= ref.e2)      { zoneLbl = "⚡ BETTER"; zoneCol = "#4caf50"; }
-                          else if (livePrice <= ref.e1)      { zoneLbl = "🔵 STARTER"; zoneCol = "#26a69a"; }
-                          else if (livePrice >= ref.trigger) { zoneLbl = "🔶 ABOVE"; zoneCol = "#ff9900"; }
-                          else                               { zoneLbl = "WAIT";      zoneCol = C.textDim; }
+                        if (livePrice > 0) {
+                          if (ref) {
+                            if      (livePrice <= ref.stop)    { zoneLbl = "⚠ STOP";    zoneCol = C.red; }
+                            else if (livePrice <= ref.e3)      { zoneLbl = "🟢 DEEP";    zoneCol = "#00e676"; }
+                            else if (livePrice <= ref.e2)      { zoneLbl = "⚡ BETTER";  zoneCol = "#4caf50"; }
+                            else if (livePrice <= ref.e1)      { zoneLbl = "🔵 STARTER"; zoneCol = "#26a69a"; }
+                            else if (livePrice >= ref.trigger) { zoneLbl = "🔶 ABOVE";   zoneCol = "#ff9900"; }
+                            else                               { zoneLbl = "WAIT";       zoneCol = C.textDim; }
+                          } else {
+                            // Dynamic zone from live price for custom tickers
+                            const d1w = livePrice * 0.95;  // -5%  starter
+                            const d2w = livePrice * 0.88;  // -12% better
+                            const d3w = livePrice * 0.80;  // -20% deep
+                            const trg = livePrice * 1.05;  // +5%  above
+                            const stp = livePrice * 0.75;  // -25% stop
+                            // For a flat current price, show zone relative to day change
+                            const chg = Number(row.quote?.changePercent || 0);
+                            if      (chg >= 5)   { zoneLbl = "🔶 ABOVE";   zoneCol = "#ff9900"; }
+                            else if (chg >= 1)   { zoneLbl = "🔵 STARTER"; zoneCol = "#26a69a"; }
+                            else if (chg >= -3)  { zoneLbl = "WATCH";      zoneCol = C.textSec; }
+                            else if (chg >= -8)  { zoneLbl = "⚡ BETTER";  zoneCol = "#4caf50"; }
+                            else if (chg >= -15) { zoneLbl = "🟢 DEEP";    zoneCol = "#00e676"; }
+                            else                 { zoneLbl = "⚠ STOP";    zoneCol = C.red; }
+                          }
                         }
 
                         const emaLabel = (row.ema9v && row.ema21v)
@@ -13240,7 +13257,7 @@ export default function App() {
                               <td style={{ fontFamily: MONO, fontSize: 9, color: C.textDim,
                                 padding: "9px 10px", borderBottom: `1px solid ${C.border}22`,
                                 whiteSpace: "nowrap" }}>
-                                {ref?.sector || "—"}
+                                {ref?.sector || row.quote?.sector || row.quote?.quoteType || "—"}
                               </td>
 
                               {/* Live price */}
@@ -19438,7 +19455,7 @@ export default function App() {
       )}
 
       {/* ── GAP SCANNER TAB ─────────────────────────────────────────────────── */}
-      {activeTab === "gap" && <GapScanner />}
+      {activeTab === "gap" && <GapScanner C={C} MONO={MONO} SANS={SANS} />}
 
       {/* ── ANALYST RATINGS TAB ─────────────────────────────────────────────── */}
       {activeTab === "analyst" && (() => {

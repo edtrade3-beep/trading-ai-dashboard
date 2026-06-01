@@ -134,7 +134,14 @@ async function handleScanner(req, res, requestUrl) {
     };
 
     try {
-      const raw = await fetchYahooQuoteBatch(GAP_UNIVERSE);
+      // Yahoo v7 batch works best with ≤20 symbols — split and fetch in parallel
+      const CHUNK = 20;
+      const chunks = [];
+      for (let i = 0; i < GAP_UNIVERSE.length; i += CHUNK)
+        chunks.push(GAP_UNIVERSE.slice(i, i + CHUNK));
+      const settled = await Promise.allSettled(chunks.map(c => fetchYahooQuoteBatch(c)));
+      const raw = settled.flatMap(r => r.status === "fulfilled" ? r.value : []);
+
       const results = raw
         .filter(q => q && (q.regularMarketPrice || q.regularMarketOpen))
         .map(q => {
@@ -147,8 +154,11 @@ async function handleScanner(req, res, requestUrl) {
           const prePrice  = round2(Number(q.preMarketPrice || 0));
           const hasPreMkt = prePrice > 0 && prevClose > 0;
 
-          const gapPrice  = hasPreMkt ? prePrice  : openPrice;
-          const gapPct    = prevClose > 0 ? round2((gapPrice - prevClose) / prevClose * 100) : 0;
+          const gapPrice  = hasPreMkt ? prePrice : openPrice;
+          // Fall back to Yahoo's own changePercent if we can't compute from prices
+          const gapPct    = prevClose > 0
+            ? round2((gapPrice - prevClose) / prevClose * 100)
+            : round2(Number(q.regularMarketChangePercent || q.preMarketChangePercent || 0));
 
           const vol     = Number(q.regularMarketVolume || 0);
           const avgVol  = Number(q.averageDailyVolume3Month || q.averageDailyVolume10Day || 1);
