@@ -93,6 +93,108 @@ async function handleScanner(req, res, requestUrl) {
     return writeJson(res, 200, { ok: true, scannedAt: new Date().toISOString(), results });
   }
 
+  // GET /api/scanner/gap-scan — real pre-market / intraday gap data via Yahoo
+  if (pathname === "/api/scanner/gap-scan" && req.method === "GET") {
+    const { fetchYahooQuoteBatch } = require("../providers/yahoo");
+    const { round2 } = require("../utils");
+
+    // ~80 liquid, high-volume symbols likely to gap
+    const GAP_UNIVERSE = [
+      "NVDA","TSLA","AAPL","META","AMZN","GOOGL","MSFT","AMD","NFLX","COIN",
+      "SMCI","ARM","PLTR","RIVN","LCID","SOFI","MARA","RIOT","HOOD","RBLX",
+      "UPST","AFRM","DKNG","SNOW","PATH","AI","CRWD","ZS","PANW","NET",
+      "BBAI","SERV","SMR","LUNR","ASTS","RKLB","SOUN","RGTI","IONQ","ACHR",
+      "MSTR","IBIT","GBTC","FBTC","CLSK","IREN","HUT","BITF",
+      "SYM","OKLO","NNE","RDW","APLD","CORZ","VST","CEG","GEV","CCJ",
+      "SPY","QQQ","IWM","UVXY","TQQQ","SQQQ",
+      "GLD","SLV","USO","UNG",
+      "BABA","JD","PDD","NIO","XPEV","LI","GRAB","SE",
+      "HIMS","RXRX","BEAM","CRSP","MRNA","BNTX","NVAX",
+      "UBER","LYFT","SNAP","PINS","RDDT","ABNB","DASH",
+    ];
+
+    const SECTORS = {
+      NVDA:"AI/Chips",TSLA:"EV/Auto",AAPL:"Tech",META:"Social",AMZN:"E-Comm",GOOGL:"Tech",MSFT:"Tech",
+      AMD:"Chips",NFLX:"Streaming",COIN:"Crypto",SMCI:"Servers",ARM:"Chips",PLTR:"Defense AI",
+      RIVN:"EV",LCID:"EV",SOFI:"FinTech",MARA:"Crypto Mining",RIOT:"Crypto Mining",HOOD:"FinTech",
+      RBLX:"Gaming",UPST:"FinTech",AFRM:"FinTech",DKNG:"Gambling",SNOW:"Cloud",PATH:"AI",
+      AI:"AI",CRWD:"Cybersec",ZS:"Cybersec",PANW:"Cybersec",NET:"Cybersec",
+      BBAI:"Defense AI",SERV:"Robotics",SMR:"Nuclear",LUNR:"Space",ASTS:"Satellite",RKLB:"Space",
+      SOUN:"AI Voice",RGTI:"Quantum",IONQ:"Quantum",ACHR:"Air Mobility",
+      MSTR:"Crypto",IBIT:"Crypto ETF",GBTC:"Crypto ETF",FBTC:"Crypto ETF",
+      CLSK:"Crypto Mining",IREN:"Crypto Mining",HUT:"Crypto Mining",BITF:"Crypto Mining",
+      SYM:"Robotics",OKLO:"Nuclear",NNE:"Nuclear",APLD:"AI Infrastructure",
+      CORZ:"Crypto Mining",VST:"Energy",CEG:"Nuclear",GEV:"Energy",CCJ:"Nuclear",
+      SPY:"ETF",QQQ:"ETF",IWM:"ETF",UVXY:"Volatility",TQQQ:"ETF",SQQQ:"ETF",
+      GLD:"Commodities",SLV:"Commodities",USO:"Commodities",UNG:"Commodities",
+      BABA:"China Tech",JD:"China Tech",PDD:"China Tech",NIO:"China EV",XPEV:"China EV",
+      LI:"China EV",GRAB:"SE Asia Tech",SE:"SE Asia Tech",
+      HIMS:"Biotech",RXRX:"Biotech",BEAM:"Biotech",CRSP:"Biotech",MRNA:"Biotech",BNTX:"Biotech",NVAX:"Biotech",
+      UBER:"Rideshare",LYFT:"Rideshare",SNAP:"Social",PINS:"Social",RDDT:"Social",ABNB:"Travel",DASH:"Delivery",
+    };
+
+    try {
+      const raw = await fetchYahooQuoteBatch(GAP_UNIVERSE);
+      const results = raw
+        .filter(q => q && (q.regularMarketPrice || q.regularMarketOpen))
+        .map(q => {
+          const sym       = String(q.symbol || "").toUpperCase();
+          const price     = round2(Number(q.regularMarketPrice || q.regularMarketOpen || 0));
+          const prevClose = round2(Number(q.regularMarketPreviousClose || 0));
+          const openPrice = round2(Number(q.regularMarketOpen || price));
+
+          // Pre-market gap if available, otherwise use open vs prev close
+          const prePrice  = round2(Number(q.preMarketPrice || 0));
+          const hasPreMkt = prePrice > 0 && prevClose > 0;
+
+          const gapPrice  = hasPreMkt ? prePrice  : openPrice;
+          const gapPct    = prevClose > 0 ? round2((gapPrice - prevClose) / prevClose * 100) : 0;
+
+          const vol     = Number(q.regularMarketVolume || 0);
+          const avgVol  = Number(q.averageDailyVolume3Month || q.averageDailyVolume10Day || 1);
+          const rvol    = avgVol > 0 ? round2(vol / avgVol) : 0;
+          const floatSh = Number(q.floatShares || q.sharesOutstanding || 0);
+          const floatM  = floatSh > 0 ? round2(floatSh / 1e6) : null;
+          const mktCap  = round2((Number(q.marketCap) || 0) / 1e9);
+
+          // Setup classification
+          let setupType;
+          if (gapPct >= 3 && rvol >= 1.5)        setupType = "Gap & Go";
+          else if (gapPct >= 1.5)                 setupType = "Gap Fill Risk";
+          else if (gapPct <= -3 && rvol >= 1.5)   setupType = "Gap Fill";
+          else if (floatM && floatM < 50 && gapPct > 0) setupType = "Short Squeeze";
+          else if (gapPct < -1.5)                 setupType = "Gap Fill";
+          else                                     setupType = gapPct >= 0 ? "Gap Fill Risk" : "Gap Fill";
+
+          return {
+            ticker:     sym,
+            name:       q.longName || q.shortName || sym,
+            price,
+            prevClose,
+            openPrice,
+            preMarketPrice: prePrice || null,
+            gapPct,
+            vol,
+            avgVol,
+            rvol,
+            floatM,
+            mktCapB: mktCap,
+            sector:   SECTORS[sym] || "Other",
+            catalyst: "—",
+            setupType,
+            hasPreMkt,
+          };
+        })
+        .filter(s => Math.abs(s.gapPct) >= 0.5) // only meaningful gaps
+        .sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct))
+        .slice(0, 30);
+
+      return writeJson(res, 200, { ok: true, results, scannedAt: new Date().toISOString() });
+    } catch (e) {
+      return writeJson(res, 502, { ok: false, error: e.message });
+    }
+  }
+
   return writeJson(res, 404, { error: "Unknown scanner endpoint" });
 }
 
