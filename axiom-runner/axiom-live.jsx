@@ -7098,6 +7098,8 @@ export default function App() {
   const [sectorData, setSectorData] = useState([]);
   const [selectedStock, setSelectedStock] = useState(null);
   const [terminalSymbol, setTerminalSymbol] = useState(WATCHLIST_SYMBOLS[0]);
+  const [myTvChartUrl,   setMyTvChartUrl]   = useState(() => { try { return localStorage.getItem("my_tv_chart_url") || ""; } catch { return ""; } });
+  const [tvChartMode,    setTvChartMode]     = useState(() => { try { return localStorage.getItem("tv_chart_mode") || "widget"; } catch { return "widget"; } }); // "widget" | "my_chart"
   const [terminalTf, setTerminalTf] = useState("1D");
   const [terminalCandles, setTerminalCandles] = useState(null);
   const [terminalCandlesLoading, setTerminalCandlesLoading] = useState(false);
@@ -11163,7 +11165,101 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === "terminal" && watchlistData.length > 0 && (
+        {/* ── MY TRADINGVIEW CHART — shows if user has connected their chart URL ── */}
+        {activeTab === "terminal" && tvChartMode === "my_chart" && myTvChartUrl && (
+          <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 90px)" }}>
+            {/* Toolbar */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px",
+              background: C.surface, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>📊 MY TRADINGVIEW CHART</span>
+              <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>Your saved layout with all your indicators and data</span>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                <button onClick={() => { setTvChartMode("widget"); localStorage.setItem("tv_chart_mode","widget"); }}
+                  style={{ fontFamily: MONO, fontSize: 10, border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 4, padding: "3px 10px", cursor: "pointer" }}>
+                  ← BACK TO BUILT-IN
+                </button>
+                <a href={myTvChartUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ fontFamily: MONO, fontSize: 10, border: `1px solid ${C.accent}44`, background: `${C.accent}12`, color: C.accent, borderRadius: 4, padding: "3px 10px", textDecoration: "none" }}>
+                  OPEN IN TRADINGVIEW ↗
+                </a>
+              </div>
+            </div>
+            {/* Full chart embed */}
+            <iframe
+              src={myTvChartUrl}
+              title="My TradingView Chart"
+              allow="fullscreen; clipboard-write"
+              style={{ flex: 1, border: "none", width: "100%", display: "block" }}
+            />
+          </div>
+        )}
+
+        {/* ── MY CHART SETUP — shown when no chart URL set yet ── */}
+        {activeTab === "terminal" && tvChartMode === "my_chart" && !myTvChartUrl && (
+          <div style={{ padding: "40px 30px", maxWidth: 600, margin: "0 auto" }}>
+            <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>
+              📊 Connect Your TradingView Chart
+            </div>
+            <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, marginBottom: 24, lineHeight: 1.7 }}>
+              Embed your personal TradingView chart with all your custom indicators, Pine Scripts, and saved layouts directly here.
+            </div>
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "20px 24px", marginBottom: 20 }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 12 }}>HOW TO GET YOUR CHART URL:</div>
+              {[
+                "Open TradingView and go to your chart",
+                'Click Share → "Get Link" → Copy the URL',
+                'Or just copy the URL from your browser address bar',
+                "Paste it below and click CONNECT",
+              ].map((step, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, marginBottom: 8 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent, flexShrink: 0 }}>{i+1}.</span>
+                  <span style={{ fontFamily: SANS, fontSize: 12, color: C.textSec }}>{step}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                placeholder="https://www.tradingview.com/chart/XXXXXX/"
+                style={{ flex: 1, border: `1px solid ${C.border}`, background: C.surface, color: C.text,
+                  borderRadius: 6, padding: "10px 14px", fontFamily: MONO, fontSize: 11, outline: "none" }}
+                id="tv-chart-url-input"
+              />
+              <button
+                onClick={() => {
+                  const url = document.getElementById("tv-chart-url-input").value.trim();
+                  if (url && url.includes("tradingview.com")) {
+                    setMyTvChartUrl(url);
+                    localStorage.setItem("my_tv_chart_url", url);
+                  } else {
+                    alert("Please enter a valid TradingView chart URL");
+                  }
+                }}
+                style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: C.accent,
+                  border: "none", color: "#fff", borderRadius: 6, padding: "10px 20px", cursor: "pointer" }}>
+                CONNECT
+              </button>
+            </div>
+            <button onClick={() => { setTvChartMode("widget"); localStorage.setItem("tv_chart_mode","widget"); }}
+              style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, background: "none", border: "none",
+                cursor: "pointer", marginTop: 12, textDecoration: "underline" }}>
+              Use built-in chart instead
+            </button>
+          </div>
+        )}
+
+        {/* ── Built-in chart (default) ── */}
+        {activeTab === "terminal" && tvChartMode === "widget" && (
+          <div style={{ position: "absolute", top: 4, right: 14, zIndex: 10 }}>
+            <button
+              onClick={() => { setTvChartMode("my_chart"); localStorage.setItem("tv_chart_mode","my_chart"); }}
+              style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, border: `1px solid ${C.accent}44`,
+                background: `${C.accent}12`, color: C.accent, borderRadius: 4, padding: "3px 10px", cursor: "pointer" }}>
+              📊 USE MY CHART
+            </button>
+          </div>
+        )}
+
+        {activeTab === "terminal" && tvChartMode === "widget" && watchlistData.length > 0 && (
           <TerminalWorkspace
             watchlistData={watchlistData}
             macroData={macroData}
