@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dixie Motors – Dealer Portal</title>
+  <style>
+    html, body, #root { height: 100%; margin: 0; }
+    body { background: #f1f5f9; font-family: Inter, Arial, sans-serif; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .boot { display: grid; place-items: center; min-height: 100%; color: #0f172a; font: 14px/1.5 system-ui, sans-serif; }
+    .boot-card { max-width: 480px; padding: 28px; border: 1px solid rgba(100,116,139,0.15); border-radius: 16px; background: #ffffff; box-shadow: 0 4px 24px rgba(15,23,42,0.10); }
+    .boot-card h2 { margin: 0 0 8px; font-size: 18px; font-weight: 700; color: #0f172a; }
+    .boot-card p { margin: 0; color: #64748b; }
+    .boot-card pre { margin: 16px 0 0; white-space: pre-wrap; color: #dc2626; font: 12px/1.5 Consolas, monospace; }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div class="boot">
+      <div class="boot-card">
+        <h2>Loading Dealer Portal</h2>
+        <p>Starting up the Dixie Motors command center…</p>
+      </div>
+    </div>
+  </div>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script>
+    // Boot the React dealer portal using the same fetch+compile pattern as axiom-runner
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+
+    function renderError(message) {
+      root.render(
+        React.createElement("div", { className: "boot" },
+          React.createElement("div", { className: "boot-card" },
+            React.createElement("h2", null, "Dealer Portal failed to start"),
+            React.createElement("p", null, "The app loaded but the JSX could not be compiled."),
+            React.createElement("pre", null, String(message || "Unknown error"))
+          )
+        )
+      );
+    }
+
+    async function boot() {
+      try {
+        const response = await fetch(`/client/dealer/app.jsx?v=${Date.now()}`, { cache: "no-store" });
+        if (!response.ok) throw new Error("Unable to load app.jsx (" + response.status + ")");
+        const source = await response.text();
+        const prepared = source.concat("\nwindow.__DEALER_APP__ = App;\n");
+        const compiled = Babel.transform(prepared, { presets: ["react"], filename: "app.jsx" }).code;
+        new Function(compiled)();
+        const App = window.__DEALER_APP__;
+        if (typeof App !== "function") throw new Error("Compiled app did not expose a React component.");
+        root.render(React.createElement(App));
+      } catch (error) {
+        renderError(error && error.stack ? error.stack : String(error));
+      }
+    }
+
+    boot();
+  </script>
+</body>
+</html>
