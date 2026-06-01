@@ -13771,12 +13771,25 @@ export default function App() {
               {scanResults.length > 0 && (
                 <div style={{ background: C.card, border: `1px solid ${C.border}`,
                   borderRadius: 10, overflow: "hidden" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  {/* Tablet: show scroll hint */}
+                  {isTablet && (
+                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim,
+                      padding: "6px 12px", background: C.surface,
+                      borderBottom: `1px solid ${C.border}22`, textAlign: "center" }}>
+                      ← Swipe table to see all columns · Tap row to expand deep dive →
+                    </div>
+                  )}
+                  <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: isTablet ? 900 : "auto" }}>
                     <thead>
                       <tr style={{ background: C.surface }}>
-                        {["#","SCORE","SIGNAL","TICKER","SECTOR","LIVE $","RSI","MACD","EMA","ZONE","VOL PACE","PATTERN","SHORT%","UPSIDE","THESIS"].map(h => (
-                          <th key={h} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
-                            color: C.textDim, padding: "8px 10px", textAlign: h === "#" ? "center" : "left",
+                        {(isTablet
+                          ? ["#","SCORE","SIGNAL","TICKER","LIVE $","RSI","EMA","ZONE","VOL PACE","PATTERN"]
+                          : ["#","SCORE","SIGNAL","TICKER","SECTOR","LIVE $","RSI","MACD","EMA","ZONE","VOL PACE","PATTERN","SHORT%","UPSIDE","THESIS"]
+                        ).map(h => (
+                          <th key={h} style={{ fontFamily: MONO, fontSize: isTablet ? 11 : 10, fontWeight: 700,
+                            color: C.textDim, padding: isTablet ? "10px 10px" : "8px 10px",
+                            textAlign: h === "#" ? "center" : "left",
                             letterSpacing: "0.05em", borderBottom: `1px solid ${C.border}`,
                             whiteSpace: "nowrap" }}>
                             {h}
@@ -13896,12 +13909,14 @@ export default function App() {
                                 )}
                               </td>
 
-                              {/* Sector */}
+                              {/* Sector — hidden on tablet */}
+                              {!isTablet && (
                               <td style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
                                 padding: "11px 11px", borderBottom: `1px solid ${C.border}22`,
                                 whiteSpace: "nowrap" }}>
                                 {ref?.sector || row.quote?.sector || row.quote?.quoteType || "—"}
                               </td>
+                              )}
 
                               {/* Live price */}
                               <td style={{ padding: "11px 11px", borderBottom: `1px solid ${C.border}22`,
@@ -13933,7 +13948,8 @@ export default function App() {
                                 {row.rsiVal !== null ? row.rsiVal.toFixed(0) : "—"}
                               </td>
 
-                              {/* MACD */}
+                              {/* MACD — hidden on tablet */}
+                              {!isTablet && (
                               <td style={{ textAlign: "center", padding: "11px 9px",
                                 borderBottom: `1px solid ${C.border}22` }}>
                                 {row.macdBull === null ? (
@@ -13944,6 +13960,7 @@ export default function App() {
                                   <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.red }}>▼ BEAR</span>
                                 )}
                               </td>
+                              )}
 
                               {/* EMA cross */}
                               <td style={{ fontFamily: MONO, fontSize: 11, textAlign: "center",
@@ -14002,7 +14019,8 @@ export default function App() {
                               })()}
 
                               {/* Short % */}
-                              {(() => {
+                              {/* Short % — hidden on tablet */}
+                              {!isTablet && (() => {
                                 const sf = Number(row.quote?.shortFloat || row.quote?.shortPercentOfFloat || 0);
                                 const shortPct = sf > 1 ? sf : sf > 0 ? sf * 100 : null;
                                 const shortCol = shortPct == null ? C.textDim : shortPct > 20 ? C.red : shortPct > 10 ? C.amber : C.textSec;
@@ -14015,20 +14033,22 @@ export default function App() {
                                 );
                               })()}
 
-                              {/* Upside */}
+                              {/* Upside — hidden on tablet */}
+                              {!isTablet && (
                               <td style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800,
                                 textAlign: "center", padding: "11px 9px",
                                 borderBottom: `1px solid ${C.border}22`,
                                 color: C.amber }}>
                                 {ref?.upside || "—"}
                               </td>
+                              )}
 
-                              {/* Thesis */}
+                              {/* Thesis — tap to expand indicator */}
                               <td style={{ fontFamily: MONO, fontSize: 11, color: C.textSec,
                                 padding: "11px 11px", borderBottom: `1px solid ${C.border}22`,
                                 whiteSpace: "nowrap" }}>
-                                {ref?.thesis || "—"}
-                                <span style={{ marginLeft: 6, color: C.accent, fontSize: 11 }}>
+                                {!isTablet && (ref?.thesis || "—")}
+                                <span style={{ marginLeft: isTablet ? 0 : 6, color: C.accent, fontSize: isTablet ? 18 : 11 }}>
                                   {isExpanded ? "▲" : "▼"}
                                 </span>
                               </td>
@@ -14037,7 +14057,7 @@ export default function App() {
                             {/* ── Deep Dive row ── */}
                             {isExpanded && (
                               <tr>
-                                <td colSpan={15}
+                                <td colSpan={isTablet ? 10 : 15}
                                   style={{ background: C.bg,
                                     borderLeft: `3px solid ${row.sColor}`,
                                     borderBottom: `2px solid ${row.sColor}44`,
@@ -15071,6 +15091,7 @@ export default function App() {
                       })}
                     </tbody>
                   </table>
+                  </div> {/* end overflow scroll wrapper */}
                 </div>
               )}
 
