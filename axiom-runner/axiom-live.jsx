@@ -7214,7 +7214,7 @@ export default function App() {
   const [sigData,      setSigData]      = useState(null);
   const [sigLoading,   setSigLoading]   = useState(false);
   const [sigFilter,    setSigFilter]    = useState("ALL");
-  const [sigCollapsed, setSigCollapsed] = useState(true);
+  const [sigCollapsed, setSigCollapsed] = useState(false); // open by default
   const [dpData,       setDpData]       = useState(null);
   const [dpLoad,       setDpLoad]       = useState(false);
   const [dpSym,        setDpSym]        = useState("");
@@ -7841,7 +7841,7 @@ export default function App() {
       fetch("/api/market/trade-signals")
         .then(r => r.json()).then(d => { if (d.ok) setSigData(d); })
         .catch(() => {}).finally(() => setSigLoading(false));
-    }, 6000);
+    }, 2000); // reduced from 6s → 2s
     return () => clearTimeout(t);
   }, []);
 
@@ -11342,15 +11342,16 @@ export default function App() {
           };
 
           const ACTION_COLOR = {
-            "LONG": C.green, "SHORT": C.red,
-            "WATCH — LONG SETUP": C.amber,
+            "LONG": C.green,
+            "SHORT / AVOID": C.red,
+            "WATCH": C.amber,
           };
           const CONF_COLOR = { HIGH: C.accent, MEDIUM: C.green, LOW: C.textDim };
 
           const filtered = (sigData?.signals || []).filter(s => {
-            if (sigFilter === "LONG")    return s.action === "LONG" || s.action === "WATCH — LONG SETUP";
-            if (sigFilter === "SHORT")   return s.action === "SHORT";
-            if (sigFilter === "OPTIONS") return s.optionType && !s.optionType.includes("WAIT");
+            if (sigFilter === "LONG")    return s.action === "LONG" || s.action === "WATCH";
+            if (sigFilter === "SHORT")   return s.action === "SHORT / AVOID";
+            if (sigFilter === "OPTIONS") return s.optionType != null;
             return true;
           });
 
@@ -11405,9 +11406,20 @@ export default function App() {
                       ⌛ Scanning {" — "} analyzing signals across 50 symbols…
                     </div>
                   )}
-                  {filtered.length === 0 && !sigLoading && (
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center", padding: "20px 0" }}>
-                      No signals for "{sigFilter}" filter right now. Try ALL or refresh.
+                  {sigLoading && (
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center", padding: "16px 0" }}>
+                      ⌛ Scanning 50 symbols for setups…
+                    </div>
+                  )}
+                  {!sigLoading && filtered.length === 0 && sigData && (
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center", padding: "16px 0" }}>
+                      No {sigFilter === "ALL" ? "" : sigFilter + " "}signals right now — market may be quiet.
+                      {sigFilter !== "ALL" && <span style={{ color: C.accent, cursor: "pointer", marginLeft: 6 }} onClick={() => setSigFilter("ALL")}>Show ALL</span>}
+                    </div>
+                  )}
+                  {!sigLoading && !sigData && (
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center", padding: "16px 0" }}>
+                      ⌛ Loading signals… (scans 50 symbols, takes ~5s)
                     </div>
                   )}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 10 }}>
@@ -11415,7 +11427,7 @@ export default function App() {
                       const ac = ACTION_COLOR[s.action] || C.amber;
                       const cc = CONF_COLOR[s.confidence] || C.textDim;
                       const isLong  = s.action === "LONG";
-                      const isShort = s.action === "SHORT";
+                      const isShort = s.action === "SHORT / AVOID";
                       return (
                         <div key={`${s.sym}-${i}`}
                           onClick={() => { setTerminalSymbol(s.sym); setActiveTab("terminal"); }}

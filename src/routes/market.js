@@ -1412,101 +1412,104 @@ async function handleMarket(req, res, requestUrl) {
 
       for (const q of quotes) {
         try {
-          const sym      = String(q.symbol || "").toUpperCase();
-          const price    = Number(q.regularMarketPrice || 0);
-          const chgPct   = Number(q.regularMarketChangePercent || 0);
-          const vol      = Number(q.regularMarketVolume || 0);
-          const avgVol   = Number(q.averageDailyVolume3Month || q.averageDailyVolume10Day || 1);
-          const rvol     = avgVol > 0 ? vol / avgVol : 0;
-          const hi52     = Number(q.fiftyTwoWeekHigh || q.regularMarketDayHigh || 0);
-          const lo52     = Number(q.fiftyTwoWeekLow  || q.regularMarketDayLow  || 0);
-          const ma50     = Number(q.fiftyDayAverage  || 0);
-          const ma200    = Number(q.twoHundredDayAverage || 0);
-          const rsi      = Number(q.regularMarketDayHigh && q.regularMarketDayLow
-            ? Math.round(50 + chgPct * 4) : 50); // rough proxy
-          const yearPos  = (hi52 > lo52 && price > 0) ? (price - lo52) / (hi52 - lo52) : 0.5;
-          const ivProxy  = (hi52 > lo52 && price > 0) ? Math.min(99, Math.round((hi52 - lo52) / price * 100 * 1.4)) : 50;
-          const shortPct = Number(q.shortPercentOfFloat || 0) * 100;
+          const sym    = String(q.symbol || "").toUpperCase();
+          const price  = Number(q.regularMarketPrice || 0);
+          if (price <= 0) continue;
 
-          if (price <= 0 || rvol < 0.5) continue;
+          const chgPct = Number(q.regularMarketChangePercent || 0);
+          const vol    = Number(q.regularMarketVolume || 0);
+          const avgVol = Number(q.averageDailyVolume3Month || q.averageDailyVolume10Day || q.averageDailyVolume || 0);
+          const rvol   = (avgVol > 0 && vol > 0) ? vol / avgVol : 1.0; // default 1.0 if missing
 
-          // ── Score for LONG/SHORT ───────────────────────────────────────────
+          const hi52   = Number(q.fiftyTwoWeekHigh || 0);
+          const lo52   = Number(q.fiftyTwoWeekLow  || 0);
+          const ma50   = Number(q.fiftyDayAverage   || q.regularMarketDayHigh * 0.97 || 0);
+          const ma200  = Number(q.twoHundredDayAverage || 0);
+          const prev   = Number(q.regularMarketPreviousClose || price);
+
+          const yearPos = (hi52 > lo52 && price > 0) ? (price - lo52) / (hi52 - lo52) : 0.5;
+          const ivProxy = (hi52 > lo52 && price > 0) ? Math.min(99, Math.round((hi52 - lo52) / price * 100 * 1.4)) : 40;
+
+          // ── Score ────────────────────────────────────────────────────────────
           let score = 50;
-          let reasons = [], contra = [];
+          const reasons = [], contra = [];
 
-          // Trend
-          if (ma50 > 0 && price > ma50)  { score += 12; reasons.push(`Above MA50 ($${round2(ma50)})`); }
-          if (ma200 > 0 && price > ma200) { score += 8;  reasons.push(`Above MA200`); }
-          if (ma50 > 0 && price < ma50)   { score -= 10; contra.push(`Below MA50 ($${round2(ma50)})`); }
-          if (ma50 > 0 && ma200 > 0 && ma50 > ma200) { score += 8; reasons.push("MA50 > MA200 — uptrend"); }
+          // MA trend (only if available)
+          if (ma50 > 0 && price > ma50 * 1.01)  { score += 14; reasons.push(`Above MA50 $${round2(ma50)}`); }
+          else if (ma50 > 0 && price < ma50 * 0.99) { score -= 12; contra.push(`Below MA50 $${round2(ma50)}`); }
+          if (ma200 > 0 && price > ma200)         { score += 8;  reasons.push("Above MA200 — primary uptrend"); }
+          else if (ma200 > 0 && price < ma200)    { score -= 8;  contra.push("Below MA200 — primary downtrend"); }
+          if (ma50 > 0 && ma200 > 0 && ma50 > ma200) { score += 6; reasons.push("Golden cross — MA50 > MA200"); }
 
-          // Momentum
-          if (chgPct > 3)        { score += 15; reasons.push(`+${chgPct.toFixed(1)}% today — strong momentum`); }
-          else if (chgPct > 1)   { score += 8;  reasons.push(`+${chgPct.toFixed(1)}% — positive day`); }
-          else if (chgPct < -3)  { score -= 15; contra.push(`${chgPct.toFixed(1)}% — heavy selling`); }
-          else if (chgPct < -1)  { score -= 8;  contra.push(`${chgPct.toFixed(1)}% — weak`); }
+          // Day momentum — always available
+          if (chgPct >= 5)       { score += 22; reasons.push(`+${chgPct.toFixed(1)}% — breakout momentum`); }
+          else if (chgPct >= 3)  { score += 16; reasons.push(`+${chgPct.toFixed(1)}% — strong day`); }
+          else if (chgPct >= 1)  { score += 8;  reasons.push(`+${chgPct.toFixed(1)}% — positive`); }
+          else if (chgPct >= 0)  { score += 2; }
+          else if (chgPct <= -5) { score -= 22; contra.push(`${chgPct.toFixed(1)}% — breakdown`); }
+          else if (chgPct <= -3) { score -= 16; contra.push(`${chgPct.toFixed(1)}% — heavy selling`); }
+          else if (chgPct <= -1) { score -= 8;  contra.push(`${chgPct.toFixed(1)}% — weak`); }
 
-          // Volume
-          if (rvol >= 2.5 && chgPct > 0) { score += 18; reasons.push(`RVOL ${rvol.toFixed(1)}× — institutional buying`); }
-          else if (rvol >= 1.5 && chgPct > 0) { score += 10; reasons.push(`RVOL ${rvol.toFixed(1)}× — volume confirmation`); }
-          else if (rvol >= 1.5 && chgPct < 0) { score -= 10; contra.push(`RVOL ${rvol.toFixed(1)}× on down day — selling`); }
+          // Volume confirmation
+          if (rvol >= 3.0 && chgPct > 0)  { score += 20; reasons.push(`RVOL ${rvol.toFixed(1)}× — huge institutional interest`); }
+          else if (rvol >= 2.0 && chgPct > 0) { score += 14; reasons.push(`RVOL ${rvol.toFixed(1)}× — strong volume`); }
+          else if (rvol >= 1.3 && chgPct > 0) { score += 8;  reasons.push(`RVOL ${rvol.toFixed(1)}× — above-average volume`); }
+          else if (rvol >= 2.0 && chgPct < 0) { score -= 14; contra.push(`RVOL ${rvol.toFixed(1)}× selling — distribution`); }
+          else if (rvol >= 1.3 && chgPct < 0) { score -= 8;  contra.push(`RVOL ${rvol.toFixed(1)}× on down day`); }
 
           // 52-week position
-          if (yearPos > 0.90) { score += 12; reasons.push("Near 52w high — price discovery"); }
-          else if (yearPos > 0.70) { score += 6; reasons.push("Upper 52w range — trend intact"); }
-          else if (yearPos < 0.20) { score -= 8; contra.push("Near 52w low — downtrend"); }
+          if (yearPos > 0.90)      { score += 10; reasons.push("At 52w high — price discovery"); }
+          else if (yearPos > 0.75) { score += 6;  reasons.push("Upper 52w range"); }
+          else if (yearPos < 0.15) { score -= 10; contra.push("Near 52w low — downtrend"); }
+          else if (yearPos < 0.30) { score -= 4;  contra.push("Lower 52w range"); }
 
-          // Short squeeze potential
-          if (shortPct > 15 && chgPct > 2) { score += 10; reasons.push(`${shortPct.toFixed(1)}% short float — squeeze risk`); }
+          // Market env
+          if (mktEnv === "RISK-OFF") score -= 8;
+          if (mktEnv === "CAUTION")  score -= 3;
 
-          // Market environment penalty
-          if (mktEnv === "RISK-OFF" && score > 60)  score -= 10;
-          if (mktEnv === "CAUTION"  && score > 70)  score -= 5;
+          score = Math.max(5, Math.min(100, Math.round(score)));
 
-          score = Math.max(0, Math.min(100, score));
-
-          // ── Determine signal type ──────────────────────────────────────────
+          // ── Classify signal ───────────────────────────────────────────────
           let action = null, confidence = "", rationale = [], optionType = null, optionNote = "";
 
-          if (score >= 72 && chgPct > 0 && rvol >= 1.2 && mktEnv !== "RISK-OFF") {
+          if (score >= 68 && chgPct > 0) {
             action = "LONG";
-            confidence = score >= 85 ? "HIGH" : "MEDIUM";
+            confidence = score >= 85 ? "HIGH" : score >= 75 ? "MEDIUM" : "LOW";
             rationale = reasons.slice(0, 3);
-            // Options signal
-            if (ivProxy < 45) { optionType = "BUY CALLS"; optionNote = `IV proxy ${ivProxy} — options cheap, calls have edge`; }
-            else if (ivProxy > 65) { optionType = "SELL PUTS"; optionNote = `IV proxy ${ivProxy} — sell cash-secured puts to enter`; }
-            else { optionType = "STOCK or CALLS"; optionNote = `IV proxy ${ivProxy} — moderate, stock or near-money calls`; }
-          } else if (score <= 35 && chgPct < 0 && rvol >= 1.2) {
-            action = "SHORT";
-            confidence = score <= 20 ? "HIGH" : "MEDIUM";
+            if (ivProxy < 40)      { optionType = "BUY CALLS";    optionNote = `IV ${ivProxy} — cheap options`; }
+            else if (ivProxy > 65) { optionType = "SELL PUTS";    optionNote = `IV ${ivProxy} — sell puts for income`; }
+            else                   { optionType = "CALLS or STOCK"; optionNote = `IV ${ivProxy}`; }
+          } else if (score <= 35 && chgPct < 0) {
+            action = "SHORT / AVOID";
+            confidence = score <= 20 ? "HIGH" : score <= 28 ? "MEDIUM" : "LOW";
             rationale = contra.slice(0, 3);
-            if (ivProxy < 45) { optionType = "BUY PUTS"; optionNote = `IV proxy ${ivProxy} — puts cheap, bearish options have edge`; }
-            else if (ivProxy > 65) { optionType = "SELL CALLS"; optionNote = `IV proxy ${ivProxy} — sell covered calls / bear spread`; }
-            else { optionType = "SHORT or PUTS"; optionNote = `IV proxy ${ivProxy} — stock short or near-money puts`; }
-          } else if (score >= 65 && yearPos > 0.60 && rvol >= 1.5) {
-            action = "WATCH — LONG SETUP";
+            if (ivProxy < 40)      { optionType = "BUY PUTS";     optionNote = `IV ${ivProxy} — cheap puts`; }
+            else if (ivProxy > 65) { optionType = "SELL CALLS";   optionNote = `IV ${ivProxy} — sell calls`; }
+            else                   { optionType = "PUTS or SHORT"; optionNote = `IV ${ivProxy}`; }
+          } else if (score >= 60 && chgPct >= 0) {
+            action = "WATCH";
             confidence = "LOW";
             rationale = reasons.slice(0, 2);
-            optionType = "WAIT FOR ENTRY";
-            optionNote = "Not triggered yet — set alert at resistance break";
+            optionType = null;
           }
 
           if (!action) continue;
 
-          // Entry / stop / targets
           const entry   = round2(price);
-          const stop    = round2(ma50 > 0 && action === "LONG" ? Math.max(ma50 * 0.97, price * 0.92) : price * (action === "SHORT" ? 1.08 : 0.92));
-          const target1 = round2(action === "SHORT" ? price * 0.90 : (hi52 > price ? Math.min(price * 1.10, hi52) : price * 1.10));
-          const target2 = round2(action === "SHORT" ? price * 0.80 : (hi52 > price ? hi52 * 1.03 : price * 1.20));
-          const rr      = entry && stop ? round2(Math.abs(target1 - entry) / Math.abs(entry - stop)) : 0;
+          const stopPct = action === "SHORT / AVOID" ? 1.08 : 0.92;
+          const stop    = round2(ma50 > 0 && action === "LONG" ? Math.max(ma50 * 0.97, price * 0.92) : price * stopPct);
+          const target1 = round2(action.startsWith("SHORT") ? price * 0.90 : (hi52 > price * 1.02 ? Math.min(price * 1.12, hi52) : price * 1.12));
+          const target2 = round2(action.startsWith("SHORT") ? price * 0.78 : (hi52 > price * 1.02 ? hi52 * 1.05 : price * 1.22));
+          const rr      = stop !== entry ? round2(Math.abs(target1 - entry) / Math.abs(entry - stop)) : 0;
 
           signals.push({
-            sym, action, confidence, score: Math.round(score),
+            sym, action, confidence, score,
             entry, stop, target1, target2, rr,
             chgPct: round2(chgPct), rvol: round2(rvol),
-            ivProxy, optionType, optionNote,
-            rationale, mktEnv,
-            ts: new Date().toISOString(),
+            ma50: round2(ma50), ma200: round2(ma200),
+            hi52: round2(hi52), ivProxy, optionType, optionNote,
+            rationale: rationale.length ? rationale : [chgPct > 0 ? `+${chgPct.toFixed(1)}% momentum` : `${chgPct.toFixed(1)}% weakness`],
+            mktEnv, ts: new Date().toISOString(),
           });
         } catch {}
       }
