@@ -1324,6 +1324,151 @@ async function handleMarket(req, res, requestUrl) {
     }
   }
 
+  // ── GET /api/market/trade-signals — Live trade signal engine ──────────────
+  // Scans a universe of stocks and returns actionable LONG/SHORT/CALL/PUT signals
+  if (pathname === "/api/market/trade-signals" && req.method === "GET") {
+    try {
+      const UNIVERSE = [
+        "SPY","QQQ","NVDA","TSLA","AAPL","META","AMZN","MSFT","AMD","NFLX",
+        "COIN","MSTR","PLTR","SMCI","ARM","HOOD","MARA","RIOT","SOFI","RBLX",
+        "UPST","AFRM","CRWD","NET","PANW","ZS","SNOW","DDOG","UBER","ABNB",
+        "BBAI","SERV","RKLB","ASTS","IONQ","RGTI","SOUN","OKLO","SMR","CEG",
+        "GLD","TLT","HYG","UNG","USO","IBIT","GBTC",
+        "SPY","QQQ","IWM","UVXY","SMH","XLK","XLU","XLP",
+      ];
+      const CHUNK = 20;
+      const chunks = [];
+      for (let i = 0; i < UNIVERSE.length; i += CHUNK)
+        chunks.push(UNIVERSE.slice(i, i + CHUNK));
+      const settled = await Promise.allSettled(chunks.map(c => fetchYahooQuoteBatch(c)));
+      const quotes  = settled.flatMap(r => r.status === "fulfilled" ? r.value : []);
+
+      // Get VIX for market context
+      const vixQ   = await fetchYahooQuoteBatch(["^VIX"]).catch(() => []);
+      const vix    = Number(vixQ[0]?.regularMarketPrice || 0);
+      const mktEnv = vix > 25 ? "RISK-OFF" : vix > 18 ? "CAUTION" : "RISK-ON";
+
+      const signals = [];
+
+      for (const q of quotes) {
+        try {
+          const sym      = String(q.symbol || "").toUpperCase();
+          const price    = Number(q.regularMarketPrice || 0);
+          const chgPct   = Number(q.regularMarketChangePercent || 0);
+          const vol      = Number(q.regularMarketVolume || 0);
+          const avgVol   = Number(q.averageDailyVolume3Month || q.averageDailyVolume10Day || 1);
+          const rvol     = avgVol > 0 ? vol / avgVol : 0;
+          const hi52     = Number(q.fiftyTwoWeekHigh || q.regularMarketDayHigh || 0);
+          const lo52     = Number(q.fiftyTwoWeekLow  || q.regularMarketDayLow  || 0);
+          const ma50     = Number(q.fiftyDayAverage  || 0);
+          const ma200    = Number(q.twoHundredDayAverage || 0);
+          const rsi      = Number(q.regularMarketDayHigh && q.regularMarketDayLow
+            ? Math.round(50 + chgPct * 4) : 50); // rough proxy
+          const yearPos  = (hi52 > lo52 && price > 0) ? (price - lo52) / (hi52 - lo52) : 0.5;
+          const ivProxy  = (hi52 > lo52 && price > 0) ? Math.min(99, Math.round((hi52 - lo52) / price * 100 * 1.4)) : 50;
+          const shortPct = Number(q.shortPercentOfFloat || 0) * 100;
+
+          if (price <= 0 || rvol < 0.5) continue;
+
+          // ── Score for LONG/SHORT ───────────────────────────────────────────
+          let score = 50;
+          let reasons = [], contra = [];
+
+          // Trend
+          if (ma50 > 0 && price > ma50)  { score += 12; reasons.push(`Above MA50 ($${round2(ma50)})`); }
+          if (ma200 > 0 && price > ma200) { score += 8;  reasons.push(`Above MA200`); }
+          if (ma50 > 0 && price < ma50)   { score -= 10; contra.push(`Below MA50 ($${round2(ma50)})`); }
+          if (ma50 > 0 && ma200 > 0 && ma50 > ma200) { score += 8; reasons.push("MA50 > MA200 — uptrend"); }
+
+          // Momentum
+          if (chgPct > 3)        { score += 15; reasons.push(`+${chgPct.toFixed(1)}% today — strong momentum`); }
+          else if (chgPct > 1)   { score += 8;  reasons.push(`+${chgPct.toFixed(1)}% — positive day`); }
+          else if (chgPct < -3)  { score -= 15; contra.push(`${chgPct.toFixed(1)}% — heavy selling`); }
+          else if (chgPct < -1)  { score -= 8;  contra.push(`${chgPct.toFixed(1)}% — weak`); }
+
+          // Volume
+          if (rvol >= 2.5 && chgPct > 0) { score += 18; reasons.push(`RVOL ${rvol.toFixed(1)}× — institutional buying`); }
+          else if (rvol >= 1.5 && chgPct > 0) { score += 10; reasons.push(`RVOL ${rvol.toFixed(1)}× — volume confirmation`); }
+          else if (rvol >= 1.5 && chgPct < 0) { score -= 10; contra.push(`RVOL ${rvol.toFixed(1)}× on down day — selling`); }
+
+          // 52-week position
+          if (yearPos > 0.90) { score += 12; reasons.push("Near 52w high — price discovery"); }
+          else if (yearPos > 0.70) { score += 6; reasons.push("Upper 52w range — trend intact"); }
+          else if (yearPos < 0.20) { score -= 8; contra.push("Near 52w low — downtrend"); }
+
+          // Short squeeze potential
+          if (shortPct > 15 && chgPct > 2) { score += 10; reasons.push(`${shortPct.toFixed(1)}% short float — squeeze risk`); }
+
+          // Market environment penalty
+          if (mktEnv === "RISK-OFF" && score > 60)  score -= 10;
+          if (mktEnv === "CAUTION"  && score > 70)  score -= 5;
+
+          score = Math.max(0, Math.min(100, score));
+
+          // ── Determine signal type ──────────────────────────────────────────
+          let action = null, confidence = "", rationale = [], optionType = null, optionNote = "";
+
+          if (score >= 72 && chgPct > 0 && rvol >= 1.2 && mktEnv !== "RISK-OFF") {
+            action = "LONG";
+            confidence = score >= 85 ? "HIGH" : "MEDIUM";
+            rationale = reasons.slice(0, 3);
+            // Options signal
+            if (ivProxy < 45) { optionType = "BUY CALLS"; optionNote = `IV proxy ${ivProxy} — options cheap, calls have edge`; }
+            else if (ivProxy > 65) { optionType = "SELL PUTS"; optionNote = `IV proxy ${ivProxy} — sell cash-secured puts to enter`; }
+            else { optionType = "STOCK or CALLS"; optionNote = `IV proxy ${ivProxy} — moderate, stock or near-money calls`; }
+          } else if (score <= 35 && chgPct < 0 && rvol >= 1.2) {
+            action = "SHORT";
+            confidence = score <= 20 ? "HIGH" : "MEDIUM";
+            rationale = contra.slice(0, 3);
+            if (ivProxy < 45) { optionType = "BUY PUTS"; optionNote = `IV proxy ${ivProxy} — puts cheap, bearish options have edge`; }
+            else if (ivProxy > 65) { optionType = "SELL CALLS"; optionNote = `IV proxy ${ivProxy} — sell covered calls / bear spread`; }
+            else { optionType = "SHORT or PUTS"; optionNote = `IV proxy ${ivProxy} — stock short or near-money puts`; }
+          } else if (score >= 65 && yearPos > 0.60 && rvol >= 1.5) {
+            action = "WATCH — LONG SETUP";
+            confidence = "LOW";
+            rationale = reasons.slice(0, 2);
+            optionType = "WAIT FOR ENTRY";
+            optionNote = "Not triggered yet — set alert at resistance break";
+          }
+
+          if (!action) continue;
+
+          // Entry / stop / targets
+          const entry   = round2(price);
+          const stop    = round2(ma50 > 0 && action === "LONG" ? Math.max(ma50 * 0.97, price * 0.92) : price * (action === "SHORT" ? 1.08 : 0.92));
+          const target1 = round2(action === "SHORT" ? price * 0.90 : (hi52 > price ? Math.min(price * 1.10, hi52) : price * 1.10));
+          const target2 = round2(action === "SHORT" ? price * 0.80 : (hi52 > price ? hi52 * 1.03 : price * 1.20));
+          const rr      = entry && stop ? round2(Math.abs(target1 - entry) / Math.abs(entry - stop)) : 0;
+
+          signals.push({
+            sym, action, confidence, score: Math.round(score),
+            entry, stop, target1, target2, rr,
+            chgPct: round2(chgPct), rvol: round2(rvol),
+            ivProxy, optionType, optionNote,
+            rationale, mktEnv,
+            ts: new Date().toISOString(),
+          });
+        } catch {}
+      }
+
+      // Sort: HIGH confidence LONG first, then MEDIUM, then WATCH, SHORT last
+      signals.sort((a, b) => {
+        const confOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+        if (a.confidence !== b.confidence) return (confOrder[a.confidence] || 2) - (confOrder[b.confidence] || 2);
+        return b.score - a.score;
+      });
+
+      return writeJson(res, 200, {
+        ok: true,
+        signals: signals.slice(0, 15),
+        mktEnv, vix: round2(vix),
+        scannedAt: new Date().toISOString(),
+      });
+    } catch (e) {
+      return writeJson(res, 502, { ok: false, error: e.message, signals: [] });
+    }
+  }
+
   return writeJson(res, 404, { error: "Unknown market endpoint." });
 }
 

@@ -11189,6 +11189,184 @@ export default function App() {
           );
         })()}
 
+        {/* ── LIVE TRADE SIGNAL ENGINE ── */}
+        {activeTab === "dashboard" && (() => {
+          const [sigData,    setSigData]    = React.useState(null);
+          const [sigLoading, setSigLoading] = React.useState(false);
+          const [sigFilter,  setSigFilter]  = React.useState("ALL"); // ALL | LONG | SHORT | OPTIONS
+          const [sigCollapsed, setSigCollapsed] = React.useState(false);
+
+          React.useEffect(() => {
+            setSigLoading(true);
+            fetch("/api/market/trade-signals")
+              .then(r => r.json()).then(d => { if (d.ok) setSigData(d); })
+              .catch(() => {}).finally(() => setSigLoading(false));
+          }, []);
+
+          const refresh = () => {
+            setSigLoading(true);
+            fetch("/api/market/trade-signals")
+              .then(r => r.json()).then(d => { if (d.ok) setSigData(d); })
+              .catch(() => {}).finally(() => setSigLoading(false));
+          };
+
+          const ACTION_COLOR = {
+            "LONG": C.green, "SHORT": C.red,
+            "WATCH — LONG SETUP": C.amber,
+          };
+          const CONF_COLOR = { HIGH: C.accent, MEDIUM: C.green, LOW: C.textDim };
+
+          const filtered = (sigData?.signals || []).filter(s => {
+            if (sigFilter === "LONG")    return s.action === "LONG" || s.action === "WATCH — LONG SETUP";
+            if (sigFilter === "SHORT")   return s.action === "SHORT";
+            if (sigFilter === "OPTIONS") return s.optionType && !s.optionType.includes("WAIT");
+            return true;
+          });
+
+          return (
+            <div style={{ marginBottom: 14, borderRadius: 10, overflow: "hidden",
+              border: `1px solid ${C.borderLit}`, background: C.card }}>
+
+              {/* Header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px",
+                background: C.surface, borderBottom: sigCollapsed ? "none" : `1px solid ${C.border}` }}>
+                <span style={{ fontSize: 16 }}>⚡</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text, letterSpacing: "0.08em" }}>
+                  LIVE TRADE SIGNALS
+                </span>
+                {sigData && (
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+                    {sigData.mktEnv && (
+                      <span style={{ color: sigData.mktEnv === "RISK-ON" ? C.green : sigData.mktEnv === "RISK-OFF" ? C.red : C.amber, fontWeight: 700, marginRight: 8 }}>
+                        {sigData.mktEnv === "RISK-ON" ? "🟢" : sigData.mktEnv === "RISK-OFF" ? "🔴" : "🟡"} {sigData.mktEnv}
+                      </span>
+                    )}
+                    {sigData.vix > 0 && `VIX ${sigData.vix}`}
+                  </span>
+                )}
+                <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+                  {["ALL","LONG","SHORT","OPTIONS"].map(f => (
+                    <button key={f} onClick={() => setSigFilter(f)}
+                      style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, border: "none",
+                        background: sigFilter === f ? C.accent : C.surface,
+                        color: sigFilter === f ? "#fff" : C.textDim,
+                        borderRadius: 4, padding: "3px 8px", cursor: "pointer" }}>
+                      {f}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+                  <button onClick={refresh} style={{ fontFamily: MONO, fontSize: 9, border: `1px solid ${C.border}`,
+                    background: "transparent", color: C.textDim, borderRadius: 4, padding: "3px 8px", cursor: "pointer" }}>
+                    {sigLoading ? "⌛" : "↺ REFRESH"}
+                  </button>
+                  <button onClick={() => setSigCollapsed(p => !p)}
+                    style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", fontFamily: MONO, fontSize: 10 }}>
+                    {sigCollapsed ? "▼ show" : "▲ hide"}
+                  </button>
+                </div>
+              </div>
+
+              {!sigCollapsed && (
+                <div style={{ padding: "12px 16px" }}>
+                  {sigLoading && !sigData && (
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center", padding: "20px 0" }}>
+                      ⌛ Scanning {" — "} analyzing signals across 50 symbols…
+                    </div>
+                  )}
+                  {filtered.length === 0 && !sigLoading && (
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center", padding: "20px 0" }}>
+                      No signals for "{sigFilter}" filter right now. Try ALL or refresh.
+                    </div>
+                  )}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 10 }}>
+                    {filtered.map((s, i) => {
+                      const ac = ACTION_COLOR[s.action] || C.amber;
+                      const cc = CONF_COLOR[s.confidence] || C.textDim;
+                      const isLong  = s.action === "LONG";
+                      const isShort = s.action === "SHORT";
+                      return (
+                        <div key={`${s.sym}-${i}`}
+                          onClick={() => { setTerminalSymbol(s.sym); setActiveTab("terminal"); }}
+                          style={{ borderRadius: 8, border: `1px solid ${ac}44`, background: `${ac}08`,
+                            padding: "12px 14px", cursor: "pointer",
+                            borderLeft: `4px solid ${ac}` }}>
+
+                          {/* Top row: ticker + action + confidence */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                            <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>{s.sym}</span>
+                            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: ac,
+                              background: `${ac}18`, borderRadius: 4, padding: "2px 8px", letterSpacing: "0.05em" }}>
+                              {isLong ? "▲" : isShort ? "▼" : "👁"} {s.action}
+                            </span>
+                            <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, fontWeight: 700, color: cc }}>
+                              {s.confidence} · {s.score}
+                            </span>
+                          </div>
+
+                          {/* Options signal */}
+                          {s.optionType && !s.optionType.includes("WAIT") && (
+                            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.purple,
+                              background: `${C.purple}12`, borderRadius: 4, padding: "4px 8px", marginBottom: 8 }}>
+                              🎰 {s.optionType}
+                              <span style={{ fontFamily: SANS, fontSize: 9, fontWeight: 400, color: C.textDim, marginLeft: 6 }}>
+                                {s.optionNote}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Entry / Stop / Targets */}
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 4, marginBottom: 8 }}>
+                            {[
+                              ["ENTRY", `$${s.entry}`, C.text],
+                              ["STOP",  `$${s.stop}`,  C.red],
+                              ["T1",    `$${s.target1}`, C.green],
+                              ["R:R",   `${s.rr}:1`,  s.rr >= 2 ? C.green : s.rr >= 1.5 ? C.amber : C.textDim],
+                            ].map(([lbl, val, col]) => (
+                              <div key={lbl} style={{ textAlign: "center", padding: "4px 0",
+                                background: C.surface, borderRadius: 4 }}>
+                                <div style={{ fontFamily: SANS, fontSize: 8, color: C.textDim }}>{lbl}</div>
+                                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: col }}>{val}</div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Stats row */}
+                          <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
+                            <span style={{ fontFamily: MONO, fontSize: 10, color: s.chgPct >= 0 ? C.green : C.red }}>
+                              {s.chgPct >= 0 ? "+" : ""}{s.chgPct}%
+                            </span>
+                            <span style={{ fontFamily: MONO, fontSize: 10, color: s.rvol >= 2 ? C.accent : C.textDim }}>
+                              RVOL {s.rvol}×
+                            </span>
+                            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+                              IV {s.ivProxy}
+                            </span>
+                          </div>
+
+                          {/* Rationale bullets */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                            {s.rationale.map((r, ri) => (
+                              <div key={ri} style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>
+                                • {r}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {sigData && (
+                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 10 }}>
+                      {filtered.length} signals · {new Date(sigData.scannedAt).toLocaleTimeString()} · Click any card to open chart · Decision support only, not financial advice
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {activeTab === "dashboard" && watchlistData.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : `minmax(0, 1fr) minmax(260px, ${LAYOUT.sidebarWidth}px)`, gap: LAYOUT.gridGap, alignItems: "start", width: "100%", overflow: "hidden" }}>
             {/* Watchlist Table */}
