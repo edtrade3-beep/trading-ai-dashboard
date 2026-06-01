@@ -7171,7 +7171,8 @@ export default function App() {
   const [volumeFilter, setVolumeFilter] = useState("ALL"); // ALL | HIGH | NORMAL | LOW
   const [scoreFilter,  setScoreFilter]  = useState("ALL"); // ALL | 70+ | 60+ | 50+ | <50
   const [sortDir, setSortDir] = useState("desc");
-  const [wlCardView, setWlCardView] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+  // Default card view on tablet AND mobile (better for touch)
+  const [wlCardView, setWlCardView] = useState(() => typeof window !== "undefined" && window.innerWidth <= 1100);
   const intervalRef = useRef(null);
   const seenTriggeredAlerts = useRef(new Set());
   const lastAlertsTabVisit = useRef(0);
@@ -7842,6 +7843,30 @@ export default function App() {
         .catch(() => {}).finally(() => setSigLoading(false));
     }, 6000);
     return () => clearTimeout(t);
+  }, []);
+
+  // ── Morning Brief auto-run (#5) ────────────────────────────────────────────
+  // On weekdays between 6:30 AM–9:30 AM ET: auto-generate briefing if not done today
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        const etStr  = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
+        const etDate = new Date(etStr);
+        const h = etDate.getHours();
+        const m = etDate.getMinutes();
+        const day = etDate.getDay(); // 0=Sun 6=Sat
+        const isWeekday = day >= 1 && day <= 5;
+        const isMorning = (h === 6 && m >= 30) || (h >= 7 && h < 9) || (h === 9 && m <= 30);
+        const alreadyGenerated = premktBriefing && premktAt &&
+          new Date(premktAt).toDateString() === etDate.toDateString();
+        if (isWeekday && isMorning && !alreadyGenerated && !premktLoading) {
+          console.log("[AutoBrief] Morning window detected — auto-generating briefing");
+          fetchPremarketBriefing();
+        }
+      } catch {}
+    }, 2000); // check 2s after mount
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Smart Scanner: scoring + scan + deep-dive ───────────────────────────
@@ -10577,6 +10602,7 @@ export default function App() {
           table { width: 100%; }
           td, th { white-space: nowrap; }
           .mobile-nav-btn { min-height: 44px !important; min-width: 44px !important; padding: 10px 11px !important; font-size: 11px !important; }
+          .tablet-nav-btn { min-height: 44px !important; padding: 8px 12px !important; font-size: 11px !important; }
           .mobile-subnav-btn { min-height: 40px !important; padding: 8px 12px !important; font-size: 10px !important; }
           .mobile-content { padding: 10px 10px 24px !important; }
         `}</style>
@@ -10670,7 +10696,7 @@ export default function App() {
                     <button
                       key={g.id}
                       onClick={() => setActiveTab(g.tabs[0])}
-                      className={isMobile ? "mobile-nav-btn" : ""}
+                      className={isMobile ? "mobile-nav-btn" : isTablet ? "tablet-nav-btn" : ""}
                       style={{
                         border: "none",
                         background: isActive
@@ -11156,7 +11182,7 @@ export default function App() {
           return (
             <div style={{ marginBottom: 14, borderRadius: 10, overflow: "hidden", border: "1px solid " + alertColor + "44", background: alertColor + "08" }}>
               <div onClick={() => setDistExpanded(p => !p)}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", cursor: "pointer", borderBottom: distExpanded ? "1px solid " + alertColor + "33" : "none" }}>
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: isTablet ? "14px 16px" : "10px 16px", minHeight: isTablet ? 52 : "auto", cursor: "pointer", borderBottom: distExpanded ? "1px solid " + alertColor + "33" : "none" }}>
                 <span style={{ fontSize: 18 }}>{distLoading ? "⏳" : alertIcon}</span>
                 <div style={{ flex: 1 }}>
                   <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: alertColor, letterSpacing: "0.08em" }}>INSTITUTIONAL RADAR</span>
@@ -11810,8 +11836,8 @@ export default function App() {
                 );
               })()}
               {wlCardView ? (
-                /* ── CARD VIEW ─────────────────────────────────────────── */
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10, marginBottom: 6 }}>
+                /* ── CARD VIEW — optimised for iPad touch ───────────────── */
+                <div style={{ display: "grid", gridTemplateColumns: isTablet ? "repeat(auto-fill, minmax(180px, 1fr))" : "repeat(auto-fill, minmax(160px, 1fr))", gap: isTablet ? 12 : 10, marginBottom: 6 }}>
                   {signalFiltered.map(q => {
                     const chg    = q.changesPercentage || 0;
                     const isUp   = chg >= 0;
@@ -11825,31 +11851,35 @@ export default function App() {
                     return (
                       <div key={q.symbol}
                         onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
-                        style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", cursor: "pointer", transition: "border-color 0.15s, background 0.15s" }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.background = C.cardHover; }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = C.card; }}
+                        style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
+                          padding: isTablet ? "16px" : "12px 14px",
+                          minHeight: isTablet ? 100 : "auto",
+                          cursor: "pointer", transition: "border-color 0.15s, background 0.15s",
+                          borderLeft: `3px solid ${isUp ? C.green : C.red}` }}
+                        onMouseEnter={e => { e.currentTarget.style.borderLeftColor = sigCol; e.currentTarget.style.background = C.cardHover; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderLeftColor = isUp ? C.green : C.red; e.currentTarget.style.background = C.card; }}
                       >
                         {/* Symbol + signal */}
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                          <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.accent }}>{q.symbol}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: sigCol, background: `${sigCol}22`, borderRadius: 3, padding: "2px 6px" }}>{mtf.signal}</span>
+                          <span style={{ fontFamily: MONO, fontSize: isTablet ? 16 : 14, fontWeight: 800, color: C.accent }}>{q.symbol}</span>
+                          <span style={{ fontFamily: MONO, fontSize: isTablet ? 10 : 9, fontWeight: 700, color: sigCol, background: `${sigCol}22`, borderRadius: 3, padding: "2px 6px" }}>{mtf.signal}</span>
                         </div>
                         {/* Price */}
-                        <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 2 }}>
+                        <div style={{ fontFamily: MONO, fontSize: isTablet ? 20 : 16, fontWeight: 700, color: C.text, marginBottom: 2 }}>
                           ${(q.price || 0).toFixed(2)}
                         </div>
                         {/* Change */}
-                        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: isUp ? C.green : C.red, marginBottom: 8 }}>
+                        <div style={{ fontFamily: MONO, fontSize: isTablet ? 15 : 12, fontWeight: 700, color: isUp ? C.green : C.red, marginBottom: 8 }}>
                           {isUp ? "+" : ""}{chg.toFixed(2)}%
                         </div>
                         {/* Trend + Score row */}
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span style={{ fontFamily: MONO, fontSize: 11, color: trendCol }}>{trendArrow} {trend.replace(" Up","").replace(" Down","").replace("Strong","").trim() || trend}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>S:{Math.round(scores.composite)}</span>
+                          <span style={{ fontFamily: MONO, fontSize: isTablet ? 12 : 11, color: trendCol }}>{trendArrow} {trend.replace(" Up","").replace(" Down","").replace("Strong","").trim() || trend}</span>
+                          <span style={{ fontFamily: MONO, fontSize: isTablet ? 12 : 11, color: C.textDim }}>S:{Math.round(scores.composite)}</span>
                         </div>
                         {/* RVOL */}
                         {rvol > 0 && (
-                          <div style={{ fontFamily: MONO, fontSize: 10, color: rvol >= 2 ? C.accent : rvol >= 1.2 ? C.amber : C.textDim, marginTop: 4 }}>
+                          <div style={{ fontFamily: MONO, fontSize: isTablet ? 12 : 10, color: rvol >= 2 ? C.accent : rvol >= 1.2 ? C.amber : C.textDim, marginTop: 4 }}>
                             RVOL {rvol.toFixed(1)}×
                           </div>
                         )}
@@ -19595,15 +19625,28 @@ export default function App() {
               <div>
                 <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>🌅 PRE-MARKET BRIEFING</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>
-                  {premktAt ? `Generated ${new Date(premktAt).toLocaleTimeString()}` : "AI-powered morning analysis using live market data"}
+                  {premktAt
+                    ? (() => {
+                        const genDate = new Date(premktAt);
+                        const isToday = genDate.toDateString() === new Date().toDateString();
+                        return isToday
+                          ? `✅ Auto-generated today at ${genDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                          : `Generated ${genDate.toLocaleDateString()} ${genDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} — click refresh for today`;
+                      })()
+                    : "Auto-generates on weekdays 6:30–9:30 AM ET · Or click to generate now"}
                 </div>
               </div>
-              <button onClick={fetchPremarketBriefing} disabled={premktLoading}
-                style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 700,
-                  background: premktLoading ? C.surface : C.accent, border: "none", color: premktLoading ? C.textDim : "#fff",
-                  borderRadius: 7, padding: "10px 22px", cursor: premktLoading ? "default" : "pointer" }}>
-                {premktLoading ? "⏳ GENERATING…" : "🌅 GENERATE BRIEFING"}
-              </button>
+              <div style={{ marginLeft: "auto", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                <button onClick={fetchPremarketBriefing} disabled={premktLoading}
+                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                    background: premktLoading ? C.surface : C.accent, border: "none", color: premktLoading ? C.textDim : "#fff",
+                    borderRadius: 7, padding: "10px 22px", cursor: premktLoading ? "default" : "pointer" }}>
+                  {premktLoading ? "⏳ GENERATING…" : "🌅 GENERATE BRIEFING"}
+                </button>
+                {premktBriefing && !premktLoading && (
+                  <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>↺ Refresh for latest data</span>
+                )}
+              </div>
             </div>
 
             {/* Content */}
