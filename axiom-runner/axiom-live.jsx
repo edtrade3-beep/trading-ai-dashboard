@@ -7205,6 +7205,20 @@ export default function App() {
   const [scanDeepLoad, setScanDeepLoad] = useState({});
   const [deepSocialData, setDeepSocialData] = useState({});
   const [deepSocialLoad, setDeepSocialLoad] = useState({});
+  // ── Hoisted state for Institutional Radar, Trade Signals, Dark Pool ─────────
+  // Must be at top level — NOT inside conditional IIFEs (Rules of Hooks)
+  const [distData,     setDistData]     = useState(null);
+  const [distLoading,  setDistLoading]  = useState(false);
+  const [distExpanded, setDistExpanded] = useState(false);
+  const [sigData,      setSigData]      = useState(null);
+  const [sigLoading,   setSigLoading]   = useState(false);
+  const [sigFilter,    setSigFilter]    = useState("ALL");
+  const [sigCollapsed, setSigCollapsed] = useState(true);
+  const [dpData,       setDpData]       = useState(null);
+  const [dpLoad,       setDpLoad]       = useState(false);
+  const [dpSym,        setDpSym]        = useState("");
+  const [dpErr,        setDpErr]        = useState(null);
+
   const [autoScanOn,   setAutoScanOn]   = useState(() => {
     try { return JSON.parse(localStorage.getItem("smartscan_auto_on") ?? "true"); } catch { return true; }
   });
@@ -7802,6 +7816,27 @@ export default function App() {
     const t = setInterval(() => { if (!fivexLoading) fetchLivePrices(); }, 5 * 60 * 1000);
     return () => clearInterval(t);
   }, [activeTab, fivexLoading]);
+
+  // ── Institutional Radar + Trade Signals — top-level effects (Rules of Hooks) ─
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDistLoading(true);
+      fetch("/api/market/distribution")
+        .then(r => r.json()).then(d => { if (d.ok) setDistData(d); })
+        .catch(() => {}).finally(() => setDistLoading(false));
+    }, 3000);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSigLoading(true);
+      fetch("/api/market/trade-signals")
+        .then(r => r.json()).then(d => { if (d.ok) setSigData(d); })
+        .catch(() => {}).finally(() => setSigLoading(false));
+    }, 6000);
+    return () => clearTimeout(t);
+  }, []);
 
   // ── Smart Scanner: scoring + scan + deep-dive ───────────────────────────
   function scoreTicker(ticker, quote, candles) {
@@ -11105,19 +11140,6 @@ export default function App() {
 
         {/* ── INSTITUTIONAL DISTRIBUTION MONITOR ── */}
         {activeTab === "dashboard" && (() => {
-          const [distData, setDistData] = React.useState(null);
-          const [distLoading, setDistLoading] = React.useState(false);
-          const [distExpanded, setDistExpanded] = React.useState(false);
-          React.useEffect(() => {
-            // Delay 3s so watchlist loads first, then fetch distribution scan
-            const t = setTimeout(() => {
-              setDistLoading(true);
-              fetch("/api/market/distribution")
-                .then(r => r.json()).then(d => { if (d.ok) setDistData(d); })
-                .catch(() => {}).finally(() => setDistLoading(false));
-            }, 3000);
-            return () => clearTimeout(t);
-          }, []);
           if (!distData && !distLoading) return null;
           const ALERT_COLORS = { DANGER: C.red, CAUTION: C.amber, WATCH: "#4caf50", NORMAL: C.green };
           const ALERT_ICONS  = { DANGER: "🚨", CAUTION: "⚠️", WATCH: "👁", NORMAL: "✅" };
@@ -11195,21 +11217,6 @@ export default function App() {
 
         {/* ── LIVE TRADE SIGNAL ENGINE ── */}
         {activeTab === "dashboard" && (() => {
-          const [sigData,    setSigData]    = React.useState(null);
-          const [sigLoading, setSigLoading] = React.useState(false);
-          const [sigFilter,  setSigFilter]  = React.useState("ALL");
-          const [sigCollapsed, setSigCollapsed] = React.useState(true); // collapsed by default
-
-          React.useEffect(() => {
-            // Delay 6s — loads after watchlist and radar are done
-            const t = setTimeout(() => {
-              setSigLoading(true);
-              fetch("/api/market/trade-signals")
-                .then(r => r.json()).then(d => { if (d.ok) setSigData(d); })
-                .catch(() => {}).finally(() => setSigLoading(false));
-            }, 6000);
-            return () => clearTimeout(t);
-          }, []);
 
           const refresh = () => {
             setSigLoading(true);
@@ -12395,10 +12402,6 @@ export default function App() {
 
         {/* ── DARK POOL TAB ── */}
         {activeTab === "darkpool" && (() => {
-          const [dpData, setDpData] = React.useState(null);
-          const [dpLoad, setDpLoad] = React.useState(false);
-          const [dpSym,  setDpSym]  = React.useState("");
-          const [dpErr,  setDpErr]  = React.useState(null);
           const fetchDarkPool = async (sym) => {
             setDpLoad(true); setDpErr(null);
             try {
@@ -12409,7 +12412,6 @@ export default function App() {
             } catch(e) { setDpErr(e.message); }
             setDpLoad(false);
           };
-          React.useEffect(() => { fetchDarkPool(""); }, []);
           const fmtVal = v => v >= 1e9 ? "$" + (v/1e9).toFixed(2) + "B" : v >= 1e6 ? "$" + (v/1e6).toFixed(1) + "M" : "$" + (v/1e3).toFixed(0) + "K";
           return (
             <div style={{ padding: "20px" }}>
