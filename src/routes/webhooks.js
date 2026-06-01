@@ -2,6 +2,7 @@ const { writeJson, readRequestBody } = require("../utils");
 const { TV_WEBHOOK_SECRET, TV_WEBHOOK_MAX_ROWS } = require("../config");
 const { sendTelegramAlert, isConfigured: telegramConfigured } = require("../telegram");
 const { loadAlerts, saveAlerts, prependAlert } = require("../alert-store");
+const { addEntry: addJournalEntry } = require("../journal-store");
 
 // In-memory ring buffer seeded from disk on first load
 let TV_WEBHOOK_ALERTS = loadAlerts();
@@ -147,6 +148,21 @@ async function handleWebhooks(req, res, requestUrl) {
     TV_WEBHOOK_ALERTS.length = TV_WEBHOOK_MAX_ROWS;
   }
   saveAlerts(TV_WEBHOOK_ALERTS);
+
+  // Auto-log to trade journal (#12 TV Alert → Journal sync)
+  try {
+    const side = (payload.signal || "").toUpperCase().includes("SELL") ? "SELL" : "BUY";
+    addJournalEntry({
+      date:   new Date().toISOString(),
+      source: "TradingView Alert",
+      ticker: payload.ticker || payload.symbol || "—",
+      side,
+      price:  payload.close || payload.price || null,
+      note:   payload.message || payload.text || "",
+      score:  payload.score || null,
+      tags:   ["tv-alert", "auto-logged"],
+    });
+  } catch {}
 
   // Fire Telegram notification (non-blocking, errors suppressed)
   sendTelegramAlert(payload);

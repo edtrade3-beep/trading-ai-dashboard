@@ -1106,6 +1106,42 @@ async function handleMarket(req, res, requestUrl) {
     }
   }
 
+  // ── GET /api/market/darkpool?symbol=NVDA (optional) ──────────────────────
+  // Returns recent dark pool / block trade prints via Unusual Whales API.
+  if (pathname === "/api/market/darkpool" && req.method === "GET") {
+    const { UNUSUAL_WHALES_API_KEY } = require("../config");
+    const symbol = (requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
+    const uwKey  = UNUSUAL_WHALES_API_KEY || providerKeys?.unusualWhales;
+    if (!uwKey) return writeJson(res, 200, { ok: false, error: "Unusual Whales API key not configured", prints: [] });
+
+    try {
+      const endpoint = symbol
+        ? `https://api.unusualwhales.com/api/darkpool/${encodeURIComponent(symbol)}`
+        : `https://api.unusualwhales.com/api/darkpool/recent`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      const r = await fetch(endpoint, {
+        headers: { Authorization: `Bearer ${uwKey}`, Accept: "application/json" },
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (!r.ok) throw new Error(`UW HTTP ${r.status}`);
+      const data = await r.json();
+      const raw  = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+      const prints = raw.slice(0, 30).map(p => ({
+        ticker:   String(p.ticker || p.symbol || "—").toUpperCase(),
+        price:    Number(p.price || p.executed_at_price || 0),
+        size:     Number(p.size || p.volume || 0),
+        value:    Number(p.premium || p.total_value || (p.price * p.size) || 0),
+        time:     p.executed_at || p.date || p.timestamp || "",
+        dark:     true,
+      })).filter(p => p.value > 500_000); // only blocks > $500K
+      return writeJson(res, 200, { ok: true, symbol: symbol || "MARKET", prints, scannedAt: new Date().toISOString() });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e.message, prints: [] });
+    }
+  }
+
   return writeJson(res, 404, { error: "Unknown market endpoint." });
 }
 
