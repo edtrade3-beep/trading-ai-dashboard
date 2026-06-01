@@ -310,15 +310,20 @@ async function fetchYahooFundamentals(symbol) {
   const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=price,summaryDetail,defaultKeyStatistics,calendarEvents,financialData`;
 
   function buildFallback(cap) {
+    const p = Number.isFinite(livePE) ? livePE : null;
+    const e = Number.isFinite(liveEPS) ? liveEPS : null;
     return {
       symbol, marketCap: cap,
-      pe: Number.isFinite(livePE) ? livePE : null,
-      eps: Number.isFinite(liveEPS) ? liveEPS : null,
+      pe: p, trailingPE: p,
+      eps: e, epsTrailingTwelveMonths: e, epsForward: null,
       sharesOutstanding: Number.isFinite(liveShares) ? liveShares : null,
       earningsDate: liveEarningsTs > 0 ? new Date(liveEarningsTs * 1000).toISOString() : null,
-      revenue: null, revenueGrowth: null, grossMargin: null, profitMargin: null,
-      roe: null, debtToEquity: null, freeCashflow: null, analystTarget: null,
+      revenue: null, revenueGrowth: null, earningsGrowth: null,
+      grossMargin: null, profitMargin: null,
+      roe: null, debtToEquity: null, freeCashflow: null, totalCash: null,
+      analystTarget: null, targetMeanPrice: null, priceToSales: null,
       dividendYield: null, beta: null, pegRatio: null, priceToBook: null,
+      recommendationKey: null, recommendationMean: null, numberOfAnalystOpinions: null,
     };
   }
 
@@ -351,27 +356,39 @@ async function fetchYahooFundamentals(symbol) {
       marketCap: Number.isFinite(marketCap) && marketCap > 0
         ? marketCap
         : (sharesOutstanding > 0 && livePrice > 0 ? sharesOutstanding * livePrice : 0),
-      pe: Number.isFinite(pe) ? pe : null,
-      eps: Number.isFinite(eps) ? eps : null,
+      // PE aliases so UI can use either name
+      pe:            Number.isFinite(pe) ? pe : null,
+      trailingPE:    Number.isFinite(pe) ? pe : null,
+      eps:           Number.isFinite(eps) ? eps : null,
+      epsTrailingTwelveMonths: Number.isFinite(eps) ? eps : null,
+      epsForward:    n(stats?.forwardEps?.raw),
       sharesOutstanding: Number.isFinite(sharesOutstanding) ? sharesOutstanding : null,
       earningsDate: earningsTs > 0
         ? new Date(earningsTs * 1000).toISOString()
         : (liveEarningsTs > 0 ? new Date(liveEarningsTs * 1000).toISOString() : null),
       // Income & growth
       revenue:       n(financial?.totalRevenue?.raw),
-      revenueGrowth: n(financial?.revenueGrowth?.raw),   // decimal e.g. 0.12 = 12%
-      grossMargin:   n(financial?.grossMargins?.raw),    // decimal
-      profitMargin:  n(financial?.profitMargins?.raw),   // decimal
+      revenueGrowth: n(financial?.revenueGrowth?.raw),
+      earningsGrowth: n(financial?.earningsGrowth?.raw),
+      grossMargin:   n(financial?.grossMargins?.raw),
+      profitMargin:  n(financial?.profitMargins?.raw),
       // Efficiency & leverage
-      roe:           n(financial?.returnOnEquity?.raw),  // decimal
-      debtToEquity:  n(financial?.debtToEquity?.raw),    // ratio (already as number)
+      roe:           n(financial?.returnOnEquity?.raw),
+      debtToEquity:  n(financial?.debtToEquity?.raw),
       freeCashflow:  n(financial?.freeCashflow?.raw),
-      // Valuation extras
+      totalCash:     n(financial?.totalCash?.raw),
+      // Valuation
       analystTarget: n(financial?.targetMeanPrice?.raw),
-      dividendYield: n(summary?.dividendYield?.raw),     // decimal
+      targetMeanPrice: n(financial?.targetMeanPrice?.raw),
+      priceToSales:  n(summary?.priceToSalesTrailing12Months?.raw),
+      dividendYield: n(summary?.dividendYield?.raw),
       beta:          n(summary?.beta?.raw),
       pegRatio:      n(stats?.pegRatio?.raw),
       priceToBook:   n(stats?.priceToBook?.raw),
+      // Analyst consensus
+      recommendationKey: financial?.recommendationKey || null,
+      recommendationMean: n(financial?.recommendationMean?.raw),
+      numberOfAnalystOpinions: n(financial?.numberOfAnalystOpinions?.raw),
     };
   } catch {
     const cap = Number.isFinite(liveMarketCap) && liveMarketCap > 0
