@@ -13413,8 +13413,8 @@ export default function App() {
                                           <iframe
                                             title={`tv-${row.ticker}`}
                                             scrolling="no"
-                                            style={{ width: "100%", height: "100%", minHeight: 280, border: "none" }}
-                                            src={`/client/tv-widget.html?w=mini-symbol-overview&s=${encodeURIComponent(row.ticker)}&t=${themeMode === "dark" ? "dark" : "light"}&h=280`}
+                                            style={{ width: "100%", height: "100%", display: "block", border: "none" }}
+                                            src={`/client/tv-widget.html?w=mini-symbol-overview&s=${encodeURIComponent(row.ticker)}&t=${themeMode === "dark" ? "dark" : "light"}&h=320`}
                                           />
                                         </div>
                                       </div>
