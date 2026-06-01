@@ -6230,21 +6230,24 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
             },
           ];
 
-          const SignalRow = ({ s, type }) => {
-            const color = s.active ? (type === "bull" ? C.green : C.red) : C.textDim;
-            const icon  = s.active ? (type === "bull" ? "✅" : "🔴") : "○";
-            const [open2, setOpen2] = React.useState(false);
+          const [learnOpen, setLearnOpen] = React.useState({});
+          const toggleLearn = (key) => setLearnOpen(prev => ({ ...prev, [key]: !prev[key] }));
+
+          const SignalRow = ({ s, type, id }) => {
+            const color  = s.active ? (type === "bull" ? C.green : C.red) : C.textDim;
+            const icon   = s.active ? (type === "bull" ? "✅" : "🔴") : "○";
+            const isOpen = !!learnOpen[id];
             return (
               <div style={{ borderBottom: `1px solid ${C.border}`, padding: "10px 0" }}>
                 <div
-                  onClick={() => setOpen2(p => !p)}
+                  onClick={e => { e.stopPropagation(); toggleLearn(id); }}
                   style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
                 >
                   <span style={{ fontSize: 14, width: 20, flexShrink: 0 }}>{icon}</span>
                   <span style={{ fontFamily: MONO, fontSize: 11, color, fontWeight: s.active ? 700 : 400, flex: 1 }}>{s.label}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{open2 ? "▲" : "▼ learn"}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{isOpen ? "▲ close" : "▼ learn"}</span>
                 </div>
-                {open2 && (
+                {isOpen && (
                   <div style={{ marginTop: 8, marginLeft: 30, padding: "10px 14px", background: C.bg, borderLeft: `3px solid ${color}`, borderRadius: 4, fontSize: 12, fontFamily: SANS, color: C.textSec, lineHeight: 1.7 }}>
                     {s.explain}
                   </div>
@@ -6281,7 +6284,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
                     <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, letterSpacing: "0.08em" }}>BULLISH SIGNALS</div>
                     <div style={{ background: `${C.green}22`, color: C.green, fontFamily: MONO, fontSize: 10, fontWeight: 700, borderRadius: 10, padding: "1px 8px" }}>{activeBull} / {bullSignals.length}</div>
                   </div>
-                  {bullSignals.map((s, i) => <SignalRow key={i} s={s} type="bull" />)}
+                  {bullSignals.map((s, i) => <SignalRow key={i} id={`bull-${i}`} s={s} type="bull" />)}
                   <div style={{ marginTop: 14, padding: "12px 14px", background: `${C.green}0f`, border: `1px solid ${C.green}33`, borderRadius: 6 }}>
                     <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.green, marginBottom: 4 }}>📖 RULE OF THUMB</div>
                     <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.7 }}>
@@ -6296,7 +6299,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
                     <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.red, letterSpacing: "0.08em" }}>BEARISH SIGNALS</div>
                     <div style={{ background: `${C.red}22`, color: C.red, fontFamily: MONO, fontSize: 10, fontWeight: 700, borderRadius: 10, padding: "1px 8px" }}>{activeBear} / {bearSignals.length}</div>
                   </div>
-                  {bearSignals.map((s, i) => <SignalRow key={i} s={s} type="bear" />)}
+                  {bearSignals.map((s, i) => <SignalRow key={i} id={`bear-${i}`} s={s} type="bear" />)}
                   <div style={{ marginTop: 14, padding: "12px 14px", background: `${C.red}0f`, border: `1px solid ${C.red}33`, borderRadius: 6 }}>
                     <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.red, marginBottom: 4 }}>⛔ AVOID WHEN</div>
                     <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.7 }}>
