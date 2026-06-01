@@ -13400,7 +13400,7 @@ export default function App() {
                                       ⌛ Loading deep dive data for {row.ticker}…
                                     </div>
                                   ) : (
-                                    <div style={{ display: "grid", gridTemplateColumns: "260px repeat(4, minmax(140px,1fr)) minmax(160px,1.4fr) minmax(200px,1.8fr)", gridTemplateRows: "360px", gap: 10, width: "100%", overflowX: "auto" }}>
+                                    <div style={{ display: "grid", gridTemplateColumns: "260px minmax(150px,1fr) minmax(150px,1fr) minmax(150px,1fr) minmax(150px,1fr) minmax(220px,1.6fr)", gridTemplateRows: "360px", gap: 10, width: "100%", overflowX: "auto" }}>
 
                                       {/* ── Col 1: TradingView mini chart ── */}
                                       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
@@ -13490,7 +13490,7 @@ export default function App() {
                                       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
                                         <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
-                                          📋 FUNDAMENTALS
+                                          📋 FUNDS & DATA
                                         </div>
                                         {fd ? (
                                           <div style={{ display: "flex", flexDirection: "column", gap: 1, marginBottom: 12 }}>
@@ -13585,7 +13585,7 @@ export default function App() {
                                       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
                                         <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
-                                          💬 SOCIAL SENTIMENT
+                                          💬 SENTIMENT
                                         </div>
                                         {deepSocialLoad[row.ticker] ? (
                                           <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>
@@ -13602,18 +13602,18 @@ export default function App() {
                                           return (
                                             <div>
                                               {/* Bull / Bear numbers */}
-                                              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                                                <div style={{ flex: 1, padding: "10px 8px", borderRadius: 6,
+                                              <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                                                <div style={{ flex: 1, padding: "8px 4px", borderRadius: 6, overflow: "hidden",
                                                   background: `${C.green}18`, border: `1px solid ${C.green}44`,
                                                   textAlign: "center" }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.green }}>{bullPct.toFixed(0)}%</div>
-                                                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>BULL</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.green }}>{bullPct.toFixed(0)}%</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>BULL</div>
                                                 </div>
-                                                <div style={{ flex: 1, padding: "10px 8px", borderRadius: 6,
+                                                <div style={{ flex: 1, padding: "8px 4px", borderRadius: 6, overflow: "hidden",
                                                   background: `${C.red}18`, border: `1px solid ${C.red}44`,
                                                   textAlign: "center" }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.red }}>{bearPct.toFixed(0)}%</div>
-                                                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>BEAR</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.red }}>{bearPct.toFixed(0)}%</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>BEAR</div>
                                                 </div>
                                               </div>
                                               {/* Sentiment bar */}
