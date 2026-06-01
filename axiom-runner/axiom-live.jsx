@@ -11342,15 +11342,16 @@ export default function App() {
           };
 
           const ACTION_COLOR = {
-            "LONG": C.green,
+            "LONG":          C.green,
             "SHORT / AVOID": C.red,
-            "WATCH": C.amber,
+            "WATCH SHORT":   "#ff6b6b",
+            "WATCH":         C.amber,
           };
           const CONF_COLOR = { HIGH: C.accent, MEDIUM: C.green, LOW: C.textDim };
 
           const filtered = (sigData?.signals || []).filter(s => {
             if (sigFilter === "LONG")    return s.action === "LONG" || s.action === "WATCH";
-            if (sigFilter === "SHORT")   return s.action === "SHORT / AVOID";
+            if (sigFilter === "SHORT")   return s.action === "SHORT / AVOID" || s.action === "WATCH SHORT";
             if (sigFilter === "OPTIONS") return s.optionType != null;
             return true;
           });

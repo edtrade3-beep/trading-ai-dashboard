@@ -1476,21 +1476,30 @@ async function handleMarket(req, res, requestUrl) {
             action = "LONG";
             confidence = score >= 85 ? "HIGH" : score >= 75 ? "MEDIUM" : "LOW";
             rationale = reasons.slice(0, 3);
-            if (ivProxy < 40)      { optionType = "BUY CALLS";    optionNote = `IV ${ivProxy} — cheap options`; }
-            else if (ivProxy > 65) { optionType = "SELL PUTS";    optionNote = `IV ${ivProxy} — sell puts for income`; }
+            if (ivProxy < 40)      { optionType = "BUY CALLS";     optionNote = `IV ${ivProxy} — options cheap`; }
+            else if (ivProxy > 65) { optionType = "SELL PUTS";     optionNote = `IV ${ivProxy} — sell puts to enter`; }
             else                   { optionType = "CALLS or STOCK"; optionNote = `IV ${ivProxy}`; }
           } else if (score <= 35 && chgPct < 0) {
             action = "SHORT / AVOID";
             confidence = score <= 20 ? "HIGH" : score <= 28 ? "MEDIUM" : "LOW";
             rationale = contra.slice(0, 3);
-            if (ivProxy < 40)      { optionType = "BUY PUTS";     optionNote = `IV ${ivProxy} — cheap puts`; }
-            else if (ivProxy > 65) { optionType = "SELL CALLS";   optionNote = `IV ${ivProxy} — sell calls`; }
-            else                   { optionType = "PUTS or SHORT"; optionNote = `IV ${ivProxy}`; }
-          } else if (score >= 60 && chgPct >= 0) {
+            if (ivProxy < 40)      { optionType = "BUY PUTS";      optionNote = `IV ${ivProxy} — puts cheap`; }
+            else if (ivProxy > 65) { optionType = "SELL CALLS";    optionNote = `IV ${ivProxy} — sell calls`; }
+            else                   { optionType = "PUTS or SHORT";  optionNote = `IV ${ivProxy}`; }
+          } else if (score >= 55 && chgPct > 0) {
+            // Always capture developing bullish setups
             action = "WATCH";
             confidence = "LOW";
-            rationale = reasons.slice(0, 2);
-            optionType = null;
+            rationale = reasons.length ? reasons.slice(0, 2) : [`+${chgPct.toFixed(1)}% with score ${score}`];
+            optionType = score >= 62 ? "CALLS or STOCK" : null;
+            optionNote = `IV ${ivProxy} — wait for stronger confirmation`;
+          } else if (score <= 45 && chgPct < 0) {
+            // Capture weakening stocks too
+            action = "WATCH SHORT";
+            confidence = "LOW";
+            rationale = contra.length ? contra.slice(0, 2) : [`${chgPct.toFixed(1)}% weakness`];
+            optionType = score <= 38 ? "PUTS" : null;
+            optionNote = `IV ${ivProxy} — setup developing`;
           }
 
           if (!action) continue;
@@ -1514,7 +1523,8 @@ async function handleMarket(req, res, requestUrl) {
         } catch {}
       }
 
-      // Sort: HIGH confidence LONG first, then MEDIUM, then WATCH, SHORT last
+      // Sort: LONG (high conf) first, then SHORT, then WATCH — always return something
+      // If nothing scored above thresholds, show the top movers by score anyway
       signals.sort((a, b) => {
         const confOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
         if (a.confidence !== b.confidence) return (confOrder[a.confidence] || 2) - (confOrder[b.confidence] || 2);
@@ -1523,7 +1533,7 @@ async function handleMarket(req, res, requestUrl) {
 
       const sigResult = {
         ok: true,
-        signals: signals.slice(0, 15),
+        signals: signals.slice(0, 18),
         mktEnv, vix: round2(vix),
         scannedAt: new Date().toISOString(),
       };
