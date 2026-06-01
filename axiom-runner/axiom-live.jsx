@@ -13386,10 +13386,10 @@ export default function App() {
                                       ⌛ Loading deep dive data for {row.ticker}…
                                     </div>
                                   ) : (
-                                    <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                                    <div style={{ display: "flex", gap: 14, flexWrap: "wrap", width: "100%", alignItems: "flex-start" }}>
 
                                       {/* ── Col 1: TradingView mini chart ── */}
-                                      <div style={{ flex: "0 0 320px", minWidth: 260 }}>
+                                      <div style={{ flex: "0 0 300px", minWidth: 240 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
                                           📊 CHART
@@ -13406,7 +13406,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 2: TECHNICALS (indicators + signals + entry zones) ── */}
-                                      <div style={{ flex: "1 1 190px", minWidth: 170 }}>
+                                      <div style={{ flex: "1 1 0", minWidth: 160 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
                                           ⚡ TECHNICALS
@@ -13472,7 +13472,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 3: FUNDAMENTALS + SHORT INTEREST + OPTIONS ── */}
-                                      <div style={{ flex: "1 1 175px", minWidth: 160 }}>
+                                      <div style={{ flex: "1 1 0", minWidth: 160 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
                                           📋 FUNDAMENTALS
@@ -13566,7 +13566,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 4: SOCIAL SENTIMENT + INSIDER BUYS ── */}
-                                      <div style={{ flex: "1 1 175px", minWidth: 160 }}>
+                                      <div style={{ flex: "1 1 0", minWidth: 160 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
                                           💬 SOCIAL SENTIMENT
@@ -13680,7 +13680,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 5: RECENT NEWS ── */}
-                                      <div style={{ flex: "1 1 200px", minWidth: 180 }}>
+                                      <div style={{ flex: "1 1 0", minWidth: 170 }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
                                           📰 RECENT NEWS
@@ -13726,7 +13726,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 6: AI Trade Setup + Auto-Execute ── */}
-                                      <div style={{ flex: "1 1 240px", minWidth: 220 }}>
+                                      <div style={{ flex: "2 1 0", minWidth: 220 }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                                           <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                             color: C.textDim, letterSpacing: "0.06em" }}>
