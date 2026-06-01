@@ -4742,7 +4742,10 @@ function GapScanner({ C, MONO, SANS }) {
             <div style={{ padding: "50px 0", textAlign: "center", color: C.textDim, fontSize: 11 }}>⌛ Fetching real gap data…</div>
           )}
           {!loading && stocks.length === 0 && !error && (
-            <div style={{ padding: "50px 0", textAlign: "center", color: C.textDim, fontSize: 11 }}>No gappers found — press ↺ REFRESH</div>
+            <div style={{ padding: "50px 0", textAlign: "center" }}>
+              <div style={{ fontSize: 13, color: C.textDim, marginBottom: 6 }}>No gappers found for current filter</div>
+              <div style={{ fontSize: 11, color: C.textDim }}>Try lowering the MIN GAP slider or press ↺ REFRESH</div>
+            </div>
           )}
 
           {/* Rows */}

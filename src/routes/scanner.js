@@ -142,6 +142,10 @@ async function handleScanner(req, res, requestUrl) {
       const settled = await Promise.allSettled(chunks.map(c => fetchYahooQuoteBatch(c)));
       const raw = settled.flatMap(r => r.status === "fulfilled" ? r.value : []);
 
+      if (raw.length === 0) {
+        return writeJson(res, 502, { ok: false, error: "Yahoo Finance returned no data — API may be rate-limited. Try again in 30 seconds.", results: [] });
+      }
+
       const results = raw
         .filter(q => q && (q.regularMarketPrice || q.regularMarketOpen))
         .map(q => {

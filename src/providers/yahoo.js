@@ -9,8 +9,6 @@ const QUOTE_BATCH_CACHE = new Map();
 const QUOTE_CACHE_TTL_MS = 90_000;
 
 // ── Robust Yahoo fetch with AbortController timeout ──────────────────────────
-// Every raw Yahoo HTTP call MUST go through this — prevents server from hanging
-// when Yahoo rate-limits by silently keeping TCP connections open indefinitely.
 const YAHOO_HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   "Accept": "application/json, text/plain, */*",
@@ -25,6 +23,59 @@ async function yFetch(url, timeoutMs = 8000) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, { headers: YAHOO_HEADERS, signal: controller.signal });
+    clearTimeout(timer);
+    return res;
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
+// ── Yahoo crumb manager ───────────────────────────────────────────────────────
+// Yahoo v7/v8 APIs block cloud IPs unless a valid crumb + session cookie is sent.
+// We obtain these once by loading finance.yahoo.com, then reuse for 30 min.
+let _crumbCache = null; // { crumb, cookie, ts }
+const CRUMB_TTL = 30 * 60 * 1000;
+
+async function getYahooCrumb() {
+  if (_crumbCache && Date.now() - _crumbCache.ts < CRUMB_TTL) return _crumbCache;
+  try {
+    // Step 1: hit the main page to get a session cookie
+    const pageRes = await fetch("https://finance.yahoo.com/", {
+      headers: { "User-Agent": YAHOO_HEADERS["User-Agent"], "Accept": "text/html" },
+      signal: AbortSignal.timeout(8000),
+    });
+    const cookie = (pageRes.headers.get("set-cookie") || "")
+      .split(",").map(s => s.trim().split(";")[0]).filter(Boolean).join("; ");
+
+    // Step 2: fetch the crumb using that cookie
+    const crumbRes = await fetch("https://query1.finance.yahoo.com/v1/test/getcrumb", {
+      headers: {
+        ...YAHOO_HEADERS,
+        ...(cookie ? { "Cookie": cookie } : {}),
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!crumbRes.ok) return null;
+    const crumb = (await crumbRes.text()).trim();
+    if (!crumb || crumb.length < 3) return null;
+    _crumbCache = { crumb, cookie, ts: Date.now() };
+    console.log("[Yahoo] Crumb refreshed:", crumb.slice(0, 6) + "…");
+    return _crumbCache;
+  } catch {
+    return null;
+  }
+}
+
+async function yFetchWithCrumb(url, timeoutMs = 8000) {
+  const session = await getYahooCrumb();
+  const sep = url.includes("?") ? "&" : "?";
+  const urlWithCrumb = session ? `${url}${sep}crumb=${encodeURIComponent(session.crumb)}` : url;
+  const headers = { ...YAHOO_HEADERS, ...(session?.cookie ? { "Cookie": session.cookie } : {}) };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(urlWithCrumb, { headers, signal: controller.signal });
     clearTimeout(timer);
     return res;
   } catch (err) {
@@ -77,12 +128,12 @@ async function fetchYahooQuoteBatch(symbols) {
     const cached = QUOTE_BATCH_CACHE.get(list);
     if (cached && Date.now() - cached.ts < QUOTE_CACHE_TTL_MS) return cached.data;
 
-    // Try v7 on query1 and query2 (different rate-limit buckets)
-    const endpoints = [
+    // Try 1: plain v7 (fast, no crumb needed on some IPs)
+    const baseUrls = [
       `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(list)}`,
       `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(list)}`,
     ];
-    for (const url of endpoints) {
+    for (const url of baseUrls) {
       try {
         const response = await yFetch(url, 7000);
         if (!response.ok) continue;
@@ -94,6 +145,22 @@ async function fetchYahooQuoteBatch(symbols) {
         }
       } catch { continue; }
     }
+
+    // Try 2: v7 with crumb auth (required when cloud IP is blocked)
+    for (const host of ["query1", "query2"]) {
+      try {
+        const url = `https://${host}.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(list)}`;
+        const response = await yFetchWithCrumb(url, 8000);
+        if (!response.ok) continue;
+        const payload = await response.json();
+        const result = Array.isArray(payload?.quoteResponse?.result) ? payload.quoteResponse.result : [];
+        if (result.length > 0) {
+          QUOTE_BATCH_CACHE.set(list, { data: result, ts: Date.now() });
+          return result;
+        }
+      } catch { continue; }
+    }
+
     return [];
   } catch {
     return [];
