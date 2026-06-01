@@ -13400,10 +13400,12 @@ export default function App() {
                                       ⌛ Loading deep dive data for {row.ticker}…
                                     </div>
                                   ) : (
-                                    <div style={{ display: "grid", gridTemplateColumns: "240px repeat(5, minmax(180px,1fr)) minmax(240px,1.4fr)", gridTemplateRows: "360px", gap: 10, width: "100%", overflowX: "auto" }}>
+                                    <div style={{ display: "grid", gridTemplateColumns: "260px repeat(3, minmax(0,1fr)) minmax(0,1.5fr)", gridTemplateRows: "200px 200px", gap: 10, width: "100%",
+                                      gridTemplateAreas: `"chart tech  funds  sent   sent"
+                                                          "chart news  analyst analyst ai"` }}>
 
                                       {/* ── Col 1: TradingView mini chart ── */}
-                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", gridArea: "chart" }}>
                                         <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           📊 CHART
@@ -13420,7 +13422,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 2: TECHNICALS (indicators + signals + entry zones) ── */}
-                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", gridArea: "tech" }}>
                                         <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           ⚡ TECHNICALS
@@ -13487,7 +13489,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 3: FUNDAMENTALS + SHORT INTEREST + OPTIONS ── */}
-                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", gridArea: "funds" }}>
                                         <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           📋 FUNDS & DATA
@@ -13582,7 +13584,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 4: SOCIAL SENTIMENT + INSIDER BUYS ── */}
-                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", gridArea: "sent" }}>
                                         <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           💬 SENTIMENT
@@ -13696,7 +13698,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 5: RECENT NEWS ── */}
-                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", gridArea: "news" }}>
                                         <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           📰 RECENT NEWS
@@ -13742,7 +13744,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 6: ANALYST RATINGS + EARNINGS ── */}
-                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", gridArea: "analyst" }}>
                                         <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           🎯 ANALYST & EARNINGS
@@ -13847,7 +13849,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 7: AI Trade Setup + Auto-Execute ── */}
-                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", gridArea: "ai" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                                           <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                             color: C.textDim, letterSpacing: "0.06em" }}>
