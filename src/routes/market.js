@@ -1467,6 +1467,52 @@ async function handleMarket(req, res, requestUrl) {
   // ── GET /api/market/trade-signals — Live trade signal engine ──────────────
   // Scans a universe of stocks and returns actionable LONG/SHORT/CALL/PUT signals
   if (pathname === "/api/market/trade-signals" && req.method === "GET") {
+    // ── Options helpers ────────────────────────────────────────────────────────
+    function getNearestExpiry(minDTE = 14) {
+      // Returns the next 3rd-Friday monthly expiration at least minDTE days out
+      const today = new Date();
+      const results = [];
+      for (let m = 0; m < 4; m++) {
+        const d = new Date(today.getFullYear(), today.getMonth() + m, 1);
+        // Find 3rd Friday
+        let friCount = 0;
+        while (friCount < 3) { if (d.getDay() === 5) friCount++; if (friCount < 3) d.setDate(d.getDate() + 1); }
+        const dte = Math.round((d - today) / 86400000);
+        results.push({ date: d, dte });
+      }
+      const chosen = results.find(r => r.dte >= minDTE) || results[results.length - 1];
+      const mm = String(chosen.date.getMonth() + 1).padStart(2, "0");
+      const dd = String(chosen.date.getDate()).padStart(2, "0");
+      const yy = String(chosen.date.getFullYear()).slice(2);
+      return { label: `${mm}/${dd}/${yy}`, dte: chosen.dte };
+    }
+
+    function getStrike(price, action) {
+      // Standard increment based on price
+      const step = price < 25 ? 0.5 : price < 50 ? 1 : price < 100 ? 2 : price < 200 ? 5 : price < 500 ? 10 : 20;
+      const snap = v => Math.round(v / step) * step;
+      if (action === "BUY CALLS")   return round2(snap(price * 1.02));  // slightly OTM call
+      if (action === "SELL PUTS")   return round2(snap(price * 0.95));  // OTM put (5% below)
+      if (action === "CALLS or STOCK") return round2(snap(price * 1.01)); // near ATM
+      if (action === "BUY PUTS")    return round2(snap(price * 0.98));  // slightly OTM put
+      if (action === "SELL CALLS")  return round2(snap(price * 1.05));  // OTM call (5% above)
+      if (action === "PUTS or SHORT") return round2(snap(price * 0.98));
+      if (action === "PUTS")        return round2(snap(price * 0.97));
+      return round2(snap(price));
+    }
+
+    function estimatePremium(price, strike, ivProxy, dte, isCall) {
+      // Simplified ATM premium estimate: S × (IV/100) × sqrt(DTE/365) × 0.4
+      if (!price || !dte) return null;
+      const iv = (ivProxy || 40) / 100;
+      const T  = dte / 365;
+      const atmPrem = price * iv * Math.sqrt(T) * 0.4;
+      // Adjust for moneyness
+      const moneyness = isCall ? (price / strike) : (strike / price);
+      const adj = moneyness > 1.05 ? 0.5 : moneyness > 1.02 ? 0.75 : moneyness > 0.98 ? 1.0 : 0.75;
+      return round2(atmPrem * adj);
+    }
+
     const _sigCache = handleMarket._sigCache || (handleMarket._sigCache = { data: null, ts: 0 });
     const SIG_TTL = 3 * 60 * 1000; // 3 min cache
     if (_sigCache.data && Date.now() - _sigCache.ts < SIG_TTL) {
@@ -1596,12 +1642,38 @@ async function handleMarket(req, res, requestUrl) {
           const target2 = round2(action.startsWith("SHORT") ? price * 0.78 : (hi52 > price * 1.02 ? hi52 * 1.05 : price * 1.22));
           const rr      = stop !== entry ? round2(Math.abs(target1 - entry) / Math.abs(entry - stop)) : 0;
 
+          // ── Options-specific trade details ──────────────────────────────────
+          let optDetail = null;
+          if (optionType && !optionType.includes("WAIT")) {
+            const expiry = getNearestExpiry(14);
+            const strike = getStrike(price, optionType);
+            const isCall = optionType.includes("CALL");
+            const isPut  = optionType.includes("PUT");
+            const prem   = estimatePremium(price, strike, ivProxy, expiry.dte, isCall);
+            const contracts = prem > 0 ? Math.max(1, Math.round(500 / (prem * 100))) : 1; // ~$500 risk
+
+            optDetail = {
+              type:    isCall ? "CALL" : isPut ? "PUT" : null,
+              action:  optionType.includes("BUY") ? "BUY" : "SELL",
+              strike,
+              expiry:  expiry.label,
+              dte:     expiry.dte,
+              estPrem: prem,
+              contracts,
+              // Full trade string e.g. "BUY 2x NVDA $230 CALL 07/18/25 ~$3.40/contract"
+              tradeStr: prem
+                ? `${optionType.includes("BUY") ? "BUY" : "SELL"} ${contracts}× ${sym} $${strike} ${isCall ? "CALL" : "PUT"} ${expiry.label} ~$${prem}/contract`
+                : `${optionType} ${sym} $${strike} ${expiry.label}`,
+            };
+          }
+
           signals.push({
             sym, action, confidence, score,
             entry, stop, target1, target2, rr,
             chgPct: round2(chgPct), rvol: round2(rvol),
             ma50: round2(ma50), ma200: round2(ma200),
             hi52: round2(hi52), ivProxy, optionType, optionNote,
+            optDetail,
             rationale: rationale.length ? rationale : [chgPct > 0 ? `+${chgPct.toFixed(1)}% momentum` : `${chgPct.toFixed(1)}% weakness`],
             mktEnv, ts: new Date().toISOString(),
           });

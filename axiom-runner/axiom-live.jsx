@@ -11544,8 +11544,36 @@ export default function App() {
                             </span>
                           </div>
 
-                          {/* Options signal */}
-                          {s.optionType && !s.optionType.includes("WAIT") && (
+                          {/* Options trade details */}
+                          {s.optDetail ? (
+                            <div style={{ borderRadius: 6, padding: "8px 10px", marginBottom: 8,
+                              background: `${C.purple}14`, border: `1px solid ${C.purple}44` }}>
+                              {/* Trade string */}
+                              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.purple, marginBottom: 6 }}>
+                                🎰 {s.optDetail.action} {s.optDetail.type}
+                                <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 400, color: C.textDim, marginLeft: 6 }}>
+                                  {s.optionNote}
+                                </span>
+                              </div>
+                              {/* Strike / Expiry / Premium grid */}
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4 }}>
+                                {[
+                                  ["STRIKE", `$${s.optDetail.strike}`, C.purple],
+                                  ["EXPIRY", s.optDetail.expiry, C.amber],
+                                  ["DTE",    `${s.optDetail.dte}d`, C.textSec],
+                                  ["~PREM",  s.optDetail.estPrem ? `$${s.optDetail.estPrem}` : "—", C.green],
+                                  ["CONT",   `${s.optDetail.contracts}×`, C.text],
+                                  ["COST",   s.optDetail.estPrem ? `$${Math.round(s.optDetail.estPrem * s.optDetail.contracts * 100)}` : "—", C.textDim],
+                                ].map(([lbl, val, col]) => (
+                                  <div key={lbl} style={{ textAlign: "center", padding: "4px 2px",
+                                    background: C.surface, borderRadius: 3 }}>
+                                    <div style={{ fontFamily: SANS, fontSize: 8, color: C.textDim }}>{lbl}</div>
+                                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: col }}>{val}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : s.optionType && !s.optionType.includes("WAIT") && (
                             <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.purple,
                               background: `${C.purple}12`, borderRadius: 4, padding: "4px 8px", marginBottom: 8 }}>
                               🎰 {s.optionType}
