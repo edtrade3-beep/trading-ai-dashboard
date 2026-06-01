@@ -13198,16 +13198,16 @@ export default function App() {
                     AI · INFRASTRUCTURE · ROBOTICS · NUCLEAR · SATELLITE · SPACE · AI ENERGY · DEFENCE AI &nbsp;|&nbsp;
                     {FIVEX.length} STOCKS &nbsp;|&nbsp; REF PRICES: 2026-05-27
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: "#ff9900", marginTop: 3 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: "#ff9900", marginTop: 3 }}>
                     ⚠ Entry zones rule-based (−5% / −12% / −20% from ref price). Not financial advice.
                   </div>
                   {fivexFetchedAt && (
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.green, marginTop: 3 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.green, marginTop: 3 }}>
                       ● LIVE PRICES as of {fivexFetchedAt.toLocaleTimeString()}
                     </div>
                   )}
                   {fivexError && (
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.red, marginTop: 3 }}>⚠ {fivexError}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.red, marginTop: 3 }}>⚠ {fivexError}</div>
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -13244,7 +13244,7 @@ export default function App() {
               {Object.keys(fivexPrices).length > 0 && (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12,
                   padding: "10px 14px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, alignItems: "center" }}>
-                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginRight: 4 }}>LIVE ZONES:</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginRight: 4 }}>LIVE ZONES:</span>
                   {[
                     { key: "deep",     label: "🟢 DEEP VALUE",  color: "#00e676" },
                     { key: "better",   label: "⚡ BETTER ENTRY", color: "#4caf50" },
@@ -13253,7 +13253,7 @@ export default function App() {
                     { key: "wait",     label: "⏳ WAIT",         color: C.textDim },
                     { key: "stop",     label: "⚠ BELOW STOP",   color: C.red     },
                   ].map(({ key, label, color }) => zoneCounts[key] > 0 && (
-                    <span key={key} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                    <span key={key} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
                       color, background: color + "18", border: `1px solid ${color}44`,
                       borderRadius: 12, padding: "3px 10px", cursor: "pointer" }}
                       onClick={() => setFivexSort("zone")}>
@@ -13265,18 +13265,18 @@ export default function App() {
 
               {/* ── Sort + Sector pills row ── */}
               <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
-                <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>SORT:</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>SORT:</span>
                 {[["rank","RANK"],["zone","ZONE"],["upside","UPSIDE"],["risk","RISK"]].map(([val, lbl]) => (
                   <button key={val} onClick={() => setFivexSort(val)} style={{
-                    fontFamily: MONO, fontSize: 9, cursor: "pointer", borderRadius: 4,
+                    fontFamily: MONO, fontSize: 11, cursor: "pointer", borderRadius: 4,
                     padding: "3px 8px",
                     background: fivexSort === val ? `${C.accent}22` : C.surface,
                     border: `1px solid ${fivexSort === val ? C.accent : C.border}`,
                     color: fivexSort === val ? C.accent : C.textDim, fontWeight: fivexSort === val ? 700 : 400,
                   }}>{lbl}</button>
                 ))}
-                <span style={{ fontFamily: MONO, fontSize: 9, color: C.border, margin: "0 4px" }}>|</span>
-                <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>SECTOR:</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.border, margin: "0 4px" }}>|</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>SECTOR:</span>
               </div>
 
               {/* ── Sector summary pills ── */}
@@ -13289,7 +13289,7 @@ export default function App() {
                     <button key={sec}
                       onClick={() => setFivexSector(sec)}
                       style={{
-                        fontFamily: MONO, fontSize: 9, cursor: "pointer", borderRadius: 20,
+                        fontFamily: MONO, fontSize: 11, cursor: "pointer", borderRadius: 20,
                         padding: "4px 10px", whiteSpace: "nowrap",
                         background: active ? (meta ? meta.color + "30" : `${C.accent}22`) : C.surface,
                         border: `1px solid ${active ? (meta ? meta.color : C.accent) : C.border}`,
@@ -13365,36 +13365,36 @@ export default function App() {
                           title={`Click to open ${s.ticker} in Stock Deep Dive`}>
                           {/* Rank */}
                           <td style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: "center",
-                            padding: "9px 8px", borderBottom: `1px solid ${C.border}22` }}>
+                            padding: "11px 9px", borderBottom: `1px solid ${C.border}22` }}>
                             {s.rank}
                           </td>
                           {/* Ticker */}
-                          <td style={{ padding: "9px 8px", borderBottom: `1px solid ${C.border}22`, textAlign: "center" }}>
+                          <td style={{ padding: "11px 9px", borderBottom: `1px solid ${C.border}22`, textAlign: "center" }}>
                             <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: meta.color,
                               background: meta.color + "18", borderRadius: 4, padding: "2px 6px" }}>
                               {s.ticker}
                             </span>
                           </td>
                           {/* Company */}
-                          <td style={{ fontFamily: MONO, fontSize: 10, color: C.text, padding: "9px 8px",
+                          <td style={{ fontFamily: MONO, fontSize: 10, color: C.text, padding: "11px 9px",
                             borderBottom: `1px solid ${C.border}22`, whiteSpace: "nowrap" }}>
                             {s.company}
                           </td>
                           {/* Sector */}
-                          <td style={{ padding: "9px 8px", borderBottom: `1px solid ${C.border}22`, whiteSpace: "nowrap" }}>
-                            <span style={{ fontFamily: MONO, fontSize: 9, color: meta.color, fontWeight: 700 }}>
+                          <td style={{ padding: "11px 9px", borderBottom: `1px solid ${C.border}22`, whiteSpace: "nowrap" }}>
+                            <span style={{ fontFamily: MONO, fontSize: 11, color: meta.color, fontWeight: 700 }}>
                               {meta.icon} {s.sector}
                             </span>
                           </td>
                           {/* Ref Price */}
                           <td style={{ fontFamily: MONO, fontSize: 10, fontWeight: 600, color: C.textDim,
-                            textAlign: "right", padding: "9px 10px", borderBottom: `1px solid ${C.border}22` }}>
+                            textAlign: "right", padding: "11px 11px", borderBottom: `1px solid ${C.border}22` }}>
                             {$(s.price)}
                           </td>
                           {/* Live Price */}
-                          <td style={{ padding: "9px 10px", borderBottom: `1px solid ${C.border}22`, textAlign: "right" }}>
+                          <td style={{ padding: "11px 11px", borderBottom: `1px solid ${C.border}22`, textAlign: "right" }}>
                             {fivexLoading ? (
-                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>…</span>
+                              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>…</span>
                             ) : liveP ? (
                               <div>
                                 <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800,
@@ -13407,11 +13407,11 @@ export default function App() {
                                 </div>
                               </div>
                             ) : (
-                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>—</span>
+                              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>—</span>
                             )}
                           </td>
                           {/* Zone Badge */}
-                          <td style={{ textAlign: "center", padding: "9px 8px", borderBottom: `1px solid ${C.border}22` }}>
+                          <td style={{ textAlign: "center", padding: "11px 9px", borderBottom: `1px solid ${C.border}22` }}>
                             {zoneBadge ? (
                               <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700,
                                 color: zoneBadge.color, background: zoneBadge.color + "22",
@@ -13420,18 +13420,18 @@ export default function App() {
                                 {zoneBadge.label}
                               </span>
                             ) : (
-                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>—</span>
+                              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>—</span>
                             )}
                           </td>
                           {/* Entry 1 -5% */}
-                          <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "right", padding: "9px 10px",
+                          <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "right", padding: "11px 11px",
                             borderBottom: `1px solid ${C.border}22`,
                             color: isInEntry1 ? "#26a69a" : C.textDim,
                             background: isInEntry1 ? "#26a69a14" : "transparent" }}>
                             {$(s.e1)}
                           </td>
                           {/* Entry 2 -12% */}
-                          <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "right", padding: "9px 10px",
+                          <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "right", padding: "11px 11px",
                             borderBottom: `1px solid ${C.border}22`,
                             color: isInEntry2 ? "#4caf50" : C.textDim,
                             fontWeight: isInEntry2 ? 700 : 400,
@@ -13439,7 +13439,7 @@ export default function App() {
                             {$(s.e2)}
                           </td>
                           {/* Entry 3 -20% deep value */}
-                          <td style={{ fontFamily: MONO, fontSize: 11, textAlign: "right", padding: "9px 10px",
+                          <td style={{ fontFamily: MONO, fontSize: 11, textAlign: "right", padding: "11px 11px",
                             borderBottom: `1px solid ${C.border}22`,
                             color: isInEntry3 ? "#00e676" : C.textDim,
                             fontWeight: isInEntry3 ? 800 : 400,
@@ -13447,19 +13447,19 @@ export default function App() {
                             {$(s.e3)}
                           </td>
                           {/* Breakout +8% */}
-                          <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "right", padding: "9px 10px",
+                          <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "right", padding: "11px 11px",
                             borderBottom: `1px solid ${C.border}22`,
                             color: isAboveBreakout ? "#ffd700" : "#ff9900",
                             fontWeight: 700 }}>
                             {$(s.trigger)}
                           </td>
                           {/* Stop -15% */}
-                          <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "right", padding: "9px 10px",
+                          <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "right", padding: "11px 11px",
                             borderBottom: `1px solid ${C.border}22`, color: C.red }}>
                             {$(s.stop)}
                           </td>
                           {/* Risk */}
-                          <td style={{ textAlign: "center", padding: "9px 8px", borderBottom: `1px solid ${C.border}22` }}>
+                          <td style={{ textAlign: "center", padding: "11px 9px", borderBottom: `1px solid ${C.border}22` }}>
                             <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: rColor,
                               background: rColor + "20", border: `1px solid ${rColor}55`,
                               borderRadius: 4, padding: "2px 6px", whiteSpace: "nowrap" }}>
@@ -13467,13 +13467,13 @@ export default function App() {
                             </span>
                           </td>
                           {/* Upside */}
-                          <td style={{ textAlign: "center", padding: "9px 8px", borderBottom: `1px solid ${C.border}22` }}>
+                          <td style={{ textAlign: "center", padding: "11px 9px", borderBottom: `1px solid ${C.border}22` }}>
                             <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: uColor }}>
                               {s.upside}
                             </span>
                           </td>
                           {/* Thesis */}
-                          <td style={{ fontFamily: MONO, fontSize: 9, color: C.textSec, padding: "9px 10px",
+                          <td style={{ fontFamily: MONO, fontSize: 11, color: C.textSec, padding: "11px 11px",
                             borderBottom: `1px solid ${C.border}22`, whiteSpace: "nowrap" }}>
                             {s.thesis}
                           </td>
@@ -13487,21 +13487,21 @@ export default function App() {
               {/* ── Legend ── */}
               <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginTop: 14, padding: "10px 14px",
                 background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }}>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
                   <span style={{ color: "#26a69a" }}>■</span> STARTER −5% &nbsp;
                   <span style={{ color: "#4caf50" }}>■</span> BETTER −12% &nbsp;
                   <span style={{ color: "#00e676", fontWeight: 700 }}>■</span> DEEP −20% &nbsp;&nbsp;
                   <span style={{ color: "#ff9900" }}>■</span> BREAKOUT +8% &nbsp;
                   <span style={{ color: C.red }}>■</span> STOP −15%
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
                   {["Extreme","Very High","High","Medium-High","Medium"].map(r => (
                     <span key={r} style={{ marginRight: 10 }}>
                       <span style={{ color: RISK_COLOR[r] }}>■</span> {r}
                     </span>
                   ))}
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginLeft: "auto" }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: "auto" }}>
                   Click any row → Stock Deep Dive ↗
                 </div>
               </div>
@@ -13533,7 +13533,7 @@ export default function App() {
         {activeTab === "smartscan" && (() => {
           // ── Signal badge style helper ─────────────────────────────────────
           const SIG_STYLE = (sColor) => ({
-            display: "inline-block", fontFamily: MONO, fontSize: 9, fontWeight: 800,
+            display: "inline-block", fontFamily: MONO, fontSize: 11, fontWeight: 800,
             color: sColor, background: sColor + "22", border: `1px solid ${sColor}44`,
             borderRadius: 4, padding: "2px 7px", whiteSpace: "nowrap",
           });
@@ -13560,18 +13560,18 @@ export default function App() {
                 <div>
                   <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text,
                     letterSpacing: "0.06em" }}>🧠 SMART SCANNER</div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 2 }}>
                     AI-scored technical + entry zone + volume + sentiment — 30 high-growth tickers
                   </div>
                 </div>
                 <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   {scanLastRun && (
-                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
                       Last scan: {scanLastRun.toLocaleTimeString()}
                     </span>
                   )}
                   {scanLoading && (
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.accent }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent }}>
                       ⌛ Scanning {scanProgress.done}/{scanProgress.total}…
                       <div style={{ marginTop: 4, width: 160, height: 4, background: C.border, borderRadius: 2, overflow: "hidden" }}>
                         <div style={{ width: `${Math.round((scanProgress.done / scanProgress.total) * 100)}%`,
@@ -13588,7 +13588,7 @@ export default function App() {
                     setAutoScanOn(true);
                     localStorage.setItem("smartscan_auto_on", "true");
                   }}
-                    style={{ fontFamily: MONO, fontSize: 9, background: C.surface, border: `1px solid ${C.border}`,
+                    style={{ fontFamily: MONO, fontSize: 11, background: C.surface, border: `1px solid ${C.border}`,
                       color: C.textSec, borderRadius: 4, padding: "4px 6px", cursor: "pointer" }}>
                     <option value={1}>1 min</option>
                     <option value={5}>5 min</option>
@@ -13601,7 +13601,7 @@ export default function App() {
                     localStorage.setItem("smartscan_auto_on", String(!v));
                     return !v;
                   })}
-                    style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                    style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
                       background: autoScanOn ? `${C.amber}18` : C.surface,
                       border: `1px solid ${autoScanOn ? C.amber : C.border}`,
                       color: autoScanOn ? C.amber : C.textDim,
@@ -13611,7 +13611,7 @@ export default function App() {
                       : "▶ AUTO ON"}
                   </button>
                   <button onClick={runSmartScan} disabled={scanLoading}
-                    style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                    style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
                       background: scanLoading ? C.surface : `${C.green}18`,
                       border: `1px solid ${scanLoading ? C.border : C.green}`,
                       color: scanLoading ? C.textDim : C.green,
@@ -13640,7 +13640,7 @@ export default function App() {
                     padding: "12px 16px", marginBottom: 10 }}>
                     {/* Add row */}
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-                      <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, whiteSpace: "nowrap" }}>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, whiteSpace: "nowrap" }}>
                         ➕ ADD STOCK:
                       </span>
                       <input
@@ -13649,17 +13649,17 @@ export default function App() {
                         onKeyDown={e => { if (e.key === "Enter") addTicker(scanTickerInput); }}
                         placeholder="TICKER…"
                         style={{ width: 100, background: C.surface, border: `1px solid ${C.border}`, color: C.text,
-                          fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 4, outline: "none" }}
+                          fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 4, outline: "none" }}
                       />
                       <button onClick={() => addTicker(scanTickerInput)} disabled={!scanTickerInput.trim()}
-                        style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                        style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
                           background: scanTickerInput.trim() ? `${C.green}18` : C.surface,
                           border: `1px solid ${scanTickerInput.trim() ? C.green : C.border}`,
                           color: scanTickerInput.trim() ? C.green : C.textDim,
                           borderRadius: 4, padding: "5px 14px", cursor: scanTickerInput.trim() ? "pointer" : "default" }}>
                         ADD
                       </button>
-                      <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
                         {FIVEX_TICKERS.length} stocks in scan
                       </span>
                     </div>
@@ -13668,12 +13668,12 @@ export default function App() {
                     {customScanTickers.length > 0 && (
                       <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 8 }}>
                         {customScanTickers.map(sym => (
-                          <span key={sym} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                          <span key={sym} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
                             color: C.accent, background: `${C.accent}18`, border: `1px solid ${C.accent}44`,
                             borderRadius: 4, padding: "3px 8px", display: "flex", alignItems: "center", gap: 4 }}>
                             {sym}
                             <span onClick={() => removeTicker(sym)}
-                              style={{ cursor: "pointer", color: C.red, fontWeight: 900, fontSize: 10, lineHeight: 1 }}>
+                              style={{ cursor: "pointer", color: C.red, fontWeight: 900, fontSize: 11, lineHeight: 1 }}>
                               ×
                             </span>
                           </span>
@@ -13683,12 +13683,12 @@ export default function App() {
 
                     {/* Suggestion chips */}
                     <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
-                      <span style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, whiteSpace: "nowrap", marginRight: 4 }}>
+                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, whiteSpace: "nowrap", marginRight: 4 }}>
                         💡 SUGGESTIONS:
                       </span>
                       {suggestions.slice(0, 20).map(sym => (
                         <button key={sym} onClick={() => addTicker(sym)}
-                          style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700,
+                          style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
                             color: C.textSec, background: C.surface, border: `1px solid ${C.border}`,
                             borderRadius: 3, padding: "2px 7px", cursor: "pointer" }}>
                           + {sym}
@@ -13701,7 +13701,7 @@ export default function App() {
 
               {/* ── Error ── */}
               {scanError && (
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.red,
+                <div style={{ fontFamily: MONO, fontSize: 11, color: C.red,
                   background: C.redBg, border: `1px solid ${C.red}44`,
                   borderRadius: 6, padding: "8px 14px", marginBottom: 10 }}>
                   ⚠ {scanError}
@@ -13711,9 +13711,9 @@ export default function App() {
               {/* ── Empty state ── */}
               {!scanLoading && !scanError && scanResults.length === 0 && (
                 <div style={{ textAlign: "center", padding: "60px 0",
-                  fontFamily: MONO, fontSize: 12, color: C.textDim }}>
+                  fontFamily: MONO, fontSize: 13, color: C.textDim }}>
                   Press <strong style={{ color: C.green }}>▶ RUN SCAN</strong> to analyse all 30 watchlist stocks
-                  <div style={{ fontSize: 9, marginTop: 8, color: C.textDim }}>
+                  <div style={{ fontSize: 11, marginTop: 8, color: C.textDim }}>
                     RSI · MACD · EMA · Entry zones · Volume · 52W position · News sentiment
                   </div>
                 </div>
@@ -13730,7 +13730,7 @@ export default function App() {
                         lineHeight: 1 }}>
                         {sc.count}
                       </div>
-                      <div style={{ fontFamily: MONO, fontSize: 8, color: sc.color + "cc",
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: sc.color + "cc",
                         marginTop: 4, letterSpacing: "0.06em" }}>
                         {sc.label}
                       </div>
@@ -13747,7 +13747,7 @@ export default function App() {
                     <thead>
                       <tr style={{ background: C.surface }}>
                         {["#","SCORE","SIGNAL","TICKER","SECTOR","LIVE $","RSI","MACD","EMA","ZONE","VOL PACE","PATTERN","SHORT%","UPSIDE","THESIS"].map(h => (
-                          <th key={h} style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700,
+                          <th key={h} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
                             color: C.textDim, padding: "8px 10px", textAlign: h === "#" ? "center" : "left",
                             letterSpacing: "0.05em", borderBottom: `1px solid ${C.border}`,
                             whiteSpace: "nowrap" }}>
@@ -13829,14 +13829,14 @@ export default function App() {
                               }}
                             >
                               {/* Rank */}
-                              <td style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
-                                color: C.textDim, textAlign: "center", padding: "9px 8px",
+                              <td style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                color: C.textDim, textAlign: "center", padding: "11px 9px",
                                 borderBottom: `1px solid ${C.border}22` }}>
                                 {idx + 1}
                               </td>
 
                               {/* Score bar */}
-                              <td style={{ padding: "9px 10px", borderBottom: `1px solid ${C.border}22`,
+                              <td style={{ padding: "11px 11px", borderBottom: `1px solid ${C.border}22`,
                                 minWidth: 90 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                   <div style={{ flex: 1, height: 6, background: C.border, borderRadius: 3,
@@ -13844,7 +13844,7 @@ export default function App() {
                                     <div style={{ width: `${row.score}%`, height: "100%",
                                       background: row.sColor, borderRadius: 3, transition: "width 0.4s" }} />
                                   </div>
-                                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800,
+                                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800,
                                     color: row.sColor, minWidth: 22, textAlign: "right" }}>
                                     {row.score}
                                   </span>
@@ -13852,51 +13852,51 @@ export default function App() {
                               </td>
 
                               {/* Signal badge */}
-                              <td style={{ padding: "9px 8px", borderBottom: `1px solid ${C.border}22` }}>
+                              <td style={{ padding: "11px 9px", borderBottom: `1px solid ${C.border}22` }}>
                                 <span style={SIG_STYLE(row.sColor)}>{row.signal}</span>
                               </td>
 
                               {/* Ticker */}
-                              <td style={{ padding: "9px 10px", borderBottom: `1px solid ${C.border}22` }}>
-                                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text }}>
+                              <td style={{ padding: "11px 11px", borderBottom: `1px solid ${C.border}22` }}>
+                                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>
                                   {row.ticker}
                                 </div>
                                 {ref && (
-                                  <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, marginTop: 1 }}>
+                                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 1 }}>
                                     {ref.company}
                                   </div>
                                 )}
                               </td>
 
                               {/* Sector */}
-                              <td style={{ fontFamily: MONO, fontSize: 9, color: C.textDim,
-                                padding: "9px 10px", borderBottom: `1px solid ${C.border}22`,
+                              <td style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
+                                padding: "11px 11px", borderBottom: `1px solid ${C.border}22`,
                                 whiteSpace: "nowrap" }}>
                                 {ref?.sector || row.quote?.sector || row.quote?.quoteType || "—"}
                               </td>
 
                               {/* Live price */}
-                              <td style={{ padding: "9px 10px", borderBottom: `1px solid ${C.border}22`,
+                              <td style={{ padding: "11px 11px", borderBottom: `1px solid ${C.border}22`,
                                 textAlign: "right", minWidth: 72 }}>
                                 {livePrice > 0 ? (
                                   <>
-                                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800,
+                                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800,
                                       color: liveChg >= 0 ? C.green : C.red }}>
                                       ${livePrice.toFixed(2)}
                                     </div>
-                                    <div style={{ fontFamily: MONO, fontSize: 8,
+                                    <div style={{ fontFamily: MONO, fontSize: 10,
                                       color: liveChg >= 0 ? C.green : C.red }}>
                                       {liveChg >= 0 ? "+" : ""}{liveChg.toFixed(2)}%
                                     </div>
                                   </>
                                 ) : (
-                                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>—</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>—</span>
                                 )}
                               </td>
 
                               {/* RSI */}
-                              <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "center",
-                                padding: "9px 8px", borderBottom: `1px solid ${C.border}22`,
+                              <td style={{ fontFamily: MONO, fontSize: 11, textAlign: "center",
+                                padding: "11px 9px", borderBottom: `1px solid ${C.border}22`,
                                 color: row.rsiVal === null ? C.textDim
                                   : row.rsiVal < 30 ? C.green
                                   : row.rsiVal > 70 ? C.red
@@ -13906,27 +13906,27 @@ export default function App() {
                               </td>
 
                               {/* MACD */}
-                              <td style={{ textAlign: "center", padding: "9px 8px",
+                              <td style={{ textAlign: "center", padding: "11px 9px",
                                 borderBottom: `1px solid ${C.border}22` }}>
                                 {row.macdBull === null ? (
-                                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>—</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>—</span>
                                 ) : row.macdBull ? (
-                                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.green }}>▲ BULL</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.green }}>▲ BULL</span>
                                 ) : (
-                                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.red }}>▼ BEAR</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.red }}>▼ BEAR</span>
                                 )}
                               </td>
 
                               {/* EMA cross */}
-                              <td style={{ fontFamily: MONO, fontSize: 9, textAlign: "center",
-                                padding: "9px 8px", borderBottom: `1px solid ${C.border}22`,
+                              <td style={{ fontFamily: MONO, fontSize: 11, textAlign: "center",
+                                padding: "11px 9px", borderBottom: `1px solid ${C.border}22`,
                                 color: emaCol, fontWeight: 700 }}>
                                 {emaLabel}
                               </td>
 
                               {/* Zone */}
-                              <td style={{ fontFamily: MONO, fontSize: 9, textAlign: "center",
-                                padding: "9px 8px", borderBottom: `1px solid ${C.border}22`,
+                              <td style={{ fontFamily: MONO, fontSize: 11, textAlign: "center",
+                                padding: "11px 9px", borderBottom: `1px solid ${C.border}22`,
                                 color: zoneCol, fontWeight: 700, whiteSpace: "nowrap" }}>
                                 {zoneLbl}
                               </td>
@@ -13935,13 +13935,13 @@ export default function App() {
                               {(() => {
                                 const vol    = Number(row.quote?.volume || 0);
                                 const avgVol = Number(row.quote?.avgVolume || 0);
-                                if (!vol || !avgVol) return <td style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, padding: "9px 8px", borderBottom: `1px solid ${C.border}22`, textAlign: "center" }}>—</td>;
+                                if (!vol || !avgVol) return <td style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, padding: "11px 9px", borderBottom: `1px solid ${C.border}22`, textAlign: "center" }}>—</td>;
                                 const etDate = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
                                 const elapsed = Math.max(0.1, (etDate.getHours() - 9) + (etDate.getMinutes() - 30) / 60);
                                 const pace = (elapsed > 0 && elapsed < 6.5) ? (vol / elapsed * 6.5) / avgVol : vol / avgVol;
                                 const paceCol = pace >= 3 ? C.accent : pace >= 2 ? C.green : pace >= 1.5 ? "#4caf50" : C.textDim;
                                 return (
-                                  <td style={{ fontFamily: MONO, fontSize: 9, textAlign: "center", padding: "9px 8px", borderBottom: `1px solid ${C.border}22`, color: paceCol, fontWeight: pace >= 1.5 ? 700 : 400 }}>
+                                  <td style={{ fontFamily: MONO, fontSize: 11, textAlign: "center", padding: "11px 9px", borderBottom: `1px solid ${C.border}22`, color: paceCol, fontWeight: pace >= 1.5 ? 700 : 400 }}>
                                     {pace >= 0.1 ? `${pace.toFixed(1)}×` : "—"}
                                   </td>
                                 );
@@ -13966,9 +13966,9 @@ export default function App() {
                                 else if (yPos > 0.65 && e9 > e21 && rsi >= 50 && rsi <= 65) { pat = '📐 TREND'; patCol = C.cyan; }
                                 else if (rsi < 32 && px < e21) { pat = '🔄 OVERSOLD'; patCol = C.amber; }
                                 return (
-                                  <td style={{ padding: "9px 8px", borderBottom: `1px solid ${C.border}22`, whiteSpace: "nowrap" }}>
-                                    {pat ? <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: patCol }}>{pat}</span>
-                                         : <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>—</span>}
+                                  <td style={{ padding: "11px 9px", borderBottom: `1px solid ${C.border}22`, whiteSpace: "nowrap" }}>
+                                    {pat ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: patCol }}>{pat}</span>
+                                         : <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>—</span>}
                                   </td>
                                 );
                               })()}
@@ -13979,8 +13979,8 @@ export default function App() {
                                 const shortPct = sf > 1 ? sf : sf > 0 ? sf * 100 : null;
                                 const shortCol = shortPct == null ? C.textDim : shortPct > 20 ? C.red : shortPct > 10 ? C.amber : C.textSec;
                                 return (
-                                  <td style={{ fontFamily: MONO, fontSize: 9, textAlign: "center",
-                                    padding: "9px 8px", borderBottom: `1px solid ${C.border}22`,
+                                  <td style={{ fontFamily: MONO, fontSize: 11, textAlign: "center",
+                                    padding: "11px 9px", borderBottom: `1px solid ${C.border}22`,
                                     color: shortCol, fontWeight: shortPct != null ? 700 : 400 }}>
                                     {shortPct != null ? `${shortPct.toFixed(1)}%` : "—"}
                                   </td>
@@ -13988,19 +13988,19 @@ export default function App() {
                               })()}
 
                               {/* Upside */}
-                              <td style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800,
-                                textAlign: "center", padding: "9px 8px",
+                              <td style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800,
+                                textAlign: "center", padding: "11px 9px",
                                 borderBottom: `1px solid ${C.border}22`,
                                 color: C.amber }}>
                                 {ref?.upside || "—"}
                               </td>
 
                               {/* Thesis */}
-                              <td style={{ fontFamily: MONO, fontSize: 9, color: C.textSec,
-                                padding: "9px 10px", borderBottom: `1px solid ${C.border}22`,
+                              <td style={{ fontFamily: MONO, fontSize: 11, color: C.textSec,
+                                padding: "11px 11px", borderBottom: `1px solid ${C.border}22`,
                                 whiteSpace: "nowrap" }}>
                                 {ref?.thesis || "—"}
-                                <span style={{ marginLeft: 6, color: C.accent, fontSize: 9 }}>
+                                <span style={{ marginLeft: 6, color: C.accent, fontSize: 11 }}>
                                   {isExpanded ? "▲" : "▼"}
                                 </span>
                               </td>
@@ -14013,21 +14013,48 @@ export default function App() {
                                   style={{ background: C.bg,
                                     borderLeft: `3px solid ${row.sColor}`,
                                     borderBottom: `2px solid ${row.sColor}44`,
-                                    padding: "20px 22px", overflowX: "auto" }}>
+                                    padding: isTablet ? "12px 8px" : "20px 22px",
+                                    overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
 
                                   {isLoading ? (
-                                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
                                       textAlign: "center", padding: "24px 0" }}>
                                       ⌛ Loading deep dive data for {row.ticker}…
                                     </div>
                                   ) : (
                                     <div
-                                      ref={el => { if (!el) return; el.onmousedown = e => { const startX = e.pageX - el.offsetLeft; const scrollLeft = el.scrollLeft; el.style.cursor = "grabbing"; el.style.userSelect = "none"; const onMove = mv => { el.scrollLeft = scrollLeft - (mv.pageX - el.offsetLeft - startX); }; const onUp = () => { el.style.cursor = "grab"; el.style.userSelect = ""; window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); }; window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp); }; }}
-                                      style={{ display: "flex", gap: 8, height: 400, overflowX: "auto", overflowY: "hidden", cursor: "grab", scrollbarWidth: "thin", paddingBottom: 4 }}>
+                                      ref={el => {
+                                        if (!el) return;
+                                        // Mouse drag (desktop)
+                                        el.onmousedown = e => {
+                                          const startX = e.pageX - el.offsetLeft;
+                                          const scrollLeft = el.scrollLeft;
+                                          el.style.cursor = "grabbing";
+                                          el.style.userSelect = "none";
+                                          const onMove = mv => { el.scrollLeft = scrollLeft - (mv.pageX - el.offsetLeft - startX); };
+                                          const onUp = () => { el.style.cursor = "grab"; el.style.userSelect = ""; window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+                                          window.addEventListener("mousemove", onMove);
+                                          window.addEventListener("mouseup", onUp);
+                                        };
+                                        // Touch drag (iPad / iPhone)
+                                        el.ontouchstart = e => {
+                                          const touch = e.touches[0];
+                                          const startX = touch.pageX;
+                                          const scrollLeft = el.scrollLeft;
+                                          const onMove = mv => {
+                                            const dx = mv.touches[0].pageX - startX;
+                                            el.scrollLeft = scrollLeft - dx;
+                                          };
+                                          const onEnd = () => { el.removeEventListener("touchmove", onMove); el.removeEventListener("touchend", onEnd); };
+                                          el.addEventListener("touchmove", onMove, { passive: true });
+                                          el.addEventListener("touchend", onEnd);
+                                        };
+                                      }}
+                                      style={{ display: "flex", gap: 10, height: isTablet ? 520 : 460, overflowX: "auto", overflowY: "hidden", cursor: "grab", scrollbarWidth: "thin", paddingBottom: 4, WebkitOverflowScrolling: "touch" }}>
 
                                       {/* ── Col 1: TradingView mini chart ── */}
-                                      <div style={{ width: 195, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%" }}>
-                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
+                                      <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%" }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                           📊 CHART
                                         </div>
                                         <div style={{ borderRadius: 6, overflow: "hidden", flex: 1,
@@ -14042,8 +14069,8 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 2: TECHNICALS (indicators + signals + entry zones) ── */}
-                                      <div style={{ width: 190, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
+                                      <div style={{ width: 215, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                           ⚡ TECHNICALS
                                         </div>
                                         {/* Key indicator values */}
@@ -14059,9 +14086,9 @@ export default function App() {
                                             { k: "Score", v: `${row.score} / 100`, col: row.sColor },
                                           ].map(({ k, v, col }) => (
                                             <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                              fontFamily: MONO, fontSize: 12, padding: "6px 0",
+                                              fontFamily: MONO, fontSize: 13, padding: "6px 0",
                                               borderBottom: `1px solid ${C.border}22` }}>
-                                              <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>{k}</span>
+                                              <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>{k}</span>
                                               <span style={{ color: col, fontWeight: 700 }}>{v}</span>
                                             </div>
                                           ))}
@@ -14069,11 +14096,11 @@ export default function App() {
                                         {/* Signal reasons */}
                                         {(row.signals || []).length > 0 && (
                                           <>
-                                            <div style={{ fontFamily: MONO, fontSize: 10, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>REASONS</div>
+                                            <div style={{ fontFamily: MONO, fontSize: 11, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>REASONS</div>
                                             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                                               {(row.signals || []).map((sig, si) => (
                                                 <div key={si} style={{ display: "flex", alignItems: "center",
-                                                  gap: 5, fontFamily: MONO, fontSize: 10,
+                                                  gap: 5, fontFamily: MONO, fontSize: 11,
                                                   color: sig.bull ? C.green : C.red }}>
                                                   <span>{sig.bull ? "▲" : "▼"}</span>
                                                   <span>{sig.txt}</span>
@@ -14085,7 +14112,7 @@ export default function App() {
                                         {/* Entry zones */}
                                         {ref && (
                                           <div style={{ marginTop: 12 }}>
-                                            <div style={{ fontFamily: MONO, fontSize: 10, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>ENTRY ZONES</div>
+                                            <div style={{ fontFamily: MONO, fontSize: 11, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>ENTRY ZONES</div>
                                             {[
                                               { label: "Deep", val: ref.e3, col: "#00e676" },
                                               { label: "Better", val: ref.e2, col: "#4caf50" },
@@ -14094,7 +14121,7 @@ export default function App() {
                                               { label: "Stop ✂", val: ref.stop, col: C.red },
                                             ].map(z => (
                                               <div key={z.label} style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 12, padding: "6px 0",
+                                                fontFamily: MONO, fontSize: 13, padding: "6px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
                                                 <span style={{ color: z.col }}>{z.label}</span>
                                                 <span style={{ color: z.col, fontWeight: 700 }}>${Number(z.val).toFixed(2)}</span>
@@ -14106,8 +14133,8 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 3: FUNDAMENTALS + SHORT INTEREST + OPTIONS ── */}
-                                      <div style={{ width: 190, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
+                                      <div style={{ width: 215, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                           📋 FUNDS & DATA
                                         </div>
                                         {fd ? (
@@ -14124,15 +14151,15 @@ export default function App() {
                                               ["52W",        (yH > 0 && yL > 0) ? `${yL.toFixed(0)}–${yH.toFixed(0)}` : "—"],
                                             ].map(([k, v]) => (
                                               <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 12, padding: "6px 0",
+                                                fontFamily: MONO, fontSize: 13, padding: "6px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
-                                                <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>{k}</span>
+                                                <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>{k}</span>
                                                 <span style={{ color: C.text, fontWeight: 600 }}>{v}</span>
                                               </div>
                                             ))}
                                           </div>
                                         ) : (
-                                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 12 }}>
+                                          <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginBottom: 12 }}>
                                             {deepData ? "No data" : "Loading…"}
                                           </div>
                                         )}
@@ -14145,16 +14172,16 @@ export default function App() {
                                           const sfColor = sf == null ? C.textDim : sf > 20 ? C.red : sf > 10 ? C.amber : C.green;
                                           return (
                                             <div style={{ marginBottom: 12 }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 10, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>🩳 SHORT INTEREST</div>
+                                              <div style={{ fontFamily: MONO, fontSize: 11, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>🩳 SHORT INTEREST</div>
                                               {[
                                                 ["Float Short", sf != null ? `${sf.toFixed(1)}%` : "—", sfColor],
                                                 ["Days Cover",  si.shortRatio != null ? `${si.shortRatio.toFixed(1)}d` : "—", C.text],
                                                 ["Updated",     si.dateShortInterest || "—", C.textDim],
                                               ].map(([k, v, col]) => (
                                                 <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 12, padding: "6px 0",
+                                                  fontFamily: MONO, fontSize: 13, padding: "6px 0",
                                                   borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>{k}</span>
+                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>{k}</span>
                                                   <span style={{ color: col, fontWeight: 700 }}>{v}</span>
                                                 </div>
                                               ))}
@@ -14171,23 +14198,23 @@ export default function App() {
                                           const cprLabel = cpr > 1.5 ? "BULLISH" : cpr < 0.7 ? "BEARISH" : "NEUTRAL";
                                           return (
                                             <div>
-                                              <div style={{ fontFamily: MONO, fontSize: 10, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>📊 OPTIONS FLOW</div>
+                                              <div style={{ fontFamily: MONO, fontSize: 11, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>📊 OPTIONS FLOW</div>
                                               <div style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 12, padding: "6px 0",
+                                                fontFamily: MONO, fontSize: 13, padding: "6px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
-                                                <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>C/P Ratio</span>
+                                                <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>C/P Ratio</span>
                                                 <span style={{ color: cprColor, fontWeight: 700 }}>{cpr.toFixed(2)}×</span>
                                               </div>
                                               <div style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 12, padding: "6px 0",
+                                                fontFamily: MONO, fontSize: 13, padding: "6px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
-                                                <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>Bias</span>
+                                                <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>Bias</span>
                                                 <span style={{ color: cprColor, fontWeight: 700 }}>{cprLabel}</span>
                                               </div>
                                               {opt.expiration && (
                                                 <div style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 12, padding: "6px 0" }}>
-                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>Exp</span>
+                                                  fontFamily: MONO, fontSize: 13, padding: "6px 0" }}>
+                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>Exp</span>
                                                   <span style={{ color: C.textSec }}>{opt.expiration}</span>
                                                 </div>
                                               )}
@@ -14198,16 +14225,16 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 4: SOCIAL SENTIMENT + INSIDER BUYS ── */}
-                                      <div style={{ width: 190, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
+                                      <div style={{ width: 215, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                           💬 SENTIMENT
                                         </div>
                                         {deepSocialLoad[row.ticker] ? (
-                                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>
+                                          <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>Loading…</div>
                                         ) : (() => {
                                           const sd = deepSocialData[row.ticker];
                                           if (!sd || (!sd.stocktwits && !sd.redditMentions)) {
-                                            return <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>No data</div>;
+                                            return <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>No data</div>;
                                           }
                                           const stwits  = sd.stocktwits || {};
                                           const bullPct = stwits.bullPct ?? 50;
@@ -14222,13 +14249,13 @@ export default function App() {
                                                   background: `${C.green}18`, border: `1px solid ${C.green}44`,
                                                   textAlign: "center" }}>
                                                   <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.green }}>{bullPct.toFixed(0)}%</div>
-                                                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>BULL</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>BULL</div>
                                                 </div>
                                                 <div style={{ flex: 1, padding: "8px 4px", borderRadius: 6, overflow: "hidden",
                                                   background: `${C.red}18`, border: `1px solid ${C.red}44`,
                                                   textAlign: "center" }}>
                                                   <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.red }}>{bearPct.toFixed(0)}%</div>
-                                                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>BEAR</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>BEAR</div>
                                                 </div>
                                               </div>
                                               {/* Sentiment bar */}
@@ -14243,25 +14270,25 @@ export default function App() {
                                                 ["WSB", sd.redditMentions ?? "—"],
                                               ].map(([k, v]) => (
                                                 <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 12, padding: "6px 0",
+                                                  fontFamily: MONO, fontSize: 13, padding: "6px 0",
                                                   borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>{k}</span>
+                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>{k}</span>
                                                   <span style={{ color: C.text, fontWeight: 700 }}>{v}</span>
                                                 </div>
                                               ))}
                                               {/* Top 3 recent posts */}
                                               {msgs.length > 0 && (
                                                 <div style={{ marginTop: 10 }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 10, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6, marginTop: 8, textTransform: "uppercase" }}>RECENT</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 11, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6, marginTop: 8, textTransform: "uppercase" }}>RECENT</div>
                                                   <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                                                     {msgs.slice(0, 3).map((m, mi) => (
                                                       <div key={mi} style={{ padding: "6px 8px", borderRadius: 4,
                                                         background: C.surface,
                                                         borderLeft: `2px solid ${m.sentiment === "Bullish" ? C.green : m.sentiment === "Bearish" ? C.red : C.border}` }}>
-                                                        <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 2 }}>
+                                                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 2 }}>
                                                           {m.sentiment === "Bullish" ? "🟢" : m.sentiment === "Bearish" ? "🔴" : "⚪"} {m.user}
                                                         </div>
-                                                        <div style={{ fontFamily: MONO, fontSize: 11, color: C.textSec, lineHeight: 1.4 }}>
+                                                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, lineHeight: 1.4 }}>
                                                           {(m.body || "").slice(0, 90)}{m.body?.length > 90 ? "…" : ""}
                                                         </div>
                                                       </div>
@@ -14284,20 +14311,20 @@ export default function App() {
                                           const fmtVal = v => v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v}`;
                                           return (
                                             <div style={{ marginTop: 12 }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 10, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6, marginTop: 8, textTransform: "uppercase" }}>🏦 INSIDER TRANSACTIONS</div>
+                                              <div style={{ fontFamily: MONO, fontSize: 11, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6, marginTop: 8, textTransform: "uppercase" }}>🏦 INSIDER TRANSACTIONS</div>
                                               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                                                 {all.map((t, ti) => (
                                                   <div key={ti} style={{ padding: "6px 8px", borderRadius: 4,
                                                     background: C.surface,
                                                     borderLeft: `2px solid ${t.type === "BUY" ? C.green : C.red}` }}>
                                                     <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                                      <span style={{ fontFamily: MONO, fontSize: 10,
+                                                      <span style={{ fontFamily: MONO, fontSize: 11,
                                                         color: t.type === "BUY" ? C.green : C.red, fontWeight: 700 }}>
                                                         {t.type === "BUY" ? "▲ BUY" : "▼ SELL"}
                                                       </span>
-                                                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{t.date}</span>
+                                                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{t.date}</span>
                                                     </div>
-                                                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textSec, marginTop: 2 }}>
+                                                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, marginTop: 2 }}>
                                                       {(t.name || "").split(" ").slice(0,2).join(" ")} · {t.value > 0 ? fmtVal(t.value) : `${(t.shares||0).toLocaleString()} sh`}
                                                     </div>
                                                   </div>
@@ -14309,8 +14336,8 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 5: RECENT NEWS ── */}
-                                      <div style={{ width: 195, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
+                                      <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                           📰 RECENT NEWS
                                         </div>
                                         {deepData?.news?.length > 0 ? (
@@ -14331,13 +14358,13 @@ export default function App() {
                                                     padding: "7px 9px", borderRadius: 5,
                                                     background: bear ? `${C.red}0d` : bull ? `${C.green}0d` : C.card,
                                                     border: `1px solid ${bear ? C.red : bull ? C.green : C.border}44` }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 10,
+                                                  <div style={{ fontFamily: MONO, fontSize: 11,
                                                     color: bear ? C.red : bull ? C.green : C.text,
                                                     lineHeight: 1.5 }}>
                                                     {title.length > 90 ? title.slice(0, 90) + "…" : title}
                                                   </div>
                                                   {src && (
-                                                    <div style={{ fontFamily: MONO, fontSize: 9,
+                                                    <div style={{ fontFamily: MONO, fontSize: 11,
                                                       color: C.textDim, marginTop: 3 }}>
                                                       {src}
                                                     </div>
@@ -14347,15 +14374,15 @@ export default function App() {
                                             })}
                                           </div>
                                         ) : (
-                                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
+                                          <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>
                                             {deepData ? "No news found" : "Loading…"}
                                           </div>
                                         )}
                                       </div>
 
                                       {/* ── Col 6: ANALYST RATINGS + EARNINGS ── */}
-                                      <div style={{ width: 195, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
+                                      <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                           🎯 ANALYST & EARNINGS
                                         </div>
 
@@ -14389,7 +14416,7 @@ export default function App() {
 
                                           return (
                                             <div style={{ marginBottom: 12 }}>
-                                              <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim,
+                                              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: C.textDim,
                                                 letterSpacing: "0.08em", marginBottom: 6 }}>📊 ANALYST CONSENSUS</div>
 
                                               {/* Consensus badge */}
@@ -14400,7 +14427,7 @@ export default function App() {
                                                   {recLabel}
                                                 </div>
                                                 {numAnal > 0 && (
-                                                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 2 }}>
+                                                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 2 }}>
                                                     {numAnal} analyst{numAnal !== 1 ? "s" : ""}
                                                     {ratingScore > 0 ? ` · score ${ratingScore.toFixed(1)}/5` : ""}
                                                   </div>
@@ -14416,7 +14443,7 @@ export default function App() {
                                                       v > 0 ? <div key={i} style={{ width: `${(v / totalRec * 100).toFixed(1)}%`, background: col }} /> : null
                                                     ))}
                                                   </div>
-                                                  <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                                                  <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, color: C.textDim }}>
                                                     <span style={{ color: C.green }}>BUY {sb + b}</span>
                                                     <span style={{ color: C.amber }}>HOLD {h}</span>
                                                     <span style={{ color: C.red }}>SELL {s + ss}</span>
@@ -14432,9 +14459,9 @@ export default function App() {
                                                   upside == null ? C.textDim : upside > 0 ? C.green : C.red],
                                               ].map(([k, v, col]) => (
                                                 <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 12, padding: "5px 0",
+                                                  fontFamily: MONO, fontSize: 13, padding: "5px 0",
                                                   borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 10 }}>{k}</span>
+                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>{k}</span>
                                                   <span style={{ color: col, fontWeight: 700 }}>{v}</span>
                                                 </div>
                                               ))}
@@ -14455,17 +14482,17 @@ export default function App() {
                                           if (!ivR) return null;
                                           return (
                                             <div style={{ marginBottom: 12 }}>
-                                              <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>📊 IV RANK (PROXY)</div>
+                                              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>📊 IV RANK (PROXY)</div>
                                               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                                                 <div style={{ flex: 1, height: 8, borderRadius: 4, background: C.border, overflow: "hidden" }}>
                                                   <div style={{ width: ivR + "%", height: "100%", background: ivC, borderRadius: 4 }} />
                                                 </div>
-                                                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: ivC }}>{ivR}</span>
+                                                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: ivC }}>{ivR}</span>
                                               </div>
-                                              <div style={{ fontFamily: SANS, fontSize: 10, color: ivC, marginBottom: 6 }}>{ivLbl}</div>
+                                              <div style={{ fontFamily: SANS, fontSize: 11, color: ivC, marginBottom: 6 }}>{ivLbl}</div>
                                               {opt2 && opt2.callPutRatio != null && (
-                                                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, padding: "4px 0", borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 10 }}>C/P Ratio</span>
+                                                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12, padding: "4px 0", borderBottom: `1px solid ${C.border}22` }}>
+                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>C/P Ratio</span>
                                                   <span style={{ color: Number(opt2.callPutRatio) > 1 ? C.green : C.red, fontWeight: 700 }}>{Number(opt2.callPutRatio).toFixed(2)}×</span>
                                                 </div>
                                               )}
@@ -14500,15 +14527,15 @@ export default function App() {
 
                                           return (
                                             <div>
-                                              <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim,
+                                              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: C.textDim,
                                                 letterSpacing: "0.08em", marginBottom: 6 }}>📅 EARNINGS</div>
                                               {expMove && daysToEarn <= 7 && (
                                                 <div style={{ padding: "7px 10px", borderRadius: 6, marginBottom: 8,
                                                   background: `${C.amber}14`, border: `1px solid ${C.amber}44` }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.amber }}>
+                                                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.amber }}>
                                                     ⚡ {daysToEarn === 0 ? "EARNINGS TODAY" : `EARNINGS IN ${daysToEarn}d`}
                                                   </div>
-                                                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textSec, marginTop: 3 }}>
+                                                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 3 }}>
                                                     Expected move: <span style={{ fontFamily: MONO, fontWeight: 700, color: C.amber }}>±{expMove}%</span>
                                                   </div>
                                                 </div>
@@ -14523,9 +14550,9 @@ export default function App() {
                                                   earnGrowth > 0 ? C.green : earnGrowth < 0 ? C.red : C.textDim],
                                               ].map(([k, v, col]) => (
                                                 <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 12, padding: "6px 0",
+                                                  fontFamily: MONO, fontSize: 13, padding: "6px 0",
                                                   borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>{k}</span>
+                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>{k}</span>
                                                   <span style={{ color: col, fontWeight: 700 }}>{v}</span>
                                                 </div>
                                               ))}
@@ -14535,9 +14562,9 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 7: AI Trade Setup + Auto-Execute ── */}
-                                      <div style={{ width: 255, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                      <div style={{ width: 280, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
+                                          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                             color: C.textDim, letterSpacing: "0.06em" }}>
                                             🤖 AI TRADE SETUP
                                           </div>
@@ -14545,7 +14572,7 @@ export default function App() {
                                             <button
                                               onClick={() => { if (!deepData) { loadDeepDive(row.ticker).then(() => fetchTradeSetup(row.ticker, row)); } else { fetchTradeSetup(row.ticker, row); } }}
                                               disabled={tradeSetupLoad[row.ticker]}
-                                              style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                              style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                                 background: tradeSetupLoad[row.ticker] ? C.surface : `${C.purple}18`,
                                                 border: `1px solid ${tradeSetupLoad[row.ticker] ? C.border : C.purple}`,
                                                 color: tradeSetupLoad[row.ticker] ? C.textDim : C.purple,
@@ -14557,7 +14584,7 @@ export default function App() {
                                           {tradeSetups[row.ticker] && (
                                             <button
                                               onClick={() => { setTradeSetups(prev => { const n = {...prev}; delete n[row.ticker]; return n; }); }}
-                                              style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
+                                              style={{ fontFamily: MONO, fontSize: 12, color: C.textDim,
                                                 background: "none", border: "none", cursor: "pointer" }}>
                                               ↺ Regenerate
                                             </button>
@@ -14565,14 +14592,14 @@ export default function App() {
                                         </div>
 
                                         {tradeSetupError[row.ticker] && (
-                                          <div style={{ fontFamily: MONO, fontSize: 11, color: C.red,
+                                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.red,
                                             background: C.redBg, borderRadius: 4, padding: "8px 10px" }}>
                                             ⚠ {tradeSetupError[row.ticker]}
                                           </div>
                                         )}
 
                                         {tradeSetupLoad[row.ticker] && (
-                                          <div style={{ fontFamily: MONO, fontSize: 11, color: C.purple,
+                                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.purple,
                                             background: `${C.purple}10`, borderRadius: 4, padding: "12px 10px",
                                             textAlign: "center" }}>
                                             ⌛ Claude is analysing {row.ticker}…
@@ -14616,7 +14643,7 @@ export default function App() {
                                                   </div>
                                                 );
                                               })}
-                                              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim,
+                                              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
                                                 marginTop: 10, borderTop: `1px solid ${C.border}`, paddingTop: 6 }}>
                                                 Generated {new Date(tradeSetups[row.ticker].generatedAt).toLocaleTimeString()} · Claude AI
                                               </div>
@@ -14625,13 +14652,13 @@ export default function App() {
                                         })()}
 
                                         {!tradeSetups[row.ticker] && !tradeSetupLoad[row.ticker] && !tradeSetupError[row.ticker] && (
-                                          <div style={{ flex: 1, fontFamily: MONO, fontSize: 12, color: C.textDim,
+                                          <div style={{ flex: 1, fontFamily: MONO, fontSize: 13, color: C.textDim,
                                             background: themeMode === "dark" ? "#0a1628" : "#f5f9ff",
                                             border: `1px dashed ${C.border}`, borderRadius: 6,
                                             padding: "20px 14px", textAlign: "center", lineHeight: 1.7,
                                             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                                             Click <span style={{ color: C.purple, fontWeight: 700 }}>▶ GENERATE</span> for a complete AI trade plan:<br/>
-                                            <span style={{ color: C.textDim, fontSize: 10 }}>
+                                            <span style={{ color: C.textDim, fontSize: 11 }}>
                                               entry · stop · targets · R:R · catalysts · risks · verdict
                                             </span>
                                           </div>
@@ -14648,17 +14675,17 @@ export default function App() {
                                               background: signal === "buy" ? `${C.green}0d` : `${C.red}0d`,
                                               border: `1px solid ${signal === "buy" ? C.green : C.red}33`,
                                               borderRadius: 6 }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 6 }}>
+                                              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 6 }}>
                                                 🤖 AUTO TRADE
                                               </div>
                                               {status === "placing" && (
-                                                <div style={{ fontFamily: MONO, fontSize: 9, color: C.amber }}>⌛ Placing order…</div>
+                                                <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>⌛ Placing order…</div>
                                               )}
                                               {status === "done" && (
-                                                <div style={{ fontFamily: MONO, fontSize: 9, color: C.green }}>✅ Order placed! Check Telegram for confirmation.</div>
+                                                <div style={{ fontFamily: MONO, fontSize: 11, color: C.green }}>✅ Order placed! Check Telegram for confirmation.</div>
                                               )}
                                               {status === "error" && (
-                                                <div style={{ fontFamily: MONO, fontSize: 9, color: C.red }}>⚠ Order failed — check AUTO-EXEC tab.</div>
+                                                <div style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>⚠ Order failed — check AUTO-EXEC tab.</div>
                                               )}
                                               {!status && (
                                                 <button
@@ -14680,14 +14707,14 @@ export default function App() {
                                                       setAutoExecStatus(p => ({ ...p, [row.ticker]: "error" }));
                                                     }
                                                   }}
-                                                  style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800,
+                                                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800,
                                                     background: signal === "buy" ? C.green : C.red,
                                                     color: "#fff", border: "none", borderRadius: 5,
                                                     padding: "7px 16px", cursor: "pointer", width: "100%" }}>
                                                   {signal === "buy" ? "🟢 BUY" : "🔴 SELL"} {row.ticker} NOW
                                                 </button>
                                               )}
-                                              <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, marginTop: 5 }}>
+                                              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 5 }}>
                                                 Uses position size from AUTO-EXEC settings · Confirm in Telegram
                                               </div>
                                             </div>
@@ -14815,8 +14842,8 @@ export default function App() {
                                         const downside = px > 0 && stopLvl > 0 ? ((stopLvl - px) / px * 100) : null;
 
                                         return (
-                                          <div style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
+                                          <div style={{ width: 260, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
                                               📐 TREND TEMPLATE
                                             </div>
 
@@ -14824,8 +14851,8 @@ export default function App() {
                                             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                                               <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: grade.col }}>{passed}/{total}</div>
                                               <div>
-                                                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: grade.col }}>{grade.lbl}</div>
-                                                <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>Minervini conditions</div>
+                                                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: grade.col }}>{grade.lbl}</div>
+                                                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Minervini conditions</div>
                                               </div>
                                             </div>
 
@@ -14833,17 +14860,17 @@ export default function App() {
                                             <div style={{ display: "flex", flexDirection: "column", gap: 1, marginBottom: 14 }}>
                                               {conditions.map((c, ci) => c.skip ? null : (
                                                 <div key={ci} style={{ display: "flex", alignItems: "flex-start", gap: 6, padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ fontSize: 12, flexShrink: 0, marginTop: 1 }}>{c.pass ? "✅" : "❌"}</span>
+                                                  <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }}>{c.pass ? "✅" : "❌"}</span>
                                                   <div style={{ flex: 1 }}>
-                                                    <div style={{ fontFamily: SANS, fontSize: 10, color: c.pass ? C.text : C.textDim, fontWeight: c.pass ? 700 : 400 }}>{c.label}</div>
-                                                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 1 }}>{c.detail}</div>
+                                                    <div style={{ fontFamily: SANS, fontSize: 11, color: c.pass ? C.text : C.textDim, fontWeight: c.pass ? 700 : 400 }}>{c.label}</div>
+                                                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 1 }}>{c.detail}</div>
                                                   </div>
                                                 </div>
                                               ))}
                                             </div>
 
                                             {/* ── Best Entry ── */}
-                                            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8, paddingBottom: 5, borderBottom: `2px solid ${C.border}`, letterSpacing: "0.05em" }}>
+                                            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, paddingBottom: 5, borderBottom: `2px solid ${C.border}`, letterSpacing: "0.05em" }}>
                                               🎯 BEST ENTRY
                                             </div>
                                             <div style={{ padding: "10px 10px", borderRadius: 6, marginBottom: 12,
@@ -14851,7 +14878,7 @@ export default function App() {
                                               <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: entryColor, marginBottom: 4 }}>
                                                 {entryAction}
                                               </div>
-                                              <div style={{ fontFamily: SANS, fontSize: 10, color: C.textSec, lineHeight: 1.5 }}>
+                                              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.5 }}>
                                                 {entryNote}
                                               </div>
                                             </div>
@@ -14865,9 +14892,9 @@ export default function App() {
                                                   ["R:R Ratio",  null,      C.amber],
                                                 ].map(([k, v, col]) => (
                                                   <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                    fontFamily: MONO, fontSize: 12, padding: "5px 0",
+                                                    fontFamily: MONO, fontSize: 13, padding: "5px 0",
                                                     borderBottom: `1px solid ${C.border}22` }}>
-                                                    <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 10 }}>{k}</span>
+                                                    <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>{k}</span>
                                                     <span style={{ color: col, fontWeight: 700 }}>
                                                       {k === "R:R Ratio" ? (rrRatio ? `${rrRatio} : 1` : "—") : (v > 0 ? `$${Number(v).toFixed(2)}` : "—")}
                                                     </span>
@@ -14877,7 +14904,7 @@ export default function App() {
                                             )}
 
                                             {/* Price prediction levels */}
-                                            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8, paddingBottom: 5, borderBottom: `2px solid ${C.border}`, letterSpacing: "0.05em" }}>
+                                            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, paddingBottom: 5, borderBottom: `2px solid ${C.border}`, letterSpacing: "0.05em" }}>
                                               📊 PRICE TARGETS
                                             </div>
                                             <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
@@ -14889,12 +14916,12 @@ export default function App() {
                                                 ["Stop",      stopLvl,  downside, C.red, downside != null ? `${downside.toFixed(1)}%` : ""],
                                               ].filter(([,v]) => v > 0).map(([label, val, , col, note]) => (
                                                 <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
-                                                  fontFamily: MONO, fontSize: 12, padding: "6px 0",
+                                                  fontFamily: MONO, fontSize: 13, padding: "6px 0",
                                                   borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 10 }}>{label}</span>
+                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>{label}</span>
                                                   <div style={{ textAlign: "right" }}>
                                                     <span style={{ color: col, fontWeight: 700 }}>${Number(val).toFixed(2)}</span>
-                                                    {note && <span style={{ fontFamily: SANS, fontSize: 9, color: C.textDim, marginLeft: 5 }}>{note}</span>}
+                                                    {note && <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginLeft: 5 }}>{note}</span>}
                                                   </div>
                                                 </div>
                                               ))}
@@ -14921,14 +14948,14 @@ export default function App() {
                 <div style={{ marginTop: 10, padding: "8px 14px",
                   background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
                   display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
                     {[["STRONG BUY","#00e676"],["BUY","#4caf50"],["WATCH","#26a69a"],["NEUTRAL","#ffaa00"],["AVOID","#ff4444"]].map(([l,c]) => (
                       <span key={l} style={{ marginRight: 14 }}>
                         <span style={{ color: c }}>■</span> {l}
                       </span>
                     ))}
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginLeft: "auto" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: "auto" }}>
                     Click any row to expand deep dive ↓ · Score = RSI + MACD + EMA + Zone + Volume + Sentiment
                   </div>
                 </div>
@@ -14940,7 +14967,7 @@ export default function App() {
         {activeTab === "sectors" && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <div style={{ fontSize: 10, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
+              <div style={{ fontSize: 11, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
                 SECTOR PERFORMANCE — LIVE
               </div>
               {sectorData.length > 0 && (
@@ -14956,30 +14983,30 @@ export default function App() {
                     });
                     try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: lines.join("\n") }) }); } catch {}
                   }}
-                  style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "5px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "5px 10px", fontFamily: MONO, fontSize: 11, cursor: "pointer" }}
                 >PUSH BRIEF</button>
               )}
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
               <div style={{ minWidth: 420, maxWidth: 560, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent }}>WEATHER ({WEATHER_ZIP})</div>
+                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent }}>WEATHER ({WEATHER_ZIP})</div>
                   <button
                     onClick={fetchWeather}
-                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 11, cursor: "pointer" }}
                   >
                     {weatherLoading ? "..." : "REFRESH"}
                   </button>
                 </div>
-                {weatherError && <div style={{ fontSize: 11, color: C.red }}>{weatherError}</div>}
-                {!weatherError && !weatherData && <div style={{ fontSize: 11, color: C.textDim }}>Loading weather...</div>}
+                {weatherError && <div style={{ fontSize: 12, color: C.red }}>{weatherError}</div>}
+                {!weatherError && !weatherData && <div style={{ fontSize: 12, color: C.textDim }}>Loading weather...</div>}
                 {!weatherError && weatherData && (
                   <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                     <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{weatherData.temp.toFixed(0)}°F</span>
-                    <span style={{ fontSize: 11, color: C.textSec }}>{weatherCodeLabel(weatherData.code)}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>H/L {weatherData.high.toFixed(0)}°/{weatherData.low.toFixed(0)}°</span>
-                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Wind {weatherData.wind.toFixed(0)} mph</span>
-                    <span style={{ fontFamily: MONO, fontSize: 11, color: weatherData.rainChance >= 50 ? C.red : C.green }}>Rain {weatherData.rainChance.toFixed(0)}%</span>
+                    <span style={{ fontSize: 12, color: C.textSec }}>{weatherCodeLabel(weatherData.code)}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>H/L {weatherData.high.toFixed(0)}°/{weatherData.low.toFixed(0)}°</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Wind {weatherData.wind.toFixed(0)} mph</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: weatherData.rainChance >= 50 ? C.red : C.green }}>Rain {weatherData.rainChance.toFixed(0)}%</span>
                   </div>
                 )}
               </div>
@@ -15002,32 +15029,32 @@ export default function App() {
                         {isLeader && <Badge color={C.green}>LEADING</Badge>}
                         {isLagger && <Badge color={C.red}>LAGGING</Badge>}
                       </div>
-                      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginBottom: 10 }}>{q._sectorName}</div>
+                      <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginBottom: 10 }}>{q._sectorName}</div>
                       <div style={{
                         fontFamily: MONO, fontSize: 26, fontWeight: 800,
                         color: isUp ? C.green : C.red, marginBottom: 8,
                       }}>
                         {isUp ? "+" : ""}{chg.toFixed(2)}%
                       </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, fontFamily: MONO, color: C.textDim, marginBottom: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontFamily: MONO, color: C.textDim, marginBottom: 8 }}>
                         <span>${q.price?.toFixed(2)}</span>
                         <span>Vol: {q.volume ? (q.volume / 1e6).toFixed(1) + "M" : "—"}</span>
                       </div>
                       <div style={{ display: "flex", gap: 5 }}>
                         <button
                           onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(q.symbol) ? prev.filter(s => s !== q.symbol) : Array.from(new Set([...prev, q.symbol])))}
-                          style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: watchlistSymbols.includes(q.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(q.symbol) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(q.symbol) ? C.red : C.green}44`, borderRadius: 3, cursor: "pointer" }}
+                          style={{ flex: 1, fontFamily: MONO, fontSize: 11, padding: "3px 0", background: watchlistSymbols.includes(q.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(q.symbol) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(q.symbol) ? C.red : C.green}44`, borderRadius: 3, cursor: "pointer" }}
                         >{watchlistSymbols.includes(q.symbol) ? "−WL" : "+WL"}</button>
                         <button
                           onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
-                          style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 3, cursor: "pointer" }}
+                          style={{ flex: 1, fontFamily: MONO, fontSize: 11, padding: "3px 0", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 3, cursor: "pointer" }}
                         >CHART</button>
                         <button
                           onClick={async () => {
                             const msg = `🏭 *${q.symbol}* ${q._sectorName || ""}\n${chg >= 0 ? "🟢" : "🔴"} ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%  $${q.price?.toFixed(2)}${isLeader ? "  ▲ LEADING" : isLagger ? "  ▼ LAGGING" : ""}`;
                             try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
                           }}
-                          style={{ fontFamily: MONO, fontSize: 9, padding: "3px 5px", background: C.surface, color: C.textDim, border: `1px solid ${C.textDim}44`, borderRadius: 3, cursor: "pointer" }}
+                          style={{ fontFamily: MONO, fontSize: 11, padding: "3px 5px", background: C.surface, color: C.textDim, border: `1px solid ${C.textDim}44`, borderRadius: 3, cursor: "pointer" }}
                           title="Push to Telegram"
                         >PUSH</button>
                       </div>
@@ -15043,7 +15070,7 @@ export default function App() {
         {activeTab === "macro" && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
+              <div style={{ fontSize: 13, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
                 MACRO DASHBOARD V2 — {macroTone.toUpperCase()}
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -15063,14 +15090,14 @@ export default function App() {
                     if (nextEvt) lines.push(`Next: ${nextEvt.title} — ${formatCountdown(nextEvt.tteMs)}`);
                     try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: lines.join("\n") }) }); } catch {}
                   }}
-                  style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "5px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "5px 10px", fontFamily: MONO, fontSize: 11, cursor: "pointer" }}
                 >PUSH BRIEF</button>
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 10, marginBottom: 12 }}>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
                 <div style={{ padding: "9px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em" }}>ECONOMIC CALENDAR + COUNTDOWN</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, letterSpacing: "0.08em" }}>ECONOMIC CALENDAR + COUNTDOWN</span>
                   <Badge color={macroEventAlerts.length ? C.red : C.green}>{macroEventAlerts.length ? "RISK WINDOW" : "CLEAR"}</Badge>
                 </div>
                 <div style={{ padding: 8, display: "grid", gap: 6 }}>
