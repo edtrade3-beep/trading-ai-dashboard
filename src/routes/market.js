@@ -1146,9 +1146,13 @@ async function handleMarket(req, res, requestUrl) {
       const quotes  = await fetchYahooQuoteBatch(allSyms).catch(() => []);
       const qMap    = Object.fromEntries(quotes.map(q => [String(q.symbol || "").toUpperCase(), q]));
 
-      // Fetch 3-month daily bars for main indexes to count distribution days
+      // Fetch bars: 3-month for indexes (distribution days) + 5-day for sectors (money flow)
+      const allBarSyms = [...new Set([...INDEXES, ...SECTORS.map(s => s.sym)])];
       const barResults = await Promise.allSettled(
-        INDEXES.map(sym => fetchYahooBars(sym, "3mo", "1d").then(b => ({ sym, bars: b })))
+        allBarSyms.map(sym => {
+          const range = INDEXES.includes(sym) ? "3mo" : "5d";
+          return fetchYahooBars(sym, range, "1d").then(b => ({ sym, bars: b }));
+        })
       );
       const barMap = {};
       barResults.forEach(r => { if (r.status === "fulfilled") barMap[r.value.sym] = r.value.bars; });
@@ -1352,30 +1356,50 @@ async function handleMarket(req, res, requestUrl) {
 
       // ── Money Flow: where institutions are rotating ─────────────────────────
       const moneyFlow = SECTORS.map(sec => {
-        const q = qMap[sec.sym];
-        if (!q) return { ...sec, chg: 0, rvol: 0, flow: 0, flowLbl: "—", ma50above: null };
+        const q    = qMap[sec.sym];
+        const bars = barMap[sec.sym] || [];
 
-        const price   = Number(q.regularMarketPrice || 0);
-        const prevRaw = Number(q.regularMarketPreviousClose || 0);
-        const absChg  = Number(q.regularMarketChange || 0);
-        const pctRaw  = Number(q.regularMarketChangePercent || 0);
+        // Use bar data as primary source — most reliable
+        const todayBar = bars[bars.length - 1];
+        const prevBar  = bars[bars.length - 2];
 
-        // Best available % change: compute from abs change, or from price/prev, or use field directly
-        let chg = 0;
-        if (absChg !== 0 && price > 0) {
-          chg = round2((absChg / (price - absChg)) * 100);
-        } else if (prevRaw > 0 && price > 0) {
-          chg = round2((price - prevRaw) / prevRaw * 100);
-        } else if (pctRaw !== 0) {
-          // Yahoo sometimes returns as decimal (0.005) or percent (0.5)
-          chg = round2(Math.abs(pctRaw) > 50 ? pctRaw / 100 : pctRaw);
+        let price = 0, chg = 0, vol = 0;
+
+        if (todayBar && prevBar) {
+          price = round2(todayBar.close);
+          chg   = prevBar.close > 0
+            ? round2((todayBar.close - prevBar.close) / prevBar.close * 100)
+            : 0;
+          vol   = todayBar.volume || 0;
+        } else if (q) {
+          // Fallback to quote batch
+          price = Number(q.regularMarketPrice || 0);
+          const absChg = Number(q.regularMarketChange || 0);
+          const pct    = Number(q.regularMarketChangePercent || 0);
+          const prev   = Number(q.regularMarketPreviousClose || 0);
+          if (absChg !== 0 && price > 0)   chg = round2(absChg / (price - absChg) * 100);
+          else if (prev > 0 && price > 0)  chg = round2((price - prev) / prev * 100);
+          else if (pct !== 0)              chg = round2(Math.abs(pct) > 50 ? pct / 100 : pct);
+          vol = Number(q?.regularMarketVolume || 0);
         }
 
-        const vol    = Number(q.regularMarketVolume || 0);
-        const avgVol = Number(q.averageDailyVolume3Month || q.averageDailyVolume10Day || 0);
-        const rvol   = (avgVol > 0 && vol > 0) ? round2(vol / avgVol) : 1;
-        const ma50   = Number(q.fiftyDayAverage || 0);
-        const ma50above = ma50 > 0 ? price > ma50 : null;
+        if (price === 0 && q) price = Number(q.regularMarketPrice || 0);
+
+        // Compute RVOL from bars (20-day avg volume)
+        let rvol = 1;
+        if (bars.length >= 5) {
+          const recentVols = bars.slice(-21, -1).map(b => b.volume || 0).filter(v => v > 0);
+          const avgVol = recentVols.length ? recentVols.reduce((a, b) => a + b, 0) / recentVols.length : 0;
+          if (avgVol > 0 && vol > 0) rvol = round2(vol / avgVol);
+        } else if (q) {
+          const av = Number(q.averageDailyVolume3Month || q.averageDailyVolume10Day || 0);
+          if (av > 0 && vol > 0) rvol = round2(vol / av);
+        }
+
+        const ma50 = bars.length >= 50
+          ? round2(bars.slice(-50).reduce((s, b) => s + b.close, 0) / 50)
+          : Number(q?.fiftyDayAverage || 0);
+        const ma50above = ma50 > 0 && price > 0 ? price > ma50 : null;
 
         // Flow score: volume-weighted change — high rvol on up day = strong inflow
         const flow = round2(chg * Math.min(rvol, 3));
