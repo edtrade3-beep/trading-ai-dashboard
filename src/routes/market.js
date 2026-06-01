@@ -1106,6 +1106,126 @@ async function handleMarket(req, res, requestUrl) {
     }
   }
 
+  // ── GET /api/market/distribution — Institutional distribution / shift scan ─
+  // Detects early signs institutions are selling / market is topping.
+  if (pathname === "/api/market/distribution" && req.method === "GET") {
+    try {
+      const INDEXES   = ["SPY", "QQQ", "IWM", "SMH"];
+      const DEFENSIVE = ["XLU", "XLP", "XLV", "GLD", "TLT"];
+      const GROWTH    = ["XLK", "XLY", "SMH", "ARKK"];
+      const CREDIT    = ["HYG", "LQD"];
+
+      const allSyms = [...new Set([...INDEXES, ...DEFENSIVE, ...GROWTH, ...CREDIT])];
+      const quotes  = await fetchYahooQuoteBatch(allSyms).catch(() => []);
+      const qMap    = Object.fromEntries(quotes.map(q => [String(q.symbol || "").toUpperCase(), q]));
+
+      // Fetch 3-month daily bars for main indexes to count distribution days
+      const barResults = await Promise.allSettled(
+        INDEXES.map(sym => fetchYahooBars(sym, "3mo", "1d").then(b => ({ sym, bars: b })))
+      );
+      const barMap = {};
+      barResults.forEach(r => { if (r.status === "fulfilled") barMap[r.value.sym] = r.value.bars; });
+
+      const warnings = [];
+      let riskScore = 0;
+
+      // ── 1. Distribution days per index (down + RVOL > 1.2, in last 25 sessions) ──
+      const distDays = {};
+      for (const sym of INDEXES) {
+        const bars = barMap[sym] || [];
+        const last25 = bars.slice(-25);
+        if (last25.length < 5) { distDays[sym] = 0; continue; }
+        const vols = last25.map(b => b.volume || 0);
+        const avgVol = vols.reduce((a, b) => a + b, 0) / vols.length;
+        let count = 0;
+        for (const bar of last25) {
+          const chgPct = bar.close && bar.open ? (bar.close - bar.open) / bar.open * 100 : 0;
+          const rvol   = avgVol > 0 ? bar.volume / avgVol : 0;
+          if (chgPct <= -0.2 && rvol >= 1.2) count++;
+        }
+        distDays[sym] = count;
+        if (count >= 4) { riskScore += 20; warnings.push({ level: "HIGH", sig: `${sym}: ${count} distribution days in 25 sessions`, tag: "DIST" }); }
+        else if (count >= 2) { riskScore += 8; warnings.push({ level: "MED", sig: `${sym}: ${count} distribution days — watch closely`, tag: "DIST" }); }
+      }
+
+      // ── 2. Sector rotation: defensive > growth ──────────────────────────────
+      const defensiveChg = DEFENSIVE.map(s => Number(qMap[s]?.regularMarketChangePercent || 0));
+      const growthChg    = GROWTH.map(s => Number(qMap[s]?.regularMarketChangePercent || 0));
+      const defAvg  = defensiveChg.reduce((a,b)=>a+b,0)/defensiveChg.length;
+      const grwAvg  = growthChg.reduce((a,b)=>a+b,0)/growthChg.length;
+      const rotDiff = round2(defAvg - grwAvg);
+      if (rotDiff > 0.8) { riskScore += 18; warnings.push({ level: "HIGH", sig: `Defensive sectors outpacing growth by ${rotDiff.toFixed(1)}% — rotation underway`, tag: "ROTATION" }); }
+      else if (rotDiff > 0.3) { riskScore += 8; warnings.push({ level: "MED", sig: `Mild defensive rotation: defensives +${defAvg.toFixed(1)}% vs growth +${grwAvg.toFixed(1)}%`, tag: "ROTATION" }); }
+
+      // ── 3. Credit stress: HYG weakening vs LQD ─────────────────────────────
+      const hygChg = Number(qMap["HYG"]?.regularMarketChangePercent || 0);
+      const lqdChg = Number(qMap["LQD"]?.regularMarketChangePercent || 0);
+      const creditSpread = round2(lqdChg - hygChg);
+      if (hygChg < -0.5 && creditSpread > 0.3) { riskScore += 15; warnings.push({ level: "HIGH", sig: `HYG (junk) ${hygChg.toFixed(2)}% — credit stress, risk-off signal`, tag: "CREDIT" }); }
+      else if (hygChg < -0.2) { riskScore += 5; warnings.push({ level: "LOW", sig: `HYG softening (${hygChg.toFixed(2)}%) — monitor credit spreads`, tag: "CREDIT" }); }
+
+      // ── 4. Volume divergence: index up but volume declining ─────────────────
+      for (const sym of ["SPY", "QQQ"]) {
+        const bars = (barMap[sym] || []).slice(-10);
+        if (bars.length < 5) continue;
+        const recentPriceUp = bars[bars.length-1].close > bars[0].close;
+        const recentVols = bars.map(b => b.volume || 0);
+        const volTrend = recentVols[recentVols.length-1] < recentVols[0] * 0.75;
+        if (recentPriceUp && volTrend) {
+          riskScore += 10;
+          warnings.push({ level: "MED", sig: `${sym}: price rising on declining volume — possible distribution/churn`, tag: "DIVERGENCE" });
+        }
+      }
+
+      // ── 5. Index below key MAs ──────────────────────────────────────────────
+      for (const sym of INDEXES) {
+        const q = qMap[sym];
+        if (!q) continue;
+        const px  = Number(q.regularMarketPrice || 0);
+        const ma50 = Number(q.fiftyDayAverage || 0);
+        const ma200= Number(q.twoHundredDayAverage || 0);
+        if (px > 0 && ma200 > 0 && px < ma200) {
+          riskScore += 15;
+          warnings.push({ level: "HIGH", sig: `${sym} below 200-day MA ($${round2(ma200)}) — primary downtrend risk`, tag: "MA" });
+        } else if (px > 0 && ma50 > 0 && px < ma50) {
+          riskScore += 10;
+          warnings.push({ level: "MED", sig: `${sym} below 50-day MA ($${round2(ma50)}) — momentum broken`, tag: "MA" });
+        }
+      }
+
+      // ── 6. Volatility spike (VIX-proxy from UVXY) ──────────────────────────
+      const uvxyQ = await fetchYahooQuoteBatch(["^VIX"]).catch(() => []);
+      const vix   = Number(uvxyQ[0]?.regularMarketPrice || 0);
+      const vixChg= Number(uvxyQ[0]?.regularMarketChangePercent || 0);
+      if (vix > 25) { riskScore += 20; warnings.push({ level: "HIGH", sig: `VIX at ${vix.toFixed(1)} — elevated fear, size down`, tag: "VIX" }); }
+      else if (vix > 18) { riskScore += 8; warnings.push({ level: "MED", sig: `VIX at ${vix.toFixed(1)} — above normal, tighten stops`, tag: "VIX" }); }
+      if (vixChg > 15) { riskScore += 10; warnings.push({ level: "HIGH", sig: `VIX up ${vixChg.toFixed(1)}% today — sudden fear spike`, tag: "VIX" }); }
+
+      riskScore = Math.min(100, riskScore);
+      const alert = riskScore >= 65 ? "DANGER" : riskScore >= 40 ? "CAUTION" : riskScore >= 20 ? "WATCH" : "NORMAL";
+
+      const indexSnapshot = INDEXES.map(sym => {
+        const q = qMap[sym] || {};
+        return {
+          sym,
+          chg:   round2(Number(q.regularMarketChangePercent || 0)),
+          price: round2(Number(q.regularMarketPrice || 0)),
+          distDays: distDays[sym] || 0,
+        };
+      });
+
+      return writeJson(res, 200, {
+        ok: true, riskScore, alert, warnings,
+        vix: round2(vix), vixChg: round2(vixChg),
+        rotationDiff: rotDiff,
+        indexSnapshot,
+        scannedAt: new Date().toISOString(),
+      });
+    } catch (e) {
+      return writeJson(res, 502, { ok: false, error: e.message, warnings: [], riskScore: 0 });
+    }
+  }
+
   // ── GET /api/market/darkpool?symbol=NVDA (optional) ──────────────────────
   // Returns recent dark pool / block trade prints via Unusual Whales API.
   if (pathname === "/api/market/darkpool" && req.method === "GET") {

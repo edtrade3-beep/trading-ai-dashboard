@@ -11102,6 +11102,93 @@ export default function App() {
           />
         )}
 
+
+        {/* ── INSTITUTIONAL DISTRIBUTION MONITOR ── */}
+        {activeTab === "dashboard" && (() => {
+          const [distData, setDistData] = React.useState(null);
+          const [distLoading, setDistLoading] = React.useState(false);
+          const [distExpanded, setDistExpanded] = React.useState(false);
+          React.useEffect(() => {
+            setDistLoading(true);
+            fetch("/api/market/distribution")
+              .then(r => r.json()).then(d => { if (d.ok) setDistData(d); })
+              .catch(() => {}).finally(() => setDistLoading(false));
+          }, []);
+          if (!distData && !distLoading) return null;
+          const ALERT_COLORS = { DANGER: C.red, CAUTION: C.amber, WATCH: "#4caf50", NORMAL: C.green };
+          const ALERT_ICONS  = { DANGER: "🚨", CAUTION: "⚠️", WATCH: "👁", NORMAL: "✅" };
+          const TAG_COLORS   = { DIST: C.red, ROTATION: C.amber, CREDIT: "#ff6b6b", DIVERGENCE: C.amber, MA: C.red, VIX: "#ff4444" };
+          const alertColor = distData ? (ALERT_COLORS[distData.alert] || C.green) : C.textDim;
+          const alertIcon  = distData ? (ALERT_ICONS[distData.alert]  || "✅")   : "⏳";
+          const highW = (distData?.warnings || []).filter(w => w.level === "HIGH");
+          return (
+            <div style={{ marginBottom: 14, borderRadius: 10, overflow: "hidden", border: "1px solid " + alertColor + "44", background: alertColor + "08" }}>
+              <div onClick={() => setDistExpanded(p => !p)}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", cursor: "pointer", borderBottom: distExpanded ? "1px solid " + alertColor + "33" : "none" }}>
+                <span style={{ fontSize: 18 }}>{distLoading ? "⏳" : alertIcon}</span>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: alertColor, letterSpacing: "0.08em" }}>INSTITUTIONAL RADAR</span>
+                  {distData && (
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 10 }}>
+                      Risk: <b style={{ color: alertColor }}>{distData.riskScore}/100</b> · {distData.alert}
+                      {distData.vix > 0 && " · VIX " + distData.vix}
+                    </span>
+                  )}
+                </div>
+                {distData && (distData.indexSnapshot || []).map(idx => (
+                  <span key={idx.sym} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "3px 8px", borderRadius: 999,
+                    background: idx.chg >= 0 ? C.green + "18" : C.red + "18",
+                    color: idx.chg >= 0 ? C.green : C.red, border: "1px solid " + (idx.chg >= 0 ? C.green : C.red) + "33" }}>
+                    {idx.sym} {idx.chg >= 0 ? "+" : ""}{idx.chg}%
+                    {idx.distDays >= 2 && <span style={{ color: C.red, marginLeft: 4 }}>⚠{idx.distDays}D</span>}
+                  </span>
+                ))}
+                {highW.length > 0 && (
+                  <span style={{ background: C.red, color: "#fff", fontFamily: MONO, fontSize: 10, fontWeight: 900, borderRadius: 999, padding: "2px 8px" }}>
+                    {highW.length} ALERT{highW.length > 1 ? "S" : ""}
+                  </span>
+                )}
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{distExpanded ? "▲" : "▼ details"}</span>
+              </div>
+              {distExpanded && distData && (
+                <div style={{ padding: "12px 16px" }}>
+                  {distData.warnings.length === 0 ? (
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.green }}>✅ No distribution signals detected — market internals healthy.</div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {distData.warnings.map((w, i) => (
+                        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 12px", borderRadius: 6,
+                          background: w.level === "HIGH" ? C.red + "12" : w.level === "MED" ? C.amber + "0d" : C.green + "08",
+                          border: "1px solid " + (w.level === "HIGH" ? C.red : w.level === "MED" ? C.amber : C.green) + "33" }}>
+                          <span style={{ fontSize: 14, flexShrink: 0 }}>{w.level === "HIGH" ? "🔴" : w.level === "MED" ? "🟡" : "🟢"}</span>
+                          <div style={{ flex: 1 }}>
+                            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: TAG_COLORS[w.tag] || C.amber, marginRight: 8 }}>[{w.tag}]</span>
+                            <span style={{ fontFamily: SANS, fontSize: 12, color: C.textSec }}>{w.sig}</span>
+                          </div>
+                          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: w.level === "HIGH" ? C.red : w.level === "MED" ? C.amber : C.green, flexShrink: 0 }}>{w.level}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {distData.rotationDiff != null && (
+                    <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 6, background: C.surface, border: "1px solid " + C.border }}>
+                      <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim }}>SECTOR ROTATION: </span>
+                      <span style={{ fontFamily: SANS, fontSize: 12, color: distData.rotationDiff > 0.5 ? C.red : distData.rotationDiff > 0.1 ? C.amber : C.green }}>
+                        {distData.rotationDiff > 0.5 ? "🔴 Defensives outperforming growth — institutional risk-off in progress"
+                          : distData.rotationDiff > 0.1 ? "🟡 Mild rotation to defensives — stay alert"
+                          : "🟢 Growth leading — risk-on environment"}
+                      </span>
+                    </div>
+                  )}
+                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 8 }}>
+                    Last scan: {new Date(distData.scannedAt).toLocaleTimeString()} · Checks: distribution days · sector rotation · credit spreads · volume divergence · MA breaks · VIX
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {activeTab === "dashboard" && watchlistData.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : `minmax(0, 1fr) minmax(260px, ${LAYOUT.sidebarWidth}px)`, gap: LAYOUT.gridGap, alignItems: "start", width: "100%", overflow: "hidden" }}>
             {/* Watchlist Table */}
