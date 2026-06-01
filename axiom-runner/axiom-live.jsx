@@ -13400,10 +13400,10 @@ export default function App() {
                                       ⌛ Loading deep dive data for {row.ticker}…
                                     </div>
                                   ) : (
-                                    <div style={{ display: "grid", gridTemplateColumns: "280px repeat(4, minmax(0,1fr)) minmax(0,1.4fr) minmax(0,1.8fr)", gap: 14, width: "100%", alignItems: "start" }}>
+                                    <div style={{ display: "grid", gridTemplateColumns: "280px repeat(4, minmax(0,1fr)) minmax(0,1.4fr) minmax(0,1.8fr)", gap: 14, width: "100%", alignItems: "stretch" }}>
 
                                       {/* ── Col 1: TradingView mini chart ── */}
-                                      <div>
+                                      <div style={{ display: "flex", flexDirection: "column" }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
                                           📊 CHART
@@ -13420,7 +13420,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 2: TECHNICALS (indicators + signals + entry zones) ── */}
-                                      <div>
+                                      <div style={{ display: "flex", flexDirection: "column" }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
                                           ⚡ TECHNICALS
@@ -13483,10 +13483,11 @@ export default function App() {
                                             ))}
                                           </div>
                                         )}
+                                        <div style={{ flex: 1 }} />
                                       </div>
 
                                       {/* ── Col 3: FUNDAMENTALS + SHORT INTEREST + OPTIONS ── */}
-                                      <div>
+                                      <div style={{ display: "flex", flexDirection: "column" }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
                                           📋 FUNDAMENTALS
@@ -13577,10 +13578,11 @@ export default function App() {
                                             </div>
                                           );
                                         })()}
+                                        <div style={{ flex: 1 }} />
                                       </div>
 
                                       {/* ── Col 4: SOCIAL SENTIMENT + INSIDER BUYS ── */}
-                                      <div>
+                                      <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
                                           💬 SOCIAL SENTIMENT
@@ -13637,7 +13639,7 @@ export default function App() {
                                                 <div style={{ marginTop: 8 }}>
                                                   <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim,
                                                     letterSpacing: "0.08em", marginBottom: 5 }}>RECENT</div>
-                                                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                                  <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 160, overflowY: "auto" }}>
                                                     {msgs.slice(0, 3).map((m, mi) => (
                                                       <div key={mi} style={{ padding: "5px 7px", borderRadius: 4,
                                                         background: C.surface,
@@ -13694,13 +13696,13 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 5: RECENT NEWS ── */}
-                                      <div>
+                                      <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
                                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                           color: C.textDim, marginBottom: 6, letterSpacing: "0.06em" }}>
                                           📰 RECENT NEWS
                                         </div>
                                         {deepData?.news?.length > 0 ? (
-                                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                                          <div style={{ display: "flex", flexDirection: "column", gap: 5, flex: 1, overflowY: "auto", maxHeight: 220 }}>
                                             {deepData.news.slice(0, 5).map((n, ni) => {
                                               const title = n.title || n.headline || "";
                                               const src   = n.source || n.publisher || "";
@@ -13740,7 +13742,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 6: AI Trade Setup + Auto-Execute ── */}
-                                      <div>
+                                      <div style={{ display: "flex", flexDirection: "column" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                                           <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
                                             color: C.textDim, letterSpacing: "0.06em" }}>
@@ -13830,10 +13832,11 @@ export default function App() {
                                         })()}
 
                                         {!tradeSetups[row.ticker] && !tradeSetupLoad[row.ticker] && !tradeSetupError[row.ticker] && (
-                                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim,
+                                          <div style={{ flex: 1, fontFamily: MONO, fontSize: 9, color: C.textDim,
                                             background: themeMode === "dark" ? "#0a1628" : "#f5f9ff",
                                             border: `1px dashed ${C.border}`, borderRadius: 6,
-                                            padding: "16px 12px", textAlign: "center", lineHeight: 1.6 }}>
+                                            padding: "16px 12px", textAlign: "center", lineHeight: 1.6,
+                                            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                                             Click <span style={{ color: C.purple, fontWeight: 700 }}>▶ GENERATE</span> for a complete AI trade plan:<br/>
                                             <span style={{ color: C.textDim, fontSize: 8 }}>
                                               entry · stop · targets · R:R · catalysts · risks · verdict
