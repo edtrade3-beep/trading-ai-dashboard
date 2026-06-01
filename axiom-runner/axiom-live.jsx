@@ -13028,7 +13028,7 @@ export default function App() {
                       color: autoScanOn ? C.amber : C.textDim,
                       borderRadius: 6, padding: "7px 12px", cursor: "pointer", minWidth: 90, textAlign: "center" }}>
                     {autoScanOn
-                      ? `⏱ AUTO ${Math.floor(autoScanCountdown / 60)}:${String(autoScanCountdown % 60).padStart(2, "0")}`
+                      ? `⏱ ${Math.floor(autoScanCountdown / 60)}:${String(autoScanCountdown % 60).padStart(2, "0")} min`
                       : "▶ AUTO ON"}
                   </button>
                   <button onClick={runSmartScan} disabled={scanLoading}
