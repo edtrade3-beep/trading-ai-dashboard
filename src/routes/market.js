@@ -1107,8 +1107,13 @@ async function handleMarket(req, res, requestUrl) {
   }
 
   // ── GET /api/market/distribution — Institutional distribution / shift scan ─
-  // Detects early signs institutions are selling / market is topping.
+  // Cached 5 minutes so repeated loads don't re-hit Yahoo every time.
   if (pathname === "/api/market/distribution" && req.method === "GET") {
+    const _distCache = handleMarket._distCache || (handleMarket._distCache = { data: null, ts: 0 });
+    const DIST_TTL = 5 * 60 * 1000;
+    if (_distCache.data && Date.now() - _distCache.ts < DIST_TTL) {
+      return writeJson(res, 200, _distCache.data);
+    }
     try {
       const INDEXES   = ["SPY", "QQQ", "IWM", "SMH"];
       const DEFENSIVE = ["XLU", "XLP", "XLV", "GLD", "TLT"];
@@ -1276,13 +1281,15 @@ async function handleMarket(req, res, requestUrl) {
         };
       });
 
-      return writeJson(res, 200, {
+      const distResult = {
         ok: true, riskScore, alert, warnings, checkStatus,
         vix: round2(vix), vixChg: round2(vixChg),
-        rotationDiff: rotDiff,
-        indexSnapshot,
+        rotationDiff: rotDiff, indexSnapshot,
         scannedAt: new Date().toISOString(),
-      });
+      };
+      _distCache.data = distResult;
+      _distCache.ts   = Date.now();
+      return writeJson(res, 200, distResult);
     } catch (e) {
       return writeJson(res, 502, { ok: false, error: e.message, warnings: [], riskScore: 0 });
     }
@@ -1327,6 +1334,11 @@ async function handleMarket(req, res, requestUrl) {
   // ── GET /api/market/trade-signals — Live trade signal engine ──────────────
   // Scans a universe of stocks and returns actionable LONG/SHORT/CALL/PUT signals
   if (pathname === "/api/market/trade-signals" && req.method === "GET") {
+    const _sigCache = handleMarket._sigCache || (handleMarket._sigCache = { data: null, ts: 0 });
+    const SIG_TTL = 3 * 60 * 1000; // 3 min cache
+    if (_sigCache.data && Date.now() - _sigCache.ts < SIG_TTL) {
+      return writeJson(res, 200, _sigCache.data);
+    }
     try {
       const UNIVERSE = [
         "SPY","QQQ","NVDA","TSLA","AAPL","META","AMZN","MSFT","AMD","NFLX",
@@ -1458,12 +1470,15 @@ async function handleMarket(req, res, requestUrl) {
         return b.score - a.score;
       });
 
-      return writeJson(res, 200, {
+      const sigResult = {
         ok: true,
         signals: signals.slice(0, 15),
         mktEnv, vix: round2(vix),
         scannedAt: new Date().toISOString(),
-      });
+      };
+      _sigCache.data = sigResult;
+      _sigCache.ts   = Date.now();
+      return writeJson(res, 200, sigResult);
     } catch (e) {
       return writeJson(res, 502, { ok: false, error: e.message, signals: [] });
     }

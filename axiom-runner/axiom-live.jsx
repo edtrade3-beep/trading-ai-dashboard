@@ -11109,10 +11109,14 @@ export default function App() {
           const [distLoading, setDistLoading] = React.useState(false);
           const [distExpanded, setDistExpanded] = React.useState(false);
           React.useEffect(() => {
-            setDistLoading(true);
-            fetch("/api/market/distribution")
-              .then(r => r.json()).then(d => { if (d.ok) setDistData(d); })
-              .catch(() => {}).finally(() => setDistLoading(false));
+            // Delay 3s so watchlist loads first, then fetch distribution scan
+            const t = setTimeout(() => {
+              setDistLoading(true);
+              fetch("/api/market/distribution")
+                .then(r => r.json()).then(d => { if (d.ok) setDistData(d); })
+                .catch(() => {}).finally(() => setDistLoading(false));
+            }, 3000);
+            return () => clearTimeout(t);
           }, []);
           if (!distData && !distLoading) return null;
           const ALERT_COLORS = { DANGER: C.red, CAUTION: C.amber, WATCH: "#4caf50", NORMAL: C.green };
@@ -11193,14 +11197,18 @@ export default function App() {
         {activeTab === "dashboard" && (() => {
           const [sigData,    setSigData]    = React.useState(null);
           const [sigLoading, setSigLoading] = React.useState(false);
-          const [sigFilter,  setSigFilter]  = React.useState("ALL"); // ALL | LONG | SHORT | OPTIONS
-          const [sigCollapsed, setSigCollapsed] = React.useState(false);
+          const [sigFilter,  setSigFilter]  = React.useState("ALL");
+          const [sigCollapsed, setSigCollapsed] = React.useState(true); // collapsed by default
 
           React.useEffect(() => {
-            setSigLoading(true);
-            fetch("/api/market/trade-signals")
-              .then(r => r.json()).then(d => { if (d.ok) setSigData(d); })
-              .catch(() => {}).finally(() => setSigLoading(false));
+            // Delay 6s — loads after watchlist and radar are done
+            const t = setTimeout(() => {
+              setSigLoading(true);
+              fetch("/api/market/trade-signals")
+                .then(r => r.json()).then(d => { if (d.ok) setSigData(d); })
+                .catch(() => {}).finally(() => setSigLoading(false));
+            }, 6000);
+            return () => clearTimeout(t);
           }, []);
 
           const refresh = () => {

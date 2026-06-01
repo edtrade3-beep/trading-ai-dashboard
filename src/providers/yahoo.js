@@ -4,9 +4,9 @@ const { CANDLE_TIMEFRAME_CONFIG } = require("../config");
 
 // ── Caches ──────────────────────────────────────────────────────────────────
 const MARKET_CAP_CACHE = new Map();
-// Quote batch cache: 90 seconds — avoids hammering Yahoo on every page load
+// Quote batch cache: 3 minutes — reduces Yahoo calls and speeds up page load
 const QUOTE_BATCH_CACHE = new Map();
-const QUOTE_CACHE_TTL_MS = 90_000;
+const QUOTE_CACHE_TTL_MS = 180_000;
 
 // ── Robust Yahoo fetch with AbortController timeout ──────────────────────────
 const YAHOO_HEADERS = {
