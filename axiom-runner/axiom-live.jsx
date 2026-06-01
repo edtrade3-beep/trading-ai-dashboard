@@ -7199,8 +7199,12 @@ export default function App() {
   const [scanDeepLoad, setScanDeepLoad] = useState({});
   const [deepSocialData, setDeepSocialData] = useState({});
   const [deepSocialLoad, setDeepSocialLoad] = useState({});
-  const [autoScanOn,   setAutoScanOn]   = useState(false);
-  const [autoScanMins, setAutoScanMins] = useState(5);
+  const [autoScanOn,   setAutoScanOn]   = useState(() => {
+    try { return JSON.parse(localStorage.getItem("smartscan_auto_on") ?? "true"); } catch { return true; }
+  });
+  const [autoScanMins, setAutoScanMins] = useState(() => {
+    try { return Number(localStorage.getItem("smartscan_auto_mins") || 1); } catch { return 1; }
+  });
   const [autoScanCountdown, setAutoScanCountdown] = useState(0);
   const autoScanRef = useRef(null);
   // ── AI Trade Setup state ─────────────────────────────────────────────────
@@ -12997,7 +13001,14 @@ export default function App() {
                     </div>
                   )}
                   {/* Auto-scan interval selector */}
-                  <select value={autoScanMins} onChange={e => setAutoScanMins(Number(e.target.value))}
+                  <select value={autoScanMins} onChange={e => {
+                    const v = Number(e.target.value);
+                    setAutoScanMins(v);
+                    localStorage.setItem("smartscan_auto_mins", String(v));
+                    // Selecting an interval implies the user wants auto on
+                    setAutoScanOn(true);
+                    localStorage.setItem("smartscan_auto_on", "true");
+                  }}
                     style={{ fontFamily: MONO, fontSize: 9, background: C.surface, border: `1px solid ${C.border}`,
                       color: C.textSec, borderRadius: 4, padding: "4px 6px", cursor: "pointer" }}>
                     <option value={1}>1 min</option>
@@ -13007,15 +13018,18 @@ export default function App() {
                     <option value={30}>30 min</option>
                   </select>
                   {/* Auto toggle */}
-                  <button onClick={() => setAutoScanOn(v => !v)}
+                  <button onClick={() => setAutoScanOn(v => {
+                    localStorage.setItem("smartscan_auto_on", String(!v));
+                    return !v;
+                  })}
                     style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
                       background: autoScanOn ? `${C.amber}18` : C.surface,
                       border: `1px solid ${autoScanOn ? C.amber : C.border}`,
                       color: autoScanOn ? C.amber : C.textDim,
                       borderRadius: 6, padding: "7px 12px", cursor: "pointer", minWidth: 90, textAlign: "center" }}>
                     {autoScanOn
-                      ? `⏱ ${Math.floor(autoScanCountdown / 60)}:${String(autoScanCountdown % 60).padStart(2, "0")}`
-                      : "AUTO OFF"}
+                      ? `⏱ AUTO ${Math.floor(autoScanCountdown / 60)}:${String(autoScanCountdown % 60).padStart(2, "0")}`
+                      : "▶ AUTO ON"}
                   </button>
                   <button onClick={runSmartScan} disabled={scanLoading}
                     style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
