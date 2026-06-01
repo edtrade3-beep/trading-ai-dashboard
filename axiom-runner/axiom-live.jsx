@@ -11095,6 +11095,35 @@ export default function App() {
             display: "flex", alignItems: "center", gap: 1,
             overflowX: "auto", scrollbarWidth: "none",
           }}>
+            {/* USE MY CHART button — only on CHART tab */}
+            {activeTab === "terminal" && (
+              <div style={{ marginLeft: "auto", padding: "0 4px", flexShrink: 0 }}>
+                {tvChartMode === "widget" ? (
+                  <button
+                    onClick={() => { setTvChartMode("my_chart"); localStorage.setItem("tv_chart_mode","my_chart"); }}
+                    style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                      border: `1px solid ${C.accent}`, background: `${C.accent}18`,
+                      color: C.accent, borderRadius: 4,
+                      padding: isMobile ? "8px 12px" : "3px 10px",
+                      minHeight: isMobile ? 36 : "auto",
+                      cursor: "pointer", whiteSpace: "nowrap" }}>
+                    📊 MY TV CHART
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => { setTvChartMode("widget"); localStorage.setItem("tv_chart_mode","widget"); }}
+                    style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                      border: `1px solid ${C.border}`, background: C.surface,
+                      color: C.textSec, borderRadius: 4,
+                      padding: isMobile ? "8px 12px" : "3px 10px",
+                      minHeight: isMobile ? 36 : "auto",
+                      cursor: "pointer", whiteSpace: "nowrap" }}>
+                    ← BUILT-IN CHART
+                  </button>
+                )}
+              </div>
+            )}
+
             {subTabs.map(t => {
               const isActive = activeTab === t.id;
               return (
@@ -11243,18 +11272,6 @@ export default function App() {
               style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, background: "none", border: "none",
                 cursor: "pointer", marginTop: 12, textDecoration: "underline" }}>
               Use built-in chart instead
-            </button>
-          </div>
-        )}
-
-        {/* ── Built-in chart (default) ── */}
-        {activeTab === "terminal" && tvChartMode === "widget" && (
-          <div style={{ position: "absolute", top: 4, right: 14, zIndex: 10 }}>
-            <button
-              onClick={() => { setTvChartMode("my_chart"); localStorage.setItem("tv_chart_mode","my_chart"); }}
-              style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, border: `1px solid ${C.accent}44`,
-                background: `${C.accent}12`, color: C.accent, borderRadius: 4, padding: "3px 10px", cursor: "pointer" }}>
-              📊 USE MY CHART
             </button>
           </div>
         )}
