@@ -13400,10 +13400,10 @@ export default function App() {
                                       ⌛ Loading deep dive data for {row.ticker}…
                                     </div>
                                   ) : (
-                                    <div style={{ display: "grid", gridTemplateColumns: "280px repeat(4, minmax(0,1fr)) minmax(0,1.4fr) minmax(0,1.8fr)", gap: 16, width: "100%", alignItems: "stretch", minHeight: 340 }}>
+                                    <div style={{ display: "grid", gridTemplateColumns: "280px repeat(4, minmax(0,1fr)) minmax(0,1.4fr) minmax(0,1.8fr)", gridTemplateRows: "360px", gap: 16, width: "100%" }}>
 
                                       {/* ── Col 1: TradingView mini chart ── */}
-                                      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
                                         <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           📊 CHART
@@ -13420,7 +13420,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 2: TECHNICALS (indicators + signals + entry zones) ── */}
-                                      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
                                         <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           ⚡ TECHNICALS
@@ -13487,7 +13487,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 3: FUNDAMENTALS + SHORT INTEREST + OPTIONS ── */}
-                                      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
                                         <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           📋 FUNDAMENTALS
@@ -13582,7 +13582,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 4: SOCIAL SENTIMENT + INSIDER BUYS ── */}
-                                      <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
+                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
                                         <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           💬 SOCIAL SENTIMENT
@@ -13639,7 +13639,7 @@ export default function App() {
                                                 <div style={{ marginTop: 10 }}>
                                                   <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
                                                     letterSpacing: "0.08em", marginBottom: 6 }}>RECENT</div>
-                                                  <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 180, overflowY: "auto" }}>
+                                                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                                                     {msgs.slice(0, 3).map((m, mi) => (
                                                       <div key={mi} style={{ padding: "6px 8px", borderRadius: 4,
                                                         background: C.surface,
@@ -13696,13 +13696,13 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 5: RECENT NEWS ── */}
-                                      <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
+                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
                                         <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           📰 RECENT NEWS
                                         </div>
                                         {deepData?.news?.length > 0 ? (
-                                          <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, overflowY: "auto", maxHeight: 280 }}>
+                                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                                             {deepData.news.slice(0, 5).map((n, ni) => {
                                               const title = n.title || n.headline || "";
                                               const src   = n.source || n.publisher || "";
@@ -13742,7 +13742,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 6: AI Trade Setup + Auto-Execute ── */}
-                                      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                                      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                                           <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                             color: C.textDim, letterSpacing: "0.06em" }}>
