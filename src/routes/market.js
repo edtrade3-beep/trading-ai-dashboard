@@ -1355,12 +1355,25 @@ async function handleMarket(req, res, requestUrl) {
         const q = qMap[sec.sym];
         if (!q) return { ...sec, chg: 0, rvol: 0, flow: 0, flowLbl: "—", ma50above: null };
 
-        const price  = Number(q.regularMarketPrice || 0);
-        const prev   = Number(q.regularMarketPreviousClose || price);
-        const chg    = prev > 0 ? round2((price - prev) / prev * 100) : round2(Number(q.regularMarketChangePercent || 0));
+        const price   = Number(q.regularMarketPrice || 0);
+        const prevRaw = Number(q.regularMarketPreviousClose || 0);
+        const absChg  = Number(q.regularMarketChange || 0);
+        const pctRaw  = Number(q.regularMarketChangePercent || 0);
+
+        // Best available % change: compute from abs change, or from price/prev, or use field directly
+        let chg = 0;
+        if (absChg !== 0 && price > 0) {
+          chg = round2((absChg / (price - absChg)) * 100);
+        } else if (prevRaw > 0 && price > 0) {
+          chg = round2((price - prevRaw) / prevRaw * 100);
+        } else if (pctRaw !== 0) {
+          // Yahoo sometimes returns as decimal (0.005) or percent (0.5)
+          chg = round2(Math.abs(pctRaw) > 50 ? pctRaw / 100 : pctRaw);
+        }
+
         const vol    = Number(q.regularMarketVolume || 0);
-        const avgVol = Number(q.averageDailyVolume3Month || q.averageDailyVolume10Day || 1);
-        const rvol   = avgVol > 0 ? round2(vol / avgVol) : 1;
+        const avgVol = Number(q.averageDailyVolume3Month || q.averageDailyVolume10Day || 0);
+        const rvol   = (avgVol > 0 && vol > 0) ? round2(vol / avgVol) : 1;
         const ma50   = Number(q.fiftyDayAverage || 0);
         const ma50above = ma50 > 0 ? price > ma50 : null;
 
