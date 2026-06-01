@@ -14639,15 +14639,15 @@ export default function App() {
                                           const score = row.score || 50;
                                           if (px <= 0) return null;
 
-                                          // Determine option action from score + IV
-                                          const isBullish = score >= 60;
-                                          const isBearish = score <= 40;
-                                          if (!isBullish && !isBearish) return null;
+                                          // Always show options for every stock — score drives direction
+                                          const isBullish = score >= 50; // above 50 = lean bullish
+                                          const isBearish = score < 50;
 
                                           const optAct  = isBullish
-                                            ? (ivR < 45 ? "BUY CALLS" : "SELL PUTS")
-                                            : (ivR < 45 ? "BUY PUTS"  : "SELL CALLS");
+                                            ? (ivR < 45 ? "BUY CALLS" : ivR > 65 ? "SELL PUTS" : "CALLS or STOCK")
+                                            : (ivR < 45 ? "BUY PUTS"  : ivR > 65 ? "SELL CALLS" : "PUTS or SHORT");
                                           const optCol  = isBullish ? C.green : C.red;
+                                          const optLabel = score >= 70 ? "HIGH conviction" : score >= 55 ? "MODERATE" : score >= 50 ? "LOW — wait for confirmation" : "BEARISH setup";
 
                                           // Strike calculation
                                           const step = px < 25 ? 0.5 : px < 50 ? 1 : px < 100 ? 2 : px < 200 ? 5 : px < 500 ? 10 : 20;
@@ -14697,13 +14697,19 @@ export default function App() {
                                               </div>
                                               <div style={{ padding: "10px 10px", borderRadius: 6,
                                                 background: `${optCol}12`, border: `1px solid ${optCol}44`, marginBottom: 10 }}>
-                                                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: optCol, marginBottom: 4 }}>
-                                                  {optAct}
+                                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                                                  <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: optCol }}>
+                                                    {optAct}
+                                                  </div>
+                                                  <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, color: optCol,
+                                                    background: `${optCol}20`, borderRadius: 3, padding: "1px 6px" }}>
+                                                    {optLabel}
+                                                  </div>
                                                 </div>
                                                 <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec }}>
                                                   {ivR < 45 ? `IV ${ivR} — options cheap, buying has edge` :
                                                    ivR > 65 ? `IV ${ivR} — premium elevated, selling is better` :
-                                                   `IV ${ivR} — moderate volatility`}
+                                                   `IV ${ivR} — moderate, consider stock + options combo`}
                                                 </div>
                                               </div>
                                               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 5, marginBottom: 8 }}>
