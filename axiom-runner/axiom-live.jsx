@@ -14083,9 +14083,11 @@ export default function App() {
 
                                           return (
                                             <div>
-                                              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                              <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim,
+                                                letterSpacing: "0.08em", marginBottom: 6 }}>📅 EARNINGS</div>
                                               {expMove && daysToEarn <= 7 && (
-                                                <div style={{ padding: "7px 10px", borderRadius: 6, marginBottom: 8, background: `${C.amber}14`, border: `1px solid ${C.amber}44` }}>
+                                                <div style={{ padding: "7px 10px", borderRadius: 6, marginBottom: 8,
+                                                  background: `${C.amber}14`, border: `1px solid ${C.amber}44` }}>
                                                   <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.amber }}>
                                                     ⚡ {daysToEarn === 0 ? "EARNINGS TODAY" : `EARNINGS IN ${daysToEarn}d`}
                                                   </div>
@@ -14094,7 +14096,6 @@ export default function App() {
                                                   </div>
                                                 </div>
                                               )}
-                                                letterSpacing: "0.08em", marginBottom: 6 }}>📅 EARNINGS</div>
                                               {[
                                                 ["Next Report", earnLabel, daysToEarn != null && daysToEarn >= 0 && daysToEarn <= 7 ? C.amber : C.text],
                                                 ["EPS Est",  epsEst  ? `$${epsEst.toFixed(2)}`  : "—", C.text],
