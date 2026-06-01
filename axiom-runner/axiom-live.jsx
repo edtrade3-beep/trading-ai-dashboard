@@ -7817,7 +7817,13 @@ export default function App() {
     return () => clearInterval(t);
   }, [activeTab, fivexLoading]);
 
-  // ── Institutional Radar + Trade Signals — top-level effects (Rules of Hooks) ─
+  // ── Institutional Radar + Trade Signals + Fear&Greed — top-level effects ────
+  useEffect(() => {
+    // Auto-load Fear & Greed on Monitor tab open (4s delay so watchlist loads first)
+    const t = setTimeout(() => { fetchFearGreed(); }, 4000);
+    return () => clearTimeout(t);
+  }, []);
+
   useEffect(() => {
     const t = setTimeout(() => {
       setDistLoading(true);
@@ -11210,6 +11216,90 @@ export default function App() {
                     Last scan: {new Date(distData.scannedAt).toLocaleTimeString()} · ✅ = clear  🟡 = watch  🔴 = alert
                   </div>
                 </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ── FEAR & GREED — inline on Monitor tab ── */}
+        {activeTab === "dashboard" && (() => {
+          const fg = fearGreedData;
+          const scoreColor = fg
+            ? fg.score <= 25 ? C.red : fg.score <= 45 ? C.amber
+            : fg.score <= 55 ? C.textSec : fg.score <= 75 ? "#22c55e" : C.green
+            : C.textDim;
+          return (
+            <div style={{ marginBottom: 14, borderRadius: 10, border: `1px solid ${C.borderLit}`,
+              background: C.card, overflow: "hidden" }}>
+              {/* Header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px",
+                background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+                <span style={{ fontSize: 16 }}>😨</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text, letterSpacing: "0.08em" }}>FEAR & GREED METER</span>
+                {fg && !fg.error && (
+                  <span style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: scoreColor, marginLeft: 8 }}>{fg.score}</span>
+                )}
+                {fg && !fg.error && (
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: scoreColor }}>{fg.label}</span>
+                )}
+                <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                  <button onClick={fetchFearGreed} disabled={fearGreedLoading}
+                    style={{ fontFamily: MONO, fontSize: 9, border: `1px solid ${C.border}`,
+                      background: "transparent", color: fearGreedLoading ? C.textDim : C.accent,
+                      borderRadius: 4, padding: "3px 10px", cursor: "pointer" }}>
+                    {fearGreedLoading ? "⌛" : "↺ REFRESH"}
+                  </button>
+                </span>
+              </div>
+
+              {/* Score gauge + components */}
+              {fearGreedLoading && (
+                <div style={{ padding: "20px", fontFamily: MONO, fontSize: 11, color: C.textDim }}>Calculating…</div>
+              )}
+              {!fg && !fearGreedLoading && (
+                <div style={{ padding: "14px 16px", fontFamily: SANS, fontSize: 11, color: C.textDim }}>
+                  Click ↺ REFRESH to compute the Fear & Greed score from VIX · SPY momentum · RSI · 52w range · TLT · HYG
+                </div>
+              )}
+              {fg && !fearGreedLoading && !fg.error && (
+                <div style={{ padding: "14px 16px" }}>
+                  {/* Gauge bar */}
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ position: "relative", marginBottom: 4 }}>
+                      <div style={{ height: 12, borderRadius: 6, background: "linear-gradient(to right, #ef4444, #f97316, #eab308, #22c55e, #16a34a)" }} />
+                      <div style={{ position: "absolute", top: -4, left: `${fg.score}%`, transform: "translateX(-50%)",
+                        width: 20, height: 20, borderRadius: "50%", background: scoreColor,
+                        border: "3px solid " + C.bg, boxShadow: "0 0 8px " + scoreColor }} />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                      <span>EXTREME FEAR</span><span>FEAR</span><span>NEUTRAL</span><span>GREED</span><span>EXTREME GREED</span>
+                    </div>
+                  </div>
+                  {/* Component breakdown compact */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 6 }}>
+                    {(fg.components || []).map((c, ci) => {
+                      const cc = c.score <= 25 ? C.red : c.score <= 45 ? C.amber : c.score <= 55 ? C.textSec : c.score <= 75 ? "#22c55e" : C.green;
+                      return (
+                        <div key={ci} style={{ padding: "8px 10px", borderRadius: 6,
+                          background: C.surface, border: `1px solid ${C.border}22` }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                            <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{c.name}</span>
+                            <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: cc }}>{c.score}</span>
+                          </div>
+                          <div style={{ height: 4, borderRadius: 2, background: C.border, overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${c.score}%`, background: cc, borderRadius: 2 }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 8 }}>
+                    VIX: {fg.vix} · Updated: {new Date(fg.fetchedAt).toLocaleTimeString()}
+                  </div>
+                </div>
+              )}
+              {fg?.error && (
+                <div style={{ padding: "14px 16px", fontFamily: MONO, fontSize: 11, color: C.red }}>⚠ {fg.error}</div>
               )}
             </div>
           );
