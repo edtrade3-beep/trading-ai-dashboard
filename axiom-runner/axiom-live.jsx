@@ -13400,11 +13400,11 @@ export default function App() {
                                       ⌛ Loading deep dive data for {row.ticker}…
                                     </div>
                                   ) : (
-                                    <div style={{ display: "grid", gridTemplateColumns: "280px repeat(4, minmax(0,1fr)) minmax(0,1.4fr) minmax(0,1.8fr)", gridTemplateRows: "360px", gap: 16, width: "100%" }}>
+                                    <div style={{ display: "grid", gridTemplateColumns: "260px repeat(4, minmax(140px,1fr)) minmax(160px,1.4fr) minmax(200px,1.8fr)", gridTemplateRows: "360px", gap: 10, width: "100%", overflowX: "auto" }}>
 
                                       {/* ── Col 1: TradingView mini chart ── */}
                                       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
+                                        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           📊 CHART
                                         </div>
@@ -13421,7 +13421,7 @@ export default function App() {
 
                                       {/* ── Col 2: TECHNICALS (indicators + signals + entry zones) ── */}
                                       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
+                                        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           ⚡ TECHNICALS
                                         </div>
@@ -13438,7 +13438,7 @@ export default function App() {
                                             { k: "Score", v: `${row.score} / 100`, col: row.sColor },
                                           ].map(({ k, v, col }) => (
                                             <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                              fontFamily: MONO, fontSize: 13, padding: "5px 0",
+                                              fontFamily: MONO, fontSize: 12, padding: "5px 0",
                                               borderBottom: `1px solid ${C.border}22` }}>
                                               <span style={{ color: C.textDim }}>{k}</span>
                                               <span style={{ color: col, fontWeight: 700 }}>{v}</span>
@@ -13475,7 +13475,7 @@ export default function App() {
                                               { label: "Stop ✂", val: ref.stop, col: C.red },
                                             ].map(z => (
                                               <div key={z.label} style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 13, padding: "4px 0",
+                                                fontFamily: MONO, fontSize: 12, padding: "4px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
                                                 <span style={{ color: z.col }}>{z.label}</span>
                                                 <span style={{ color: z.col, fontWeight: 700 }}>${Number(z.val).toFixed(2)}</span>
@@ -13488,7 +13488,7 @@ export default function App() {
 
                                       {/* ── Col 3: FUNDAMENTALS + SHORT INTEREST + OPTIONS ── */}
                                       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
+                                        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           📋 FUNDAMENTALS
                                         </div>
@@ -13506,7 +13506,7 @@ export default function App() {
                                               ["52W",        (yH > 0 && yL > 0) ? `${yL.toFixed(0)}–${yH.toFixed(0)}` : "—"],
                                             ].map(([k, v]) => (
                                               <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 13, padding: "5px 0",
+                                                fontFamily: MONO, fontSize: 12, padding: "5px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
                                                 <span style={{ color: C.textDim }}>{k}</span>
                                                 <span style={{ color: C.text, fontWeight: 600 }}>{v}</span>
@@ -13514,7 +13514,7 @@ export default function App() {
                                             ))}
                                           </div>
                                         ) : (
-                                          <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginBottom: 12 }}>
+                                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 12 }}>
                                             {deepData ? "No data" : "Loading…"}
                                           </div>
                                         )}
@@ -13535,7 +13535,7 @@ export default function App() {
                                                 ["Updated",     si.dateShortInterest || "—", C.textDim],
                                               ].map(([k, v, col]) => (
                                                 <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 13, padding: "4px 0",
+                                                  fontFamily: MONO, fontSize: 12, padding: "4px 0",
                                                   borderBottom: `1px solid ${C.border}22` }}>
                                                   <span style={{ color: C.textDim }}>{k}</span>
                                                   <span style={{ color: col, fontWeight: 700 }}>{v}</span>
@@ -13557,20 +13557,20 @@ export default function App() {
                                               <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
                                                 letterSpacing: "0.08em", marginBottom: 5 }}>📊 OPTIONS FLOW</div>
                                               <div style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 13, padding: "4px 0",
+                                                fontFamily: MONO, fontSize: 12, padding: "4px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
                                                 <span style={{ color: C.textDim }}>C/P Ratio</span>
                                                 <span style={{ color: cprColor, fontWeight: 700 }}>{cpr.toFixed(2)}×</span>
                                               </div>
                                               <div style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 13, padding: "4px 0",
+                                                fontFamily: MONO, fontSize: 12, padding: "4px 0",
                                                 borderBottom: `1px solid ${C.border}22` }}>
                                                 <span style={{ color: C.textDim }}>Bias</span>
                                                 <span style={{ color: cprColor, fontWeight: 700 }}>{cprLabel}</span>
                                               </div>
                                               {opt.expiration && (
                                                 <div style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 13, padding: "4px 0" }}>
+                                                  fontFamily: MONO, fontSize: 12, padding: "4px 0" }}>
                                                   <span style={{ color: C.textDim }}>Exp</span>
                                                   <span style={{ color: C.textSec }}>{opt.expiration}</span>
                                                 </div>
@@ -13583,16 +13583,16 @@ export default function App() {
 
                                       {/* ── Col 4: SOCIAL SENTIMENT + INSIDER BUYS ── */}
                                       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
+                                        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           💬 SOCIAL SENTIMENT
                                         </div>
                                         {deepSocialLoad[row.ticker] ? (
-                                          <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>Loading…</div>
+                                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>
                                         ) : (() => {
                                           const sd = deepSocialData[row.ticker];
                                           if (!sd || (!sd.stocktwits && !sd.redditMentions)) {
-                                            return <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>No data</div>;
+                                            return <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>No data</div>;
                                           }
                                           const stwits  = sd.stocktwits || {};
                                           const bullPct = stwits.bullPct ?? 50;
@@ -13628,7 +13628,7 @@ export default function App() {
                                                 ["WSB", sd.redditMentions ?? "—"],
                                               ].map(([k, v]) => (
                                                 <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 13, padding: "5px 0",
+                                                  fontFamily: MONO, fontSize: 12, padding: "5px 0",
                                                   borderBottom: `1px solid ${C.border}22` }}>
                                                   <span style={{ color: C.textDim }}>{k}</span>
                                                   <span style={{ color: C.text, fontWeight: 700 }}>{v}</span>
@@ -13697,7 +13697,7 @@ export default function App() {
 
                                       {/* ── Col 5: RECENT NEWS ── */}
                                       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
+                                        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                           color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
                                           📰 RECENT NEWS
                                         </div>
@@ -13735,7 +13735,7 @@ export default function App() {
                                             })}
                                           </div>
                                         ) : (
-                                          <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>
+                                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                                             {deepData ? "No news found" : "Loading…"}
                                           </div>
                                         )}
@@ -13744,7 +13744,7 @@ export default function App() {
                                       {/* ── Col 6: AI Trade Setup + Auto-Execute ── */}
                                       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                                          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
+                                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                             color: C.textDim, letterSpacing: "0.06em" }}>
                                             🤖 AI TRADE SETUP
                                           </div>
@@ -13832,7 +13832,7 @@ export default function App() {
                                         })()}
 
                                         {!tradeSetups[row.ticker] && !tradeSetupLoad[row.ticker] && !tradeSetupError[row.ticker] && (
-                                          <div style={{ flex: 1, fontFamily: MONO, fontSize: 13, color: C.textDim,
+                                          <div style={{ flex: 1, fontFamily: MONO, fontSize: 12, color: C.textDim,
                                             background: themeMode === "dark" ? "#0a1628" : "#f5f9ff",
                                             border: `1px dashed ${C.border}`, borderRadius: 6,
                                             padding: "20px 14px", textAlign: "center", lineHeight: 1.7,
