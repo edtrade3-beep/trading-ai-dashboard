@@ -23,7 +23,7 @@ const { PORT, HOST } = require("./src/config");
 const handleRequest = require("./src/router");
 const { startPriceAlertMonitor } = require("./src/price-alert-monitor");
 const { startFbScheduler } = require("./src/fb-scheduler");
-const { startMarketScanner, sendMacroReport } = require("./src/market-scanner");
+const { startMarketScanner, sendMacroReport, scanWatchlistAlerts } = require("./src/market-scanner");
 const { startTelegramBot }    = require("./src/telegram-bot");
 const { checkDealWatches }   = require("./src/routes/deals");
 const { startCOTScheduler }  = require("./src/cot/scheduler");
@@ -48,6 +48,18 @@ server.listen(PORT, HOST, () => {
   startTelegramBot();
   startCOTScheduler();    // COT bias reports at 7 scheduled ET times M-F
   startPreMarketAlerts(); // Gap scan Telegram alerts at 7:00 AM and 9:00 AM ET
+
+  // Watchlist-specific alerts — scan user's saved watchlist every 15 min
+  setInterval(() => {
+    try {
+      const { loadSettings } = require("./src/settings-store");
+      const settings = loadSettings() || {};
+      const wl = Array.isArray(settings.watchlistSymbols) ? settings.watchlistSymbols :
+                 Array.isArray(settings.watchlists?.[0]?.symbols) ? settings.watchlists[0].symbols : [];
+      if (wl.length > 0) scanWatchlistAlerts(wl).catch(() => {});
+    } catch {}
+  }, 15 * 60_000);
+  console.log("[WL Alerts] Watchlist scanner active — checks every 15 min");
 
   // Auto-download CFTC data on startup if not already fresh
   setTimeout(() => {

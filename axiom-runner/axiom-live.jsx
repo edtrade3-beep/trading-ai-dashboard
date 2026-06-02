@@ -7209,6 +7209,7 @@ export default function App() {
   const [scanProgress, setScanProgress] = useState({ done: 0, total: 30 });
   const [scanExpanded, setScanExpanded] = useState(null);
   const [scanLastRun,  setScanLastRun]  = useState(null);
+  const [scanHistory,  setScanHistory]  = useState([]); // last 5 scan summaries
   const [scanError,    setScanError]    = useState(null);
   const [scanDeepData, setScanDeepData] = useState({});
   const [scanDeepLoad, setScanDeepLoad] = useState({});
@@ -8038,6 +8039,13 @@ export default function App() {
         .sort((a, b) => b.score - a.score);
       setScanResults(scored);
       setScanLastRun(new Date());
+      // Save to scan history (keep last 8)
+      setScanHistory(prev => [{
+        ts: new Date(),
+        topBuys: scored.filter(r => r.signal === "STRONG BUY" || r.signal === "BUY").slice(0,3).map(r => ({ ticker: r.ticker, score: r.score, signal: r.signal })),
+        topSells: scored.filter(r => r.signal === "AVOID").slice(0,2).map(r => ({ ticker: r.ticker, score: r.score })),
+        total: scored.length,
+      }, ...prev].slice(0, 8));
     } catch (e) {
       setScanError(e.message);
     }
@@ -9822,13 +9830,18 @@ export default function App() {
         const symbol = String(h.symbol || "").toUpperCase();
         const shares = Number(h.shares || 0);
         const avgCost = Number(h.avgCost || 0);
-        const live = watchlistData.find((q) => q.symbol === symbol) || null;
-        const price = Number(live?.price || 0);
+        // Check watchlist first, then macroData for index stocks
+        const live = watchlistData.find((q) => q.symbol === symbol)
+                  || (macroData||[]).find((q) => q.symbol === symbol)
+                  || null;
+        const price = Number(live?.price || h.lastPrice || 0);
+        const dayChg = Number(live?.changesPercentage || live?.delta1d || 0);
         const marketValue = shares * price;
         const costBasis = shares * avgCost;
         const pnl = marketValue - costBasis;
         const pnlPct = costBasis > 0 ? (pnl / costBasis) * 100 : 0;
-        return { idx, symbol, shares, avgCost, live, marketValue, costBasis, pnl, pnlPct };
+        const dayPnl = shares * price * dayChg / 100;
+        return { idx, symbol, shares, avgCost, live, marketValue, costBasis, pnl, pnlPct, dayChg, dayPnl };
       })
       .filter((r) => r.symbol);
   }, [portfolioHoldings, watchlistData]);
@@ -9837,9 +9850,11 @@ export default function App() {
     const totalCost = portfolioRows.reduce((sum, r) => sum + r.costBasis, 0);
     const totalPnl = totalValue - totalCost;
     const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
-    const winners = portfolioRows.filter((r) => r.pnl >= 0).length;
-    const losers = portfolioRows.filter((r) => r.pnl < 0).length;
-    return { totalValue, totalCost, totalPnl, totalPnlPct, winners, losers };
+    const winners   = portfolioRows.filter((r) => r.pnl >= 0).length;
+    const losers    = portfolioRows.filter((r) => r.pnl < 0).length;
+    const dayPnlTotal = portfolioRows.reduce((s, r) => s + (r.dayPnl || 0), 0);
+    const dayPnlPct   = totalValue > 0 ? dayPnlTotal / totalValue * 100 : 0;
+    return { totalValue, totalCost, totalPnl, totalPnlPct, winners, losers, dayPnlTotal, dayPnlPct };
   }, [portfolioRows]);
   const liveJournalPnl = useMemo(() => {
     const map = {};
@@ -10938,11 +10953,20 @@ export default function App() {
 
             {/* Portfolio P/L */}
             {portfolioSummary.totalCost > 0 && portfolioSummary.totalValue > 0 && (
-              <div onClick={() => setActiveTab("portfolio")} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 6, border: `1px solid ${portfolioSummary.totalPnl >= 0 ? C.green : C.red}44`, background: portfolioSummary.totalPnl >= 0 ? `${C.green}0e` : `${C.red}0e`, cursor: "pointer" }}>
-                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>PORT</span>
-                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red }}>
-                  {portfolioSummary.totalPnl >= 0 ? "+" : ""}{portfolioSummary.totalPnlPct.toFixed(2)}%
-                </span>
+              <div onClick={() => setActiveTab("portfolio")} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6,
+                border: `1px solid ${portfolioSummary.totalPnl >= 0 ? C.green : C.red}44`,
+                background: portfolioSummary.totalPnl >= 0 ? `${C.green}0e` : `${C.red}0e`, cursor: "pointer" }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>PORT</span>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red }}>
+                    {portfolioSummary.totalPnl >= 0 ? "+" : ""}{portfolioSummary.totalPnlPct.toFixed(2)}%
+                  </div>
+                  {(portfolioSummary.dayPnlTotal || 0) !== 0 && (
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: (portfolioSummary.dayPnlTotal||0) >= 0 ? C.green : C.red }}>
+                      Today {(portfolioSummary.dayPnlTotal||0) >= 0 ? "+" : ""}{formatNum(portfolioSummary.dayPnlTotal||0)}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -15716,6 +15740,46 @@ export default function App() {
                   </div>
                 </div>
               )}
+            {/* ── SCAN HISTORY ── */}
+            {scanHistory.length > 0 && (
+              <div style={{ marginTop: 16, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px" }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, marginBottom: 10, letterSpacing: "0.06em" }}>
+                  📋 SCAN HISTORY
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {scanHistory.map((h, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px",
+                      background: i === 0 ? `${C.accent}08` : "transparent",
+                      border: `1px solid ${i === 0 ? C.accent : C.border}22`, borderRadius: 6 }}>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, flexShrink: 0, width: 48 }}>
+                        {h.ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, flexShrink: 0 }}>
+                        {h.total} stocks
+                      </span>
+                      <div style={{ display: "flex", gap: 5, flex: 1, flexWrap: "wrap" }}>
+                        {h.topBuys.map(s => (
+                          <span key={s.ticker} onClick={() => { setTerminalSymbol(s.ticker); setActiveTab("smartscan"); }}
+                            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.green,
+                              background: `${C.green}14`, borderRadius: 4, padding: "1px 6px", cursor: "pointer" }}>
+                            🟢 {s.ticker} {s.score}
+                          </span>
+                        ))}
+                        {h.topSells.map(s => (
+                          <span key={s.ticker} onClick={() => { setTerminalSymbol(s.ticker); setActiveTab("smartscan"); }}
+                            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.red,
+                              background: `${C.red}12`, borderRadius: 4, padding: "1px 6px", cursor: "pointer" }}>
+                            🔴 {s.ticker} {s.score}
+                          </span>
+                        ))}
+                      </div>
+                      {i === 0 && <span style={{ fontFamily: SANS, fontSize: 10, color: C.accent, flexShrink: 0 }}>LATEST</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             </div>
           );
         })()}
@@ -17077,6 +17141,7 @@ export default function App() {
                       <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Mkt Value</th>
                       <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>P/L</th>
                       <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>P/L %</th>
+                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.amber }}>TODAY</th>
                       <th style={{ padding: "8px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Action</th>
                     </tr>
                   </thead>
@@ -17111,6 +17176,10 @@ export default function App() {
                         </td>
                         <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 12, color: row.pnlPct >= 0 ? C.green : C.red }}>
                           {row.pnlPct >= 0 ? "+" : ""}{row.pnlPct.toFixed(2)}%
+                        </td>
+                        <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 12,
+                          color: (row.dayPnl || 0) >= 0 ? C.green : C.red, fontWeight: 700 }}>
+                          {row.dayPnl ? `${row.dayPnl >= 0 ? "+" : ""}${formatNum(row.dayPnl)}` : "—"}
                         </td>
                         <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "center" }}>
                           <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>

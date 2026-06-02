@@ -708,25 +708,8 @@ const COMMANDS = {
   watchlist: () => cmdWatchlist(),
   wl:        () => cmdWatchlist(),
   scanner:   (a) => cmdScanner(a),
-  deals:     (a) => cmdDeals(a),
-  d:         (a) => cmdDeals(a),
-  twits:     (a) => cmdTwits(a),
-  trending:  (a) => cmdTwits(a),
-  sentiment: (a) => cmdTwits(a),
   news:      (a) => cmdNews(a),
-  reddit:    (a) => cmdNews(a),
-  // ── Direct news shortcut commands ──────────────────────────────────────────
   wsb:       ()  => cmdNews(["wallstreetbets"]),
-  stocks:    ()  => cmdNews(["stocks"]),
-  invest:    ()  => cmdNews(["investing"]),
-  investing: ()  => cmdNews(["investing"]),
-  dd:        ()  => cmdNews(["SecurityAnalysis"]),
-  options:   ()  => cmdNews(["options"]),
-  tech:      ()  => cmdNews(["technology"]),
-  ai:        ()  => cmdNews(["artificial"]),
-  ml:        ()  => cmdNews(["MachineLearning"]),
-  finance:   ()  => cmdNews(["finance"]),
-  r:         (a) => cmdNews(a),
 
   // ── New Pro Commands ──────────────────────────────────────────────────────
   score: async (args) => {
@@ -785,21 +768,112 @@ const COMMANDS = {
 
   mute: async (args) => {
     const level = (args[0] || "").toLowerCase();
-    if (level === "quiet") { alertLevel = "quiet"; return reply("🔕 QUIET MODE — Only score ≥85 + BOS alerts"); }
-    if (level === "all")   { alertLevel = "all";   return reply("🔔🔔🔔 ALL ALERTS — Everything enabled"); }
-    if (level === "off")   { alertLevel = "off";   return reply("🚫 ALERTS OFF — Use /mute on to resume"); }
-    if (level === "on")    { alertLevel = "normal"; return reply("🔔 NORMAL MODE — Score ≥72 alerts"); }
-    alertLevel = "normal";
-    return reply(
-      `🎚 ALERT LEVELS\n` +
-      `━━━━━━━━━━━━━━━━\n` +
-      `/mute quiet  — Score≥85 + BOS only (1-2/day)\n` +
-      `/mute on     — Score≥72 normal (default)\n` +
-      `/mute all    — Everything\n` +
-      `/mute off    — Silence all alerts\n\n` +
-      `Current: ${alertLevel.toUpperCase()}`
-    );
+    if (level === "quiet") { alertLevel = "quiet"; return reply("🔕 QUIET MODE — Only score≥85 + BOS"); }
+    if (level === "all")   { alertLevel = "all";   return reply("🔔🔔🔔 ALL ALERTS enabled"); }
+    if (level === "off")   { alertLevel = "off";   return reply("🚫 ALERTS OFF — /mute on to resume"); }
+    if (level === "on")    { alertLevel = "normal"; return reply("🔔 NORMAL — Score≥72 alerts"); }
+    return reply(`🎚 ALERT LEVELS\n━━━━━━━━━━━━━━\n/mute quiet  1-2/day (score≥85+BOS)\n/mute on     normal mode (default)\n/mute all    everything\n/mute off    total silence\n\nCurrent: ${alertLevel.toUpperCase()}`);
   },
+
+  // ── Status: show current bot settings ──────────────────────────────────────
+  status: async () => {
+    const status = getScannerStatus();
+    const et = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+    const quietNow = isQuietHours();
+    const lines = [
+      `📊 BOT STATUS — ${et} ET`,
+      `━━━━━━━━━━━━━━━━━━━━`,
+      `Alert Level: ${alertLevel.toUpperCase()}`,
+      `Quiet Hours: ${quietNow ? "🔕 ACTIVE (4:30pm-7am ET)" : "✅ OFF (market hours)"}`,
+      `Scanner: ${status.config?.enabled ? "✅ RUNNING" : "❌ STOPPED"}`,
+      `Interval: ${status.config?.intervalMinutes || 15}min`,
+      `Last scan: ${status.lastRunAt ? new Date(status.lastRunAt).toLocaleTimeString() : "never"}`,
+      `Signals: ${(status.lastHits || []).length} from last scan`,
+      ``,
+      `Commands: /help  /scan  /top5  /score NVDA`,
+      `/mute  /pause Xh  /status  /wl`,
+    ];
+    return reply(lines.join("\n"));
+  },
+
+  // ── Pause alerts for X hours ────────────────────────────────────────────────
+  pause: async (args) => {
+    const hrs = Math.max(0.5, Math.min(24, Number(args[0]) || 4));
+    const prev = alertLevel;
+    alertLevel = "off";
+    setTimeout(() => { alertLevel = prev; }, hrs * 3600_000);
+    return reply(`⏸ ALERTS PAUSED for ${hrs}h — resumes at ${new Date(Date.now() + hrs * 3600_000).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" })} ET`);
+  },
+
+  resume: async () => {
+    alertLevel = "normal";
+    return reply("▶ ALERTS RESUMED — Normal mode (score≥72)");
+  },
+
+  // ── Watchlist management ─────────────────────────────────────────────────────
+  wl: async (args) => {
+    const { loadSettings, saveSettings } = require("./settings-store");
+    const settings = loadSettings() || {};
+    const wl = Array.isArray(settings.watchlistSymbols) ? settings.watchlistSymbols : [];
+    const action = (args[0] || "").toLowerCase();
+    const sym    = (args[1] || "").toUpperCase();
+    if (action === "add" && sym) {
+      if (!wl.includes(sym)) { wl.push(sym); settings.watchlistSymbols = wl; saveSettings(settings); }
+      return reply(`✅ ${sym} added to watchlist\nWatchlist (${wl.length}): ${wl.join(", ")}`);
+    }
+    if ((action === "remove" || action === "rm") && sym) {
+      const idx = wl.indexOf(sym);
+      if (idx >= 0) { wl.splice(idx, 1); settings.watchlistSymbols = wl; saveSettings(settings); }
+      return reply(`❌ ${sym} removed\nWatchlist (${wl.length}): ${wl.join(", ")}`);
+    }
+    // Show watchlist with live prices
+    if (!wl.length) return reply("Your watchlist is empty.\n/wl add NVDA  to add a stock");
+    const quotes = await fetchYahooQuoteBatch(wl.slice(0, 20)).catch(() => []);
+    const rows = wl.map(s => {
+      const q = quotes.find(x => String(x.symbol||"").toUpperCase() === s);
+      if (!q) return `${s.padEnd(6)} —`;
+      const px  = round2(Number(q.regularMarketPrice || 0));
+      const chg = round2(Number(q.regularMarketChangePercent || 0));
+      return `${s.padEnd(6)} $${px}  ${chg >= 0 ? "+" : ""}${chg}%`;
+    });
+    return reply(`📋 WATCHLIST (${wl.length})\n━━━━━━━━━━━━━━\n${rows.join("\n")}\n\n/wl add NVDA  |  /wl remove NVDA`);
+  },
+
+  // ── Help ─────────────────────────────────────────────────────────────────────
+  // (override the default help to be cleaner)
+  help: async () => reply([
+    "⚡ AXIOM BOT — COMMANDS",
+    "━━━━━━━━━━━━━━━━━━━━",
+    "ANALYSIS:",
+    "/score NVDA    — SMC analysis + signals",
+    "/smc NVDA      — alias for /score",
+    "/price AAPL    — live quote (or just type AAPL)",
+    "",
+    "SCANNER:",
+    "/scan          — run full market scan now",
+    "/top5          — top 5 buy setups",
+    "/top / /worst  — top buy/sell from last scan",
+    "/market        — macro snapshot",
+    "",
+    "ALERTS:",
+    "/mute          — show/set alert level",
+    "/pause 4h      — pause alerts for 4 hours",
+    "/resume        — resume alerts",
+    "/status        — current bot settings",
+    "",
+    "WATCHLIST:",
+    "/wl            — show watchlist with prices",
+    "/wl add NVDA   — add to watchlist",
+    "/wl remove NVDA",
+    "/alert AAPL above 200",
+    "/alerts        — list your price alerts",
+    "",
+    "OTHER:",
+    "/brief         — generate morning briefing",
+    "/watchlist     — full watchlist quotes",
+    "",
+    "💡 Just type a ticker (NVDA) for instant analysis",
+  ].join("\n")),
 };
 
 async function dispatch(text) {
@@ -909,12 +983,14 @@ async function registerCommands() {
       { command: "alerts",    description: "List active price alerts" },
       { command: "cancel",    description: "Cancel alert — /cancel <id>" },
       { command: "score",     description: "SMC analysis — /score NVDA" },
-      { command: "smc",       description: "SMC analysis — /smc NVDA (alias for /score)" },
-      { command: "top5",      description: "Top 5 buy setups from last scan" },
-      { command: "brief",     description: "Generate market briefing now" },
-      { command: "mute",      description: "Alert level — /mute quiet | on | all | off" },
-      { command: "deals",     description: "Top deals — /deals laptop" },
-      { command: "scanner",   description: "Scanner control — on / off / interval 5" },
+      { command: "top5",      description: "Top 5 setups from last scan" },
+      { command: "brief",     description: "Generate morning briefing" },
+      { command: "status",    description: "Bot settings + scanner status" },
+      { command: "wl",        description: "Watchlist — /wl | /wl add NVDA | /wl remove NVDA" },
+      { command: "mute",      description: "Alert level — /mute quiet|on|all|off" },
+      { command: "pause",     description: "Pause alerts — /pause 4h" },
+      { command: "resume",    description: "Resume alerts after pause" },
+      { command: "scanner",   description: "Scanner — on / off / interval 5" },
       { command: "help",      description: "All commands" },
     ];
     const res  = await fetch(`${API}/setMyCommands`, {
