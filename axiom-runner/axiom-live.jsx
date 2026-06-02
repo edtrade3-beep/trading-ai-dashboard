@@ -14991,19 +14991,20 @@ export default function App() {
                                             return snap(px);
                                           })();
 
-                                          // Next 3rd-Friday expiry ≥14 days out
+                                          // Next 3rd-Friday expiry ≥21 DTE (optimal theta range)
                                           const expiry = (() => {
-                                            const today = new Date();
-                                            for (let m = 0; m < 4; m++) {
+                                            const now   = new Date();
+                                            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                                            for (let m = 0; m < 6; m++) {
                                               const d = new Date(today.getFullYear(), today.getMonth() + m, 1);
                                               let fri = 0;
                                               while (fri < 3) { if (d.getDay() === 5) fri++; if (fri < 3) d.setDate(d.getDate() + 1); }
                                               const dte = Math.round((d - today) / 86400000);
-                                              if (dte >= 14) {
-                                                const mm = String(d.getMonth()+1).padStart(2,"0");
-                                                const dd = String(d.getDate()).padStart(2,"0");
-                                                const yy = String(d.getFullYear()).slice(2);
-                                                return { label: `${mm}/${dd}/${yy}`, dte };
+                                              if (dte >= 21) {
+                                                const mm   = String(d.getMonth()+1).padStart(2,"0");
+                                                const dd2  = String(d.getDate()).padStart(2,"0");
+                                                const yyyy = d.getFullYear();
+                                                return { label: `${mm}/${dd2}/${yyyy}`, dte };
                                               }
                                             }
                                             return { label: "—", dte: 30 };

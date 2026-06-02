@@ -1468,23 +1468,30 @@ async function handleMarket(req, res, requestUrl) {
   // Scans a universe of stocks and returns actionable LONG/SHORT/CALL/PUT signals
   if (pathname === "/api/market/trade-signals" && req.method === "GET") {
     // ── Options helpers ────────────────────────────────────────────────────────
-    function getNearestExpiry(minDTE = 14) {
+    function getNearestExpiry(minDTE = 21) {
       // Returns the next 3rd-Friday monthly expiration at least minDTE days out
-      const today = new Date();
+      // Uses date-only comparison to avoid time-of-day DTE errors
+      const now   = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // midnight today
       const results = [];
-      for (let m = 0; m < 4; m++) {
+      for (let m = 0; m < 6; m++) {
         const d = new Date(today.getFullYear(), today.getMonth() + m, 1);
-        // Find 3rd Friday
+        // Find 3rd Friday of this month
         let friCount = 0;
-        while (friCount < 3) { if (d.getDay() === 5) friCount++; if (friCount < 3) d.setDate(d.getDate() + 1); }
-        const dte = Math.round((d - today) / 86400000);
-        results.push({ date: d, dte });
+        while (friCount < 3) {
+          if (d.getDay() === 5) friCount++;
+          if (friCount < 3) d.setDate(d.getDate() + 1);
+        }
+        // DTE = calendar days from today (midnight) to expiry (midnight)
+        const dte = Math.round((d.getTime() - today.getTime()) / 86400000);
+        results.push({ date: new Date(d), dte });
       }
+      // Pick the first expiry with DTE >= minDTE (prefer 21-45 DTE range)
       const chosen = results.find(r => r.dte >= minDTE) || results[results.length - 1];
-      const mm = String(chosen.date.getMonth() + 1).padStart(2, "0");
-      const dd = String(chosen.date.getDate()).padStart(2, "0");
-      const yy = String(chosen.date.getFullYear()).slice(2);
-      return { label: `${mm}/${dd}/${yy}`, dte: chosen.dte };
+      const mm   = String(chosen.date.getMonth() + 1).padStart(2, "0");
+      const dd   = String(chosen.date.getDate()).padStart(2, "0");
+      const yyyy = chosen.date.getFullYear(); // full 4-digit year
+      return { label: `${mm}/${dd}/${yyyy}`, dte: chosen.dte };
     }
 
     function getStrike(price, action) {
@@ -1645,7 +1652,7 @@ async function handleMarket(req, res, requestUrl) {
           // ── Options-specific trade details ──────────────────────────────────
           let optDetail = null;
           if (optionType && !optionType.includes("WAIT")) {
-            const expiry = getNearestExpiry(14);
+            const expiry = getNearestExpiry(21);
             const strike = getStrike(price, optionType);
             const isCall = optionType.includes("CALL");
             const isPut  = optionType.includes("PUT");
