@@ -4,6 +4,7 @@ const { ROOT } = require("./config");
 const { fetchYahooBars } = require("./providers/yahoo");
 const { computeEMA, computeRSI } = require("./indicators");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
+const { detectFVGs, detectOrderBlocks, detectBOSChoCh, computeVolumeProfile, detectLiquidityLevels } = require("./smc-engine");
 const { maybeAutoExecute } = require("./routes/autoexec");
 const { fetchTrending: stTrending }  = require("./providers/stocktwits");
 const { fetchAllNews, fetchFinanceNews } = require("./providers/reddit-news");
@@ -591,6 +592,83 @@ async function runScan(options = {}) {
           `Order ID: ${result.orderId || "pending"}`;
         if (telegramConfigured()) sendTelegramMessage(msg).catch(() => {});
       }).catch(() => {});
+    }
+
+    // ── SMC EARLY ALERTS — fire separate Telegram for institutional setups ──────
+    // Runs in parallel — won't block the main alert dispatch below.
+    if (telegramConfigured()) {
+      (async () => {
+        try {
+          const smcCooldown = new Map(); // local cooldown so we don't spam
+          for (let i = 0; i < symbols.length; i++) {
+            const sym  = symbols[i];
+            const a    = results[i];
+            if (!a || a.error || a.composite < 65) continue; // only quality stocks
+
+            const smcKey = `${sym}:SMC`;
+            const lastSmc = smcCooldown.get(smcKey);
+            if (lastSmc && Date.now() - lastSmc < 4 * 3600_000) continue; // 4h cooldown
+
+            const bars = await fetchYahooBars(sym, "3mo", "1d").catch(() => []);
+            if (bars.length < 20) continue;
+
+            const { bos, choch }  = detectBOSChoCh(bars);
+            const fvgs            = detectFVGs(bars);
+            const obs             = detectOrderBlocks(bars);
+            const vp              = computeVolumeProfile(bars);
+            const liquidity       = detectLiquidityLevels(bars);
+            const price           = a.price;
+
+            // Gate: need at least one actionable SMC signal
+            const hasBullBOS    = bos?.type === "BULL_BOS";
+            const hasBullOB     = obs.some(ob => ob.type === "BULL_OB" && Math.abs(ob.mid - price) / price < 0.08);
+            const hasBullFVG    = fvgs.some(f => f.type === "BULL_FVG" && price >= f.bot && price <= f.top * 1.03);
+            const nearVPOC      = vp.vpoc > 0 && Math.abs(price - vp.vpoc) / price < 0.03;
+            const nearVAL       = vp.val > 0 && Math.abs(price - vp.val) / price < 0.03;
+
+            if (!hasBullBOS && !hasBullOB && !hasBullFVG) continue; // no SMC signal
+
+            smcCooldown.set(smcKey, Date.now());
+
+            // Build the alert message
+            const emoji    = a.composite >= 85 ? "🔥" : a.composite >= 75 ? "⚡" : "📐";
+            const signal   = hasBullBOS ? "BULL BOS — Structure Break" : hasBullOB ? "BULL ORDER BLOCK — Support Zone" : "BULL FVG — Gap Fill Zone";
+            const nearOB   = obs.find(ob => ob.type === "BULL_OB" && Math.abs(ob.mid - price) / price < 0.08);
+            const entry    = nearOB ? round2((nearOB.top + nearOB.bot) / 2) : round2(price);
+            const stop     = nearOB ? round2(nearOB.bot * 0.985) : round2(price * 0.92);
+            const t1       = round2(entry * 1.08);
+            const t2       = round2(entry * 1.15);
+            const rr       = stop < entry ? round2((t1 - entry) / (entry - stop)) : 0;
+
+            const lines = [
+              `${emoji} <b>SMC EARLY ALERT — $${sym}</b>`,
+              ``,
+              `📐 <b>SIGNAL:</b> ${signal}`,
+              bos   ? `    BOS Level: $${bos.level}` : "",
+              choch ? `    ⚠️ ChoCh Detected — ${choch.label}` : "",
+              nearOB ? `🔲 <b>ORDER BLOCK:</b> $${nearOB.bot}–$${nearOB.top}` : "",
+              hasBullFVG ? `🕳 <b>FVG Zone:</b> unfilled gap — potential magnet` : "",
+              nearVPOC ? `📊 Price at VPOC $${vp.vpoc} — high-volume node` : "",
+              nearVAL  ? `📊 Price at VAL $${vp.val} — value area support` : "",
+              ``,
+              `🎯 <b>TRADE PLAN:</b>`,
+              `   Entry: $${entry}   Stop: $${stop}`,
+              `   T1: $${t1}  T2: $${t2}   R:R ${rr}:1`,
+              ``,
+              `📈 Score: ${a.composite}/100  RSI: ${a.rsi?.toFixed(0)}  RVOL: ${a.rvol?.toFixed(1)}×`,
+              `   Trend: ${a.trend}  Change: ${a.chgPct > 0 ? "+" : ""}${a.chgPct?.toFixed(2)}%`,
+              ``,
+              liquidity.length ? `💧 Key levels nearby: ${liquidity.slice(0,3).map(l => `$${l.price} (${l.label.split("—")[0].trim()})`).join(" · ")}` : "",
+              ``,
+              `⏰ ${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} ET  •  Decision support only`,
+            ].filter(Boolean).join("\n");
+
+            await sendTelegramMessage(lines).catch(() => {});
+          }
+        } catch (err) {
+          console.error("[SMC Alert] Error:", err.message);
+        }
+      })();
     }
 
     // ── ALERT DISPATCH ────────────────────────────────────────────────────────
