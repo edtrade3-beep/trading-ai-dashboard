@@ -1702,6 +1702,126 @@ async function handleMarket(req, res, requestUrl) {
     }
   }
 
+  // ── GET /api/market/smc?symbol=NVDA ─────────────────────────────────────────
+  if (pathname === "/api/market/smc" && req.method === "GET") {
+    const symbol = (requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { error: "symbol required" });
+    try {
+      const { detectFVGs, detectOrderBlocks, detectBOSChoCh, computeVolumeProfile, detectLiquidityLevels } = require("../smc-engine");
+      const bars = await fetchYahooBars(symbol, "3mo", "1d");
+      if (!bars.length) return writeJson(res, 200, { ok: false, error: "No bar data" });
+      const price = bars[bars.length - 1].close;
+      return writeJson(res, 200, {
+        ok: true, symbol, price: round2(price),
+        fvgs:       detectFVGs(bars),
+        orderBlocks: detectOrderBlocks(bars),
+        ...detectBOSChoCh(bars),
+        volumeProfile: computeVolumeProfile(bars),
+        liquidity:  detectLiquidityLevels(bars),
+        scannedAt:  new Date().toISOString(),
+      });
+    } catch (e) {
+      return writeJson(res, 502, { ok: false, error: e.message });
+    }
+  }
+
+  // ── GET /api/market/tick-trin ─────────────────────────────────────────────
+  // NYSE TICK and TRIN for market internals
+  if (pathname === "/api/market/tick-trin" && req.method === "GET") {
+    try {
+      const syms = ["^TICK", "^TRIN", "^VIX", "^VVIX"];
+      const results = await Promise.allSettled(syms.map(s => fetchYahooQuoteBatch([s])));
+      const data = {};
+      results.forEach((r, i) => {
+        if (r.status === "fulfilled" && r.value[0]) {
+          const q = r.value[0];
+          const sym = syms[i].replace("^","");
+          data[sym] = {
+            price: round2(Number(q.regularMarketPrice || 0)),
+            chg:   round2(Number(q.regularMarketChange || 0)),
+            pct:   round2(Number(q.regularMarketChangePercent || 0)),
+          };
+        }
+      });
+      // Interpret TICK
+      const tick = data["TICK"]?.price || 0;
+      const trin = data["TRIN"]?.price || 0;
+      const tickSignal = tick > 800 ? "EXTREME BUYING" : tick > 400 ? "BROAD BUYING" : tick < -800 ? "EXTREME SELLING" : tick < -400 ? "BROAD SELLING" : "NEUTRAL";
+      const trinSignal = trin < 0.6 ? "VERY BULLISH" : trin < 0.8 ? "BULLISH" : trin < 1.2 ? "NEUTRAL" : trin < 1.5 ? "BEARISH" : "VERY BEARISH";
+      return writeJson(res, 200, { ok: true, data, tickSignal, trinSignal, scannedAt: new Date().toISOString() });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e.message, data: {} });
+    }
+  }
+
+  // ── GET /api/market/short-changes — weekly short interest change leaders ───
+  if (pathname === "/api/market/short-changes" && req.method === "GET") {
+    try {
+      const UNIVERSE = ["NVDA","TSLA","AAPL","META","AMD","COIN","MSTR","PLTR","SMCI","ARM",
+        "HOOD","MARA","RIOT","SOFI","UPST","AFRM","CRWD","NET","SNOW","DDOG",
+        "BBAI","SERV","RKLB","ASTS","IONQ","RGTI","OKLO","SMR","CEG","GEV",
+        "IBIT","HYG","SPY","QQQ","IWM","SMH","XLK","ABNB","UBER","DASH"];
+      const chunks = [];
+      for (let i = 0; i < UNIVERSE.length; i += 20) chunks.push(UNIVERSE.slice(i, i + 20));
+      const settled = await Promise.allSettled(chunks.map(c => fetchYahooQuoteBatch(c)));
+      const quotes = settled.flatMap(r => r.status === "fulfilled" ? r.value : []);
+
+      const stocks = quotes.map(q => {
+        const sym    = String(q.symbol || "").toUpperCase();
+        const price  = round2(Number(q.regularMarketPrice || 0));
+        const sfRaw  = Number(q.shortPercentOfFloat || 0);
+        const sf     = sfRaw > 1 ? round2(sfRaw) : round2(sfRaw * 100);
+        const days   = round2(Number(q.shortRatio || 0));
+        const shares = Number(q.sharesShortPriorMonth || 0);
+        const curr   = Number(q.sharesShort || 0);
+        const chgPct = (shares > 0 && curr > 0) ? round2((curr - shares) / shares * 100) : 0;
+        return { sym, price, shortFloat: sf, daysToCover: days, shortChange: chgPct };
+      }).filter(s => s.price > 0 && s.shortFloat > 0);
+
+      const increasing = [...stocks].sort((a,b) => b.shortChange - a.shortChange).slice(0, 8);
+      const covering   = [...stocks].sort((a,b) => a.shortChange - b.shortChange).slice(0, 8);
+      const highShort  = [...stocks].sort((a,b) => b.shortFloat - a.shortFloat).slice(0, 10);
+
+      return writeJson(res, 200, { ok: true, increasing, covering, highShort, scannedAt: new Date().toISOString() });
+    } catch (e) {
+      return writeJson(res, 502, { ok: false, error: e.message });
+    }
+  }
+
+  // ── GET /api/market/darkpool-heatmap — dark pool activity vs avg by symbol ─
+  if (pathname === "/api/market/darkpool-heatmap" && req.method === "GET") {
+    const { UNUSUAL_WHALES_API_KEY } = require("../config");
+    const uwKey = UNUSUAL_WHALES_API_KEY || providerKeys?.unusualWhales;
+    if (!uwKey) return writeJson(res, 200, { ok: false, error: "Unusual Whales key not configured", stocks: [] });
+    try {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), 8000);
+      const r = await fetch("https://api.unusualwhales.com/api/darkpool/recent", {
+        headers: { Authorization: "Bearer " + uwKey, Accept: "application/json" },
+        signal: controller.signal,
+      });
+      if (!r.ok) throw new Error("UW HTTP " + r.status);
+      const data = await r.json();
+      const raw  = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+      // Group by ticker, sum premium
+      const byTicker = {};
+      for (const p of raw) {
+        const sym = String(p.ticker || p.symbol || "").toUpperCase();
+        if (!sym) continue;
+        if (!byTicker[sym]) byTicker[sym] = { sym, prints: 0, value: 0 };
+        byTicker[sym].prints++;
+        byTicker[sym].value += Number(p.premium || p.total_value || 0);
+      }
+      const stocks = Object.values(byTicker)
+        .sort((a,b) => b.value - a.value)
+        .slice(0, 20)
+        .map(s => ({ ...s, value: round2(s.value / 1e6) })); // $M
+      return writeJson(res, 200, { ok: true, stocks, scannedAt: new Date().toISOString() });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e.message, stocks: [] });
+    }
+  }
+
   return writeJson(res, 404, { error: "Unknown market endpoint." });
 }
 

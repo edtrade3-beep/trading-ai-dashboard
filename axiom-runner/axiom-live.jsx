@@ -7212,6 +7212,9 @@ export default function App() {
   // ── Hoisted state for Institutional Radar, Trade Signals, Dark Pool ─────────
   // Must be at top level — NOT inside conditional IIFEs (Rules of Hooks)
   const [distData,     setDistData]     = useState(null);
+  const [tickTrinData, setTickTrinData] = useState(null);
+  const [shortChgData, setShortChgData] = useState(null);
+  const [dpHeatData,   setDpHeatData]   = useState(null);
   const [distLoading,  setDistLoading]  = useState(false);
   const [distExpanded, setDistExpanded] = useState(false);
   const [sigData,      setSigData]      = useState(null);
@@ -7822,6 +7825,15 @@ export default function App() {
     return () => clearInterval(t);
   }, [activeTab, fivexLoading]);
 
+  // ── TICK/TRIN + Short Interest Changes — top-level effects ──────────────────
+  useEffect(() => {
+    const t = setTimeout(() => {
+      fetch("/api/market/tick-trin").then(r=>r.json()).then(d=>{ if(d.ok) setTickTrinData(d); }).catch(()=>{});
+      fetch("/api/market/short-changes").then(r=>r.json()).then(d=>{ if(d.ok) setShortChgData(d); }).catch(()=>{});
+    }, 5000);
+    return () => clearTimeout(t);
+  }, []);
+
   // ── Institutional Radar + Trade Signals + Fear&Greed — top-level effects ────
   useEffect(() => {
     // Auto-load Fear & Greed on Monitor tab open (4s delay so watchlist loads first)
@@ -8075,12 +8087,13 @@ export default function App() {
     if (scanDeepData[ticker]) return;
     setScanDeepLoad(prev => ({ ...prev, [ticker]: true }));
     try {
-      const [fundR, newsR, shortR, insiderR, optionsR] = await Promise.allSettled([
+      const [fundR, newsR, shortR, insiderR, optionsR, smcR] = await Promise.allSettled([
         fetch(`/api/yahoo/fundamentals?symbol=${ticker}`).then(r => r.json()),
         fetch(`/api/yahoo/news?tickers=${ticker}&limit=6`).then(r => r.json()),
         fetch(`/api/yahoo/short-interest?symbol=${ticker}`).then(r => r.json()),
         fetch(`/api/yahoo/insider?symbol=${ticker}`).then(r => r.json()),
         fetch(`/api/yahoo/options?symbol=${ticker}`).then(r => r.json()),
+        fetch(`/api/market/smc?symbol=${ticker}`).then(r => r.json()),
       ]);
       setScanDeepData(prev => ({
         ...prev,
@@ -8090,6 +8103,7 @@ export default function App() {
           short:        shortR.status   === "fulfilled" ? shortR.value   : null,
           insider:      insiderR.status === "fulfilled" ? insiderR.value : null,
           options:      optionsR.status === "fulfilled" ? optionsR.value : null,
+          smc:          smcR.status     === "fulfilled" && smcR.value?.ok ? smcR.value : null,
         },
       }));
     } catch {}
@@ -10680,7 +10694,7 @@ export default function App() {
               { id: "markets",   label: "🌍 MARKETS",
                 tabs: ["news", "macro", "earnings", "calendar", "sectors", "feargreed", "breadth", "crypto", "rotation", "seasonality"] },
               { id: "research",  label: "🔬 RESEARCH",
-                tabs: ["cot", "shortint", "smartmoney", "social", "analyst", "ipo", "options", "sec-filings", "analyzer", "darkpool"] },
+                tabs: ["cot", "shortint", "smartmoney", "social", "analyst", "ipo", "options", "sec-filings", "analyzer", "darkpool", "short-changes", "dp-heatmap"] },
               { id: "portfolio", label: "💼 PORTFOLIO",
                 tabs: ["portfolio", "performance", "journal", "alerts", "risklab", "dca", "heatmap", "correlation", "options-calc"] },
               { id: "tools",     label: "🛠 TOOLS",
@@ -11558,6 +11572,41 @@ export default function App() {
               {fg?.error && (
                 <div style={{ padding: "14px 16px", fontFamily: MONO, fontSize: 11, color: C.red }}>⚠ {fg.error}</div>
               )}
+            </div>
+          );
+        })()}
+
+        {/* ── TICK/TRIN MARKET INTERNALS ── */}
+        {activeTab === "dashboard" && tickTrinData && (() => {
+          const d = tickTrinData.data || {};
+          const tick = d["TICK"]?.price || 0;
+          const trin = d["TRIN"]?.price || 0;
+          const vix  = d["VIX"]?.price  || 0;
+          const tickCol = tick > 600 ? C.green : tick < -600 ? C.red : C.amber;
+          const trinCol = trin < 0.8 ? C.green : trin > 1.3 ? C.red : C.amber;
+          const vixCol  = vix > 25 ? C.red : vix > 18 ? C.amber : C.green;
+          return (
+            <div style={{ marginBottom: 14, borderRadius: 10, border: `1px solid ${C.borderLit}`, background: C.card, overflow: "hidden" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+                <span style={{ fontSize: 16 }}>📡</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text, letterSpacing: "0.08em" }}>MARKET INTERNALS</span>
+                <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginLeft: 4 }}>NYSE TICK · TRIN · VIX live</span>
+                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.textDim }}>{new Date(tickTrinData.scannedAt).toLocaleTimeString()}</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0 }}>
+                {[
+                  { label: "NYSE TICK", value: tick > 0 ? "+" + tick : tick, col: tickCol, sub: tickTrinData.tickSignal, desc: "Advancing vs declining stocks right now" },
+                  { label: "TRIN (Arms Index)", value: trin.toFixed(2), col: trinCol, sub: tickTrinData.trinSignal, desc: "<0.8 bullish · >1.2 bearish" },
+                  { label: "VIX Fear Index", value: vix.toFixed(1), col: vixCol, sub: vix > 25 ? "ELEVATED — size down" : vix > 18 ? "ABOVE NORMAL" : "CALM", desc: "Market fear level" },
+                ].map((item, i) => (
+                  <div key={i} style={{ padding: "14px 16px", borderRight: i < 2 ? `1px solid ${C.border}` : "none" }}>
+                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 4 }}>{item.label}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: item.col, marginBottom: 2 }}>{item.value}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: item.col, marginBottom: 2 }}>{item.sub}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{item.desc}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           );
         })()}
@@ -12790,6 +12839,98 @@ export default function App() {
         {activeTab === "sec-filings" && (
           <SecFilingsTab C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />
         )}
+
+        {/* ── SHORT INTEREST CHANGES TAB (#26) ── */}
+        {activeTab === "short-changes" && (() => {
+          const [scLoad, setScLoad] = React.useState(false);
+          React.useEffect(() => {
+            if (!shortChgData) { setScLoad(true); fetch("/api/market/short-changes").then(r=>r.json()).then(d=>{ if(d.ok) setShortChgData(d); }).catch(()=>{}).finally(()=>setScLoad(false)); }
+          }, []);
+          const fmtPct = v => v > 0 ? "+" + v.toFixed(1) + "%" : v.toFixed(1) + "%";
+          const Section = ({ title, col, rows, cols }) => (
+            <div style={{ flex: 1, minWidth: 280 }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: col, marginBottom: 10, letterSpacing: "0.06em" }}>{title}</div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr style={{ background: C.surface }}>
+                  {cols.map(c => <th key={c} style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, padding: "6px 8px", textAlign: "left", borderBottom: `1px solid ${C.border}` }}>{c}</th>)}
+                </tr></thead>
+                <tbody>
+                  {rows.map((r, i) => (
+                    <tr key={i} style={{ background: i % 2 === 0 ? "transparent" : C.surface, cursor: "pointer" }}
+                      onClick={() => { setTerminalSymbol(r.sym); setActiveTab("terminal"); }}>
+                      <td style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent, padding: "9px 8px" }}>{r.sym}</td>
+                      <td style={{ fontFamily: MONO, fontSize: 12, color: C.text, padding: "9px 8px" }}>${r.price}</td>
+                      <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: r.shortFloat > 20 ? C.red : r.shortFloat > 10 ? C.amber : C.text, padding: "9px 8px" }}>{r.shortFloat > 0 ? r.shortFloat.toFixed(1) + "%" : "—"}</td>
+                      <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: r.shortChange > 5 ? C.red : r.shortChange < -5 ? C.green : C.text, padding: "9px 8px" }}>{r.shortChange !== 0 ? fmtPct(r.shortChange) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+          return (
+            <div style={{ padding: "16px 20px" }}>
+              <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text, marginBottom: 16 }}>🩳 SHORT INTEREST CHANGES</div>
+              {scLoad && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
+              {shortChgData && (
+                <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+                  <Section title="🔴 SHORTS INCREASING — Bears Adding" col={C.red} rows={shortChgData.increasing || []} cols={["TICKER","PRICE","FLOAT SHORT","WK CHG%"]} />
+                  <Section title="🟢 SHORT COVERING — Bears Running" col={C.green} rows={shortChgData.covering || []} cols={["TICKER","PRICE","FLOAT SHORT","WK CHG%"]} />
+                  <Section title="⚡ HIGHEST SHORT FLOAT — Squeeze Candidates" col={C.amber} rows={shortChgData.highShort || []} cols={["TICKER","PRICE","FLOAT SHORT","WK CHG%"]} />
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ── DARK POOL HEATMAP TAB (#25) ── */}
+        {activeTab === "dp-heatmap" && (() => {
+          const [dpLoad, setDpLoad] = React.useState(false);
+          React.useEffect(() => {
+            if (!dpHeatData) { setDpLoad(true); fetch("/api/market/darkpool-heatmap").then(r=>r.json()).then(d=>{ if(d.ok) setDpHeatData(d); }).catch(()=>{}).finally(()=>setDpLoad(false)); }
+          }, []);
+          const fmtM = v => v >= 1000 ? "$" + (v/1000).toFixed(1) + "B" : "$" + v.toFixed(0) + "M";
+          return (
+            <div style={{ padding: "16px 20px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>🏦 DARK POOL HEAT MAP</span>
+                <button onClick={() => { setDpLoad(true); fetch("/api/market/darkpool-heatmap").then(r=>r.json()).then(d=>{ if(d.ok) setDpHeatData(d); }).catch(()=>{}).finally(()=>setDpLoad(false)); }}
+                  style={{ fontFamily: MONO, fontSize: 10, border: `1px solid ${C.accent}`, background: `${C.accent}18`, color: C.accent, borderRadius: 4, padding: "3px 10px", cursor: "pointer" }}>
+                  {dpLoad ? "⌛" : "↺ REFRESH"}
+                </button>
+                {dpHeatData && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Updated: {new Date(dpHeatData.scannedAt).toLocaleTimeString()}</span>}
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 16 }}>
+                Most active dark pool tickers by total premium today. Institutions buy/sell in dark pools before moving the public market.
+              </div>
+              {dpLoad && !dpHeatData && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading dark pool activity…</div>}
+              {dpHeatData && dpHeatData.stocks.length === 0 && (
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>No dark pool data. Check UNUSUAL_WHALES_API_KEY in settings.</div>
+              )}
+              {dpHeatData && dpHeatData.stocks.length > 0 && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
+                  {dpHeatData.stocks.map((s, i) => {
+                    const intensity = Math.min(1, s.value / Math.max(...dpHeatData.stocks.map(x=>x.value)));
+                    const col = intensity > 0.7 ? C.accent : intensity > 0.4 ? C.green : "#4caf50";
+                    return (
+                      <div key={i} onClick={() => { setTerminalSymbol(s.sym); setActiveTab("terminal"); }}
+                        style={{ padding: "12px 14px", borderRadius: 8, cursor: "pointer",
+                          background: `${col}${Math.round(intensity * 30).toString(16).padStart(2,"0")}`,
+                          border: `1px solid ${col}${Math.round(intensity * 60).toString(16).padStart(2,"0")}` }}>
+                        <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: col }}>{s.sym}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text, marginTop: 4 }}>{fmtM(s.value)}</div>
+                        <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 2 }}>{s.prints} prints</div>
+                        <div style={{ marginTop: 6, height: 4, borderRadius: 2, background: C.border }}>
+                          <div style={{ width: `${intensity * 100}%`, height: "100%", background: col, borderRadius: 2 }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
 
         {/* ── DARK POOL TAB ── */}
@@ -14192,7 +14333,7 @@ export default function App() {
                             {/* ── Deep Dive row ── */}
                             {isExpanded && (
                               <tr>
-                                <td colSpan={isTablet ? 10 : 15}
+                                <td colSpan={isTablet ? 10 : 16}
                                   style={{ background: C.bg,
                                     borderLeft: `3px solid ${row.sColor}`,
                                     borderBottom: `2px solid ${row.sColor}44`,
@@ -15218,6 +15359,137 @@ export default function App() {
                                                 </div>
                                               ))}
                                             </div>
+                                          </div>
+                                        );
+                                      })()}
+
+                                      {/* ── Col 9: SMC + VOLUME PROFILE + LIQUIDITY ── */}
+                                      {(() => {
+                                        const smc = deepData?.smc;
+                                        const px  = Number(livePrice || row.quote?.price || 0);
+                                        return (
+                                          <div style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
+                                              🧱 SMC ANALYSIS
+                                            </div>
+                                            {!smc ? (
+                                              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Loading SMC data…</div>
+                                            ) : (
+                                              <>
+                                                {/* BOS / ChoCh */}
+                                                {(smc.bos || smc.choch) && (
+                                                  <div style={{ marginBottom: 10 }}>
+                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>📐 STRUCTURE</div>
+                                                    {smc.bos && (
+                                                      <div style={{ padding: "6px 8px", borderRadius: 5, marginBottom: 4,
+                                                        background: smc.bos.type === "BULL_BOS" ? `${C.green}14` : `${C.red}14`,
+                                                        border: `1px solid ${smc.bos.type === "BULL_BOS" ? C.green : C.red}44` }}>
+                                                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: smc.bos.type === "BULL_BOS" ? C.green : C.red }}>{smc.bos.label}</div>
+                                                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>@ ${smc.bos.level}</div>
+                                                      </div>
+                                                    )}
+                                                    {smc.choch && (
+                                                      <div style={{ padding: "6px 8px", borderRadius: 5,
+                                                        background: `${C.amber}14`, border: `1px solid ${C.amber}44` }}>
+                                                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.amber }}>{smc.choch.label}</div>
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                )}
+
+                                                {/* Order Blocks */}
+                                                {smc.orderBlocks && smc.orderBlocks.length > 0 && (
+                                                  <div style={{ marginBottom: 10 }}>
+                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>🔲 ORDER BLOCKS</div>
+                                                    {smc.orderBlocks.map((ob, i) => {
+                                                      const isBull = ob.type === "BULL_OB";
+                                                      const col = isBull ? C.green : C.red;
+                                                      const dist = px > 0 ? Math.abs(ob.mid - px) / px * 100 : 0;
+                                                      return (
+                                                        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
+                                                          <span style={{ fontFamily: SANS, fontSize: 10, color: col }}>{isBull ? "🟢 Bull OB" : "🔴 Bear OB"}</span>
+                                                          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: col }}>${ob.top} – ${ob.bot}</span>
+                                                          <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{dist.toFixed(1)}%</span>
+                                                        </div>
+                                                      );
+                                                    })}
+                                                  </div>
+                                                )}
+
+                                                {/* Fair Value Gaps */}
+                                                {smc.fvgs && smc.fvgs.length > 0 && (
+                                                  <div style={{ marginBottom: 10 }}>
+                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>🕳 FAIR VALUE GAPS</div>
+                                                    {smc.fvgs.slice(0, 4).map((f, i) => {
+                                                      const isBull = f.type === "BULL_FVG";
+                                                      const col = isBull ? C.green : C.red;
+                                                      return (
+                                                        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
+                                                          <span style={{ fontFamily: SANS, fontSize: 10, color: col }}>{isBull ? "▲ Bull FVG" : "▼ Bear FVG"}</span>
+                                                          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: col }}>${f.bot} – ${f.top}</span>
+                                                        </div>
+                                                      );
+                                                    })}
+                                                  </div>
+                                                )}
+
+                                                {/* Volume Profile */}
+                                                {smc.volumeProfile && smc.volumeProfile.vpoc > 0 && (
+                                                  <div style={{ marginBottom: 10 }}>
+                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>📊 VOLUME PROFILE</div>
+                                                    {[
+                                                      ["VPOC", smc.volumeProfile.vpoc, C.accent, "Value Area Point of Control"],
+                                                      ["VAH",  smc.volumeProfile.vah,  C.green,  "Value Area High (70%)"],
+                                                      ["VAL",  smc.volumeProfile.val,  C.red,    "Value Area Low (70%)"],
+                                                    ].map(([lbl, val, col, tip]) => (
+                                                      <div key={lbl} title={tip} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
+                                                        <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{lbl}</span>
+                                                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>${val}</span>
+                                                      </div>
+                                                    ))}
+                                                    {/* Mini volume bar chart */}
+                                                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 1 }}>
+                                                      {(smc.volumeProfile.profile || []).slice().reverse().map((b, i) => {
+                                                        const isNearVpoc = Math.abs(b.price - smc.volumeProfile.vpoc) / Math.max(smc.volumeProfile.vpoc, 1) < 0.01;
+                                                        const isInVA = b.price >= smc.volumeProfile.val && b.price <= smc.volumeProfile.vah;
+                                                        const barCol = isNearVpoc ? C.accent : isInVA ? C.green : C.border;
+                                                        return (
+                                                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                            <span style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, width: 44, textAlign: "right" }}>${b.price}</span>
+                                                            <div style={{ flex: 1, height: 6, background: C.surface, borderRadius: 2 }}>
+                                                              <div style={{ width: `${Math.min(100, b.pct * 3)}%`, height: "100%", background: barCol, borderRadius: 2 }} />
+                                                            </div>
+                                                          </div>
+                                                        );
+                                                      })}
+                                                    </div>
+                                                  </div>
+                                                )}
+
+                                                {/* Liquidity Levels */}
+                                                {smc.liquidity && smc.liquidity.length > 0 && (
+                                                  <div>
+                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>💧 LIQUIDITY LEVELS</div>
+                                                    {smc.liquidity.map((l, i) => {
+                                                      const isAbove = l.price > px;
+                                                      const col = l.strength === "HIGH" ? (isAbove ? C.green : C.red) : C.amber;
+                                                      const dist = px > 0 ? ((l.price - px) / px * 100).toFixed(1) : "0";
+                                                      return (
+                                                        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
+                                                          <div>
+                                                            <div style={{ fontFamily: SANS, fontSize: 10, color: col }}>{l.label}</div>
+                                                          </div>
+                                                          <div style={{ textAlign: "right" }}>
+                                                            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: col }}>${l.price}</div>
+                                                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{dist > 0 ? "+" : ""}{dist}%</div>
+                                                          </div>
+                                                        </div>
+                                                      );
+                                                    })}
+                                                  </div>
+                                                )}
+                                              </>
+                                            )}
                                           </div>
                                         );
                                       })()}
