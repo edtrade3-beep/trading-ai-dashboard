@@ -1726,29 +1726,54 @@ async function handleMarket(req, res, requestUrl) {
   }
 
   // ── GET /api/market/tick-trin ─────────────────────────────────────────────
-  // NYSE TICK and TRIN for market internals
   if (pathname === "/api/market/tick-trin" && req.method === "GET") {
     try {
-      const syms = ["^TICK", "^TRIN", "^VIX", "^VVIX"];
-      const results = await Promise.allSettled(syms.map(s => fetchYahooQuoteBatch([s])));
-      const data = {};
-      results.forEach((r, i) => {
-        if (r.status === "fulfilled" && r.value[0]) {
-          const q = r.value[0];
-          const sym = syms[i].replace("^","");
-          data[sym] = {
-            price: round2(Number(q.regularMarketPrice || 0)),
-            chg:   round2(Number(q.regularMarketChange || 0)),
-            pct:   round2(Number(q.regularMarketChangePercent || 0)),
-          };
-        }
+      // Try Yahoo for VIX + VVIX first, then compute breadth-based TICK proxy
+      const [vixQ, breadthQ] = await Promise.allSettled([
+        fetchYahooQuoteBatch(["^VIX", "^VVIX"]).catch(() => []),
+        fetchYahooQuoteBatch(["SPY","QQQ","IWM","XLK","XLF","XLE","XLV","XLI","XLY","XLP","XLU","XLRE","XLB","XLC"]).catch(() => []),
+      ]);
+
+      const vixData = vixQ.status === "fulfilled" ? vixQ.value : [];
+      const bData   = breadthQ.status === "fulfilled" ? breadthQ.value : [];
+
+      const vix  = round2(Number(vixData.find(q=>q.symbol==="^VIX")?.regularMarketPrice || 0));
+      const vvix = round2(Number(vixData.find(q=>q.symbol==="^VVIX")?.regularMarketPrice || 0));
+      const vixPct = round2(Number(vixData.find(q=>q.symbol==="^VIX")?.regularMarketChangePercent || 0));
+
+      // Compute TICK proxy: count advancing vs declining sector ETFs
+      let adv = 0, dec = 0, totalChg = 0;
+      for (const q of bData) {
+        const chg = Number(q.regularMarketChangePercent || 0);
+        if (chg > 0) adv++; else if (chg < 0) dec++;
+        totalChg += chg;
+      }
+      const tickProxy = Math.round((adv - dec) / Math.max(bData.length, 1) * 1000);
+      const avgChg    = bData.length ? round2(totalChg / bData.length) : 0;
+      const volRatios = bData.map(q => {
+        const v = Number(q.regularMarketVolume||0);
+        const a = Number(q.averageDailyVolume3Month||q.averageDailyVolume10Day||1);
+        return a > 0 ? v / a : 1;
       });
-      // Interpret TICK
-      const tick = data["TICK"]?.price || 0;
-      const trin = data["TRIN"]?.price || 0;
-      const tickSignal = tick > 800 ? "EXTREME BUYING" : tick > 400 ? "BROAD BUYING" : tick < -800 ? "EXTREME SELLING" : tick < -400 ? "BROAD SELLING" : "NEUTRAL";
-      const trinSignal = trin < 0.6 ? "VERY BULLISH" : trin < 0.8 ? "BULLISH" : trin < 1.2 ? "NEUTRAL" : trin < 1.5 ? "BEARISH" : "VERY BEARISH";
-      return writeJson(res, 200, { ok: true, data, tickSignal, trinSignal, scannedAt: new Date().toISOString() });
+      const trinProxy = round2(volRatios.length
+        ? (dec / Math.max(adv,1)) / (volRatios.filter((_,i)=>Number(bData[i]?.regularMarketChangePercent||0)<0).reduce((a,b)=>a+b,0) / Math.max(volRatios.filter((_,i)=>Number(bData[i]?.regularMarketChangePercent||0)>0).reduce((a,b)=>a+b,0),0.01))
+        : 1);
+
+      const tickSignal = tickProxy > 600 ? "EXTREME BUYING" : tickProxy > 300 ? "BROAD BUYING" : tickProxy < -600 ? "EXTREME SELLING" : tickProxy < -300 ? "BROAD SELLING" : "NEUTRAL";
+      const trinSignal = trinProxy < 0.7 ? "VERY BULLISH" : trinProxy < 0.9 ? "BULLISH" : trinProxy < 1.1 ? "NEUTRAL" : trinProxy < 1.4 ? "BEARISH" : "VERY BEARISH";
+
+      return writeJson(res, 200, {
+        ok: true,
+        data: {
+          TICK:  { price: tickProxy, label: "NYSE TICK (proxy)" },
+          TRIN:  { price: isFinite(trinProxy) ? trinProxy : 1, label: "TRIN (proxy)" },
+          VIX:   { price: vix, pct: vixPct, label: "CBOE VIX" },
+          VVIX:  { price: vvix, label: "VIX of VIX" },
+          breadth: { adv, dec, total: bData.length, avgChg },
+        },
+        tickSignal, trinSignal,
+        scannedAt: new Date().toISOString(),
+      });
     } catch (e) {
       return writeJson(res, 200, { ok: false, error: e.message, data: {} });
     }

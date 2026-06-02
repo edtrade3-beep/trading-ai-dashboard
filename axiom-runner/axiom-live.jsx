@@ -7825,14 +7825,24 @@ export default function App() {
     return () => clearInterval(t);
   }, [activeTab, fivexLoading]);
 
-  // ── TICK/TRIN + Short Interest Changes — top-level effects ──────────────────
+  // ── TICK/TRIN on startup ─────────────────────────────────────────────────────
   useEffect(() => {
     const t = setTimeout(() => {
       fetch("/api/market/tick-trin").then(r=>r.json()).then(d=>{ if(d.ok) setTickTrinData(d); }).catch(()=>{});
-      fetch("/api/market/short-changes").then(r=>r.json()).then(d=>{ if(d.ok) setShortChgData(d); }).catch(()=>{});
     }, 5000);
     return () => clearTimeout(t);
   }, []);
+
+  // ── Fetch short-changes and dp-heatmap when those tabs are opened ────────────
+  useEffect(() => {
+    if (activeTab === "short-changes" && !shortChgData) {
+      fetch("/api/market/short-changes").then(r=>r.json()).then(d=>{ if(d.ok) setShortChgData(d); }).catch(()=>{});
+    }
+    if (activeTab === "dp-heatmap" && !dpHeatData) {
+      fetch("/api/market/darkpool-heatmap").then(r=>r.json()).then(d=>{ if(d.ok) setDpHeatData(d); }).catch(()=>{});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // ── Institutional Radar + Trade Signals + Fear&Greed — top-level effects ────
   useEffect(() => {
@@ -11578,30 +11588,33 @@ export default function App() {
 
         {/* ── TICK/TRIN MARKET INTERNALS ── */}
         {activeTab === "dashboard" && tickTrinData && (() => {
-          const d = tickTrinData.data || {};
+          const d    = tickTrinData.data || {};
           const tick = d["TICK"]?.price || 0;
-          const trin = d["TRIN"]?.price || 0;
-          const vix  = d["VIX"]?.price  || 0;
-          const tickCol = tick > 600 ? C.green : tick < -600 ? C.red : C.amber;
-          const trinCol = trin < 0.8 ? C.green : trin > 1.3 ? C.red : C.amber;
+          const trin = Number(d["TRIN"]?.price || 1);
+          const vix  = Number(d["VIX"]?.price  || 0);
+          const br   = d["breadth"] || {};
+          const tickCol = tick > 300 ? C.green : tick < -300 ? C.red : C.amber;
+          const trinCol = trin < 0.9 ? C.green : trin > 1.3 ? C.red : C.amber;
           const vixCol  = vix > 25 ? C.red : vix > 18 ? C.amber : C.green;
+          const breadthPct = br.total > 0 ? Math.round(br.adv / br.total * 100) : 0;
           return (
             <div style={{ marginBottom: 14, borderRadius: 10, border: `1px solid ${C.borderLit}`, background: C.card, overflow: "hidden" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
                 <span style={{ fontSize: 16 }}>📡</span>
                 <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text, letterSpacing: "0.08em" }}>MARKET INTERNALS</span>
-                <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginLeft: 4 }}>NYSE TICK · TRIN · VIX live</span>
+                <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginLeft: 4 }}>Sector breadth · TRIN · VIX</span>
                 <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.textDim }}>{new Date(tickTrinData.scannedAt).toLocaleTimeString()}</span>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 0 }}>
                 {[
-                  { label: "NYSE TICK", value: tick > 0 ? "+" + tick : tick, col: tickCol, sub: tickTrinData.tickSignal, desc: "Advancing vs declining stocks right now" },
-                  { label: "TRIN (Arms Index)", value: trin.toFixed(2), col: trinCol, sub: tickTrinData.trinSignal, desc: "<0.8 bullish · >1.2 bearish" },
-                  { label: "VIX Fear Index", value: vix.toFixed(1), col: vixCol, sub: vix > 25 ? "ELEVATED — size down" : vix > 18 ? "ABOVE NORMAL" : "CALM", desc: "Market fear level" },
+                  { label: "TICK Proxy", value: tick > 0 ? "+" + tick : String(tick), col: tickCol, sub: tickTrinData.tickSignal, desc: `${br.adv || 0} adv · ${br.dec || 0} dec sectors` },
+                  { label: "TRIN (Arms)", value: isFinite(trin) ? trin.toFixed(2) : "—", col: trinCol, sub: tickTrinData.trinSignal, desc: "<0.9 bullish · >1.3 bearish" },
+                  { label: "Breadth", value: breadthPct + "%", col: breadthPct > 60 ? C.green : breadthPct < 40 ? C.red : C.amber, sub: breadthPct > 60 ? "BROAD STRENGTH" : breadthPct < 40 ? "BROAD WEAKNESS" : "MIXED", desc: `Avg sector chg ${br.avgChg > 0 ? "+" : ""}${br.avgChg || 0}%` },
+                  { label: "VIX Fear", value: vix > 0 ? vix.toFixed(1) : "—", col: vixCol, sub: vix > 25 ? "ELEVATED" : vix > 18 ? "ABOVE NORMAL" : vix > 0 ? "CALM" : "—", desc: d["VIX"]?.pct ? (d["VIX"].pct > 0 ? "+" : "") + d["VIX"].pct + "% today" : "CBOE volatility index" },
                 ].map((item, i) => (
-                  <div key={i} style={{ padding: "14px 16px", borderRight: i < 2 ? `1px solid ${C.border}` : "none" }}>
+                  <div key={i} style={{ padding: "14px 16px", borderRight: i < 3 ? `1px solid ${C.border}` : "none" }}>
                     <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 4 }}>{item.label}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: item.col, marginBottom: 2 }}>{item.value}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: item.col, marginBottom: 2 }}>{item.value}</div>
                     <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: item.col, marginBottom: 2 }}>{item.sub}</div>
                     <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{item.desc}</div>
                   </div>
@@ -12842,10 +12855,8 @@ export default function App() {
 
         {/* ── SHORT INTEREST CHANGES TAB (#26) ── */}
         {activeTab === "short-changes" && (() => {
-          const [scLoad, setScLoad] = React.useState(false);
-          React.useEffect(() => {
-            if (!shortChgData) { setScLoad(true); fetch("/api/market/short-changes").then(r=>r.json()).then(d=>{ if(d.ok) setShortChgData(d); }).catch(()=>{}).finally(()=>setScLoad(false)); }
-          }, []);
+          // No hooks here — state hoisted to top level
+          const scLoad = !shortChgData;
           const fmtPct = v => v > 0 ? "+" + v.toFixed(1) + "%" : v.toFixed(1) + "%";
           const Section = ({ title, col, rows, cols }) => (
             <div style={{ flex: 1, minWidth: 280 }}>
@@ -12871,7 +12882,7 @@ export default function App() {
           return (
             <div style={{ padding: "16px 20px" }}>
               <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text, marginBottom: 16 }}>🩳 SHORT INTEREST CHANGES</div>
-              {scLoad && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
+              {scLoad && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>⌛ Loading short interest data…</div>}
               {shortChgData && (
                 <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
                   <Section title="🔴 SHORTS INCREASING — Bears Adding" col={C.red} rows={shortChgData.increasing || []} cols={["TICKER","PRICE","FLOAT SHORT","WK CHG%"]} />
@@ -12885,10 +12896,8 @@ export default function App() {
 
         {/* ── DARK POOL HEATMAP TAB (#25) ── */}
         {activeTab === "dp-heatmap" && (() => {
-          const [dpLoad, setDpLoad] = React.useState(false);
-          React.useEffect(() => {
-            if (!dpHeatData) { setDpLoad(true); fetch("/api/market/darkpool-heatmap").then(r=>r.json()).then(d=>{ if(d.ok) setDpHeatData(d); }).catch(()=>{}).finally(()=>setDpLoad(false)); }
-          }, []);
+          // No hooks here — state hoisted to top level
+          const dpHeatLoad = !dpHeatData;
           const fmtM = v => v >= 1000 ? "$" + (v/1000).toFixed(1) + "B" : "$" + v.toFixed(0) + "M";
           return (
             <div style={{ padding: "16px 20px" }}>
@@ -12903,7 +12912,7 @@ export default function App() {
               <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 16 }}>
                 Most active dark pool tickers by total premium today. Institutions buy/sell in dark pools before moving the public market.
               </div>
-              {dpLoad && !dpHeatData && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading dark pool activity…</div>}
+              {dpHeatLoad && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>⌛ Loading dark pool activity…</div>}
               {dpHeatData && dpHeatData.stocks.length === 0 && (
                 <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>No dark pool data. Check UNUSUAL_WHALES_API_KEY in settings.</div>
               )}
