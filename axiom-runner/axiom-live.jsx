@@ -11096,7 +11096,6 @@ export default function App() {
             { id: "tv",        label: "📺 TV LIVE" },
             { id: "multitf",   label: "⏱ MULTI-TF" },
             { id: "fibonacci", label: "🌀 FIB LEVELS" },
-            { id: label: "📋 STOCK INFO" },
           ],
           scanner: [
             { id: "scanner",    label: "⚡ SCANNER" },
