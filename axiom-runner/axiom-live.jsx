@@ -7210,9 +7210,6 @@ export default function App() {
   const [scanExpanded, setScanExpanded] = useState(null);
   const [scanLastRun,  setScanLastRun]  = useState(null);
   const [scanHistory,  setScanHistory]  = useState([]); // last 5 scan summaries
-  // Risk sizer state — hoisted (was inside IIFE, caused hooks crash)
-  const [riskAcct, setRiskAcct] = useState(() => { try { return localStorage.getItem("risk_account") || "50000"; } catch { return "50000"; } });
-  const [riskPct,  setRiskPct]  = useState(() => { try { return localStorage.getItem("risk_pct")     || "1";     } catch { return "1";     } });
   const [scanError,    setScanError]    = useState(null);
   const [scanDeepData, setScanDeepData] = useState({});
   const [scanDeepLoad, setScanDeepLoad] = useState({});
@@ -13748,14 +13745,14 @@ export default function App() {
                 </div>
                 {/* ── Risk Position Sizer — always visible in scanner ── */}
                 {(() => {
-                  // Uses hoisted riskAcct / riskPct state (Rules of Hooks)
-                  const riskDollars = Math.round(Number(riskAcct) * Number(riskPct) / 100);
+                  // Uses hoisted riskAccount / riskPct state (Rules of Hooks)
+                  const riskDollars = Math.round(Number(riskAccount) * Number(riskPct) / 100);
                   return (
                     <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px",
                       background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8 }}>
                       <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim }}>💰 RISK</span>
                       <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>$</span>
-                      <input type="number" value={riskAcct} onChange={e => { setRiskAcct(e.target.value); try{localStorage.setItem("risk_account",e.target.value);}catch{} }}
+                      <input type="number" value={riskAccount} onChange={e => { setRiskAccount(e.target.value); try{localStorage.setItem("risk_account",e.target.value);}catch{} }}
                         style={{ width: 72, fontFamily: MONO, fontSize: 12, background: "transparent", border: `1px solid ${C.border}`, color: C.text, borderRadius: 4, padding: "3px 5px", textAlign: "right" }} />
                       <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>@</span>
                       <input type="number" value={riskPct} min="0.25" max="5" step="0.25" onChange={e => { setRiskPct(e.target.value); try{localStorage.setItem("risk_pct",e.target.value);}catch{} }}
