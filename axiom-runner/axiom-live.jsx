@@ -14167,54 +14167,44 @@ export default function App() {
                                 </div>
                               </td>
 
-                              {/* Signal badge — shows Master Verdict when deep dive loaded */}
+                              {/* Signal badge — computed from scan data only, NEVER changes after click */}
                               <td style={{ padding: "12px 10px", borderBottom: `1px solid ${C.border}22` }}>
                                 {(() => {
-                                  // Compute quick Master Verdict from available scanner data
-                                  const px2   = Number(livePrice || row.quote?.price || 0);
-                                  const hi522 = Number(row.quote?.yearHigh || 0);
-                                  const lo522 = Number(row.quote?.yearLow  || 0);
-                                  const ma502 = Number(row.quote?.priceAvg50  || 0);
-                                  const ma2002= Number(row.quote?.priceAvg200 || 0);
-                                  const sd2   = deepSocialData[row.ticker];
-                                  const smc2  = deepData?.smc;
-                                  const bosBull2 = smc2?.bos?.type === "BULL_BOS";
-                                  const bosBear2 = smc2?.bos?.type === "BEAR_BOS";
-                                  const sentBull2= sd2?.stocktwits?.bullPct ?? 50;
+                                  // Master Verdict using ONLY scan data (no deep dive needed)
+                                  // This means the signal is stable from the moment scan runs
+                                  const px2    = Number(livePrice || row.quote?.price || 0);
+                                  const hi52v  = Number(row.quote?.yearHigh || 0);
+                                  const lo52v  = Number(row.quote?.yearLow  || 0);
+                                  const ma50v  = Number(row.quote?.priceAvg50  || 0);
+                                  const ma200v = Number(row.quote?.priceAvg200 || 0);
 
-                                  // 6-signal weighted score
-                                  const smcScore = bosBull2 ? 80 : bosBear2 ? 20 : 50;
-                                  const ttPx = [
-                                    ma2002 > 0 && px2 > ma2002,
-                                    ma502  > 0 && ma2002 > 0 && ma502 > ma2002,
-                                    ma502  > 0 && px2 > ma502,
-                                    lo522  > 0 && px2 >= lo522 * 1.30,
-                                    hi522  > 0 && px2 >= hi522 * 0.75,
-                                    (row.rsiVal || 50) >= 60,
-                                    row.ema9v && row.ema21v && row.ema9v > row.ema21v,
+                                  // Trend Template score from scan data (MA50/MA200/52w)
+                                  const ttChecks = [
+                                    ma200v > 0 && px2 > ma200v,             // price > MA200
+                                    ma50v > 0 && ma200v > 0 && ma50v > ma200v, // MA50 > MA200
+                                    ma50v > 0 && px2 > ma50v,               // price > MA50
+                                    lo52v > 0 && px2 >= lo52v * 1.30,       // 30%+ above 52w low
+                                    hi52v > 0 && px2 >= hi52v * 0.75,       // within 25% of 52w high
+                                    (row.rsiVal || 50) >= 55,               // RSI momentum
+                                    !!(row.ema9v && row.ema21v && row.ema9v > row.ema21v), // EMA aligned
                                   ].filter(Boolean).length;
-                                  const ttScore2 = Math.round(ttPx / 7 * 100);
-                                  const macdScore = row.macdBull === true ? 70 : row.macdBull === false ? 30 : 50;
-                                  const composite2 = (
-                                    (row.score || 50) * 0.20 +
-                                    smcScore * 0.25 +
-                                    ttScore2 * 0.20 +
-                                    sentBull2 * 0.15 +
-                                    50 * 0.10 + // analyst (neutral default)
-                                    macdScore * 0.10
+                                  const ttScore = Math.round(ttChecks / 7 * 100);
+                                  const macdScore = row.macdBull === true ? 72 : row.macdBull === false ? 30 : 50;
+
+                                  // 4-signal weighted composite (all from scan — no deep dive needed)
+                                  const composite = (
+                                    (row.score || 50) * 0.35 +  // tech momentum (primary)
+                                    ttScore           * 0.35 +  // trend template
+                                    macdScore         * 0.15 +  // MACD
+                                    50                * 0.15    // sentiment default neutral
                                   );
 
-                                  // If deep dive data loaded, show Master Verdict signal so row matches banner
-                                  const hasMasterData = smc2 || sd2;
-                                  if (!hasMasterData) return <span style={SIG_STYLE(row.sColor)}>{row.signal}</span>;
+                                  const sigColor = composite >= 72 ? "#00e676" : composite >= 62 ? C.green :
+                                                   composite >= 53 ? C.amber   : composite >= 40 ? C.red : "#ff2244";
+                                  const sigLabel = composite >= 72 ? "STRONG BUY" : composite >= 62 ? "BUY" :
+                                                   composite >= 53 ? "WATCH"      : composite >= 40 ? "AVOID" : "SELL/SHORT";
 
-                                  const ml = composite2 >= 72 ? { lbl: "STRONG BUY", col: "#00e676" } :
-                                             composite2 >= 62 ? { lbl: "BUY",         col: C.green }   :
-                                             composite2 >= 53 ? { lbl: "WATCH",       col: C.amber }   :
-                                             composite2 >= 40 ? { lbl: "AVOID",       col: C.red }     :
-                                                                { lbl: "SELL/SHORT",  col: "#ff2244" };
-
-                                  return <span style={{ ...SIG_STYLE(ml.col), background: `${ml.col}22`, borderColor: `${ml.col}66` }}>{ml.lbl}</span>;
+                                  return <span style={{ ...SIG_STYLE(sigColor), background: `${sigColor}22`, borderColor: `${sigColor}55` }}>{sigLabel}</span>;
                                 })()}
                               </td>
 
@@ -14430,14 +14420,13 @@ export default function App() {
                                       const rsi         = row.rsiVal || 50;
                                       const macdBull2   = row.macdBull;
 
-                                      // ── Weight signals (0-100 each) ───────────────────────────────────
+                                      // ── Same 4-signal formula as scanner row badge (scan data only)
+                                      // This keeps the deep dive verdict IDENTICAL to the row signal
                                       const weights = {
-                                        tech:      { score: techScore,          w: 0.20, label: "Tech Score" },
-                                        smc:       { score: bosBull ? 80 : bosBear ? 20 : chochBear ? 30 : 50, w: 0.25, label: "SMC Structure" },
-                                        trend:     { score: ttScore,            w: 0.20, label: "Trend Template" },
-                                        sentiment: { score: sentBull,           w: 0.15, label: "Sentiment" },
-                                        analyst:   { score: analystBull ? 75 : analystBear ? 25 : 50, w: 0.10, label: "Analyst" },
-                                        macd:      { score: macdBull2 === true ? 70 : macdBull2 === false ? 30 : 50, w: 0.10, label: "MACD" },
+                                        tech:  { score: techScore,   w: 0.35, label: "Tech Score" },
+                                        trend: { score: ttScore,     w: 0.35, label: "Trend Template" },
+                                        macd:  { score: macdBull2 === true ? 72 : macdBull2 === false ? 30 : 50, w: 0.15, label: "MACD" },
+                                        smc:   { score: bosBull ? 80 : bosBear ? 20 : chochBear ? 30 : 50, w: 0.15, label: "SMC Structure" },
                                       };
                                       const composite = Object.values(weights).reduce((sum, w) => sum + w.score * w.w, 0);
                                       const verdict =
