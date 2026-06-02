@@ -11763,35 +11763,51 @@ export default function App() {
                       const isShort = s.action === "SHORT / AVOID";
                       return (
                         <div key={`${s.sym}-${i}`}
-                          onClick={async () => {
+                          onClick={() => {
                             const ticker = s.sym;
                             setTerminalSymbol(ticker);
+
+                            // Build a scan row from signal data we already have — no fetch needed
+                            const signalRow = {
+                              ticker,
+                              score:     s.score || 50,
+                              signal:    s.action === "LONG" ? "BUY" : s.action === "SHORT / AVOID" ? "SELL" : "WATCH",
+                              signals:   s.rationale.map(r => ({ txt: r, bull: s.action === "LONG" })),
+                              sColor:    s.action === "LONG" ? "#00e676" : s.action.startsWith("SHORT") ? "#ff4444" : "#ffaa00",
+                              rsiVal:    null,
+                              macdBull:  null,
+                              ema9v:     null, ema21v: null,
+                              quote:     { price: s.entry, changePercent: s.chgPct, yearHigh: s.hi52,
+                                           priceAvg50: s.ma50, priceAvg200: s.ma200,
+                                           volume: 0, avgVolume: 0 },
+                              candles:   null,
+                            };
+
+                            // Inject into scan results immediately (no wait)
+                            setScanResults(prev => {
+                              const exists = prev.some(r => r.ticker === ticker);
+                              if (exists) return prev;
+                              return [signalRow, ...prev];
+                            });
+
+                            // Switch tab and expand — synchronous, no race condition
                             setActiveTab("smartscan");
-                            // If already in scan results, just expand it
-                            const existing = scanResults.find(r => r.ticker === ticker);
-                            if (existing) {
-                              setScanExpanded(ticker);
-                              loadDeepDive(ticker);
-                              loadDeepSocial(ticker);
-                            } else {
-                              // Fetch and inject into scanner, then expand
-                              try {
-                                const res  = await fetch(`/api/scanner/smart-scan?tickers=${ticker}`);
-                                const data = await res.json();
-                                if (data.ok && data.results?.length) {
-                                  const [{ quote, candles }] = data.results;
-                                  const scored = { ...scoreTicker(ticker, quote, candles), quote, candles };
-                                  setScanResults(prev => {
-                                    const exists = prev.some(r => r.ticker === ticker);
-                                    const updated = exists ? prev.map(r => r.ticker === ticker ? scored : r) : [scored, ...prev];
-                                    return updated.sort((a, b) => b.score - a.score);
-                                  });
-                                  setScanExpanded(ticker);
-                                  loadDeepDive(ticker);
-                                  loadDeepSocial(ticker);
-                                }
-                              } catch {}
-                            }
+                            setScanExpanded(ticker);
+
+                            // Load full deep dive data in background
+                            loadDeepDive(ticker);
+                            loadDeepSocial(ticker);
+
+                            // Optionally fetch richer quote data and update the row
+                            fetch(`/api/scanner/smart-scan?tickers=${ticker}`)
+                              .then(r => r.json())
+                              .then(data => {
+                                if (!data.ok || !data.results?.length) return;
+                                const [{ quote, candles }] = data.results;
+                                const richer = { ...scoreTicker(ticker, quote, candles), quote, candles };
+                                setScanResults(prev => prev.map(r => r.ticker === ticker ? richer : r));
+                              })
+                              .catch(() => {});
                           }}
                           style={{ borderRadius: 8, border: `1px solid ${ac}44`, background: `${ac}08`,
                             padding: "12px 14px", cursor: "pointer",
