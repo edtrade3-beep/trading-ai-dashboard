@@ -9346,21 +9346,52 @@ export default function App() {
     else { setSortCol(col); setSortDir("desc"); }
   };
 
-  const handleSymbolSearch = useCallback(() => {
+  const handleSymbolSearch = useCallback(async () => {
     const symbol = symbolSearch.trim().toUpperCase();
     if (!symbol) return;
-    if (!/^[A-Z.\-]{1,10}$/.test(symbol)) return;
+    if (!/^[A-Z0-9.\-^]{1,12}$/.test(symbol)) return;
+    setSymbolSearch("");
+
+    // 1. Add to active watchlist if not already there
+    let added = false;
     if (!watchlistSymbols.includes(symbol)) {
-      const next = [symbol, ...watchlistSymbols].slice(0, 30);
+      const next = [symbol, ...watchlistSymbols].slice(0, 50);
       setWatchlistSymbols(next);
       setWatchlistInput(next.join(","));
+      added = true;
     }
+
+    // 2. Always set as terminal symbol
     setTerminalSymbol(symbol);
-    setActiveTab("terminal");
-    setSymbolSearch("");
-    setLoading(true);
-    fetchAll(apiKey).finally(() => setLoading(false));
-  }, [symbolSearch, watchlistSymbols, apiKey, fetchAll]);
+
+    // 3. If on Monitor tab: stay here, refresh data, open the stock directly
+    if (activeTab === "dashboard") {
+      // Refresh watchlist data to include the new symbol
+      setLoading(true);
+      fetchAll(apiKey).finally(() => setLoading(false));
+
+      // Fetch a quick quote to open the DeepDive
+      try {
+        const r = await fetch(`/api/yahoo/quote?symbols=${symbol}`);
+        const d = await r.json();
+        const q = Array.isArray(d) ? d[0] : (d?.quotes?.[0] || null);
+        if (q) setSelectedStock(q);
+      } catch {}
+
+      // Show brief toast
+      const toast = document.createElement("div");
+      toast.textContent = `${added ? "✅ Added" : "📌"} ${symbol} — opening…`;
+      toast.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a2742;color:#e0e8ff;font-family:monospace;font-size:13px;font-weight:700;padding:10px 20px;border-radius:8px;border:1px solid #4a7bdf44;z-index:9999;pointer-events:none;opacity:1;transition:opacity 0.5s";
+      document.body.appendChild(toast);
+      setTimeout(() => { toast.style.opacity = "0"; setTimeout(() => toast.remove(), 500); }, 2000);
+    } else {
+      // On other tabs: navigate to chart as before
+      setActiveTab("terminal");
+      setLoading(true);
+      fetchAll(apiKey).finally(() => setLoading(false));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbolSearch, watchlistSymbols, apiKey, fetchAll, activeTab]);
   const runTvWebhookTest = useCallback(async () => {
     const symbol = String(terminalSymbol || watchlistSymbols?.[0] || "NVDA").toUpperCase();
     let testUrl = "/api/webhooks/tradingview";
