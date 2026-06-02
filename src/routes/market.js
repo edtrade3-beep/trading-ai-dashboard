@@ -1854,6 +1854,86 @@ async function handleMarket(req, res, requestUrl) {
     }
   }
 
+  // ── GET /api/market/earnings-calendar ────────────────────────────────────
+  if (pathname === "/api/market/earnings-calendar" && req.method === "GET") {
+    const _ec = handleMarket._ecCache || (handleMarket._ecCache = { data: null, ts: 0 });
+    if (_ec.data && Date.now() - _ec.ts < 30 * 60 * 1000) return writeJson(res, 200, _ec.data);
+    try {
+      const UNIVERSE = [
+        "NVDA","TSLA","AAPL","META","AMZN","MSFT","AMD","NFLX","COIN","MSTR",
+        "PLTR","SMCI","ARM","HOOD","MARA","CRWD","NET","PANW","ZS","SNOW",
+        "DDOG","UBER","ABNB","DASH","PINS","RDDT","SOFI","UPST","AFRM",
+        "BBAI","SERV","RKLB","ASTS","IONQ","RGTI","OKLO","SMR","CEG","GEV",
+        "SPY","QQQ","IWM","SMH","XLK","IBIT","GLD","GOOGL","AVGO","ORCL",
+      ];
+      const chunks = [];
+      for (let i = 0; i < UNIVERSE.length; i += 20) chunks.push(UNIVERSE.slice(i, i + 20));
+      const settled = await Promise.allSettled(chunks.map(c => fetchYahooQuoteBatch(c)));
+      const quotes  = settled.flatMap(r => r.status === "fulfilled" ? r.value : []);
+      const today   = Date.now();
+      const events  = [];
+      for (const q of quotes) {
+        const sym = String(q.symbol || "").toUpperCase();
+        const earningsTs = Number(
+          (Array.isArray(q.earningsTimestamp) ? q.earningsTimestamp[0] : q.earningsTimestamp) || 0
+        );
+        if (!earningsTs) continue;
+        const earnDate = new Date(earningsTs * 1000);
+        const dte = Math.round((earnDate - today) / 86400000);
+        const price = round2(Number(q.regularMarketPrice || 0));
+        const hi52  = Number(q.fiftyTwoWeekHigh || 0);
+        const lo52  = Number(q.fiftyTwoWeekLow  || 0);
+        // Implied expected move proxy from IV
+        const iv = (hi52 > lo52 && price > 0) ? (hi52 - lo52) / price : 0;
+        const expMove = round2(iv / Math.sqrt(252) * 100);
+        const epsTTM  = round2(Number(q.epsTrailingTwelveMonths || 0));
+        const epsEst  = round2(Number(q.epsForward || 0));
+        events.push({
+          sym, price,
+          date: earnDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" }),
+          dte, expMove,
+          epsTTM, epsEst,
+          timing: q.earningsTimestampStart ? "Pre-Market" : q.earningsTimestampEnd ? "After-Hours" : "TBD",
+          mktCap: round2((Number(q.marketCap) || 0) / 1e9),
+        });
+      }
+      events.sort((a, b) => a.dte - b.dte);
+      const result = { ok: true, events: events.slice(0, 40), scannedAt: new Date().toISOString() };
+      _ec.data = result; _ec.ts = Date.now();
+      return writeJson(res, 200, result);
+    } catch (e) { return writeJson(res, 502, { ok: false, error: e.message, events: [] }); }
+  }
+
+  // ── GET /api/market/econ-calendar ─────────────────────────────────────────
+  if (pathname === "/api/market/econ-calendar" && req.method === "GET") {
+    // Key upcoming events with estimated dates (updated quarterly)
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const nextFriday = (d) => { const dt = new Date(d); while (dt.getDay() !== 5) dt.setDate(dt.getDate()+1); return dt; };
+    const thirdFriday = (yr, mo) => { const d = new Date(yr,mo,1); let c=0; while(c<3){if(d.getDay()===5)c++;if(c<3)d.setDate(d.getDate()+1);} return d; };
+    // Approximate upcoming dates for key events
+    const events = [
+      // These are estimated — in production would fetch from an API
+      { name: "FOMC Meeting",   tag: "FED",  impact: "HIGH",  note: "Rate decision + press conference. Expect vol spike.",        date: thirdFriday(y, m+1) },
+      { name: "CPI Release",    tag: "CPI",  impact: "HIGH",  note: "Inflation data. Hot print → risk-off; cool → risk-on.",      date: new Date(y, m, 10) },
+      { name: "NFP Jobs Report",tag: "NFP",  impact: "HIGH",  note: "First Friday of month. Strong jobs = hawkish Fed risk.",     date: nextFriday(new Date(y, m, 1)) },
+      { name: "PCE Inflation",  tag: "PCE",  impact: "HIGH",  note: "Fed's preferred inflation gauge. Market-moving.",            date: new Date(y, m, 28) },
+      { name: "PPI Data",       tag: "PPI",  impact: "MED",   note: "Producer prices — leads CPI by 1-2 months.",                 date: new Date(y, m, 11) },
+      { name: "Retail Sales",   tag: "RTLS", impact: "MED",   note: "Consumer spending health. Weak → recession fears.",          date: new Date(y, m, 15) },
+      { name: "GDP Estimate",   tag: "GDP",  impact: "MED",   note: "Economic growth. Two negatives = technical recession.",      date: new Date(y, m+1, 28) },
+      { name: "FOMC Minutes",   tag: "MINS", impact: "MED",   note: "Full meeting notes — clues on future rate path.",            date: new Date(y, m+1, 20) },
+    ].map(ev => {
+      const dte = Math.round((ev.date - now) / 86400000);
+      return {
+        name: ev.name, tag: ev.tag, impact: ev.impact, note: ev.note,
+        date: ev.date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        dte, countdown: dte <= 0 ? "TODAY" : dte === 1 ? "TOMORROW" : `in ${dte}d`,
+        isUrgent: dte >= 0 && dte <= 2,
+      };
+    }).filter(e => e.dte >= -1).sort((a,b) => a.dte - b.dte);
+    return writeJson(res, 200, { ok: true, events });
+  }
+
   return writeJson(res, 404, { error: "Unknown market endpoint." });
 }
 

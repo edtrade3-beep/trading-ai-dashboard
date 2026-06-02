@@ -9152,6 +9152,21 @@ export default function App() {
         }
       }
 
+      // ── Global navigation shortcuts ──────────────────────────────────────
+      const tag2 = e.target?.tagName?.toLowerCase();
+      if (!paletteOpen && tag2 !== "input" && tag2 !== "textarea" && tag2 !== "select" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const k = e.key.toLowerCase();
+        if (k === "m") setActiveTab("dashboard");
+        else if (k === "s") setActiveTab("smartscan");
+        else if (k === "g") setActiveTab("gap");
+        else if (k === "c") setActiveTab("terminal");
+        else if (k === "n") setActiveTab("news");
+        else if (k === "p") setActiveTab("portfolio");
+        else if (k === "j") setActiveTab("journal");
+        else if (k === "a") setActiveTab("earn-cal");
+        else if (k === "e") setActiveTab("econ-cal");
+      }
+
       if (activeTab === "terminal" && !paletteOpen && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const key = e.key.toLowerCase();
         const tfByProfile = hotkeyProfile === "scalper"
@@ -10738,17 +10753,17 @@ export default function App() {
               { id: "dashboard", label: "📊 MONITOR",
                 tabs: ["dashboard", "briefing"] },
               { id: "terminal",  label: "📈 CHARTS",
-                tabs: ["terminal", "tv", "multitf", "fibonacci", "openstock"] },
+                tabs: ["terminal", "tv", "multitf", "fibonacci"] },
               { id: "scanner",   label: "🔍 SCANNER",
-                tabs: ["scanner", "smartscan", "gap", "early", "screener", "flow", "autoexec", "fivex", "advisor", "short-changes", "dp-heatmap", "darkpool"] },
+                tabs: ["scanner", "smartscan", "gap", "early", "screener", "flow", "autoexec", "fivex", "short-changes", "dp-heatmap", "darkpool"] },
               { id: "markets",   label: "🌍 MARKETS",
                 tabs: ["news", "macro", "earnings", "calendar", "sectors", "feargreed", "breadth", "crypto", "rotation", "seasonality"] },
               { id: "research",  label: "🔬 RESEARCH",
-                tabs: ["cot", "shortint", "smartmoney", "social", "analyst", "ipo", "options", "sec-filings", "analyzer", "darkpool", "short-changes", "dp-heatmap"] },
+                tabs: ["cot", "shortint", "smartmoney", "social", "analyst", "ipo", "options", "sec-filings", "darkpool", "short-changes", "dp-heatmap"] },
               { id: "portfolio", label: "💼 PORTFOLIO",
-                tabs: ["portfolio", "performance", "journal", "alerts", "risklab", "dca", "heatmap", "correlation", "options-calc", "options", "analyst", "ipo"] },
+                tabs: ["portfolio", "performance", "journal", "journal-stats", "alerts", "risklab", "heatmap", "correlation", "options-calc", "options", "analyst", "ipo"] },
               { id: "tools",     label: "🛠 TOOLS",
-                tabs: ["workflow", "agent", "ailab", "backtest", "sec-filings", "analyzer", "cot", "shortint", "smartmoney", "social", "telegram", "deals", "tools"] },
+                tabs: ["workflow", "agent", "backtest", "sec-filings", "cot", "shortint", "smartmoney", "social", "telegram", "tools"] },
               // ── Personal ──────────────────────────────────────────────────
               { id: "islamic",   label: "☪️",
                 tabs: ["quran", "athan", "athkar", "tasbih", "halal", "soccer"] },
@@ -11081,7 +11096,7 @@ export default function App() {
             { id: "tv",        label: "📺 TV LIVE" },
             { id: "multitf",   label: "⏱ MULTI-TF" },
             { id: "fibonacci", label: "🌀 FIB LEVELS" },
-            { id: "openstock", label: "📋 STOCK INFO" },
+            { id: label: "📋 STOCK INFO" },
           ],
           scanner: [
             { id: "scanner",    label: "⚡ SCANNER" },
@@ -11091,7 +11106,7 @@ export default function App() {
             { id: "screener",   label: "🔍 SCREENER" },
             { id: "flow",       label: "💰 OPTIONS FLOW" },
             { id: "fivex",      label: "🚀 5X PLAYS" },
-            { id: "advisor",    label: "🤖 AI ADVISOR" },
+            { id:    label: "🤖 AI ADVISOR" },
             { id: "autoexec",   label: "⚙ AUTO-EXEC" },
           ],
           markets: [
@@ -11115,7 +11130,7 @@ export default function App() {
             { id: "ipo",        label: "💸 DIVIDENDS" },
             { id: "options",    label: "🎰 OPTIONS" },
             { id: "sec-filings",label: "📄 SEC FILINGS" },
-            { id: "analyzer",   label: "🔬 ANALYZER" },
+            { id:   label: "🔬 ANALYZER" },
           ],
           portfolio: [
             { id: "portfolio",    label: "💼 POSITIONS" },
@@ -11123,7 +11138,7 @@ export default function App() {
             { id: "journal",      label: "📓 JOURNAL" },
             { id: "alerts",       label: "🔔 ALERTS" },
             { id: "risklab",      label: "⚠ RISK LAB" },
-            { id: "dca",          label: "📈 DCA" },
+            { id:          label: "📈 DCA" },
             { id: "heatmap",      label: "🔥 HEAT MAP" },
             { id: "correlation",  label: "🔗 CORRELATION" },
             { id: "options-calc", label: "🎰 OPTIONS CALC" },
@@ -11131,9 +11146,9 @@ export default function App() {
           tools: [
             { id: "workflow",  label: "📋 WORKFLOW" },
             { id: "agent",     label: "🤖 AI AGENT" },
-            { id: "ailab",     label: "🧪 AI LAB" },
+            { id:     label: "🧪 AI LAB" },
             { id: "backtest",  label: "⏮ BACKTEST" },
-            { id: "deals",     label: "🛒 DEALS" },
+            { id:     label: "🛒 DEALS" },
             { id: "telegram",  label: "✈ TELEGRAM" },
             { id: "tools",     label: "⚙ SETTINGS" },
           ],
@@ -22401,6 +22416,226 @@ export default function App() {
         );
       })()}
 
+      {/* ── EARNINGS CALENDAR TAB ─────────────────────────────────────────── */}
+      {activeTab === "earn-cal" && (() => {
+        const [ecData, setEcData] = React.useState(null);
+        const [ecLoad, setEcLoad] = React.useState(false);
+        React.useEffect(() => {
+          setEcLoad(true);
+          fetch("/api/market/earnings-calendar").then(r=>r.json()).then(d=>{if(d.ok)setEcData(d);}).catch(()=>{}).finally(()=>setEcLoad(false));
+        }, []);
+        const groups = { past:[], today:[], week:[], later:[] };
+        (ecData?.events||[]).forEach(e => {
+          if (e.dte < 0) groups.past.push(e);
+          else if (e.dte === 0) groups.today.push(e);
+          else if (e.dte <= 7) groups.week.push(e);
+          else groups.later.push(e);
+        });
+        const Row = ({ e }) => (
+          <tr onClick={() => { setTerminalSymbol(e.sym); setActiveTab("terminal"); }}
+            style={{ borderBottom: `1px solid ${C.border}22`, cursor: "pointer" }}
+            onMouseEnter={ev => ev.currentTarget.style.background = C.cardHover}
+            onMouseLeave={ev => ev.currentTarget.style.background = "transparent"}>
+            <td style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent, padding: "10px 12px" }}>{e.sym}</td>
+            <td style={{ fontFamily: MONO, fontSize: 12, color: C.text, padding: "10px 12px" }}>{e.date}</td>
+            <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "10px 12px",
+              color: e.dte === 0 ? C.red : e.dte <= 2 ? C.amber : C.text }}>
+              {e.dte === 0 ? "🔥 TODAY" : e.dte === 1 ? "Tomorrow" : `in ${e.dte}d`}
+            </td>
+            <td style={{ fontFamily: MONO, fontSize: 12, color: C.text, padding: "10px 12px" }}>${e.price}</td>
+            <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.amber, padding: "10px 12px" }}>
+              {e.expMove > 0 ? `±${e.expMove.toFixed(1)}%` : "—"}
+            </td>
+            <td style={{ fontFamily: MONO, fontSize: 12, padding: "10px 12px", color: C.textDim }}>{e.timing}</td>
+            <td style={{ fontFamily: MONO, fontSize: 12, padding: "10px 12px", color: C.textSec }}>{e.mktCap > 0 ? `$${e.mktCap.toFixed(0)}B` : "—"}</td>
+          </tr>
+        );
+        const Section = ({ title, color, events }) => events.length === 0 ? null : (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color, marginBottom: 10, letterSpacing: "0.06em" }}>{title}</div>
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr style={{ background: C.surface }}>
+                  {["TICKER","DATE","DTE","PRICE","EXP MOVE","TIMING","MKT CAP"].map(h => (
+                    <th key={h} style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, fontWeight: 700,
+                      padding: "8px 12px", textAlign: "left", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.05em" }}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>{events.map((e,i) => <Row key={i} e={e} />)}</tbody>
+              </table>
+            </div>
+          </div>
+        );
+        return (
+          <div style={{ padding: "16px 20px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+              <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.text }}>📅 EARNINGS CALENDAR</span>
+              <button onClick={() => { setEcLoad(true); fetch("/api/market/earnings-calendar").then(r=>r.json()).then(d=>{if(d.ok)setEcData(d);}).catch(()=>{}).finally(()=>setEcLoad(false)); }}
+                style={{ fontFamily: MONO, fontSize: 11, border: `1px solid ${C.accent}`, background: `${C.accent}18`,
+                  color: C.accent, borderRadius: 6, padding: "4px 12px", cursor: "pointer" }}>
+                {ecLoad ? "⌛" : "↺ REFRESH"}
+              </button>
+              {ecData && <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Updated: {new Date(ecData.scannedAt).toLocaleTimeString()}</span>}
+            </div>
+            {ecLoad && !ecData && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>⌛ Loading earnings calendar…</div>}
+            <Section title="🔥 TODAY" color={C.red} events={groups.today} />
+            <Section title="📅 THIS WEEK (1-7 DAYS)" color={C.amber} events={groups.week} />
+            <Section title="📆 UPCOMING (8+ DAYS)" color={C.text} events={groups.later} />
+            <Section title="✓ RECENT (PAST 7 DAYS)" color={C.textDim} events={groups.past.slice(0,10)} />
+            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 16 }}>
+              Expected Move = options-implied volatility proxy from 52w range. Click any ticker to open chart.
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── ECONOMIC CALENDAR TAB ─────────────────────────────────────────── */}
+      {activeTab === "econ-cal" && (() => {
+        const [evData, setEvData] = React.useState(null);
+        React.useEffect(() => {
+          fetch("/api/market/econ-calendar").then(r=>r.json()).then(d=>{if(d.ok)setEvData(d);}).catch(()=>{});
+        }, []);
+        const IMPACT_COL = { HIGH: C.red, MED: C.amber, LOW: C.green };
+        return (
+          <div style={{ padding: "16px 20px" }}>
+            <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 20 }}>🗓 ECONOMIC CALENDAR</div>
+            {!evData && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>⌛ Loading…</div>}
+            {evData && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {evData.events.map((e, i) => (
+                  <div key={i} style={{ padding: "14px 18px", borderRadius: 10,
+                    background: e.isUrgent ? `${C.red}0d` : C.card,
+                    border: `1px solid ${e.isUrgent ? C.red : C.border}44`,
+                    borderLeft: `5px solid ${IMPACT_COL[e.impact] || C.amber}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text }}>{e.name}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 4,
+                            background: (IMPACT_COL[e.impact]||C.amber) + "22",
+                            color: IMPACT_COL[e.impact] || C.amber }}>{e.impact}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, background: C.surface, borderRadius: 4, padding: "2px 6px" }}>{e.tag}</span>
+                        </div>
+                        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginTop: 4 }}>{e.note}</div>
+                      </div>
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900,
+                          color: e.isUrgent ? C.red : e.dte <= 5 ? C.amber : C.text }}>
+                          {e.countdown}
+                        </div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{e.date}</div>
+                      </div>
+                    </div>
+                    {e.isUrgent && (
+                      <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.red }}>
+                        ⚠ HIGH-IMPACT EVENT SOON — Reduce size, avoid new entries
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── JOURNAL ANALYTICS TAB ─────────────────────────────────────────── */}
+      {activeTab === "journal-stats" && (() => {
+        const [jData, setJData] = React.useState(null);
+        React.useEffect(() => {
+          fetch("/api/journal").then(r=>r.json()).then(d=>{if(Array.isArray(d))setJData(d);else if(d.entries)setJData(d.entries);}).catch(()=>{});
+        }, []);
+        if (!jData) return <div style={{ padding: 40, fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>⌛ Loading journal…</div>;
+        const trades = jData.filter(e => e.side && e.outcome);
+        const wins   = trades.filter(e => e.outcome === "WIN" || e.pnl > 0);
+        const losses = trades.filter(e => e.outcome === "LOSS" || e.pnl < 0);
+        const winRate = trades.length ? Math.round(wins.length / trades.length * 100) : 0;
+        const avgWin  = wins.length ? wins.reduce((a,e) => a + Number(e.pnl||0), 0) / wins.length : 0;
+        const avgLoss = losses.length ? Math.abs(losses.reduce((a,e) => a + Number(e.pnl||0), 0) / losses.length) : 0;
+        const rrRatio = avgLoss > 0 ? (avgWin / avgLoss).toFixed(2) : "—";
+        const totalPnl = trades.reduce((a,e) => a + Number(e.pnl||0), 0);
+        // By setup
+        const bySetup = {};
+        trades.forEach(e => {
+          const s = e.setup || e.source || "Unknown";
+          if (!bySetup[s]) bySetup[s] = { wins:0, total:0 };
+          bySetup[s].total++;
+          if (e.outcome === "WIN" || e.pnl > 0) bySetup[s].wins++;
+        });
+        // By day of week
+        const byDay = {Sun:0,Mon:0,Tue:0,Wed:0,Thu:0,Fri:0,Sat:0};
+        const byDayTotal = {Sun:0,Mon:0,Tue:0,Wed:0,Thu:0,Fri:0,Sat:0};
+        trades.forEach(e => {
+          if (e.date) { const d = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][new Date(e.date).getDay()]; byDayTotal[d]++; if(e.outcome==="WIN"||e.pnl>0) byDay[d]++; }
+        });
+        const Stat = ({label, value, col}) => (
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 20px", textAlign: "center" }}>
+            <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: col||C.text, lineHeight: 1 }}>{value}</div>
+            <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 6 }}>{label}</div>
+          </div>
+        );
+        return (
+          <div style={{ padding: "16px 20px" }}>
+            <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 20 }}>📊 TRADE JOURNAL ANALYTICS</div>
+            {trades.length === 0 ? (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 40, textAlign: "center" }}>
+                <div style={{ fontFamily: MONO, fontSize: 13, color: C.text, marginBottom: 8 }}>No completed trades yet</div>
+                <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Journal your trades with outcome (WIN/LOSS) and P&L to see analytics here.</div>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px,1fr))", gap: 10, marginBottom: 24 }}>
+                  <Stat label="Win Rate" value={winRate + "%"} col={winRate >= 60 ? C.green : winRate >= 45 ? C.amber : C.red} />
+                  <Stat label="Total Trades" value={trades.length} />
+                  <Stat label="Avg Win $" value={avgWin > 0 ? `$${avgWin.toFixed(0)}` : "—"} col={C.green} />
+                  <Stat label="Avg Loss $" value={avgLoss > 0 ? `$${avgLoss.toFixed(0)}` : "—"} col={C.red} />
+                  <Stat label="Avg R:R" value={rrRatio} col={Number(rrRatio) >= 2 ? C.green : Number(rrRatio) >= 1.5 ? C.amber : C.red} />
+                  <Stat label="Total P&L" value={`${totalPnl >= 0 ? "+" : ""}$${totalPnl.toFixed(0)}`} col={totalPnl >= 0 ? C.green : C.red} />
+                </div>
+                {Object.keys(bySetup).length > 0 && (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 10 }}>Win Rate by Setup</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {Object.entries(bySetup).sort((a,b) => b[1].total - a[1].total).map(([setup, data]) => {
+                        const pct = Math.round(data.wins / data.total * 100);
+                        const col = pct >= 60 ? C.green : pct >= 45 ? C.amber : C.red;
+                        return (
+                          <div key={setup} style={{ display: "flex", alignItems: "center", gap: 10,
+                            background: C.surface, borderRadius: 6, padding: "8px 12px" }}>
+                            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text, width: 140 }}>{setup}</span>
+                            <div style={{ flex: 1, height: 8, borderRadius: 4, background: C.border, overflow: "hidden" }}>
+                              <div style={{ width: pct + "%", height: "100%", background: col, borderRadius: 4 }} />
+                            </div>
+                            <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: col, width: 50, textAlign: "right" }}>{pct}%</span>
+                            <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{data.total} trades</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 10 }}>Win Rate by Day</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {Object.entries(byDayTotal).filter(([,t]) => t > 0).map(([day, total]) => {
+                      const pct = Math.round(byDay[day] / total * 100);
+                      const col = pct >= 60 ? C.green : pct >= 45 ? C.amber : C.red;
+                      return (
+                        <div key={day} style={{ flex: 1, background: C.surface, border: `1px solid ${col}44`, borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
+                          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: col }}>{pct}%</div>
+                          <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 2 }}>{day}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{total}t</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Global Quran audio element — stays mounted across all tab switches */}
       <audio
         ref={quranAudioRef}
@@ -22798,11 +23033,17 @@ export default function App() {
               { key: "1", desc: "Single-panel layout" },
               { key: "2", desc: "Two-panel layout" },
               { key: "4", desc: "Four-panel layout" },
-              { section: "NAVIGATION" },
-              { key: "Click any watchlist row", desc: "Open in terminal" },
-              { key: "TV button", desc: "Open TradingView chart" },
-              { key: "WS button", desc: "Open Workstation" },
-              { key: "LOG button", desc: "Log trade to journal" },
+              { section: "NAVIGATION — press anywhere (not in input)" },
+              { key: "M", desc: "📊 Monitor (dashboard)" },
+              { key: "S", desc: "🔍 Smart Scanner" },
+              { key: "G", desc: "📈 Gap Scan" },
+              { key: "C", desc: "📈 Chart (Terminal)" },
+              { key: "N", desc: "📰 News" },
+              { key: "P", desc: "💼 Portfolio" },
+              { key: "J", desc: "📓 Journal" },
+              { key: "A", desc: "📅 Earnings Calendar" },
+              { key: "E", desc: "🗓 Economic Calendar" },
+              { key: "Click watchlist row", desc: "Open deep dive" },
             ].map((item, i) => item.section
               ? <div key={i} style={{ fontFamily: MONO, fontSize: 12, color: C.accent, letterSpacing: "0.12em", fontWeight: 700, marginTop: i > 0 ? 14 : 0, marginBottom: 6 }}>{item.section}</div>
               : <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>

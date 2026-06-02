@@ -1556,4 +1556,72 @@ function startMarketScanner() {
   console.log(`[Scanner] Started — ${cfg.intervalMinutes}min interval + scheduled ET: ${timeStr}`);
 }
 
-module.exports = { startMarketScanner, runScan, getScannerStatus, sendMacroReport, loadConfig, saveConfig, DEFAULT_SYMBOLS, analyzeSymbol, computeMacroRegime, SCHEDULED_SCAN_TIMES_ET };
+// ── Watchlist-specific alerts ─────────────────────────────────────────────
+// Called from server.js after startup — scans user's custom watchlist every 15 min
+const watchlistAlertCooldown = new Map();
+
+async function scanWatchlistAlerts(watchlistSymbols) {
+  if (!watchlistSymbols || !watchlistSymbols.length) return;
+  if (!telegramConfigured()) return;
+  try {
+    const { isQuietHours, getAlertLevel } = getBotHelpers();
+    if (isQuietHours?.()) return;
+    if (getAlertLevel?.() === "off") return;
+
+    const unique = [...new Set(watchlistSymbols.map(s => String(s).toUpperCase()))].slice(0, 30);
+    for (const sym of unique) {
+      const coolKey = `${sym}:WL`;
+      const last = watchlistAlertCooldown.get(coolKey);
+      if (last && Date.now() - last < 6 * 3600_000) continue; // 6h cooldown
+
+      let bars;
+      try { bars = await fetchYahooBars(sym, "1mo", "1d"); } catch { continue; }
+      if (!bars || bars.length < 5) continue;
+
+      const closes  = bars.map(b => b.close);
+      const volumes = bars.map(b => b.volume || 0);
+      const price   = bars[bars.length-1].close;
+      const rsi     = computeRSI(closes, 14);
+      const ema9    = computeEMA(closes, 9);
+      const ema21   = computeEMA(closes, 21);
+      const ema50   = computeEMA(closes, Math.min(50, closes.length));
+      const avgVol  = volumes.slice(-20).reduce((a,b)=>a+b,0)/20;
+      const rvol    = avgVol > 0 ? round2(bars[bars.length-1].volume / avgVol) : 1;
+      const chgPct  = bars.length >= 2 ? round2((price-bars[bars.length-2].close)/bars[bars.length-2].close*100) : 0;
+
+      // Score it
+      let score = 50;
+      if (price > ema9) score += 10; if (ema9 > ema21) score += 10; if (ema21 > ema50) score += 8;
+      if (chgPct > 2) score += 12; else if (chgPct > 0.5) score += 5;
+      if (rvol > 2) score += 15; else if (rvol > 1.3) score += 8;
+      if (rsi > 50 && rsi < 75) score += 5;
+
+      const signal = score >= 75 ? "STRONG BUY" : score >= 62 ? "BUY" : score <= 35 ? "AVOID" : null;
+      if (!signal) continue;
+
+      // SMC check
+      const { detectBOSChoCh } = require("./smc-engine");
+      const { bos } = detectBOSChoCh(bars);
+      const bullBOS = bos?.type === "BULL_BOS";
+      if (score < 80 && !bullBOS) continue; // need high score OR bull BOS
+
+      watchlistAlertCooldown.set(coolKey, Date.now());
+      const emoji = score >= 80 ? "🔥" : "⚡";
+      const msg = [
+        `${emoji} WATCHLIST ALERT — $${sym}`,
+        `━━━━━━━━━━━━━━━━━━━━`,
+        `Signal: ${signal}  Score: ${score}/100`,
+        bullBOS ? `📐 Bull BOS confirmed @ $${round2(bos.level)}` : "",
+        `Price: $${round2(price)}  Chg: ${chgPct > 0 ? "+" : ""}${chgPct}%`,
+        `RVOL: ${rvol}×  RSI: ${round2(rsi)}`,
+        `EMA: ${ema9 > ema21 ? "9 > 21 ▲ ALIGNED" : "9 < 21 ▼ MISALIGNED"}`,
+        ``,
+        `⏰ ${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} ET`,
+        `Type /score ${sym} for full SMC analysis`,
+      ].filter(Boolean).join("\n");
+      await sendTelegramMessage(msg).catch(() => {});
+    }
+  } catch (e) { console.error("[WL Alert]", e.message); }
+}
+
+module.exports = { startMarketScanner, runScan, getScannerStatus, sendMacroReport, loadConfig, saveConfig, DEFAULT_SYMBOLS, analyzeSymbol, computeMacroRegime, SCHEDULED_SCAN_TIMES_ET, scanWatchlistAlerts };
