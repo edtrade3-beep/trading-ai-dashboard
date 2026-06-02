@@ -13725,6 +13725,27 @@ export default function App() {
                     AI-scored technical + entry zone + volume + sentiment — 30 high-growth tickers
                   </div>
                 </div>
+                {/* ── Risk Position Sizer — always visible in scanner ── */}
+                {(() => {
+                  const [rAcct, setRAcct] = React.useState(() => { try { return localStorage.getItem("risk_account") || "50000"; } catch { return "50000"; } });
+                  const [rPct,  setRPct]  = React.useState(() => { try { return localStorage.getItem("risk_pct")     || "1";     } catch { return "1";     } });
+                  const riskDollars = Math.round(Number(rAcct) * Number(rPct) / 100);
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px",
+                      background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8 }}>
+                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim }}>💰 RISK</span>
+                      <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>$</span>
+                      <input type="number" value={rAcct} onChange={e => { setRAcct(e.target.value); try{localStorage.setItem("risk_account",e.target.value);}catch{} }}
+                        style={{ width: 72, fontFamily: MONO, fontSize: 12, background: "transparent", border: `1px solid ${C.border}`, color: C.text, borderRadius: 4, padding: "3px 5px", textAlign: "right" }} />
+                      <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>@</span>
+                      <input type="number" value={rPct} min="0.25" max="5" step="0.25" onChange={e => { setRPct(e.target.value); try{localStorage.setItem("risk_pct",e.target.value);}catch{} }}
+                        style={{ width: 42, fontFamily: MONO, fontSize: 12, background: "transparent", border: `1px solid ${C.border}`, color: C.text, borderRadius: 4, padding: "3px 5px", textAlign: "right" }} />
+                      <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>%</span>
+                      <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.amber }}>= ${riskDollars.toLocaleString()}</span>
+                    </div>
+                  );
+                })()}
+
                 <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   {scanLastRun && (
                     <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
@@ -13966,6 +13987,20 @@ export default function App() {
                         background: C.surface, border: `1px solid ${C.border}`,
                         color: C.text, borderRadius: 6, padding: "4px 6px" }} />
                   </div>
+
+                  {/* A+ ONE-CLICK filter */}
+                  <button
+                    onClick={() => {
+                      const isAPlus = sfMinScore === 80 && sfZone === "ALL" && sfSig === "ALL";
+                      if (isAPlus) { setSfMinScore(0); setSfZone("ALL"); setSfSig("ALL"); }
+                      else { setSfMinScore(80); setSfZone("ALL"); setSfSig("ALL"); }
+                    }}
+                    style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, border: "none",
+                      background: sfMinScore === 80 ? C.accent : `${C.accent}18`,
+                      color: sfMinScore === 80 ? "#fff" : C.accent,
+                      borderRadius: 6, padding: "5px 12px", cursor: "pointer", whiteSpace: "nowrap" }}>
+                    {sfMinScore === 80 ? "✓ A+ ONLY" : "⚡ A+ FILTER"}
+                  </button>
 
                   {/* Active filter count + clear */}
                   <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
@@ -14286,7 +14321,13 @@ export default function App() {
                                 const chg2 = Number(row.quote?.changePercent || row.quote?.changesPercentage || 0);
                                 const yPos = (hi52 > lo52 && px > 0) ? (px - lo52) / (hi52 - lo52) : 0.5;
                                 let pat = null, patCol = C.textDim;
-                                if (hi52 > 0 && px >= hi52 * 0.97 && rvol >= 1.5 && chg2 > 0) { pat = '🚀 BREAKOUT'; patCol = C.accent; }
+                                // Institutional Accumulation: high RVOL + uptrend + near 52w high
+                                const smc3  = scanDeepData[row.ticker]?.smc;
+                                const bosBull3 = smc3?.bos?.type === "BULL_BOS";
+                                const instAccum = rvol >= 2.0 && chg2 > 0 && yPos > 0.6 && e9 > e21 && bosBull3;
+
+                                if (instAccum) { pat = '🏦 SMART $'; patCol = C.accent; }
+                                else if (hi52 > 0 && px >= hi52 * 0.97 && rvol >= 1.5 && chg2 > 0) { pat = '🚀 BREAKOUT'; patCol = "#ffd700"; }
                                 else if (hi52 > 0 && px >= hi52 * 0.93 && e9 > e21 && rsi >= 55 && rsi <= 72) { pat = '☕ CUP HDL'; patCol = C.green; }
                                 else if (chg2 > 3 && rvol >= 1.5 && e9 > e21 && rsi < 72) { pat = '🏈 BULL FLAG'; patCol = '#4caf50'; }
                                 else if (yPos > 0.65 && e9 > e21 && rsi >= 50 && rsi <= 65) { pat = '📐 TREND'; patCol = C.cyan; }
@@ -14833,31 +14874,43 @@ export default function App() {
                                           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                                             {deepData.news.slice(0, 5).map((n, ni) => {
                                               const title = n.title || n.headline || "";
-                                              const src   = n.source || n.publisher || "";
+                                              const src2  = n.source || n.publisher || "";
                                               const url   = n.url || n.link || "#";
-                                              const bear  = ["fall","drop","loss","miss","cut","lawsuit","probe","fraud",
-                                                "decline","sell","downgrade","warning","fail"].some(w =>
-                                                title.toLowerCase().includes(w));
-                                              const bull  = ["win","award","contract","surge","beat","record","launch",
-                                                "expand","partnership","upgrade","buy","strong","profit","growth",
-                                                "milestone"].some(w => title.toLowerCase().includes(w));
+                                              const tl    = title.toLowerCase();
+                                              // Enhanced sentiment + catalyst tagging
+                                              const bear  = ["fall","drop","loss","miss","cut","lawsuit","probe","fraud","decline","sell","downgrade","warning","fail","crash","plunge","sink","weak","disappoint"].some(w => tl.includes(w));
+                                              const bull  = ["win","award","contract","surge","beat","record","launch","expand","partnership","upgrade","buy","strong","profit","growth","milestone","outperform","raise","boost","soar"].some(w => tl.includes(w));
+                                              // Catalyst tags
+                                              const catalysts = [];
+                                              if (tl.includes("earn") || tl.includes("report") || tl.includes("quarter")) catalysts.push("📅 Earnings");
+                                              if (tl.includes("upgrade") || tl.includes("downgrade") || tl.includes("analyst") || tl.includes("price target")) catalysts.push("🎯 Analyst");
+                                              if (tl.includes("fda") || tl.includes("approval") || tl.includes("trial") || tl.includes("drug")) catalysts.push("🧬 FDA");
+                                              if (tl.includes("contract") || tl.includes("deal") || tl.includes("awarded") || tl.includes("partnership")) catalysts.push("📄 Contract");
+                                              if (tl.includes("insider") || tl.includes("bought") || tl.includes("purchased") || tl.includes("filing")) catalysts.push("🏦 Insider");
+                                              if (tl.includes("buyback") || tl.includes("dividend") || tl.includes("split")) catalysts.push("💰 Corp Action");
+                                              const sentIcon = bull ? "🟢" : bear ? "🔴" : "⚪";
                                               return (
                                                 <a key={ni} href={url} target="_blank" rel="noopener noreferrer"
                                                   style={{ display: "block", textDecoration: "none",
-                                                    padding: "7px 9px", borderRadius: 5,
+                                                    padding: "8px 10px", borderRadius: 6,
                                                     background: bear ? `${C.red}0d` : bull ? `${C.green}0d` : C.card,
                                                     border: `1px solid ${bear ? C.red : bull ? C.green : C.border}44` }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 12,
-                                                    color: bear ? C.red : bull ? C.green : C.text,
-                                                    lineHeight: 1.5 }}>
-                                                    {title.length > 90 ? title.slice(0, 90) + "…" : title}
-                                                  </div>
-                                                  {src && (
-                                                    <div style={{ fontFamily: MONO, fontSize: 12,
-                                                      color: C.textDim, marginTop: 3 }}>
-                                                      {src}
+                                                  <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+                                                    <span style={{ fontSize: 12, flexShrink: 0, marginTop: 1 }}>{sentIcon}</span>
+                                                    <div style={{ flex: 1 }}>
+                                                      <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: bull || bear ? 600 : 400,
+                                                        color: bear ? C.red : bull ? C.green : C.text, lineHeight: 1.5 }}>
+                                                        {title.length > 85 ? title.slice(0, 85) + "…" : title}
+                                                      </div>
+                                                      <div style={{ display: "flex", gap: 5, marginTop: 4, flexWrap: "wrap" }}>
+                                                        {catalysts.map((c,ci) => (
+                                                          <span key={ci} style={{ fontFamily: MONO, fontSize: 11, color: C.accent,
+                                                            background: `${C.accent}14`, borderRadius: 3, padding: "1px 5px" }}>{c}</span>
+                                                        ))}
+                                                        {src2 && <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{src2}</span>}
+                                                      </div>
                                                     </div>
-                                                  )}
+                                                  </div>
                                                 </a>
                                               );
                                             })}
@@ -15161,7 +15214,41 @@ export default function App() {
                                                   {optAct.includes("BUY") ? "BUY" : "SELL"} {contr}× {row.ticker} ${strike.toFixed(step < 1 ? 2 : 0)} {isCall ? "CALL" : "PUT"} {expiry.label}
                                                 </span>
                                                 <br />~${prem.toFixed(2)}/contract · Est. cost ${cost}
-                                                <br /><span style={{ color: C.amber }}>⚠ Estimate only — verify with broker</span>
+                                              </div>
+                                              {/* Options Greeks estimates */}
+                                              {prem > 0 && expiry.dte > 0 && (
+                                                <div style={{ marginTop: 8, padding: "7px 10px", borderRadius: 5,
+                                                  background: C.surface, border: `1px solid ${C.border}22` }}>
+                                                  <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>
+                                                    GREEKS (estimates)
+                                                  </div>
+                                                  {(() => {
+                                                    const moneyness = isCall ? strike / px : px / strike;
+                                                    const delta = moneyness < 0.98 ? 0.5 + (1 - moneyness) * 2 :
+                                                                  moneyness < 1.02 ? 0.48 - (moneyness - 0.98) * 3 :
+                                                                  moneyness < 1.05 ? 0.35 - (moneyness - 1.02) * 4 : 0.20;
+                                                    const absDelta = Math.max(0.05, Math.min(0.95, isCall ? delta : 1 - delta));
+                                                    const theta = -(prem * (iv / 100)) / Math.sqrt(expiry.dte) * 0.5;
+                                                    const gamma = (0.4 * Math.exp(-0.5 * Math.pow(Math.log(px/strike) / (iv/100 * Math.sqrt(expiry.dte/365)), 2))) / (px * (iv/100) * Math.sqrt(expiry.dte/365));
+                                                    return (
+                                                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4 }}>
+                                                        {[
+                                                          { label: "Δ DELTA",  val: absDelta.toFixed(2),        col: C.green, tip: "Price move per $1 in stock" },
+                                                          { label: "Θ THETA",  val: theta.toFixed(2) + "/day",  col: C.red,   tip: "$ lost per day (time decay)" },
+                                                          { label: "Γ GAMMA",  val: gamma.toFixed(3),           col: C.amber, tip: "Delta change rate" },
+                                                        ].map(g => (
+                                                          <div key={g.label} style={{ textAlign: "center", padding: "4px", borderRadius: 4, background: C.card }} title={g.tip}>
+                                                            <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{g.label}</div>
+                                                            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: g.col }}>{g.val}</div>
+                                                          </div>
+                                                        ))}
+                                                      </div>
+                                                    );
+                                                  })()}
+                                                </div>
+                                              )}
+                                              <div style={{ fontFamily: SANS, fontSize: 10, color: C.amber, marginTop: 6 }}>
+                                                <br /><span style={{ color: C.amber }}>⚠ Estimates only — verify with broker</span>
                                               </div>
                                             </div>
                                           );
