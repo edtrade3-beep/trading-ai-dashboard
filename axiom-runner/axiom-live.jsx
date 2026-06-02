@@ -14261,9 +14261,67 @@ export default function App() {
                                 </div>
                               </td>
 
-                              {/* Signal badge */}
+                              {/* Signal badge — shows Master Verdict when deep dive loaded */}
                               <td style={{ padding: "11px 9px", borderBottom: `1px solid ${C.border}22` }}>
-                                <span style={SIG_STYLE(row.sColor)}>{row.signal}</span>
+                                {(() => {
+                                  // Compute quick Master Verdict from available scanner data
+                                  const px2   = Number(livePrice || row.quote?.price || 0);
+                                  const hi522 = Number(row.quote?.yearHigh || 0);
+                                  const lo522 = Number(row.quote?.yearLow  || 0);
+                                  const ma502 = Number(row.quote?.priceAvg50  || 0);
+                                  const ma2002= Number(row.quote?.priceAvg200 || 0);
+                                  const sd2   = deepSocialData[row.ticker];
+                                  const smc2  = deepData?.smc;
+                                  const bosBull2 = smc2?.bos?.type === "BULL_BOS";
+                                  const bosBear2 = smc2?.bos?.type === "BEAR_BOS";
+                                  const sentBull2= sd2?.stocktwits?.bullPct ?? 50;
+
+                                  // 6-signal weighted score
+                                  const smcScore = bosBull2 ? 80 : bosBear2 ? 20 : 50;
+                                  const ttPx = [
+                                    ma2002 > 0 && px2 > ma2002,
+                                    ma502  > 0 && ma2002 > 0 && ma502 > ma2002,
+                                    ma502  > 0 && px2 > ma502,
+                                    lo522  > 0 && px2 >= lo522 * 1.30,
+                                    hi522  > 0 && px2 >= hi522 * 0.75,
+                                    (row.rsiVal || 50) >= 60,
+                                    row.ema9v && row.ema21v && row.ema9v > row.ema21v,
+                                  ].filter(Boolean).length;
+                                  const ttScore2 = Math.round(ttPx / 7 * 100);
+                                  const macdScore = row.macdBull === true ? 70 : row.macdBull === false ? 30 : 50;
+                                  const composite2 = (
+                                    (row.score || 50) * 0.20 +
+                                    smcScore * 0.25 +
+                                    ttScore2 * 0.20 +
+                                    sentBull2 * 0.15 +
+                                    50 * 0.10 + // analyst (neutral default)
+                                    macdScore * 0.10
+                                  );
+
+                                  // Only show master if deep dive data loaded (smc or sentiment)
+                                  const hasMasterData = smc2 || sd2;
+                                  if (!hasMasterData) return <span style={SIG_STYLE(row.sColor)}>{row.signal}</span>;
+
+                                  const ml = composite2 >= 72 ? { lbl: "STRONG BUY", col: "#00e676" } :
+                                             composite2 >= 62 ? { lbl: "BUY",         col: C.green }   :
+                                             composite2 >= 53 ? { lbl: "WATCH",       col: C.amber }   :
+                                             composite2 >= 40 ? { lbl: "AVOID",       col: C.red }     :
+                                                                { lbl: "SELL/SHORT",  col: "#ff2244" };
+
+                                  const changed = ml.lbl !== row.signal && !(ml.lbl === "STRONG BUY" && row.signal === "STRONG BUY");
+                                  return (
+                                    <div>
+                                      <span style={{ ...SIG_STYLE(ml.col), background: `${ml.col}22`, borderColor: `${ml.col}66` }}>
+                                        {ml.lbl}
+                                      </span>
+                                      {changed && (
+                                        <div style={{ fontFamily: SANS, fontSize: 8, color: C.textDim, marginTop: 2 }}>
+                                          was: {row.signal}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </td>
 
                               {/* Ticker */}
