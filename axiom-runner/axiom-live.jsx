@@ -14549,7 +14549,8 @@ export default function App() {
                                         <div style={{ flex: 1 }} />
                                       </div>
 
-                                      {/* ── Col 3: SMC ANALYSIS (replaces Funds & Data) ── */}
+                                      {/* ── Col 3: SMC ANALYSIS ── */}
+                                      {(() => {
                                         const smc = deepData?.smc;
                                         const px  = Number(livePrice || row.quote?.price || 0);
                                         return (
