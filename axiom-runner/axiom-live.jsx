@@ -13518,8 +13518,41 @@ export default function App() {
                       }
                       return (
                         <tr key={s.ticker} style={{ background: rowBg, cursor: "pointer" }}
-                          onClick={() => { setTvOsInput(s.ticker); setTvOsSymbol(s.ticker); setActiveTab("openstock"); }}
-                          title={`Click to open ${s.ticker} in Stock Deep Dive`}>
+                          onClick={async () => {
+                            const ticker = s.ticker;
+                            setTerminalSymbol(ticker);
+                            // Build a scan row from 5X data + live price
+                            const lv2  = fivexPrices[ticker];
+                            const px2  = lv2?.price || s.price || 0;
+                            const signalRow = {
+                              ticker,
+                              score: lv2?.score || 65,
+                              signal: "BUY",
+                              signals: [{ txt: s.thesis || "5X potential setup", bull: true }],
+                              sColor: C.accent,
+                              rsiVal: lv2?.rsi || null,
+                              macdBull: null,
+                              ema9v: null, ema21v: null,
+                              ref: s, // pass the full 5X ref data (entry zones, targets)
+                              quote: {
+                                price: px2, changePercent: lv2?.chgPct || 0,
+                                yearHigh: s.target2 || px2 * 1.3,
+                                yearLow: s.stop || px2 * 0.7,
+                                priceAvg50: s.e1 || 0, priceAvg200: s.e3 || 0,
+                                volume: 0, avgVolume: 0,
+                              },
+                              candles: null,
+                            };
+                            setScanResults(prev => {
+                              const exists = prev.some(r => r.ticker === ticker);
+                              return exists ? prev : [signalRow, ...prev];
+                            });
+                            setActiveTab("smartscan");
+                            setScanExpanded(ticker);
+                            loadDeepDive(ticker);
+                            loadDeepSocial(ticker);
+                          }}
+                          title={`Click to open ${s.ticker} in Smart Scanner deep dive`}>
                           {/* Rank */}
                           <td style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center",
                             padding: "12px 10px", borderBottom: `1px solid ${C.border}22` }}>
