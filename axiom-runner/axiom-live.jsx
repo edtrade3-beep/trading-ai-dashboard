@@ -14410,7 +14410,7 @@ export default function App() {
                             {/* ── Deep Dive row ── */}
                             {isExpanded && (
                               <tr>
-                                <td colSpan={isTablet ? 10 : 16}
+                                <td colSpan={isTablet ? 10 : 15}
                                   style={{ background: C.bg,
                                     borderLeft: `3px solid ${row.sColor}`,
                                     borderBottom: `2px solid ${row.sColor}44`,
@@ -14533,97 +14533,135 @@ export default function App() {
                                         <div style={{ flex: 1 }} />
                                       </div>
 
-                                      {/* ── Col 3: FUNDAMENTALS + SHORT INTEREST + OPTIONS ── */}
-                                      <div style={{ width: 215, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
-                                          📋 FUNDS & DATA
-                                        </div>
-                                        {fd ? (
-                                          <div style={{ display: "flex", flexDirection: "column", gap: 1, marginBottom: 12 }}>
-                                            {[
-                                              ["Mkt Cap",    fd.marketCap ? `$${(fd.marketCap/1e9).toFixed(1)}B` : "—"],
-                                              ["Revenue",    fd.revenue   ? `$${(fd.revenue/1e9).toFixed(1)}B`   : "—"],
-                                              ["Margin",     fd.grossMargin  ? `${(fd.grossMargin*100).toFixed(1)}%`  : "—"],
-                                              ["Rev Grw",    fd.revenueGrowth ? `${(fd.revenueGrowth*100).toFixed(1)}%` : "—"],
-                                              ["P/S",        fd.priceToSales ? `${Number(fd.priceToSales).toFixed(1)}×`  : "—"],
-                                              ["P/E",        fd.trailingPE   ? `${Number(fd.trailingPE).toFixed(1)}×`   : "—"],
-                                              ["D/E",        fd.debtToEquity ? `${Number(fd.debtToEquity).toFixed(2)}` : "—"],
-                                              ["Cash",       fd.totalCash    ? `$${(fd.totalCash/1e9).toFixed(1)}B`     : "—"],
-                                              ["52W",        (yH > 0 && yL > 0) ? `${yL.toFixed(0)}–${yH.toFixed(0)}` : "—"],
-                                            ].map(([k, v]) => (
-                                              <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 13, padding: "6px 0",
-                                                borderBottom: `1px solid ${C.border}22` }}>
-                                                <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>{k}</span>
-                                                <span style={{ color: C.text, fontWeight: 600 }}>{v}</span>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        ) : (
-                                          <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginBottom: 12 }}>
-                                            {deepData ? "No data" : "Loading…"}
-                                          </div>
-                                        )}
-
-                                        {/* Short Interest */}
-                                        {(() => {
-                                          const si = deepData?.short;
-                                          if (!si) return null;
-                                          const sf = si.shortFloat;
-                                          const sfColor = sf == null ? C.textDim : sf > 20 ? C.red : sf > 10 ? C.amber : C.green;
-                                          return (
-                                            <div style={{ marginBottom: 12 }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 11, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>🩳 SHORT INTEREST</div>
-                                              {[
-                                                ["Float Short", sf != null ? `${sf.toFixed(1)}%` : "—", sfColor],
-                                                ["Days Cover",  si.shortRatio != null ? `${si.shortRatio.toFixed(1)}d` : "—", C.text],
-                                                ["Updated",     si.dateShortInterest || "—", C.textDim],
-                                              ].map(([k, v, col]) => (
-                                                <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 13, padding: "6px 0",
-                                                  borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>{k}</span>
-                                                  <span style={{ color: col, fontWeight: 700 }}>{v}</span>
-                                                </div>
-                                              ))}
+                                      {/* ── Col 3: SMC ANALYSIS (replaces Funds & Data) ── */}
+                                        const smc = deepData?.smc;
+                                        const px  = Number(livePrice || row.quote?.price || 0);
+                                        return (
+                                          <div style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
+                                              🧱 SMC ANALYSIS
                                             </div>
-                                          );
-                                        })()}
+                                            {!smc ? (
+                                              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Loading SMC data…</div>
+                                            ) : (
+                                              <>
+                                                {/* BOS / ChoCh */}
+                                                {(smc.bos || smc.choch) && (
+                                                  <div style={{ marginBottom: 10 }}>
+                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>📐 STRUCTURE</div>
+                                                    {smc.bos && (
+                                                      <div style={{ padding: "6px 8px", borderRadius: 5, marginBottom: 4,
+                                                        background: smc.bos.type === "BULL_BOS" ? `${C.green}14` : `${C.red}14`,
+                                                        border: `1px solid ${smc.bos.type === "BULL_BOS" ? C.green : C.red}44` }}>
+                                                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: smc.bos.type === "BULL_BOS" ? C.green : C.red }}>{smc.bos.label}</div>
+                                                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>@ ${smc.bos.level}</div>
+                                                      </div>
+                                                    )}
+                                                    {smc.choch && (
+                                                      <div style={{ padding: "6px 8px", borderRadius: 5,
+                                                        background: `${C.amber}14`, border: `1px solid ${C.amber}44` }}>
+                                                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.amber }}>{smc.choch.label}</div>
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                )}
 
-                                        {/* Options Put/Call ratio */}
-                                        {(() => {
-                                          const opt = deepData?.options;
-                                          if (!opt || opt.callPutRatio == null) return null;
-                                          const cpr = Number(opt.callPutRatio);
-                                          const cprColor = cpr > 1.5 ? C.green : cpr < 0.7 ? C.red : C.amber;
-                                          const cprLabel = cpr > 1.5 ? "BULLISH" : cpr < 0.7 ? "BEARISH" : "NEUTRAL";
-                                          return (
-                                            <div>
-                                              <div style={{ fontFamily: MONO, fontSize: 11, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>📊 OPTIONS FLOW</div>
-                                              <div style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 13, padding: "6px 0",
-                                                borderBottom: `1px solid ${C.border}22` }}>
-                                                <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>C/P Ratio</span>
-                                                <span style={{ color: cprColor, fontWeight: 700 }}>{cpr.toFixed(2)}×</span>
-                                              </div>
-                                              <div style={{ display: "flex", justifyContent: "space-between",
-                                                fontFamily: MONO, fontSize: 13, padding: "6px 0",
-                                                borderBottom: `1px solid ${C.border}22` }}>
-                                                <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>Bias</span>
-                                                <span style={{ color: cprColor, fontWeight: 700 }}>{cprLabel}</span>
-                                              </div>
-                                              {opt.expiration && (
-                                                <div style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 13, padding: "6px 0" }}>
-                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>Exp</span>
-                                                  <span style={{ color: C.textSec }}>{opt.expiration}</span>
-                                                </div>
-                                              )}
-                                            </div>
-                                          );
-                                        })()}
-                                        <div style={{ flex: 1 }} />
-                                      </div>
+                                                {/* Order Blocks */}
+                                                {smc.orderBlocks && smc.orderBlocks.length > 0 && (
+                                                  <div style={{ marginBottom: 10 }}>
+                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>🔲 ORDER BLOCKS</div>
+                                                    {smc.orderBlocks.map((ob, i) => {
+                                                      const isBull = ob.type === "BULL_OB";
+                                                      const col = isBull ? C.green : C.red;
+                                                      const dist = px > 0 ? Math.abs(ob.mid - px) / px * 100 : 0;
+                                                      return (
+                                                        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
+                                                          <span style={{ fontFamily: SANS, fontSize: 10, color: col }}>{isBull ? "🟢 Bull OB" : "🔴 Bear OB"}</span>
+                                                          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: col }}>${ob.top} – ${ob.bot}</span>
+                                                          <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{dist.toFixed(1)}%</span>
+                                                        </div>
+                                                      );
+                                                    })}
+                                                  </div>
+                                                )}
+
+                                                {/* Fair Value Gaps */}
+                                                {smc.fvgs && smc.fvgs.length > 0 && (
+                                                  <div style={{ marginBottom: 10 }}>
+                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>🕳 FAIR VALUE GAPS</div>
+                                                    {smc.fvgs.slice(0, 4).map((f, i) => {
+                                                      const isBull = f.type === "BULL_FVG";
+                                                      const col = isBull ? C.green : C.red;
+                                                      return (
+                                                        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
+                                                          <span style={{ fontFamily: SANS, fontSize: 10, color: col }}>{isBull ? "▲ Bull FVG" : "▼ Bear FVG"}</span>
+                                                          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: col }}>${f.bot} – ${f.top}</span>
+                                                        </div>
+                                                      );
+                                                    })}
+                                                  </div>
+                                                )}
+
+                                                {/* Volume Profile */}
+                                                {smc.volumeProfile && smc.volumeProfile.vpoc > 0 && (
+                                                  <div style={{ marginBottom: 10 }}>
+                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>📊 VOLUME PROFILE</div>
+                                                    {[
+                                                      ["VPOC", smc.volumeProfile.vpoc, C.accent, "Value Area Point of Control"],
+                                                      ["VAH",  smc.volumeProfile.vah,  C.green,  "Value Area High (70%)"],
+                                                      ["VAL",  smc.volumeProfile.val,  C.red,    "Value Area Low (70%)"],
+                                                    ].map(([lbl, val, col, tip]) => (
+                                                      <div key={lbl} title={tip} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
+                                                        <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{lbl}</span>
+                                                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>${val}</span>
+                                                      </div>
+                                                    ))}
+                                                    {/* Mini volume bar chart */}
+                                                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 1 }}>
+                                                      {(smc.volumeProfile.profile || []).slice().reverse().map((b, i) => {
+                                                        const isNearVpoc = Math.abs(b.price - smc.volumeProfile.vpoc) / Math.max(smc.volumeProfile.vpoc, 1) < 0.01;
+                                                        const isInVA = b.price >= smc.volumeProfile.val && b.price <= smc.volumeProfile.vah;
+                                                        const barCol = isNearVpoc ? C.accent : isInVA ? C.green : C.border;
+                                                        return (
+                                                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                            <span style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, width: 44, textAlign: "right" }}>${b.price}</span>
+                                                            <div style={{ flex: 1, height: 6, background: C.surface, borderRadius: 2 }}>
+                                                              <div style={{ width: `${Math.min(100, b.pct * 3)}%`, height: "100%", background: barCol, borderRadius: 2 }} />
+                                                            </div>
+                                                          </div>
+                                                        );
+                                                      })}
+                                                    </div>
+                                                  </div>
+                                                )}
+
+                                                {/* Liquidity Levels */}
+                                                {smc.liquidity && smc.liquidity.length > 0 && (
+                                                  <div>
+                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>💧 LIQUIDITY LEVELS</div>
+                                                    {smc.liquidity.map((l, i) => {
+                                                      const isAbove = l.price > px;
+                                                      const col = l.strength === "HIGH" ? (isAbove ? C.green : C.red) : C.amber;
+                                                      const dist = px > 0 ? ((l.price - px) / px * 100).toFixed(1) : "0";
+                                                      return (
+                                                        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
+                                                          <div>
+                                                            <div style={{ fontFamily: SANS, fontSize: 10, color: col }}>{l.label}</div>
+                                                          </div>
+                                                          <div style={{ textAlign: "right" }}>
+                                                            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: col }}>${l.price}</div>
+                                                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{dist > 0 ? "+" : ""}{dist}%</div>
+                                                          </div>
+                                                        </div>
+                                                      );
+                                                    })}
+                                                  </div>
+                                                )}
+                                              </>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
 
                                       {/* ── Col 4: SOCIAL SENTIMENT + INSIDER BUYS ── */}
                                       <div style={{ width: 215, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
@@ -15437,137 +15475,6 @@ export default function App() {
                                                 </div>
                                               ))}
                                             </div>
-                                          </div>
-                                        );
-                                      })()}
-
-                                      {/* ── Col 9: SMC + VOLUME PROFILE + LIQUIDITY ── */}
-                                      {(() => {
-                                        const smc = deepData?.smc;
-                                        const px  = Number(livePrice || row.quote?.price || 0);
-                                        return (
-                                          <div style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
-                                              🧱 SMC ANALYSIS
-                                            </div>
-                                            {!smc ? (
-                                              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Loading SMC data…</div>
-                                            ) : (
-                                              <>
-                                                {/* BOS / ChoCh */}
-                                                {(smc.bos || smc.choch) && (
-                                                  <div style={{ marginBottom: 10 }}>
-                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>📐 STRUCTURE</div>
-                                                    {smc.bos && (
-                                                      <div style={{ padding: "6px 8px", borderRadius: 5, marginBottom: 4,
-                                                        background: smc.bos.type === "BULL_BOS" ? `${C.green}14` : `${C.red}14`,
-                                                        border: `1px solid ${smc.bos.type === "BULL_BOS" ? C.green : C.red}44` }}>
-                                                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: smc.bos.type === "BULL_BOS" ? C.green : C.red }}>{smc.bos.label}</div>
-                                                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>@ ${smc.bos.level}</div>
-                                                      </div>
-                                                    )}
-                                                    {smc.choch && (
-                                                      <div style={{ padding: "6px 8px", borderRadius: 5,
-                                                        background: `${C.amber}14`, border: `1px solid ${C.amber}44` }}>
-                                                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.amber }}>{smc.choch.label}</div>
-                                                      </div>
-                                                    )}
-                                                  </div>
-                                                )}
-
-                                                {/* Order Blocks */}
-                                                {smc.orderBlocks && smc.orderBlocks.length > 0 && (
-                                                  <div style={{ marginBottom: 10 }}>
-                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>🔲 ORDER BLOCKS</div>
-                                                    {smc.orderBlocks.map((ob, i) => {
-                                                      const isBull = ob.type === "BULL_OB";
-                                                      const col = isBull ? C.green : C.red;
-                                                      const dist = px > 0 ? Math.abs(ob.mid - px) / px * 100 : 0;
-                                                      return (
-                                                        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
-                                                          <span style={{ fontFamily: SANS, fontSize: 10, color: col }}>{isBull ? "🟢 Bull OB" : "🔴 Bear OB"}</span>
-                                                          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: col }}>${ob.top} – ${ob.bot}</span>
-                                                          <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{dist.toFixed(1)}%</span>
-                                                        </div>
-                                                      );
-                                                    })}
-                                                  </div>
-                                                )}
-
-                                                {/* Fair Value Gaps */}
-                                                {smc.fvgs && smc.fvgs.length > 0 && (
-                                                  <div style={{ marginBottom: 10 }}>
-                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>🕳 FAIR VALUE GAPS</div>
-                                                    {smc.fvgs.slice(0, 4).map((f, i) => {
-                                                      const isBull = f.type === "BULL_FVG";
-                                                      const col = isBull ? C.green : C.red;
-                                                      return (
-                                                        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
-                                                          <span style={{ fontFamily: SANS, fontSize: 10, color: col }}>{isBull ? "▲ Bull FVG" : "▼ Bear FVG"}</span>
-                                                          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: col }}>${f.bot} – ${f.top}</span>
-                                                        </div>
-                                                      );
-                                                    })}
-                                                  </div>
-                                                )}
-
-                                                {/* Volume Profile */}
-                                                {smc.volumeProfile && smc.volumeProfile.vpoc > 0 && (
-                                                  <div style={{ marginBottom: 10 }}>
-                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>📊 VOLUME PROFILE</div>
-                                                    {[
-                                                      ["VPOC", smc.volumeProfile.vpoc, C.accent, "Value Area Point of Control"],
-                                                      ["VAH",  smc.volumeProfile.vah,  C.green,  "Value Area High (70%)"],
-                                                      ["VAL",  smc.volumeProfile.val,  C.red,    "Value Area Low (70%)"],
-                                                    ].map(([lbl, val, col, tip]) => (
-                                                      <div key={lbl} title={tip} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
-                                                        <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{lbl}</span>
-                                                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>${val}</span>
-                                                      </div>
-                                                    ))}
-                                                    {/* Mini volume bar chart */}
-                                                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 1 }}>
-                                                      {(smc.volumeProfile.profile || []).slice().reverse().map((b, i) => {
-                                                        const isNearVpoc = Math.abs(b.price - smc.volumeProfile.vpoc) / Math.max(smc.volumeProfile.vpoc, 1) < 0.01;
-                                                        const isInVA = b.price >= smc.volumeProfile.val && b.price <= smc.volumeProfile.vah;
-                                                        const barCol = isNearVpoc ? C.accent : isInVA ? C.green : C.border;
-                                                        return (
-                                                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                                            <span style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, width: 44, textAlign: "right" }}>${b.price}</span>
-                                                            <div style={{ flex: 1, height: 6, background: C.surface, borderRadius: 2 }}>
-                                                              <div style={{ width: `${Math.min(100, b.pct * 3)}%`, height: "100%", background: barCol, borderRadius: 2 }} />
-                                                            </div>
-                                                          </div>
-                                                        );
-                                                      })}
-                                                    </div>
-                                                  </div>
-                                                )}
-
-                                                {/* Liquidity Levels */}
-                                                {smc.liquidity && smc.liquidity.length > 0 && (
-                                                  <div>
-                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>💧 LIQUIDITY LEVELS</div>
-                                                    {smc.liquidity.map((l, i) => {
-                                                      const isAbove = l.price > px;
-                                                      const col = l.strength === "HIGH" ? (isAbove ? C.green : C.red) : C.amber;
-                                                      const dist = px > 0 ? ((l.price - px) / px * 100).toFixed(1) : "0";
-                                                      return (
-                                                        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
-                                                          <div>
-                                                            <div style={{ fontFamily: SANS, fontSize: 10, color: col }}>{l.label}</div>
-                                                          </div>
-                                                          <div style={{ textAlign: "right" }}>
-                                                            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: col }}>${l.price}</div>
-                                                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{dist > 0 ? "+" : ""}{dist}%</div>
-                                                          </div>
-                                                        </div>
-                                                      );
-                                                    })}
-                                                  </div>
-                                                )}
-                                              </>
-                                            )}
                                           </div>
                                         );
                                       })()}
