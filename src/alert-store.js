@@ -32,9 +32,33 @@ function saveAlerts(alerts) {
 }
 
 function prependAlert(alerts, alert) {
+  // Dedup: skip if same ticker + signal + source within last 5 minutes
+  const DEDUP_WINDOW_MS = 5 * 60 * 1000;
+  const now = Date.now();
+  const isDup = alerts.some(a => {
+    if (!a.ticker || !alert.ticker) return false;
+    if (String(a.ticker).toUpperCase() !== String(alert.ticker).toUpperCase()) return false;
+    if (a.signal !== alert.signal) return false;
+    const age = now - new Date(a.ts || a.time || a.triggeredAt || 0).getTime();
+    return age < DEDUP_WINDOW_MS;
+  });
+  if (isDup) return alerts; // drop duplicate silently
+
   const next = [alert, ...alerts];
   if (next.length > MAX_ROWS) next.length = MAX_ROWS;
   return next;
 }
 
-module.exports = { loadAlerts, saveAlerts, prependAlert };
+function deduplicateAlerts(alerts) {
+  // Remove exact duplicates (same ticker + signal within 5 min windows)
+  const seen = new Map();
+  return alerts.filter(a => {
+    const bucket = Math.floor(new Date(a.ts || a.time || 0).getTime() / (5 * 60 * 1000));
+    const key = `${String(a.ticker||"").toUpperCase()}:${a.signal}:${bucket}`;
+    if (seen.has(key)) return false;
+    seen.set(key, true);
+    return true;
+  });
+}
+
+module.exports = { loadAlerts, saveAlerts, prependAlert, deduplicateAlerts };

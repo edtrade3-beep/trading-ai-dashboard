@@ -16029,11 +16029,25 @@ export default function App() {
                     >{alertSoundEnabled ? "SOUND ON" : "MUTED"}</button>
                     <button
                       onClick={async () => {
+                        try {
+                          const r = await fetch("/api/market/tv-alerts?action=dedup", { method: "PATCH" });
+                          const d = await r.json();
+                          if (d.ok) {
+                            // Reload alerts from server
+                            const fresh = await fetch("/api/market/tv-alerts?limit=100").then(x=>x.json());
+                            if (fresh.rows) setTvWebhookRows(fresh.rows);
+                          }
+                        } catch {}
+                      }}
+                      style={{ border: `1px solid ${C.amber}55`, background: `${C.amber}12`, color: C.amber, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                    >DEDUP</button>
+                    <button
+                      onClick={async () => {
                         setTvWebhookRows([]);
                         try { await fetch("/api/market/tv-alerts", { method: "DELETE" }); } catch {}
                       }}
                       style={{ border: `1px solid ${C.red}55`, background: `${C.red}12`, color: C.red, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
-                    >CLEAR</button>
+                    >CLEAR ALL</button>
                     <Badge color={tvWebhookSecured ? C.green : C.amber}>{tvWebhookSecured ? "SECURED" : "OPEN"}</Badge>
                   </div>
                 </div>

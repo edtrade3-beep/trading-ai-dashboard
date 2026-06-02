@@ -1,11 +1,11 @@
 const { writeJson, readRequestBody } = require("../utils");
 const { TV_WEBHOOK_SECRET, TV_WEBHOOK_MAX_ROWS } = require("../config");
 const { sendTelegramAlert, isConfigured: telegramConfigured } = require("../telegram");
-const { loadAlerts, saveAlerts, prependAlert } = require("../alert-store");
+const { loadAlerts, saveAlerts, prependAlert, deduplicateAlerts } = require("../alert-store");
 const { addEntry: addJournalEntry } = require("../journal-store");
 
-// In-memory ring buffer seeded from disk on first load
-let TV_WEBHOOK_ALERTS = loadAlerts();
+// In-memory ring buffer seeded from disk — deduplicated on load
+let TV_WEBHOOK_ALERTS = deduplicateAlerts(loadAlerts());
 
 function isTradingViewWebhookAuthorized(requestUrl, req) {
   if (!TV_WEBHOOK_SECRET) return true;
@@ -97,6 +97,14 @@ async function handleWebhooks(req, res, requestUrl) {
       TV_WEBHOOK_ALERTS = [];
       saveAlerts([]);
       return writeJson(res, 200, { ok: true, removed });
+    }
+
+    // PATCH /api/market/tv-alerts?action=dedup — remove duplicates from history
+    if (req.method === "PATCH" && requestUrl.searchParams.get("action") === "dedup") {
+      const before = TV_WEBHOOK_ALERTS.length;
+      TV_WEBHOOK_ALERTS = deduplicateAlerts(TV_WEBHOOK_ALERTS);
+      saveAlerts(TV_WEBHOOK_ALERTS);
+      return writeJson(res, 200, { ok: true, before, after: TV_WEBHOOK_ALERTS.length, removed: before - TV_WEBHOOK_ALERTS.length });
     }
 
     const limit = Math.max(1, Math.min(100, Number(requestUrl.searchParams.get("limit") || 30)));
