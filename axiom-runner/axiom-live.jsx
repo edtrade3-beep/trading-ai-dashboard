@@ -14204,7 +14204,7 @@ export default function App() {
                                     macdScore * 0.10
                                   );
 
-                                  // Only show master if deep dive data loaded (smc or sentiment)
+                                  // If deep dive data loaded, show Master Verdict signal so row matches banner
                                   const hasMasterData = smc2 || sd2;
                                   if (!hasMasterData) return <span style={SIG_STYLE(row.sColor)}>{row.signal}</span>;
 
@@ -14214,19 +14214,7 @@ export default function App() {
                                              composite2 >= 40 ? { lbl: "AVOID",       col: C.red }     :
                                                                 { lbl: "SELL/SHORT",  col: "#ff2244" };
 
-                                  const changed = ml.lbl !== row.signal && !(ml.lbl === "STRONG BUY" && row.signal === "STRONG BUY");
-                                  return (
-                                    <div>
-                                      <span style={{ ...SIG_STYLE(ml.col), background: `${ml.col}22`, borderColor: `${ml.col}66` }}>
-                                        {ml.lbl}
-                                      </span>
-                                      {changed && (
-                                        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-                                          was: {row.signal}
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
+                                  return <span style={{ ...SIG_STYLE(ml.col), background: `${ml.col}22`, borderColor: `${ml.col}66` }}>{ml.lbl}</span>;
                                 })()}
                               </td>
 
