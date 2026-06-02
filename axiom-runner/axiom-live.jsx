@@ -14430,7 +14430,7 @@ export default function App() {
                                   style={{ background: C.bg,
                                     borderLeft: `3px solid ${row.sColor}`,
                                     borderBottom: `2px solid ${row.sColor}44`,
-                                    padding: isTablet ? "12px 8px" : "20px 22px",
+                                    padding: isTablet ? "10px 4px" : "14px 8px",
                                     overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
 
                                   {isLoading ? (
@@ -14470,8 +14470,8 @@ export default function App() {
                                       style={{ display: "flex", gap: 10, height: isTablet ? 520 : 460, overflowX: "auto", overflowY: "hidden", cursor: "grab", scrollbarWidth: "thin", paddingBottom: 4, WebkitOverflowScrolling: "touch" }}>
 
                                       {/* ── Col 1: TradingView mini chart ── */}
-                                      <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%" }}>
-                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
+                                      <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", padding: "0 12px 0 0", borderRight: `1px solid ${C.border}33`}}>
+                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
                                           📊 CHART
                                         </div>
                                         <div style={{ borderRadius: 6, overflow: "hidden", flex: 1,
@@ -14486,8 +14486,8 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 2: TECHNICALS (indicators + signals + entry zones) ── */}
-                                      <div style={{ width: 215, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
+                                      <div style={{ width: 215, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
+                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
                                           ⚡ TECHNICALS
                                         </div>
                                         {/* Key indicator values */}
@@ -14554,8 +14554,8 @@ export default function App() {
                                         const smc = deepData?.smc;
                                         const px  = Number(livePrice || row.quote?.price || 0);
                                         return (
-                                          <div style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
+                                          <div style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
+                                            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
                                               🧱 SMC ANALYSIS
                                             </div>
                                             {!smc ? (
@@ -14681,8 +14681,8 @@ export default function App() {
                                       })()}
 
                                       {/* ── Col 4: SOCIAL SENTIMENT + INSIDER BUYS ── */}
-                                      <div style={{ width: 215, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
+                                      <div style={{ width: 215, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
+                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
                                           💬 SENTIMENT
                                         </div>
                                         {deepSocialLoad[row.ticker] ? (
@@ -14792,8 +14792,8 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 5: RECENT NEWS ── */}
-                                      <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
+                                      <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
+                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
                                           📰 RECENT NEWS
                                         </div>
                                         {deepData?.news?.length > 0 ? (
@@ -14837,8 +14837,8 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 6: ANALYST RATINGS + EARNINGS ── */}
-                                      <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
+                                      <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
+                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
                                           🎯 ANALYST & EARNINGS
                                         </div>
 
@@ -15128,7 +15128,7 @@ export default function App() {
                                       </div>
 
                                       {/* ── Col 7: AI Trade Setup + Auto-Execute ── */}
-                                      <div style={{ width: 280, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+                                      <div style={{ width: 280, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                                           <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                             color: C.textDim, letterSpacing: "0.06em" }}>
@@ -15408,8 +15408,8 @@ export default function App() {
                                         const downside = px > 0 && stopLvl > 0 ? ((stopLvl - px) / px * 100) : null;
 
                                         return (
-                                          <div style={{ width: 260, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-                                            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "0.05em", paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>
+                                          <div style={{ width: 260, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
+                                            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
                                               📐 TREND TEMPLATE
                                             </div>
 
