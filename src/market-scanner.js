@@ -131,6 +131,7 @@ function saveConfig(updates) {
 
 const cooldownMap   = new Map(); // "NVDA:BUY" → timestamp
 const lastSignalMap = new Map(); // "NVDA"     → "BUY"|"SELL"
+const smcCooldown   = new Map(); // "NVDA:SMC" → timestamp — module-level so persists between scans
 
 // Hard minimum gap between alerts for the same symbol:signal
 const MIN_ALERT_GAP_MS = 120 * 60_000; // 120 minutes hard floor between any alert for same symbol
@@ -599,7 +600,6 @@ async function runScan(options = {}) {
     if (telegramConfigured()) {
       (async () => {
         try {
-          const smcCooldown = new Map(); // local cooldown so we don't spam
           for (let i = 0; i < symbols.length; i++) {
             const sym  = symbols[i];
             const a    = results[i];
