@@ -110,10 +110,8 @@ function checkAlertTime() {
   const m    = et.getMinutes();
   const today = `${et.getFullYear()}-${et.getMonth()}-${et.getDate()}`;
 
-  if (h === 7 && m === 0 && fired["7am"] !== today) {
-    fired["7am"] = today;
-    runPreMarketAlert("7:00 AM").catch(() => {});
-  }
+  // Only 9:00 AM — the most actionable time (30 min before open)
+  // 7:00 AM removed: too early, most traders aren't watching yet
   if (h === 9 && m === 0 && fired["9am"] !== today) {
     fired["9am"] = today;
     runPreMarketAlert("9:00 AM").catch(() => {});
@@ -122,7 +120,7 @@ function checkAlertTime() {
 
 function startPreMarketAlerts() {
   setInterval(checkAlertTime, 60_000); // check every minute
-  console.log("[PreMarket] Scheduled alerts active — 7:00 AM and 9:00 AM ET weekdays");
+  console.log("[PreMarket] Pre-market alert active — 9:00 AM ET weekdays only");
 }
 
 module.exports = { startPreMarketAlerts, runPreMarketAlert };

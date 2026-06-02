@@ -35,9 +35,21 @@ const API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 // Alert level: "quiet" (≥85+BOS only) | "normal" (≥75, default) | "all"
 let alertLevel   = "normal";
 // Batch queue: holds pending scan alerts to group into one message
-let batchQueue   = [];       // { symbol, signal, score, chgPct, rvol, trend }
-let batchTimer   = null;
-const BATCH_WAIT = 90_000;   // 90 seconds — collect signals then send once
+let batchQueue    = [];       // { symbol, signal, score, chgPct, rvol, trend }
+let batchTimer    = null;
+const BATCH_WAIT  = 120_000; // 2 minutes — collect signals then send ONE message
+const BATCH_LIMIT = 5;       // max signals per batch message
+// Daily alert budget — reset at midnight ET
+let dailyAlertCount = 0;
+let dailyAlertDate  = "";
+const MAX_DAILY_ALERTS = 8;  // hard cap: no more than 8 alerts per day total
+
+function checkDailyBudget() {
+  const today = new Date().toLocaleDateString("en-US", { timeZone: "America/New_York" });
+  if (today !== dailyAlertDate) { dailyAlertDate = today; dailyAlertCount = 0; }
+  return dailyAlertCount < MAX_DAILY_ALERTS;
+}
+function incrementDailyCount() { dailyAlertCount++; }
 
 // Quiet hours: no alerts 4:30pm–7:00am ET + weekends
 function isQuietHours() {
@@ -52,32 +64,36 @@ function isQuietHours() {
 
 // Check if alert passes the current level filter
 function passesAlertLevel(score, hasBOS) {
-  if (alertLevel === "quiet") return score >= 85 && hasBOS;
-  if (alertLevel === "normal") return score >= 72;
-  return true; // "all"
+  if (alertLevel === "off")   return false;
+  if (alertLevel === "quiet") return score >= 88 && hasBOS;  // very strict
+  if (alertLevel === "normal") return score >= 80 && hasBOS; // require BOS confirmation
+  return score >= 72; // "all" mode — still needs decent score
 }
 
 // Add to batch queue and schedule a grouped send
 function queueBatchAlert(item) {
   if (isQuietHours()) return;
+  if (!checkDailyBudget()) return; // daily cap reached
   if (!passesAlertLevel(item.score || 50, item.hasBOS)) return;
+  // Dedup: don't add same symbol twice in same batch
+  if (batchQueue.some(q => q.symbol === item.symbol)) return;
   batchQueue.push(item);
   if (batchTimer) return; // already scheduled
   batchTimer = setTimeout(async () => {
     batchTimer = null;
     if (!batchQueue.length) return;
-    const items  = batchQueue.splice(0);
+    if (!checkDailyBudget()) return;
+    const items  = batchQueue.splice(0).slice(0, BATCH_LIMIT);
+    incrementDailyCount();
     const time   = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
-    const header = `⚡ SCAN UPDATE — ${time} ET`;
+    const header = `⚡ SCAN UPDATE — ${time} ET  (${MAX_DAILY_ALERTS - dailyAlertCount} alerts left today)`;
     const divider = "━━━━━━━━━━━━━━━━━━";
-    const rows = items.slice(0, 6).map(s => {
-      const icon  = s.signal === "BUY" ? "🟢" : s.signal === "SELL" ? "🔴" : "🟡";
-      const bos   = s.hasBOS ? " BOS✓" : "";
+    const rows = items.map(s => {
+      const icon = s.signal === "BUY" ? "🟢" : s.signal === "SELL" ? "🔴" : "🟡";
+      const bos  = s.hasBOS ? " BOS✓" : "";
       return `${icon} ${s.symbol.padEnd(6)} ${String(s.score).padStart(3)}/100  ${s.signal}  ${s.chgPct > 0 ? "+" : ""}${s.chgPct?.toFixed(1)}%  ${s.rvol?.toFixed(1)}×${bos}`;
     });
-    // Footer: regime + extras
-    const extra = items.length > 6 ? `\n+${items.length - 6} more signals` : "";
-    await reply([header, divider, ...rows, divider + extra].join("\n")).catch(() => {});
+    await reply([header, divider, ...rows, divider].join("\n")).catch(() => {});
   }, BATCH_WAIT);
 }
 
@@ -1036,4 +1052,4 @@ function startTelegramBot() {
 
 function stopTelegramBot() { _polling = false; }
 
-module.exports = { startTelegramBot, stopTelegramBot, enqueueScanAlert, isQuietHours, getAlertLevel };
+module.exports = { startTelegramBot, stopTelegramBot, enqueueScanAlert, isQuietHours, getAlertLevel, checkDailyBudget, incrementDailyCount };

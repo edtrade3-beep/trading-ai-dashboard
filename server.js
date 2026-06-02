@@ -22,7 +22,7 @@ const path = require("node:path");
 const { PORT, HOST } = require("./src/config");
 const handleRequest = require("./src/router");
 const { startPriceAlertMonitor } = require("./src/price-alert-monitor");
-const { startFbScheduler } = require("./src/fb-scheduler");
+// const { startFbScheduler } = require("./src/fb-scheduler"); // disabled — not relevant to trading
 const { startMarketScanner, sendMacroReport, scanWatchlistAlerts } = require("./src/market-scanner");
 const { startTelegramBot }    = require("./src/telegram-bot");
 const { checkDealWatches }   = require("./src/routes/deals");
@@ -43,11 +43,11 @@ server.listen(PORT, HOST, () => {
     console.log(`LAN access: http://${ip}:${PORT}`);
   }
   startPriceAlertMonitor();
-  startFbScheduler();
-  startMarketScanner();   // 15-min stock scan → grouped BUY/SELL alerts
+  // startFbScheduler();  // disabled
+  startMarketScanner();   // 15-min stock scan → grouped BUY/SELL alerts (batched, quiet hours respected)
   startTelegramBot();
-  startCOTScheduler();    // COT bias reports at 7 scheduled ET times M-F
-  startPreMarketAlerts(); // Gap scan Telegram alerts at 7:00 AM and 9:00 AM ET
+  // startCOTScheduler(); // disabled — COT reports were firing 7x/day (too much noise)
+  startPreMarketAlerts(); // ONE gap scan alert at 9:00 AM ET only
 
   // Watchlist-specific alerts — scan user's saved watchlist every 15 min
   setInterval(() => {
@@ -73,15 +73,17 @@ server.listen(PORT, HOST, () => {
     }
   }, 10_000); // wait 10s for server to fully stabilize
 
-  // ── 30-min macro report: Risk On/Off, SPY QQQ IWM, macro instruments ────
-  setInterval(() => { sendMacroReport().catch(e => console.error("[Macro]", e.message)); }, 30 * 60 * 1000);
-  setTimeout(() => { sendMacroReport().catch(() => {}); }, 3 * 60 * 1000); // first report 3 min after boot
-  console.log("[Macro] 30-min macro report scheduler started");
+  // Macro report: once at noon ET only (was every 30 min = 16 reports/day — way too spammy)
+  const _sendNoonMacro = () => {
+    const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
+    if (day >= 1 && day <= 5 && h === 12 && m < 5) sendMacroReport().catch(() => {});
+  };
+  setInterval(_sendNoonMacro, 5 * 60 * 1000); // check every 5 min, only fires at noon
+  console.log("[Macro] Noon-only macro report scheduler started (12:00 PM ET weekdays)");
 
-  // Deal watch scanner — check every 30 min, send Telegram alerts for new deals
-  setInterval(checkDealWatches, 30 * 60 * 1000);
-  setTimeout(checkDealWatches, 90 * 1000); // first check 90s after boot
-  console.log("[Deals] Background watch scanner started (every 30 min)");
+  // Deal watches: disabled from Telegram (not trading-related)
+  // setInterval(checkDealWatches, 30 * 60 * 1000);
 
   // Keep-alive: ping own health endpoint every 10 min so Render free tier never idles out
   const RENDER_URL = process.env.RENDER_EXTERNAL_URL;

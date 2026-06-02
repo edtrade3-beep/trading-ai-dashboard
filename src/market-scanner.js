@@ -619,17 +619,21 @@ async function runScan(options = {}) {
           const level = getAlertLevel?.() || "normal";
           if (level === "off") return;
 
-          let smcSentThisScan = 0;          // max 2 SMC alerts per scan run
-          const SMC_MAX_PER_SCAN = 2;
-          const SMC_COOLDOWN_MS  = 8 * 3600_000; // 8-hour cooldown per symbol
+          // Check daily budget
+          const { checkDailyBudget: checkBudget, incrementDailyCount: incCount } = getBotHelpers();
+          if (checkBudget && !checkBudget()) return; // daily cap reached
+
+          let smcSentThisScan = 0;          // max 1 SMC alert per scan run
+          const SMC_MAX_PER_SCAN = 1;       // only the single best setup per scan
+          const SMC_COOLDOWN_MS  = 24 * 3600_000; // 24-hour cooldown (once per day per symbol)
 
           for (let i = 0; i < symbols.length; i++) {
             if (smcSentThisScan >= SMC_MAX_PER_SCAN) break; // cap reached
 
             const sym  = symbols[i];
             const a    = results[i];
-            // High bar: score >= 75 AND positive momentum AND volume
-            if (!a || a.error || a.composite < 75 || a.chgPct <= 0 || a.rvol < 1.0) continue;
+            // Very high bar: score >= 82 AND positive momentum AND volume >= 1.3×
+            if (!a || a.error || a.composite < 82 || a.chgPct <= 0 || a.rvol < 1.3) continue;
 
             const smcKey  = `${sym}:SMC`;
             const lastSmc = smcCooldown.get(smcKey);
@@ -1572,7 +1576,7 @@ async function scanWatchlistAlerts(watchlistSymbols) {
     for (const sym of unique) {
       const coolKey = `${sym}:WL`;
       const last = watchlistAlertCooldown.get(coolKey);
-      if (last && Date.now() - last < 6 * 3600_000) continue; // 6h cooldown
+      if (last && Date.now() - last < 24 * 3600_000) continue; // 24h cooldown (once per day)
 
       let bars;
       try { bars = await fetchYahooBars(sym, "1mo", "1d"); } catch { continue; }
@@ -1596,14 +1600,14 @@ async function scanWatchlistAlerts(watchlistSymbols) {
       if (rvol > 2) score += 15; else if (rvol > 1.3) score += 8;
       if (rsi > 50 && rsi < 75) score += 5;
 
-      const signal = score >= 75 ? "STRONG BUY" : score >= 62 ? "BUY" : score <= 35 ? "AVOID" : null;
-      if (!signal) continue;
+      const signal = score >= 80 ? "STRONG BUY" : score >= 68 ? "BUY" : null;
+      if (!signal) continue; // only bullish setups from watchlist
 
-      // SMC check
+      // Require Bull BOS confirmation — no BOS = no alert
       const { detectBOSChoCh } = require("./smc-engine");
       const { bos } = detectBOSChoCh(bars);
       const bullBOS = bos?.type === "BULL_BOS";
-      if (score < 80 && !bullBOS) continue; // need high score OR bull BOS
+      if (!bullBOS) continue; // Bull BOS required for watchlist alerts
 
       watchlistAlertCooldown.set(coolKey, Date.now());
       const emoji = score >= 80 ? "🔥" : "⚡";
