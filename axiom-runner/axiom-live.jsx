@@ -1472,7 +1472,7 @@ function classifyMacroTone(macroData) {
 // ── Tiny Components ──
 const Badge = ({ children, color = C.accent, bg }) => (
   <span style={{
-    fontSize: 9, fontFamily: MONO, fontWeight: 700, padding: "2px 6px",
+    fontSize: 12, fontFamily: MONO, fontWeight: 700, padding: "3px 7px",
     borderRadius: 2, color, background: bg || `${color}18`, letterSpacing: "0.04em",
     whiteSpace: "nowrap", textTransform: "uppercase",
   }}>{children}</span>
@@ -1487,7 +1487,7 @@ const ScoreBar = ({ value, color, w = "100%" }) => (
         transition: "width 0.4s ease",
       }} />
     </div>
-    <span style={{ fontSize: 9, fontFamily: MONO, color: C.text, minWidth: 20, textAlign: "right" }}>{value}</span>
+    <span style={{ fontSize: 12, fontFamily: MONO, color: C.text, minWidth: 20, textAlign: "right" }}>{value}</span>
   </div>
 );
 
@@ -1512,7 +1512,7 @@ const formatNum = (n) => {
 const Pill = ({ active, onClick, children }) => (
   <button onClick={onClick} style={{
     fontFamily: SANS, fontSize: 12, fontWeight: 700, padding: "8px 14px",
-    borderRadius: 4, border: "none", cursor: "pointer", letterSpacing: "0.02em",
+    borderRadius: 6, border: "none", cursor: "pointer", letterSpacing: "0.02em",
     background: active ? C.accent : C.card, color: active ? "#fff" : C.textDim,
     transition: "all 0.15s",
   }}>{children}</button>
@@ -1531,7 +1531,7 @@ function PasswordLockScreen({ value, error, onChange, onSubmit }) {
         padding: 32, textAlign: "center",
       }}>
         <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 800, color: C.text, marginBottom: 4 }}>AM TRADING</div>
-        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 20 }}>
+        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 20 }}>
           PASSWORD PROTECTED
         </div>
         <input
@@ -1546,12 +1546,12 @@ function PasswordLockScreen({ value, error, onChange, onSubmit }) {
             color: C.text, fontFamily: MONO, fontSize: 13, marginBottom: 12,
           }}
         />
-        {error ? <div style={{ fontSize: 11, color: C.red, marginBottom: 10 }}>{error}</div> : null}
+        {error ? <div style={{ fontSize: 12, color: C.red, marginBottom: 10 }}>{error}</div> : null}
         <button
           onClick={onSubmit}
           style={{
             width: "100%", border: `1px solid ${C.accent}`, background: C.accent, color: "#fff",
-            borderRadius: 6, padding: "10px 0", fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer",
+            borderRadius: 6, padding: "10px 0", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer",
           }}
         >
           UNLOCK
@@ -1598,12 +1598,12 @@ function ApiKeyScreen({ onSubmit }) {
           letterSpacing: "-0.03em", marginBottom: 4,
         }}>AXIOM</div>
         <div style={{
-          fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.15em",
+          fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.15em",
           marginBottom: 32, textTransform: "uppercase",
         }}>Market Intelligence Platform</div>
 
         <div style={{ textAlign: "left", marginBottom: 6 }}>
-          <label style={{ fontSize: 10, fontFamily: MONO, color: C.textSec, letterSpacing: "0.06em" }}>
+          <label style={{ fontSize: 12, fontFamily: MONO, color: C.textSec, letterSpacing: "0.06em" }}>
             PROVIDER ACCESS KEY
           </label>
         </div>
@@ -1615,7 +1615,7 @@ function ApiKeyScreen({ onSubmit }) {
           placeholder="Optional key (server env keys recommended)"
           style={{
             width: "100%", padding: "10px 14px", background: C.bg, border: `1px solid ${C.border}`,
-            borderRadius: 4, color: C.text, fontFamily: MONO, fontSize: 12, outline: "none",
+            borderRadius: 6, color: C.text, fontFamily: MONO, fontSize: 12, outline: "none",
             marginBottom: 12, boxSizing: "border-box",
           }}
           onFocus={(e) => e.target.style.borderColor = C.accent}
@@ -1623,7 +1623,7 @@ function ApiKeyScreen({ onSubmit }) {
         />
 
         {error && (
-          <div style={{ fontSize: 11, color: C.red, fontFamily: SANS, marginBottom: 10 }}>{error}</div>
+          <div style={{ fontSize: 12, color: C.red, fontFamily: SANS, marginBottom: 10 }}>{error}</div>
         )}
 
         <button
@@ -1631,14 +1631,14 @@ function ApiKeyScreen({ onSubmit }) {
           disabled={loading || !key.trim()}
           style={{
             width: "100%", padding: "10px 0", background: loading ? C.textDim : C.accent,
-            color: "#fff", border: "none", borderRadius: 4, fontFamily: MONO, fontSize: 11,
+            color: "#fff", border: "none", borderRadius: 6, fontFamily: MONO, fontSize: 12,
             fontWeight: 700, cursor: loading ? "wait" : "pointer", letterSpacing: "0.06em",
             marginBottom: 20, opacity: (!key.trim() && !loading) ? 0.5 : 1,
           }}
         >{loading ? "VALIDATING…" : "CONNECT"}</button>
 
         <div style={{
-          fontSize: 10, fontFamily: SANS, color: C.textDim, lineHeight: 1.7,
+          fontSize: 12, fontFamily: SANS, color: C.textDim, lineHeight: 1.7,
           borderTop: `1px solid ${C.border}`, paddingTop: 16,
         }}>
           Configure provider keys on the server for best reliability:
@@ -1702,7 +1702,7 @@ function MacroTape({ data, cryptoSnapshot }) {
             justifyContent: "center", minWidth: "fit-content",
             borderRight: `1px solid ${C.border}`,
           }}>
-            <span style={{ fontSize: 9, fontFamily: MONO, color: C.textDim, fontWeight: 600, letterSpacing: "0.07em", marginBottom: 2, whiteSpace: "nowrap" }}>
+            <span style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, fontWeight: 600, letterSpacing: "0.07em", marginBottom: 2, whiteSpace: "nowrap" }}>
               {slot.shortLabel}
             </span>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
@@ -1713,7 +1713,7 @@ function MacroTape({ data, cryptoSnapshot }) {
                      : price.toFixed(2))
                   : "—"}
               </span>
-              <span style={{ fontSize: 11, fontFamily: MONO, color: col, fontWeight: 700 }}>
+              <span style={{ fontSize: 12, fontFamily: MONO, color: col, fontWeight: 700 }}>
                 {price > 0 ? `${isUp ? "+" : ""}${chg.toFixed(2)}%` : "—"}
               </span>
             </div>
@@ -1727,7 +1727,7 @@ function MacroTape({ data, cryptoSnapshot }) {
         borderLeft: `1px solid ${regimeColor}33`, flexShrink: 0,
       }}>
         <span style={{ width: 7, height: 7, borderRadius: "50%", background: regimeColor, flexShrink: 0, boxShadow: `0 0 7px ${regimeColor}` }} />
-        <span style={{ fontFamily: MONO, fontSize: 10, color: regimeColor, fontWeight: 800, letterSpacing: "0.1em", whiteSpace: "nowrap" }}>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: regimeColor, fontWeight: 800, letterSpacing: "0.1em", whiteSpace: "nowrap" }}>
           VIX REGIME: {regime}
         </span>
       </div>
@@ -1737,7 +1737,7 @@ function MacroTape({ data, cryptoSnapshot }) {
 
 // ── Sector Heatmap ──
 function SectorHeatmap({ data }) {
-  if (!data.length) return <div style={{ fontSize: 11, color: C.textDim, fontFamily: MONO, padding: 16 }}>Loading sectors…</div>;
+  if (!data.length) return <div style={{ fontSize: 12, color: C.textDim, fontFamily: MONO, padding: 16 }}>Loading sectors…</div>;
   const sorted = [...data].sort((a, b) => (b.changesPercentage || 0) - (a.changesPercentage || 0));
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 3 }}>
@@ -1752,10 +1752,10 @@ function SectorHeatmap({ data }) {
           : `rgba(255,71,87,${0.12 + int * 0.3})`;
         return (
           <div key={s.symbol} style={{
-            background: bg, border: `1px solid ${bdr}`, borderRadius: 3,
+            background: bg, border: `1px solid ${bdr}`, borderRadius: 5,
             padding: "7px 5px", textAlign: "center",
           }}>
-            <div style={{ fontSize: 8, fontFamily: MONO, color: C.textDim }}>{s.symbol}</div>
+            <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim }}>{s.symbol}</div>
             <div style={{
               fontSize: 13, fontFamily: MONO, fontWeight: 800,
               color: chg >= 0 ? C.green : C.red,
@@ -2059,7 +2059,7 @@ function CanvasChart({ candleData, drawTools, loading }) {
     <div ref={containerRef} style={{ position: "relative", width: "100%", height: "100%", background: C.surface, overflow: "hidden" }}>
       {(loading || !candleData?.bars?.length) ? (
         <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+          <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
             {loading ? "Loading chart…" : "Select a symbol — chart loads automatically"}
           </span>
         </div>
@@ -2081,14 +2081,14 @@ function CanvasChart({ candleData, drawTools, loading }) {
           borderRadius: 6,
           padding: "7px 10px",
           fontFamily: MONO,
-          fontSize: 10,
+          fontSize: 12,
           color: C.text,
           pointerEvents: "none",
           zIndex: 10,
           minWidth: 148,
           boxShadow: "0 4px 14px rgba(0,0,0,0.14)",
         }}>
-          <div style={{ color: C.textDim, marginBottom: 5, fontSize: 9 }}>
+          <div style={{ color: C.textDim, marginBottom: 5, fontSize: 12 }}>
             {new Date(hover.bar.time).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "2px 10px" }}>
@@ -2364,9 +2364,9 @@ function TerminalWorkspace({
     <div style={{ display: "grid", gridTemplateColumns: `${showLeft ? `${leftW}px` : "0px"} ${showLeft ? "6px" : "0px"} 1fr ${showRight ? "6px" : "0px"} ${showRight ? `${rightW}px` : "0px"}`, gap: 0, minHeight: "calc(100vh - 164px)" }}>
       {showLeft && (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", display: "flex", flexDirection: "column", marginRight: 4 }}>
-          <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", display: "flex", justifyContent: "space-between" }}>
+          <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", display: "flex", justifyContent: "space-between" }}>
             WATCHLIST GRID
-            <button onClick={() => setShowLeft(false)} style={{ border: "none", background: "transparent", cursor: "pointer", color: C.textDim, fontFamily: MONO, fontSize: 10 }}>HIDE</button>
+            <button onClick={() => setShowLeft(false)} style={{ border: "none", background: "transparent", cursor: "pointer", color: C.textDim, fontFamily: MONO, fontSize: 12 }}>HIDE</button>
           </div>
           <div style={{ overflowY: "auto" }}>
             {watchlistData.slice(0, 20).map((q) => {
@@ -2383,12 +2383,12 @@ function TerminalWorkspace({
                   <div onClick={() => onSelectSymbol(q.symbol)} style={{ flex: 1, cursor: "pointer", padding: "9px 10px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{q.symbol}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: up ? C.green : C.red }}>{up ? "+" : ""}{(q.changesPercentage || 0).toFixed(2)}%</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: up ? C.green : C.red }}>{up ? "+" : ""}{(q.changesPercentage || 0).toFixed(2)}%</span>
                     </div>
                     <div style={{ marginTop: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>${q.price?.toFixed(2)}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>${q.price?.toFixed(2)}</span>
                       {extChg !== null && extChg !== 0 && (
-                        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: extColor, background: `${extColor}18`, borderRadius: 3, padding: "1px 4px" }}>
+                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: extColor, background: `${extColor}18`, borderRadius: 5, padding: "2px 5px" }}>
                           {isPreMarket ? "PRE" : "POST"} {extChg >= 0 ? "+" : ""}{extChg.toFixed(2)}%
                         </span>
                       )}
@@ -2398,7 +2398,7 @@ function TerminalWorkspace({
                     <button
                       onClick={() => onQuickLog({ symbol: q.symbol, price: q.price || 0, entry: (q.price || 0).toFixed(2), stopLoss: "", target: "", size: "", side: "BUY", timeframe: "1D", style: "Breakout", notes: `WL entry · CHG ${up ? "+" : ""}${(q.changesPercentage || 0).toFixed(2)}%`, score: 0, chg: q.changesPercentage || 0, rvol: 0 })}
                       title="Quick log to journal"
-                      style={{ border: "none", borderLeft: `1px solid ${C.border}`, background: "transparent", color: C.textDim, fontFamily: MONO, fontSize: 9, cursor: "pointer", padding: "0 7px", flexShrink: 0 }}
+                      style={{ border: "none", borderLeft: `1px solid ${C.border}`, background: "transparent", color: C.textDim, fontFamily: MONO, fontSize: 12, cursor: "pointer", padding: "0 7px", flexShrink: 0 }}
                     >LOG</button>
                   )}
                 </div>
@@ -2428,54 +2428,54 @@ function TerminalWorkspace({
               <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 13 : 11, color: chg >= 0 ? C.green : C.red }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span>
             </div>
             <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
-              {!showLeft && <button onClick={() => setShowLeft(true)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 10, padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}>WL</button>}
-              {!showRight && <button onClick={() => setShowRight(true)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 10, padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}>AI</button>}
+              {!showLeft && <button onClick={() => setShowLeft(true)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 8px", borderRadius: 6, cursor: "pointer" }}>WL</button>}
+              {!showRight && <button onClick={() => setShowRight(true)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 8px", borderRadius: 6, cursor: "pointer" }}>AI</button>}
               {!termIsTablet && ["1", "2", "4"].map((l) => (
-                <button key={`layout-${l}`} onClick={() => onLayoutChange(l)} style={{ border: `1px solid ${terminalLayout === l ? C.accent : C.border}`, background: terminalLayout === l ? `${C.accent}12` : C.surface, color: terminalLayout === l ? C.accent : C.textDim, fontFamily: MONO, fontSize: 10, padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}>
+                <button key={`layout-${l}`} onClick={() => onLayoutChange(l)} style={{ border: `1px solid ${terminalLayout === l ? C.accent : C.border}`, background: terminalLayout === l ? `${C.accent}12` : C.surface, color: terminalLayout === l ? C.accent : C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 8px", borderRadius: 6, cursor: "pointer" }}>
                   {l}x
                 </button>
               ))}
-              {!termIsTablet && <select value={hotkeyProfile} onChange={(e) => onHotkeyProfileChange(e.target.value)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 10, padding: "4px 6px", borderRadius: 4 }}>
+              {!termIsTablet && <select value={hotkeyProfile} onChange={(e) => onHotkeyProfileChange(e.target.value)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 6px", borderRadius: 6 }}>
                 <option value="classic">HK Classic</option>
                 <option value="scalper">HK Scalper</option>
               </select>}
               {(termIsTablet ? ["5M", "15M", "1H", "1D"] : ["5M", "15M", "1H", "1D", "1W"]).map((tf) => (
-                <button key={tf} onClick={() => onTimeframeChange(tf)} style={{ border: `1px solid ${timeframe === tf && chartMode === "canvas" ? C.accent : C.border}`, background: timeframe === tf && chartMode === "canvas" ? `${C.accent}12` : C.surface, color: timeframe === tf && chartMode === "canvas" ? C.accent : C.textDim, fontFamily: MONO, fontSize: termIsTablet ? 11 : 10, padding: "5px 9px", borderRadius: 4, cursor: "pointer" }}>
+                <button key={tf} onClick={() => onTimeframeChange(tf)} style={{ border: `1px solid ${timeframe === tf && chartMode === "canvas" ? C.accent : C.border}`, background: timeframe === tf && chartMode === "canvas" ? `${C.accent}12` : C.surface, color: timeframe === tf && chartMode === "canvas" ? C.accent : C.textDim, fontFamily: MONO, fontSize: termIsTablet ? 11 : 10, padding: "5px 9px", borderRadius: 6, cursor: "pointer" }}>
                   {tf}
                 </button>
               ))}
               {/* Chart source toggle */}
               <div style={{ display: "flex", gap: 2, marginLeft: 4, borderLeft: `1px solid ${C.border}`, paddingLeft: 6 }}>
-                <button onClick={() => setChartMode("canvas")} style={{ border: `1px solid ${chartMode === "canvas" ? C.accent : C.border}`, background: chartMode === "canvas" ? `${C.accent}18` : C.surface, color: chartMode === "canvas" ? C.accent : C.textDim, fontFamily: MONO, fontSize: 9, padding: "4px 7px", borderRadius: 4, cursor: "pointer", fontWeight: chartMode === "canvas" ? 800 : 400 }}>
+                <button onClick={() => setChartMode("canvas")} style={{ border: `1px solid ${chartMode === "canvas" ? C.accent : C.border}`, background: chartMode === "canvas" ? `${C.accent}18` : C.surface, color: chartMode === "canvas" ? C.accent : C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 7px", borderRadius: 6, cursor: "pointer", fontWeight: chartMode === "canvas" ? 800 : 400 }}>
                   CHART
                 </button>
-                <button onClick={() => setChartMode("finviz")} style={{ border: `1px solid ${chartMode === "finviz" ? C.purple : C.border}`, background: chartMode === "finviz" ? `${C.purple}18` : C.surface, color: chartMode === "finviz" ? C.purple : C.textDim, fontFamily: MONO, fontSize: 9, padding: "4px 7px", borderRadius: 4, cursor: "pointer", fontWeight: chartMode === "finviz" ? 800 : 400 }}>
+                <button onClick={() => setChartMode("finviz")} style={{ border: `1px solid ${chartMode === "finviz" ? C.purple : C.border}`, background: chartMode === "finviz" ? `${C.purple}18` : C.surface, color: chartMode === "finviz" ? C.purple : C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 7px", borderRadius: 6, cursor: "pointer", fontWeight: chartMode === "finviz" ? 800 : 400 }}>
                   FV
                 </button>
               </div>
               {chartMode === "finviz" && (
                 <div style={{ display: "flex", gap: 2 }}>
                   {[["d","D"],["w","W"],["m","M"]].map(([val, lbl]) => (
-                    <button key={val} onClick={() => setFvPeriod(val)} style={{ border: `1px solid ${fvPeriod === val ? C.purple : C.border}`, background: fvPeriod === val ? `${C.purple}18` : C.surface, color: fvPeriod === val ? C.purple : C.textDim, fontFamily: MONO, fontSize: 9, padding: "4px 6px", borderRadius: 4, cursor: "pointer" }}>
+                    <button key={val} onClick={() => setFvPeriod(val)} style={{ border: `1px solid ${fvPeriod === val ? C.purple : C.border}`, background: fvPeriod === val ? `${C.purple}18` : C.surface, color: fvPeriod === val ? C.purple : C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 6px", borderRadius: 6, cursor: "pointer" }}>
                       {lbl}
                     </button>
                   ))}
                 </div>
               )}
-              <button onClick={() => { setAlertFormOpen(v => !v); setAlertTarget(selected.price ? selected.price.toFixed(2) : ""); }} style={{ border: `1px solid ${alertFormOpen ? C.amber : C.border}`, background: alertFormOpen ? `${C.amber}14` : C.surface, color: alertFormOpen ? C.amber : C.textDim, fontFamily: MONO, fontSize: 10, padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}>
+              <button onClick={() => { setAlertFormOpen(v => !v); setAlertTarget(selected.price ? selected.price.toFixed(2) : ""); }} style={{ border: `1px solid ${alertFormOpen ? C.amber : C.border}`, background: alertFormOpen ? `${C.amber}14` : C.surface, color: alertFormOpen ? C.amber : C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 8px", borderRadius: 6, cursor: "pointer" }}>
                 + ALERT
               </button>
             </div>
           </div>
           {alertFormOpen && (
             <div style={{ padding: "8px 14px", borderBottom: `1px solid ${C.border}`, background: `${C.amber}08`, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{selected.symbol}</span>
-              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Price alert</span>
-              <select value={alertDir} onChange={e => setAlertDir(e.target.value)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontFamily: MONO, fontSize: 11, padding: "5px 8px" }}>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{selected.symbol}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Price alert</span>
+              <select value={alertDir} onChange={e => setAlertDir(e.target.value)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontFamily: MONO, fontSize: 12, padding: "5px 8px" }}>
                 <option value="above">ABOVE</option>
                 <option value="below">BELOW</option>
               </select>
-              <input type="number" step="0.01" value={alertTarget} onChange={e => setAlertTarget(e.target.value)} placeholder="Target price" style={{ width: 110, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontFamily: MONO, fontSize: 11, padding: "5px 8px" }} />
+              <input type="number" step="0.01" value={alertTarget} onChange={e => setAlertTarget(e.target.value)} placeholder="Target price" style={{ width: 110, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontFamily: MONO, fontSize: 12, padding: "5px 8px" }} />
               <button disabled={alertSaving} onClick={async () => {
                 if (!alertTarget || Number(alertTarget) <= 0) return;
                 setAlertSaving(true);
@@ -2484,10 +2484,10 @@ function TerminalWorkspace({
                   setAlertFormOpen(false);
                   setAlertTarget("");
                 } finally { setAlertSaving(false); }
-              }} style={{ border: `1px solid ${C.amber}55`, background: `${C.amber}18`, color: C.amber, borderRadius: 4, padding: "5px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
+              }} style={{ border: `1px solid ${C.amber}55`, background: `${C.amber}18`, color: C.amber, borderRadius: 6, padding: "5px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>
                 {alertSaving ? "SAVING…" : "SET ALERT"}
               </button>
-              <button onClick={() => setAlertFormOpen(false)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "5px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>✕</button>
+              <button onClick={() => setAlertFormOpen(false)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "5px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>✕</button>
             </div>
           )}
           <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
@@ -2502,8 +2502,8 @@ function TerminalWorkspace({
                   onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.nextElementSibling.style.display = "flex"; }}
                 />
                 <div style={{ display: "none", position: "absolute", inset: 0, alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 6 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Finviz chart unavailable</span>
-                  <button onClick={() => setChartMode("canvas")} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "4px 10px", borderRadius: 4, cursor: "pointer" }}>Switch to Canvas</button>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>Finviz chart unavailable</span>
+                  <button onClick={() => setChartMode("canvas")} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>Switch to Canvas</button>
                 </div>
               </div>
             ) : (
@@ -2513,7 +2513,7 @@ function TerminalWorkspace({
           {chartMode === "finviz" && (
             <div style={{ flexShrink: 0, borderBottom: `1px solid ${C.border}`, background: C.surface, padding: "8px 12px" }}>
               {fvLoading ? (
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Loading Finviz stats…</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading Finviz stats…</span>
               ) : fvStats ? (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px" }}>
                   {[
@@ -2531,13 +2531,13 @@ function TerminalWorkspace({
                     ["EPS",      fvStats.eps      != null ? fvStats.eps.toFixed(2)                              : "—"],
                   ].map(([label, val]) => (
                     <div key={label} style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
-                      <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{label}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text }}>{val}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{label}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{val}</span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>No Finviz data</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>No Finviz data</span>
               )}
             </div>
           )}
@@ -2545,7 +2545,7 @@ function TerminalWorkspace({
           <div style={{ padding: 10, background: C.surface, display: "grid", gap: 10, gridTemplateColumns: termIsTablet ? "1fr" : "1.15fr 1fr" }}>
             <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, background: C.surface, overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr" }}>
               <div style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em" }}>INSTITUTIONAL RANKING LADDER</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>INSTITUTIONAL RANKING LADDER</span>
                 <Badge color={C.accent}>LIVE</Badge>
               </div>
               <div style={{ overflowY: "auto", maxHeight: terminalLayout === "1" ? 400 : 220 }}>
@@ -2558,31 +2558,31 @@ function TerminalWorkspace({
                     <div style={{ display: "grid", gridTemplateColumns: termIsTablet ? "32px 64px 1fr 76px 72px" : "28px 56px 1fr 68px 64px 72px", alignItems: "center", gap: 8 }}>
                       <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 12 : 10, color: C.textDim }}>#{idx + 1}</span>
                       <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 13 : 11, fontWeight: 700, color: C.text }}>{q.symbol}</span>
-                      {!termIsTablet && <span style={{ fontSize: 10, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.name}</span>}
-                      {termIsTablet && <span style={{ fontSize: 11, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.name}</span>}
+                      {!termIsTablet && <span style={{ fontSize: 12, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.name}</span>}
+                      {termIsTablet && <span style={{ fontSize: 12, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.name}</span>}
                       <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 12 : 10, color: (q.changesPercentage || 0) >= 0 ? C.green : C.red }}>{(q.changesPercentage || 0) >= 0 ? "+" : ""}{(q.changesPercentage || 0).toFixed(2)}%</span>
                       <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 12 : 10, color: q.r >= 1.2 ? C.green : C.textDim }}>R {q.r.toFixed(2)}x</span>
-                      {!termIsTablet && <span style={{ fontFamily: MONO, fontSize: 10, color: C.accent }}>S {q.s.composite}</span>}
+                      {!termIsTablet && <span style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>S {q.s.composite}</span>}
                     </div>
                   </button>
                 ))}
               </div>
               <div style={{ borderTop: `1px solid ${C.border}`, background: C.surface, padding: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
                   MACRO RELATION MATRIX
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                   {terminalMacroMatrix.rows.map((m) => (
                     <div key={`mx-${m.key}`} style={{ border: `1px solid ${C.border}`, borderRadius: 6, background: C.surface, padding: "7px 8px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.text }}>{m.key}</span>
-                        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{m.symbol}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{m.key}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{m.symbol}</span>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ fontFamily: MONO, fontSize: 11, color: C.text, fontWeight: 700 }}>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.text, fontWeight: 700 }}>
                           {m.price > 10000 ? m.price.toLocaleString(undefined, { maximumFractionDigits: 0 }) : m.price.toFixed(2)}
                         </span>
-                        <span style={{ fontFamily: MONO, fontSize: 10, color: m.chg >= 0 ? C.green : C.red }}>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: m.chg >= 0 ? C.green : C.red }}>
                           {m.chg >= 0 ? "+" : ""}{m.chg.toFixed(2)}%
                         </span>
                       </div>
@@ -2592,27 +2592,27 @@ function TerminalWorkspace({
                 <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, background: C.surface, padding: 8 }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
                     <div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Stocks (SPY/QQQ)</div>
-                      <div style={{ fontFamily: MONO, fontSize: 11, color: terminalMacroMatrix.stockMove >= 0 ? C.green : C.red, fontWeight: 700 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Stocks (SPY/QQQ)</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: terminalMacroMatrix.stockMove >= 0 ? C.green : C.red, fontWeight: 700 }}>
                         {terminalMacroMatrix.stockMove >= 0 ? "+" : ""}{terminalMacroMatrix.stockMove.toFixed(2)}%
                       </div>
                     </div>
                     <div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Crypto (BTC/ETH)</div>
-                      <div style={{ fontFamily: MONO, fontSize: 11, color: terminalMacroMatrix.cryptoMove >= 0 ? C.green : C.red, fontWeight: 700 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Crypto (BTC/ETH)</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: terminalMacroMatrix.cryptoMove >= 0 ? C.green : C.red, fontWeight: 700 }}>
                         {terminalMacroMatrix.cryptoMove >= 0 ? "+" : ""}{terminalMacroMatrix.cryptoMove.toFixed(2)}%
                       </div>
                     </div>
                     <div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Curve (10Y-2Y proxy)</div>
-                      <div style={{ fontFamily: MONO, fontSize: 11, color: terminalMacroMatrix.curveProxy >= 0 ? C.green : C.red, fontWeight: 700 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Curve (10Y-2Y proxy)</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: terminalMacroMatrix.curveProxy >= 0 ? C.green : C.red, fontWeight: 700 }}>
                         {terminalMacroMatrix.curveProxy >= 0 ? "+" : ""}{terminalMacroMatrix.curveProxy.toFixed(2)}%
                       </div>
                     </div>
                   </div>
                   <div style={{ display: "grid", gap: 4 }}>
                     {terminalMacroMatrix.rel.map((line, i) => (
-                      <div key={`mrel-${i}`} style={{ fontSize: 10, color: C.textSec, lineHeight: 1.4 }}>{line}</div>
+                      <div key={`mrel-${i}`} style={{ fontSize: 12, color: C.textSec, lineHeight: 1.4 }}>{line}</div>
                     ))}
                   </div>
                 </div>
@@ -2621,7 +2621,7 @@ function TerminalWorkspace({
             <div style={{ display: "grid", gap: 10, gridTemplateRows: "1fr auto" }}>
               <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, background: C.surface, overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr" }}>
                 <div style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em" }}>EXECUTION BLOTTER</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>EXECUTION BLOTTER</span>
                   <Badge color={C.green}>A+ FILTER</Badge>
                 </div>
                 <div style={{ display: "grid", gridTemplateRows: "auto auto 1fr", minHeight: terminalLayout === "1" ? 390 : 180 }}>
@@ -2629,11 +2629,11 @@ function TerminalWorkspace({
                     {executionRows.map((r) => (
                       <div key={`ex-${r.symbol}`} style={{ borderBottom: `1px solid ${C.border}`, padding: "8px 10px" }}>
                         <div style={{ display: "grid", gridTemplateColumns: "54px 70px 70px 70px 52px 1fr auto", gap: 8, alignItems: "center" }}>
-                          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{r.symbol}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textSec }}>E ${r.entry.toFixed(2)}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 10, color: C.red }}>S ${r.stop.toFixed(2)}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 10, color: C.green }}>T ${r.target.toFixed(2)}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 10, color: C.accent }}>{r.rr.toFixed(2)}R</span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{r.symbol}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>E ${r.entry.toFixed(2)}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>S ${r.stop.toFixed(2)}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>T ${r.target.toFixed(2)}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>{r.rr.toFixed(2)}R</span>
                           <span style={{ justifySelf: "end" }}>
                             <Badge color={r.status === "TRIGGERED" ? C.green : r.status === "STALK" ? C.amber : C.textDim}>{r.status}</Badge>
                           </span>
@@ -2642,109 +2642,109 @@ function TerminalWorkspace({
                               await fetch("/api/journal", { method: "POST", headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ ticker: r.symbol, side: "BUY", score: r.score, entry: r.entry, stopLoss: r.stop, target: r.target, timeframe: "1D", style: "Terminal", notes: `Blotter ${r.status} · RR ${r.rr.toFixed(2)} · RVOL ${r.rvol.toFixed(2)}x` }) });
                             } catch {}
-                          }} style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>LOG</button>
+                          }} style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>LOG</button>
                         </div>
                       </div>
                     ))}
                   </div>
                   <div style={{ padding: "10px", background: "#fbfdff", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
                       ACTION QUEUE
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                       <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface }}>
-                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 6 }}>NEXT NAMES</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 6 }}>NEXT NAMES</div>
                         {(executionRows.slice(0, 3)).map((r) => (
-                          <div key={`aq-${r.symbol}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, padding: "3px 0" }}>
-                            <button onClick={() => onSelectSymbol(r.symbol)} style={{ background: "none", border: "none", fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", padding: 0, fontWeight: 700 }}>{r.symbol}</button>
+                          <div key={`aq-${r.symbol}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, padding: "3px 0" }}>
+                            <button onClick={() => onSelectSymbol(r.symbol)} style={{ background: "none", border: "none", fontFamily: MONO, fontSize: 12, color: C.accent, cursor: "pointer", padding: 0, fontWeight: 700 }}>{r.symbol}</button>
                             <span style={{ fontFamily: MONO, color: r.status === "TRIGGERED" ? C.green : r.status === "STALK" ? C.amber : C.textDim }}>
                               {r.status}
                             </span>
                           </div>
                         ))}
-                        {!executionRows.length && <div style={{ fontSize: 11, color: C.textDim }}>No live setups yet.</div>}
+                        {!executionRows.length && <div style={{ fontSize: 12, color: C.textDim }}>No live setups yet.</div>}
                       </div>
                       <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface }}>
-                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 6 }}>CATALYST CHECK</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 6 }}>CATALYST CHECK</div>
                         {(topNews.length ? topNews : newsData.slice(0, 3)).slice(0, 3).map((n, i) => (
-                          <div key={`aqn-${i}`} style={{ fontSize: 10, color: C.textSec, lineHeight: 1.35, padding: "3px 0", borderBottom: `1px solid ${C.border}` }}>
+                          <div key={`aqn-${i}`} style={{ fontSize: 12, color: C.textSec, lineHeight: 1.35, padding: "3px 0", borderBottom: `1px solid ${C.border}` }}>
                             <span style={{ fontFamily: MONO, color: C.accent }}>{n.ticker || "MKT"}</span> {n.title}
                           </div>
                         ))}
-                        {!newsData.length && <div style={{ fontSize: 11, color: C.textDim }}>No catalyst headlines loaded.</div>}
+                        {!newsData.length && <div style={{ fontSize: 12, color: C.textDim }}>No catalyst headlines loaded.</div>}
                       </div>
                     </div>
                   </div>
                   <div style={{ padding: 10, background: C.surface }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
                       MARKET PULSE
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                       <div onClick={() => { const s = terminalRankRows[0]?.symbol; if (s) onSelectSymbol(s); }} style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface, cursor: "pointer" }}>
-                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Top Gainer</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Top Gainer</div>
                         <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, fontWeight: 700 }}>{terminalRankRows[0]?.symbol || "N/A"}</div>
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.green }}>{(terminalRankRows[0]?.changesPercentage || 0) >= 0 ? "+" : ""}{Number(terminalRankRows[0]?.changesPercentage || 0).toFixed(2)}%</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>{(terminalRankRows[0]?.changesPercentage || 0) >= 0 ? "+" : ""}{Number(terminalRankRows[0]?.changesPercentage || 0).toFixed(2)}%</div>
                       </div>
                       <div onClick={() => { const s = terminalRankRows[terminalRankRows.length - 1]?.symbol; if (s) onSelectSymbol(s); }} style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface, cursor: "pointer" }}>
-                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Weakest Name</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Weakest Name</div>
                         <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, fontWeight: 700 }}>{terminalRankRows[terminalRankRows.length - 1]?.symbol || "N/A"}</div>
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.red }}>{(terminalRankRows[terminalRankRows.length - 1]?.changesPercentage || 0) >= 0 ? "+" : ""}{Number(terminalRankRows[terminalRankRows.length - 1]?.changesPercentage || 0).toFixed(2)}%</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>{(terminalRankRows[terminalRankRows.length - 1]?.changesPercentage || 0) >= 0 ? "+" : ""}{Number(terminalRankRows[terminalRankRows.length - 1]?.changesPercentage || 0).toFixed(2)}%</div>
                       </div>
                       <div onClick={() => { const s = [...terminalRankRows].sort((a, b) => (b.rel || 0) - (a.rel || 0))[0]?.symbol; if (s) onSelectSymbol(s); }} style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface, cursor: "pointer" }}>
-                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Best RS vs SPY</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Best RS vs SPY</div>
                         <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700 }}>
                           {[...terminalRankRows].sort((a, b) => (b.rel || 0) - (a.rel || 0))[0]?.symbol || "N/A"}
                         </div>
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.accent }}>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>
                           {(([...terminalRankRows].sort((a, b) => (b.rel || 0) - (a.rel || 0))[0]?.rel || 0) >= 0 ? "+" : "")}
                           {Number(([...terminalRankRows].sort((a, b) => (b.rel || 0) - (a.rel || 0))[0]?.rel || 0)).toFixed(2)}%
                         </div>
                       </div>
                     </div>
                     <div style={{ marginTop: 8, border: `1px solid ${C.border}`, borderRadius: 6, background: C.surface, padding: 8 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>
                         INSTITUTIONAL RADAR
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
                         <div style={{ border: `1px solid ${institutionalRadar.breadthPct >= 60 ? `${C.green}66` : institutionalRadar.breadthPct >= 45 ? `${C.amber}66` : `${C.red}66`}`, borderRadius: 5, padding: 7, background: institutionalRadar.breadthPct >= 60 ? C.greenBg : institutionalRadar.breadthPct >= 45 ? C.amberBg : C.redBg }}>
-                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Breadth</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Breadth</div>
                           <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>
                             {institutionalRadar.advancers}/{institutionalRadar.total}
                           </div>
-                          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textSec }}>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>
                             {institutionalRadar.total ? `${Math.round(institutionalRadar.breadthPct)}% advancers` : "No data"}
                           </div>
                         </div>
                         <div style={{ border: `1px solid ${institutionalRadar.macroPressureLabel === "HIGH" ? `${C.red}66` : institutionalRadar.macroPressureLabel === "ELEVATED" ? `${C.amber}66` : `${C.green}66`}`, borderRadius: 5, padding: 7, background: institutionalRadar.macroPressureLabel === "HIGH" ? C.redBg : institutionalRadar.macroPressureLabel === "ELEVATED" ? C.amberBg : C.greenBg }}>
-                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Macro Pressure</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Macro Pressure</div>
                           <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>
                             <span style={{ color: institutionalRadar.macroPressureLabel === "HIGH" ? C.red : institutionalRadar.macroPressureLabel === "ELEVATED" ? C.amber : C.green }}>
                               {institutionalRadar.macroPressureLabel}
                             </span>
                           </div>
-                          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textSec }}>VIX + USD + Oil</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>VIX + USD + Oil</div>
                         </div>
                         <div style={{ border: `1px solid ${institutionalRadar.focusTone === "green" ? `${C.green}66` : institutionalRadar.focusTone === "amber" ? `${C.amber}66` : `${C.red}66`}`, borderRadius: 5, padding: 7, background: institutionalRadar.focusTone === "green" ? C.greenBg : institutionalRadar.focusTone === "amber" ? C.amberBg : C.redBg }}>
-                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Session Focus</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Session Focus</div>
                           <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent }}>
                             {institutionalRadar.focus}
                           </div>
-                          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textSec }}>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>
                             {institutionalRadar.focusStatus}
                           </div>
                         </div>
                       </div>
                       <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 6 }}>
-                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>Signal Queue</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 4 }}>Signal Queue</div>
                         {(alerts || []).slice(0, 3).map((a, i) => (
-                          <div key={`radar-sig-${i}`} style={{ display: "grid", gridTemplateColumns: "60px 1fr 52px", gap: 8, alignItems: "center", padding: "4px 6px", fontSize: 10, border: `1px solid ${Number(a.score || 0) >= 85 ? `${C.green}66` : Number(a.score || 0) >= 70 ? `${C.amber}66` : `${C.border}`}`, borderRadius: 4, marginBottom: 4, background: Number(a.score || 0) >= 85 ? C.greenBg : Number(a.score || 0) >= 70 ? C.amberBg : C.surface }}>
+                          <div key={`radar-sig-${i}`} style={{ display: "grid", gridTemplateColumns: "60px 1fr 52px", gap: 8, alignItems: "center", padding: "4px 6px", fontSize: 12, border: `1px solid ${Number(a.score || 0) >= 85 ? `${C.green}66` : Number(a.score || 0) >= 70 ? `${C.amber}66` : `${C.border}`}`, borderRadius: 6, marginBottom: 4, background: Number(a.score || 0) >= 85 ? C.greenBg : Number(a.score || 0) >= 70 ? C.amberBg : C.surface }}>
                             <span style={{ fontFamily: MONO, color: C.accent, fontWeight: 700 }}>{a.symbol || "MKT"}</span>
                             <span style={{ color: C.textSec, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.text || "Signal update"}</span>
                             <span style={{ fontFamily: MONO, color: Number(a.score || 0) >= 85 ? C.green : Number(a.score || 0) >= 70 ? C.amber : C.textDim, justifySelf: "end", fontWeight: 700 }}>S {Number(a.score || 0)}</span>
                           </div>
                         ))}
                         {!(alerts || []).length && (
-                          <div style={{ fontSize: 10, color: C.textDim }}>No high-priority signals queued.</div>
+                          <div style={{ fontSize: 12, color: C.textDim }}>No high-priority signals queued.</div>
                         )}
                       </div>
                     </div>
@@ -2752,22 +2752,22 @@ function TerminalWorkspace({
                 </div>
               </div>
               <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, background: C.surface, padding: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>RISK COMMAND PANEL</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>RISK COMMAND PANEL</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
                   <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Mode</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Mode</div>
                     <div style={{ fontFamily: MONO, fontSize: 12, color: riskSnapshot.mode === "DEFENSIVE" ? C.red : riskSnapshot.mode === "AGGRESSIVE" ? C.green : C.amber, fontWeight: 700 }}>{riskSnapshot.mode}</div>
                   </div>
                   <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Risk Alerts</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Risk Alerts</div>
                     <div style={{ fontFamily: MONO, fontSize: 12, color: riskSnapshot.riskAlerts > 2 ? C.red : C.text }}>{riskSnapshot.riskAlerts}</div>
                   </div>
                   <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Avg R:R</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Avg R:R</div>
                     <div style={{ fontFamily: MONO, fontSize: 12, color: riskSnapshot.avgRR >= 1.5 ? C.green : C.amber }}>{riskSnapshot.avgRR.toFixed(2)}</div>
                   </div>
                   <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Sector Concentration</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Sector Concentration</div>
                     <div style={{ fontFamily: MONO, fontSize: 12, color: riskSnapshot.concentration >= 4 ? C.red : C.text }}>{riskSnapshot.concentration}</div>
                   </div>
                 </div>
@@ -2779,7 +2779,7 @@ function TerminalWorkspace({
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 1, background: C.border }}>
             {[["Composite", scores.composite, C.accent], ["Technical", scores.tech, C.cyan], ["Fundamental", scores.fund, C.purple], ["Macro Fit", scores.macro, C.amber], ["RVOL", `${rvol.toFixed(2)}x`, rvol > 1.2 ? C.green : C.textDim]].map(([k, v, col]) => (
               <div key={k} style={{ background: C.surface, padding: "8px 10px" }}>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{k}</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{k}</div>
                 <div style={{ fontFamily: MONO, fontSize: 14, color: col, fontWeight: 700 }}>{v}</div>
               </div>
             ))}
@@ -2788,17 +2788,17 @@ function TerminalWorkspace({
 
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 8, marginBottom: 10 }}>
-            <input value={drawTools.trendStart} onChange={(e) => onDrawToolsChange((d) => ({ ...d, trendStart: e.target.value }))} placeholder="Trend start" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 10 }} />
-            <input value={drawTools.trendEnd} onChange={(e) => onDrawToolsChange((d) => ({ ...d, trendEnd: e.target.value }))} placeholder="Trend end" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 10 }} />
-            <input value={drawTools.fibLow} onChange={(e) => onDrawToolsChange((d) => ({ ...d, fibLow: e.target.value }))} placeholder="Fib low" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 10 }} />
-            <input value={drawTools.fibHigh} onChange={(e) => onDrawToolsChange((d) => ({ ...d, fibHigh: e.target.value }))} placeholder="Fib high" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 10 }} />
+            <input value={drawTools.trendStart} onChange={(e) => onDrawToolsChange((d) => ({ ...d, trendStart: e.target.value }))} placeholder="Trend start" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+            <input value={drawTools.trendEnd} onChange={(e) => onDrawToolsChange((d) => ({ ...d, trendEnd: e.target.value }))} placeholder="Trend end" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+            <input value={drawTools.fibLow} onChange={(e) => onDrawToolsChange((d) => ({ ...d, fibLow: e.target.value }))} placeholder="Fib low" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+            <input value={drawTools.fibHigh} onChange={(e) => onDrawToolsChange((d) => ({ ...d, fibHigh: e.target.value }))} placeholder="Fib high" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>SECTOR ROTATION TAPE</div>
+          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>SECTOR ROTATION TAPE</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 6 }}>
             {[...sectorData].sort((a, b) => (b.changesPercentage || 0) - (a.changesPercentage || 0)).slice(0, 8).map((s) => (
               <div key={s.symbol} style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", background: C.surface }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.text }}>{s.symbol}</div>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: (s.changesPercentage || 0) >= 0 ? C.green : C.red }}>{(s.changesPercentage || 0) >= 0 ? "+" : ""}{(s.changesPercentage || 0).toFixed(2)}%</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{s.symbol}</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: (s.changesPercentage || 0) >= 0 ? C.green : C.red }}>{(s.changesPercentage || 0) >= 0 ? "+" : ""}{(s.changesPercentage || 0).toFixed(2)}%</div>
               </div>
             ))}
           </div>
@@ -2824,14 +2824,14 @@ function TerminalWorkspace({
             {/* Header */}
             <div style={{ padding: "8px 12px", background: C.surface, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ width: 20, height: 20, borderRadius: "50%", background: `linear-gradient(135deg, ${C.accent}, ${C.purple})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 900, color: "#fff" }}>AI</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#fff" }}>AI</span>
               </div>
-              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", flex: 1 }}>AI INSIGHT</span>
-              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.text }}>{insightSymbol || selected.symbol}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", flex: 1 }}>AI INSIGHT</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{insightSymbol || selected.symbol}</span>
               <button
                 onClick={() => runInsight(selected.symbol, Number(selected.price || 0), Number(selected.changesPercentage || 0), scores)}
                 disabled={insightLoading}
-                style={{ border: `1px solid ${C.border}`, borderRadius: 3, background: "transparent", color: insightLoading ? C.textDim : C.accent, fontFamily: MONO, fontSize: 9, cursor: insightLoading ? "default" : "pointer", padding: "2px 7px", letterSpacing: "0.04em" }}
+                style={{ border: `1px solid ${C.border}`, borderRadius: 5, background: "transparent", color: insightLoading ? C.textDim : C.accent, fontFamily: MONO, fontSize: 12, cursor: insightLoading ? "default" : "pointer", padding: "3px 8px", letterSpacing: "0.04em" }}
               >{insightLoading ? "…" : "↻"}</button>
             </div>
             {/* Body */}
@@ -2839,45 +2839,45 @@ function TerminalWorkspace({
               {insightLoading ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ width: 10, height: 10, borderRadius: "50%", border: `2px solid ${C.accent}`, borderTopColor: "transparent", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Analyzing {selected.symbol}…</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Analyzing {selected.symbol}…</span>
                 </div>
               ) : insightText ? (
                 <>
-                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.text, lineHeight: 1.6, marginBottom: 6 }}>
+                  <div style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.6, marginBottom: 6 }}>
                     {insightText}
                   </div>
                   {insightAt && (
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Updated {insightAt}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Updated {insightAt}</div>
                   )}
                 </>
               ) : (
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Select a symbol to generate insight.</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Select a symbol to generate insight.</div>
               )}
             </div>
           </div>
 
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
               <span>MACRO / REGIME</span>
-              <button onClick={() => setShowRight(false)} style={{ border: "none", background: "transparent", cursor: "pointer", color: C.textDim, fontFamily: MONO, fontSize: 10 }}>HIDE</button>
+              <button onClick={() => setShowRight(false)} style={{ border: "none", background: "transparent", cursor: "pointer", color: C.textDim, fontFamily: MONO, fontSize: 12 }}>HIDE</button>
             </div>
             {leaderTape.slice(0, 6).map((q) => (
               <div key={q.symbol} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.text }}>{q.symbol}</span>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: (q.changesPercentage || 0) >= 0 ? C.green : C.red }}>{(q.changesPercentage || 0) >= 0 ? "+" : ""}{(q.changesPercentage || 0).toFixed(2)}%</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{q.symbol}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: (q.changesPercentage || 0) >= 0 ? C.green : C.red }}>{(q.changesPercentage || 0) >= 0 ? "+" : ""}{(q.changesPercentage || 0).toFixed(2)}%</span>
               </div>
             ))}
           </div>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
               FUNDAMENTALS — {selected.symbol}
             </div>
             <div style={{ display: "grid", gap: 6 }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 11, color: C.textDim }}>Market Cap</span><span style={{ fontFamily: MONO, fontSize: 11, color: C.text }}>{formatNum(fundamentals?.marketCap || selected.marketCap || 0)}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 11, color: C.textDim }}>P/E</span><span style={{ fontFamily: MONO, fontSize: 11, color: C.text }}>{Number.isFinite(Number(fundamentals?.pe)) ? Number(fundamentals.pe).toFixed(2) : "—"}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 11, color: C.textDim }}>EPS</span><span style={{ fontFamily: MONO, fontSize: 11, color: C.text }}>{Number.isFinite(Number(fundamentals?.eps)) ? Number(fundamentals.eps).toFixed(2) : "—"}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 11, color: C.textDim }}>Shares Out</span><span style={{ fontFamily: MONO, fontSize: 11, color: C.text }}>{fundamentals?.sharesOutstanding ? `${(Number(fundamentals.sharesOutstanding) / 1e9).toFixed(2)}B` : "—"}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 11, color: C.textDim }}>Earnings</span><span style={{ fontFamily: MONO, fontSize: 11, color: C.text }}>{fundamentals?.earningsDate ? new Date(fundamentals.earningsDate).toLocaleDateString() : "TBD"}</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 12, color: C.textDim }}>Market Cap</span><span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{formatNum(fundamentals?.marketCap || selected.marketCap || 0)}</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 12, color: C.textDim }}>P/E</span><span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{Number.isFinite(Number(fundamentals?.pe)) ? Number(fundamentals.pe).toFixed(2) : "—"}</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 12, color: C.textDim }}>EPS</span><span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{Number.isFinite(Number(fundamentals?.eps)) ? Number(fundamentals.eps).toFixed(2) : "—"}</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 12, color: C.textDim }}>Shares Out</span><span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{fundamentals?.sharesOutstanding ? `${(Number(fundamentals.sharesOutstanding) / 1e9).toFixed(2)}B` : "—"}</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 12, color: C.textDim }}>Earnings</span><span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{fundamentals?.earningsDate ? new Date(fundamentals.earningsDate).toLocaleDateString() : "TBD"}</span></div>
             </div>
           </div>
           {/* ── ORDER ENTRY PANEL ── */}
@@ -2946,42 +2946,42 @@ function TerminalWorkspace({
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
                 {/* Header */}
                 <div style={{ padding: "9px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em" }}>ORDER ENTRY</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text }}>{selected.symbol}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>ORDER ENTRY</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{selected.symbol}</span>
                 </div>
 
                 {/* Bid/Ask strip */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1px 1fr", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
                   <div style={{ padding: "8px 12px" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 2 }}>BID</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 2 }}>BID</div>
                     <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.green }}>{bid}</div>
                   </div>
                   <div style={{ background: C.border }} />
                   <div style={{ padding: "8px 12px" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 2 }}>ASK</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 2 }}>ASK</div>
                     <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.red }}>{ask}</div>
                   </div>
                 </div>
 
                 {/* Order book depth */}
                 <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}`, background: C.surface }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>ORDER BOOK DEPTH</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>ORDER BOOK DEPTH</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto 1fr", gap: "2px 6px", alignItems: "center" }}>
                     {levels.map((l, i) => (
                       <React.Fragment key={`ob-${i}`}>
                         {/* Bid bar */}
                         <div style={{ position: "relative", height: 14, background: `${C.green}18`, borderRadius: 2, overflow: "hidden" }}>
                           <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: `${(l.bidSz / maxSz) * 100}%`, background: `${C.green}44`, borderRadius: 2 }} />
-                          <span style={{ position: "absolute", right: 4, top: 0, bottom: 0, display: "flex", alignItems: "center", fontFamily: MONO, fontSize: 9, color: C.green }}>{l.bidSz}</span>
+                          <span style={{ position: "absolute", right: 4, top: 0, bottom: 0, display: "flex", alignItems: "center", fontFamily: MONO, fontSize: 12, color: C.green }}>{l.bidSz}</span>
                         </div>
                         {/* Bid price */}
-                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.green, textAlign: "right", whiteSpace: "nowrap" }}>${l.bidPx}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, textAlign: "right", whiteSpace: "nowrap" }}>${l.bidPx}</div>
                         {/* Ask price */}
-                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.red, textAlign: "left", whiteSpace: "nowrap" }}>${l.askPx}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, textAlign: "left", whiteSpace: "nowrap" }}>${l.askPx}</div>
                         {/* Ask bar */}
                         <div style={{ position: "relative", height: 14, background: `${C.red}18`, borderRadius: 2, overflow: "hidden" }}>
                           <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${(l.askSz / maxSz) * 100}%`, background: `${C.red}44`, borderRadius: 2 }} />
-                          <span style={{ position: "absolute", left: 4, top: 0, bottom: 0, display: "flex", alignItems: "center", fontFamily: MONO, fontSize: 9, color: C.red }}>{l.askSz}</span>
+                          <span style={{ position: "absolute", left: 4, top: 0, bottom: 0, display: "flex", alignItems: "center", fontFamily: MONO, fontSize: 12, color: C.red }}>{l.askSz}</span>
                         </div>
                       </React.Fragment>
                     ))}
@@ -2992,7 +2992,7 @@ function TerminalWorkspace({
                   {/* Order type tabs */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 3, marginBottom: 10 }}>
                     {[["market", "Market"], ["limit", "Limit"], ["stop", "Stop"], ["trailing", "Trail"]].map(([v, lbl]) => (
-                      <button key={v} onClick={() => setOrderType(v)} style={{ padding: "5px 0", border: `1px solid ${orderType === v ? C.accent : C.border}`, borderRadius: 4, background: orderType === v ? `${C.accent}18` : C.surface, color: orderType === v ? C.accent : C.textDim, fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: orderType === v ? 800 : 400, letterSpacing: "0.04em" }}>
+                      <button key={v} onClick={() => setOrderType(v)} style={{ padding: "5px 0", border: `1px solid ${orderType === v ? C.accent : C.border}`, borderRadius: 6, background: orderType === v ? `${C.accent}18` : C.surface, color: orderType === v ? C.accent : C.textDim, fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: orderType === v ? 800 : 400, letterSpacing: "0.04em" }}>
                         {lbl}
                       </button>
                     ))}
@@ -3010,64 +3010,64 @@ function TerminalWorkspace({
 
                   {/* Quantity */}
                   <div style={{ marginBottom: 8 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>QUANTITY (SHARES)</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 4 }}>QUANTITY (SHARES)</div>
                     <input type="number" min="1" step="1" value={orderQty} onChange={e => setOrderQty(e.target.value)}
-                      style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 4 }} />
+                      style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 6 }} />
                   </div>
 
                   {/* Limit/Stop price */}
                   {(orderType === "limit" || orderType === "stop") && (
                     <div style={{ marginBottom: 8 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>{orderType === "limit" ? "LIMIT PRICE" : "STOP TRIGGER"}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 4 }}>{orderType === "limit" ? "LIMIT PRICE" : "STOP TRIGGER"}</div>
                       <input type="number" step="0.01" value={orderPrice} onChange={e => setOrderPrice(e.target.value)} placeholder={price.toFixed(2)}
-                        style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 4 }} />
+                        style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 6 }} />
                     </div>
                   )}
 
                   {/* Trailing % */}
                   {orderType === "trailing" && (
                     <div style={{ marginBottom: 8 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>TRAIL DISTANCE (%)</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 4 }}>TRAIL DISTANCE (%)</div>
                       <input type="number" step="0.1" min="0.1" value={orderTrailPct} onChange={e => setOrderTrailPct(e.target.value)}
-                        style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 4 }} />
+                        style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 6 }} />
                     </div>
                   )}
 
                   {/* TP / SL row */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
                     <div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.green, marginBottom: 4 }}>TAKE PROFIT</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, marginBottom: 4 }}>TAKE PROFIT</div>
                       <input type="number" step="0.01" value={orderTp} onChange={e => setOrderTp(e.target.value)} placeholder="Price"
-                        style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.green}44`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "6px 8px", borderRadius: 4 }} />
+                        style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.green}44`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "6px 8px", borderRadius: 6 }} />
                     </div>
                     <div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.red, marginBottom: 4 }}>STOP LOSS</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, marginBottom: 4 }}>STOP LOSS</div>
                       <input type="number" step="0.01" value={orderSl} onChange={e => setOrderSl(e.target.value)} placeholder="Price"
-                        style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.red}44`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "6px 8px", borderRadius: 4 }} />
+                        style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.red}44`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "6px 8px", borderRadius: 6 }} />
                     </div>
                   </div>
 
                   {/* Position summary */}
                   {(posValue > 0 || rr) && (
-                    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, padding: "7px 10px", marginBottom: 10, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: "7px 10px", marginBottom: 10, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                       <div>
-                        <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim }}>VALUE</div>
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.text, fontWeight: 700 }}>${posValue > 0 ? posValue.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "—"}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>VALUE</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.text, fontWeight: 700 }}>${posValue > 0 ? posValue.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "—"}</div>
                       </div>
                       <div>
-                        <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim }}>RISK $</div>
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: riskAmt > 0 ? C.red : C.textDim, fontWeight: 700 }}>{riskAmt > 0 ? `$${riskAmt.toFixed(0)}` : "—"}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>RISK $</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: riskAmt > 0 ? C.red : C.textDim, fontWeight: 700 }}>{riskAmt > 0 ? `$${riskAmt.toFixed(0)}` : "—"}</div>
                       </div>
                       <div>
-                        <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim }}>R:R</div>
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: rr && Number(rr) >= 2 ? C.green : rr && Number(rr) >= 1 ? C.amber : C.red, fontWeight: 700 }}>{rr ? `${rr}R` : "—"}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>R:R</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: rr && Number(rr) >= 2 ? C.green : rr && Number(rr) >= 1 ? C.amber : C.red, fontWeight: 700 }}>{rr ? `${rr}R` : "—"}</div>
                       </div>
                     </div>
                   )}
 
                   {/* Confirmed banner */}
                   {orderConfirmed && (
-                    <div style={{ background: `${C.green}18`, border: `1px solid ${C.green}55`, borderRadius: 4, padding: "7px 10px", marginBottom: 8, fontFamily: MONO, fontSize: 10, color: C.green, textAlign: "center" }}>
+                    <div style={{ background: `${C.green}18`, border: `1px solid ${C.green}55`, borderRadius: 6, padding: "7px 10px", marginBottom: 8, fontFamily: MONO, fontSize: 12, color: C.green, textAlign: "center" }}>
                       ✓ {orderConfirmed.side.toUpperCase()} {orderConfirmed.qty}×{orderConfirmed.symbol} @ ${orderConfirmed.price} — Logged to Journal
                     </div>
                   )}
@@ -3083,24 +3083,24 @@ function TerminalWorkspace({
           })()}
 
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>ALERT PRIORITY</div>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>ALERT PRIORITY</div>
             {alerts.slice(0, 4).map((a, i) => (
               <div key={`${a.symbol}-${i}`} style={{ padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700 }}>{a.symbol}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: a.type === "risk" ? C.red : C.green }}>{a.score}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700 }}>{a.symbol}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: a.type === "risk" ? C.red : C.green }}>{a.score}</span>
                 </div>
-                <div style={{ fontSize: 11, color: C.textSec, lineHeight: 1.35 }}>{a.text}</div>
+                <div style={{ fontSize: 12, color: C.textSec, lineHeight: 1.35 }}>{a.text}</div>
               </div>
             ))}
-            {alerts.length === 0 && <div style={{ fontSize: 11, color: C.textDim }}>No active alerts.</div>}
+            {alerts.length === 0 && <div style={{ fontSize: 12, color: C.textDim }}>No active alerts.</div>}
           </div>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, overflowY: "auto" }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>NEWS INTELLIGENCE</div>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>NEWS INTELLIGENCE</div>
             {(topNews.length ? topNews : newsData.slice(0, 6)).map((n, i) => (
               <a key={`${n.ticker}-${i}`} href={n.link} target="_blank" rel="noreferrer" style={{ display: "block", textDecoration: "none", padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.accent, marginBottom: 3 }}>{n.ticker} · {n.publisher}</div>
-                <div style={{ fontSize: 11, color: C.textSec, lineHeight: 1.35 }}>{n.title}</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, marginBottom: 3 }}>{n.ticker} · {n.publisher}</div>
+                <div style={{ fontSize: 12, color: C.textSec, lineHeight: 1.35 }}>{n.title}</div>
               </a>
             ))}
           </div>
@@ -3150,7 +3150,7 @@ function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTerminal }) {
   };
 
   const ColH = ({ children, align = "right" }) => (
-    <th style={{ padding: "8px 10px", fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: align, borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap" }}>{children}</th>
+    <th style={{ padding: "8px 10px", fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: align, borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap" }}>{children}</th>
   );
 
   const ContractRow = ({ c, type }) => {
@@ -3160,22 +3160,22 @@ function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTerminal }) {
       <tr style={{ background: bg }}>
         <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: itm ? (type === "calls" ? C.green : C.red) : C.text, borderBottom: `1px solid ${C.border}`, textAlign: "right" }}>${c.strike}</td>
         <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, color: C.text, borderBottom: `1px solid ${C.border}`, textAlign: "right" }}>${c.lastPrice}</td>
-        <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 11, color: C.textDim, borderBottom: `1px solid ${C.border}`, textAlign: "right" }}>${c.bid} / ${c.ask}</td>
+        <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, color: C.textDim, borderBottom: `1px solid ${C.border}`, textAlign: "right" }}>${c.bid} / ${c.ask}</td>
         <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, color: c.change >= 0 ? C.green : C.red, borderBottom: `1px solid ${C.border}`, textAlign: "right" }}>
           {c.change >= 0 ? "+" : ""}{c.change}
         </td>
-        <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 11, color: C.textDim, borderBottom: `1px solid ${C.border}`, textAlign: "right" }}>{c.volume?.toLocaleString()}</td>
-        <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 11, color: C.textDim, borderBottom: `1px solid ${C.border}`, textAlign: "right" }}>{c.openInterest?.toLocaleString()}</td>
-        <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 11, borderBottom: `1px solid ${C.border}`, textAlign: "right",
+        <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, color: C.textDim, borderBottom: `1px solid ${C.border}`, textAlign: "right" }}>{c.volume?.toLocaleString()}</td>
+        <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, color: C.textDim, borderBottom: `1px solid ${C.border}`, textAlign: "right" }}>{c.openInterest?.toLocaleString()}</td>
+        <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, borderBottom: `1px solid ${C.border}`, textAlign: "right",
           color: c.iv > 80 ? C.red : c.iv > 50 ? C.amber : C.green }}>
           {c.iv > 0 ? c.iv + "%" : "—"}
         </td>
-        <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 11, borderBottom: `1px solid ${C.border}`, textAlign: "right",
+        <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, borderBottom: `1px solid ${C.border}`, textAlign: "right",
           color: Math.abs(c.delta || 0) > 0.5 ? C.text : C.textDim }}>
           {c.delta != null ? c.delta : "—"}
         </td>
         <td style={{ padding: "7px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "center" }}>
-          {itm && <span style={{ fontFamily: MONO, fontSize: 9, color: type === "calls" ? C.green : C.red, fontWeight: 700 }}>ITM</span>}
+          {itm && <span style={{ fontFamily: MONO, fontSize: 12, color: type === "calls" ? C.green : C.red, fontWeight: 700 }}>ITM</span>}
         </td>
       </tr>
     );
@@ -3224,7 +3224,7 @@ function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTerminal }) {
             style={{ width: 80, background: C.surface, border: "none", color: C.text, fontFamily: MONO, fontSize: 12, padding: "6px 10px", outline: "none" }}
           />
           <button onClick={() => { setSymbol(input); load(input); }}
-            style={{ background: C.accent, border: "none", color: "#fff", fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 12px", cursor: "pointer" }}>
+            style={{ background: C.accent, border: "none", color: "#fff", fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "6px 12px", cursor: "pointer" }}>
             GO
           </button>
         </div>
@@ -3233,21 +3233,21 @@ function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTerminal }) {
             {symbol} @ <span style={{ color: C.accent }}>${data.underlying}</span>
           </span>
         )}
-        {loading && <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>⟳ Loading…</span>}
-        {error && <span style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>⚠ {error}</span>}
+        {loading && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>⟳ Loading…</span>}
+        {error && <span style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>⚠ {error}</span>}
       </div>
 
       {data && (
         <>
           {/* Expiry selector + controls */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>EXPIRY:</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>EXPIRY:</span>
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
               {(data.expiryDates || []).slice(0, 8).map(d => (
                 <button key={d}
                   onClick={() => { setSelectedExpiry(d); load(symbol, d); }}
                   style={{
-                    fontFamily: MONO, fontSize: 11, fontWeight: selectedExpiry === d ? 800 : 400,
+                    fontFamily: MONO, fontSize: 12, fontWeight: selectedExpiry === d ? 800 : 400,
                     color: selectedExpiry === d ? C.accent : C.textDim,
                     background: selectedExpiry === d ? C.accentGlow : "transparent",
                     border: `1px solid ${selectedExpiry === d ? C.accent : C.border}`,
@@ -3256,18 +3256,18 @@ function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTerminal }) {
               ))}
             </div>
             <span style={{ width: 1, height: 16, background: C.border }} />
-            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>VIEW:</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>VIEW:</span>
             {["calls","puts","both"].map(v => (
               <button key={v} onClick={() => setView(v)}
-                style={{ fontFamily: MONO, fontSize: 11, fontWeight: view === v ? 800 : 400,
+                style={{ fontFamily: MONO, fontSize: 12, fontWeight: view === v ? 800 : 400,
                   color: view === v ? (v === "calls" ? C.green : v === "puts" ? C.red : C.accent) : C.textDim,
                   background: "transparent", border: `1px solid ${view === v ? C.border : C.border}`, borderRadius: 5, padding: "3px 10px", cursor: "pointer" }}>
                 {v.toUpperCase()}
               </button>
             ))}
-            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>± STRIKES:</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>± STRIKES:</span>
             <select value={strikeRange} onChange={e => setStrikeRange(Number(e.target.value))}
-              style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "3px 6px", borderRadius: 4 }}>
+              style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "3px 6px", borderRadius: 6 }}>
               {[5,10,15,20,30].map(n => <option key={n} value={n}>{n}</option>)}
             </select>
           </div>
@@ -3275,7 +3275,7 @@ function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTerminal }) {
           {/* Chain tables */}
           {(view === "calls" || view === "both") && (
             <div style={{ ...card, marginBottom: 14 }}>
-              <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green }}>
+              <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.green }}>
                 CALLS — {symbol} · {selectedExpiry} · {filterStrikes(data.calls).length} contracts
               </div>
               <ChainTable contracts={data.calls} type="calls" />
@@ -3283,7 +3283,7 @@ function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTerminal }) {
           )}
           {(view === "puts" || view === "both") && (
             <div style={{ ...card }}>
-              <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.red }}>
+              <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.red }}>
                 PUTS — {symbol} · {selectedExpiry} · {filterStrikes(data.puts).length} contracts
               </div>
               <ChainTable contracts={data.puts} type="puts" />
@@ -3316,7 +3316,7 @@ function SecFilingsTab({ C, MONO, SANS, watchlistSymbols }) {
 
   useEffect(() => { load(symbol); }, [symbol]);
 
-  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" };
+  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" };
   const typeColor = (t) => {
     if (t === "4") return C.amber;
     if (t === "8-K") return C.accent;
@@ -3334,27 +3334,27 @@ function SecFilingsTab({ C, MONO, SANS, watchlistSymbols }) {
             placeholder="AAPL"
             style={{ width: 80, background: C.surface, border: "none", color: C.text, fontFamily: MONO, fontSize: 12, padding: "6px 10px", outline: "none" }} />
           <button onClick={() => setSymbol(input)}
-            style={{ background: C.accent, border: "none", color: "#fff", fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 12px", cursor: "pointer" }}>GO</button>
+            style={{ background: C.accent, border: "none", color: "#fff", fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "6px 12px", cursor: "pointer" }}>GO</button>
         </div>
         {/* Quick watchlist buttons */}
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {(watchlistSymbols || []).slice(0, 12).map(s => (
             <button key={s} onClick={() => { setSymbol(s); setInput(s); }}
-              style={{ fontFamily: MONO, fontSize: 10, color: symbol === s ? C.accent : C.textDim,
+              style={{ fontFamily: MONO, fontSize: 12, color: symbol === s ? C.accent : C.textDim,
                 background: symbol === s ? C.accentGlow : "transparent",
                 border: `1px solid ${symbol === s ? C.accent : C.border}`,
-                borderRadius: 4, padding: "3px 8px", cursor: "pointer" }}>{s}</button>
+                borderRadius: 6, padding: "3px 8px", cursor: "pointer" }}>{s}</button>
           ))}
         </div>
-        {loading && <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>⟳ Loading…</span>}
+        {loading && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>⟳ Loading…</span>}
       </div>
 
       <div style={card}>
         <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between" }}>
-          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text }}>RECENT FILINGS — {symbol}</span>
+          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>RECENT FILINGS — {symbol}</span>
           <a href={`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${symbol}&CIK=&type=&dateb=&owner=include&count=40&search_text=`}
             target="_blank" rel="noopener noreferrer"
-            style={{ fontFamily: MONO, fontSize: 10, color: C.accent, textDecoration: "none" }}>
+            style={{ fontFamily: MONO, fontSize: 12, color: C.accent, textDecoration: "none" }}>
             EDGAR →
           </a>
         </div>
@@ -3364,7 +3364,7 @@ function SecFilingsTab({ C, MONO, SANS, watchlistSymbols }) {
             <div style={{ marginTop: 10 }}>
               <a href={`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${symbol}&type=8-K&dateb=&owner=include&count=10`}
                 target="_blank" rel="noopener noreferrer"
-                style={{ color: C.accent, fontFamily: MONO, fontSize: 11 }}>
+                style={{ color: C.accent, fontFamily: MONO, fontSize: 12 }}>
                 View on SEC EDGAR →
               </a>
             </div>
@@ -3376,15 +3376,15 @@ function SecFilingsTab({ C, MONO, SANS, watchlistSymbols }) {
             style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: `1px solid ${C.border}`, textDecoration: "none", background: "transparent", transition: "background 0.12s" }}
             onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
             onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: typeColor(f.type), minWidth: 48 }}>{f.type}</span>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, minWidth: 90 }}>{f.date}</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: typeColor(f.type), minWidth: 48 }}>{f.type}</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, minWidth: 90 }}>{f.date}</span>
             <span style={{ fontFamily: SANS, fontSize: 13, color: C.text, flex: 1 }}>{f.entity || f.desc || "—"}</span>
-            <span style={{ fontFamily: MONO, fontSize: 10, color: C.accent }}>→</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>→</span>
           </a>
         ))}
       </div>
 
-      <div style={{ marginTop: 12, fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: "center" }}>
+      <div style={{ marginTop: 12, fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>
         Form 4 = insider transactions · 8-K = material events · 13F = institutional holdings · Source: SEC EDGAR
       </div>
     </div>
@@ -3653,7 +3653,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
       {Array.from({ length: max }, (_, i) => (
         <div key={i} style={{ width: 8, height: 8, borderRadius: 2, background: i < n ? (n >= 7 ? C.green : n >= 5 ? C.amber : C.accent) : C.border }} />
       ))}
-      <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 4 }}>{n}/10</span>
+      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: 4 }}>{n}/10</span>
     </div>
   );
 
@@ -3665,7 +3665,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
           <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 4 }}>
             🤖 AI TRADE ADVISOR
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
             Real-time setups from your watchlist · entry, stop loss, targets &amp; reasoning
           </div>
         </div>
@@ -3677,7 +3677,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
             { v: "SHORT", label: `▼ SHORT (${shortCount})`, col: C.red },
           ].map(({ v, label, col }) => (
             <button key={v} onClick={() => setFilter(v)}
-              style={{ fontFamily: MONO, fontSize: 10, fontWeight: filter === v ? 800 : 400,
+              style={{ fontFamily: MONO, fontSize: 12, fontWeight: filter === v ? 800 : 400,
                 border: `1px solid ${filter === v ? col : C.border}`,
                 background: filter === v ? `${col}18` : C.surface,
                 color: filter === v ? col : C.textDim,
@@ -3687,7 +3687,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
           ))}
           {/* Min conviction */}
           <select value={minConv} onChange={e => setMinConv(Number(e.target.value))}
-            style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: advisorTablet ? 12 : 10, padding: advisorTablet ? "8px 10px" : "5px 8px", borderRadius: 4 }}>
+            style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: advisorTablet ? 12 : 10, padding: advisorTablet ? "8px 10px" : "5px 8px", borderRadius: 6 }}>
             {[1,2,3,4,5,6,7].map(n => <option key={n} value={n}>Min conviction: {n}+</option>)}
           </select>
           {/* Auto-alert toggle */}
@@ -3709,12 +3709,12 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 11 : 9, color: C.textDim }}>Account $</span>
           <input type="number" value={accountSize} onChange={e => setAccountSize(e.target.value)}
-            style={{ width: advisorTablet ? 110 : 90, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: advisorTablet ? 12 : 11, padding: advisorTablet ? "7px 8px" : "4px 6px", borderRadius: 4 }} />
+            style={{ width: advisorTablet ? 110 : 90, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: advisorTablet ? 12 : 11, padding: advisorTablet ? "7px 8px" : "4px 6px", borderRadius: 6 }} />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 11 : 9, color: C.textDim }}>Risk %</span>
           <input type="number" value={riskPct} min="0.1" max="5" step="0.1" onChange={e => setRiskPct(e.target.value)}
-            style={{ width: 55, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: advisorTablet ? 12 : 11, padding: advisorTablet ? "7px 8px" : "4px 6px", borderRadius: 4 }} />
+            style={{ width: 55, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: advisorTablet ? 12 : 11, padding: advisorTablet ? "7px 8px" : "4px 6px", borderRadius: 6 }} />
         </div>
         <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 11 : 9, color: C.textDim }}>
           = <strong style={{ color: C.amber }}>${(Number(accountSize) * Number(riskPct) / 100).toFixed(0)}</strong> risk per trade
@@ -3724,7 +3724,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
 
       {/* Quick-add symbols bar */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 14, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, whiteSpace: "nowrap" }}>+ ADD TO WATCHLIST:</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, whiteSpace: "nowrap" }}>+ ADD TO WATCHLIST:</span>
         <input
           value={addInput}
           onChange={e => setAddInput(e.target.value.toUpperCase())}
@@ -3735,16 +3735,16 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
             }
           }}
           placeholder="e.g. AAPL, MSFT, SPY  (press Enter)"
-          style={{ flex: 1, minWidth: 200, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "7px 10px", borderRadius: 4 }}
+          style={{ flex: 1, minWidth: 200, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 6 }}
         />
         <button onClick={() => {
           const syms = addInput.split(/[\s,]+/).map(s => s.trim().toUpperCase()).filter(s => /^[A-Z]{1,5}(\.[A-Z]{1,2})?$/.test(s));
           if (syms.length) { onAddSymbols(syms); setAddMsg(`✓ Added: ${syms.join(", ")}`); setAddInput(""); setTimeout(() => setAddMsg(""), 3000); }
-        }} style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 4, padding: "7px 14px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+        }} style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 6, padding: "7px 14px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
           ADD
         </button>
-        {addMsg && <span style={{ fontFamily: MONO, fontSize: 10, color: C.green }}>{addMsg}</span>}
-        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: "auto" }}>
+        {addMsg && <span style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>{addMsg}</span>}
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: "auto" }}>
           Scanning {watchlistSymbols?.length || 0} stocks
         </span>
       </div>
@@ -3759,7 +3759,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
       {watchlistData?.length > 0 && setups.length === 0 && (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 30, textAlign: "center" }}>
           <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginBottom: 8 }}>No high-conviction setups right now</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
             Try lowering the minimum conviction, or wait for stronger signals to develop.
           </div>
         </div>
@@ -3787,12 +3787,12 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
                 </button>
 
                 {/* Side badge */}
-                <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 13 : 11, fontWeight: 800, color: sideCol, background: `${sideCol}20`, border: `1px solid ${sideCol}55`, borderRadius: 4, padding: advisorTablet ? "5px 12px" : "3px 9px" }}>
+                <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 13 : 11, fontWeight: 800, color: sideCol, background: `${sideCol}20`, border: `1px solid ${sideCol}55`, borderRadius: 6, padding: advisorTablet ? "5px 12px" : "3px 9px" }}>
                   {s.side === "LONG" ? "▲ LONG" : "▼ SHORT"}
                 </span>
 
                 {/* Setup type */}
-                <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 12 : 10, color: C.accent, background: `${C.accent}12`, borderRadius: 4, padding: advisorTablet ? "5px 10px" : "3px 8px" }}>
+                <span style={{ fontFamily: MONO, fontSize: advisorTablet ? 12 : 10, color: C.accent, background: `${C.accent}12`, borderRadius: 6, padding: advisorTablet ? "5px 10px" : "3px 8px" }}>
                   {s.setupType}
                 </span>
 
@@ -3833,7 +3833,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
               {isOpen && (
                 <div style={{ padding: "16px 16px 18px", borderTop: `1px solid ${C.border}` }}>
                   {/* Reasoning */}
-                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700, marginBottom: 10, letterSpacing: "0.06em" }}>WHY THIS SETUP</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700, marginBottom: 10, letterSpacing: "0.06em" }}>WHY THIS SETUP</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
                     {s.reasons.map((r, ri) => (
                       <div key={ri} style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, display: "flex", gap: 8, alignItems: "flex-start" }}>
@@ -3843,7 +3843,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
                   </div>
 
                   {/* Trade plan */}
-                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700, marginBottom: 10, letterSpacing: "0.06em" }}>TRADE PLAN</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700, marginBottom: 10, letterSpacing: "0.06em" }}>TRADE PLAN</div>
                   <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", fontFamily: SANS, fontSize: 13, color: C.textSec, lineHeight: 1.8 }}>
                     <strong style={{ color: C.text }}>Direction:</strong> {s.side === "LONG" ? "Buy / Long" : "Sell short"}<br />
                     <strong style={{ color: C.text }}>Entry zone:</strong> ${s.entry} (current market price)<br />
@@ -3856,14 +3856,14 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
 
                   {/* MTF breakdown */}
                   <div style={{ marginTop: 14 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700, marginBottom: 8, letterSpacing: "0.06em" }}>TIMEFRAME ALIGNMENT</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700, marginBottom: 8, letterSpacing: "0.06em" }}>TIMEFRAME ALIGNMENT</div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       {computeMTFSignal(s.q).timeframes.map(tf => {
                         const col = tf.neutral ? C.textDim : (tf.bull ? C.green : C.red);
                         const label = tf.neutral ? "—" : (tf.bull ? "▲" : "▼");
                         return (
                           <div key={tf.label} style={{ background: C.card, border: `1px solid ${col}44`, borderRadius: 6, padding: "6px 12px", textAlign: "center" }}>
-                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{tf.label}</div>
+                            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{tf.label}</div>
                             <div style={{ fontFamily: MONO, fontSize: 14, color: col, fontWeight: 800 }}>{label}</div>
                           </div>
                         );
@@ -3879,22 +3879,22 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
                     const totalCost = shares * s.price;
                     return (
                       <div style={{ marginTop: 14, background: C.surface, border: `1px solid ${C.accent}33`, borderRadius: 8, padding: "12px 14px" }}>
-                        <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700, marginBottom: 10, letterSpacing: "0.06em" }}>💼 POSITION SIZE (based on your ${Number(accountSize).toLocaleString()} account)</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700, marginBottom: 10, letterSpacing: "0.06em" }}>💼 POSITION SIZE (based on your ${Number(accountSize).toLocaleString()} account)</div>
                         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                           <div>
-                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>RISK AMOUNT</div>
+                            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>RISK AMOUNT</div>
                             <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.amber }}>${riskDollars.toFixed(0)}</div>
                           </div>
                           <div>
-                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>SHARES TO BUY</div>
+                            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>SHARES TO BUY</div>
                             <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.text }}>{shares > 0 ? shares : "—"}</div>
                           </div>
                           <div>
-                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>TOTAL COST</div>
+                            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>TOTAL COST</div>
                             <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.text }}>{shares > 0 ? `$${totalCost.toLocaleString(undefined, {maximumFractionDigits:0})}` : "—"}</div>
                           </div>
                           <div>
-                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>MAX LOSS</div>
+                            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>MAX LOSS</div>
                             <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.red }}>{shares > 0 ? `$${riskDollars.toFixed(0)}` : "—"}</div>
                           </div>
                         </div>
@@ -3923,7 +3923,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
       </div>
 
       {setups.length > 0 && (
-        <div style={{ marginTop: 14, fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: "center" }}>
+        <div style={{ marginTop: 14, fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>
           ⚠ These are algorithmic signals based on price action &amp; momentum data. Always confirm with your own analysis. Never risk more than you can afford to lose.
         </div>
       )}
@@ -4024,8 +4024,8 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
   const statusLabel  = status === null ? "Checking…" : (status.ok ? `✓ Connected — @${status.botUsername || status.botName || "bot"}` : (status.configured ? `✗ Error: ${status.telegramError || status.error}` : "⚠ Not configured"));
 
   const ROW = { borderTop: `1px solid ${C.border}` };
-  const TH  = (align = "center") => ({ padding: "6px 10px", textAlign: align, fontFamily: MONO, fontSize: 10, color: C.textDim, fontWeight: 400 });
-  const TD  = (align = "center") => ({ padding: "7px 10px", textAlign: align, fontFamily: MONO, fontSize: 11 });
+  const TH  = (align = "center") => ({ padding: "6px 10px", textAlign: align, fontFamily: MONO, fontSize: 12, color: C.textDim, fontWeight: 400 });
+  const TD  = (align = "center") => ({ padding: "7px 10px", textAlign: align, fontFamily: MONO, fontSize: 12 });
 
   return (
     <div style={{ maxWidth: 960, margin: "0 auto" }}>
@@ -4033,7 +4033,7 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>TELEGRAM ALERTS — REAL-TIME NOTIFICATIONS</div>
         <button onClick={checkStatus} disabled={checking}
-          style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "5px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
+          style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "5px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>
           {checking ? "CHECKING…" : "↺ REFRESH"}
         </button>
       </div>
@@ -4044,12 +4044,12 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
           <div>
             <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: statusColor, marginBottom: 4 }}>{statusLabel}</div>
             {status?.ok && (
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                 Bot: {status.botName} &nbsp;·&nbsp; Chat ID: {status.chatId} &nbsp;·&nbsp; Alerts fired every ~90 s
               </div>
             )}
             {!isConfigured && status !== null && (
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.amber, marginTop: 4 }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.amber, marginTop: 4 }}>
                 Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in Render → Environment, then redeploy.
               </div>
             )}
@@ -4064,24 +4064,24 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
                 const lines = d.chats.map(c => `ID: ${c.id}  ${c.type}  ${c.title || c.firstName || ""}`).join("\n");
                 alert("Recent chats:\n\n" + lines + "\n\n→ Copy the correct ID → paste into Render env as TELEGRAM_CHAT_ID");
               } catch (e) { alert("❌ " + e.message); }
-            }} style={{ border: "1px solid #7c3aed55", background: "#7c3aed12", color: "#a78bfa", borderRadius: 4, padding: "6px 12px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+            }} style={{ border: "1px solid #7c3aed55", background: "#7c3aed12", color: "#a78bfa", borderRadius: 6, padding: "6px 12px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
               GET CHAT ID
             </button>
             <button onClick={sendTest} disabled={testState === "sending"}
-              style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 4, padding: "6px 12px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+              style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 6, padding: "6px 12px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
               {testState === "sending" ? "SENDING…" : "SEND TEST"}
             </button>
           </div>
         </div>
         {testMsg && (
-          <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: testState === "ok" ? C.green : C.red }}>{testMsg}</div>
+          <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 12, color: testState === "ok" ? C.green : C.red }}>{testMsg}</div>
         )}
       </div>
 
       {/* ── Setup Guide (only if not configured) ── */}
       {!isConfigured && status !== null && (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 16px", marginBottom: 14 }}>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700, marginBottom: 10 }}>HOW TO CONNECT TELEGRAM</div>
+          <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700, marginBottom: 10 }}>HOW TO CONNECT TELEGRAM</div>
           {[
             ["1", "Create a bot", "Open Telegram → search @BotFather → send /newbot → follow prompts → copy the bot token"],
             ["2", "Set env var", "Go to Render.com → your service → Environment → add TELEGRAM_BOT_TOKEN = your token"],
@@ -4092,8 +4092,8 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
             <div key={n} style={{ display: "flex", gap: 10, marginBottom: 8 }}>
               <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, minWidth: 18 }}>{n}</div>
               <div>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{title}</div>
-                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 2 }}>{body}</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{title}</div>
+                <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginTop: 2 }}>{body}</div>
               </div>
             </div>
           ))}
@@ -4102,34 +4102,34 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
 
       {/* ── Quick Notify ── */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 16px", marginBottom: 14 }}>
-        <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700, marginBottom: 10 }}>QUICK NOTIFY</div>
+        <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700, marginBottom: 10 }}>QUICK NOTIFY</div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <input value={notifyText} onChange={e => setNotifyText(e.target.value)} placeholder="Type any message to send to Telegram…"
             onKeyDown={e => e.key === "Enter" && sendNotify()}
-            style={{ flex: 1, minWidth: 200, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "8px 10px", borderRadius: 4 }} />
+            style={{ flex: 1, minWidth: 200, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "8px 10px", borderRadius: 6 }} />
           <button onClick={sendNotify} disabled={notifySending || !isConfigured}
-            style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 4, padding: "8px 16px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: isConfigured ? "pointer" : "not-allowed", opacity: isConfigured ? 1 : 0.4 }}>
+            style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 6, padding: "8px 16px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: isConfigured ? "pointer" : "not-allowed", opacity: isConfigured ? 1 : 0.4 }}>
             {notifySending ? "SENDING…" : "SEND ▶"}
           </button>
         </div>
-        {notifyMsg && <div style={{ marginTop: 6, fontFamily: MONO, fontSize: 10, color: notifyMsg.startsWith("✓") ? C.green : C.red }}>{notifyMsg}</div>}
-        {!isConfigured && status !== null && <div style={{ marginTop: 6, fontFamily: MONO, fontSize: 10, color: C.amber }}>Configure Telegram above to enable sending.</div>}
+        {notifyMsg && <div style={{ marginTop: 6, fontFamily: MONO, fontSize: 12, color: notifyMsg.startsWith("✓") ? C.green : C.red }}>{notifyMsg}</div>}
+        {!isConfigured && status !== null && <div style={{ marginTop: 6, fontFamily: MONO, fontSize: 12, color: C.amber }}>Configure Telegram above to enable sending.</div>}
       </div>
 
       {/* ── Price Target Alerts ── */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", marginBottom: 14 }}>
         <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
           <div>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700 }}>PRICE TARGET ALERTS</span>
-            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 10 }}>Server monitors every 90 s · fires Telegram when triggered</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700 }}>PRICE TARGET ALERTS</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: 10 }}>Server monitors every 90 s · fires Telegram when triggered</span>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {alerts.some(a => a.status !== "active") && (
               <button onClick={clearHistory}
-                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>CLEAR HISTORY</button>
+                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "4px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>CLEAR HISTORY</button>
             )}
             <button onClick={loadAlerts} disabled={aLoading}
-              style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>
+              style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "4px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>
               {aLoading ? "…" : "↺"}
             </button>
           </div>
@@ -4138,25 +4138,25 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
         {/* Add alert form */}
         <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <input value={paSym} onChange={e => setPaSym(e.target.value.toUpperCase())} placeholder="Symbol"
-            style={{ width: 100, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "7px 10px", borderRadius: 4 }} />
+            style={{ width: 100, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 6 }} />
           <select value={paDir} onChange={e => setPaDir(e.target.value)}
-            style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "7px 10px", borderRadius: 4 }}>
+            style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 6 }}>
             <option value="above">Above ↑</option>
             <option value="below">Below ↓</option>
           </select>
           <input value={paTarget} onChange={e => setPaTarget(e.target.value.replace(/[^\d.]/g, ""))} placeholder="$ price"
-            style={{ width: 100, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "7px 10px", borderRadius: 4 }} />
+            style={{ width: 100, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 6 }} />
           <input value={paNote} onChange={e => setPaNote(e.target.value)} placeholder="Note (optional)"
-            style={{ flex: 1, minWidth: 120, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "7px 10px", borderRadius: 4 }} />
+            style={{ flex: 1, minWidth: 120, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 6 }} />
           {/* Quick-add from watchlist */}
           {watchlistSymbols && watchlistSymbols.slice(0, 8).map(sym => (
             <button key={sym} onClick={() => setPaSym(sym)}
-              style={{ border: `1px solid ${C.border}`, background: paSym === sym ? `${C.accent}20` : C.surface, color: paSym === sym ? C.accent : C.textDim, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>
+              style={{ border: `1px solid ${C.border}`, background: paSym === sym ? `${C.accent}20` : C.surface, color: paSym === sym ? C.accent : C.textDim, borderRadius: 6, padding: "4px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>
               {sym}
             </button>
           ))}
           <button onClick={addAlert} disabled={paAdding || !paSym || !paTarget}
-            style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 4, padding: "7px 14px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", opacity: (!paSym || !paTarget) ? 0.5 : 1 }}>
+            style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 6, padding: "7px 14px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: (!paSym || !paTarget) ? 0.5 : 1 }}>
             {paAdding ? "…" : "+ SET ALERT"}
           </button>
         </div>
@@ -4202,13 +4202,13 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
                       <td style={{ ...TD(), color: distColor, fontWeight: 700 }}>{distLabel}</td>
                       <td style={{ ...TD("left"), color: C.textSec, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.note || "—"}</td>
                       <td style={TD()}>
-                        <span style={{ background: statusBg, color: statusClr, borderRadius: 4, padding: "2px 7px", fontFamily: MONO, fontSize: 10, fontWeight: 700 }}>{a.status}</span>
+                        <span style={{ background: statusBg, color: statusClr, borderRadius: 6, padding: "3px 8px", fontFamily: MONO, fontSize: 12, fontWeight: 700 }}>{a.status}</span>
                       </td>
-                      <td style={{ ...TD(), color: C.textSec, fontSize: 10 }}>{new Date(a.createdAt).toLocaleDateString()}</td>
+                      <td style={{ ...TD(), color: C.textSec, fontSize: 12 }}>{new Date(a.createdAt).toLocaleDateString()}</td>
                       <td style={TD()}>
                         {a.status === "active" && (
                           <button onClick={() => cancelAlert(a.id)}
-                            style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>CANCEL</button>
+                            style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>CANCEL</button>
                         )}
                       </td>
                     </tr>
@@ -4221,7 +4221,7 @@ function TelegramAlertsTab({ C, MONO, SANS, watchlistSymbols, watchlistData, onO
       </div>
 
       {/* ── Footer info ── */}
-      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, lineHeight: 1.7 }}>
+      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, lineHeight: 1.7 }}>
         📌 Price alerts are checked server-side every 90 s &nbsp;·&nbsp;
         📬 Telegram message fires automatically when a target is hit &nbsp;·&nbsp;
         🔔 Set up TradingView webhooks → Portfolio → Alerts for chart-based signals
@@ -4306,7 +4306,7 @@ function CryptoTab({ C, MONO, SANS }) {
           <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>CRYPTO MARKET</span>
           {data?.globalMacro && (
             <span style={{
-              fontFamily: MONO, fontSize: 11, color: C.textDim,
+              fontFamily: MONO, fontSize: 12, color: C.textDim,
               background: C.surface, border: `1px solid ${C.border}`,
               borderRadius: 6, padding: "3px 8px",
             }}>
@@ -4318,7 +4318,7 @@ function CryptoTab({ C, MONO, SANS }) {
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {lastFetch && (
-            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
               Updated {lastFetch.toLocaleTimeString()}
             </span>
           )}
@@ -4326,7 +4326,7 @@ function CryptoTab({ C, MONO, SANS }) {
             onClick={load}
             disabled={loading}
             style={{
-              fontFamily: MONO, fontSize: 11, fontWeight: 700,
+              fontFamily: MONO, fontSize: 12, fontWeight: 700,
               background: C.accent, color: "#fff", border: "none",
               borderRadius: 6, padding: "6px 14px", cursor: loading ? "not-allowed" : "pointer",
               opacity: loading ? 0.6 : 1,
@@ -4351,7 +4351,7 @@ function CryptoTab({ C, MONO, SANS }) {
           const col = fgColor(fg.value);
           return (
             <div style={{ ...card, gridColumn: "span 1", textAlign: "center" }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>FEAR & GREED INDEX</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>FEAR & GREED INDEX</div>
               {/* Gauge arc */}
               <div style={{ position: "relative", width: 120, height: 68, margin: "0 auto 8px" }}>
                 <svg viewBox="0 0 120 68" style={{ width: "100%", height: "100%" }}>
@@ -4373,7 +4373,7 @@ function CryptoTab({ C, MONO, SANS }) {
                 <div style={{ display: "flex", alignItems: "flex-end", gap: 3, marginTop: 12, justifyContent: "center", height: 28 }}>
                   {[...fg.history].reverse().map((h, i) => (
                     <div key={i} title={`${h.label}: ${h.value}`} style={{
-                      width: 12, borderRadius: 3,
+                      width: 12, borderRadius: 5,
                       height: `${Math.max(4, (h.value / 100) * 28)}px`,
                       background: fgColor(h.value),
                       opacity: i === fg.history.length - 1 ? 1 : 0.5,
@@ -4381,12 +4381,12 @@ function CryptoTab({ C, MONO, SANS }) {
                   ))}
                 </div>
               )}
-              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 4 }}>7-DAY HISTORY</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 4 }}>7-DAY HISTORY</div>
             </div>
           );
         })() : (
           <div style={{ ...card, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 120 }}>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{loading ? "Loading…" : "Fear & Greed N/A"}</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{loading ? "Loading…" : "Fear & Greed N/A"}</span>
           </div>
         )}
 
@@ -4395,7 +4395,7 @@ function CryptoTab({ C, MONO, SANS }) {
           const g = data.globalMacro;
           return (
             <div style={{ ...card }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 14 }}>MARKET DOMINANCE</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 14 }}>MARKET DOMINANCE</div>
               {[
                 ["BTC Dominance", `${g.btcDominance}%`, C.amber],
                 ["ETH Dominance", `${g.ethDominance}%`, C.purple],
@@ -4413,14 +4413,14 @@ function CryptoTab({ C, MONO, SANS }) {
           );
         })() : (
           <div style={{ ...card, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 120 }}>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{loading ? "Loading…" : "Global data N/A"}</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{loading ? "Loading…" : "Global data N/A"}</span>
           </div>
         )}
 
         {/* BTC dominance bar */}
         {data?.globalMacro && (
           <div style={{ ...card }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 14 }}>DOMINANCE BREAKDOWN</div>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 14 }}>DOMINANCE BREAKDOWN</div>
             {[
               { label: "BTC", pct: data.globalMacro.btcDominance, col: C.amber },
               { label: "ETH", pct: data.globalMacro.ethDominance, col: C.purple },
@@ -4428,11 +4428,11 @@ function CryptoTab({ C, MONO, SANS }) {
             ].map(({ label, pct, col }) => (
               <div key={label} style={{ marginBottom: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{label}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: col }}>{pct.toFixed(1)}%</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{label}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{pct.toFixed(1)}%</span>
                 </div>
-                <div style={{ height: 8, background: C.border, borderRadius: 4, overflow: "hidden" }}>
-                  <div style={{ width: `${Math.min(100, pct)}%`, height: "100%", background: col, borderRadius: 4, transition: "width 0.6s ease" }} />
+                <div style={{ height: 8, background: C.border, borderRadius: 6, overflow: "hidden" }}>
+                  <div style={{ width: `${Math.min(100, pct)}%`, height: "100%", background: col, borderRadius: 6, transition: "width 0.6s ease" }} />
                 </div>
               </div>
             ))}
@@ -4469,13 +4469,13 @@ function CryptoTab({ C, MONO, SANS }) {
         return (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
             <div>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.green, letterSpacing: "0.08em", marginBottom: 8, fontWeight: 700 }}>▲ TOP GAINERS (24H)</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, letterSpacing: "0.08em", marginBottom: 8, fontWeight: 700 }}>▲ TOP GAINERS (24H)</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {top3.map((c, i) => <MoverCard key={c.symbol} coin={c} rank={i+1} />)}
               </div>
             </div>
             <div>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.red, letterSpacing: "0.08em", marginBottom: 8, fontWeight: 700 }}>▼ TOP LOSERS (24H)</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, letterSpacing: "0.08em", marginBottom: 8, fontWeight: 700 }}>▼ TOP LOSERS (24H)</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {bot3.map((c, i) => <MoverCard key={c.symbol} coin={c} rank={i+1} />)}
               </div>
@@ -4487,8 +4487,8 @@ function CryptoTab({ C, MONO, SANS }) {
       {/* Coin table */}
       <div style={{ ...card, padding: 0, overflow: "hidden", marginBottom: 16 }}>
         <div style={{ padding: "14px 18px 10px", borderBottom: `1px solid ${C.border}` }}>
-          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>LIVE PRICES</span>
-          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 10 }}>auto-refresh 60s · Yahoo Finance</span>
+          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>LIVE PRICES</span>
+          <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: 10 }}>auto-refresh 60s · Yahoo Finance</span>
         </div>
         {/* Table header */}
         <div style={{
@@ -4499,7 +4499,7 @@ function CryptoTab({ C, MONO, SANS }) {
           background: C.surface,
         }}>
           {["#","COIN","NAME","PRICE","24H %","24H HI","24H LO","VOLUME","MARKET CAP"].map((h, i) => (
-            <div key={h} style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, fontWeight: 700, letterSpacing: "0.06em", textAlign: i > 1 ? "right" : "left" }}>{h}</div>
+            <div key={h} style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, fontWeight: 700, letterSpacing: "0.06em", textAlign: i > 1 ? "right" : "left" }}>{h}</div>
           ))}
         </div>
         {loading && !data?.coins?.length ? (
@@ -4657,17 +4657,17 @@ function GapScanner({ C, MONO, SANS }) {
       <div style={{ borderBottom: `1px solid ${C.border}`, padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
           <span style={{ fontFamily: BEBAS, fontSize: 22, letterSpacing: "0.08em", color: C.text }}>GAP SCANNER</span>
-          <span style={{ fontSize: 9, color: C.textDim, letterSpacing: "0.12em" }}>REAL DATA · YAHOO FINANCE · {stocks.length} GAPPERS</span>
-          {loading && <span style={{ fontSize: 9, color: C.accent }}>⌛ LOADING…</span>}
+          <span style={{ fontSize: 12, color: C.textDim, letterSpacing: "0.12em" }}>REAL DATA · YAHOO FINANCE · {stocks.length} GAPPERS</span>
+          {loading && <span style={{ fontSize: 12, color: C.accent }}>⌛ LOADING…</span>}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          {lastRefresh && <span style={{ fontSize: 9, color: C.textDim }}>UPDATED <span style={{ color: C.textSec }}>{lastRefresh.toLocaleTimeString()}</span></span>}
+          {lastRefresh && <span style={{ fontSize: 12, color: C.textDim }}>UPDATED <span style={{ color: C.textSec }}>{lastRefresh.toLocaleTimeString()}</span></span>}
           <button onClick={() => setAutoRefresh(v => !v)}
-            style={{ background: autoRefresh ? `${C.green}18` : "none", border: `1px solid ${autoRefresh ? C.green : C.border}`, color: autoRefresh ? C.green : C.textSec, fontSize: 9, padding: "4px 10px", borderRadius: 3, cursor: "pointer", fontFamily: MONO_GAP }}>
+            style={{ background: autoRefresh ? `${C.green}18` : "none", border: `1px solid ${autoRefresh ? C.green : C.border}`, color: autoRefresh ? C.green : C.textSec, fontSize: 12, padding: "4px 10px", borderRadius: 5, cursor: "pointer", fontFamily: MONO_GAP }}>
             {autoRefresh ? "⏱ AUTO ON" : "⏱ AUTO OFF"}
           </button>
           <button onClick={fetchGaps} disabled={loading}
-            style={{ background: "none", border: `1px solid ${C.border}`, color: loading ? C.textDim : C.textSec, fontSize: 9, padding: "4px 12px", borderRadius: 3, cursor: loading ? "default" : "pointer", letterSpacing: "0.08em", fontFamily: MONO_GAP }}>
+            style={{ background: "none", border: `1px solid ${C.border}`, color: loading ? C.textDim : C.textSec, fontSize: 12, padding: "4px 12px", borderRadius: 5, cursor: loading ? "default" : "pointer", letterSpacing: "0.08em", fontFamily: MONO_GAP }}>
             ↺ REFRESH
           </button>
         </div>
@@ -4675,7 +4675,7 @@ function GapScanner({ C, MONO, SANS }) {
 
       {/* Error */}
       {error && (
-        <div style={{ padding: "10px 20px", background: `${C.red}18`, borderBottom: `1px solid ${C.red}44`, fontSize: 10, color: C.red }}>
+        <div style={{ padding: "10px 20px", background: `${C.red}18`, borderBottom: `1px solid ${C.red}44`, fontSize: 12, color: C.red }}>
           ⚠ {error}
         </div>
       )}
@@ -4691,7 +4691,7 @@ function GapScanner({ C, MONO, SANS }) {
             { label: "TOP SECTOR", val: topSector },
           ].map(({ label, val, color }) => (
             <div key={label} style={{ flex: 1, padding: "10px 14px", borderRight: `1px solid ${C.border}` }}>
-              <div style={{ fontSize: 8, color: C.textDim, letterSpacing: "0.12em", marginBottom: 3 }}>{label}</div>
+              <div style={{ fontSize: 12, color: C.textDim, letterSpacing: "0.12em", marginBottom: 3 }}>{label}</div>
               <div style={{ fontSize: 15, fontFamily: BEBAS, letterSpacing: "0.06em", color: color || C.text }}>{val}</div>
             </div>
           ))}
@@ -4708,13 +4708,13 @@ function GapScanner({ C, MONO, SANS }) {
                 background: filter === f ? C.surface : "none",
                 border: `1px solid ${filter === f ? C.accent : C.border}`,
                 color: filter === f ? C.text : C.textDim,
-                fontSize: 9, padding: "3px 10px", borderRadius: 3, cursor: "pointer", fontFamily: MONO_GAP, letterSpacing: "0.06em",
+                fontSize: 12, padding: "3px 10px", borderRadius: 5, cursor: "pointer", fontFamily: MONO_GAP, letterSpacing: "0.06em",
               }}>{f}</button>
             ))}
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 9, color: C.textDim }}>MIN GAP</span>
+              <span style={{ fontSize: 12, color: C.textDim }}>MIN GAP</span>
               <input type="range" min={0} max={15} value={minGap} onChange={e => setMinGap(+e.target.value)} style={{ accentColor: C.accent, width: 70 }} />
-              <span style={{ fontSize: 9, color: C.textSec, width: 26 }}>{minGap}%</span>
+              <span style={{ fontSize: 12, color: C.textSec, width: 26 }}>{minGap}%</span>
             </div>
           </div>
 
@@ -4732,7 +4732,7 @@ function GapScanner({ C, MONO, SANS }) {
               { label: "SETUP",  key: null },
             ].map(({ label, key }) => (
               <span key={label} className={key ? "gap-sort-btn" : ""} onClick={() => key && setSortBy(key)}
-                style={{ fontSize: 8, color: sortBy === key ? C.accent : C.textDim, letterSpacing: "0.1em", cursor: key ? "pointer" : "default" }}>
+                style={{ fontSize: 12, color: sortBy === key ? C.accent : C.textDim, letterSpacing: "0.1em", cursor: key ? "pointer" : "default" }}>
                 {label}{key && sortBy === key ? " ▲" : ""}
               </span>
             ))}
@@ -4740,12 +4740,12 @@ function GapScanner({ C, MONO, SANS }) {
 
           {/* Empty / loading state */}
           {loading && stocks.length === 0 && (
-            <div style={{ padding: "50px 0", textAlign: "center", color: C.textDim, fontSize: 11 }}>⌛ Fetching real gap data…</div>
+            <div style={{ padding: "50px 0", textAlign: "center", color: C.textDim, fontSize: 12 }}>⌛ Fetching real gap data…</div>
           )}
           {!loading && stocks.length === 0 && !error && (
             <div style={{ padding: "50px 0", textAlign: "center" }}>
               <div style={{ fontSize: 13, color: C.textDim, marginBottom: 6 }}>No gappers found for current filter</div>
-              <div style={{ fontSize: 11, color: C.textDim }}>Try lowering the MIN GAP slider or press ↺ REFRESH</div>
+              <div style={{ fontSize: 12, color: C.textDim }}>Try lowering the MIN GAP slider or press ↺ REFRESH</div>
             </div>
           )}
 
@@ -4763,24 +4763,24 @@ function GapScanner({ C, MONO, SANS }) {
                     <div style={{ fontFamily: BEBAS, fontSize: 14, letterSpacing: "0.06em", color: C.text }}>{s.ticker}</div>
                     {s.hasPreMkt && <div style={{ fontSize: 7, color: C.accent, letterSpacing: "0.06em" }}>PRE-MKT</div>}
                   </div>
-                  <span style={{ fontSize: 11, color: C.text }}>${s.price.toFixed(2)}</span>
+                  <span style={{ fontSize: 12, color: C.text }}>${s.price.toFixed(2)}</span>
                   <div>
-                    <div style={{ fontSize: 11, color: isUp ? C.green : C.red, fontWeight: 500 }}>{isUp ? "+" : ""}{s.gapPct.toFixed(2)}%</div>
+                    <div style={{ fontSize: 12, color: isUp ? C.green : C.red, fontWeight: 500 }}>{isUp ? "+" : ""}{s.gapPct.toFixed(2)}%</div>
                     <div style={{ width: 50, height: 3, background: C.border, borderRadius: 2, overflow: "hidden", marginTop: 3 }}>
                       <div style={{ width: `${Math.min(Math.abs(s.gapPct)/20*100,100)}%`, height: "100%", background: isUp ? C.green : C.red, borderRadius: 2 }} />
                     </div>
                   </div>
-                  <span style={{ fontSize: 10, color: C.textDim }}>${s.prevClose.toFixed(2)}</span>
-                  <span style={{ fontSize: 10, color: C.textSec }}>{fmtVol(s.vol)}</span>
-                  <span style={{ fontSize: 10, color: s.rvol >= 2 ? C.amber : C.textSec }}>{s.rvol > 0 ? s.rvol.toFixed(1) + "×" : "—"}</span>
-                  <span style={{ fontSize: 9, color: C.textDim }}>{s.mktCapB > 0 ? "$" + s.mktCapB.toFixed(1) + "B" : "—"}</span>
-                  <span style={{ fontSize: 9, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.sector}</span>
-                  <span style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.text, fontSize: 8, fontFamily: MONO_GAP, padding: "2px 5px", borderRadius: 3, whiteSpace: "nowrap" }}>{s.setupType}</span>
+                  <span style={{ fontSize: 12, color: C.textDim }}>${s.prevClose.toFixed(2)}</span>
+                  <span style={{ fontSize: 12, color: C.textSec }}>{fmtVol(s.vol)}</span>
+                  <span style={{ fontSize: 12, color: s.rvol >= 2 ? C.amber : C.textSec }}>{s.rvol > 0 ? s.rvol.toFixed(1) + "×" : "—"}</span>
+                  <span style={{ fontSize: 12, color: C.textDim }}>{s.mktCapB > 0 ? "$" + s.mktCapB.toFixed(1) + "B" : "—"}</span>
+                  <span style={{ fontSize: 12, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.sector}</span>
+                  <span style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.text, fontSize: 12, fontFamily: MONO_GAP, padding: "2px 5px", borderRadius: 5, whiteSpace: "nowrap" }}>{s.setupType}</span>
                 </div>
               );
             })}
             {displayed.length === 0 && stocks.length > 0 && (
-              <div style={{ padding: "32px 16px", textAlign: "center", color: C.textDim, fontSize: 11 }}>NO STOCKS MATCH CURRENT FILTERS</div>
+              <div style={{ padding: "32px 16px", textAlign: "center", color: C.textDim, fontSize: 12 }}>NO STOCKS MATCH CURRENT FILTERS</div>
             )}
           </div>
         </div>
@@ -4794,7 +4794,7 @@ function GapScanner({ C, MONO, SANS }) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                   <div>
                     <div style={{ fontFamily: BEBAS, fontSize: 20, color: C.text, letterSpacing: "0.06em" }}>{sel.ticker}</div>
-                    <div style={{ fontSize: 8, color: C.textDim, marginTop: 1 }}>{sel.name}</div>
+                    <div style={{ fontSize: 12, color: C.textDim, marginTop: 1 }}>{sel.name}</div>
                   </div>
                   <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", fontSize: 14 }}>✕</button>
                 </div>
@@ -4810,17 +4810,17 @@ function GapScanner({ C, MONO, SANS }) {
                   { label: "DATA SOURCE",   val: sel.hasPreMkt ? "Pre-Market" : "Regular Market" },
                 ].map(({ label, val, color }) => (
                   <div key={label} style={{ marginBottom: 9 }}>
-                    <div style={{ fontSize: 8, color: C.textDim, letterSpacing: "0.1em", marginBottom: 2 }}>{label}</div>
-                    <div style={{ fontSize: 11, color: color || C.text }}>{val}</div>
+                    <div style={{ fontSize: 12, color: C.textDim, letterSpacing: "0.1em", marginBottom: 2 }}>{label}</div>
+                    <div style={{ fontSize: 12, color: color || C.text }}>{val}</div>
                   </div>
                 ))}
-                <div style={{ marginTop: 12, padding: "10px", background: C.card || C.bg, borderRadius: 4, border: `1px solid ${C.border}` }}>
-                  <div style={{ fontSize: 8, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6 }}>SETUP</div>
-                  <span style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.text, fontSize: 9, padding: "2px 6px", borderRadius: 3 }}>{sel.setupType}</span>
-                  <div style={{ marginTop: 8, fontSize: 9, color: C.textSec, lineHeight: 1.6 }}>{SETUP_DESC[sel.setupType]}</div>
+                <div style={{ marginTop: 12, padding: "10px", background: C.card || C.bg, borderRadius: 6, border: `1px solid ${C.border}` }}>
+                  <div style={{ fontSize: 12, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6 }}>SETUP</div>
+                  <span style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.text, fontSize: 12, padding: "3px 7px", borderRadius: 5 }}>{sel.setupType}</span>
+                  <div style={{ marginTop: 8, fontSize: 12, color: C.textSec, lineHeight: 1.6 }}>{SETUP_DESC[sel.setupType]}</div>
                 </div>
-                <div style={{ marginTop: 10, padding: "10px", background: `${C.green}12`, borderRadius: 4, border: `1px solid ${C.green}30` }}>
-                  <div style={{ fontSize: 8, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6 }}>KEY LEVELS</div>
+                <div style={{ marginTop: 10, padding: "10px", background: `${C.green}12`, borderRadius: 6, border: `1px solid ${C.green}30` }}>
+                  <div style={{ fontSize: 12, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6 }}>KEY LEVELS</div>
                   {[
                     { l: "Resistance", v: `$${(sel.price * 1.035).toFixed(2)}` },
                     { l: "VWAP Est.",  v: `$${((sel.price + sel.prevClose) / 2).toFixed(2)}` },
@@ -4828,8 +4828,8 @@ function GapScanner({ C, MONO, SANS }) {
                     { l: "Fill Target",v: `$${sel.prevClose.toFixed(2)}` },
                   ].map(({ l, v }) => (
                     <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                      <span style={{ fontSize: 9, color: C.textDim }}>{l}</span>
-                      <span style={{ fontSize: 9, color: C.textSec }}>{v}</span>
+                      <span style={{ fontSize: 12, color: C.textDim }}>{l}</span>
+                      <span style={{ fontSize: 12, color: C.textSec }}>{v}</span>
                     </div>
                   ))}
                 </div>
@@ -4904,9 +4904,9 @@ function AutoExecPanel({ C, MONO, SANS }) {
   }, [loadOrders]);
 
   const card  = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 18px", marginBottom: 12 };
-  const label = { fontFamily: MONO, fontSize: 10, color: C.textDim, display: "block", marginBottom: 4 };
-  const input = { background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 12, width: "100%", outline: "none", boxSizing: "border-box" };
-  const btn   = (active, color) => ({ fontFamily: MONO, fontSize: 11, fontWeight: 700, border: `1px solid ${color || C.border}`, borderRadius: 4, padding: "5px 12px", cursor: "pointer", background: active ? (color || C.accent) : "transparent", color: active ? "#fff" : (color || C.text) });
+  const label = { fontFamily: MONO, fontSize: 12, color: C.textDim, display: "block", marginBottom: 4 };
+  const input = { background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, width: "100%", outline: "none", boxSizing: "border-box" };
+  const btn   = (active, color) => ({ fontFamily: MONO, fontSize: 12, fontWeight: 700, border: `1px solid ${color || C.border}`, borderRadius: 6, padding: "5px 12px", cursor: "pointer", background: active ? (color || C.accent) : "transparent", color: active ? "#fff" : (color || C.text) });
 
   if (loading) return <div style={{ padding: 40, fontFamily: MONO, color: C.textDim, textAlign: "center" }}>Loading…</div>;
   if (!cfg)    return <div style={{ padding: 40, fontFamily: MONO, color: C.red }}>Error: {error}</div>;
@@ -4918,7 +4918,7 @@ function AutoExecPanel({ C, MONO, SANS }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div>
           <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>🤖 AUTO-EXECUTE</div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>
+          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>
             {cfg.live ? "🔴 LIVE TRADING" : "🧪 PAPER / SANDBOX"} &nbsp;•&nbsp;
             {cfg.brokerConfigured ? <span style={{ color: C.green }}>Tradier connected</span> : <span style={{ color: C.red }}>Tradier not configured</span>}
           </div>
@@ -4933,7 +4933,7 @@ function AutoExecPanel({ C, MONO, SANS }) {
 
       {!cfg.brokerConfigured && (
         <div style={{ ...card, borderColor: C.amber, background: "rgba(245,158,11,0.07)", marginBottom: 16 }}>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>
+          <div style={{ fontFamily: MONO, fontSize: 12, color: C.amber }}>
             ⚠️ Set <b>TRADIER_API_KEY</b> and <b>TRADIER_ACCOUNT_ID</b> in Render.com environment variables to enable order placement.
             Set <b>TRADIER_LIVE=true</b> to switch from paper to live trading.
           </div>
@@ -4954,14 +4954,14 @@ function AutoExecPanel({ C, MONO, SANS }) {
       {tab === "settings" && (
         <div>
           <div style={card}>
-            <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 12, letterSpacing: "0.06em" }}>TRADE PARAMETERS</div>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 12, letterSpacing: "0.06em" }}>TRADE PARAMETERS</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <div>
                 <span style={label}>POSITION SIZE ($)</span>
                 <input style={input} type="number" value={cfg.positionSize} min={50} step={50}
                   onChange={e => setCfg(p => ({ ...p, positionSize: +e.target.value }))}
                   onBlur={() => save({ positionSize: cfg.positionSize })} />
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 3 }}>$ per trade (shares = size ÷ price)</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 3 }}>$ per trade (shares = size ÷ price)</div>
               </div>
               <div>
                 <span style={label}>MAX OPEN POSITIONS</span>
@@ -4986,7 +4986,7 @@ function AutoExecPanel({ C, MONO, SANS }) {
           </div>
 
           <div style={card}>
-            <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 12, letterSpacing: "0.06em" }}>SIGNAL FILTERS</div>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 12, letterSpacing: "0.06em" }}>SIGNAL FILTERS</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <div>
                 <span style={label}>MIN SCORE (default 88)</span>
@@ -5004,21 +5004,21 @@ function AutoExecPanel({ C, MONO, SANS }) {
             <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10 }}>
               <input type="checkbox" id="allowShorts" checked={!!cfg.allowShorts}
                 onChange={e => { save({ allowShorts: e.target.checked }); setCfg(p => ({ ...p, allowShorts: e.target.checked })); }} />
-              <label htmlFor="allowShorts" style={{ fontFamily: MONO, fontSize: 11, color: C.text, cursor: "pointer" }}>
+              <label htmlFor="allowShorts" style={{ fontFamily: MONO, fontSize: 12, color: C.text, cursor: "pointer" }}>
                 Allow short sells on SELL signals (requires margin account)
               </label>
             </div>
           </div>
 
           <div style={{ ...card, borderColor: C.amber, background: "rgba(245,158,11,0.05)" }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: C.amber, lineHeight: 1.7 }}>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: C.amber, lineHeight: 1.7 }}>
               ⚠️ <b>Safety rules:</b> Only 1 trade per symbol per day. Max {cfg.maxPositions} simultaneous auto positions.
               Auto-exec only fires on score ≥ {cfg.scoreThreshold} with RVOL ≥ {cfg.rvolThreshold}×.
               Every trade is confirmed via Telegram. {cfg.live ? "LIVE mode — real money." : "Paper mode — no real money at risk."}
             </div>
           </div>
 
-          {saving && <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: "center", marginTop: 8 }}>Saving…</div>}
+          {saving && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center", marginTop: 8 }}>Saving…</div>}
         </div>
       )}
 
@@ -5032,7 +5032,7 @@ function AutoExecPanel({ C, MONO, SANS }) {
                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text }}>{p.symbol}</span>
                 <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{p.quantity} shares</span>
                 <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Cost ${p.costBasis?.toFixed(2)}</span>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{p.dateAcquired?.slice(0,10)}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{p.dateAcquired?.slice(0,10)}</span>
               </div>
             ))
           }
@@ -5048,11 +5048,11 @@ function AutoExecPanel({ C, MONO, SANS }) {
               <div key={o.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${C.border}`, flexWrap: "wrap" }}>
                 <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: o.side === "buy" ? C.green : C.red }}>{o.side?.toUpperCase()}</span>
                 <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{o.symbol}</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{o.quantity} sh</span>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>#{o.id}</span>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: o.status === "filled" ? C.green : o.status === "canceled" ? C.red : C.amber, marginLeft: "auto" }}>{o.status?.toUpperCase()}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{o.quantity} sh</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>#{o.id}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: o.status === "filled" ? C.green : o.status === "canceled" ? C.red : C.amber, marginLeft: "auto" }}>{o.status?.toUpperCase()}</span>
                 {o.status === "open" || o.status === "pending" ? (
-                  <button onClick={() => cancelOrder(o.id)} style={{ ...btn(false, C.red), padding: "3px 8px", fontSize: 10 }}>CANCEL</button>
+                  <button onClick={() => cancelOrder(o.id)} style={{ ...btn(false, C.red), padding: "3px 8px", fontSize: 12 }}>CANCEL</button>
                 ) : null}
               </div>
             ))
@@ -5246,11 +5246,11 @@ function SoccerIPTVPlayer({ C, MONO, SANS }) {
   const groups = [...new Set(visible.map(ch => ch.group || "Other"))];
 
   const btnStyle = (active) => ({
-    fontFamily: MONO, fontSize: 10, fontWeight: active ? 800 : 600,
+    fontFamily: MONO, fontSize: 12, fontWeight: active ? 800 : 600,
     border: active ? `1px solid ${C.accent}` : `1px solid ${C.border}`,
     background: active ? `${C.accent}22` : C.surface,
     color: active ? C.accent : C.textSec,
-    borderRadius: 4, padding: "5px 10px", cursor: "pointer", whiteSpace: "nowrap",
+    borderRadius: 6, padding: "5px 10px", cursor: "pointer", whiteSpace: "nowrap",
   });
 
   return (
@@ -5270,12 +5270,12 @@ function SoccerIPTVPlayer({ C, MONO, SANS }) {
           </div>
         )}
         {playerErr && (
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#c0392b", padding: "8px 14px", fontFamily: MONO, fontSize: 10, color: "#fff" }}>
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#c0392b", padding: "8px 14px", fontFamily: MONO, fontSize: 12, color: "#fff" }}>
             ⚠ {playerErr} — <span style={{ cursor: "pointer", textDecoration: "underline" }} onClick={() => setPlayerErr(null)}>dismiss</span>
           </div>
         )}
         {activeName && !playerErr && (
-          <div style={{ position: "absolute", top: 10, left: 12, background: "rgba(0,0,0,0.7)", borderRadius: 4, padding: "4px 10px", fontFamily: MONO, fontSize: 11, color: "#fff", pointerEvents: "none" }}>
+          <div style={{ position: "absolute", top: 10, left: 12, background: "rgba(0,0,0,0.7)", borderRadius: 6, padding: "4px 10px", fontFamily: MONO, fontSize: 12, color: "#fff", pointerEvents: "none" }}>
             📡 {activeName}
           </div>
         )}
@@ -5283,7 +5283,7 @@ function SoccerIPTVPlayer({ C, MONO, SANS }) {
 
       {/* Playlist presets + custom M3U loader */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, flexShrink: 0 }}>PRESET:</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, flexShrink: 0 }}>PRESET:</span>
         <button onClick={() => loadM3U("/axiom-runner/assets/playlist.m3u8")} disabled={loadingM3u}
           style={{ ...btnStyle(false), padding: "5px 12px", color: C.green, borderColor: C.green }}>
           🏆 SPORTS
@@ -5298,24 +5298,24 @@ function SoccerIPTVPlayer({ C, MONO, SANS }) {
           onChange={e => setM3uInput(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter") loadM3U(); }}
           placeholder="…or paste a custom M3U URL (SSC, beIN, Al Kass…)"
-          style={{ flex: 1, minWidth: 180, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 11, outline: "none" }}
+          style={{ flex: 1, minWidth: 180, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, outline: "none" }}
         />
         <button onClick={() => loadM3U()} disabled={loadingM3u || !m3uInput.trim()}
           style={{ ...btnStyle(false), background: C.accent, color: "#fff", border: "none", padding: "6px 14px", fontWeight: 800 }}>
           {loadingM3u ? "LOADING…" : "LOAD"}
         </button>
-        {m3uError && <span style={{ fontFamily: MONO, fontSize: 10, color: C.red, width: "100%" }}>{m3uError}</span>}
+        {m3uError && <span style={{ fontFamily: MONO, fontSize: 12, color: C.red, width: "100%" }}>{m3uError}</span>}
       </div>
 
       {/* Channel search + list */}
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
         <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent }}>📡 CHANNELS ({visible.length})</span>
+          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent }}>📡 CHANNELS ({visible.length})</span>
           <input
             value={chSearch}
             onChange={e => setChSearch(e.target.value)}
             placeholder="Filter channels…"
-            style={{ flex: 1, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "5px 9px", fontFamily: MONO, fontSize: 10, outline: "none" }}
+            style={{ flex: 1, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "5px 9px", fontFamily: MONO, fontSize: 12, outline: "none" }}
           />
         </div>
         <div style={{ maxHeight: 420, overflowY: "auto", scrollbarWidth: "thin" }}>
@@ -5323,7 +5323,7 @@ function SoccerIPTVPlayer({ C, MONO, SANS }) {
             const grpChannels = visible.filter(ch => (ch.group || "Other") === group);
             return (
               <div key={group}>
-                <div style={{ padding: "6px 14px 4px", background: C.surface, borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em" }}>
+                <div style={{ padding: "6px 14px 4px", background: C.surface, borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em" }}>
                   {group.toUpperCase()} ({grpChannels.length})
                 </div>
                 {grpChannels.map((ch, i) => {
@@ -5346,8 +5346,8 @@ function SoccerIPTVPlayer({ C, MONO, SANS }) {
                         : <span style={{ fontSize: 16, flexShrink: 0 }}>{ch.flag || "📺"}</span>
                       }
                       <span style={{ fontFamily: SANS, fontSize: 12, color: isPlaying ? C.accent : C.text, fontWeight: isPlaying ? 700 : 400, flex: 1 }}>{ch.name}</span>
-                      {ch.isPlaylist && <span style={{ fontFamily: MONO, fontSize: 9, color: C.amber, border: `1px solid ${C.amber}44`, borderRadius: 3, padding: "2px 5px" }}>M3U</span>}
-                      {isPlaying && <span style={{ fontFamily: MONO, fontSize: 9, color: C.green, fontWeight: 800 }}>▶ LIVE</span>}
+                      {ch.isPlaylist && <span style={{ fontFamily: MONO, fontSize: 12, color: C.amber, border: `1px solid ${C.amber}44`, borderRadius: 5, padding: "2px 5px" }}>M3U</span>}
+                      {isPlaying && <span style={{ fontFamily: MONO, fontSize: 12, color: C.green, fontWeight: 800 }}>▶ LIVE</span>}
                     </div>
                   );
                 })}
@@ -5355,7 +5355,7 @@ function SoccerIPTVPlayer({ C, MONO, SANS }) {
             );
           })}
           {visible.length === 0 && (
-            <div style={{ padding: "30px 0", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.textDim }}>No channels match your search</div>
+            <div style={{ padding: "30px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>No channels match your search</div>
           )}
         </div>
       </div>
@@ -5461,7 +5461,7 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
               ? <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 800, color: C.text }}>{g.homeScore} – {g.awayScore}</div>
               : <div style={{ fontFamily: MONO, fontSize: 13, color: C.amber, fontWeight: 700 }}>VS</div>
             }
-            <div style={{ fontFamily: MONO, fontSize: 9, color: stColor, fontWeight: 700, marginTop: 2 }}>{stLabel}</div>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: stColor, fontWeight: 700, marginTop: 2 }}>{stLabel}</div>
           </div>
           <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
             {g.awayLogo && <img src={g.awayLogo} alt="" style={{ width: 28, height: 28, objectFit: "contain" }} onError={e => { e.target.style.display = "none"; }} />}
@@ -5476,11 +5476,11 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
 
   const tabBtn = (id, label) => (
     <button onClick={() => setSoccerView(id)} style={{
-      fontFamily: MONO, fontSize: 11, fontWeight: soccerView === id ? 800 : 600,
+      fontFamily: MONO, fontSize: 12, fontWeight: soccerView === id ? 800 : 600,
       border: soccerView === id ? `1px solid ${C.accent}` : `1px solid ${C.border}`,
       background: soccerView === id ? `${C.accent}22` : "transparent",
       color: soccerView === id ? C.accent : C.textSec,
-      borderRadius: 4, padding: "6px 14px", cursor: "pointer",
+      borderRadius: 6, padding: "6px 14px", cursor: "pointer",
       borderBottom: soccerView === id ? `2px solid ${C.accent}` : "2px solid transparent",
     }}>{label}</button>
   );
@@ -5491,7 +5491,7 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
       <div style={{ marginBottom: 18, display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <div>
           <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: 2 }}>⚽ SOCCER WATCH</div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>IPTV · Live scores · Free streaming links</div>
+          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 3 }}>IPTV · Live scores · Free streaming links</div>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           {tabBtn("iptv",   "📺 IPTV")}
@@ -5507,40 +5507,40 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
 
       {/* ── SCORES TAB ──────────────────────────────────────────────────────── */}
       {soccerView === "scores" && (
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
           <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, letterSpacing: "0.08em" }}>📅 TODAY'S SCHEDULE</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, letterSpacing: "0.08em" }}>📅 TODAY'S SCHEDULE</span>
             <button onClick={() => fetchLeague(soccerLeague)} disabled={soccerLoading}
-              style={{ fontFamily: MONO, fontSize: 10, background: C.surface, border: `1px solid ${C.border}`, color: C.textSec, borderRadius: 4, padding: "5px 10px", cursor: "pointer" }}>
+              style={{ fontFamily: MONO, fontSize: 12, background: C.surface, border: `1px solid ${C.border}`, color: C.textSec, borderRadius: 6, padding: "5px 10px", cursor: "pointer" }}>
               {soccerLoading ? "LOADING…" : "↻ REFRESH"}
             </button>
           </div>
           <div style={{ display: "flex", overflowX: "auto", scrollbarWidth: "none", padding: "8px 12px", gap: 6, borderBottom: `1px solid ${C.border}` }}>
             {LEAGUES.map(l => (
               <button key={l.id} onClick={() => setSoccerLeague(l.id)}
-                style={{ fontFamily: MONO, fontSize: 10, fontWeight: soccerLeague === l.id ? 800 : 500, whiteSpace: "nowrap",
+                style={{ fontFamily: MONO, fontSize: 12, fontWeight: soccerLeague === l.id ? 800 : 500, whiteSpace: "nowrap",
                   border: soccerLeague === l.id ? `1px solid ${C.accent}` : `1px solid ${C.border}`,
                   background: soccerLeague === l.id ? `${C.accent}22` : C.surface,
                   color: soccerLeague === l.id ? C.accent : C.textSec,
-                  borderRadius: 4, padding: "5px 10px", cursor: "pointer" }}>
+                  borderRadius: 6, padding: "5px 10px", cursor: "pointer" }}>
                 {l.flag} {l.name}
               </button>
             ))}
           </div>
           <div style={{ padding: "14px 16px" }}>
-            {soccerLoading && <div style={{ textAlign: "center", padding: "40px 0", fontFamily: MONO, fontSize: 11, color: C.textDim }}>Loading schedule…</div>}
-            {soccerError && !soccerLoading && <div style={{ textAlign: "center", padding: "30px 0", fontFamily: MONO, fontSize: 11, color: C.red }}>{soccerError}</div>}
+            {soccerLoading && <div style={{ textAlign: "center", padding: "40px 0", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading schedule…</div>}
+            {soccerError && !soccerLoading && <div style={{ textAlign: "center", padding: "30px 0", fontFamily: MONO, fontSize: 12, color: C.red }}>{soccerError}</div>}
             {!soccerLoading && !soccerError && soccerFetched && soccerGames.length === 0 && (
               <div style={{ textAlign: "center", padding: "30px 0" }}>
                 <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginBottom: 6 }}>No matches scheduled today</div>
-                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Try another league or check back on match days</div>
+                <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Try another league or check back on match days</div>
               </div>
             )}
             {!soccerLoading && soccerGames.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {live.length > 0 && (
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.green, fontWeight: 800, letterSpacing: "0.1em", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, fontWeight: 800, letterSpacing: "0.1em", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: C.green, animation: "pulse 1.5s infinite" }} />
                       LIVE NOW ({live.length})
                     </div>
@@ -5549,13 +5549,13 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
                 )}
                 {upcoming.length > 0 && (
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.amber, fontWeight: 800, letterSpacing: "0.1em", marginBottom: 8 }}>UPCOMING ({upcoming.length})</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.amber, fontWeight: 800, letterSpacing: "0.1em", marginBottom: 8 }}>UPCOMING ({upcoming.length})</div>
                     {upcoming.map(g => <GameCard key={g.id} g={g} />)}
                   </div>
                 )}
                 {finished.length > 0 && (
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, fontWeight: 800, letterSpacing: "0.1em", marginBottom: 8 }}>FINAL RESULTS ({finished.length})</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, fontWeight: 800, letterSpacing: "0.1em", marginBottom: 8 }}>FINAL RESULTS ({finished.length})</div>
                     {finished.map(g => <GameCard key={g.id} g={g} />)}
                   </div>
                 )}
@@ -5567,9 +5567,9 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
 
       {/* ── FREE SITES TAB ───────────────────────────────────────────────────── */}
       {soccerView === "sites" && (
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
           <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}` }}>
-            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, letterSpacing: "0.08em" }}>🆓 FREE STREAMING SITES — tap to open</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.green, letterSpacing: "0.08em" }}>🆓 FREE STREAMING SITES — tap to open</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: cols }}>
             {FREE_SITES.map(s => (
@@ -5582,9 +5582,9 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                   <span style={{ fontSize: 14 }}>{s.icon}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>{s.name}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent }}>{s.name}</span>
                 </div>
-                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.5 }}>{s.desc}</div>
+                <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.5 }}>{s.desc}</div>
               </a>
             ))}
           </div>
@@ -5607,13 +5607,13 @@ function CryptoNews({ C, MONO, SANS }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" };
+  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" };
 
   return (
     <div style={card}>
       <div style={{ padding: "14px 18px 10px", borderBottom: `1px solid ${C.border}` }}>
-        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>📰 CRYPTO NEWS</span>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 10 }}>BTC · ETH · COIN · MSTR</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>📰 CRYPTO NEWS</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: 10 }}>BTC · ETH · COIN · MSTR</span>
       </div>
       {loading ? (
         <div style={{ padding: "30px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading headlines…</div>
@@ -5648,12 +5648,12 @@ function CryptoNews({ C, MONO, SANS }) {
               <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.5, flex: 1 }}>
                 {n.headline || n.title || n.summary || ""}
               </div>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, whiteSpace: "nowrap", flexShrink: 0, marginTop: 2 }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, whiteSpace: "nowrap", flexShrink: 0, marginTop: 2 }}>
                 {ago}
               </div>
             </div>
             {n.source && (
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.accent, marginTop: 4 }}>{n.source}</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, marginTop: 4 }}>{n.source}</div>
             )}
           </a>
         );
@@ -5769,7 +5769,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
               <Badge color={C.textSec}>{stock.exchange}</Badge>
               <button
                 onClick={() => onOpenTradingView?.(stock.symbol)}
-                style={{ border: `1px solid ${C.borderLit}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                style={{ border: `1px solid ${C.borderLit}`, background: C.surface, color: C.accent, borderRadius: 6, padding: "3px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
               >
                 TRADINGVIEW
               </button>
@@ -5789,7 +5789,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
               onClick={onClose}
               style={{
                 background: C.surface, border: `1px solid ${C.borderLit}`, color: C.text,
-                fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer",
                 borderRadius: 6, padding: "8px 12px",
               }}
             >
@@ -5799,7 +5799,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
               onClick={() => (onExit ? onExit() : onClose?.())}
               style={{
                 background: C.surface, border: `1px solid ${C.borderLit}`, color: C.red,
-                fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer",
                 borderRadius: 6, padding: "8px 12px",
               }}
             >
@@ -5822,7 +5822,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
             { label: "MACRO FIT", val: scores.macro, col: C.amber },
           ].map(s => (
             <div key={s.label} style={{ ...panelCard, borderTop: `4px solid ${s.col}`, padding: "16px 18px", textAlign: "center" }}>
-              <div style={{ fontSize: 10, fontFamily: MONO, color: C.textDim, marginBottom: 8, letterSpacing: "0.1em" }}>{s.label}</div>
+              <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, marginBottom: 8, letterSpacing: "0.1em" }}>{s.label}</div>
               <div style={{ fontSize: 36, fontFamily: MONO, fontWeight: 800, color: s.col, lineHeight: 1 }}>{s.val}</div>
               <div style={{ marginTop: 8 }}><ScoreBar value={s.val} color={s.col} /></div>
             </div>
@@ -5832,7 +5832,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
         {/* Data Grid */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, padding: "14px 20px 0" }}>
           <div style={{ ...panelCard, padding: 20 }}>
-            <div style={{ fontSize: 11, fontFamily: MONO, fontWeight: 800, color: C.cyan, marginBottom: 12, letterSpacing: "0.08em" }}>MARKET DATA</div>
+            <div style={{ fontSize: 12, fontFamily: MONO, fontWeight: 800, color: C.cyan, marginBottom: 12, letterSpacing: "0.08em" }}>MARKET DATA</div>
             {[
               ["Price", `$${stock.price?.toFixed(2)}`],
               ["Day Range", `$${stock.dayLow?.toFixed(2)} — $${stock.dayHigh?.toFixed(2)}`],
@@ -5850,8 +5850,8 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
           </div>
           <div style={{ ...panelCard, padding: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontFamily: MONO, fontWeight: 800, color: C.purple, letterSpacing: "0.08em" }}>VALUATION & METRICS</div>
-              {fundamentalsLoading && <span style={{ fontSize: 10, fontFamily: MONO, color: C.amber }}>⏳ Loading…</span>}
+              <div style={{ fontSize: 12, fontFamily: MONO, fontWeight: 800, color: C.purple, letterSpacing: "0.08em" }}>VALUATION & METRICS</div>
+              {fundamentalsLoading && <span style={{ fontSize: 12, fontFamily: MONO, color: C.amber }}>⏳ Loading…</span>}
             </div>
             {(() => {
               const ld = fundamentalsLoading ? "…" : "—";
@@ -5888,8 +5888,8 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, padding: "14px 20px 0" }}>
           <div style={{ ...panelCard, padding: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontFamily: MONO, fontWeight: 800, color: C.green, letterSpacing: "0.08em" }}>INCOME & GROWTH</div>
-              {fundamentalsLoading && <span style={{ fontSize: 10, fontFamily: MONO, color: C.amber }}>⏳</span>}
+              <div style={{ fontSize: 12, fontFamily: MONO, fontWeight: 800, color: C.green, letterSpacing: "0.08em" }}>INCOME & GROWTH</div>
+              {fundamentalsLoading && <span style={{ fontSize: 12, fontFamily: MONO, color: C.amber }}>⏳</span>}
             </div>
             {(() => {
               const ld = fundamentalsLoading ? "…" : "—";
@@ -5914,8 +5914,8 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
           </div>
           <div style={{ ...panelCard, padding: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontFamily: MONO, fontWeight: 800, color: C.amber, letterSpacing: "0.08em" }}>EFFICIENCY & LEVERAGE</div>
-              {fundamentalsLoading && <span style={{ fontSize: 10, fontFamily: MONO, color: C.amber }}>⏳</span>}
+              <div style={{ fontSize: 12, fontFamily: MONO, fontWeight: 800, color: C.amber, letterSpacing: "0.08em" }}>EFFICIENCY & LEVERAGE</div>
+              {fundamentalsLoading && <span style={{ fontSize: 12, fontFamily: MONO, color: C.amber }}>⏳</span>}
             </div>
             {(() => {
               const ld = fundamentalsLoading ? "…" : "—";
@@ -5943,7 +5943,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
 
         {/* Trend Analysis */}
         <div style={{ ...panelCard, margin: "14px 20px 0", padding: 20 }}>
-          <div style={{ fontSize: 11, fontFamily: MONO, fontWeight: 800, color: C.accent, marginBottom: 14, letterSpacing: "0.08em" }}>TREND ANALYSIS</div>
+          <div style={{ fontSize: 12, fontFamily: MONO, fontWeight: 800, color: C.accent, marginBottom: 14, letterSpacing: "0.08em" }}>TREND ANALYSIS</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
             {[
               {
@@ -5968,7 +5968,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
               },
             ].map(item => (
               <div key={item.label}>
-                <div style={{ fontSize: 10, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>{item.label}</div>
+                <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>{item.label}</div>
                 <div style={{ fontSize: 26, fontFamily: MONO, fontWeight: 800, color: item.col }}>{item.val}</div>
                 <div style={{ fontSize: 12, fontFamily: SANS, color: C.textDim, marginTop: 4 }}>{item.detail}</div>
               </div>
@@ -5983,7 +5983,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
           {/* Row 1: Institutional Read + Trade Plan */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
             <div style={{ ...panelCard, padding: 20 }}>
-              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 12 }}>INSTITUTIONAL READ</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, marginBottom: 12 }}>INSTITUTIONAL READ</div>
               <div style={{ fontSize: 13, color: C.textSec, marginBottom: 10, lineHeight: 1.6 }}>
                 <strong style={{ color: C.green }}>Bull:</strong> {trendState === "Primary Uptrend" ? "Trend leadership intact with favorable structure and upside continuation potential." : "Needs reclaim of trend stack (price > 50D > 200D) before high-conviction continuation."}
               </div>
@@ -5994,7 +5994,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
                 <strong style={{ color: C.amber }}>Macro:</strong> {macroFit}. Stock responds more to broad risk regime than idiosyncratic catalysts in high-volatility sessions.
               </div>
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginBottom: 8 }}>TECHNICAL CHECKLIST</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, marginBottom: 8 }}>TECHNICAL CHECKLIST</div>
                 <div style={{ fontSize: 13, color: C.textSec, lineHeight: 1.6 }}>
                   Trend: <strong>{stock.price > (stock.priceAvg50 || 0) ? "Aligned ✅" : "Weak ⚠️"}</strong> ·
                   RVOL: <strong>{rvol}x</strong> ·
@@ -6002,7 +6002,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
                 </div>
               </div>
               <div style={{ marginTop: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginBottom: 8 }}>FUNDAMENTAL PROXY</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, marginBottom: 8 }}>FUNDAMENTAL PROXY</div>
                 <div style={{ fontSize: 13, color: C.textSec, lineHeight: 1.6 }}>
                   Market cap: <strong>{formatNum(resolvedMarketCap)}</strong> ·
                   Trend: <strong>{(stock.priceAvg50 && stock.priceAvg200 && stock.priceAvg50 > stock.priceAvg200) ? "Improving" : "Mixed/weak"}</strong> ·
@@ -6012,7 +6012,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
             </div>
 
             <div style={{ ...panelCard, padding: 20 }}>
-              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 12 }}>TRADE PLAN</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, marginBottom: 12 }}>TRADE PLAN</div>
               {[
                 ["Setup",        setup,                   setup.includes("BUY") ? C.green : setup.includes("WAIT") ? C.amber : C.red],
                 ["Entry Zone",   `$${entry.toFixed(2)}`,  C.text],
@@ -6035,7 +6035,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
           {/* Row 2: Technical Intel + Fundamental + Scenario */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
             <div style={{ ...panelCard, padding: 20 }}>
-              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 12 }}>TECHNICAL INTELLIGENCE</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, marginBottom: 12 }}>TECHNICAL INTELLIGENCE</div>
               {[
                 ["Trend state", trendState],
                 ["Structure", structureState],
@@ -6049,7 +6049,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
               ))}
             </div>
             <div style={{ ...panelCard, padding: 20 }}>
-              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 12 }}>FUNDAMENTAL SNAPSHOT</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, marginBottom: 12 }}>FUNDAMENTAL SNAPSHOT</div>
               {[
                 ["Market cap", formatNum(resolvedMarketCap)],
                 ["Valuation", `${valuationState}${resolvedPe > 0 ? ` (P/E ${resolvedPe.toFixed(1)})` : ""}`],
@@ -6063,7 +6063,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
               ))}
             </div>
             <div style={{ ...panelCard, padding: 20 }}>
-              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 12 }}>SCENARIO MATRIX</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, marginBottom: 12 }}>SCENARIO MATRIX</div>
               {[
                 ["Bull continuation", `${bullProb}%`, C.green],
                 ["Base consolidation", `${baseProb}%`, C.amber],
@@ -6076,7 +6076,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
                 </div>
               ))}
               <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginBottom: 8 }}>12M PRICE ESTIMATE</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, marginBottom: 8 }}>12M PRICE ESTIMATE</div>
                 {[
                   ["Bear", `$${bear12m.toFixed(2)}`, `${downsideBearPct.toFixed(1)}%`, C.red],
                   ["Base", `$${base12m.toFixed(2)}`, `${upsideBasePct >= 0 ? "+" : ""}${upsideBasePct.toFixed(1)}%`, C.accent],
@@ -6084,7 +6084,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
                 ].map(([k, price, pct, col]) => (
                   <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
                     <span style={{ fontSize: 12, color: C.textDim }}>{k}</span>
-                    <span style={{ fontSize: 13, fontFamily: MONO, color: col, fontWeight: 600 }}>{price} <span style={{ fontSize: 11 }}>({pct})</span></span>
+                    <span style={{ fontSize: 13, fontFamily: MONO, color: col, fontWeight: 600 }}>{price} <span style={{ fontSize: 12 }}>({pct})</span></span>
                   </div>
                 ))}
               </div>
@@ -6094,15 +6094,15 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
           {/* Row 3: Catalysts + Sizing */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
             <div style={{ ...panelCard, padding: 20 }}>
-              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 12 }}>CATALYSTS & RISKS</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, marginBottom: 12 }}>CATALYSTS & RISKS</div>
               <div style={{ fontSize: 13, color: C.textSec, lineHeight: 1.7 }}>
-                <div style={{ marginBottom: 8 }}><strong style={{ fontFamily: MONO, fontSize: 11, color: C.green }}>CATALYST</strong><br />{catalystNote}</div>
-                <div style={{ marginBottom: 8 }}><strong style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>RISK FLAG</strong><br />{riskNote}</div>
-                <div><strong style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>CONFIRMATION</strong><br />Hold above entry zone and improve relative volume and trend quality.</div>
+                <div style={{ marginBottom: 8 }}><strong style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>CATALYST</strong><br />{catalystNote}</div>
+                <div style={{ marginBottom: 8 }}><strong style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>RISK FLAG</strong><br />{riskNote}</div>
+                <div><strong style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>CONFIRMATION</strong><br />Hold above entry zone and improve relative volume and trend quality.</div>
               </div>
             </div>
             <div style={{ ...panelCard, padding: 20 }}>
-              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 12 }}>POSITION SIZING</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, marginBottom: 12 }}>POSITION SIZING</div>
               {[
                 ["Risk Budget",       `$${riskBudget.toFixed(0)}`,           C.text],
                 ["Risk / Share",      `$${riskPerShare.toFixed(2)}`,          C.text],
@@ -6121,7 +6121,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div style={{ ...panelCard, padding: 20 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.cyan }}>TECHNICAL DEEP DIVE</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.cyan }}>TECHNICAL DEEP DIVE</div>
                 <Badge color={technicalDeepScore >= 70 ? C.green : technicalDeepScore >= 55 ? C.amber : C.red}>{technicalDeepScore}</Badge>
               </div>
               {[
@@ -6141,7 +6141,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
             </div>
             <div style={{ ...panelCard, padding: 20 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.purple }}>FUNDAMENTAL DEEP DIVE</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.purple }}>FUNDAMENTAL DEEP DIVE</div>
                 <Badge color={fundamentalDeepScore >= 70 ? C.green : fundamentalDeepScore >= 55 ? C.amber : C.red}>{fundamentalDeepScore}</Badge>
               </div>
               {[
@@ -6248,11 +6248,11 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
                   style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
                 >
                   <span style={{ fontSize: 14, width: 20, flexShrink: 0 }}>{icon}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color, fontWeight: s.active ? 700 : 400, flex: 1 }}>{s.label}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{isOpen ? "▲ close" : "▼ learn"}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color, fontWeight: s.active ? 700 : 400, flex: 1 }}>{s.label}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{isOpen ? "▲ close" : "▼ learn"}</span>
                 </div>
                 {isOpen && (
-                  <div style={{ marginTop: 8, marginLeft: 30, padding: "10px 14px", background: C.bg, borderLeft: `3px solid ${color}`, borderRadius: 4, fontSize: 12, fontFamily: SANS, color: C.textSec, lineHeight: 1.7 }}>
+                  <div style={{ marginTop: 8, marginLeft: 30, padding: "10px 14px", background: C.bg, borderLeft: `3px solid ${color}`, borderRadius: 6, fontSize: 12, fontFamily: SANS, color: C.textSec, lineHeight: 1.7 }}>
                     {s.explain}
                   </div>
                 )}
@@ -6271,12 +6271,12 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
               <div style={{ background: C.surface, padding: "16px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                 <div>
                   <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, letterSpacing: "0.1em" }}>📈 TECHNICAL ANALYSIS SCHOOL</div>
-                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 3 }}>Tap any signal to learn what it means and how to use it</div>
+                  <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 3 }}>Tap any signal to learn what it means and how to use it</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 4 }}>OVERALL SIGNAL</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 4 }}>OVERALL SIGNAL</div>
                   <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: signalColor }}>{signal}</div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>{activeBull} bull · {activeBear} bear active</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>{activeBull} bull · {activeBear} bear active</div>
                 </div>
               </div>
 
@@ -6285,13 +6285,13 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
                 {/* Bullish */}
                 <div style={{ padding: "16px 20px", borderRight: `1px solid ${C.border}` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, letterSpacing: "0.08em" }}>BULLISH SIGNALS</div>
-                    <div style={{ background: `${C.green}22`, color: C.green, fontFamily: MONO, fontSize: 10, fontWeight: 700, borderRadius: 10, padding: "1px 8px" }}>{activeBull} / {bullSignals.length}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.green, letterSpacing: "0.08em" }}>BULLISH SIGNALS</div>
+                    <div style={{ background: `${C.green}22`, color: C.green, fontFamily: MONO, fontSize: 12, fontWeight: 700, borderRadius: 10, padding: "1px 8px" }}>{activeBull} / {bullSignals.length}</div>
                   </div>
                   {bullSignals.map((s, i) => renderSignalRow(s, "bull", `bull-${i}`))}
                   <div style={{ marginTop: 14, padding: "12px 14px", background: `${C.green}0f`, border: `1px solid ${C.green}33`, borderRadius: 6 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.green, marginBottom: 4 }}>📖 RULE OF THUMB</div>
-                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.7 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.green, marginBottom: 4 }}>📖 RULE OF THUMB</div>
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.7 }}>
                       A strong bull setup checks at least 4 of these 6 signals. Price above 50D + Golden Cross + RVOL &gt; 1.2 = institutional sponsorship. Never buy a stock without at least 2 active bullish signals.
                     </div>
                   </div>
@@ -6300,13 +6300,13 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
                 {/* Bearish */}
                 <div style={{ padding: "16px 20px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.red, letterSpacing: "0.08em" }}>BEARISH SIGNALS</div>
-                    <div style={{ background: `${C.red}22`, color: C.red, fontFamily: MONO, fontSize: 10, fontWeight: 700, borderRadius: 10, padding: "1px 8px" }}>{activeBear} / {bearSignals.length}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.red, letterSpacing: "0.08em" }}>BEARISH SIGNALS</div>
+                    <div style={{ background: `${C.red}22`, color: C.red, fontFamily: MONO, fontSize: 12, fontWeight: 700, borderRadius: 10, padding: "1px 8px" }}>{activeBear} / {bearSignals.length}</div>
                   </div>
                   {bearSignals.map((s, i) => renderSignalRow(s, "bear", `bear-${i}`))}
                   <div style={{ marginTop: 14, padding: "12px 14px", background: `${C.red}0f`, border: `1px solid ${C.red}33`, borderRadius: 6 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.red, marginBottom: 4 }}>⛔ AVOID WHEN</div>
-                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.7 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.red, marginBottom: 4 }}>⛔ AVOID WHEN</div>
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.7 }}>
                       Price is below both the 50D and 200D SMA with declining RVOL. That combination means the stock is in a distribution phase — professional sellers are quietly offloading to retail buyers.
                     </div>
                   </div>
@@ -6315,7 +6315,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
 
               {/* Bottom: how to read the chart */}
               <div style={{ borderTop: `1px solid ${C.border}`, padding: "14px 20px", background: C.surface }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.amber, marginBottom: 10, letterSpacing: "0.08em" }}>📊 HOW TO READ A CHART — QUICK REFERENCE</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.amber, marginBottom: 10, letterSpacing: "0.08em" }}>📊 HOW TO READ A CHART — QUICK REFERENCE</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
                   {[
                     { title: "Support & Resistance", body: "Support = price floor where buyers step in. Resistance = price ceiling where sellers dominate. A breakout above resistance on high volume is a buy signal. A break below support on high volume is a sell signal." },
@@ -6323,8 +6323,8 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
                     { title: "Trend Is Your Friend", body: "Never fight the primary trend. In an uptrend (price > 50D > 200D), buy pullbacks to the 50D. In a downtrend (price < 50D < 200D), wait for a trend reversal — at minimum price must reclaim the 50D before you consider buying." },
                   ].map(item => (
                     <div key={item.title} style={{ padding: "10px 12px", background: C.card, borderRadius: 6, border: `1px solid ${C.border}` }}>
-                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, marginBottom: 6 }}>{item.title}</div>
-                      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.7 }}>{item.body}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent, marginBottom: 6 }}>{item.title}</div>
+                      <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.7 }}>{item.body}</div>
                     </div>
                   ))}
                 </div>
@@ -6334,7 +6334,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
         })()}
 
         {/* Disclaimer */}
-        <div style={{ margin: "16px 20px 20px", padding: "12px 20px", fontSize: 11, fontFamily: SANS, color: C.textDim, background: C.surface, border: `1px solid ${C.borderLit}`, borderRadius: 8, fontStyle: "italic", lineHeight: 1.6 }}>
+        <div style={{ margin: "16px 20px 20px", padding: "12px 20px", fontSize: 12, fontFamily: SANS, color: C.textDim, background: C.surface, border: `1px solid ${C.borderLit}`, borderRadius: 8, fontStyle: "italic", lineHeight: 1.6 }}>
           Decision support only — not financial advice. Scores are heuristic estimates. Full fundamental & macro scoring requires additional API data (income statements, macro indicators).
         </div>
       </div>
@@ -6580,12 +6580,12 @@ Risk small and follow the stop.`
   };
 
   const TH = ({ children, right }) => (
-    <th style={{ padding: "8px 10px", textAlign: right ? "right" : "left", fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.07em", borderBottom: `1px solid ${C.border}`, background: C.surface, fontWeight: 700, whiteSpace: "nowrap" }}>
+    <th style={{ padding: "8px 10px", textAlign: right ? "right" : "left", fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.07em", borderBottom: `1px solid ${C.border}`, background: C.surface, fontWeight: 700, whiteSpace: "nowrap" }}>
       {children}
     </th>
   );
   const TD = ({ children, right, color, mono }) => (
-    <td style={{ padding: "7px 10px", textAlign: right ? "right" : "left", fontFamily: mono !== false ? MONO : SANS, fontSize: 11, color: color || C.text, borderTop: `1px solid ${C.border}`, whiteSpace: "nowrap" }}>
+    <td style={{ padding: "7px 10px", textAlign: right ? "right" : "left", fontFamily: mono !== false ? MONO : SANS, fontSize: 12, color: color || C.text, borderTop: `1px solid ${C.border}`, whiteSpace: "nowrap" }}>
       {children}
     </td>
   );
@@ -6593,7 +6593,7 @@ Risk small and follow the stop.`
   const ScoreBadge = ({ score }) => {
     const lbl = earlyScoreLabel(score);
     return (
-      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: lbl.color, background: `${lbl.color}18`, padding: "2px 7px", borderRadius: 4 }}>
+      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: lbl.color, background: `${lbl.color}18`, padding: "3px 8px", borderRadius: 6 }}>
         {score}
       </span>
     );
@@ -6608,7 +6608,7 @@ Risk small and follow the stop.`
                 setup === "Breakout Retest" ? "#f0c040" :
                 setup === "Avoid / Trap Zone" ? C.red : C.textDim;
     return (
-      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: col, background: `${col}18`, padding: "2px 6px", borderRadius: 3, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
+      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col, background: `${col}18`, padding: "3px 7px", borderRadius: 5, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
         {setup}
       </span>
     );
@@ -6616,17 +6616,17 @@ Risk small and follow the stop.`
 
   const SummaryCard = ({ label, value, sub, color, onClick }) => (
     <div onClick={onClick} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", cursor: onClick ? "pointer" : "default", minWidth: 130, flex: "1 1 130px" }}>
-      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.07em", marginBottom: 4 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.07em", marginBottom: 4 }}>{label}</div>
       <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: color || C.text, lineHeight: 1.1 }}>{value}</div>
-      {sub && <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 3 }}>{sub}</div>}
+      {sub && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 3 }}>{sub}</div>}
     </div>
   );
 
   const SectionHeader = ({ title, count, color, badge }) => (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-      <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.09em", fontWeight: 700 }}>{title}</span>
-      {count != null && <span style={{ fontFamily: MONO, fontSize: 9, color: color || C.green, background: `${color || C.green}18`, padding: "1px 7px", borderRadius: 10 }}>{count}</span>}
-      {badge && <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{badge}</span>}
+      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.09em", fontWeight: 700 }}>{title}</span>
+      {count != null && <span style={{ fontFamily: MONO, fontSize: 12, color: color || C.green, background: `${color || C.green}18`, padding: "1px 7px", borderRadius: 10 }}>{count}</span>}
+      {badge && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{badge}</span>}
     </div>
   );
 
@@ -6668,28 +6668,28 @@ Risk small and follow the stop.`
               if (d.ok === false) alert("Telegram error: " + (d.error || "unknown"));
             } catch(e) { alert("Send failed: " + e.message); }
           }}
-          style={{ background: "#2563eb18", border: "1px solid #2563eb55", color: "#2563eb", borderRadius: 8, padding: "10px 16px", fontFamily: MONO, fontSize: 10, fontWeight: 800, cursor: "pointer", alignSelf: "stretch", display: "flex", alignItems: "center", gap: 6 }}
+          style={{ background: "#2563eb18", border: "1px solid #2563eb55", color: "#2563eb", borderRadius: 8, padding: "10px 16px", fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", alignSelf: "stretch", display: "flex", alignItems: "center", gap: 6 }}
         >📱 PUSH BRIEF</button>
       </div>
 
       {/* ── Filter bar ── */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.07em" }}>SETUP:</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.07em" }}>SETUP:</span>
         {setupOptions.map(s => (
-          <button key={s} onClick={() => setFilterSetup(s)} style={{ border: `1px solid ${filterSetup === s ? C.accent : C.border}`, background: filterSetup === s ? `${C.accent}18` : C.surface, color: filterSetup === s ? C.accent : C.textDim, fontFamily: MONO, fontSize: 9, padding: "4px 10px", borderRadius: 12, cursor: "pointer", fontWeight: filterSetup === s ? 800 : 400, letterSpacing: "0.04em" }}>
+          <button key={s} onClick={() => setFilterSetup(s)} style={{ border: `1px solid ${filterSetup === s ? C.accent : C.border}`, background: filterSetup === s ? `${C.accent}18` : C.surface, color: filterSetup === s ? C.accent : C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 10px", borderRadius: 12, cursor: "pointer", fontWeight: filterSetup === s ? 800 : 400, letterSpacing: "0.04em" }}>
             {s}
           </button>
         ))}
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-          <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>MIN SCORE:</span>
+          <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>MIN SCORE:</span>
           {[0, 65, 75, 85].map(v => (
-            <button key={v} onClick={() => setMinScoreFilter(v)} style={{ border: `1px solid ${minScoreFilter === v ? C.accent : C.border}`, background: minScoreFilter === v ? `${C.accent}18` : C.surface, color: minScoreFilter === v ? C.accent : C.textDim, fontFamily: MONO, fontSize: 9, padding: "4px 9px", borderRadius: 12, cursor: "pointer", fontWeight: minScoreFilter === v ? 800 : 400 }}>
+            <button key={v} onClick={() => setMinScoreFilter(v)} style={{ border: `1px solid ${minScoreFilter === v ? C.accent : C.border}`, background: minScoreFilter === v ? `${C.accent}18` : C.surface, color: minScoreFilter === v ? C.accent : C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 9px", borderRadius: 12, cursor: "pointer", fontWeight: minScoreFilter === v ? 800 : 400 }}>
               {v === 0 ? "ALL" : `${v}+`}
             </button>
           ))}
         </div>
         {alertStatus && (
-          <span style={{ fontFamily: MONO, fontSize: 10, color: alertStatus.startsWith("✅") ? C.green : alertStatus.startsWith("❌") ? C.red : C.amber, marginLeft: 8 }}>{alertStatus}</span>
+          <span style={{ fontFamily: MONO, fontSize: 12, color: alertStatus.startsWith("✅") ? C.green : alertStatus.startsWith("❌") ? C.red : C.amber, marginLeft: 8 }}>{alertStatus}</span>
         )}
       </div>
 
@@ -6697,7 +6697,7 @@ Risk small and follow the stop.`
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
         <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <SectionHeader title="BEST EARLY ENTRIES" count={filteredEntries.length} color={C.green} />
-          <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Scored from watchlist · modular — plug in live data to refine</span>
+          <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Scored from watchlist · modular — plug in live data to refine</span>
         </div>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -6710,7 +6710,7 @@ Risk small and follow the stop.`
             </thead>
             <tbody>
               {filteredEntries.length === 0 && (
-                <tr><td colSpan={11} style={{ padding: 16, fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>No early entries match the current filters.</td></tr>
+                <tr><td colSpan={11} style={{ padding: 16, fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>No early entries match the current filters.</td></tr>
               )}
               {filteredEntries.map(row => {
                 const { q, scored, setup, lbl, entry, stop, t1, t2, rr } = row;
@@ -6733,16 +6733,16 @@ Risk small and follow the stop.`
                     <TD right mono color={C.green}>${t1.toFixed(2)}</TD>
                     <TD right mono color={C.green}>${t2.toFixed(2)}</TD>
                     <TD right mono color={rr >= 2 ? C.green : rr >= 1.5 ? C.amber : C.red}>{rr.toFixed(1)}R</TD>
-                    <TD><span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: lbl.color, background: `${lbl.color}15`, padding: "2px 6px", borderRadius: 3 }}>{lbl.label}</span></TD>
+                    <TD><span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: lbl.color, background: `${lbl.color}15`, padding: "3px 7px", borderRadius: 5 }}>{lbl.label}</span></TD>
                     <TD>
                       <div style={{ display: "flex", gap: 5 }}>
                         <button onClick={() => setAlertPreview(alertPreview?.q?.symbol === q.symbol ? null : row)}
-                          style={{ border: `1px solid ${alertPreview?.q?.symbol === q.symbol ? C.amber : C.border}`, background: alertPreview?.q?.symbol === q.symbol ? `${C.amber}18` : C.surface, color: alertPreview?.q?.symbol === q.symbol ? C.amber : C.textDim, fontFamily: MONO, fontSize: 9, padding: "3px 7px", borderRadius: 3, cursor: "pointer" }}>
+                          style={{ border: `1px solid ${alertPreview?.q?.symbol === q.symbol ? C.amber : C.border}`, background: alertPreview?.q?.symbol === q.symbol ? `${C.amber}18` : C.surface, color: alertPreview?.q?.symbol === q.symbol ? C.amber : C.textDim, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 5, cursor: "pointer" }}>
                           PREVIEW
                         </button>
                         {scored.score >= 75 && (
                           <button onClick={() => sendAlert(row)} disabled={recentlySent}
-                            style={{ border: `1px solid ${recentlySent ? C.border : C.green + "88"}`, background: recentlySent ? C.surface : `${C.green}14`, color: recentlySent ? C.textDim : C.green, fontFamily: MONO, fontSize: 9, padding: "3px 7px", borderRadius: 3, cursor: recentlySent ? "default" : "pointer", opacity: recentlySent ? 0.5 : 1 }}>
+                            style={{ border: `1px solid ${recentlySent ? C.border : C.green + "88"}`, background: recentlySent ? C.surface : `${C.green}14`, color: recentlySent ? C.textDim : C.green, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 5, cursor: recentlySent ? "default" : "pointer", opacity: recentlySent ? 0.5 : 1 }}>
                             {recentlySent ? "SENT" : "SEND"}
                           </button>
                         )}
@@ -6763,19 +6763,19 @@ Risk small and follow the stop.`
             <SectionHeader title={`TELEGRAM ALERT PREVIEW — ${alertPreview.q.symbol}`} color={C.amber} />
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => sendAlert(alertPreview)}
-                style={{ border: `1px solid ${C.green}88`, background: `${C.green}18`, color: C.green, fontFamily: MONO, fontSize: 10, padding: "5px 14px", borderRadius: 4, cursor: "pointer", fontWeight: 700 }}>
+                style={{ border: `1px solid ${C.green}88`, background: `${C.green}18`, color: C.green, fontFamily: MONO, fontSize: 12, padding: "5px 14px", borderRadius: 6, cursor: "pointer", fontWeight: 700 }}>
                 SEND TO TELEGRAM
               </button>
               <button onClick={() => setAlertPreview(null)}
-                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 10, padding: "5px 10px", borderRadius: 4, cursor: "pointer" }}>
+                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 12, padding: "5px 10px", borderRadius: 6, cursor: "pointer" }}>
                 CLOSE
               </button>
             </div>
           </div>
-          <pre style={{ fontFamily: MONO, fontSize: 11, color: C.text, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 14, margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.65 }}>
+          <pre style={{ fontFamily: MONO, fontSize: 12, color: C.text, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 14, margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.65 }}>
             {buildAlertText(alertPreview)}
           </pre>
-          <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+          <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 12, color: C.textDim }}>
             Alert rules: Score ≥85 = A+ Early Entry Alert · Score 75–84 = Watch Closely · Duplicate suppressed for 30 min per ticker
           </div>
         </div>
@@ -6792,14 +6792,14 @@ Risk small and follow the stop.`
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr><TH>TICKER</TH><TH right>PRICE</TH><TH right>CHG%</TH><TH right>RVOL</TH><TH right>SCORE</TH><TH>SEND</TH></tr></thead>
             <tbody>
-              {vwapReclaims.length === 0 && <tr><td colSpan={6} style={{ padding: 12, fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>No VWAP reclaims detected.</td></tr>}
+              {vwapReclaims.length === 0 && <tr><td colSpan={6} style={{ padding: 12, fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>No VWAP reclaims detected.</td></tr>}
               {vwapReclaims.slice(0, 8).map(row => {
                 const chg = Number(row.q.changesPercentage || 0);
                 return (
                   <tr key={row.q.symbol}
                       onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                    <TD><button onClick={() => onSelectSymbol(row.q.symbol)} style={{ background: "none", border: "none", fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, cursor: "pointer", padding: 0 }}>{row.q.symbol}</button></TD>
+                    <TD><button onClick={() => onSelectSymbol(row.q.symbol)} style={{ background: "none", border: "none", fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, cursor: "pointer", padding: 0 }}>{row.q.symbol}</button></TD>
                     <TD right>${Number(row.q.price || 0).toFixed(2)}</TD>
                     <TD right color={chg >= 0 ? C.green : C.red}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</TD>
                     <TD right color={row.scored.rvol >= 1.5 ? C.green : C.textDim}>{row.scored.rvol.toFixed(2)}x</TD>
@@ -6807,14 +6807,14 @@ Risk small and follow the stop.`
                     <TD><button onClick={async () => {
                       const msg = `📈 VWAP RECLAIM — ${row.q.symbol}\nPrice: $${Number(row.q.price||0).toFixed(2)}  CHG: ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%\nRVOL: ${row.scored.rvol.toFixed(2)}x  Score: ${row.scored.score}\nSetup: VWAP Reclaim — price closed above open with volume`;
                       await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
-                    }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 3, padding: "2px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>📱</button></TD>
+                    }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 5, padding: "3px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>📱</button></TD>
                   </tr>
                 );
               })}
             </tbody>
           </table>
           <div style={{ padding: "8px 14px", borderTop: `1px solid ${C.border}`, background: C.surface }}>
-            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, lineHeight: 1.6 }}>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>
               Qualifies: price above open · volume confirming · SPY/QQQ stable<br />
               EMA aligned · candle closed above reclaim level
             </div>
@@ -6829,7 +6829,7 @@ Risk small and follow the stop.`
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr><TH>TICKER</TH><TH right>PRICE</TH><TH right>vs 50D</TH><TH right>RVOL</TH><TH right>SCORE</TH><TH>SEND</TH></tr></thead>
             <tbody>
-              {emaPullbacks.length === 0 && <tr><td colSpan={6} style={{ padding: 12, fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>No EMA pullbacks detected.</td></tr>}
+              {emaPullbacks.length === 0 && <tr><td colSpan={6} style={{ padding: 12, fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>No EMA pullbacks detected.</td></tr>}
               {emaPullbacks.slice(0, 8).map(row => {
                 const avg50 = Number(row.q.priceAvg50 || 0);
                 const price = Number(row.q.price || 0);
@@ -6838,7 +6838,7 @@ Risk small and follow the stop.`
                   <tr key={row.q.symbol}
                       onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                    <TD><button onClick={() => onSelectSymbol(row.q.symbol)} style={{ background: "none", border: "none", fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, cursor: "pointer", padding: 0 }}>{row.q.symbol}</button></TD>
+                    <TD><button onClick={() => onSelectSymbol(row.q.symbol)} style={{ background: "none", border: "none", fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, cursor: "pointer", padding: 0 }}>{row.q.symbol}</button></TD>
                     <TD right>${price.toFixed(2)}</TD>
                     <TD right color={distTo50 != null ? (distTo50 >= 0 ? C.green : C.red) : C.textDim}>
                       {distTo50 != null ? `${distTo50 >= 0 ? "+" : ""}${distTo50.toFixed(1)}%` : "—"}
@@ -6849,14 +6849,14 @@ Risk small and follow the stop.`
                       const d50str = distTo50 != null ? `${distTo50 >= 0 ? "+" : ""}${distTo50.toFixed(1)}% vs 50D` : "";
                       const msg = `🔄 21 EMA PULLBACK — ${row.q.symbol}\nPrice: $${price.toFixed(2)}  ${d50str}\nRVOL: ${row.scored.rvol.toFixed(2)}x  Score: ${row.scored.score}\nSetup: Pulling back to 21 EMA / 50D support — watch for green bounce`;
                       await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
-                    }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 3, padding: "2px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>📱</button></TD>
+                    }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 5, padding: "3px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>📱</button></TD>
                   </tr>
                 );
               })}
             </tbody>
           </table>
           <div style={{ padding: "8px 14px", borderTop: `1px solid ${C.border}`, background: C.surface }}>
-            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, lineHeight: 1.6 }}>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>
               Qualifies: price above 200 EMA · EMA 9 &gt; 21 &gt; 50 · pulling near 50D<br />
               low selling volume · green bounce from support
             </div>
@@ -6875,7 +6875,7 @@ Risk small and follow the stop.`
               ).join("\n");
               const msg = `🚀 PRE-BREAKOUT WATCHLIST (${preBreakout.length})\nStocks within 5% of 52W high with compression building:\n\n${lines}`;
               await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
-            }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 4, padding: "4px 12px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 800 }}>📱 PUSH LIST</button>
+            }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 6, padding: "4px 12px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 800 }}>📱 PUSH LIST</button>
           )}
         </div>
         <div style={{ overflowX: "auto" }}>
@@ -6889,7 +6889,7 @@ Risk small and follow the stop.`
             </thead>
             <tbody>
               {preBreakout.length === 0 && (
-                <tr><td colSpan={10} style={{ padding: 16, fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>No pre-breakout candidates in watchlist.</td></tr>
+                <tr><td colSpan={10} style={{ padding: 16, fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>No pre-breakout candidates in watchlist.</td></tr>
               )}
               {preBreakout.slice(0, 10).map(row => {
                 const { q, scored, setup, atr, yHigh, rr } = row;
@@ -6914,11 +6914,11 @@ Risk small and follow the stop.`
                     <TD right color={atr <= 1.5 ? C.green : atr <= 3 ? C.amber : C.textDim}>{atr.toFixed(2)}%</TD>
                     <TD right color={relStr >= 0 ? C.green : C.red}>{relStr >= 0 ? "+" : ""}{relStr.toFixed(2)}%</TD>
                     <TD right><ScoreBadge score={scored.score} /></TD>
-                    <TD mono={false}><span style={{ fontSize: 10, color: scored.distToHigh <= 1.5 ? C.green : scored.distToHigh <= 3 ? C.amber : C.textDim }}>{plan}</span></TD>
+                    <TD mono={false}><span style={{ fontSize: 12, color: scored.distToHigh <= 1.5 ? C.green : scored.distToHigh <= 3 ? C.amber : C.textDim }}>{plan}</span></TD>
                     <TD><button onClick={async () => {
                       const msg = `🚀 PRE-BREAKOUT — ${q.symbol}\nPrice: $${price.toFixed(2)}  Score: ${scored.score}\nBreakout level: ${yHigh > 0 ? "$" + yHigh.toFixed(2) : "—"}  Dist: ${scored.distToHigh.toFixed(1)}%\nRVOL: ${scored.rvol.toFixed(2)}x  Rel Str: ${relStr >= 0 ? "+" : ""}${relStr.toFixed(2)}%\nPlan: ${plan}`;
                       await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
-                    }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 3, padding: "2px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>📱</button></TD>
+                    }} style={{ border: "1px solid #2563eb55", background: "#2563eb12", color: "#2563eb", borderRadius: 5, padding: "3px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>📱</button></TD>
                   </tr>
                 );
               })}
@@ -6931,7 +6931,7 @@ Risk small and follow the stop.`
       <div style={{ background: C.card, border: `1px solid ${C.red}33`, borderRadius: 8, overflow: "hidden" }}>
         <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <SectionHeader title="AVOID / TRAP ZONE" count={trapZones.length} color={C.red} badge="do not chase these" />
-          <span style={{ fontFamily: MONO, fontSize: 9, color: C.red }}>⚠ Extended · weak · below VWAP · score &lt; 50</span>
+          <span style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>⚠ Extended · weak · below VWAP · score &lt; 50</span>
         </div>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -6940,7 +6940,7 @@ Risk small and follow the stop.`
             </thead>
             <tbody>
               {trapZones.length === 0 && (
-                <tr><td colSpan={5} style={{ padding: 14, fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>No trap zones — market looks clean.</td></tr>
+                <tr><td colSpan={5} style={{ padding: 14, fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>No trap zones — market looks clean.</td></tr>
               )}
               {trapZones.slice(0, 8).map(row => {
                 const chg = Number(row.q.changesPercentage || 0);
@@ -6948,14 +6948,14 @@ Risk small and follow the stop.`
                   <tr key={row.q.symbol}
                       onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                    <TD mono><span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.textSec }}>{row.q.symbol}</span></TD>
+                    <TD mono><span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textSec }}>{row.q.symbol}</span></TD>
                     <TD right>${Number(row.q.price || 0).toFixed(2)}</TD>
                     <TD right color={chg >= 0 ? C.textSec : C.red}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</TD>
-                    <TD right><span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.red }}>{row.scored.score}</span></TD>
+                    <TD right><span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.red }}>{row.scored.score}</span></TD>
                     <TD mono={false}>
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                         {row.scored.flags.map((f, i) => (
-                          <span key={i} style={{ fontFamily: MONO, fontSize: 8, color: C.red, background: `${C.red}14`, padding: "1px 5px", borderRadius: 3 }}>{f}</span>
+                          <span key={i} style={{ fontFamily: MONO, fontSize: 12, color: C.red, background: `${C.red}14`, padding: "2px 6px", borderRadius: 5 }}>{f}</span>
                         ))}
                       </div>
                     </TD>
@@ -6969,7 +6969,7 @@ Risk small and follow the stop.`
 
       {/* ── Scoring Legend ── */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px" }}>
-        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.07em", marginBottom: 10 }}>EARLY ENTRY SCORING MODEL</div>
+        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.07em", marginBottom: 10 }}>EARLY ENTRY SCORING MODEL</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 12 }}>
           {[
             { label: "A+ Early Entry", range: "85–100", color: "#00c97a" },
@@ -6978,8 +6978,8 @@ Risk small and follow the stop.`
             { label: "Ignore / Avoid", range: "0–64",   color: "#ff4d63" },
           ].map(({ label, range, color }) => (
             <div key={label} style={{ border: `1px solid ${color}44`, borderRadius: 6, padding: "8px 12px", background: `${color}0a` }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color, fontWeight: 800 }}>{label}</div>
-              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>Score {range}</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color, fontWeight: 800 }}>{label}</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>Score {range}</div>
             </div>
           ))}
         </div>
@@ -6994,13 +6994,13 @@ Risk small and follow the stop.`
             ["OBV Accumulation", "10 pts"],
             ["Catalyst Awareness", "5 pts"],
           ].map(([k, v]) => (
-            <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "4px 8px", background: C.surface, borderRadius: 4, border: `1px solid ${C.border}` }}>
-              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textSec }}>{k}</span>
-              <span style={{ fontFamily: MONO, fontSize: 9, color: C.accent, fontWeight: 700 }}>{v}</span>
+            <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "4px 8px", background: C.surface, borderRadius: 6, border: `1px solid ${C.border}` }}>
+              <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>{k}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700 }}>{v}</span>
             </div>
           ))}
         </div>
-        <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+        <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 12, color: C.textDim }}>
           Data source: watchlist live quotes · VWAP proxy = price vs open · EMA proxy = 50D/200D SMA · Plug in TradingView/Polygon webhooks to upgrade to real VWAP + EMA values
         </div>
       </div>
@@ -10631,7 +10631,7 @@ export default function App() {
 
   const SortH = ({ col, children, align = "left" }) => (
     <th onClick={() => handleSort(col)} style={{
-      padding: "10px 8px", fontSize: 11, fontFamily: MONO, letterSpacing: "0.04em",
+      padding: "10px 8px", fontSize: 12, fontFamily: MONO, letterSpacing: "0.04em",
       color: sortCol === col ? C.accent : C.textDim, textAlign: align, cursor: "pointer",
       borderBottom: `1px solid ${C.border}`, userSelect: "none", whiteSpace: "nowrap",
     }}>
@@ -10710,7 +10710,7 @@ export default function App() {
             {!isMobile && (
               <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
                 <span style={{ fontFamily: MONO, fontWeight: 900, fontSize: 16, color: C.text, letterSpacing: "-0.01em" }}>AM TRADING</span>
-                <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.1em" }}>PLATFORM</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.1em" }}>PLATFORM</span>
               </div>
             )}
           </div>
@@ -10740,15 +10740,15 @@ export default function App() {
               { id: "terminal",  label: "📈 CHARTS",
                 tabs: ["terminal", "tv", "multitf", "fibonacci", "openstock"] },
               { id: "scanner",   label: "🔍 SCANNER",
-                tabs: ["scanner", "smartscan", "gap", "early", "screener", "flow", "autoexec", "fivex", "advisor"] },
+                tabs: ["scanner", "smartscan", "gap", "early", "screener", "flow", "autoexec", "fivex", "advisor", "short-changes", "dp-heatmap", "darkpool"] },
               { id: "markets",   label: "🌍 MARKETS",
                 tabs: ["news", "macro", "earnings", "calendar", "sectors", "feargreed", "breadth", "crypto", "rotation", "seasonality"] },
               { id: "research",  label: "🔬 RESEARCH",
                 tabs: ["cot", "shortint", "smartmoney", "social", "analyst", "ipo", "options", "sec-filings", "analyzer", "darkpool", "short-changes", "dp-heatmap"] },
               { id: "portfolio", label: "💼 PORTFOLIO",
-                tabs: ["portfolio", "performance", "journal", "alerts", "risklab", "dca", "heatmap", "correlation", "options-calc"] },
+                tabs: ["portfolio", "performance", "journal", "alerts", "risklab", "dca", "heatmap", "correlation", "options-calc", "options", "analyst", "ipo"] },
               { id: "tools",     label: "🛠 TOOLS",
-                tabs: ["workflow", "agent", "ailab", "backtest", "deals", "telegram", "tools"] },
+                tabs: ["workflow", "agent", "ailab", "backtest", "sec-filings", "analyzer", "cot", "shortint", "smartmoney", "social", "telegram", "deals", "tools"] },
               // ── Personal ──────────────────────────────────────────────────
               { id: "islamic",   label: "☪️",
                 tabs: ["quran", "athan", "athkar", "tasbih", "halal", "soccer"] },
@@ -10771,8 +10771,8 @@ export default function App() {
                           ? (themeMode === "dark" ? `${C.accent}22` : `${C.accent}14`)
                           : "transparent",
                         color: isActive ? C.accent : C.textSec,
-                        fontFamily: MONO, fontSize: 10, fontWeight: isActive ? 800 : 600,
-                        padding: isMobile ? "10px 11px" : "6px 9px", borderRadius: 4, cursor: "pointer",
+                        fontFamily: MONO, fontSize: 12, fontWeight: isActive ? 800 : 600,
+                        padding: isMobile ? "10px 11px" : "6px 9px", borderRadius: 6, cursor: "pointer",
                         borderBottom: isActive ? `2px solid ${C.accent}` : "2px solid transparent",
                         letterSpacing: "0.04em", whiteSpace: "nowrap",
                         transition: "color 0.15s, background 0.15s",
@@ -10782,10 +10782,10 @@ export default function App() {
                     >
                       {g.label}
                       {hasAlertBadge && (
-                        <span style={{ background: C.red, color: "#fff", borderRadius: 10, padding: "1px 5px", fontSize: 8, fontWeight: 800 }}>{triggeredAlertBadge}</span>
+                        <span style={{ background: C.red, color: "#fff", borderRadius: 10, padding: "2px 6px", fontSize: 12, fontWeight: 800 }}>{triggeredAlertBadge}</span>
                       )}
                       {hasScanBadge && (
-                        <span style={{ background: C.green, color: "#fff", borderRadius: 10, padding: "1px 5px", fontSize: 8, fontWeight: 800 }}>{scannerBadge}</span>
+                        <span style={{ background: C.green, color: "#fff", borderRadius: 10, padding: "2px 6px", fontSize: 12, fontWeight: 800 }}>{scannerBadge}</span>
                       )}
                     </button>
                   );
@@ -10819,12 +10819,12 @@ export default function App() {
               onChange={(e) => setSymbolSearch(e.target.value.toUpperCase())}
               onKeyDown={(e) => { if (e.key === "Enter") handleSymbolSearch(); }}
               placeholder="Search ticker…"
-              style={{ width: 120, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 10, outline: "none", height: 24 }}
+              style={{ width: 120, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "3px 8px", fontFamily: MONO, fontSize: 12, outline: "none", height: 24 }}
             />
-            <button onClick={handleSymbolSearch} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10, cursor: "pointer", height: 24 }}>SEARCH</button>
-            <button onClick={() => openTradingView(symbolSearch || terminalSymbol)} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.accent, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10, cursor: "pointer", height: 24 }}>TV</button>
+            <button onClick={handleSymbolSearch} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer", height: 24 }}>SEARCH</button>
+            <button onClick={() => openTradingView(symbolSearch || terminalSymbol)} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.accent, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer", height: 24 }}>TV</button>
             <span style={{ width: 1, height: 14, background: C.border, flexShrink: 0 }} />
-            <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>{loading ? "⟳" : "REFRESH"}</button>
+            <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>{loading ? "⟳" : "REFRESH"}</button>
             <button
               title="Save watchlists, portfolio & settings to server"
               onClick={async () => {
@@ -10836,7 +10836,7 @@ export default function App() {
                   else alert("Save failed: " + d.error);
                 } catch (e) { alert("Save failed: " + e.message); }
               }}
-              style={{ background: `${C.green}14`, border: `1px solid ${C.green}55`, color: C.green, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}
+              style={{ background: `${C.green}14`, border: `1px solid ${C.green}55`, color: C.green, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}
             >☁ SAVE</button>
             <button
               title="Load watchlists, portfolio & settings from server"
@@ -10855,43 +10855,43 @@ export default function App() {
                   alert("☁ Loaded from cloud!");
                 } catch (e) { alert("Load failed: " + e.message); }
               }}
-              style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}
+              style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}
             >☁ LOAD</button>
-            <a href="/dealer" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>DEALER</a>
-            <a href="/workstation" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>WS</a>
-            <button onClick={generateMarketReport} style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>MARKET RESET</button>
-            <button onClick={handleLock} style={{ background: `${C.red}10`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>LOCK</button>
-            <button onClick={() => setPaletteOpen(true)} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>CMD</button>
-            <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", height: 24 }}>
+            <a href="/dealer" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>DEALER</a>
+            <a href="/workstation" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>WS</a>
+            <button onClick={generateMarketReport} style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>MARKET RESET</button>
+            <button onClick={handleLock} style={{ background: `${C.red}10`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>LOCK</button>
+            <button onClick={() => setPaletteOpen(true)} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>CMD</button>
+            <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>
               {themeMode === "dark" ? "☀" : "●"}
             </button>
 
             {/* ── Brightness dimmer ── */}
-            <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 6px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 4, height: 24 }}
+            <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 6px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, height: 24 }}
               title={`Brightness ${brightness}% — drag to dim`}>
-              <span style={{ fontSize: 11 }}>{brightness <= 60 ? "🌑" : brightness <= 80 ? "🌗" : "☀️"}</span>
+              <span style={{ fontSize: 12 }}>{brightness <= 60 ? "🌑" : brightness <= 80 ? "🌗" : "☀️"}</span>
               <input
                 type="range" min={30} max={100} step={5}
                 value={brightness}
                 onChange={e => setSettings(s => ({ ...s, brightness: Number(e.target.value) }))}
                 style={{ width: 60, height: 4, accentColor: C.accent, cursor: "pointer" }}
               />
-              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, minWidth: 26 }}>{brightness}%</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, minWidth: 26 }}>{brightness}%</span>
             </div>
 
             {/* ── Status chips (inline after ● button) ── */}
             <span style={{ width: 1, height: 14, background: C.border, flexShrink: 0, marginLeft: 2 }} />
 
             {/* Live dot + timestamp */}
-            <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: C.card, borderRadius: 4, border: `1px solid ${C.border}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: C.card, borderRadius: 6, border: `1px solid ${C.border}` }}>
               <div style={{ width: 6, height: 6, borderRadius: "50%", background: dataBadge === "LIVE" ? C.green : dataBadge === "STALE" ? C.amber : C.red, boxShadow: `0 0 5px ${dataBadge === "LIVE" ? C.green : C.amber}`, animation: "pulse 2s infinite", flexShrink: 0 }} />
-              <span style={{ fontSize: 9, fontFamily: MONO, color: C.textDim, whiteSpace: "nowrap" }}>
+              <span style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, whiteSpace: "nowrap" }}>
                 {lastUpdate ? `Updated ${lastUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "CONNECTING…"}
               </span>
             </div>
 
             {/* Weather */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${C.border}`, background: C.card, borderRadius: 5, padding: "4px 10px", fontSize: 10, fontFamily: MONO, color: C.textSec, whiteSpace: "nowrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${C.border}`, background: C.card, borderRadius: 5, padding: "4px 10px", fontSize: 12, fontFamily: MONO, color: C.textSec, whiteSpace: "nowrap" }}>
               <span style={{ color: C.accent, fontWeight: 700 }}>WEATHER {WEATHER_ZIP}</span>
               {weatherData ? (
                 <>
@@ -10905,17 +10905,17 @@ export default function App() {
             {(() => {
               const cdColor = sessionCountdown.session === "REGULAR" ? C.green : sessionCountdown.session === "PREMARKET" ? C.accent : sessionCountdown.session === "AFTERMARKET" ? C.amber : C.textDim;
               return (
-                <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", background: `${cdColor}0e`, borderRadius: 4, border: `1px solid ${cdColor}2a` }}>
-                  <span style={{ fontSize: 9, fontFamily: MONO, color: C.textDim }}>{sessionCountdown.label}</span>
-                  <span style={{ fontSize: 10, fontFamily: MONO, color: cdColor, fontWeight: 800 }}>{fmtCountdownShort(sessionCountdown.secs)}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", background: `${cdColor}0e`, borderRadius: 6, border: `1px solid ${cdColor}2a` }}>
+                  <span style={{ fontSize: 12, fontFamily: MONO, color: C.textDim }}>{sessionCountdown.label}</span>
+                  <span style={{ fontSize: 12, fontFamily: MONO, color: cdColor, fontWeight: 800 }}>{fmtCountdownShort(sessionCountdown.secs)}</span>
                 </div>
               );
             })()}
 
             {/* Hijri date */}
             {athanHijri && (
-              <div onClick={() => setActiveTab("athan")} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: "#c9a84c0e", borderRadius: 4, border: "1px solid #c9a84c2a", cursor: "pointer", direction: "rtl" }}>
-                <span style={{ fontSize: 10, fontFamily: "Arial, sans-serif", color: "#c9a84c", fontWeight: 700 }}>
+              <div onClick={() => setActiveTab("athan")} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: "#c9a84c0e", borderRadius: 6, border: "1px solid #c9a84c2a", cursor: "pointer", direction: "rtl" }}>
+                <span style={{ fontSize: 12, fontFamily: "Arial, sans-serif", color: "#c9a84c", fontWeight: 700 }}>
                   {athanHijri.day} {athanHijri.month?.ar} {athanHijri.year} هـ
                 </span>
               </div>
@@ -10923,9 +10923,9 @@ export default function App() {
 
             {/* Portfolio P/L */}
             {portfolioSummary.totalCost > 0 && portfolioSummary.totalValue > 0 && (
-              <div onClick={() => setActiveTab("portfolio")} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 4, border: `1px solid ${portfolioSummary.totalPnl >= 0 ? C.green : C.red}44`, background: portfolioSummary.totalPnl >= 0 ? `${C.green}0e` : `${C.red}0e`, cursor: "pointer" }}>
-                <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>PORT</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red }}>
+              <div onClick={() => setActiveTab("portfolio")} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 6, border: `1px solid ${portfolioSummary.totalPnl >= 0 ? C.green : C.red}44`, background: portfolioSummary.totalPnl >= 0 ? `${C.green}0e` : `${C.red}0e`, cursor: "pointer" }}>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>PORT</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red }}>
                   {portfolioSummary.totalPnl >= 0 ? "+" : ""}{portfolioSummary.totalPnlPct.toFixed(2)}%
                 </span>
               </div>
@@ -10939,16 +10939,16 @@ export default function App() {
               const todayPnl = todayClosed.reduce((s, e) => s + e.pnl, 0);
               const color = todayPnl >= 0 ? C.green : C.red;
               return (
-                <div onClick={() => setActiveTab("journal")} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 4, border: `1px solid ${color}44`, background: `${color}0e`, cursor: "pointer" }}>
-                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>TODAY</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color }}>{todayPnl >= 0 ? "+" : ""}${Math.round(todayPnl)}</span>
+                <div onClick={() => setActiveTab("journal")} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 6, border: `1px solid ${color}44`, background: `${color}0e`, cursor: "pointer" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>TODAY</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color }}>{todayPnl >= 0 ? "+" : ""}${Math.round(todayPnl)}</span>
                 </div>
               );
             })()}
 
             {/* Quran playing */}
             {quranPlaying && (
-              <button onClick={() => { if (quranAudioRef.current) quranAudioRef.current.pause(); }} style={{ background: `#c9a84c18`, border: `1px solid #c9a84c55`, color: "#c9a84c", fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "5px 9px", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+              <button onClick={() => { if (quranAudioRef.current) quranAudioRef.current.pause(); }} style={{ background: `#c9a84c18`, border: `1px solid #c9a84c55`, color: "#c9a84c", fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "5px 9px", borderRadius: 6, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
                 <span>▐▌</span>
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 90 }}>
                   {SURAH_LIST.find(s => s[0] === quranSurah)?.[1] || `سورة ${quranSurah}`}
@@ -11022,7 +11022,7 @@ export default function App() {
           {/* Status info row */}
           <div style={{ padding: "0 12px 10px", display: "flex", gap: 8, flexWrap: "wrap" }}>
             {weatherData && (
-              <div style={{ display: "flex", alignItems: "center", gap: 5, border: `1px solid ${C.border}`, background: C.card, borderRadius: 6, padding: "7px 12px", fontSize: 11, fontFamily: MONO, color: C.textSec }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, border: `1px solid ${C.border}`, background: C.card, borderRadius: 6, padding: "7px 12px", fontSize: 12, fontFamily: MONO, color: C.textSec }}>
                 <span>☁</span>
                 <span style={{ fontWeight: 800 }}>{weatherData.temp.toFixed(0)}°F</span>
                 <span style={{ color: C.textDim }}>{weatherCodeLabel(weatherData.code)}</span>
@@ -11032,14 +11032,14 @@ export default function App() {
               const cdColor = sessionCountdown.session === "REGULAR" ? C.green : sessionCountdown.session === "PREMARKET" ? C.accent : sessionCountdown.session === "AFTERMARKET" ? C.amber : C.textDim;
               return (
                 <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: `${cdColor}0e`, borderRadius: 6, border: `1px solid ${cdColor}2a` }}>
-                  <span style={{ fontSize: 10, fontFamily: MONO, color: C.textDim }}>{sessionCountdown.label}</span>
+                  <span style={{ fontSize: 12, fontFamily: MONO, color: C.textDim }}>{sessionCountdown.label}</span>
                   <span style={{ fontSize: 12, fontFamily: MONO, color: cdColor, fontWeight: 800 }}>{fmtCountdownShort(sessionCountdown.secs)}</span>
                 </div>
               );
             })()}
             <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", background: C.card, borderRadius: 6, border: `1px solid ${C.border}` }}>
               <div style={{ width: 6, height: 6, borderRadius: "50%", background: dataBadge === "LIVE" ? C.green : C.amber, boxShadow: `0 0 4px ${C.green}` }} />
-              <span style={{ fontSize: 10, fontFamily: MONO, color: C.textDim }}>{lastUpdate ? lastUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}</span>
+              <span style={{ fontSize: 12, fontFamily: MONO, color: C.textDim }}>{lastUpdate ? lastUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}</span>
             </div>
           </div>
         </div>
@@ -11056,11 +11056,11 @@ export default function App() {
             const toneBg    = item.tone === "red" ? C.redBg : item.tone === "green" ? C.greenBg : item.tone === "amber" ? C.amberBg : `${C.accent}12`;
             return (
               <span key={`ticker-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 8, paddingRight: 8 }}>
-                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: toneColor, background: toneBg, border: `1px solid ${toneColor}44`, borderRadius: 3, padding: "2px 6px" }}>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: toneColor, background: toneBg, border: `1px solid ${toneColor}44`, borderRadius: 5, padding: "3px 7px" }}>
                   {item.kind}
                 </span>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: "#e8e8e8" }}>{item.symbol}</span>
-                <span style={{ fontFamily: SANS, fontSize: 11, color: "#c8cfd8", maxWidth: 460, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block", verticalAlign: "bottom" }}>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: "#e8e8e8" }}>{item.symbol}</span>
+                <span style={{ fontFamily: SANS, fontSize: 12, color: "#c8cfd8", maxWidth: 460, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block", verticalAlign: "bottom" }}>
                   {item.text}
                 </span>
               </span>
@@ -11165,9 +11165,9 @@ export default function App() {
                 {tvChartMode === "widget" ? (
                   <button
                     onClick={() => { setTvChartMode("my_chart"); localStorage.setItem("tv_chart_mode","my_chart"); }}
-                    style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                    style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                       border: `1px solid ${C.accent}`, background: `${C.accent}18`,
-                      color: C.accent, borderRadius: 4,
+                      color: C.accent, borderRadius: 6,
                       padding: isMobile ? "8px 12px" : "3px 10px",
                       minHeight: isMobile ? 36 : "auto",
                       cursor: "pointer", whiteSpace: "nowrap" }}>
@@ -11176,9 +11176,9 @@ export default function App() {
                 ) : (
                   <button
                     onClick={() => { setTvChartMode("widget"); localStorage.setItem("tv_chart_mode","widget"); }}
-                    style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                    style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                       border: `1px solid ${C.border}`, background: C.surface,
-                      color: C.textSec, borderRadius: 4,
+                      color: C.textSec, borderRadius: 6,
                       padding: isMobile ? "8px 12px" : "3px 10px",
                       minHeight: isMobile ? 36 : "auto",
                       cursor: "pointer", whiteSpace: "nowrap" }}>
@@ -11209,7 +11209,7 @@ export default function App() {
                 >
                   {t.label}
                   {t.id === "alerts" && triggeredAlertBadge > 0 && (
-                    <span style={{ background: C.red, color: "#fff", borderRadius: 10, padding: "1px 4px", fontSize: 7, fontWeight: 800 }}>{triggeredAlertBadge}</span>
+                    <span style={{ background: C.red, color: "#fff", borderRadius: 10, padding: "2px 5px", fontSize: 7, fontWeight: 800 }}>{triggeredAlertBadge}</span>
                   )}
                 </button>
               );
@@ -11219,7 +11219,7 @@ export default function App() {
       })()}
 
       {error && (
-        <div style={{ padding: "8px 18px", fontSize: 11, fontFamily: MONO, color: C.red, background: C.redBg }}>
+        <div style={{ padding: "8px 18px", fontSize: 12, fontFamily: MONO, color: C.red, background: C.redBg }}>
           {error}
         </div>
       )}
@@ -11244,8 +11244,8 @@ export default function App() {
               background: bannerBg, border: `1px solid ${bannerColor}44`, borderRadius: 8, borderLeft: `3px solid ${bannerColor}` }}>
               <span style={{ fontSize: 14 }}>{icon}</span>
               <div>
-                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: bannerColor, letterSpacing: "0.06em" }}>REGIME: {regime.toUpperCase()}</span>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textSec, marginLeft: 12 }}>{strategy}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: bannerColor, letterSpacing: "0.06em" }}>REGIME: {regime.toUpperCase()}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, marginLeft: 12 }}>{strategy}</span>
               </div>
             </div>
           );
@@ -11254,7 +11254,7 @@ export default function App() {
         {loading && !watchlistData.length && (
           <div style={{ textAlign: "center", padding: 60, fontFamily: MONO, color: C.textDim }}>
             <div style={{ fontSize: 14, marginBottom: 8 }}>Fetching live market data…</div>
-            <div style={{ fontSize: 10 }}>Connecting to multi-provider quote engine</div>
+            <div style={{ fontSize: 12 }}>Connecting to multi-provider quote engine</div>
           </div>
         )}
 
@@ -11264,15 +11264,15 @@ export default function App() {
             {/* Toolbar */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px",
               background: C.surface, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>📊 MY TRADINGVIEW CHART</span>
-              <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>Your saved layout with all your indicators and data</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent }}>📊 MY TRADINGVIEW CHART</span>
+              <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Your saved layout with all your indicators and data</span>
               <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
                 <button onClick={() => { setTvChartMode("widget"); localStorage.setItem("tv_chart_mode","widget"); }}
-                  style={{ fontFamily: MONO, fontSize: 10, border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 4, padding: "3px 10px", cursor: "pointer" }}>
+                  style={{ fontFamily: MONO, fontSize: 12, border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}>
                   ← BACK TO BUILT-IN
                 </button>
                 <a href={myTvChartUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ fontFamily: MONO, fontSize: 10, border: `1px solid ${C.accent}44`, background: `${C.accent}12`, color: C.accent, borderRadius: 4, padding: "3px 10px", textDecoration: "none" }}>
+                  style={{ fontFamily: MONO, fontSize: 12, border: `1px solid ${C.accent}44`, background: `${C.accent}12`, color: C.accent, borderRadius: 6, padding: "3px 10px", textDecoration: "none" }}>
                   OPEN IN TRADINGVIEW ↗
                 </a>
               </div>
@@ -11314,7 +11314,7 @@ export default function App() {
               <input
                 placeholder="https://www.tradingview.com/chart/XXXXXX/"
                 style={{ flex: 1, border: `1px solid ${C.border}`, background: C.surface, color: C.text,
-                  borderRadius: 6, padding: "10px 14px", fontFamily: MONO, fontSize: 11, outline: "none" }}
+                  borderRadius: 6, padding: "10px 14px", fontFamily: MONO, fontSize: 12, outline: "none" }}
                 id="tv-chart-url-input"
               />
               <button
@@ -11327,13 +11327,13 @@ export default function App() {
                     alert("Please enter a valid TradingView chart URL");
                   }
                 }}
-                style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: C.accent,
+                style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: C.accent,
                   border: "none", color: "#fff", borderRadius: 6, padding: "10px 20px", cursor: "pointer" }}>
                 CONNECT
               </button>
             </div>
             <button onClick={() => { setTvChartMode("widget"); localStorage.setItem("tv_chart_mode","widget"); }}
-              style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, background: "none", border: "none",
+              style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, background: "none", border: "none",
                 cursor: "pointer", marginTop: 12, textDecoration: "underline" }}>
               Use built-in chart instead
             </button>
@@ -11410,14 +11410,14 @@ export default function App() {
             <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 10, padding: "8px 16px",
               background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
               overflowX: "auto", scrollbarWidth: "none" }}>
-              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginRight: 14, flexShrink: 0, letterSpacing: "0.08em" }}>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, marginRight: 14, flexShrink: 0, letterSpacing: "0.08em" }}>
                 MARKET
               </span>
               {pulse.map((p, i) => (
                 <div key={p.sym} style={{ display: "flex", alignItems: "center" }}>
                   {i > 0 && <span style={{ width: 1, height: 16, background: C.border, margin: "0 12px", flexShrink: 0 }} />}
                   <div style={{ textAlign: "center", flexShrink: 0 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent }}>{p.sym}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent }}>{p.sym}</div>
                     <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: p.chg >= 0 ? C.green : C.red }}>
                       {p.chg >= 0 ? "+" : ""}{p.chg.toFixed(2)}%
                     </div>
@@ -11428,14 +11428,14 @@ export default function App() {
               <div style={{ display: "flex", gap: 16, alignItems: "center", flexShrink: 0 }}>
                 {distData && (
                   <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim }}>REGIME</div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: radarColor }}>{radarIcon} {radarAlert}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>REGIME</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: radarColor }}>{radarIcon} {radarAlert}</div>
                   </div>
                 )}
                 {(distData?.vix || 0) > 0 && (
                   <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim }}>VIX</div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800,
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>VIX</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800,
                       color: distData.vix > 25 ? C.red : distData.vix > 18 ? C.amber : C.green }}>
                       {distData.vix.toFixed(1)}
                     </div>
@@ -11443,8 +11443,8 @@ export default function App() {
                 )}
                 {fg && (
                   <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim }}>F&G</div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: fgColor }}>{fgScore} · {fgLabel}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>F&G</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: fgColor }}>{fgScore} · {fgLabel}</div>
                   </div>
                 )}
               </div>
@@ -11453,8 +11453,8 @@ export default function App() {
                 fetch("/api/market/trade-signals").then(r=>r.json()).then(d=>{if(d.ok)setSigData(d);}).catch(()=>{}).finally(()=>setSigLoading(false));
                 if (!fearGreedData) fetchFearGreed();
                 fetch("/api/market/distribution?refresh=1").then(r=>r.json()).then(d=>{if(d.ok)setDistData(d);}).catch(()=>{});
-              }} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, border: `1px solid ${C.border}`,
-                background: "transparent", color: C.textDim, borderRadius: 4, padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}>
+              }} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, border: `1px solid ${C.border}`,
+                background: "transparent", color: C.textDim, borderRadius: 6, padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}>
                 ↺ REFRESH ALL
               </button>
             </div>
@@ -11469,21 +11469,21 @@ export default function App() {
                     background: C.surface, borderBottom: `1px solid ${C.border}`, cursor: "pointer" }}>
                   <span style={{ fontSize: 15 }}>{distLoading ? "⏳" : radarIcon}</span>
                   <div style={{ flex: 1 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: radarColor }}>INSTITUTIONAL RADAR</span>
-                    {distData && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 8 }}>{radarScore}/100 · {radarAlert}</span>}
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: radarColor }}>INSTITUTIONAL RADAR</span>
+                    {distData && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: 8 }}>{radarScore}/100 · {radarAlert}</span>}
                   </div>
                   {highW.length > 0 && (
-                    <span style={{ background: C.red, color: "#fff", fontFamily: MONO, fontSize: 9, fontWeight: 900,
+                    <span style={{ background: C.red, color: "#fff", fontFamily: MONO, fontSize: 12, fontWeight: 900,
                       borderRadius: 999, padding: "1px 6px" }}>{highW.length} ALERT{highW.length > 1 ? "S" : ""}</span>
                   )}
                   {distData && (distData.indexSnapshot||[]).map(idx => (
-                    <span key={idx.sym} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "2px 5px",
-                      borderRadius: 3, background: (idx.chg >= 0 ? C.green : C.red) + "18",
+                    <span key={idx.sym} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "2px 5px",
+                      borderRadius: 5, background: (idx.chg >= 0 ? C.green : C.red) + "18",
                       color: idx.chg >= 0 ? C.green : C.red }}>
                       {idx.sym} {idx.chg >= 0 ? "+" : ""}{idx.chg}%
                     </span>
                   ))}
-                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{distExpanded ? "▲" : "▼"}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{distExpanded ? "▲" : "▼"}</span>
                 </div>
                 {distExpanded && distData && (
                   <div style={{ padding: "10px 14px" }}>
@@ -11491,28 +11491,28 @@ export default function App() {
                       {(distData.checkStatus||[]).map((c, i) => {
                         const sc = c.status === "HIGH" ? C.red : c.status === "MED" ? C.amber : C.green;
                         return (
-                          <div key={i} style={{ padding: "5px 7px", borderRadius: 4,
+                          <div key={i} style={{ padding: "5px 7px", borderRadius: 6,
                             background: c.status === "OK" ? C.surface : (c.status === "HIGH" ? C.red + "12" : C.amber + "0d"),
                             border: "1px solid " + sc + "33" }}>
                             <div style={{ display: "flex", justifyContent: "space-between" }}>
-                              <span style={{ fontFamily: SANS, fontSize: 9, color: sc, fontWeight: 700 }}>{c.icon}</span>
-                              <span style={{ fontSize: 9 }}>{c.status === "HIGH" ? "🔴" : c.status === "MED" ? "🟡" : "✅"}</span>
+                              <span style={{ fontFamily: SANS, fontSize: 12, color: sc, fontWeight: 700 }}>{c.icon}</span>
+                              <span style={{ fontSize: 12 }}>{c.status === "HIGH" ? "🔴" : c.status === "MED" ? "🟡" : "✅"}</span>
                             </div>
-                            <div style={{ fontFamily: SANS, fontSize: 9, color: sc, fontWeight: 700, marginTop: 1 }}>{c.label.split(" ")[0]}</div>
-                            <div style={{ fontFamily: SANS, fontSize: 8, color: C.textDim, lineHeight: 1.3 }}>{(c.detail||"").slice(0,40)}{(c.detail||"").length > 40 ? "…" : ""}</div>
+                            <div style={{ fontFamily: SANS, fontSize: 12, color: sc, fontWeight: 700, marginTop: 1 }}>{c.label.split(" ")[0]}</div>
+                            <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, lineHeight: 1.3 }}>{(c.detail||"").slice(0,40)}{(c.detail||"").length > 40 ? "…" : ""}</div>
                           </div>
                         );
                       })}
                     </div>
                     {(distData.topInflows||[]).length > 0 && (
                       <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
-                        <span style={{ fontFamily: SANS, fontSize: 9, color: C.green, fontWeight: 700 }}>⬆ IN:</span>
+                        <span style={{ fontFamily: SANS, fontSize: 12, color: C.green, fontWeight: 700 }}>⬆ IN:</span>
                         {(distData.topInflows||[]).slice(0,3).map(s => (
-                          <span key={s.sym} style={{ fontFamily: MONO, fontSize: 9, color: C.green, background: C.green + "14", borderRadius: 3, padding: "1px 5px" }}>{s.sym} +{s.chg.toFixed(1)}%</span>
+                          <span key={s.sym} style={{ fontFamily: MONO, fontSize: 12, color: C.green, background: C.green + "14", borderRadius: 5, padding: "2px 6px" }}>{s.sym} +{s.chg.toFixed(1)}%</span>
                         ))}
-                        <span style={{ fontFamily: SANS, fontSize: 9, color: C.red, fontWeight: 700, marginLeft: 4 }}>⬇ OUT:</span>
+                        <span style={{ fontFamily: SANS, fontSize: 12, color: C.red, fontWeight: 700, marginLeft: 4 }}>⬇ OUT:</span>
                         {(distData.topOutflows||[]).slice(0,3).map(s => (
-                          <span key={s.sym} style={{ fontFamily: MONO, fontSize: 9, color: C.red, background: C.red + "12", borderRadius: 3, padding: "1px 5px" }}>{s.sym} {s.chg.toFixed(1)}%</span>
+                          <span key={s.sym} style={{ fontFamily: MONO, fontSize: 12, color: C.red, background: C.red + "12", borderRadius: 5, padding: "2px 6px" }}>{s.sym} {s.chg.toFixed(1)}%</span>
                         ))}
                       </div>
                     )}
@@ -11524,15 +11524,15 @@ export default function App() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px",
                   background: C.surface, borderBottom: `1px solid ${C.border}` }}>
                   <span style={{ fontSize: 14 }}>😨</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.text }}>FEAR & GREED</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text }}>FEAR & GREED</span>
                   {fg && !fg.error && (
                     <><span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: fgColor, marginLeft: 4 }}>{fgScore}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: fgColor }}>{fgLabel}</span></>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: fgColor }}>{fgLabel}</span></>
                   )}
                   <button onClick={fetchFearGreed} disabled={fearGreedLoading}
-                    style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, border: `1px solid ${C.border}`,
+                    style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, border: `1px solid ${C.border}`,
                       background: "transparent", color: fearGreedLoading ? C.textDim : C.accent,
-                      borderRadius: 4, padding: "3px 8px", cursor: "pointer" }}>
+                      borderRadius: 6, padding: "3px 8px", cursor: "pointer" }}>
                     {fearGreedLoading ? "⌛" : "↺"}
                   </button>
                 </div>
@@ -11543,15 +11543,15 @@ export default function App() {
                       <div style={{ position: "absolute", top: -4, left: fgScore + "%", transform: "translateX(-50%)",
                         width: 18, height: 18, borderRadius: "50%", background: fgColor, border: "2px solid " + C.bg, boxShadow: "0 0 6px " + fgColor }} />
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 8, color: C.textDim, marginBottom: 8 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 8 }}>
                       <span>FEAR</span><span>NEUTRAL</span><span>GREED</span>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 4 }}>
                       {(fg.components||[]).map((c, ci) => {
                         const cc = c.score <= 25 ? C.red : c.score <= 45 ? C.amber : c.score <= 75 ? "#22c55e" : C.green;
                         return (
-                          <div key={ci} style={{ padding: "5px 6px", borderRadius: 4, background: C.surface, border: `1px solid ${C.border}22` }}>
-                            <div style={{ fontFamily: SANS, fontSize: 8, color: C.textDim }}>{c.name}</div>
+                          <div key={ci} style={{ padding: "5px 6px", borderRadius: 6, background: C.surface, border: `1px solid ${C.border}22` }}>
+                            <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{c.name}</div>
                             <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: cc }}>{c.score}</div>
                             <div style={{ height: 2, borderRadius: 1, background: C.border, marginTop: 2 }}>
                               <div style={{ width: c.score + "%", height: "100%", background: cc, borderRadius: 1 }} />
@@ -11562,7 +11562,7 @@ export default function App() {
                     </div>
                   </div>
                 ) : !fearGreedLoading ? (
-                  <div style={{ padding: "14px", fontFamily: SANS, fontSize: 11, color: C.textDim, textAlign: "center" }}>Click ↺ to load</div>
+                  <div style={{ padding: "14px", fontFamily: SANS, fontSize: 12, color: C.textDim, textAlign: "center" }}>Click ↺ to load</div>
                 ) : null}
               </div>
             </div>
@@ -11572,26 +11572,26 @@ export default function App() {
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px",
                 background: C.surface, borderBottom: `1px solid ${C.border}` }}>
                 <span style={{ fontSize: 14 }}>{sigLoading ? "⏳" : "⚡"}</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.text }}>LIVE SIGNALS</span>
-                <span style={{ fontFamily: SANS, fontSize: 9, color: C.green, background: C.green + "18",
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text }}>LIVE SIGNALS</span>
+                <span style={{ fontFamily: SANS, fontSize: 12, color: C.green, background: C.green + "18",
                   border: `1px solid ${C.green}33`, borderRadius: 10, padding: "1px 6px" }}>AUTO ↺ 1MIN</span>
                 <div style={{ display: "flex", gap: 3 }}>
                   {["ALL","LONG","SHORT","OPTIONS"].map(f => (
                     <button key={f} onClick={() => setSigFilter(f)}
-                      style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, border: "none",
+                      style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, border: "none",
                         background: sigFilter === f ? C.accent : C.surface,
                         color: sigFilter === f ? "#fff" : C.textDim,
-                        borderRadius: 3, padding: "2px 7px", cursor: "pointer" }}>{f}</button>
+                        borderRadius: 5, padding: "3px 8px", cursor: "pointer" }}>{f}</button>
                   ))}
                 </div>
-                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                   {sigData ? `${sigData.mktEnv} · VIX ${sigData.vix} · ${new Date(sigData.scannedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}` : "Scanning…"}
                 </span>
               </div>
               {sigLoading && !sigData ? (
-                <div style={{ padding: "14px", fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>⌛ Scanning 50 symbols…</div>
+                <div style={{ padding: "14px", fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>⌛ Scanning 50 symbols…</div>
               ) : !filtered2.length ? (
-                <div style={{ padding: "12px", fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>
+                <div style={{ padding: "12px", fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>
                   No {sigFilter !== "ALL" ? sigFilter + " " : ""}signals
                   {sigFilter !== "ALL" && <span style={{ color: C.accent, cursor: "pointer", marginLeft: 6 }} onClick={() => setSigFilter("ALL")}>Show ALL</span>}
                 </div>
@@ -11600,7 +11600,7 @@ export default function App() {
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead><tr style={{ background: C.surface }}>
                       {["TICKER","ACTION","SCORE","ENTRY","STOP","T1","R:R","OPTIONS","RVOL"].map(h => (
-                        <th key={h} style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, fontWeight: 700,
+                        <th key={h} style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, fontWeight: 700,
                           padding: "6px 10px", textAlign: "left", borderBottom: `1px solid ${C.border}`,
                           whiteSpace: "nowrap", letterSpacing: "0.05em" }}>{h}</th>
                       ))}</tr></thead>
@@ -11615,8 +11615,8 @@ export default function App() {
                             onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : C.surface}>
                             <td style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent, padding: "8px 10px" }}>{s.sym}</td>
                             <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
-                              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: ac2,
-                                background: ac2 + "18", borderRadius: 3, padding: "2px 6px" }}>
+                              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: ac2,
+                                background: ac2 + "18", borderRadius: 5, padding: "3px 7px" }}>
                                 {s.action === "LONG" ? "▲ LONG" : s.action === "SHORT / AVOID" ? "▼ SHORT" : "👁 WATCH"}
                               </span>
                             </td>
@@ -11626,10 +11626,10 @@ export default function App() {
                             <td style={{ fontFamily: MONO, fontSize: 12, color: C.green, padding: "8px 10px" }}>${s.target1}</td>
                             <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 10px",
                               color: s.rr >= 2 ? C.green : s.rr >= 1.5 ? C.amber : C.textDim }}>{s.rr}:1</td>
-                            <td style={{ fontFamily: MONO, fontSize: 10, color: C.purple, padding: "8px 10px", whiteSpace: "nowrap" }}>
+                            <td style={{ fontFamily: MONO, fontSize: 12, color: C.purple, padding: "8px 10px", whiteSpace: "nowrap" }}>
                               {s.optionType && !s.optionType.includes("WAIT") ? s.optionType : "—"}
                             </td>
-                            <td style={{ fontFamily: MONO, fontSize: 11, color: s.rvol >= 2 ? C.accent : C.textDim, padding: "8px 10px" }}>{s.rvol}×</td>
+                            <td style={{ fontFamily: MONO, fontSize: 12, color: s.rvol >= 2 ? C.accent : C.textDim, padding: "8px 10px" }}>{s.rvol}×</td>
                           </tr>
                         );
                       })}
@@ -11664,7 +11664,7 @@ export default function App() {
                           if (e.key === "Enter") e.target.blur();
                           if (e.key === "Escape") { setWlistRenaming(null); }
                         }}
-                        style={{ width: 90, background: C.surface, border: `1px solid ${C.accent}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "4px 8px", borderRadius: "5px 0 0 5px" }}
+                        style={{ width: 90, background: C.surface, border: `1px solid ${C.accent}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "4px 8px", borderRadius: "5px 0 0 5px" }}
                       />
                     ) : (
                       <button
@@ -11672,7 +11672,7 @@ export default function App() {
                         onDoubleClick={() => { setWlistRenaming(wl.id); setWlistRenameVal(wl.name); }}
                         title={`${wl.symbols.length} symbols · double-click to rename`}
                         style={{
-                          fontFamily: MONO, fontSize: 11, fontWeight: activeWlistId === wl.id ? 800 : 400,
+                          fontFamily: MONO, fontSize: 12, fontWeight: activeWlistId === wl.id ? 800 : 400,
                           color: activeWlistId === wl.id ? C.accent : C.textDim,
                           background: activeWlistId === wl.id ? C.accentGlow : "transparent",
                           border: `1px solid ${activeWlistId === wl.id ? C.accent : C.border}`,
@@ -11680,7 +11680,7 @@ export default function App() {
                           padding: "4px 12px", cursor: "pointer", whiteSpace: "nowrap",
                         }}
                       >
-                        {wl.name} <span style={{ opacity: 0.6, fontSize: 9 }}>({wl.symbols.length})</span>
+                        {wl.name} <span style={{ opacity: 0.6, fontSize: 12 }}>({wl.symbols.length})</span>
                       </button>
                     )}
                     {watchlists.length > 1 && (
@@ -11691,7 +11691,7 @@ export default function App() {
                           setWatchlists(remaining);
                           if (activeWlistId === wl.id) setActiveWlistId(remaining[0].id);
                         }}
-                        style={{ fontFamily: MONO, fontSize: 10, color: C.red, background: "transparent", border: `1px solid ${C.border}`, borderRadius: "0 5px 5px 0", padding: "4px 6px", cursor: "pointer" }}
+                        style={{ fontFamily: MONO, fontSize: 12, color: C.red, background: "transparent", border: `1px solid ${C.border}`, borderRadius: "0 5px 5px 0", padding: "4px 6px", cursor: "pointer" }}
                         title="Delete this list"
                       >✕</button>
                     )}
@@ -11708,7 +11708,7 @@ export default function App() {
                     setWatchlists(prev => [...prev, { id, name, symbols: [] }]);
                     setActiveWlistId(id);
                   }}
-                  style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, background: "transparent", border: `1px dashed ${C.border}`, borderRadius: 5, padding: "4px 10px", cursor: "pointer" }}
+                  style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, background: "transparent", border: `1px dashed ${C.border}`, borderRadius: 5, padding: "4px 10px", cursor: "pointer" }}
                   title="New watchlist"
                 >+ NEW LIST</button>
               </div>
@@ -11758,7 +11758,7 @@ export default function App() {
                             }
                             setWlSearchQuery("");
                           }}
-                          style={{ background: C.accent, border: "none", color: "#fff", fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 10px", cursor: "pointer", borderRadius: "0 5px 5px 0", whiteSpace: "nowrap" }}
+                          style={{ background: C.accent, border: "none", color: "#fff", fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "5px 10px", cursor: "pointer", borderRadius: "0 5px 5px 0", whiteSpace: "nowrap" }}
                         >+ ADD</button>
                       )}
                     </div>
@@ -11786,7 +11786,7 @@ export default function App() {
                               onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                             >
                               <span>{sym}</span>
-                              <span style={{ fontSize: 11, color: C.accent, fontWeight: 700 }}>+ ADD</span>
+                              <span style={{ fontSize: 12, color: C.accent, fontWeight: 700 }}>+ ADD</span>
                             </div>
                           ))}
                           {!MARKET_UNIVERSE_SYMBOLS.includes(wlSearchQuery) && (
@@ -11820,7 +11820,7 @@ export default function App() {
                         alert(`✅ Pushed ${watchlistSymbols.length} symbols to bot watchlist.`);
                       } catch (e) { alert("Push failed: " + e.message); }
                     }}
-                    style={{ background: `${C.green}12`, border: `1px solid ${C.green}44`, color: C.green, fontFamily: MONO, fontSize: 10, padding: "6px 8px", cursor: "pointer", borderRadius: 3 }}
+                    style={{ background: `${C.green}12`, border: `1px solid ${C.green}44`, color: C.green, fontFamily: MONO, fontSize: 12, padding: "6px 8px", cursor: "pointer", borderRadius: 5 }}
                     title="Push current watchlist to the bot"
                   >↑ BOT</button>
                   <button
@@ -11835,13 +11835,13 @@ export default function App() {
                         } else { alert("Bot watchlist is empty. Push from bot first."); }
                       } catch (e) { alert("Pull failed: " + e.message); }
                     }}
-                    style={{ background: `${C.accent}12`, border: `1px solid ${C.accent}44`, color: C.accent, fontFamily: MONO, fontSize: 10, padding: "6px 8px", cursor: "pointer", borderRadius: 3 }}
+                    style={{ background: `${C.accent}12`, border: `1px solid ${C.accent}44`, color: C.accent, fontFamily: MONO, fontSize: 12, padding: "6px 8px", cursor: "pointer", borderRadius: 5 }}
                     title="Load bot watchlist into platform"
                   >↓ BOT</button>
                   <select
                     value={String(settings.refreshMs)}
                     onChange={(e) => setSettings((s) => ({ ...s, refreshMs: Number(e.target.value) }))}
-                    style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 10, padding: "6px 8px" }}
+                    style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "6px 8px" }}
                   >
                     <option value="60000">Refresh 1m</option>
                     <option value="180000">Refresh 3m</option>
@@ -11853,7 +11853,7 @@ export default function App() {
                 const anyFilter = signalFilter !== "ALL" || trendFilter !== "ALL" || volumeFilter !== "ALL" || scoreFilter !== "ALL";
                 const Pill = ({ active, col, bg, bdr, onClick, children }) => (
                   <button onClick={onClick} style={{
-                    fontFamily: MONO, fontSize: 11, fontWeight: active ? 800 : 400,
+                    fontFamily: MONO, fontSize: 12, fontWeight: active ? 800 : 400,
                     color: active ? col : C.textDim,
                     background: active ? bg : "transparent",
                     border: `1px solid ${active ? bdr : C.border}`,
@@ -11865,7 +11865,7 @@ export default function App() {
                   <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 7, padding: "8px 12px", marginBottom: 8, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
 
                     {/* Signal */}
-                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>SIGNAL</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>SIGNAL</span>
                     {[
                       { v: "ALL",  col: C.text,  bg: C.card,    bdr: C.border },
                       { v: "BUY",  col: C.green, bg: C.greenBg, bdr: C.green  },
@@ -11878,7 +11878,7 @@ export default function App() {
                     <Sep />
 
                     {/* Trend */}
-                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>TREND</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>TREND</span>
                     {[
                       { v: "ALL",        label: "ALL"   },
                       { v: "Strong Up",  label: "▲▲"   },
@@ -11895,7 +11895,7 @@ export default function App() {
                     <Sep />
 
                     {/* Volume */}
-                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>VOL</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>VOL</span>
                     {[
                       { v: "ALL",    label: "ALL",    col: C.text,  bg: C.card    },
                       { v: "HIGH",   label: "HIGH",   col: C.green, bg: C.greenBg },
@@ -11908,7 +11908,7 @@ export default function App() {
                     <Sep />
 
                     {/* Score */}
-                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>SCORE</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>SCORE</span>
                     {["ALL","70+","60+","50+","<50"].map(v => (
                       <Pill key={v} active={scoreFilter === v} col={C.accent} bg={C.accentGlow} bdr={C.accent} onClick={() => setScoreFilter(v)}>{v}</Pill>
                     ))}
@@ -11918,19 +11918,19 @@ export default function App() {
                       <>
                         <Sep />
                         <button onClick={() => { setSignalFilter("ALL"); setTrendFilter("ALL"); setVolumeFilter("ALL"); setScoreFilter("ALL"); }}
-                          style={{ fontFamily: MONO, fontSize: 10, color: C.red, background: "none", border: "none", cursor: "pointer", padding: "2px 4px" }}>
+                          style={{ fontFamily: MONO, fontSize: 12, color: C.red, background: "none", border: "none", cursor: "pointer", padding: "2px 4px" }}>
                           ✕ RESET
                         </button>
                       </>
                     )}
 
                     {/* Result count + view toggle */}
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: "auto" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: "auto" }}>
                       {signalFiltered.length} / {sorted.length}
                     </span>
                     <button onClick={() => setWlCardView(v => !v)}
                       title={wlCardView ? "Switch to table view" : "Switch to card view"}
-                      style={{ border: `1px solid ${C.border}`, background: wlCardView ? `${C.accent}18` : C.surface, color: wlCardView ? C.accent : C.textDim, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
+                      style={{ border: `1px solid ${C.border}`, background: wlCardView ? `${C.accent}18` : C.surface, color: wlCardView ? C.accent : C.textDim, borderRadius: 6, padding: "3px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>
                       {wlCardView ? "⊞ CARDS" : "☰ TABLE"}
                     </button>
                   </div>
@@ -11951,7 +11951,7 @@ export default function App() {
                 return (
                   <div>
                     {isExt && (
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: extColor, fontWeight: 700, marginBottom: 4, letterSpacing: "0.1em" }}>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: extColor, fontWeight: 700, marginBottom: 4, letterSpacing: "0.1em" }}>
                         {extLabel}MARKET MOVERS
                       </div>
                     )}
@@ -11960,9 +11960,9 @@ export default function App() {
                         const chg = getChg(q);
                         return (
                           <div key={`mv-t-${q.symbol}`} onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: `${C.green}18`, border: `1px solid ${C.green}44`, borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
-                            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent }}>{q.symbol}</div>
+                            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent }}>{q.symbol}</div>
                             <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, fontWeight: 700 }}>+{chg.toFixed(2)}%</div>
-                            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{isExt ? <span style={{ color: extColor, fontWeight: 700 }}>{extLabel} </span> : null}${(q.price || 0).toFixed(2)}</div>
+                            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{isExt ? <span style={{ color: extColor, fontWeight: 700 }}>{extLabel} </span> : null}${(q.price || 0).toFixed(2)}</div>
                           </div>
                         );
                       })}
@@ -11970,9 +11970,9 @@ export default function App() {
                         const chg = getChg(q);
                         return (
                           <div key={`mv-b-${q.symbol}`} onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: `${C.red}18`, border: `1px solid ${C.red}44`, borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
-                            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent }}>{q.symbol}</div>
+                            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent }}>{q.symbol}</div>
                             <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, fontWeight: 700 }}>{chg.toFixed(2)}%</div>
-                            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{isExt ? <span style={{ color: extColor, fontWeight: 700 }}>{extLabel} </span> : null}${(q.price || 0).toFixed(2)}</div>
+                            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{isExt ? <span style={{ color: extColor, fontWeight: 700 }}>{extLabel} </span> : null}${(q.price || 0).toFixed(2)}</div>
                           </div>
                         );
                       })}
@@ -12007,7 +12007,7 @@ export default function App() {
                         {/* Symbol + signal */}
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                           <span style={{ fontFamily: MONO, fontSize: isTablet ? 16 : 14, fontWeight: 800, color: C.accent }}>{q.symbol}</span>
-                          <span style={{ fontFamily: MONO, fontSize: isTablet ? 10 : 9, fontWeight: 700, color: sigCol, background: `${sigCol}22`, borderRadius: 3, padding: "2px 6px" }}>{mtf.signal}</span>
+                          <span style={{ fontFamily: MONO, fontSize: isTablet ? 10 : 9, fontWeight: 700, color: sigCol, background: `${sigCol}22`, borderRadius: 5, padding: "3px 7px" }}>{mtf.signal}</span>
                         </div>
                         {/* Price */}
                         <div style={{ fontFamily: MONO, fontSize: isTablet ? 20 : 16, fontWeight: 700, color: C.text, marginBottom: 2 }}>
@@ -12046,20 +12046,20 @@ export default function App() {
                         <SortH col="price" align="right">PRICE</SortH>
                         <SortH col="change" align="right">CHG%</SortH>
                         {(marketSession === "PREMARKET" || marketSession === "AFTERMARKET") && (
-                          <th style={{ padding: "10px 8px", fontSize: 10, fontFamily: MONO, textAlign: "right", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em", color: marketSession === "PREMARKET" ? C.accent : C.amber }}>
+                          <th style={{ padding: "10px 8px", fontSize: 12, fontFamily: MONO, textAlign: "right", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em", color: marketSession === "PREMARKET" ? C.accent : C.amber }}>
                             {marketSession === "PREMARKET" ? "PRE%" : "POST%"}
                           </th>
                         )}
-                        {!isTablet && <th style={{ padding: "10px 8px", fontSize: 10, fontFamily: MONO, color: C.textDim, textAlign: "right", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>5M</th>}
-                        {!isTablet && <th style={{ padding: "10px 8px", fontSize: 10, fontFamily: MONO, color: C.textDim, textAlign: "right", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>30M</th>}
-                        <th style={{ padding: "10px 8px", fontSize: 10, fontFamily: MONO, color: C.textDim, textAlign: "center", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>TREND</th>
+                        {!isTablet && <th style={{ padding: "10px 8px", fontSize: 12, fontFamily: MONO, color: C.textDim, textAlign: "right", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>5M</th>}
+                        {!isTablet && <th style={{ padding: "10px 8px", fontSize: 12, fontFamily: MONO, color: C.textDim, textAlign: "right", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>30M</th>}
+                        <th style={{ padding: "10px 8px", fontSize: 12, fontFamily: MONO, color: C.textDim, textAlign: "center", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>TREND</th>
                         <SortH col="rvol" align="right">RVOL</SortH>
                         <SortH col="volume" align="right">VOLUME</SortH>
                         {!isTablet && <SortH col="mktcap" align="right">MKT CAP</SortH>}
                         <SortH col="composite">SCORE</SortH>
                         <SortH col="tech">TECH</SortH>
                         {!isTablet && <SortH col="fund">FUND</SortH>}
-                        <th style={{ padding: "10px 8px", fontSize: 10, fontFamily: MONO, color: C.textDim, textAlign: "center", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>SIGNAL</th>
+                        <th style={{ padding: "10px 8px", fontSize: 12, fontFamily: MONO, color: C.textDim, textAlign: "center", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>SIGNAL</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -12081,17 +12081,17 @@ export default function App() {
                           >
                             <td style={{ padding: "10px 10px", borderBottom: `1px solid ${C.border}` }}>
                               <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: 14, color: C.text }}>{q.symbol}</div>
-                              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.name}</div>
+                              <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.name}</div>
                               <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
-                                  style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}
+                                  style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}
                                 >
                                   CHART
                                 </button>
                                 {!isTablet && <button
                                   onClick={(e) => { e.stopPropagation(); openTradingView(q.symbol); }}
-                                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                                 >
                                   TV
                                 </button>}
@@ -12100,40 +12100,40 @@ export default function App() {
                                   target="_blank"
                                   rel="noopener"
                                   onClick={(e) => e.stopPropagation()}
-                                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.purple, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", textDecoration: "none" }}
+                                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.purple, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer", textDecoration: "none" }}
                                 >
                                   WS
                                 </a>}
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setQuickLogModal({ symbol: q.symbol, price: q.price || 0, entry: (q.price || 0).toFixed(2), stopLoss: "", target: "", size: "", side: "BUY", timeframe: "1D", style: "Watchlist", notes: `CHG ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}% · RVOL ${rvol.toFixed(2)}x`, score: scores.composite || 0, chg, rvol }); }}
-                                  style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}
+                                  style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}
                                 >
                                   LOG
                                 </button>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setOpenNoteSymbol(openNoteSymbol === q.symbol ? null : q.symbol); }}
-                                  style={{ border: `1px solid ${watchlistNotes[q.symbol] ? C.amber + "88" : C.border}`, background: watchlistNotes[q.symbol] ? C.amber + "18" : C.surface, color: watchlistNotes[q.symbol] ? C.amber : C.textDim, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                  style={{ border: `1px solid ${watchlistNotes[q.symbol] ? C.amber + "88" : C.border}`, background: watchlistNotes[q.symbol] ? C.amber + "18" : C.surface, color: watchlistNotes[q.symbol] ? C.amber : C.textDim, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                                   title="Add note"
                                 >
                                   NOTE
                                 </button>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); if (openAlertSymbol === q.symbol) { setOpenAlertSymbol(null); } else { setOpenAlertSymbol(q.symbol); setWlAlertDir("above"); setWlAlertPrice((q.price ? (q.price * 1.02).toFixed(2) : "")); } }}
-                                  style={{ border: `1px solid ${openAlertSymbol === q.symbol ? C.amber + "99" : C.border}`, background: openAlertSymbol === q.symbol ? `${C.amber}18` : C.surface, color: openAlertSymbol === q.symbol ? C.amber : C.textDim, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                  style={{ border: `1px solid ${openAlertSymbol === q.symbol ? C.amber + "99" : C.border}`, background: openAlertSymbol === q.symbol ? `${C.amber}18` : C.surface, color: openAlertSymbol === q.symbol ? C.amber : C.textDim, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                                   title="Set price alert"
                                 >
                                   ALERT
                                 </button>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setWatchlistSymbols(prev => prev.filter(s => s !== q.symbol)); }}
-                                  style={{ border: `1px solid ${C.red}44`, background: C.surface, color: C.red, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                  style={{ border: `1px solid ${C.red}44`, background: C.surface, color: C.red, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                                   title={`Remove ${q.symbol} from watchlist`}
                                 >
                                   ×
                                 </button>
                               </div>
                               {watchlistNotes[q.symbol] && openNoteSymbol !== q.symbol && (
-                                <div style={{ fontFamily: MONO, fontSize: 9, color: C.amber, marginTop: 3, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                <div style={{ fontFamily: MONO, fontSize: 12, color: C.amber, marginTop: 3, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                   📝 {watchlistNotes[q.symbol]}
                                 </div>
                               )}
@@ -12198,7 +12198,7 @@ export default function App() {
                                 return (
                                   <div>
                                     <div style={{
-                                      fontFamily: MONO, fontSize: 11, fontWeight: 900,
+                                      fontFamily: MONO, fontSize: 12, fontWeight: 900,
                                       color: sigColor, background: sigBg,
                                       borderRadius: 5, padding: "3px 8px",
                                       display: "inline-block", letterSpacing: "0.06em",
@@ -12235,17 +12235,17 @@ export default function App() {
                                     onClick={e => e.stopPropagation()}
                                     placeholder={`Notes for ${q.symbol} — thesis, key levels, catalysts…`}
                                     rows={2}
-                                    style={{ flex: 1, background: C.surface, border: `1px solid ${C.amber}44`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "6px 8px", borderRadius: 4, resize: "vertical", outline: "none" }}
+                                    style={{ flex: 1, background: C.surface, border: `1px solid ${C.amber}44`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "6px 8px", borderRadius: 6, resize: "vertical", outline: "none" }}
                                   />
                                   <button
                                     onClick={e => { e.stopPropagation(); setWatchlistNotes(n => { const next = { ...n }; delete next[q.symbol]; return next; }); setOpenNoteSymbol(null); }}
-                                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.red, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer", flexShrink: 0 }}
+                                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.red, borderRadius: 6, padding: "4px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer", flexShrink: 0 }}
                                   >
                                     CLEAR
                                   </button>
                                   <button
                                     onClick={e => { e.stopPropagation(); setOpenNoteSymbol(null); }}
-                                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer", flexShrink: 0 }}
+                                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "4px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer", flexShrink: 0 }}
                                   >
                                     DONE
                                   </button>
@@ -12257,17 +12257,17 @@ export default function App() {
                             <tr style={{ background: C.card }}>
                               <td colSpan={colSpan} style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}` }}>
                                 <div style={{ display: "flex", gap: 8, alignItems: "center" }} onClick={e => e.stopPropagation()}>
-                                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber, fontWeight: 700 }}>🔔 ALERT {q.symbol}</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.amber, fontWeight: 700 }}>🔔 ALERT {q.symbol}</span>
                                   <select value={wlAlertDir} onChange={e => setWlAlertDir(e.target.value)}
-                                    style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "4px 8px", borderRadius: 4 }}>
+                                    style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "4px 8px", borderRadius: 6 }}>
                                     <option value="above">Above</option>
                                     <option value="below">Below</option>
                                   </select>
                                   <input type="number" step="0.01" value={wlAlertPrice} onChange={e => setWlAlertPrice(e.target.value)}
                                     placeholder="Target price"
-                                    style={{ width: 110, background: C.surface, border: `1px solid ${C.amber}66`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "4px 8px", borderRadius: 4, outline: "none" }}
+                                    style={{ width: 110, background: C.surface, border: `1px solid ${C.amber}66`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "4px 8px", borderRadius: 6, outline: "none" }}
                                   />
-                                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>now: ${(q.price || 0).toFixed(2)}</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>now: ${(q.price || 0).toFixed(2)}</span>
                                   <button
                                     onClick={async e => {
                                       e.stopPropagation();
@@ -12275,13 +12275,13 @@ export default function App() {
                                       await fetch("/api/price-alerts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol: q.symbol, targetPrice: Number(wlAlertPrice), direction: wlAlertDir }) });
                                       setOpenAlertSymbol(null);
                                     }}
-                                    style={{ border: `1px solid ${C.amber}66`, background: `${C.amber}22`, color: C.amber, borderRadius: 4, padding: "4px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700, flexShrink: 0 }}
+                                    style={{ border: `1px solid ${C.amber}66`, background: `${C.amber}22`, color: C.amber, borderRadius: 6, padding: "4px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700, flexShrink: 0 }}
                                   >
                                     SET ALERT
                                   </button>
                                   <button
                                     onClick={e => { e.stopPropagation(); setOpenAlertSymbol(null); }}
-                                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer", flexShrink: 0 }}
+                                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "4px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer", flexShrink: 0 }}
                                   >
                                     ✕
                                   </button>
@@ -12297,7 +12297,7 @@ export default function App() {
                 </div>
               </div>
               )}
-              <div style={{ marginTop: 6, fontSize: 8, fontFamily: MONO, color: C.textDim, textAlign: "center" }}>
+              <div style={{ marginTop: 6, fontSize: 12, fontFamily: MONO, color: C.textDim, textAlign: "center" }}>
                 {wlCardView ? "Tap card to open terminal" : "Click any row for deep-dive"} · Auto-refreshes every {Math.round(settings.refreshMs / 60000)}m · Data via multi-provider quote engine
               </div>
             </div>
@@ -12306,20 +12306,20 @@ export default function App() {
             <div style={{ display: "flex", flexDirection: "column", gap: 12, alignSelf: "start" }}>
               {/* Tablet: show a divider label */}
               {isTablet && (
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.textDim, padding: "8px 0", borderTop: `2px solid ${C.border}`, letterSpacing: "0.08em" }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim, padding: "8px 0", borderTop: `2px solid ${C.border}`, letterSpacing: "0.08em" }}>
                   ▼ BRIEF &amp; ALERTS
                 </div>
               )}
               {/* Morning Brief */}
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div style={{ fontSize: 9, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>MORNING BRIEF</div>
+                  <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>MORNING BRIEF</div>
                   <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    {briefAt && <span style={{ fontSize: 9, fontFamily: MONO, color: C.textDim }}>{briefAt}</span>}
+                    {briefAt && <span style={{ fontSize: 12, fontFamily: MONO, color: C.textDim }}>{briefAt}</span>}
                     <button
                       onClick={runMorningBrief}
                       disabled={briefLoading}
-                      style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 9, fontWeight: 700, cursor: "pointer" }}
+                      style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}14`, color: C.accent, borderRadius: 6, padding: "3px 8px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                     >
                       {briefLoading ? "..." : briefText ? "REFRESH" : "BRIEF ME"}
                     </button>
@@ -12327,18 +12327,18 @@ export default function App() {
                 </div>
                 {briefText ? (
                   <>
-                    <div style={{ fontSize: 11, fontFamily: SANS, color: C.textSec, lineHeight: 1.45, whiteSpace: "pre-wrap", maxHeight: briefExpanded ? "none" : 120, overflow: "hidden" }}>
+                    <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, lineHeight: 1.45, whiteSpace: "pre-wrap", maxHeight: briefExpanded ? "none" : 120, overflow: "hidden" }}>
                       {briefText}
                     </div>
                     <button
                       onClick={() => setBriefExpanded(x => !x)}
-                      style={{ marginTop: 6, border: "none", background: "none", color: C.accent, fontFamily: MONO, fontSize: 9, cursor: "pointer", padding: 0 }}
+                      style={{ marginTop: 6, border: "none", background: "none", color: C.accent, fontFamily: MONO, fontSize: 12, cursor: "pointer", padding: 0 }}
                     >
                       {briefExpanded ? "COLLAPSE ▲" : "EXPAND ▼"}
                     </button>
                   </>
                 ) : (
-                  <div style={{ fontSize: 10, fontFamily: SANS, color: C.textDim }}>
+                  <div style={{ fontSize: 12, fontFamily: SANS, color: C.textDim }}>
                     Click BRIEF ME for an AI-generated market summary.
                   </div>
                 )}
@@ -12346,13 +12346,13 @@ export default function App() {
               {/* Alerts Feed */}
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <div style={{ fontSize: 9, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
+                  <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
                     ALERT FEED
                   </div>
                   <Badge color={combinedAlerts.length ? C.amber : C.textDim}>{combinedAlerts.length ? `${combinedAlerts.length} ACTIVE` : "CLEAR"}</Badge>
                 </div>
                 {combinedAlerts.length === 0 && (
-                  <div style={{ fontSize: 10, fontFamily: SANS, color: C.textDim }}>
+                  <div style={{ fontSize: 12, fontFamily: SANS, color: C.textDim }}>
                     No high-priority alerts right now.
                   </div>
                 )}
@@ -12362,11 +12362,11 @@ export default function App() {
                     display: "grid", gridTemplateColumns: "50px 1fr", gap: 8,
                   }}>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text }}>{a.symbol}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{a.symbol}</span>
                       <Badge color={a.type === "risk" ? C.red : a.type === "flow" ? C.amber : C.green}>{a.type}</Badge>
                     </div>
                     <div>
-                      <div style={{ fontFamily: SANS, fontSize: 10, color: C.textSec, lineHeight: 1.35 }}>{a.text}</div>
+                      <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.35 }}>{a.text}</div>
                       <div style={{ marginTop: 5 }}>
                         <ScoreBar value={a.score} color={a.type === "risk" ? C.red : a.type === "flow" ? C.amber : C.green} />
                       </div>
@@ -12377,7 +12377,7 @@ export default function App() {
 
               {/* Market Summary */}
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
-                <div style={{ fontSize: 11, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 10 }}>
+                <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 10 }}>
                   MARKET SNAPSHOT
                 </div>
                 {macroData.filter(q => ["SPY","QQQ","IWM","DIA"].includes(q.symbol)).map(q => {
@@ -12389,12 +12389,12 @@ export default function App() {
                       padding: "5px 0", borderBottom: `1px solid ${C.border}`,
                     }}>
                       <div>
-                        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text }}>{q.symbol}</span>
-                        <span style={{ fontFamily: SANS, fontSize: 8, color: C.textDim, marginLeft: 6 }}>{q._label}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{q.symbol}</span>
+                        <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginLeft: 6 }}>{q._label}</span>
                       </div>
                       <div style={{ textAlign: "right" }}>
-                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.text, marginRight: 8 }}>${q.price?.toFixed(2)}</span>
-                        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: isUp ? C.green : C.red }}>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.text, marginRight: 8 }}>${q.price?.toFixed(2)}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: isUp ? C.green : C.red }}>
                           {isUp ? "+" : ""}{chg.toFixed(2)}%
                         </span>
                       </div>
@@ -12406,7 +12406,7 @@ export default function App() {
               {/* Daily Economic Calendar */}
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <div style={{ fontSize: 11, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em" }}>
+                  <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em" }}>
                     DAILY ECONOMIC CALENDAR
                   </div>
                   <Badge color={(econCalendarRows || []).some((e) => e.phase === "live" || e.phase === "imminent") ? C.red : C.green}>
@@ -12416,13 +12416,13 @@ export default function App() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
                   <button
                     onClick={() => setSettings((s) => ({ ...s, econCalendarView: "today" }))}
-                    style={{ border: `1px solid ${econCalendarView === "today" ? C.accent : C.border}`, background: econCalendarView === "today" ? `${C.accent}14` : C.surface, color: econCalendarView === "today" ? C.accent : C.textSec, borderRadius: 4, padding: "4px 6px", fontFamily: MONO, fontSize: 9, fontWeight: 700, cursor: "pointer" }}
+                    style={{ border: `1px solid ${econCalendarView === "today" ? C.accent : C.border}`, background: econCalendarView === "today" ? `${C.accent}14` : C.surface, color: econCalendarView === "today" ? C.accent : C.textSec, borderRadius: 6, padding: "4px 6px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                   >
                     TODAY
                   </button>
                   <button
                     onClick={() => setSettings((s) => ({ ...s, econCalendarView: "week" }))}
-                    style={{ border: `1px solid ${econCalendarView === "week" ? C.accent : C.border}`, background: econCalendarView === "week" ? `${C.accent}14` : C.surface, color: econCalendarView === "week" ? C.accent : C.textSec, borderRadius: 4, padding: "4px 6px", fontFamily: MONO, fontSize: 9, fontWeight: 700, cursor: "pointer" }}
+                    style={{ border: `1px solid ${econCalendarView === "week" ? C.accent : C.border}`, background: econCalendarView === "week" ? `${C.accent}14` : C.surface, color: econCalendarView === "week" ? C.accent : C.textSec, borderRadius: 6, padding: "4px 6px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                   >
                     THIS WEEK
                   </button>
@@ -12430,20 +12430,20 @@ export default function App() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
                   <button
                     onClick={() => setSettings((s) => ({ ...s, econCalendarRegion: "US" }))}
-                    style={{ border: `1px solid ${econCalendarRegion === "US" ? C.green : C.border}`, background: econCalendarRegion === "US" ? `${C.green}14` : C.surface, color: econCalendarRegion === "US" ? C.green : C.textSec, borderRadius: 4, padding: "4px 6px", fontFamily: MONO, fontSize: 9, fontWeight: 700, cursor: "pointer" }}
+                    style={{ border: `1px solid ${econCalendarRegion === "US" ? C.green : C.border}`, background: econCalendarRegion === "US" ? `${C.green}14` : C.surface, color: econCalendarRegion === "US" ? C.green : C.textSec, borderRadius: 6, padding: "4px 6px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                   >
                     US ONLY
                   </button>
                   <button
                     onClick={() => setSettings((s) => ({ ...s, econCalendarRegion: "GLOBAL" }))}
-                    style={{ border: `1px solid ${econCalendarRegion === "GLOBAL" ? C.purple : C.border}`, background: econCalendarRegion === "GLOBAL" ? `${C.purple}14` : C.surface, color: econCalendarRegion === "GLOBAL" ? C.purple : C.textSec, borderRadius: 4, padding: "4px 6px", fontFamily: MONO, fontSize: 9, fontWeight: 700, cursor: "pointer" }}
+                    style={{ border: `1px solid ${econCalendarRegion === "GLOBAL" ? C.purple : C.border}`, background: econCalendarRegion === "GLOBAL" ? `${C.purple}14` : C.surface, color: econCalendarRegion === "GLOBAL" ? C.purple : C.textSec, borderRadius: 6, padding: "4px 6px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                   >
                     GLOBAL
                   </button>
                 </div>
                 <button
                   onClick={() => setSettings((s) => ({ ...s, econAutoRisk30m: !econAutoRisk30m }))}
-                  style={{ width: "100%", marginBottom: 8, border: `1px solid ${econAutoRisk30m ? C.red : C.border}`, background: econAutoRisk30m ? `${C.red}14` : C.surface, color: econAutoRisk30m ? C.red : C.textSec, borderRadius: 4, padding: "5px 8px", fontFamily: MONO, fontSize: 9, fontWeight: 700, cursor: "pointer" }}
+                  style={{ width: "100%", marginBottom: 8, border: `1px solid ${econAutoRisk30m ? C.red : C.border}`, background: econAutoRisk30m ? `${C.red}14` : C.surface, color: econAutoRisk30m ? C.red : C.textSec, borderRadius: 6, padding: "5px 8px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                 >
                   {econAutoRisk30m ? "AUTO REDUCE RISK T-30M: ON" : "AUTO REDUCE RISK T-30M: OFF"}
                 </button>
@@ -12458,24 +12458,24 @@ export default function App() {
                       alignItems: "center",
                     }}>
                       <div>
-                        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent }}>{e.tag}</span>
-                        <div style={{ fontFamily: MONO, fontSize: 8, color: e.severity === "high" ? C.red : e.severity === "medium" ? C.amber : C.green, fontWeight: 700 }}>
+                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent }}>{e.tag}</span>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: e.severity === "high" ? C.red : e.severity === "medium" ? C.amber : C.green, fontWeight: 700 }}>
                           {e.impact || String(e.severity || "").toUpperCase()}
                         </div>
                       </div>
                       <div>
-                        <div style={{ fontFamily: SANS, fontSize: 10, color: C.textSec, lineHeight: 1.3 }}>{e.title}</div>
-                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>
+                        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.3 }}>{e.title}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>
                           {e.region} • {e.time.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                         </div>
                       </div>
-                      <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, textAlign: "right", color: e.phase === "live" ? C.red : e.phase === "imminent" ? C.amber : C.textSec }}>
+                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, textAlign: "right", color: e.phase === "live" ? C.red : e.phase === "imminent" ? C.amber : C.textSec }}>
                         {e.phase === "live" ? "LIVE" : formatCountdown(e.tteMs)}
                       </span>
                     </div>
                   ))}
                 {!((econCalendarRows || []).length) && (
-                  <div style={{ fontSize: 10, fontFamily: SANS, color: C.textDim }}>
+                  <div style={{ fontSize: 12, fontFamily: SANS, color: C.textDim }}>
                     No major events in selected window.
                   </div>
                 )}
@@ -12484,37 +12484,37 @@ export default function App() {
               {/* Weather */}
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div style={{ fontSize: 11, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em" }}>
+                  <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em" }}>
                     WEATHER ({WEATHER_ZIP})
                   </div>
                   <button
                     onClick={fetchWeather}
-                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                   >
                     {weatherLoading ? "..." : "REFRESH"}
                   </button>
                 </div>
-                {weatherError && <div style={{ fontSize: 11, color: C.red }}>{weatherError}</div>}
+                {weatherError && <div style={{ fontSize: 12, color: C.red }}>{weatherError}</div>}
                 {!weatherError && weatherData && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                     <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface }}>
-                      <div style={{ fontSize: 10, color: C.textDim }}>{weatherData.location}</div>
+                      <div style={{ fontSize: 12, color: C.textDim }}>{weatherData.location}</div>
                       <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 800, color: C.text }}>{weatherData.temp.toFixed(0)}°F</div>
-                      <div style={{ fontSize: 10, color: C.textSec }}>{weatherCodeLabel(weatherData.code)}</div>
+                      <div style={{ fontSize: 12, color: C.textSec }}>{weatherCodeLabel(weatherData.code)}</div>
                     </div>
                     <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface }}>
-                      <div style={{ fontSize: 10, color: C.textDim }}>High / Low</div>
+                      <div style={{ fontSize: 12, color: C.textDim }}>High / Low</div>
                       <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700 }}>{weatherData.high.toFixed(0)}° / {weatherData.low.toFixed(0)}°</div>
-                      <div style={{ fontSize: 10, color: C.textDim }}>Wind {weatherData.wind.toFixed(0)} mph</div>
+                      <div style={{ fontSize: 12, color: C.textDim }}>Wind {weatherData.wind.toFixed(0)} mph</div>
                     </div>
                   </div>
                 )}
-                {!weatherError && !weatherData && <div style={{ fontSize: 11, color: C.textDim }}>Loading weather...</div>}
+                {!weatherError && !weatherData && <div style={{ fontSize: 12, color: C.textDim }}>Loading weather...</div>}
               </div>
 
               {/* Sector Heatmap */}
               <div>
-                <div style={{ fontSize: 11, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 8 }}>
+                <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 8 }}>
                   SECTOR HEATMAP
                 </div>
                 <SectorHeatmap data={sectorData} />
@@ -12533,9 +12533,9 @@ export default function App() {
                     : (q.changesPercentage || 0);
                   return (
                     <>
-                      <div style={{ fontSize: 11, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
                         WATCHLIST MOVERS
-                        {isExt && <span style={{ fontSize: 9, fontFamily: MONO, color: extColor, fontWeight: 700, border: `1px solid ${extColor}44`, padding: "1px 5px", borderRadius: 3 }}>{extLabel}</span>}
+                        {isExt && <span style={{ fontSize: 12, fontFamily: MONO, color: extColor, fontWeight: 700, border: `1px solid ${extColor}44`, padding: "2px 6px", borderRadius: 5 }}>{extLabel}</span>}
                       </div>
                       {[...watchlistData]
                         .sort((a, b) => Math.abs(getChg(b)) - Math.abs(getChg(a)))
@@ -12548,9 +12548,9 @@ export default function App() {
                               display: "flex", justifyContent: "space-between", padding: "4px 0",
                               borderBottom: `1px solid ${C.border}`, cursor: "pointer",
                             }}>
-                              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text }}>{q.symbol}</span>
+                              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{q.symbol}</span>
                               <span style={{
-                                fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                                fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                 color: isUp ? C.green : C.red,
                                 padding: "1px 6px", borderRadius: 2,
                                 background: isUp ? C.greenBg : C.redBg,
@@ -12572,18 +12572,18 @@ export default function App() {
                   style={{ background: C.card, border: `1px solid ${portfolioSummary.totalPnl >= 0 ? `${C.green}55` : `${C.red}55`}`, borderRadius: 5, padding: 14, cursor: "pointer" }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <div style={{ fontSize: 11, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em" }}>PORTFOLIO</div>
-                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red }}>
+                    <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em" }}>PORTFOLIO</div>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red }}>
                       {portfolioSummary.totalPnl >= 0 ? "+" : ""}{portfolioSummary.totalPnlPct.toFixed(2)}%
                     </span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                     <span style={{ fontFamily: MONO, fontSize: 12, color: C.text, fontWeight: 700 }}>{formatNum(portfolioSummary.totalValue)}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 11, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red, fontWeight: 700 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red, fontWeight: 700 }}>
                       {portfolioSummary.totalPnl >= 0 ? "+" : ""}{formatNum(portfolioSummary.totalPnl)}
                     </span>
                   </div>
-                  <div style={{ fontSize: 10, fontFamily: MONO, color: C.textDim }}>
+                  <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim }}>
                     {portfolioSummary.winners}W / {portfolioSummary.losers}L · {portfolioRows.length} positions · click to expand
                   </div>
                 </div>
@@ -12591,7 +12591,7 @@ export default function App() {
 
               {/* News Wire */}
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
-                <div style={{ fontSize: 11, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 10 }}>
+                <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 10 }}>
                   NEWS WIRE
                 </div>
                 {newsData.slice(0, 4).map((n, i) => (
@@ -12599,15 +12599,15 @@ export default function App() {
                     display: "block", textDecoration: "none", color: C.text, padding: "6px 0",
                     borderBottom: `1px solid ${C.border}`,
                   }}>
-                    <div style={{ fontSize: 10, fontFamily: MONO, color: C.accent, marginBottom: 2 }}>
+                    <div style={{ fontSize: 12, fontFamily: MONO, color: C.accent, marginBottom: 2 }}>
                       {n.ticker} · {n.publisher}
                     </div>
-                    <div style={{ fontSize: 11, fontFamily: SANS, color: C.textSec, lineHeight: 1.35 }}>
+                    <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, lineHeight: 1.35 }}>
                       {n.title}
                     </div>
                   </a>
                 ))}
-                {!newsData.length && <div style={{ fontSize: 11, color: C.textDim }}>No headlines yet.</div>}
+                {!newsData.length && <div style={{ fontSize: 12, color: C.textDim }}>No headlines yet.</div>}
               </div>
 
               {/* Daily P/L Tracker */}
@@ -12624,7 +12624,7 @@ export default function App() {
                 return (
                   <div onClick={() => setActiveTab("journal")}
                     style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14, cursor: "pointer" }}>
-                    <div style={{ fontSize: 11, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 10 }}>
+                    <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 10 }}>
                       TODAY&apos;S P/L
                     </div>
                     {todayTrades.length > 0 && (
@@ -12640,7 +12640,7 @@ export default function App() {
                       </div>
                     )}
                     {todayTrades.length > 0 && (
-                      <div style={{ fontSize: 10, fontFamily: MONO, color: C.textDim }}>{todayWins}W / {todayLosses}L · click for full journal</div>
+                      <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim }}>{todayWins}W / {todayLosses}L · click for full journal</div>
                     )}
                   </div>
                 );
@@ -12674,7 +12674,7 @@ export default function App() {
               <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: col, marginBottom: 10, letterSpacing: "0.06em" }}>{title}</div>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead><tr style={{ background: C.surface }}>
-                  {cols.map(c => <th key={c} style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, padding: "6px 8px", textAlign: "left", borderBottom: `1px solid ${C.border}` }}>{c}</th>)}
+                  {cols.map(c => <th key={c} style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "6px 8px", textAlign: "left", borderBottom: `1px solid ${C.border}` }}>{c}</th>)}
                 </tr></thead>
                 <tbody>
                   {rows.map((r, i) => (
@@ -12715,12 +12715,12 @@ export default function App() {
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                 <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>🏦 DARK POOL HEAT MAP</span>
                 <button onClick={() => { setDpLoad(true); fetch("/api/market/darkpool-heatmap").then(r=>r.json()).then(d=>{ if(d.ok) setDpHeatData(d); }).catch(()=>{}).finally(()=>setDpLoad(false)); }}
-                  style={{ fontFamily: MONO, fontSize: 10, border: `1px solid ${C.accent}`, background: `${C.accent}18`, color: C.accent, borderRadius: 4, padding: "3px 10px", cursor: "pointer" }}>
+                  style={{ fontFamily: MONO, fontSize: 12, border: `1px solid ${C.accent}`, background: `${C.accent}18`, color: C.accent, borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}>
                   {dpLoad ? "⌛" : "↺ REFRESH"}
                 </button>
-                {dpHeatData && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Updated: {new Date(dpHeatData.scannedAt).toLocaleTimeString()}</span>}
+                {dpHeatData && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Updated: {new Date(dpHeatData.scannedAt).toLocaleTimeString()}</span>}
               </div>
-              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 16 }}>
+              <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 16 }}>
                 Most active dark pool tickers by total premium today. Institutions buy/sell in dark pools before moving the public market.
               </div>
               {dpHeatLoad && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>⌛ Loading dark pool activity…</div>}
@@ -12739,7 +12739,7 @@ export default function App() {
                           border: `1px solid ${col}${Math.round(intensity * 60).toString(16).padStart(2,"0")}` }}>
                         <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: col }}>{s.sym}</div>
                         <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text, marginTop: 4 }}>{fmtM(s.value)}</div>
-                        <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 2 }}>{s.prints} prints</div>
+                        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>{s.prints} prints</div>
                         <div style={{ marginTop: 6, height: 4, borderRadius: 2, background: C.border }}>
                           <div style={{ width: `${intensity * 100}%`, height: "100%", background: col, borderRadius: 2 }} />
                         </div>
@@ -12771,14 +12771,14 @@ export default function App() {
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
                 <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>🏦 DARK POOL PRINTS</span>
                 <input value={dpSym} onChange={e => setDpSym(e.target.value.toUpperCase())} placeholder="Filter ticker…"
-                  style={{ border: "1px solid " + C.border, background: C.surface, color: C.text, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 11, width: 120 }} />
+                  style={{ border: "1px solid " + C.border, background: C.surface, color: C.text, borderRadius: 6, padding: "4px 8px", fontFamily: MONO, fontSize: 12, width: 120 }} />
                 <button onClick={() => fetchDarkPool(dpSym)}
-                  style={{ border: "1px solid " + C.accent, background: C.accent + "18", color: C.accent, borderRadius: 4, padding: "4px 12px", fontFamily: MONO, fontSize: 11, cursor: "pointer" }}>
+                  style={{ border: "1px solid " + C.accent, background: C.accent + "18", color: C.accent, borderRadius: 6, padding: "4px 12px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>
                   {dpLoad ? "⌛" : "🔍 SCAN"}
                 </button>
-                {dpData && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Updated: {new Date(dpData.scannedAt).toLocaleTimeString()}</span>}
+                {dpData && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Updated: {new Date(dpData.scannedAt).toLocaleTimeString()}</span>}
               </div>
-              {dpErr && <div style={{ fontFamily: MONO, fontSize: 11, color: C.red, marginBottom: 10 }}>⚠ {dpErr}</div>}
+              {dpErr && <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, marginBottom: 10 }}>⚠ {dpErr}</div>}
               {dpData && dpData.prints.length === 0 && !dpLoad && (
                 <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center", padding: 40 }}>No block prints found. Configure UNUSUAL_WHALES_API_KEY in env vars.</div>
               )}
@@ -12786,7 +12786,7 @@ export default function App() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead><tr style={{ background: C.surface }}>
                     {["TICKER","PRICE","SIZE","VALUE","TIME"].map(h => (
-                      <th key={h} style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, padding: "8px 12px", textAlign: "left", borderBottom: "1px solid " + C.border, letterSpacing: "0.06em" }}>{h}</th>
+                      <th key={h} style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "8px 12px", textAlign: "left", borderBottom: "1px solid " + C.border, letterSpacing: "0.06em" }}>{h}</th>
                     ))}
                   </tr></thead>
                   <tbody>
@@ -12797,7 +12797,7 @@ export default function App() {
                         <td style={{ fontFamily: MONO, fontSize: 12, color: C.text, padding: "10px 12px", borderBottom: "1px solid " + C.border + "22" }}>${Number(p.price).toFixed(2)}</td>
                         <td style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, padding: "10px 12px", borderBottom: "1px solid " + C.border + "22" }}>{Number(p.size).toLocaleString()}</td>
                         <td style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: p.value >= 5e6 ? C.accent : C.green, padding: "10px 12px", borderBottom: "1px solid " + C.border + "22" }}>{fmtVal(p.value)}</td>
-                        <td style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, padding: "10px 12px", borderBottom: "1px solid " + C.border + "22" }}>{p.time ? new Date(p.time).toLocaleTimeString() : "—"}</td>
+                        <td style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "10px 12px", borderBottom: "1px solid " + C.border + "22" }}>{p.time ? new Date(p.time).toLocaleTimeString() : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -12827,12 +12827,12 @@ export default function App() {
                   value={newsSymFilter}
                   onChange={(e) => setNewsSymFilter(e.target.value.toUpperCase())}
                   placeholder="Filter symbol…"
-                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 10, padding: "5px 8px", width: 120, borderRadius: 4 }}
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "5px 8px", width: 120, borderRadius: 6 }}
                 />
                 <select
                   value={newsSentFilter}
                   onChange={(e) => setNewsSentFilter(e.target.value)}
-                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 10, padding: "5px 8px", borderRadius: 4 }}
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "5px 8px", borderRadius: 6 }}
                 >
                   <option value="all">All Sentiment</option>
                   <option value="bullish">Bullish</option>
@@ -12843,7 +12843,7 @@ export default function App() {
                 <button
                   onClick={refreshNews}
                   disabled={newsLoading}
-                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                 >
                   {newsLoading ? "LOADING..." : `REFRESH (${newsData.length})`}
                 </button>
@@ -12851,7 +12851,7 @@ export default function App() {
                   onClick={scoreNewsSentiment}
                   disabled={newsSentLoading || !newsData.length}
                   title="AI-score each headline with Claude"
-                  style={{ border: `1px solid ${C.accent}44`, background: `${C.accent}11`, color: newsSentLoading ? C.textDim : C.accent, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: newsSentLoading || !newsData.length ? "default" : "pointer" }}
+                  style={{ border: `1px solid ${C.accent}44`, background: `${C.accent}11`, color: newsSentLoading ? C.textDim : C.accent, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: newsSentLoading || !newsData.length ? "default" : "pointer" }}
                 >
                   {newsSentLoading ? "🤖 SCORING…" : "🤖 AI SENTIMENT"}
                 </button>
@@ -12893,32 +12893,32 @@ export default function App() {
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                           <button onClick={() => { setTerminalSymbol(n.ticker); setActiveTab("terminal"); }}
-                            style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 10, cursor: "pointer", padding: 0, fontWeight: 700 }}>
+                            style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, cursor: "pointer", padding: 0, fontWeight: 700 }}>
                             {n.ticker}
                           </button>
-                          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>· {n.publisher}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 9, color: sentColor, fontWeight: 700, textTransform: "uppercase" }}>{sent}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>· {n.publisher}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, color: sentColor, fontWeight: 700, textTransform: "uppercase" }}>{sent}</span>
                           {aiLabel && (
-                            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: aiColor, background: `${aiColor}18`, borderRadius: 3, padding: "1px 5px" }}>
+                            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: aiColor, background: `${aiColor}18`, borderRadius: 5, padding: "2px 6px" }}>
                               {aiLabel}{aiSent?.score != null ? ` (${aiSent.score > 0 ? "+" : ""}${aiSent.score})` : ""}
                             </span>
                           )}
                         </div>
                         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                          <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                             {n.publishedAt ? new Date(n.publishedAt).toLocaleString() : ""}
                           </span>
                           {n.ticker && (
                             <React.Fragment>
                               <button
                                 onClick={() => setQuickLogModal({ symbol: n.ticker, price: 0, entry: "", stopLoss: "", target: "", size: "", side: sent === "bearish" ? "SELL" : "BUY", timeframe: "1D", style: "News", notes: n.title || "", score: sent === "bullish" ? 72 : 55, chg: 0, rvol: 0 })}
-                                style={{ border: `1px solid ${C.accent}44`, background: C.surface, color: C.accent, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>
+                                style={{ border: `1px solid ${C.accent}44`, background: C.surface, color: C.accent, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>
                                 LOG
                               </button>
                               <button
                                 onClick={() => setWatchlistSymbols(prev => onWatchlist ? prev.filter(s => s !== n.ticker) : Array.from(new Set([...prev, n.ticker])))}
                                 title={onWatchlist ? `Remove ${n.ticker} from watchlist` : `Add ${n.ticker} to watchlist`}
-                                style={{ border: `1px solid ${onWatchlist ? C.red : C.green}55`, background: onWatchlist ? C.redBg : C.greenBg, color: onWatchlist ? C.red : C.green, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}>
+                                style={{ border: `1px solid ${onWatchlist ? C.red : C.green}55`, background: onWatchlist ? C.redBg : C.greenBg, color: onWatchlist ? C.red : C.green, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>
                                 {onWatchlist ? "−WL" : "+WL"}
                               </button>
                               <button
@@ -12928,7 +12928,7 @@ export default function App() {
                                   try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
                                 }}
                                 title="Push to Telegram"
-                                style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>
+                                style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>
                                 PUSH
                               </button>
                             </React.Fragment>
@@ -12937,7 +12937,7 @@ export default function App() {
                       </div>
                       <a href={n.link} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
                         <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 4 }}>{n.title}</div>
-                        {n.summary ? <div style={{ fontSize: 11, color: C.textSec }}>{n.summary}</div> : null}
+                        {n.summary ? <div style={{ fontSize: 12, color: C.textSec }}>{n.summary}</div> : null}
                       </a>
                     </div>
                   );
@@ -12954,12 +12954,12 @@ export default function App() {
                 EARNINGS CALENDAR — WATCHLIST + LEADERS
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                   {earningsUpdatedAt ? `Updated ${earningsUpdatedAt}` : "Not loaded"}
                 </span>
                 <button
                   onClick={() => setEarningsRefreshTick((n) => n + 1)}
-                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                 >
                   {earningsLoading ? "UPDATING..." : "REFRESH"}
                 </button>
@@ -12968,25 +12968,25 @@ export default function App() {
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(140px, 1fr))", gap: 10, marginBottom: 12 }}>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>TODAY / TOMORROW</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>TODAY / TOMORROW</div>
                 <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 800, color: C.amber }}>
                   {earningsRows.filter((e) => Number.isFinite(e.dayDiff) && e.dayDiff >= 0 && e.dayDiff <= 1).length}
                 </div>
               </div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>NEXT 7D</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>NEXT 7D</div>
                 <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 800, color: C.green }}>
                   {earningsRows.filter((e) => Number.isFinite(e.dayDiff) && e.dayDiff >= 0 && e.dayDiff <= 7).length}
                 </div>
               </div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>NEXT 14D</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>NEXT 14D</div>
                 <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 800, color: C.accent }}>
                   {earningsRows.filter((e) => Number.isFinite(e.dayDiff) && e.dayDiff >= 0 && e.dayDiff <= 14).length}
                 </div>
               </div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>UNKNOWN DATE</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>UNKNOWN DATE</div>
                 <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 800, color: C.red }}>
                   {earningsRows.filter((e) => !e.earningsDate).length}
                 </div>
@@ -12994,7 +12994,7 @@ export default function App() {
             </div>
 
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "130px 160px 130px 120px 120px 1fr auto", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+              <div style={{ display: "grid", gridTemplateColumns: "130px 160px 130px 120px 120px 1fr auto", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                 <span>SYMBOL</span>
                 <span>EARN DATE</span>
                 <span>COUNTDOWN</span>
@@ -13014,17 +13014,17 @@ export default function App() {
                     <div key={`earn-row-${e.symbol}`} style={{ display: "grid", gridTemplateColumns: "130px 160px 130px 120px 120px 1fr auto", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${C.border}`, background: isSoon ? `${C.amber}0D` : C.card, alignItems: "center" }}>
                       <button onClick={() => { setTerminalSymbol(e.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", padding: 0, textAlign: "left" }}>{e.symbol}</button>
                       <span style={{ fontSize: 12, color: C.textSec }}>{dateLabel}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: isSoon ? C.amber : C.textSec }}>{e.timing}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: chg >= 0 ? C.green : C.red, fontWeight: 700 }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700 }}>{Math.round(Number(e.score || 0))}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>${px.toFixed(2)}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: isSoon ? C.amber : C.textSec }}>{e.timing}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: chg >= 0 ? C.green : C.red, fontWeight: 700 }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700 }}>{Math.round(Number(e.score || 0))}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>${px.toFixed(2)}</span>
                       <div style={{ display: "flex", gap: 5 }}>
                         <button
                           onClick={() => setQuickLogModal({ symbol: e.symbol, price: px, entry: px.toFixed(2), stopLoss: "", target: "", size: "", side: chg >= 0 ? "BUY" : "SELL", timeframe: "1D", style: "Earnings", notes: `Earnings ${dateLabel}${e.timing ? " " + e.timing : ""}`, score: Math.round(Number(e.score || 65)), chg, rvol: 0 })}
-                          style={{ border: `1px solid ${C.accent}44`, background: C.surface, color: C.accent, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>LOG</button>
+                          style={{ border: `1px solid ${C.accent}44`, background: C.surface, color: C.accent, borderRadius: 6, padding: "4px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>LOG</button>
                         <button
                           onClick={() => setWatchlistSymbols(prev => onWl ? prev.filter(s => s !== e.symbol) : Array.from(new Set([...prev, e.symbol])))}
-                          style={{ border: `1px solid ${onWl ? C.red : C.green}55`, background: C.surface, color: onWl ? C.red : C.green, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>
+                          style={{ border: `1px solid ${onWl ? C.red : C.green}55`, background: C.surface, color: onWl ? C.red : C.green, borderRadius: 6, padding: "4px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>
                           {onWl ? "−WL" : "+WL"}
                         </button>
                         <button
@@ -13032,7 +13032,7 @@ export default function App() {
                             const msg = `📅 *${e.symbol}* Earnings ${e.timing ? e.timing : dateLabel}\nPrice: $${px.toFixed(2)}  CHG: ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%  Score: ${Math.round(Number(e.score || 0))}`;
                             try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
                           }}
-                          style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }} title="Push to Telegram">PUSH</button>
+                          style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 6, padding: "4px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }} title="Push to Telegram">PUSH</button>
                       </div>
                     </div>
                   );
@@ -13063,10 +13063,10 @@ export default function App() {
                       border: `1px solid ${tvSource === src.id ? C.accent : C.border}`,
                       background: tvSource === src.id ? `${C.accent}12` : C.surface,
                       color: tvSource === src.id ? C.accent : C.text,
-                      borderRadius: 4,
+                      borderRadius: 6,
                       padding: "6px 10px",
                       fontFamily: MONO,
-                      fontSize: 10,
+                      fontSize: 12,
                       cursor: "pointer",
                     }}
                   >
@@ -13075,7 +13075,7 @@ export default function App() {
                 ))}
                 <button
                   onClick={() => window.open(selectedTvSource.official, "_blank", "noopener,noreferrer")}
-                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                 >
                   OPEN OFFICIAL
                 </button>
@@ -13089,7 +13089,7 @@ export default function App() {
                 allow="autoplay; encrypted-media; picture-in-picture"
                 allowFullScreen
               />
-              <div style={{ marginTop: 8, fontSize: 11, color: C.textDim }}>
+              <div style={{ marginTop: 8, fontSize: 12, color: C.textDim }}>
                 If this stream is blocked by provider policy, use <b>OPEN OFFICIAL</b>.
               </div>
             </div>
@@ -13131,7 +13131,7 @@ export default function App() {
               padding: "8px 14px", borderBottom: `1px solid ${C.border}`,
               background: C.surface }}>
               <span style={{ fontSize: 13 }}>{icon}</span>
-              <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                 color: C.textDim, letterSpacing: "0.07em" }}>{text}</span>
             </div>
           );
@@ -13156,7 +13156,7 @@ export default function App() {
                     width: 130, outline: "none", letterSpacing: "0.05em" }}
                 />
                 <button onClick={() => setTvOsSymbol(tvOsInput.trim() || "SPY")}
-                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                  style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                     background: C.accent, border: "none", color: "#fff",
                     borderRadius: 6, padding: "7px 16px", cursor: "pointer" }}>
                   GO
@@ -13165,20 +13165,20 @@ export default function App() {
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                   {QUICK.map(t => (
                     <button key={t} onClick={() => { setTvOsInput(t); setTvOsSymbol(t); }}
-                      style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                      style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                         background: sym === t ? `${C.accent}22` : C.surface,
                         border: `1px solid ${sym === t ? C.accent : C.border}`,
                         color: sym === t ? C.accent : C.textDim,
-                        borderRadius: 4, padding: "4px 8px", cursor: "pointer" }}>
+                        borderRadius: 6, padding: "4px 8px", cursor: "pointer" }}>
                       {t}
                     </button>
                   ))}
                 </div>
                 <a href={`https://www.tradingview.com/chart/?symbol=${sym}`}
                   target="_blank" rel="noopener noreferrer"
-                  style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, color: C.textDim,
+                  style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, color: C.textDim,
                     textDecoration: "none", border: `1px solid ${C.border}`,
-                    borderRadius: 4, padding: "5px 10px" }}>
+                    borderRadius: 6, padding: "5px 10px" }}>
                   Open in TradingView ↗
                 </a>
               </div>
@@ -13303,7 +13303,7 @@ export default function App() {
           });
 
           const TH = (label, tip) => (
-            <th title={tip} style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, fontWeight: 700,
+            <th title={tip} style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, fontWeight: 700,
               padding: "6px 8px", textAlign: "center", whiteSpace: "nowrap",
               borderBottom: `1px solid ${C.border}`, letterSpacing: "0.06em" }}>
               {label}
@@ -13318,31 +13318,31 @@ export default function App() {
                   <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>
                     🚀 HIGH-GROWTH THEMATIC WATCHLIST — 5× AND UP
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 4 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 4 }}>
                     AI · INFRASTRUCTURE · ROBOTICS · NUCLEAR · SATELLITE · SPACE · AI ENERGY · DEFENCE AI &nbsp;|&nbsp;
                     {FIVEX.length} STOCKS &nbsp;|&nbsp; REF PRICES: 2026-05-27
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 11, color: "#ff9900", marginTop: 3 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: "#ff9900", marginTop: 3 }}>
                     ⚠ Entry zones rule-based (−5% / −12% / −20% from ref price). Not financial advice.
                   </div>
                   {fivexFetchedAt && (
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.green, marginTop: 3 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, marginTop: 3 }}>
                       ● LIVE PRICES as of {fivexFetchedAt.toLocaleTimeString()}
                     </div>
                   )}
                   {fivexError && (
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.red, marginTop: 3 }}>⚠ {fivexError}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, marginTop: 3 }}>⚠ {fivexError}</div>
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <button
                     onClick={fetchLivePrices}
                     disabled={fivexLoading}
-                    style={{ fontFamily: MONO, fontSize: 10,
+                    style={{ fontFamily: MONO, fontSize: 12,
                       background: fivexLoading ? C.surface : `${C.green}18`,
                       border: `1px solid ${fivexLoading ? C.border : C.green}`,
                       color: fivexLoading ? C.textDim : C.green,
-                      borderRadius: 4, padding: "5px 12px", cursor: fivexLoading ? "default" : "pointer", whiteSpace: "nowrap" }}>
+                      borderRadius: 6, padding: "5px 12px", cursor: fivexLoading ? "default" : "pointer", whiteSpace: "nowrap" }}>
                     {fivexLoading ? "⌛ LOADING…" : "↻ LIVE PRICES"}
                   </button>
                   <button
@@ -13357,8 +13357,8 @@ export default function App() {
                       });
                       try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: lines.join("\n") }) }); } catch {}
                     }}
-                    style={{ fontFamily: MONO, fontSize: 10, background: `${C.accent}18`, border: `1px solid ${C.accent}55`,
-                      color: C.accent, borderRadius: 4, padding: "5px 12px", cursor: "pointer", whiteSpace: "nowrap" }}>
+                    style={{ fontFamily: MONO, fontSize: 12, background: `${C.accent}18`, border: `1px solid ${C.accent}55`,
+                      color: C.accent, borderRadius: 6, padding: "5px 12px", cursor: "pointer", whiteSpace: "nowrap" }}>
                     PUSH TO TELEGRAM
                   </button>
                 </div>
@@ -13368,7 +13368,7 @@ export default function App() {
               {Object.keys(fivexPrices).length > 0 && (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12,
                   padding: "10px 14px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, alignItems: "center" }}>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginRight: 4 }}>LIVE ZONES:</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginRight: 4 }}>LIVE ZONES:</span>
                   {[
                     { key: "deep",     label: "🟢 DEEP VALUE",  color: "#00e676" },
                     { key: "better",   label: "⚡ BETTER ENTRY", color: "#4caf50" },
@@ -13377,7 +13377,7 @@ export default function App() {
                     { key: "wait",     label: "⏳ WAIT",         color: C.textDim },
                     { key: "stop",     label: "⚠ BELOW STOP",   color: C.red     },
                   ].map(({ key, label, color }) => zoneCounts[key] > 0 && (
-                    <span key={key} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                    <span key={key} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                       color, background: color + "18", border: `1px solid ${color}44`,
                       borderRadius: 12, padding: "3px 10px", cursor: "pointer" }}
                       onClick={() => setFivexSort("zone")}>
@@ -13389,18 +13389,18 @@ export default function App() {
 
               {/* ── Sort + Sector pills row ── */}
               <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>SORT:</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>SORT:</span>
                 {[["rank","RANK"],["zone","ZONE"],["upside","UPSIDE"],["risk","RISK"]].map(([val, lbl]) => (
                   <button key={val} onClick={() => setFivexSort(val)} style={{
-                    fontFamily: MONO, fontSize: 11, cursor: "pointer", borderRadius: 4,
+                    fontFamily: MONO, fontSize: 12, cursor: "pointer", borderRadius: 6,
                     padding: "3px 8px",
                     background: fivexSort === val ? `${C.accent}22` : C.surface,
                     border: `1px solid ${fivexSort === val ? C.accent : C.border}`,
                     color: fivexSort === val ? C.accent : C.textDim, fontWeight: fivexSort === val ? 700 : 400,
                   }}>{lbl}</button>
                 ))}
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.border, margin: "0 4px" }}>|</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>SECTOR:</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.border, margin: "0 4px" }}>|</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>SECTOR:</span>
               </div>
 
               {/* ── Sector summary pills ── */}
@@ -13413,7 +13413,7 @@ export default function App() {
                     <button key={sec}
                       onClick={() => setFivexSector(sec)}
                       style={{
-                        fontFamily: MONO, fontSize: 11, cursor: "pointer", borderRadius: 20,
+                        fontFamily: MONO, fontSize: 12, cursor: "pointer", borderRadius: 20,
                         padding: "4px 10px", whiteSpace: "nowrap",
                         background: active ? (meta ? meta.color + "30" : `${C.accent}22`) : C.surface,
                         border: `1px solid ${active ? (meta ? meta.color : C.accent) : C.border}`,
@@ -13488,74 +13488,74 @@ export default function App() {
                           onClick={() => { setTvOsInput(s.ticker); setTvOsSymbol(s.ticker); setActiveTab("openstock"); }}
                           title={`Click to open ${s.ticker} in Stock Deep Dive`}>
                           {/* Rank */}
-                          <td style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: "center",
-                            padding: "11px 9px", borderBottom: `1px solid ${C.border}22` }}>
+                          <td style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center",
+                            padding: "12px 10px", borderBottom: `1px solid ${C.border}22` }}>
                             {s.rank}
                           </td>
                           {/* Ticker */}
-                          <td style={{ padding: "11px 9px", borderBottom: `1px solid ${C.border}22`, textAlign: "center" }}>
+                          <td style={{ padding: "12px 10px", borderBottom: `1px solid ${C.border}22`, textAlign: "center" }}>
                             <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: meta.color,
-                              background: meta.color + "18", borderRadius: 4, padding: "2px 6px" }}>
+                              background: meta.color + "18", borderRadius: 6, padding: "3px 7px" }}>
                               {s.ticker}
                             </span>
                           </td>
                           {/* Company */}
-                          <td style={{ fontFamily: MONO, fontSize: 10, color: C.text, padding: "11px 9px",
+                          <td style={{ fontFamily: MONO, fontSize: 12, color: C.text, padding: "12px 10px",
                             borderBottom: `1px solid ${C.border}22`, whiteSpace: "nowrap" }}>
                             {s.company}
                           </td>
                           {/* Sector */}
-                          <td style={{ padding: "11px 9px", borderBottom: `1px solid ${C.border}22`, whiteSpace: "nowrap" }}>
-                            <span style={{ fontFamily: MONO, fontSize: 11, color: meta.color, fontWeight: 700 }}>
+                          <td style={{ padding: "12px 10px", borderBottom: `1px solid ${C.border}22`, whiteSpace: "nowrap" }}>
+                            <span style={{ fontFamily: MONO, fontSize: 12, color: meta.color, fontWeight: 700 }}>
                               {meta.icon} {s.sector}
                             </span>
                           </td>
                           {/* Ref Price */}
-                          <td style={{ fontFamily: MONO, fontSize: 10, fontWeight: 600, color: C.textDim,
-                            textAlign: "right", padding: "11px 11px", borderBottom: `1px solid ${C.border}22` }}>
+                          <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: C.textDim,
+                            textAlign: "right", padding: "12px 12px", borderBottom: `1px solid ${C.border}22` }}>
                             {$(s.price)}
                           </td>
                           {/* Live Price */}
-                          <td style={{ padding: "11px 11px", borderBottom: `1px solid ${C.border}22`, textAlign: "right" }}>
+                          <td style={{ padding: "12px 12px", borderBottom: `1px solid ${C.border}22`, textAlign: "right" }}>
                             {fivexLoading ? (
-                              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>…</span>
+                              <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>…</span>
                             ) : liveP ? (
                               <div>
-                                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800,
+                                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800,
                                   color: lv.pct >= 0 ? C.green : C.red }}>
                                   {$(liveP)}
                                 </div>
-                                <div style={{ fontFamily: MONO, fontSize: 8,
+                                <div style={{ fontFamily: MONO, fontSize: 12,
                                   color: lv.pct >= 0 ? C.green : C.red }}>
                                   {lv.pct >= 0 ? "+" : ""}{lv.pct.toFixed(2)}%
                                 </div>
                               </div>
                             ) : (
-                              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>—</span>
+                              <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>—</span>
                             )}
                           </td>
                           {/* Zone Badge */}
-                          <td style={{ textAlign: "center", padding: "11px 9px", borderBottom: `1px solid ${C.border}22` }}>
+                          <td style={{ textAlign: "center", padding: "12px 10px", borderBottom: `1px solid ${C.border}22` }}>
                             {zoneBadge ? (
-                              <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700,
+                              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                 color: zoneBadge.color, background: zoneBadge.color + "22",
                                 border: `1px solid ${zoneBadge.color}44`,
-                                borderRadius: 4, padding: "2px 5px", whiteSpace: "nowrap" }}>
+                                borderRadius: 6, padding: "2px 5px", whiteSpace: "nowrap" }}>
                                 {zoneBadge.label}
                               </span>
                             ) : (
-                              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>—</span>
+                              <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>—</span>
                             )}
                           </td>
                           {/* Entry 1 -5% */}
-                          <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "right", padding: "11px 11px",
+                          <td style={{ fontFamily: MONO, fontSize: 12, textAlign: "right", padding: "12px 12px",
                             borderBottom: `1px solid ${C.border}22`,
                             color: isInEntry1 ? "#26a69a" : C.textDim,
                             background: isInEntry1 ? "#26a69a14" : "transparent" }}>
                             {$(s.e1)}
                           </td>
                           {/* Entry 2 -12% */}
-                          <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "right", padding: "11px 11px",
+                          <td style={{ fontFamily: MONO, fontSize: 12, textAlign: "right", padding: "12px 12px",
                             borderBottom: `1px solid ${C.border}22`,
                             color: isInEntry2 ? "#4caf50" : C.textDim,
                             fontWeight: isInEntry2 ? 700 : 400,
@@ -13563,7 +13563,7 @@ export default function App() {
                             {$(s.e2)}
                           </td>
                           {/* Entry 3 -20% deep value */}
-                          <td style={{ fontFamily: MONO, fontSize: 11, textAlign: "right", padding: "11px 11px",
+                          <td style={{ fontFamily: MONO, fontSize: 12, textAlign: "right", padding: "12px 12px",
                             borderBottom: `1px solid ${C.border}22`,
                             color: isInEntry3 ? "#00e676" : C.textDim,
                             fontWeight: isInEntry3 ? 800 : 400,
@@ -13571,33 +13571,33 @@ export default function App() {
                             {$(s.e3)}
                           </td>
                           {/* Breakout +8% */}
-                          <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "right", padding: "11px 11px",
+                          <td style={{ fontFamily: MONO, fontSize: 12, textAlign: "right", padding: "12px 12px",
                             borderBottom: `1px solid ${C.border}22`,
                             color: isAboveBreakout ? "#ffd700" : "#ff9900",
                             fontWeight: 700 }}>
                             {$(s.trigger)}
                           </td>
                           {/* Stop -15% */}
-                          <td style={{ fontFamily: MONO, fontSize: 10, textAlign: "right", padding: "11px 11px",
+                          <td style={{ fontFamily: MONO, fontSize: 12, textAlign: "right", padding: "12px 12px",
                             borderBottom: `1px solid ${C.border}22`, color: C.red }}>
                             {$(s.stop)}
                           </td>
                           {/* Risk */}
-                          <td style={{ textAlign: "center", padding: "11px 9px", borderBottom: `1px solid ${C.border}22` }}>
-                            <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: rColor,
+                          <td style={{ textAlign: "center", padding: "12px 10px", borderBottom: `1px solid ${C.border}22` }}>
+                            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: rColor,
                               background: rColor + "20", border: `1px solid ${rColor}55`,
-                              borderRadius: 4, padding: "2px 6px", whiteSpace: "nowrap" }}>
+                              borderRadius: 6, padding: "3px 7px", whiteSpace: "nowrap" }}>
                               {s.risk.toUpperCase()}
                             </span>
                           </td>
                           {/* Upside */}
-                          <td style={{ textAlign: "center", padding: "11px 9px", borderBottom: `1px solid ${C.border}22` }}>
-                            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: uColor }}>
+                          <td style={{ textAlign: "center", padding: "12px 10px", borderBottom: `1px solid ${C.border}22` }}>
+                            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: uColor }}>
                               {s.upside}
                             </span>
                           </td>
                           {/* Thesis */}
-                          <td style={{ fontFamily: MONO, fontSize: 11, color: C.textSec, padding: "11px 11px",
+                          <td style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, padding: "12px 12px",
                             borderBottom: `1px solid ${C.border}22`, whiteSpace: "nowrap" }}>
                             {s.thesis}
                           </td>
@@ -13611,21 +13611,21 @@ export default function App() {
               {/* ── Legend ── */}
               <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginTop: 14, padding: "10px 14px",
                 background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                   <span style={{ color: "#26a69a" }}>■</span> STARTER −5% &nbsp;
                   <span style={{ color: "#4caf50" }}>■</span> BETTER −12% &nbsp;
                   <span style={{ color: "#00e676", fontWeight: 700 }}>■</span> DEEP −20% &nbsp;&nbsp;
                   <span style={{ color: "#ff9900" }}>■</span> BREAKOUT +8% &nbsp;
                   <span style={{ color: C.red }}>■</span> STOP −15%
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                   {["Extreme","Very High","High","Medium-High","Medium"].map(r => (
                     <span key={r} style={{ marginRight: 10 }}>
                       <span style={{ color: RISK_COLOR[r] }}>■</span> {r}
                     </span>
                   ))}
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: "auto" }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: "auto" }}>
                   Click any row → Stock Deep Dive ↗
                 </div>
               </div>
@@ -13657,9 +13657,9 @@ export default function App() {
         {activeTab === "smartscan" && (() => {
           // ── Signal badge style helper ─────────────────────────────────────
           const SIG_STYLE = (sColor) => ({
-            display: "inline-block", fontFamily: MONO, fontSize: 11, fontWeight: 800,
+            display: "inline-block", fontFamily: MONO, fontSize: 12, fontWeight: 800,
             color: sColor, background: sColor + "22", border: `1px solid ${sColor}44`,
-            borderRadius: 4, padding: "2px 7px", whiteSpace: "nowrap",
+            borderRadius: 6, padding: "3px 8px", whiteSpace: "nowrap",
           });
 
           // ── Apply filters using hoisted state (sfSig, sfMinScore, sfMaxPrice, sfZone) ──
@@ -13706,18 +13706,18 @@ export default function App() {
                 <div>
                   <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text,
                     letterSpacing: "0.06em" }}>🧠 SMART SCANNER</div>
-                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 2 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>
                     AI-scored technical + entry zone + volume + sentiment — 30 high-growth tickers
                   </div>
                 </div>
                 <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   {scanLastRun && (
-                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                       Last scan: {scanLastRun.toLocaleTimeString()}
                     </span>
                   )}
                   {scanLoading && (
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>
                       ⌛ Scanning {scanProgress.done}/{scanProgress.total}…
                       <div style={{ marginTop: 4, width: 160, height: 4, background: C.border, borderRadius: 2, overflow: "hidden" }}>
                         <div style={{ width: `${Math.round((scanProgress.done / scanProgress.total) * 100)}%`,
@@ -13734,8 +13734,8 @@ export default function App() {
                     setAutoScanOn(true);
                     localStorage.setItem("smartscan_auto_on", "true");
                   }}
-                    style={{ fontFamily: MONO, fontSize: 11, background: C.surface, border: `1px solid ${C.border}`,
-                      color: C.textSec, borderRadius: 4, padding: "4px 6px", cursor: "pointer" }}>
+                    style={{ fontFamily: MONO, fontSize: 12, background: C.surface, border: `1px solid ${C.border}`,
+                      color: C.textSec, borderRadius: 6, padding: "4px 6px", cursor: "pointer" }}>
                     <option value={1}>1 min</option>
                     <option value={5}>5 min</option>
                     <option value={10}>10 min</option>
@@ -13747,7 +13747,7 @@ export default function App() {
                     localStorage.setItem("smartscan_auto_on", String(!v));
                     return !v;
                   })}
-                    style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                    style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                       background: autoScanOn ? `${C.amber}18` : C.surface,
                       border: `1px solid ${autoScanOn ? C.amber : C.border}`,
                       color: autoScanOn ? C.amber : C.textDim,
@@ -13757,7 +13757,7 @@ export default function App() {
                       : "▶ AUTO ON"}
                   </button>
                   <button onClick={runSmartScan} disabled={scanLoading}
-                    style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                    style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                       background: scanLoading ? C.surface : `${C.green}18`,
                       border: `1px solid ${scanLoading ? C.border : C.green}`,
                       color: scanLoading ? C.textDim : C.green,
@@ -13786,7 +13786,7 @@ export default function App() {
                     padding: "12px 16px", marginBottom: 10 }}>
                     {/* Add row */}
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, whiteSpace: "nowrap" }}>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, whiteSpace: "nowrap" }}>
                         ➕ ADD STOCK:
                       </span>
                       <input
@@ -13795,17 +13795,17 @@ export default function App() {
                         onKeyDown={e => { if (e.key === "Enter") addTicker(scanTickerInput); }}
                         placeholder="TICKER…"
                         style={{ width: 100, background: C.surface, border: `1px solid ${C.border}`, color: C.text,
-                          fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 4, outline: "none" }}
+                          fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 6, outline: "none" }}
                       />
                       <button onClick={() => addTicker(scanTickerInput)} disabled={!scanTickerInput.trim()}
-                        style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                        style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                           background: scanTickerInput.trim() ? `${C.green}18` : C.surface,
                           border: `1px solid ${scanTickerInput.trim() ? C.green : C.border}`,
                           color: scanTickerInput.trim() ? C.green : C.textDim,
-                          borderRadius: 4, padding: "5px 14px", cursor: scanTickerInput.trim() ? "pointer" : "default" }}>
+                          borderRadius: 6, padding: "5px 14px", cursor: scanTickerInput.trim() ? "pointer" : "default" }}>
                         ADD
                       </button>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                         {FIVEX_TICKERS.length} stocks in scan
                       </span>
                     </div>
@@ -13814,12 +13814,12 @@ export default function App() {
                     {customScanTickers.length > 0 && (
                       <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 8 }}>
                         {customScanTickers.map(sym => (
-                          <span key={sym} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                          <span key={sym} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                             color: C.accent, background: `${C.accent}18`, border: `1px solid ${C.accent}44`,
-                            borderRadius: 4, padding: "3px 8px", display: "flex", alignItems: "center", gap: 4 }}>
+                            borderRadius: 6, padding: "3px 8px", display: "flex", alignItems: "center", gap: 4 }}>
                             {sym}
                             <span onClick={() => removeTicker(sym)}
-                              style={{ cursor: "pointer", color: C.red, fontWeight: 900, fontSize: 11, lineHeight: 1 }}>
+                              style={{ cursor: "pointer", color: C.red, fontWeight: 900, fontSize: 12, lineHeight: 1 }}>
                               ×
                             </span>
                           </span>
@@ -13829,14 +13829,14 @@ export default function App() {
 
                     {/* Suggestion chips */}
                     <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
-                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, whiteSpace: "nowrap", marginRight: 4 }}>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, whiteSpace: "nowrap", marginRight: 4 }}>
                         💡 SUGGESTIONS:
                       </span>
                       {suggestions.slice(0, 20).map(sym => (
                         <button key={sym} onClick={() => addTicker(sym)}
-                          style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                          style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                             color: C.textSec, background: C.surface, border: `1px solid ${C.border}`,
-                            borderRadius: 3, padding: "2px 7px", cursor: "pointer" }}>
+                            borderRadius: 5, padding: "3px 8px", cursor: "pointer" }}>
                           + {sym}
                         </button>
                       ))}
@@ -13847,7 +13847,7 @@ export default function App() {
 
               {/* ── Error ── */}
               {scanError && (
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.red,
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.red,
                   background: C.redBg, border: `1px solid ${C.red}44`,
                   borderRadius: 6, padding: "8px 14px", marginBottom: 10 }}>
                   ⚠ {scanError}
@@ -13859,7 +13859,7 @@ export default function App() {
                 <div style={{ textAlign: "center", padding: "60px 0",
                   fontFamily: MONO, fontSize: 13, color: C.textDim }}>
                   Press <strong style={{ color: C.green }}>▶ RUN SCAN</strong> to analyse all 30 watchlist stocks
-                  <div style={{ fontSize: 11, marginTop: 8, color: C.textDim }}>
+                  <div style={{ fontSize: 12, marginTop: 8, color: C.textDim }}>
                     RSI · MACD · EMA · Entry zones · Volume · 52W position · News sentiment
                   </div>
                 </div>
@@ -13872,11 +13872,11 @@ export default function App() {
                     <div key={sc.label} style={{ flex: "1 1 100px", minWidth: 90,
                       background: C.card, border: `1px solid ${sc.color}44`,
                       borderRadius: 8, padding: "10px 14px", textAlign: "center" }}>
-                      <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: sc.color,
+                      <div style={{ fontFamily: MONO, fontSize: 26, fontWeight: 900, color: sc.color,
                         lineHeight: 1 }}>
                         {sc.count}
                       </div>
-                      <div style={{ fontFamily: MONO, fontSize: 10, color: sc.color + "cc",
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: sc.color + "cc",
                         marginTop: 4, letterSpacing: "0.06em" }}>
                         {sc.label}
                       </div>
@@ -13893,13 +13893,13 @@ export default function App() {
 
                   {/* Signal filter */}
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
-                    <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginRight: 2 }}>SIGNAL</span>
+                    <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginRight: 2 }}>SIGNAL</span>
                     {["ALL","STRONG BUY","BUY","WATCH","NEUTRAL","AVOID"].map(s => (
                       <button key={s} onClick={() => setSfSig(s)}
-                        style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, border: "none",
+                        style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, border: "none",
                           background: sfSig === s ? C.accent : C.surface,
                           color: sfSig === s ? "#fff" : C.textDim,
-                          borderRadius: 4, padding: "4px 8px", cursor: "pointer",
+                          borderRadius: 6, padding: "4px 8px", cursor: "pointer",
                           minHeight: 28 }}>
                         {s === "ALL" ? "ALL" : s}
                       </button>
@@ -13910,13 +13910,13 @@ export default function App() {
 
                   {/* Zone filter */}
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
-                    <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginRight: 2 }}>ZONE</span>
+                    <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginRight: 2 }}>ZONE</span>
                     {["ALL","DEEP","BETTER","STARTER","ABOVE","WAIT"].map(z => (
                       <button key={z} onClick={() => setSfZone(z)}
-                        style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, border: "none",
+                        style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, border: "none",
                           background: sfZone === z ? "#26a69a" : C.surface,
                           color: sfZone === z ? "#fff" : C.textDim,
-                          borderRadius: 4, padding: "4px 8px", cursor: "pointer",
+                          borderRadius: 6, padding: "4px 8px", cursor: "pointer",
                           minHeight: 28 }}>
                         {z}
                       </button>
@@ -13927,13 +13927,13 @@ export default function App() {
 
                   {/* Score filter */}
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
-                    <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginRight: 2 }}>MIN SCORE</span>
+                    <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginRight: 2 }}>MIN SCORE</span>
                     {[[0,"ALL"],[60,"60+"],[70,"70+"],[80,"80+"],[90,"90+"]].map(([v,lbl]) => (
                       <button key={v} onClick={() => setSfMinScore(v)}
-                        style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, border: "none",
+                        style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, border: "none",
                           background: sfMinScore === v ? C.green : C.surface,
                           color: sfMinScore === v ? "#fff" : C.textDim,
-                          borderRadius: 4, padding: "4px 8px", cursor: "pointer",
+                          borderRadius: 6, padding: "4px 8px", cursor: "pointer",
                           minHeight: 28 }}>
                         {lbl}
                       </button>
@@ -13944,23 +13944,23 @@ export default function App() {
 
                   {/* Price filter */}
                   <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                    <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>MAX $</span>
+                    <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>MAX $</span>
                     <input type="number" value={sfMaxPrice || ""} placeholder="Any"
                       onChange={e => setSfMaxPrice(Number(e.target.value) || 0)}
-                      style={{ width: 70, fontFamily: MONO, fontSize: 11,
+                      style={{ width: 70, fontFamily: MONO, fontSize: 12,
                         background: C.surface, border: `1px solid ${C.border}`,
-                        color: C.text, borderRadius: 4, padding: "4px 6px" }} />
+                        color: C.text, borderRadius: 6, padding: "4px 6px" }} />
                   </div>
 
                   {/* Active filter count + clear */}
                   <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: filteredResults.length < scanResults.length ? C.accent : C.textDim }}>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: filteredResults.length < scanResults.length ? C.accent : C.textDim }}>
                       {filteredResults.length}/{scanResults.length} shown
                     </span>
                     {(sfSig !== "ALL" || sfZone !== "ALL" || sfMinScore > 0 || sfMaxPrice > 0) && (
                       <button onClick={() => { setSfSig("ALL"); setSfZone("ALL"); setSfMinScore(0); setSfMaxPrice(0); }}
-                        style={{ fontFamily: MONO, fontSize: 9, border: `1px solid ${C.border}`,
-                          background: C.surface, color: C.red, borderRadius: 4,
+                        style={{ fontFamily: MONO, fontSize: 12, border: `1px solid ${C.border}`,
+                          background: C.surface, color: C.red, borderRadius: 6,
                           padding: "3px 8px", cursor: "pointer" }}>
                         ✕ CLEAR
                       </button>
@@ -13975,7 +13975,7 @@ export default function App() {
                   borderRadius: 10, overflow: "hidden" }}>
                   {/* Tablet: show scroll hint */}
                   {isTablet && (
-                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim,
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim,
                       padding: "6px 12px", background: C.surface,
                       borderBottom: `1px solid ${C.border}22`, textAlign: "center" }}>
                       ← Swipe table to see all columns · Tap row to expand deep dive →
@@ -14065,29 +14065,35 @@ export default function App() {
                               }}
                               style={{
                                 cursor: "pointer",
+                                // Color-code rows by signal for instant scanning
                                 background: isExpanded
-                                  ? C.cardHover
+                                  ? `${row.sColor}18`
+                                  : row.signal === "STRONG BUY" ? `${C.green}08`
+                                  : row.signal === "AVOID" ? `${C.red}06`
                                   : (idx % 2 === 0 ? "transparent" : C.surface),
-                                borderLeft: isExpanded ? `3px solid ${row.sColor}` : "3px solid transparent",
+                                borderLeft: `3px solid ${isExpanded ? row.sColor : row.signal === "STRONG BUY" ? C.green + "88" : row.signal === "AVOID" ? C.red + "88" : "transparent"}`,
+                                transition: "background 0.1s",
                               }}
+                              onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = C.cardHover; }}
+                              onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = row.signal === "STRONG BUY" ? `${C.green}08` : row.signal === "AVOID" ? `${C.red}06` : idx % 2 === 0 ? "transparent" : C.surface; }}
                             >
                               {/* Rank */}
-                              <td style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
-                                color: C.textDim, textAlign: "center", padding: "11px 9px",
+                              <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
+                                color: C.textDim, textAlign: "center", padding: "12px 10px",
                                 borderBottom: `1px solid ${C.border}22` }}>
                                 {idx + 1}
                               </td>
 
                               {/* Score bar */}
-                              <td style={{ padding: "11px 11px", borderBottom: `1px solid ${C.border}22`,
+                              <td style={{ padding: "12px 12px", borderBottom: `1px solid ${C.border}22`,
                                 minWidth: 90 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                  <div style={{ flex: 1, height: 6, background: C.border, borderRadius: 3,
+                                  <div style={{ flex: 1, height: 6, background: C.border, borderRadius: 5,
                                     overflow: "hidden", minWidth: 50 }}>
                                     <div style={{ width: `${row.score}%`, height: "100%",
-                                      background: row.sColor, borderRadius: 3, transition: "width 0.4s" }} />
+                                      background: row.sColor, borderRadius: 5, transition: "width 0.4s" }} />
                                   </div>
-                                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800,
+                                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800,
                                     color: row.sColor, minWidth: 22, textAlign: "right" }}>
                                     {row.score}
                                   </span>
@@ -14095,7 +14101,7 @@ export default function App() {
                               </td>
 
                               {/* Signal badge — shows Master Verdict when deep dive loaded */}
-                              <td style={{ padding: "11px 9px", borderBottom: `1px solid ${C.border}22` }}>
+                              <td style={{ padding: "12px 10px", borderBottom: `1px solid ${C.border}22` }}>
                                 {(() => {
                                   // Compute quick Master Verdict from available scanner data
                                   const px2   = Number(livePrice || row.quote?.price || 0);
@@ -14148,7 +14154,7 @@ export default function App() {
                                         {ml.lbl}
                                       </span>
                                       {changed && (
-                                        <div style={{ fontFamily: SANS, fontSize: 8, color: C.textDim, marginTop: 2 }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
                                           was: {row.signal}
                                         </div>
                                       )}
@@ -14158,12 +14164,12 @@ export default function App() {
                               </td>
 
                               {/* Ticker */}
-                              <td style={{ padding: "11px 11px", borderBottom: `1px solid ${C.border}22` }}>
+                              <td style={{ padding: "12px 12px", borderBottom: `1px solid ${C.border}22` }}>
                                 <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>
                                   {row.ticker}
                                 </div>
                                 {ref && (
-                                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 1 }}>
+                                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 1 }}>
                                     {ref.company}
                                   </div>
                                 )}
@@ -14171,15 +14177,15 @@ export default function App() {
 
                               {/* Sector — hidden on tablet */}
                               {!isTablet && (
-                              <td style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
-                                padding: "11px 11px", borderBottom: `1px solid ${C.border}22`,
+                              <td style={{ fontFamily: MONO, fontSize: 12, color: C.textDim,
+                                padding: "12px 12px", borderBottom: `1px solid ${C.border}22`,
                                 whiteSpace: "nowrap" }}>
                                 {ref?.sector || row.quote?.sector || row.quote?.quoteType || "—"}
                               </td>
                               )}
 
                               {/* Live price */}
-                              <td style={{ padding: "11px 11px", borderBottom: `1px solid ${C.border}22`,
+                              <td style={{ padding: "12px 12px", borderBottom: `1px solid ${C.border}22`,
                                 textAlign: "right", minWidth: 72 }}>
                                 {livePrice > 0 ? (
                                   <>
@@ -14187,19 +14193,19 @@ export default function App() {
                                       color: liveChg >= 0 ? C.green : C.red }}>
                                       ${livePrice.toFixed(2)}
                                     </div>
-                                    <div style={{ fontFamily: MONO, fontSize: 10,
+                                    <div style={{ fontFamily: MONO, fontSize: 12,
                                       color: liveChg >= 0 ? C.green : C.red }}>
                                       {liveChg >= 0 ? "+" : ""}{liveChg.toFixed(2)}%
                                     </div>
                                   </>
                                 ) : (
-                                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>—</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>—</span>
                                 )}
                               </td>
 
                               {/* RSI */}
-                              <td style={{ fontFamily: MONO, fontSize: 11, textAlign: "center",
-                                padding: "11px 9px", borderBottom: `1px solid ${C.border}22`,
+                              <td style={{ fontFamily: MONO, fontSize: 12, textAlign: "center",
+                                padding: "12px 10px", borderBottom: `1px solid ${C.border}22`,
                                 color: row.rsiVal === null ? C.textDim
                                   : row.rsiVal < 30 ? C.green
                                   : row.rsiVal > 70 ? C.red
@@ -14210,28 +14216,28 @@ export default function App() {
 
                               {/* MACD — hidden on tablet */}
                               {!isTablet && (
-                              <td style={{ textAlign: "center", padding: "11px 9px",
+                              <td style={{ textAlign: "center", padding: "12px 10px",
                                 borderBottom: `1px solid ${C.border}22` }}>
                                 {row.macdBull === null ? (
-                                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>—</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>—</span>
                                 ) : row.macdBull ? (
-                                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.green }}>▲ BULL</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.green }}>▲ BULL</span>
                                 ) : (
-                                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.red }}>▼ BEAR</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.red }}>▼ BEAR</span>
                                 )}
                               </td>
                               )}
 
                               {/* EMA cross */}
-                              <td style={{ fontFamily: MONO, fontSize: 11, textAlign: "center",
-                                padding: "11px 9px", borderBottom: `1px solid ${C.border}22`,
+                              <td style={{ fontFamily: MONO, fontSize: 12, textAlign: "center",
+                                padding: "12px 10px", borderBottom: `1px solid ${C.border}22`,
                                 color: emaCol, fontWeight: 700 }}>
                                 {emaLabel}
                               </td>
 
                               {/* Zone */}
-                              <td style={{ fontFamily: MONO, fontSize: 11, textAlign: "center",
-                                padding: "11px 9px", borderBottom: `1px solid ${C.border}22`,
+                              <td style={{ fontFamily: MONO, fontSize: 12, textAlign: "center",
+                                padding: "12px 10px", borderBottom: `1px solid ${C.border}22`,
                                 color: zoneCol, fontWeight: 700, whiteSpace: "nowrap" }}>
                                 {zoneLbl}
                               </td>
@@ -14240,13 +14246,13 @@ export default function App() {
                               {(() => {
                                 const vol    = Number(row.quote?.volume || 0);
                                 const avgVol = Number(row.quote?.avgVolume || 0);
-                                if (!vol || !avgVol) return <td style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, padding: "11px 9px", borderBottom: `1px solid ${C.border}22`, textAlign: "center" }}>—</td>;
+                                if (!vol || !avgVol) return <td style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "12px 10px", borderBottom: `1px solid ${C.border}22`, textAlign: "center" }}>—</td>;
                                 const etDate = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
                                 const elapsed = Math.max(0.1, (etDate.getHours() - 9) + (etDate.getMinutes() - 30) / 60);
                                 const pace = (elapsed > 0 && elapsed < 6.5) ? (vol / elapsed * 6.5) / avgVol : vol / avgVol;
                                 const paceCol = pace >= 3 ? C.accent : pace >= 2 ? C.green : pace >= 1.5 ? "#4caf50" : C.textDim;
                                 return (
-                                  <td style={{ fontFamily: MONO, fontSize: 11, textAlign: "center", padding: "11px 9px", borderBottom: `1px solid ${C.border}22`, color: paceCol, fontWeight: pace >= 1.5 ? 700 : 400 }}>
+                                  <td style={{ fontFamily: MONO, fontSize: 12, textAlign: "center", padding: "12px 10px", borderBottom: `1px solid ${C.border}22`, color: paceCol, fontWeight: pace >= 1.5 ? 700 : 400 }}>
                                     {pace >= 0.1 ? `${pace.toFixed(1)}×` : "—"}
                                   </td>
                                 );
@@ -14271,9 +14277,9 @@ export default function App() {
                                 else if (yPos > 0.65 && e9 > e21 && rsi >= 50 && rsi <= 65) { pat = '📐 TREND'; patCol = C.cyan; }
                                 else if (rsi < 32 && px < e21) { pat = '🔄 OVERSOLD'; patCol = C.amber; }
                                 return (
-                                  <td style={{ padding: "11px 9px", borderBottom: `1px solid ${C.border}22`, whiteSpace: "nowrap" }}>
-                                    {pat ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: patCol }}>{pat}</span>
-                                         : <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>—</span>}
+                                  <td style={{ padding: "12px 10px", borderBottom: `1px solid ${C.border}22`, whiteSpace: "nowrap" }}>
+                                    {pat ? <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: patCol }}>{pat}</span>
+                                         : <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>—</span>}
                                   </td>
                                 );
                               })()}
@@ -14285,8 +14291,8 @@ export default function App() {
                                 const shortPct = sf > 1 ? sf : sf > 0 ? sf * 100 : null;
                                 const shortCol = shortPct == null ? C.textDim : shortPct > 20 ? C.red : shortPct > 10 ? C.amber : C.textSec;
                                 return (
-                                  <td style={{ fontFamily: MONO, fontSize: 11, textAlign: "center",
-                                    padding: "11px 9px", borderBottom: `1px solid ${C.border}22`,
+                                  <td style={{ fontFamily: MONO, fontSize: 12, textAlign: "center",
+                                    padding: "12px 10px", borderBottom: `1px solid ${C.border}22`,
                                     color: shortCol, fontWeight: shortPct != null ? 700 : 400 }}>
                                     {shortPct != null ? `${shortPct.toFixed(1)}%` : "—"}
                                   </td>
@@ -14295,8 +14301,8 @@ export default function App() {
 
                               {/* Upside — hidden on tablet */}
                               {!isTablet && (
-                              <td style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800,
-                                textAlign: "center", padding: "11px 9px",
+                              <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800,
+                                textAlign: "center", padding: "12px 10px",
                                 borderBottom: `1px solid ${C.border}22`,
                                 color: C.amber }}>
                                 {ref?.upside || "—"}
@@ -14304,8 +14310,8 @@ export default function App() {
                               )}
 
                               {/* Thesis — tap to expand indicator */}
-                              <td style={{ fontFamily: MONO, fontSize: 11, color: C.textSec,
-                                padding: "11px 11px", borderBottom: `1px solid ${C.border}22`,
+                              <td style={{ fontFamily: MONO, fontSize: 12, color: C.textSec,
+                                padding: "12px 12px", borderBottom: `1px solid ${C.border}22`,
                                 whiteSpace: "nowrap" }}>
                                 {!isTablet && (ref?.thesis || "—")}
                                 <span style={{ marginLeft: isTablet ? 0 : 6, color: C.accent, fontSize: isTablet ? 18 : 11 }}>
@@ -14325,7 +14331,7 @@ export default function App() {
                                     overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
 
                                   {isLoading ? (
-                                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
+                                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim,
                                       textAlign: "center", padding: "24px 0" }}>
                                       ⌛ Loading deep dive data for {row.ticker}…
                                     </div>
@@ -14409,7 +14415,7 @@ export default function App() {
                                                 <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: verdict.col, letterSpacing: "0.06em" }}>
                                                   {verdict.label}
                                                 </div>
-                                                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 1 }}>
+                                                <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginTop: 1 }}>
                                                   {verdict.action}
                                                 </div>
                                               </div>
@@ -14417,12 +14423,12 @@ export default function App() {
 
                                             {/* Score gauge */}
                                             <div style={{ flex: 1, minWidth: 140 }}>
-                                              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 3 }}>
+                                              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 3 }}>
                                                 <span>MASTER SCORE</span>
                                                 <span style={{ color: verdict.col, fontWeight: 800 }}>{composite.toFixed(0)}/100</span>
                                               </div>
-                                              <div style={{ height: 8, borderRadius: 4, background: C.border, overflow: "hidden" }}>
-                                                <div style={{ width: `${composite}%`, height: "100%", background: verdict.col, borderRadius: 4, transition: "width 0.5s" }} />
+                                              <div style={{ height: 8, borderRadius: 6, background: C.border, overflow: "hidden" }}>
+                                                <div style={{ width: `${composite}%`, height: "100%", background: verdict.col, borderRadius: 6, transition: "width 0.5s" }} />
                                               </div>
                                             </div>
 
@@ -14431,9 +14437,9 @@ export default function App() {
                                               {Object.entries(weights).map(([key, w]) => {
                                                 const col = w.score >= 62 ? C.green : w.score <= 40 ? C.red : C.textDim;
                                                 return (
-                                                  <span key={key} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                                                  <span key={key} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                                     color: col, background: `${col}18`,
-                                                    border: `1px solid ${col}33`, borderRadius: 4, padding: "2px 6px" }}>
+                                                    border: `1px solid ${col}33`, borderRadius: 6, padding: "3px 7px" }}>
                                                     {w.label.split(" ")[0]} {w.score.toFixed(0)}
                                                   </span>
                                                 );
@@ -14443,7 +14449,7 @@ export default function App() {
 
                                           {/* Conflict warning */}
                                           {conflicts.length > 0 && (
-                                            <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 10, color: C.amber }}>
+                                            <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 12, color: C.amber }}>
                                               ⚠ Conflicting signals: {conflicts.join(", ")} — reduce position size
                                             </div>
                                           )}
@@ -14483,7 +14489,7 @@ export default function App() {
 
                                       {/* ── Col 1: TradingView mini chart ── */}
                                       <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", padding: "0 12px 0 0", borderRight: `1px solid ${C.border}33`}}>
-                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
                                           📊 CHART
                                         </div>
                                         <div style={{ borderRadius: 6, overflow: "hidden", flex: 1,
@@ -14499,7 +14505,7 @@ export default function App() {
 
                                       {/* ── Col 2: TECHNICALS (indicators + signals + entry zones) ── */}
                                       <div style={{ width: 215, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
-                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
                                           ⚡ TECHNICALS
                                         </div>
                                         {/* Key indicator values */}
@@ -14525,11 +14531,11 @@ export default function App() {
                                         {/* Signal reasons */}
                                         {(row.signals || []).length > 0 && (
                                           <>
-                                            <div style={{ fontFamily: MONO, fontSize: 11, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>REASONS</div>
+                                            <div style={{ fontFamily: MONO, fontSize: 12, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>REASONS</div>
                                             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                                               {(row.signals || []).map((sig, si) => (
                                                 <div key={si} style={{ display: "flex", alignItems: "center",
-                                                  gap: 5, fontFamily: MONO, fontSize: 11,
+                                                  gap: 5, fontFamily: MONO, fontSize: 12,
                                                   color: sig.bull ? C.green : C.red }}>
                                                   <span>{sig.bull ? "▲" : "▼"}</span>
                                                   <span>{sig.txt}</span>
@@ -14541,7 +14547,7 @@ export default function App() {
                                         {/* Entry zones */}
                                         {ref && (
                                           <div style={{ marginTop: 12 }}>
-                                            <div style={{ fontFamily: MONO, fontSize: 11, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>ENTRY ZONES</div>
+                                            <div style={{ fontFamily: MONO, fontSize: 12, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>ENTRY ZONES</div>
                                             {[
                                               { label: "Deep", val: ref.e3, col: "#00e676" },
                                               { label: "Better", val: ref.e2, col: "#4caf50" },
@@ -14567,29 +14573,29 @@ export default function App() {
                                         const px  = Number(livePrice || row.quote?.price || 0);
                                         return (
                                           <div style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
-                                            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
+                                            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
                                               🧱 SMC ANALYSIS
                                             </div>
                                             {!smc ? (
-                                              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Loading SMC data…</div>
+                                              <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Loading SMC data…</div>
                                             ) : (
                                               <>
                                                 {/* BOS / ChoCh */}
                                                 {(smc.bos || smc.choch) && (
                                                   <div style={{ marginBottom: 10 }}>
-                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>📐 STRUCTURE</div>
+                                                    <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>📐 STRUCTURE</div>
                                                     {smc.bos && (
                                                       <div style={{ padding: "6px 8px", borderRadius: 5, marginBottom: 4,
                                                         background: smc.bos.type === "BULL_BOS" ? `${C.green}14` : `${C.red}14`,
                                                         border: `1px solid ${smc.bos.type === "BULL_BOS" ? C.green : C.red}44` }}>
-                                                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: smc.bos.type === "BULL_BOS" ? C.green : C.red }}>{smc.bos.label}</div>
-                                                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>@ ${smc.bos.level}</div>
+                                                        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: smc.bos.type === "BULL_BOS" ? C.green : C.red }}>{smc.bos.label}</div>
+                                                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>@ ${smc.bos.level}</div>
                                                       </div>
                                                     )}
                                                     {smc.choch && (
                                                       <div style={{ padding: "6px 8px", borderRadius: 5,
                                                         background: `${C.amber}14`, border: `1px solid ${C.amber}44` }}>
-                                                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.amber }}>{smc.choch.label}</div>
+                                                        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.amber }}>{smc.choch.label}</div>
                                                       </div>
                                                     )}
                                                   </div>
@@ -14598,16 +14604,16 @@ export default function App() {
                                                 {/* Order Blocks */}
                                                 {smc.orderBlocks && smc.orderBlocks.length > 0 && (
                                                   <div style={{ marginBottom: 10 }}>
-                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>🔲 ORDER BLOCKS</div>
+                                                    <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>🔲 ORDER BLOCKS</div>
                                                     {smc.orderBlocks.map((ob, i) => {
                                                       const isBull = ob.type === "BULL_OB";
                                                       const col = isBull ? C.green : C.red;
                                                       const dist = px > 0 ? Math.abs(ob.mid - px) / px * 100 : 0;
                                                       return (
                                                         <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
-                                                          <span style={{ fontFamily: SANS, fontSize: 10, color: col }}>{isBull ? "🟢 Bull OB" : "🔴 Bear OB"}</span>
-                                                          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: col }}>${ob.top} – ${ob.bot}</span>
-                                                          <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{dist.toFixed(1)}%</span>
+                                                          <span style={{ fontFamily: SANS, fontSize: 12, color: col }}>{isBull ? "🟢 Bull OB" : "🔴 Bear OB"}</span>
+                                                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>${ob.top} – ${ob.bot}</span>
+                                                          <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{dist.toFixed(1)}%</span>
                                                         </div>
                                                       );
                                                     })}
@@ -14617,14 +14623,14 @@ export default function App() {
                                                 {/* Fair Value Gaps */}
                                                 {smc.fvgs && smc.fvgs.length > 0 && (
                                                   <div style={{ marginBottom: 10 }}>
-                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>🕳 FAIR VALUE GAPS</div>
+                                                    <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>🕳 FAIR VALUE GAPS</div>
                                                     {smc.fvgs.slice(0, 4).map((f, i) => {
                                                       const isBull = f.type === "BULL_FVG";
                                                       const col = isBull ? C.green : C.red;
                                                       return (
                                                         <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
-                                                          <span style={{ fontFamily: SANS, fontSize: 10, color: col }}>{isBull ? "▲ Bull FVG" : "▼ Bear FVG"}</span>
-                                                          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: col }}>${f.bot} – ${f.top}</span>
+                                                          <span style={{ fontFamily: SANS, fontSize: 12, color: col }}>{isBull ? "▲ Bull FVG" : "▼ Bear FVG"}</span>
+                                                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>${f.bot} – ${f.top}</span>
                                                         </div>
                                                       );
                                                     })}
@@ -14634,14 +14640,14 @@ export default function App() {
                                                 {/* Volume Profile */}
                                                 {smc.volumeProfile && smc.volumeProfile.vpoc > 0 && (
                                                   <div style={{ marginBottom: 10 }}>
-                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>📊 VOLUME PROFILE</div>
+                                                    <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>📊 VOLUME PROFILE</div>
                                                     {[
                                                       ["VPOC", smc.volumeProfile.vpoc, C.accent, "Value Area Point of Control"],
                                                       ["VAH",  smc.volumeProfile.vah,  C.green,  "Value Area High (70%)"],
                                                       ["VAL",  smc.volumeProfile.val,  C.red,    "Value Area Low (70%)"],
                                                     ].map(([lbl, val, col, tip]) => (
                                                       <div key={lbl} title={tip} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
-                                                        <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{lbl}</span>
+                                                        <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{lbl}</span>
                                                         <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>${val}</span>
                                                       </div>
                                                     ))}
@@ -14653,7 +14659,7 @@ export default function App() {
                                                         const barCol = isNearVpoc ? C.accent : isInVA ? C.green : C.border;
                                                         return (
                                                           <div key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                                            <span style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, width: 44, textAlign: "right" }}>${b.price}</span>
+                                                            <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, width: 44, textAlign: "right" }}>${b.price}</span>
                                                             <div style={{ flex: 1, height: 6, background: C.surface, borderRadius: 2 }}>
                                                               <div style={{ width: `${Math.min(100, b.pct * 3)}%`, height: "100%", background: barCol, borderRadius: 2 }} />
                                                             </div>
@@ -14667,7 +14673,7 @@ export default function App() {
                                                 {/* Liquidity Levels */}
                                                 {smc.liquidity && smc.liquidity.length > 0 && (
                                                   <div>
-                                                    <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>💧 LIQUIDITY LEVELS</div>
+                                                    <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>💧 LIQUIDITY LEVELS</div>
                                                     {smc.liquidity.map((l, i) => {
                                                       const isAbove = l.price > px;
                                                       const col = l.strength === "HIGH" ? (isAbove ? C.green : C.red) : C.amber;
@@ -14675,11 +14681,11 @@ export default function App() {
                                                       return (
                                                         <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
                                                           <div>
-                                                            <div style={{ fontFamily: SANS, fontSize: 10, color: col }}>{l.label}</div>
+                                                            <div style={{ fontFamily: SANS, fontSize: 12, color: col }}>{l.label}</div>
                                                           </div>
                                                           <div style={{ textAlign: "right" }}>
-                                                            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: col }}>${l.price}</div>
-                                                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{dist > 0 ? "+" : ""}{dist}%</div>
+                                                            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>${l.price}</div>
+                                                            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{dist > 0 ? "+" : ""}{dist}%</div>
                                                           </div>
                                                         </div>
                                                       );
@@ -14694,7 +14700,7 @@ export default function App() {
 
                                       {/* ── Col 4: SOCIAL SENTIMENT + INSIDER BUYS ── */}
                                       <div style={{ width: 215, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
-                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
                                           💬 SENTIMENT
                                         </div>
                                         {deepSocialLoad[row.ticker] ? (
@@ -14717,17 +14723,17 @@ export default function App() {
                                                   background: `${C.green}18`, border: `1px solid ${C.green}44`,
                                                   textAlign: "center" }}>
                                                   <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.green }}>{bullPct.toFixed(0)}%</div>
-                                                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>BULL</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>BULL</div>
                                                 </div>
                                                 <div style={{ flex: 1, padding: "8px 4px", borderRadius: 6, overflow: "hidden",
                                                   background: `${C.red}18`, border: `1px solid ${C.red}44`,
                                                   textAlign: "center" }}>
                                                   <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.red }}>{bearPct.toFixed(0)}%</div>
-                                                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>BEAR</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>BEAR</div>
                                                 </div>
                                               </div>
                                               {/* Sentiment bar */}
-                                              <div style={{ height: 8, borderRadius: 4, overflow: "hidden",
+                                              <div style={{ height: 8, borderRadius: 6, overflow: "hidden",
                                                 display: "flex", marginBottom: 8 }}>
                                                 <div style={{ width: `${bullPct}%`, background: C.green, minWidth: bullPct > 0 ? 2 : 0 }} />
                                                 <div style={{ flex: 1, background: C.red }} />
@@ -14747,10 +14753,10 @@ export default function App() {
                                               {/* Top 3 recent posts */}
                                               {msgs.length > 0 && (
                                                 <div style={{ marginTop: 10 }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 11, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6, marginTop: 8, textTransform: "uppercase" }}>RECENT</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 12, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6, marginTop: 8, textTransform: "uppercase" }}>RECENT</div>
                                                   <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                                                     {msgs.slice(0, 3).map((m, mi) => (
-                                                      <div key={mi} style={{ padding: "6px 8px", borderRadius: 4,
+                                                      <div key={mi} style={{ padding: "6px 8px", borderRadius: 6,
                                                         background: C.surface,
                                                         borderLeft: `2px solid ${m.sentiment === "Bullish" ? C.green : m.sentiment === "Bearish" ? C.red : C.border}` }}>
                                                         <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 2 }}>
@@ -14779,14 +14785,14 @@ export default function App() {
                                           const fmtVal = v => v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v}`;
                                           return (
                                             <div style={{ marginTop: 12 }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 11, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6, marginTop: 8, textTransform: "uppercase" }}>🏦 INSIDER TRANSACTIONS</div>
+                                              <div style={{ fontFamily: MONO, fontSize: 12, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6, marginTop: 8, textTransform: "uppercase" }}>🏦 INSIDER TRANSACTIONS</div>
                                               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                                                 {all.map((t, ti) => (
-                                                  <div key={ti} style={{ padding: "6px 8px", borderRadius: 4,
+                                                  <div key={ti} style={{ padding: "6px 8px", borderRadius: 6,
                                                     background: C.surface,
                                                     borderLeft: `2px solid ${t.type === "BUY" ? C.green : C.red}` }}>
                                                     <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                                      <span style={{ fontFamily: MONO, fontSize: 11,
+                                                      <span style={{ fontFamily: MONO, fontSize: 12,
                                                         color: t.type === "BUY" ? C.green : C.red, fontWeight: 700 }}>
                                                         {t.type === "BUY" ? "▲ BUY" : "▼ SELL"}
                                                       </span>
@@ -14805,7 +14811,7 @@ export default function App() {
 
                                       {/* ── Col 5: RECENT NEWS ── */}
                                       <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
-                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
                                           📰 RECENT NEWS
                                         </div>
                                         {deepData?.news?.length > 0 ? (
@@ -14826,13 +14832,13 @@ export default function App() {
                                                     padding: "7px 9px", borderRadius: 5,
                                                     background: bear ? `${C.red}0d` : bull ? `${C.green}0d` : C.card,
                                                     border: `1px solid ${bear ? C.red : bull ? C.green : C.border}44` }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 11,
+                                                  <div style={{ fontFamily: MONO, fontSize: 12,
                                                     color: bear ? C.red : bull ? C.green : C.text,
                                                     lineHeight: 1.5 }}>
                                                     {title.length > 90 ? title.slice(0, 90) + "…" : title}
                                                   </div>
                                                   {src && (
-                                                    <div style={{ fontFamily: MONO, fontSize: 11,
+                                                    <div style={{ fontFamily: MONO, fontSize: 12,
                                                       color: C.textDim, marginTop: 3 }}>
                                                       {src}
                                                     </div>
@@ -14850,7 +14856,7 @@ export default function App() {
 
                                       {/* ── Col 6: ANALYST RATINGS + EARNINGS ── */}
                                       <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
-                                        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
                                           🎯 ANALYST & EARNINGS
                                         </div>
 
@@ -14884,7 +14890,7 @@ export default function App() {
 
                                           return (
                                             <div style={{ marginBottom: 12 }}>
-                                              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: C.textDim,
+                                              <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.textDim,
                                                 letterSpacing: "0.08em", marginBottom: 6 }}>📊 ANALYST CONSENSUS</div>
 
                                               {/* Consensus badge */}
@@ -14895,7 +14901,7 @@ export default function App() {
                                                   {recLabel}
                                                 </div>
                                                 {numAnal > 0 && (
-                                                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 2 }}>
+                                                  <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
                                                     {numAnal} analyst{numAnal !== 1 ? "s" : ""}
                                                     {ratingScore > 0 ? ` · score ${ratingScore.toFixed(1)}/5` : ""}
                                                   </div>
@@ -14911,7 +14917,7 @@ export default function App() {
                                                       v > 0 ? <div key={i} style={{ width: `${(v / totalRec * 100).toFixed(1)}%`, background: col }} /> : null
                                                     ))}
                                                   </div>
-                                                  <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                                                  <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                                                     <span style={{ color: C.green }}>BUY {sb + b}</span>
                                                     <span style={{ color: C.amber }}>HOLD {h}</span>
                                                     <span style={{ color: C.red }}>SELL {s + ss}</span>
@@ -14929,7 +14935,7 @@ export default function App() {
                                                 <div key={k} style={{ display: "flex", justifyContent: "space-between",
                                                   fontFamily: MONO, fontSize: 13, padding: "5px 0",
                                                   borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>{k}</span>
+                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>{k}</span>
                                                   <span style={{ color: col, fontWeight: 700 }}>{v}</span>
                                                 </div>
                                               ))}
@@ -14958,17 +14964,17 @@ export default function App() {
                                           if (!ivR) return null;
                                           return (
                                             <div style={{ marginBottom: 12 }}>
-                                              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>📊 IV RANK (PROXY)</div>
+                                              <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>📊 IV RANK (PROXY)</div>
                                               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                                                <div style={{ flex: 1, height: 8, borderRadius: 4, background: C.border, overflow: "hidden" }}>
-                                                  <div style={{ width: ivR + "%", height: "100%", background: ivC, borderRadius: 4 }} />
+                                                <div style={{ flex: 1, height: 8, borderRadius: 6, background: C.border, overflow: "hidden" }}>
+                                                  <div style={{ width: ivR + "%", height: "100%", background: ivC, borderRadius: 6 }} />
                                                 </div>
                                                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: ivC }}>{ivR}</span>
                                               </div>
-                                              <div style={{ fontFamily: SANS, fontSize: 11, color: ivC, marginBottom: 6 }}>{ivLbl}</div>
+                                              <div style={{ fontFamily: SANS, fontSize: 12, color: ivC, marginBottom: 6 }}>{ivLbl}</div>
                                               {opt2 && opt2.callPutRatio != null && (
                                                 <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12, padding: "4px 0", borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>C/P Ratio</span>
+                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>C/P Ratio</span>
                                                   <span style={{ color: Number(opt2.callPutRatio) > 1 ? C.green : C.red, fontWeight: 700 }}>{Number(opt2.callPutRatio).toFixed(2)}×</span>
                                                 </div>
                                               )}
@@ -15003,7 +15009,7 @@ export default function App() {
 
                                           return (
                                             <div>
-                                              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: C.textDim,
+                                              <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.textDim,
                                                 letterSpacing: "0.08em", marginBottom: 6 }}>📅 EARNINGS</div>
                                               {expMove && daysToEarn <= 7 && (
                                                 <div style={{ padding: "7px 10px", borderRadius: 6, marginBottom: 8,
@@ -15011,7 +15017,7 @@ export default function App() {
                                                   <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.amber }}>
                                                     ⚡ {daysToEarn === 0 ? "EARNINGS TODAY" : `EARNINGS IN ${daysToEarn}d`}
                                                   </div>
-                                                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 3 }}>
+                                                  <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginTop: 3 }}>
                                                     Expected move: <span style={{ fontFamily: MONO, fontWeight: 700, color: C.amber }}>±{expMove}%</span>
                                                   </div>
                                                 </div>
@@ -15108,12 +15114,12 @@ export default function App() {
                                                   <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: optCol }}>
                                                     {optAct}
                                                   </div>
-                                                  <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, color: optCol,
-                                                    background: `${optCol}20`, borderRadius: 3, padding: "1px 6px" }}>
+                                                  <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: optCol,
+                                                    background: `${optCol}20`, borderRadius: 5, padding: "1px 6px" }}>
                                                     {optLabel}
                                                   </div>
                                                 </div>
-                                                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec }}>
+                                                <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec }}>
                                                   {ivR < 45 ? `IV ${ivR} — options cheap, buying has edge` :
                                                    ivR > 65 ? `IV ${ivR} — premium elevated, selling is better` :
                                                    `IV ${ivR} — moderate, consider stock + options combo`}
@@ -15129,14 +15135,14 @@ export default function App() {
                                                   ["COST",    cost > 0 ? `$${cost}` : "—", C.textDim],
                                                 ].map(([lbl, val, col]) => (
                                                   <div key={lbl} style={{ textAlign: "center", padding: "5px 0",
-                                                    background: C.surface, borderRadius: 4 }}>
-                                                    <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim }}>{lbl}</div>
+                                                    background: C.surface, borderRadius: 6 }}>
+                                                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{lbl}</div>
                                                     <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{val}</div>
                                                   </div>
                                                 ))}
                                               </div>
-                                              <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, lineHeight: 1.5 }}>
-                                                Full trade: <span style={{ fontFamily: MONO, color: C.purple, fontSize: 10, fontWeight: 700 }}>
+                                              <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, lineHeight: 1.5 }}>
+                                                Full trade: <span style={{ fontFamily: MONO, color: C.purple, fontSize: 12, fontWeight: 700 }}>
                                                   {optAct.includes("BUY") ? "BUY" : "SELL"} {contr}× {row.ticker} ${strike.toFixed(step < 1 ? 2 : 0)} {isCall ? "CALL" : "PUT"} {expiry.label}
                                                 </span>
                                                 <br />~${prem.toFixed(2)}/contract · Est. cost ${cost}
@@ -15162,7 +15168,7 @@ export default function App() {
                                                 background: tradeSetupLoad[row.ticker] ? C.surface : `${C.purple}18`,
                                                 border: `1px solid ${tradeSetupLoad[row.ticker] ? C.border : C.purple}`,
                                                 color: tradeSetupLoad[row.ticker] ? C.textDim : C.purple,
-                                                borderRadius: 4, padding: "4px 12px",
+                                                borderRadius: 6, padding: "4px 12px",
                                                 cursor: tradeSetupLoad[row.ticker] ? "default" : "pointer" }}>
                                               {tradeSetupLoad[row.ticker] ? "⌛ Generating…" : "▶ GENERATE"}
                                             </button>
@@ -15179,14 +15185,14 @@ export default function App() {
 
                                         {tradeSetupError[row.ticker] && (
                                           <div style={{ fontFamily: MONO, fontSize: 12, color: C.red,
-                                            background: C.redBg, borderRadius: 4, padding: "8px 10px" }}>
+                                            background: C.redBg, borderRadius: 6, padding: "8px 10px" }}>
                                             ⚠ {tradeSetupError[row.ticker]}
                                           </div>
                                         )}
 
                                         {tradeSetupLoad[row.ticker] && (
                                           <div style={{ fontFamily: MONO, fontSize: 12, color: C.purple,
-                                            background: `${C.purple}10`, borderRadius: 4, padding: "12px 10px",
+                                            background: `${C.purple}10`, borderRadius: 6, padding: "12px 10px",
                                             textAlign: "center" }}>
                                             ⌛ Claude is analysing {row.ticker}…
                                           </div>
@@ -15229,7 +15235,7 @@ export default function App() {
                                                   </div>
                                                 );
                                               })}
-                                              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim,
+                                              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim,
                                                 marginTop: 10, borderTop: `1px solid ${C.border}`, paddingTop: 6 }}>
                                                 Generated {new Date(tradeSetups[row.ticker].generatedAt).toLocaleTimeString()} · Claude AI
                                               </div>
@@ -15244,7 +15250,7 @@ export default function App() {
                                             padding: "20px 14px", textAlign: "center", lineHeight: 1.7,
                                             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                                             Click <span style={{ color: C.purple, fontWeight: 700 }}>▶ GENERATE</span> for a complete AI trade plan:<br/>
-                                            <span style={{ color: C.textDim, fontSize: 11 }}>
+                                            <span style={{ color: C.textDim, fontSize: 12 }}>
                                               entry · stop · targets · R:R · catalysts · risks · verdict
                                             </span>
                                           </div>
@@ -15286,10 +15292,10 @@ export default function App() {
                                           if (conflict && !masterVerdict) return (
                                             <div style={{ marginTop: 10, padding: "10px 12px", background: `${C.amber}0d`,
                                               border: `1px solid ${C.amber}44`, borderRadius: 6 }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.amber }}>
+                                              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.amber }}>
                                                 ⚠ CONFLICTING SIGNALS — NO AUTO TRADE
                                               </div>
-                                              <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 4 }}>
+                                              <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 4 }}>
                                                 Scanner: {row.signal} vs Master Verdict: {master3.toFixed(0)}/100<br/>
                                                 Signals must agree before executing. Review manually.
                                               </div>
@@ -15299,10 +15305,10 @@ export default function App() {
                                           if (!signal || !price) return (
                                             <div style={{ marginTop: 10, padding: "10px 12px", background: C.surface,
                                               border: `1px solid ${C.border}`, borderRadius: 6 }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                                              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                                                 🤖 AUTO TRADE — Master Score {master3.toFixed(0)}/100
                                               </div>
-                                              <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 4 }}>
+                                              <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 4 }}>
                                                 No clear signal (need ≥68 to BUY or ≤38 to SELL). Wait for conviction.
                                               </div>
                                             </div>
@@ -15314,25 +15320,25 @@ export default function App() {
                                               border: `1px solid ${signal === "buy" ? C.green : C.red}44`,
                                               borderRadius: 6 }}>
                                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                                                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>🤖 AUTO TRADE</span>
-                                                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                                                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>🤖 AUTO TRADE</span>
+                                                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                                   color: signal === "buy" ? C.green : C.red }}>
                                                   Master: {master3.toFixed(0)}/100
                                                 </span>
                                               </div>
                                               {conflict && (
-                                                <div style={{ fontFamily: SANS, fontSize: 10, color: C.amber, marginBottom: 6 }}>
+                                                <div style={{ fontFamily: SANS, fontSize: 12, color: C.amber, marginBottom: 6 }}>
                                                   ⚠ Scanner says {row.signal} but Master Verdict overrides
                                                 </div>
                                               )}
                                               {status === "placing" && (
-                                                <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>⌛ Placing order…</div>
+                                                <div style={{ fontFamily: MONO, fontSize: 12, color: C.amber }}>⌛ Placing order…</div>
                                               )}
                                               {status === "done" && (
-                                                <div style={{ fontFamily: MONO, fontSize: 11, color: C.green }}>✅ Order placed! Check Telegram for confirmation.</div>
+                                                <div style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>✅ Order placed! Check Telegram for confirmation.</div>
                                               )}
                                               {status === "error" && (
-                                                <div style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>⚠ Order failed — check AUTO-EXEC tab.</div>
+                                                <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>⚠ Order failed — check AUTO-EXEC tab.</div>
                                               )}
                                               {!status && (
                                                 <button
@@ -15354,14 +15360,14 @@ export default function App() {
                                                       setAutoExecStatus(p => ({ ...p, [row.ticker]: "error" }));
                                                     }
                                                   }}
-                                                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800,
+                                                  style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800,
                                                     background: signal === "buy" ? C.green : C.red,
                                                     color: "#fff", border: "none", borderRadius: 5,
                                                     padding: "7px 16px", cursor: "pointer", width: "100%" }}>
                                                   {signal === "buy" ? "🟢 BUY" : "🔴 SELL"} {row.ticker} NOW
                                                 </button>
                                               )}
-                                              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 5 }}>
+                                              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 5 }}>
                                                 Uses position size from AUTO-EXEC settings · Confirm in Telegram
                                               </div>
                                             </div>
@@ -15490,7 +15496,7 @@ export default function App() {
 
                                         return (
                                           <div style={{ width: 260, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
-                                            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
+                                            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
                                               📐 TREND TEMPLATE
                                             </div>
 
@@ -15498,8 +15504,8 @@ export default function App() {
                                             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                                               <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: grade.col }}>{passed}/{total}</div>
                                               <div>
-                                                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: grade.col }}>{grade.lbl}</div>
-                                                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Minervini conditions</div>
+                                                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: grade.col }}>{grade.lbl}</div>
+                                                <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Minervini conditions</div>
                                               </div>
                                             </div>
 
@@ -15509,8 +15515,8 @@ export default function App() {
                                                 <div key={ci} style={{ display: "flex", alignItems: "flex-start", gap: 6, padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
                                                   <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }}>{c.pass ? "✅" : "❌"}</span>
                                                   <div style={{ flex: 1 }}>
-                                                    <div style={{ fontFamily: SANS, fontSize: 11, color: c.pass ? C.text : C.textDim, fontWeight: c.pass ? 700 : 400 }}>{c.label}</div>
-                                                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 1 }}>{c.detail}</div>
+                                                    <div style={{ fontFamily: SANS, fontSize: 12, color: c.pass ? C.text : C.textDim, fontWeight: c.pass ? 700 : 400 }}>{c.label}</div>
+                                                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 1 }}>{c.detail}</div>
                                                   </div>
                                                 </div>
                                               ))}
@@ -15525,7 +15531,7 @@ export default function App() {
                                               <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: entryColor, marginBottom: 4 }}>
                                                 {entryAction}
                                               </div>
-                                              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.5 }}>
+                                              <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.5 }}>
                                                 {entryNote}
                                               </div>
                                             </div>
@@ -15541,7 +15547,7 @@ export default function App() {
                                                   <div key={k} style={{ display: "flex", justifyContent: "space-between",
                                                     fontFamily: MONO, fontSize: 13, padding: "5px 0",
                                                     borderBottom: `1px solid ${C.border}22` }}>
-                                                    <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>{k}</span>
+                                                    <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>{k}</span>
                                                     <span style={{ color: col, fontWeight: 700 }}>
                                                       {k === "R:R Ratio" ? (rrRatio ? `${rrRatio} : 1` : "—") : (v > 0 ? `$${Number(v).toFixed(2)}` : "—")}
                                                     </span>
@@ -15565,10 +15571,10 @@ export default function App() {
                                                 <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
                                                   fontFamily: MONO, fontSize: 13, padding: "6px 0",
                                                   borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 11 }}>{label}</span>
+                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>{label}</span>
                                                   <div style={{ textAlign: "right" }}>
                                                     <span style={{ color: col, fontWeight: 700 }}>${Number(val).toFixed(2)}</span>
-                                                    {note && <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginLeft: 5 }}>{note}</span>}
+                                                    {note && <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginLeft: 5 }}>{note}</span>}
                                                   </div>
                                                 </div>
                                               ))}
@@ -15597,14 +15603,14 @@ export default function App() {
                 <div style={{ marginTop: 10, padding: "8px 14px",
                   background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
                   display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" }}>
-                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                     {[["STRONG BUY","#00e676"],["BUY","#4caf50"],["WATCH","#26a69a"],["NEUTRAL","#ffaa00"],["AVOID","#ff4444"]].map(([l,c]) => (
                       <span key={l} style={{ marginRight: 14 }}>
                         <span style={{ color: c }}>■</span> {l}
                       </span>
                     ))}
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: "auto" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: "auto" }}>
                     Click any row to expand deep dive ↓ · Score = RSI + MACD + EMA + Zone + Volume + Sentiment
                   </div>
                 </div>
@@ -15616,7 +15622,7 @@ export default function App() {
         {activeTab === "sectors" && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
+              <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
                 SECTOR PERFORMANCE — LIVE
               </div>
               {sectorData.length > 0 && (
@@ -15632,17 +15638,17 @@ export default function App() {
                     });
                     try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: lines.join("\n") }) }); } catch {}
                   }}
-                  style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "5px 10px", fontFamily: MONO, fontSize: 11, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 6, padding: "5px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                 >PUSH BRIEF</button>
               )}
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
               <div style={{ minWidth: 420, maxWidth: 560, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent }}>WEATHER ({WEATHER_ZIP})</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent }}>WEATHER ({WEATHER_ZIP})</div>
                   <button
                     onClick={fetchWeather}
-                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 11, cursor: "pointer" }}
+                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                   >
                     {weatherLoading ? "..." : "REFRESH"}
                   </button>
@@ -15685,25 +15691,25 @@ export default function App() {
                       }}>
                         {isUp ? "+" : ""}{chg.toFixed(2)}%
                       </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontFamily: MONO, color: C.textDim, marginBottom: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontFamily: MONO, color: C.textDim, marginBottom: 8 }}>
                         <span>${q.price?.toFixed(2)}</span>
                         <span>Vol: {q.volume ? (q.volume / 1e6).toFixed(1) + "M" : "—"}</span>
                       </div>
                       <div style={{ display: "flex", gap: 5 }}>
                         <button
                           onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(q.symbol) ? prev.filter(s => s !== q.symbol) : Array.from(new Set([...prev, q.symbol])))}
-                          style={{ flex: 1, fontFamily: MONO, fontSize: 11, padding: "3px 0", background: watchlistSymbols.includes(q.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(q.symbol) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(q.symbol) ? C.red : C.green}44`, borderRadius: 3, cursor: "pointer" }}
+                          style={{ flex: 1, fontFamily: MONO, fontSize: 12, padding: "3px 0", background: watchlistSymbols.includes(q.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(q.symbol) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(q.symbol) ? C.red : C.green}44`, borderRadius: 5, cursor: "pointer" }}
                         >{watchlistSymbols.includes(q.symbol) ? "−WL" : "+WL"}</button>
                         <button
                           onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
-                          style={{ flex: 1, fontFamily: MONO, fontSize: 11, padding: "3px 0", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 3, cursor: "pointer" }}
+                          style={{ flex: 1, fontFamily: MONO, fontSize: 12, padding: "3px 0", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 5, cursor: "pointer" }}
                         >CHART</button>
                         <button
                           onClick={async () => {
                             const msg = `🏭 *${q.symbol}* ${q._sectorName || ""}\n${chg >= 0 ? "🟢" : "🔴"} ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%  $${q.price?.toFixed(2)}${isLeader ? "  ▲ LEADING" : isLagger ? "  ▼ LAGGING" : ""}`;
                             try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
                           }}
-                          style={{ fontFamily: MONO, fontSize: 11, padding: "3px 5px", background: C.surface, color: C.textDim, border: `1px solid ${C.textDim}44`, borderRadius: 3, cursor: "pointer" }}
+                          style={{ fontFamily: MONO, fontSize: 12, padding: "3px 5px", background: C.surface, color: C.textDim, border: `1px solid ${C.textDim}44`, borderRadius: 5, cursor: "pointer" }}
                           title="Push to Telegram"
                         >PUSH</button>
                       </div>
@@ -15739,26 +15745,26 @@ export default function App() {
                     if (nextEvt) lines.push(`Next: ${nextEvt.title} — ${formatCountdown(nextEvt.tteMs)}`);
                     try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: lines.join("\n") }) }); } catch {}
                   }}
-                  style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "5px 10px", fontFamily: MONO, fontSize: 11, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 6, padding: "5px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                 >PUSH BRIEF</button>
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 10, marginBottom: 12 }}>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
                 <div style={{ padding: "9px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, letterSpacing: "0.08em" }}>ECONOMIC CALENDAR + COUNTDOWN</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>ECONOMIC CALENDAR + COUNTDOWN</span>
                   <Badge color={macroEventAlerts.length ? C.red : C.green}>{macroEventAlerts.length ? "RISK WINDOW" : "CLEAR"}</Badge>
                 </div>
                 <div style={{ padding: 8, display: "grid", gap: 6 }}>
                   {macroEventCalendar.map((e) => (
                     <div key={e.id} style={{ border: `1px solid ${e.phase === "live" ? `${C.red}66` : e.phase === "imminent" ? `${C.amber}66` : C.border}`, borderRadius: 6, padding: "7px 8px", background: e.phase === "live" ? C.redBg : e.phase === "imminent" ? C.amberBg : C.surface }}>
                       <div style={{ display: "grid", gridTemplateColumns: "66px 1fr 110px 84px", gap: 8, alignItems: "center" }}>
-                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.accent, fontWeight: 700 }}>{e.tag}</span>
-                        <span style={{ fontSize: 11, color: C.text, fontWeight: 600 }}>{e.title}</span>
-                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700 }}>{e.tag}</span>
+                        <span style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>{e.title}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                           {e.time.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                         </span>
-                        <span style={{ fontFamily: MONO, fontSize: 10, color: e.phase === "live" ? C.red : e.phase === "imminent" ? C.amber : C.textSec, fontWeight: 700 }}>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: e.phase === "live" ? C.red : e.phase === "imminent" ? C.amber : C.textSec, fontWeight: 700 }}>
                           {e.phase === "live" ? "LIVE" : formatCountdown(e.tteMs)}
                         </span>
                       </div>
@@ -15767,18 +15773,18 @@ export default function App() {
                 </div>
               </div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>AUTO RISK ACTIONS</div>
-                <div style={{ fontSize: 11, color: C.textSec, marginBottom: 6 }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>AUTO RISK ACTIONS</div>
+                <div style={{ fontSize: 12, color: C.textSec, marginBottom: 6 }}>
                   Next event: <span style={{ fontFamily: MONO, color: C.text, fontWeight: 700 }}>{macroEventCalendar[0]?.title || "N/A"}</span>
                 </div>
-                <div style={{ fontSize: 11, color: C.textSec, marginBottom: 8 }}>
+                <div style={{ fontSize: 12, color: C.textSec, marginBottom: 8 }}>
                   Countdown: <span style={{ fontFamily: MONO, color: C.accent, fontWeight: 700 }}>{macroEventCalendar[0] ? formatCountdown(macroEventCalendar[0].tteMs) : "—"}</span>
                 </div>
                 <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8, display: "grid", gap: 6 }}>
-                  <div style={{ fontSize: 11, color: C.textSec }}>1. T-90m: no new oversized entries.</div>
-                  <div style={{ fontSize: 11, color: C.textSec }}>2. T-30m: reduce beta and tighten stops.</div>
-                  <div style={{ fontSize: 11, color: C.textSec }}>3. T+15m: wait for post-release structure before adds.</div>
-                  <div style={{ fontSize: 10, color: C.textDim, marginTop: 2 }}>
+                  <div style={{ fontSize: 12, color: C.textSec }}>1. T-90m: no new oversized entries.</div>
+                  <div style={{ fontSize: 12, color: C.textSec }}>2. T-30m: reduce beta and tighten stops.</div>
+                  <div style={{ fontSize: 12, color: C.textSec }}>3. T+15m: wait for post-release structure before adds.</div>
+                  <div style={{ fontSize: 12, color: C.textDim, marginTop: 2 }}>
                     Fed/CPI/Jobs/PCE/Minutes are estimated recurring schedule until provider calendar API is connected.
                   </div>
                 </div>
@@ -15804,22 +15810,22 @@ export default function App() {
                 return (
                   <div key={k} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: 10 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.text }}>{q._label || q.symbol}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{t}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{q._label || q.symbol}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{t}</span>
                     </div>
                     <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 800 }}>${q.price?.toFixed(2)}</div>
                     <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, marginBottom: 6 }}>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: d1 >= 0 ? C.green : C.red }}>1D {d1 >= 0 ? "+" : ""}{d1.toFixed(2)}%</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: d7 >= 0 ? C.green : C.red }}>1W {d7 >= 0 ? "+" : ""}{d7.toFixed(2)}%</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: d1 >= 0 ? C.green : C.red }}>1D {d1 >= 0 ? "+" : ""}{d1.toFixed(2)}%</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: d7 >= 0 ? C.green : C.red }}>1W {d7 >= 0 ? "+" : ""}{d7.toFixed(2)}%</span>
                     </div>
                     <div style={{ display: "flex", gap: 5 }}>
                       <button
                         onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(k) ? prev.filter(s => s !== k) : Array.from(new Set([...prev, k])))}
-                        style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: watchlistSymbols.includes(k) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(k) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(k) ? C.red : C.green}44`, borderRadius: 3, cursor: "pointer" }}
+                        style={{ flex: 1, fontFamily: MONO, fontSize: 12, padding: "3px 0", background: watchlistSymbols.includes(k) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(k) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(k) ? C.red : C.green}44`, borderRadius: 5, cursor: "pointer" }}
                       >{watchlistSymbols.includes(k) ? "−WL" : "+WL"}</button>
                       <button
                         onClick={() => { setTerminalSymbol(k); setActiveTab("terminal"); }}
-                        style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 3, cursor: "pointer" }}
+                        style={{ flex: 1, fontFamily: MONO, fontSize: 12, padding: "3px 0", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 5, cursor: "pointer" }}
                       >CHART</button>
                     </div>
                   </div>
@@ -15829,13 +15835,13 @@ export default function App() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10, marginBottom: 12 }}>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.text }}>BTC DOMINANCE (PROXY)</span>
-                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>BTC / (BTC+ETH+SOL)</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>BTC DOMINANCE (PROXY)</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>BTC / (BTC+ETH+SOL)</span>
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 800, color: C.accent }}>
                   {Number(cryptoSnapshot.btcDomProxy || 0).toFixed(1)}%
                 </div>
-                <div style={{ marginTop: 6, fontFamily: MONO, fontSize: 11, color: C.textSec }}>
+                <div style={{ marginTop: 6, fontFamily: MONO, fontSize: 12, color: C.textSec }}>
                   Alt momentum spread:
                   <span style={{ color: Number(cryptoSnapshot.altStrength || 0) >= 0 ? C.green : C.red, fontWeight: 700, marginLeft: 6 }}>
                     {Number(cryptoSnapshot.altStrength || 0) >= 0 ? "+" : ""}{Number(cryptoSnapshot.altStrength || 0).toFixed(2)}%
@@ -15843,7 +15849,7 @@ export default function App() {
                 </div>
               </div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: 12 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.text, marginBottom: 6 }}>CRYPTO COMPLEX</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.text, marginBottom: 6 }}>CRYPTO COMPLEX</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                   {[
                     { k: "BTCUSD", t: "BTC" },
@@ -15853,12 +15859,12 @@ export default function App() {
                     const q = macroData.find((m) => m.symbol === k);
                     const chg = Number(q?.changesPercentage || 0);
                     return (
-                      <div key={`cx-${k}`} style={{ border: `1px solid ${C.border}`, borderRadius: 4, padding: 8, background: C.surface }}>
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{t}</div>
+                      <div key={`cx-${k}`} style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface }}>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{t}</div>
                         <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text }}>
                           ${Number(q?.price || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                         </div>
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: chg >= 0 ? C.green : C.red }}>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: chg >= 0 ? C.green : C.red }}>
                           {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
                         </div>
                       </div>
@@ -15867,7 +15873,7 @@ export default function App() {
                 </div>
               </div>
             </div>
-            <div style={{ fontSize: 11, color: C.textSec, marginBottom: 10 }}>
+            <div style={{ fontSize: 12, color: C.textSec, marginBottom: 10 }}>
               Regime filter: use macro tone first, then sector/stock relative strength, then entry trigger.
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
@@ -15887,11 +15893,11 @@ export default function App() {
                     <div style={{ display: "flex", gap: 5 }}>
                       <button
                         onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(q.symbol) ? prev.filter(s => s !== q.symbol) : Array.from(new Set([...prev, q.symbol])))}
-                        style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: watchlistSymbols.includes(q.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(q.symbol) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(q.symbol) ? C.red : C.green}44`, borderRadius: 3, cursor: "pointer" }}
+                        style={{ flex: 1, fontFamily: MONO, fontSize: 12, padding: "3px 0", background: watchlistSymbols.includes(q.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(q.symbol) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(q.symbol) ? C.red : C.green}44`, borderRadius: 5, cursor: "pointer" }}
                       >{watchlistSymbols.includes(q.symbol) ? "−WL" : "+WL"}</button>
                       <button
                         onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
-                        style={{ flex: 1, fontFamily: MONO, fontSize: 9, padding: "3px 0", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 3, cursor: "pointer" }}
+                        style={{ flex: 1, fontFamily: MONO, fontSize: 12, padding: "3px 0", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 5, cursor: "pointer" }}
                       >CHART</button>
                     </div>
                   </div>
@@ -15913,7 +15919,7 @@ export default function App() {
                   </div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     {todayFired > 0 && (
-                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.accent, background: `${C.accent}12`, border: `1px solid ${C.accent}33`, borderRadius: 4, padding: "3px 8px" }}>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, background: `${C.accent}12`, border: `1px solid ${C.accent}33`, borderRadius: 6, padding: "3px 8px" }}>
                         {todayFired} TV WEBHOOK{todayFired !== 1 ? "S" : ""} TODAY
                       </div>
                     )}
@@ -15927,13 +15933,13 @@ export default function App() {
                 value={customAlertSymbol}
                 onChange={(e) => setCustomAlertSymbol(e.target.value.toUpperCase())}
                 placeholder="Custom symbol (e.g. NVDA)"
-                style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "8px 10px", minWidth: 220 }}
+                style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "8px 10px", minWidth: 220 }}
               />
               <input
                 value={customAlertMin}
                 onChange={(e) => setCustomAlertMin(e.target.value)}
                 placeholder="Min score"
-                style={{ width: 110, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "8px 10px" }}
+                style={{ width: 110, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "8px 10px" }}
               />
               <button onClick={() => {
                 const symbol = customAlertSymbol.trim().toUpperCase();
@@ -15945,7 +15951,7 @@ export default function App() {
                   return next;
                 });
                 setCustomAlertSymbol("");
-              }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 11, padding: "8px 10px", cursor: "pointer" }}>
+              }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "8px 10px", cursor: "pointer" }}>
                 ADD CUSTOM ALERT
               </button>
             </div>
@@ -15962,10 +15968,10 @@ export default function App() {
                         <Badge color={alertColor}>{a.type}</Badge>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Priority {a.score}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Priority {a.score}</span>
                         <button
                           onClick={() => setQuickLogModal({ symbol: a.symbol, price: 0, entry: "", stopLoss: "", target: "", size: "", side: alertSide, timeframe: "1D", style: "Alert", notes: a.text || "", score: a.score || 70, chg: 0, rvol: 0 })}
-                          style={{ border: `1px solid ${alertColor}55`, background: `${alertColor}12`, color: alertColor, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer", fontWeight: 700 }}
+                          style={{ border: `1px solid ${alertColor}55`, background: `${alertColor}12`, color: alertColor, borderRadius: 6, padding: "3px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}
                         >LOG</button>
                         <button
                           onClick={async () => {
@@ -15973,7 +15979,7 @@ export default function App() {
                             const msg = `${emoji} *${a.symbol}* — ${a.type.toUpperCase()} Alert\nPriority: ${a.score}/100\n_${a.text}_`;
                             try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
                           }}
-                          style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                          style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, borderRadius: 6, padding: "3px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                           title="Send to Telegram"
                         >NOTIFY</button>
                       </div>
@@ -15989,14 +15995,14 @@ export default function App() {
             {/* Price target alerts panel */}
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", marginBottom: 14 }}>
               <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700 }}>PRICE TARGET ALERTS</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700 }}>PRICE TARGET ALERTS</span>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Server-side · Telegram notification when triggered</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Server-side · Telegram notification when triggered</span>
                   {priceAlerts.some(a => a.status !== "active") && (
                     <button onClick={async () => {
                       await fetch("/api/price-alerts/clear-history", { method: "DELETE" });
                       loadPriceAlertList();
-                    }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>
+                    }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "4px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>
                       CLEAR HISTORY
                     </button>
                   )}
@@ -16004,23 +16010,23 @@ export default function App() {
               </div>
               <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 <input value={paSymbol} onChange={e => setPaSymbol(e.target.value.toUpperCase())} placeholder="Symbol (e.g. NVDA)"
-                  style={{ width: 130, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "7px 10px" }} />
+                  style={{ width: 130, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px" }} />
                 <select value={paDirection} onChange={e => setPaDirection(e.target.value)}
-                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "7px 10px" }}>
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px" }}>
                   <option value="above">Above</option>
                   <option value="below">Below</option>
                 </select>
                 <input value={paTarget} onChange={e => setPaTarget(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Price (e.g. 890)"
-                  style={{ width: 100, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "7px 10px" }} />
+                  style={{ width: 100, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px" }} />
                 <input value={paNote} onChange={e => setPaNote(e.target.value)} placeholder="Note (optional)"
-                  style={{ flex: 1, minWidth: 120, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "7px 10px" }} />
+                  style={{ flex: 1, minWidth: 120, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px" }} />
                 <button onClick={async () => {
                   if (!paSymbol || !paTarget) return;
                   await fetch("/api/price-alerts", { method: "POST", headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ symbol: paSymbol, targetPrice: Number(paTarget), direction: paDirection, note: paNote }) });
                   setPaSymbol(""); setPaTarget(""); setPaNote("");
                   loadPriceAlertList();
-                }} style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 4, padding: "7px 12px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
+                }} style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 6, padding: "7px 12px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>
                   + SET ALERT
                 </button>
               </div>
@@ -16031,7 +16037,7 @@ export default function App() {
                   <thead>
                     <tr style={{ background: C.surface }}>
                       {["SYMBOL", "DIRECTION", "TARGET", "LIVE", "DISTANCE", "NOTE", "STATUS", "CREATED", "ACTION"].map(h => (
-                        <th key={h} style={{ padding: "7px 10px", textAlign: h === "NOTE" ? "left" : "center", fontFamily: MONO, fontSize: 10, color: C.textDim }}>{h}</th>
+                        <th key={h} style={{ padding: "7px 10px", textAlign: h === "NOTE" ? "left" : "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -16042,15 +16048,15 @@ export default function App() {
                           <button onClick={() => { setTerminalSymbol(a.symbol); setActiveTab("terminal"); }}
                             style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", padding: 0 }}>{a.symbol}</button>
                         </td>
-                        <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: a.direction === "above" ? C.green : C.red }}>{a.direction.toUpperCase()}</td>
+                        <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: a.direction === "above" ? C.green : C.red }}>{a.direction.toUpperCase()}</td>
                         <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>${a.targetPrice.toLocaleString()}</td>
                         {(() => {
                           const liveQ = watchlistData.find(q => q.symbol === a.symbol);
                           const livePrice = liveQ?.price || null;
                           if (!livePrice || a.status !== "active") return (
                             <>
-                              <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.textDim }}>—</td>
-                              <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.textDim }}>—</td>
+                              <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>—</td>
+                              <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>—</td>
                             </>
                           );
                           const dist = ((a.targetPrice - livePrice) / livePrice) * 100;
@@ -16061,22 +16067,22 @@ export default function App() {
                           const label = isBull ? (dist > 0 ? `${away}% away ▲` : `BREACHED ✓`) : (dist < 0 ? `${away}% away ▼` : `BREACHED ✓`);
                           return (
                             <>
-                              <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.text }}>${livePrice.toFixed(2)}</td>
-                              <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 10, fontWeight: 700, color: distColor }}>{label}</td>
+                              <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.text }}>${livePrice.toFixed(2)}</td>
+                              <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: distColor }}>{label}</td>
                             </>
                           );
                         })()}
-                        <td style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textSec, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.note || "—"}</td>
+                        <td style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 12, color: C.textSec, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.note || "—"}</td>
                         <td style={{ padding: "7px 10px", textAlign: "center" }}>
-                          <span style={{ background: a.status === "active" ? `${C.green}22` : a.status === "triggered" ? `${C.accent}22` : `${C.amber}22`, color: a.status === "active" ? C.green : a.status === "triggered" ? C.accent : C.amber, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>{a.status}</span>
+                          <span style={{ background: a.status === "active" ? `${C.green}22` : a.status === "triggered" ? `${C.accent}22` : `${C.amber}22`, color: a.status === "active" ? C.green : a.status === "triggered" ? C.accent : C.amber, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, fontWeight: 700, textTransform: "uppercase" }}>{a.status}</span>
                         </td>
-                        <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 10, color: C.textSec }}>{new Date(a.createdAt).toLocaleDateString()}</td>
+                        <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textSec }}>{new Date(a.createdAt).toLocaleDateString()}</td>
                         <td style={{ padding: "7px 10px", textAlign: "center" }}>
                           {a.status === "active" && (
                             <button onClick={async () => {
                               await fetch(`/api/price-alerts/${a.id}/cancel`, { method: "PATCH" });
                               loadPriceAlertList();
-                            }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>CANCEL</button>
+                            }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "4px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>CANCEL</button>
                           )}
                         </td>
                       </tr>
@@ -16089,17 +16095,17 @@ export default function App() {
             {tvWebhookRows.length > 0 && (
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
                 <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700 }}>TRADINGVIEW WEBHOOK HISTORY ({tvWebhookRows.length})</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700 }}>TRADINGVIEW WEBHOOK HISTORY ({tvWebhookRows.length})</span>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <input
                       value={tvWebhookFilter}
                       onChange={(e) => setTvWebhookFilter(e.target.value.toUpperCase())}
                       placeholder="Filter symbol…"
-                      style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 10, padding: "4px 8px", width: 120, borderRadius: 4 }}
+                      style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "4px 8px", width: 120, borderRadius: 6 }}
                     />
                     <button
                       onClick={() => setAlertSoundEnabled(v => !v)}
-                      style={{ border: `1px solid ${alertSoundEnabled ? C.green : C.border}`, background: alertSoundEnabled ? `${C.green}12` : C.surface, color: alertSoundEnabled ? C.green : C.textDim, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                      style={{ border: `1px solid ${alertSoundEnabled ? C.green : C.border}`, background: alertSoundEnabled ? `${C.green}12` : C.surface, color: alertSoundEnabled ? C.green : C.textDim, borderRadius: 6, padding: "4px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                       title={alertSoundEnabled ? "Mute alert sound" : "Enable alert sound"}
                     >{alertSoundEnabled ? "SOUND ON" : "MUTED"}</button>
                     <button
@@ -16114,14 +16120,14 @@ export default function App() {
                           }
                         } catch {}
                       }}
-                      style={{ border: `1px solid ${C.amber}55`, background: `${C.amber}12`, color: C.amber, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                      style={{ border: `1px solid ${C.amber}55`, background: `${C.amber}12`, color: C.amber, borderRadius: 6, padding: "4px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                     >DEDUP</button>
                     <button
                       onClick={async () => {
                         setTvWebhookRows([]);
                         try { await fetch("/api/market/tv-alerts", { method: "DELETE" }); } catch {}
                       }}
-                      style={{ border: `1px solid ${C.red}55`, background: `${C.red}12`, color: C.red, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                      style={{ border: `1px solid ${C.red}55`, background: `${C.red}12`, color: C.red, borderRadius: 6, padding: "4px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                     >CLEAR ALL</button>
                     <Badge color={tvWebhookSecured ? C.green : C.amber}>{tvWebhookSecured ? "SECURED" : "OPEN"}</Badge>
                   </div>
@@ -16130,14 +16136,14 @@ export default function App() {
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                       <tr style={{ background: C.surface }}>
-                        <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textDim }}>TIME</th>
-                        <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textDim }}>SYMBOL</th>
-                        <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textDim }}>SIDE</th>
-                        <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textDim }}>TF</th>
-                        <th style={{ padding: "7px 10px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>PRICE</th>
-                        <th style={{ padding: "7px 10px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>SCORE</th>
-                        <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textDim }}>MESSAGE</th>
-                        <th style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 10, color: C.textDim }}>LOG</th>
+                        <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 12, color: C.textDim }}>TIME</th>
+                        <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 12, color: C.textDim }}>SYMBOL</th>
+                        <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 12, color: C.textDim }}>SIDE</th>
+                        <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 12, color: C.textDim }}>TF</th>
+                        <th style={{ padding: "7px 10px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>PRICE</th>
+                        <th style={{ padding: "7px 10px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>SCORE</th>
+                        <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 12, color: C.textDim }}>MESSAGE</th>
+                        <th style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>LOG</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -16152,17 +16158,17 @@ export default function App() {
                           const logged = tvWebhookLoggedRows[rowKey];
                           return (
                             <tr key={`tvh-${i}`} style={{ borderTop: `1px solid ${C.border}` }}>
-                              <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 10, color: C.textDim, whiteSpace: "nowrap" }}>
+                              <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, color: C.textDim, whiteSpace: "nowrap" }}>
                                 {row?.at ? new Date(row.at).toLocaleString(undefined, { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
                               </td>
                               <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, fontWeight: 800 }}>
                                 <button onClick={() => { if (row?.symbol) { setTerminalSymbol(row.symbol); setActiveTab("terminal"); } }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", padding: 0 }}>{row?.symbol || "?"}</button>
                               </td>
-                              <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 11, color: sideColor, fontWeight: 700 }}>{side}</td>
-                              <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 10, color: C.textDim }}>{row?.timeframe || "—"}</td>
-                              <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 11, textAlign: "right", color: C.text }}>{px > 0 ? `$${px.toFixed(2)}` : "—"}</td>
-                              <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 11, textAlign: "right", color: C.accent }}>{row?.score || "—"}</td>
-                              <td style={{ padding: "7px 10px", fontSize: 11, color: C.textSec, maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row?.message || "—"}</td>
+                              <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, color: sideColor, fontWeight: 700 }}>{side}</td>
+                              <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, color: C.textDim }}>{row?.timeframe || "—"}</td>
+                              <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, textAlign: "right", color: C.text }}>{px > 0 ? `$${px.toFixed(2)}` : "—"}</td>
+                              <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, textAlign: "right", color: C.accent }}>{row?.score || "—"}</td>
+                              <td style={{ padding: "7px 10px", fontSize: 12, color: C.textSec, maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row?.message || "—"}</td>
                               <td style={{ padding: "7px 10px", textAlign: "center" }}>
                                 <button
                                   onClick={async () => {
@@ -16183,7 +16189,7 @@ export default function App() {
                                       setTvWebhookLoggedRows((prev) => ({ ...prev, [rowKey]: true }));
                                     } catch {}
                                   }}
-                                  style={{ border: `1px solid ${logged ? C.green + "55" : C.border}`, background: logged ? `${C.green}12` : C.surface, color: logged ? C.green : C.accent, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                  style={{ border: `1px solid ${logged ? C.green + "55" : C.border}`, background: logged ? `${C.green}12` : C.surface, color: logged ? C.green : C.accent, borderRadius: 6, padding: "3px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                                 >{logged ? "OK ✓" : "LOG"}</button>
                               </td>
                             </tr>
@@ -16207,13 +16213,13 @@ export default function App() {
                 <Badge color={regime === "Risk-On" ? C.green : regime === "Risk-Off" ? C.red : C.amber}>{regime.toUpperCase()}</Badge>
                 <button
                   onClick={() => setAgentPrompt("Give me market regime, top 5 longs, top 3 risks, and a clear execution plan.")}
-                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                 >
                   RESET PROMPT
                 </button>
                 <button
                   onClick={runAIAgent}
-                  style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                 >
                   {agentLoading ? "RUNNING..." : "RUN AGENT"}
                 </button>
@@ -16222,7 +16228,7 @@ export default function App() {
 
             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12, marginBottom: 12 }}>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 8 }}>PROMPT</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 8 }}>PROMPT</div>
                 <textarea
                   value={agentPrompt}
                   onChange={(e) => setAgentPrompt(e.target.value)}
@@ -16243,7 +16249,7 @@ export default function App() {
                     <button
                       key={`aq-${q}`}
                       onClick={() => setAgentPrompt(q)}
-                      style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 999, padding: "4px 9px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                      style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 999, padding: "4px 9px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                     >
                       {q}
                     </button>
@@ -16252,7 +16258,7 @@ export default function App() {
               </div>
 
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 8 }}>LIVE CONTEXT</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 8 }}>LIVE CONTEXT</div>
                 <div style={{ fontSize: 12, color: C.textSec, marginBottom: 6 }}><b>Session:</b> {marketSession}</div>
                 <div style={{ fontSize: 12, color: C.textSec, marginBottom: 6 }}><b>Regime:</b> {regime}</div>
                 <div style={{ fontSize: 12, color: C.textSec, marginBottom: 6 }}><b>Flow Bias:</b> {flowBias}</div>
@@ -16264,7 +16270,7 @@ export default function App() {
 
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>AGENT OUTPUT</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>AGENT OUTPUT</div>
                 {agentOutput && (
                   <div style={{ display: "flex", gap: 6 }}>
                     <button
@@ -16274,12 +16280,12 @@ export default function App() {
                           await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `🤖 *AI Agent — ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}*\n\n${truncated}` }) });
                         } catch {}
                       }}
-                      style={{ border: `1px solid ${telegramOk ? C.green + "44" : C.border}`, background: telegramOk ? `${C.green}0f` : C.surface, color: telegramOk ? C.green : C.textDim, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: telegramOk ? "pointer" : "not-allowed" }}
+                      style={{ border: `1px solid ${telegramOk ? C.green + "44" : C.border}`, background: telegramOk ? `${C.green}0f` : C.surface, color: telegramOk ? C.green : C.textDim, borderRadius: 6, padding: "4px 8px", fontFamily: MONO, fontSize: 12, cursor: telegramOk ? "pointer" : "not-allowed" }}
                       title={telegramOk ? "Send to Telegram" : "Telegram not configured"}
                     >SEND TO BOT</button>
                     <button
                       onClick={() => navigator.clipboard.writeText(agentOutput).catch(() => {})}
-                      style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                      style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "4px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                     >COPY</button>
                   </div>
                 )}
@@ -16301,7 +16307,7 @@ export default function App() {
                 <select
                   value={scannerFilters.scope}
                   onChange={(e) => setScannerFilters((s) => ({ ...s, scope: e.target.value }))}
-                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 8px", fontFamily: MONO, fontSize: 10 }}
+                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "6px 8px", fontFamily: MONO, fontSize: 12 }}
                 >
                   <option value="watchlist">WATCHLIST MODE</option>
                   <option value="market">MARKET-WIDE MODE</option>
@@ -16309,20 +16315,20 @@ export default function App() {
                 {scannerFilters.scope === "market" && (
                   <button
                     onClick={loadMarketUniverse}
-                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                   >
                     {marketUniverseLoading ? "LOADING..." : `UNIVERSE ${marketUniverseData.length}`}
                   </button>
                 )}
                 <button
                   onClick={runWorkflowAuto}
-                  style={{ border: `1px solid ${C.border}`, background: C.accent, color: "#fff", borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.border}`, background: C.accent, color: "#fff", borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                 >
                   DO IT FOR ME
                 </button>
                 <button
                   onClick={() => { setWorkflowState(DEFAULT_WORKFLOW); setWorkflowAutoPlan(null); }}
-                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                 >
                   RESET DAY
                 </button>
@@ -16331,19 +16337,19 @@ export default function App() {
             {/* Daily Game Plan */}
             <div style={{ background: C.card, border: `1px solid ${dailyGamePlan ? C.accent + "55" : C.border}`, borderRadius: 8, padding: 12, marginBottom: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em" }}>TODAY'S GAME PLAN</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>TODAY'S GAME PLAN</div>
                 <div style={{ display: "flex", gap: 6 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{new Date().toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{new Date().toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}</span>
                   {dailyGamePlan && (
                     <button
                       onClick={() => navigator.clipboard.writeText(dailyGamePlan).catch(() => {})}
-                      style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 3, padding: "1px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                      style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 5, padding: "1px 6px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                     >COPY</button>
                   )}
                   {dailyGamePlan && (
                     <button
                       onClick={() => setDailyGamePlan("")}
-                      style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.red, borderRadius: 3, padding: "1px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                      style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.red, borderRadius: 5, padding: "1px 6px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                     >CLEAR</button>
                   )}
                 </div>
@@ -16353,7 +16359,7 @@ export default function App() {
                 onChange={e => setDailyGamePlan(e.target.value)}
                 placeholder="Write your plan for today before the market opens:&#10;— What is the market regime? (bullish / bearish / choppy)&#10;— Key names and why&#10;— Max trades today: ___  Max loss: ___&#10;— Rules for today:"
                 rows={dailyGamePlan ? Math.min(Math.max(dailyGamePlan.split("\n").length + 1, 3), 8) : 5}
-                style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, padding: "8px 10px", fontFamily: SANS, fontSize: 13, color: C.text, resize: "vertical", outline: "none", lineHeight: 1.5 }}
+                style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", fontFamily: SANS, fontSize: 13, color: C.text, resize: "vertical", outline: "none", lineHeight: 1.5 }}
               />
             </div>
 
@@ -16361,19 +16367,19 @@ export default function App() {
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, marginBottom: 12 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr 1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Auto Plan</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Auto Plan</div>
                     <div style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>Created {workflowAutoPlan.createdAt}</div>
                   </div>
-                  <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Scope</div><div style={{ fontFamily: MONO, fontSize: 12 }}>{String(workflowAutoPlan.scope || "watchlist").toUpperCase()}</div></div>
-                  <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Primary</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800 }}>{workflowAutoPlan.symbol}</div></div>
-                  <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Inst. Score</div><div style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>{Number(workflowAutoPlan.score || 0).toFixed(1)}</div></div>
-                  <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Entry</div><div style={{ fontFamily: MONO, fontSize: 12 }}>${Number(workflowAutoPlan.entry || 0).toFixed(2)}</div></div>
-                  <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Stop</div><div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>${Number(workflowAutoPlan.stop || 0).toFixed(2)}</div></div>
-                  <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Target</div><div style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>${Number(workflowAutoPlan.target || 0).toFixed(2)}</div></div>
+                  <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Scope</div><div style={{ fontFamily: MONO, fontSize: 12 }}>{String(workflowAutoPlan.scope || "watchlist").toUpperCase()}</div></div>
+                  <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Primary</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800 }}>{workflowAutoPlan.symbol}</div></div>
+                  <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Inst. Score</div><div style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>{Number(workflowAutoPlan.score || 0).toFixed(1)}</div></div>
+                  <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Entry</div><div style={{ fontFamily: MONO, fontSize: 12 }}>${Number(workflowAutoPlan.entry || 0).toFixed(2)}</div></div>
+                  <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Stop</div><div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>${Number(workflowAutoPlan.stop || 0).toFixed(2)}</div></div>
+                  <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Target</div><div style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>${Number(workflowAutoPlan.target || 0).toFixed(2)}</div></div>
                 </div>
                 <div style={{ marginBottom: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>WHY THIS NAME</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>WHY THIS NAME</div>
                     <button
                       onClick={async () => {
                         if (!workflowAutoPlan?.symbol) return;
@@ -16395,30 +16401,30 @@ export default function App() {
                           });
                         } catch {}
                       }}
-                      style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                      style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 6, padding: "4px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                     >LOG PLAN</button>
                   </div>
                   <div style={{ fontSize: 12, color: C.textSec, lineHeight: 1.45 }}>{workflowAutoPlan.why || "No rationale available."}</div>
                 </div>
                 <div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 6 }}>ALTERNATIVE CANDIDATES</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 6 }}>ALTERNATIVE CANDIDATES</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(180px, 1fr))", gap: 8 }}>
                     {(workflowAutoPlan.candidates || []).slice(0, 3).map((cand) => (
                       <div key={`cand-${cand.symbol}`} style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface }}>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                           <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700 }}>{cand.symbol}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 11, color: C.accent }}>{Number(cand.score || 0).toFixed(1)}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>{Number(cand.score || 0).toFixed(1)}</span>
                         </div>
-                        <div style={{ fontSize: 10, color: C.textDim, minHeight: 32 }}>{cand.why}</div>
+                        <div style={{ fontSize: 12, color: C.textDim, minHeight: 32 }}>{cand.why}</div>
                         <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
                           <button
                             onClick={() => { setTerminalSymbol(cand.symbol); setActiveTab("terminal"); }}
-                            style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                            style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 6, padding: "4px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                           >CHART</button>
                           {cand.symbol !== workflowAutoPlan.symbol && (
                             <button
                               onClick={() => applyWorkflowPrimary(cand)}
-                              style={{ border: `1px solid ${C.border}`, background: C.card, color: C.text, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                              style={{ border: `1px solid ${C.border}`, background: C.card, color: C.text, borderRadius: 6, padding: "4px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                             >SET PRIMARY</button>
                           )}
                         </div>
@@ -16430,99 +16436,99 @@ export default function App() {
             )}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 4 }}>SESSION</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 4 }}>SESSION</div>
                 <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>{marketSession}</div>
-                <div style={{ fontSize: 11, color: C.textSec, marginTop: 6 }}>
+                <div style={{ fontSize: 12, color: C.textSec, marginTop: 6 }}>
                   Gainers: {sessionMovers.gainers.slice(0, 3).map((m) => m.symbol).join(", ") || "N/A"}
                 </div>
               </div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 4 }}>BUY / UPGRADE</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 4 }}>BUY / UPGRADE</div>
                 {(newsIntel.upgrades.slice(0, 2)).map((n, i) => (
-                  <div key={`up-${i}`} style={{ fontSize: 11, color: C.green, marginBottom: 4 }}>{n.ticker}: {n.title.slice(0, 56)}</div>
+                  <div key={`up-${i}`} style={{ fontSize: 12, color: C.green, marginBottom: 4 }}>{n.ticker}: {n.title.slice(0, 56)}</div>
                 ))}
-                {!newsIntel.upgrades.length && <div style={{ fontSize: 11, color: C.textDim }}>No bullish upgrade headlines.</div>}
+                {!newsIntel.upgrades.length && <div style={{ fontSize: 12, color: C.textDim }}>No bullish upgrade headlines.</div>}
               </div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 4 }}>SELL / DOWNGRADE</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 4 }}>SELL / DOWNGRADE</div>
                 {(newsIntel.downgrades.slice(0, 2)).map((n, i) => (
-                  <div key={`dn-${i}`} style={{ fontSize: 11, color: C.red, marginBottom: 4 }}>{n.ticker}: {n.title.slice(0, 56)}</div>
+                  <div key={`dn-${i}`} style={{ fontSize: 12, color: C.red, marginBottom: 4 }}>{n.ticker}: {n.title.slice(0, 56)}</div>
                 ))}
-                {!newsIntel.downgrades.length && <div style={{ fontSize: 11, color: C.textDim }}>No bearish downgrade headlines.</div>}
+                {!newsIntel.downgrades.length && <div style={{ fontSize: 12, color: C.textDim }}>No bearish downgrade headlines.</div>}
               </div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 4 }}>MACRO FLAGS</div>
-                {(macroSignalFlags.red.slice(0, 2)).map((x, i) => <div key={`mr-${i}`} style={{ fontSize: 11, color: C.red, marginBottom: 3 }}>RED: {x}</div>)}
-                {(macroSignalFlags.green.slice(0, 2)).map((x, i) => <div key={`mg-${i}`} style={{ fontSize: 11, color: C.green, marginBottom: 3 }}>GREEN: {x}</div>)}
-                {!macroSignalFlags.red.length && !macroSignalFlags.green.length && <div style={{ fontSize: 11, color: C.textDim }}>No major macro flags.</div>}
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 4 }}>MACRO FLAGS</div>
+                {(macroSignalFlags.red.slice(0, 2)).map((x, i) => <div key={`mr-${i}`} style={{ fontSize: 12, color: C.red, marginBottom: 3 }}>RED: {x}</div>)}
+                {(macroSignalFlags.green.slice(0, 2)).map((x, i) => <div key={`mg-${i}`} style={{ fontSize: 12, color: C.green, marginBottom: 3 }}>GREEN: {x}</div>)}
+                {!macroSignalFlags.red.length && !macroSignalFlags.green.length && <div style={{ fontSize: 12, color: C.textDim }}>No major macro flags.</div>}
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(280px, 1fr))", gap: 12, marginBottom: 12 }}>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, letterSpacing: "0.08em" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>
                     WATCHLIST MOVERS
                   </div>
                   <button
                     onClick={fetchMarketMovers}
                     disabled={marketMoversLoading}
-                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                   >
                     {marketMoversLoading ? "…" : "REFRESH"}
                   </button>
                 </div>
-                {!marketMovers && !marketMoversLoading && <div style={{ fontSize: 10, color: C.textDim }}>Loading…</div>}
-                {marketMoversLoading && <div style={{ fontSize: 10, color: C.textDim }}>Fetching movers…</div>}
+                {!marketMovers && !marketMoversLoading && <div style={{ fontSize: 12, color: C.textDim }}>Loading…</div>}
+                {marketMoversLoading && <div style={{ fontSize: 12, color: C.textDim }}>Fetching movers…</div>}
                 {marketMovers && (
                   <>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.green, fontWeight: 700, marginBottom: 4 }}>TOP GAINERS</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, fontWeight: 700, marginBottom: 4 }}>TOP GAINERS</div>
                     {(marketMovers.gainers || []).map((q) => (
                       <div key={`mv-g-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
-                        <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
-                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.green, fontWeight: 700 }}>+{Number(q.changesPercentage || 0).toFixed(2)}%</span>
+                        <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.green, fontWeight: 700 }}>+{Number(q.changesPercentage || 0).toFixed(2)}%</span>
                       </div>
                     ))}
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.red, fontWeight: 700, marginTop: 8, marginBottom: 4 }}>TOP LOSERS</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, fontWeight: 700, marginTop: 8, marginBottom: 4 }}>TOP LOSERS</div>
                     {(marketMovers.losers || []).map((q) => (
                       <div key={`mv-l-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
-                        <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
-                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.red, fontWeight: 700 }}>{Number(q.changesPercentage || 0).toFixed(2)}%</span>
+                        <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.red, fontWeight: 700 }}>{Number(q.changesPercentage || 0).toFixed(2)}%</span>
                       </div>
                     ))}
                   </>
                 )}
               </div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
                   PRE / POST MARKET MOVERS
                 </div>
                 <div style={{ display: "grid", gap: 6 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.accent, fontWeight: 700 }}>PREMARKET</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700 }}>PREMARKET</div>
                   {(prePostMovers.pre || []).map((q) => (
                     <div key={`wf-pre-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
-                      <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
-                      <span style={{ fontFamily: MONO, fontSize: 10, color: q.pre >= 0 ? C.green : C.red, fontWeight: 700 }}>
+                      <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: q.pre >= 0 ? C.green : C.red, fontWeight: 700 }}>
                         {q.pre >= 0 ? "+" : ""}{q.pre.toFixed(2)}%
                       </span>
                     </div>
                   ))}
-                  {!prePostMovers.pre?.length && <div style={{ fontSize: 10, color: C.textDim }}>No premarket movers yet.</div>}
+                  {!prePostMovers.pre?.length && <div style={{ fontSize: 12, color: C.textDim }}>No premarket movers yet.</div>}
                 </div>
                 <div style={{ display: "grid", gap: 6, marginTop: 10 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.purple, fontWeight: 700 }}>AFTERHOURS</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.purple, fontWeight: 700 }}>AFTERHOURS</div>
                   {(prePostMovers.post || []).map((q) => (
                     <div key={`wf-post-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
-                      <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
-                      <span style={{ fontFamily: MONO, fontSize: 10, color: q.post >= 0 ? C.green : C.red, fontWeight: 700 }}>
+                      <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: q.post >= 0 ? C.green : C.red, fontWeight: 700 }}>
                         {q.post >= 0 ? "+" : ""}{q.post.toFixed(2)}%
                       </span>
                     </div>
                   ))}
-                  {!prePostMovers.post?.length && <div style={{ fontSize: 10, color: C.textDim }}>No afterhours movers yet.</div>}
+                  {!prePostMovers.post?.length && <div style={{ fontSize: 12, color: C.textDim }}>No afterhours movers yet.</div>}
                 </div>
               </div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
                   EARNINGS SURPRISE TRACKER
                 </div>
                 {(earningsSurpriseTracker || []).map((r) => {
@@ -16531,17 +16537,17 @@ export default function App() {
                   return (
                     <div key={`wf-est-${r.symbol}`} style={{ borderBottom: `1px solid ${C.border}`, padding: "6px 0" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-                        <button onClick={() => { setTerminalSymbol(r.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", padding: 0 }}>{r.symbol}</button>
-                        <span style={{ fontFamily: MONO, fontSize: 9, color: tone, background: bg, border: `1px solid ${tone}44`, padding: "1px 6px", borderRadius: 999, fontWeight: 800 }}>{r.status}</span>
+                        <button onClick={() => { setTerminalSymbol(r.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>{r.symbol}</button>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: tone, background: bg, border: `1px solid ${tone}44`, padding: "1px 6px", borderRadius: 999, fontWeight: 800 }}>{r.status}</span>
                       </div>
-                      <div style={{ fontSize: 10, color: C.textDim }}>
+                      <div style={{ fontSize: 12, color: C.textDim }}>
                         Beat {r.beats} · Miss {r.misses}
                       </div>
                     </div>
                   );
                 })}
                 {!earningsSurpriseTracker.length && (
-                  <div style={{ fontSize: 10, color: C.textDim }}>
+                  <div style={{ fontSize: 12, color: C.textDim }}>
                     No earnings surprise headlines detected yet.
                   </div>
                 )}
@@ -16556,21 +16562,21 @@ export default function App() {
                 <div key={section.key} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                     <div>
-                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: section.color }}>{section.title}</div>
-                      <div style={{ fontSize: 10, color: C.textDim }}>{section.subtitle}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: section.color }}>{section.title}</div>
+                      <div style={{ fontSize: 12, color: C.textDim }}>{section.subtitle}</div>
                     </div>
                     <Badge color={workflowProgress[section.key].pct >= 100 ? C.green : C.amber}>
                       {workflowProgress[section.key].done}/{workflowProgress[section.key].total}
                     </Badge>
                   </div>
                   <div style={{ marginBottom: 10 }}>
-                    <div style={{ height: 6, borderRadius: 4, background: C.border, overflow: "hidden" }}>
+                    <div style={{ height: 6, borderRadius: 6, background: C.border, overflow: "hidden" }}>
                       <div style={{ width: `${workflowProgress[section.key].pct}%`, height: "100%", background: section.color }} />
                     </div>
                   </div>
                   <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
                     {(workflowState[section.key]?.checklist || []).map((item) => (
-                      <label key={item.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 11, color: C.textSec }}>
+                      <label key={item.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12, color: C.textSec }}>
                         <input
                           type="checkbox"
                           checked={Boolean(item.done)}
@@ -16600,27 +16606,27 @@ export default function App() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(140px, 1fr))", gap: 10, marginBottom: 12 }}>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Market Value</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Market Value</div>
                 <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: C.text }}>{formatNum(portfolioSummary.totalValue)}</div>
               </div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Cost Basis</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Cost Basis</div>
                 <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: C.text }}>{formatNum(portfolioSummary.totalCost)}</div>
               </div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Unrealized P/L</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Unrealized P/L</div>
                 <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red }}>
                   {portfolioSummary.totalPnl >= 0 ? "+" : ""}{formatNum(portfolioSummary.totalPnl)}
                 </div>
               </div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Return %</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Return %</div>
                 <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: portfolioSummary.totalPnlPct >= 0 ? C.green : C.red }}>
                   {portfolioSummary.totalPnlPct >= 0 ? "+" : ""}{portfolioSummary.totalPnlPct.toFixed(2)}%
                 </div>
               </div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Winners / Losers</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Winners / Losers</div>
                 <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: C.text }}>{portfolioSummary.winners} / {portfolioSummary.losers}</div>
               </div>
             </div>
@@ -16633,7 +16639,7 @@ export default function App() {
                   <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
                       <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>📋 PASTE & SCAN PORTFOLIO</div>
-                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 3 }}>
                         {pasteModal === "input"
                           ? "Paste tickers, or tickers + shares + cost — any format"
                           : pasteModal.scanning
@@ -16662,7 +16668,7 @@ export default function App() {
                       />
                       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                         <button onClick={() => { setPasteModal(null); setPasteText(""); }}
-                          style={{ fontFamily: MONO, fontSize: 11, background: "none", border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, padding: "8px 18px", cursor: "pointer" }}>
+                          style={{ fontFamily: MONO, fontSize: 12, background: "none", border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, padding: "8px 18px", cursor: "pointer" }}>
                           CANCEL
                         </button>
                         <button
@@ -16702,7 +16708,7 @@ export default function App() {
                               setPasteModal({ rows: parsed, scanning: false });
                             }
                           }}
-                          style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, background: C.accent, border: "none", color: "#fff", borderRadius: 6, padding: "8px 20px", cursor: pasteText.trim() ? "pointer" : "not-allowed", opacity: pasteText.trim() ? 1 : 0.5 }}>
+                          style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, background: C.accent, border: "none", color: "#fff", borderRadius: 6, padding: "8px 20px", cursor: pasteText.trim() ? "pointer" : "not-allowed", opacity: pasteText.trim() ? 1 : 0.5 }}>
                           SCAN PRICES →
                         </button>
                       </div>
@@ -16722,7 +16728,7 @@ export default function App() {
                             <thead>
                               <tr style={{ background: C.surface }}>
                                 {["Symbol","Name","Live Price","Shares","Avg Cost",""].map((h, i) => (
-                                  <th key={i} style={{ padding: "10px 14px", fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: i >= 2 ? "right" : "left", borderBottom: `1px solid ${C.border}` }}>{h}</th>
+                                  <th key={i} style={{ padding: "10px 14px", fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: i >= 2 ? "right" : "left", borderBottom: `1px solid ${C.border}` }}>{h}</th>
                                 ))}
                               </tr>
                             </thead>
@@ -16730,7 +16736,7 @@ export default function App() {
                               {pasteModal.rows.map((row, i) => (
                                 <tr key={i} style={{ background: i % 2 === 0 ? "transparent" : C.surface }}>
                                   <td style={{ padding: "9px 14px", fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, borderBottom: `1px solid ${C.border}` }}>{row.symbol}</td>
-                                  <td style={{ padding: "9px 14px", fontFamily: MONO, fontSize: 11, color: C.textDim, borderBottom: `1px solid ${C.border}`, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name || "—"}</td>
+                                  <td style={{ padding: "9px 14px", fontFamily: MONO, fontSize: 12, color: C.textDim, borderBottom: `1px solid ${C.border}`, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name || "—"}</td>
                                   <td style={{ padding: "9px 14px", fontFamily: MONO, fontSize: 13, color: row.price ? C.text : C.textDim, textAlign: "right", borderBottom: `1px solid ${C.border}` }}>
                                     {row.price ? `$${row.price.toFixed(2)}` : "—"}
                                   </td>
@@ -16739,7 +16745,7 @@ export default function App() {
                                       value={row.shares}
                                       placeholder="0"
                                       onChange={e => setPasteModal(prev => ({ ...prev, rows: prev.rows.map((r, j) => j === i ? { ...r, shares: e.target.value.replace(/[^\d.]/g, "") } : r) }))}
-                                      style={{ width: 80, textAlign: "right", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: MONO, fontSize: 12, borderRadius: 4 }}
+                                      style={{ width: 80, textAlign: "right", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: MONO, fontSize: 12, borderRadius: 6 }}
                                     />
                                   </td>
                                   <td style={{ padding: "9px 14px", textAlign: "right", borderBottom: `1px solid ${C.border}` }}>
@@ -16747,7 +16753,7 @@ export default function App() {
                                       value={row.avgCost}
                                       placeholder={row.price ? row.price.toFixed(2) : "0"}
                                       onChange={e => setPasteModal(prev => ({ ...prev, rows: prev.rows.map((r, j) => j === i ? { ...r, avgCost: e.target.value.replace(/[^\d.]/g, "") } : r) }))}
-                                      style={{ width: 90, textAlign: "right", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: MONO, fontSize: 12, borderRadius: 4 }}
+                                      style={{ width: 90, textAlign: "right", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: MONO, fontSize: 12, borderRadius: 6 }}
                                     />
                                   </td>
                                   <td style={{ padding: "9px 14px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>
@@ -16762,11 +16768,11 @@ export default function App() {
                       </div>
                       {!pasteModal.scanning && pasteModal.rows.length > 0 && (
                         <div style={{ padding: "14px 20px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center", flexWrap: "wrap" }}>
-                          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, flex: 1 }}>
+                          <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, flex: 1 }}>
                             {pasteModal.rows.length} position{pasteModal.rows.length !== 1 ? "s" : ""} · fill Shares + Avg Cost then save
                           </span>
                           <button onClick={() => { setPasteModal("input"); }}
-                            style={{ fontFamily: MONO, fontSize: 11, background: "none", border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, padding: "8px 14px", cursor: "pointer" }}>
+                            style={{ fontFamily: MONO, fontSize: 12, background: "none", border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, padding: "8px 14px", cursor: "pointer" }}>
                             ← EDIT PASTE
                           </button>
                           <button
@@ -16784,7 +16790,7 @@ export default function App() {
                               });
                               setPasteModal(null); setPasteText("");
                             }}
-                            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, background: C.greenBg, border: `1px solid ${C.green}`, color: C.green, borderRadius: 6, padding: "8px 20px", cursor: "pointer" }}>
+                            style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, background: C.greenBg, border: `1px solid ${C.green}`, color: C.green, borderRadius: 6, padding: "8px 20px", cursor: "pointer" }}>
                             ✓ SAVE TO PORTFOLIO
                           </button>
                         </div>
@@ -16803,7 +16809,7 @@ export default function App() {
                   <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
                       <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>📥 IMPORT PORTFOLIO</div>
-                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 3 }}>
                         Format detected: <span style={{ color: C.accent }}>{csvImportModal.parseInfo.format}</span>
                         {csvImportModal.parseInfo.errors.length > 0 && (
                           <span style={{ color: C.amber, marginLeft: 10 }}>⚠ {csvImportModal.parseInfo.errors[0]}</span>
@@ -16817,7 +16823,7 @@ export default function App() {
                     {csvImportModal.rows.length === 0 ? (
                       <div style={{ padding: 30, textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.red }}>
                         No positions could be parsed from this file.
-                        <div style={{ color: C.textDim, marginTop: 8, fontSize: 11 }}>
+                        <div style={{ color: C.textDim, marginTop: 8, fontSize: 12 }}>
                           Expected: Robinhood Activity CSV, or a file with Symbol / Shares / Avg Cost columns.
                         </div>
                       </div>
@@ -16826,7 +16832,7 @@ export default function App() {
                         <thead>
                           <tr style={{ background: C.surface }}>
                             {["Symbol","Shares","Avg Cost","Action"].map(h => (
-                              <th key={h} style={{ padding: "10px 14px", fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: h === "Action" ? "center" : h === "Shares" || h === "Avg Cost" ? "right" : "left", borderBottom: `1px solid ${C.border}` }}>{h}</th>
+                              <th key={h} style={{ padding: "10px 14px", fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: h === "Action" ? "center" : h === "Shares" || h === "Avg Cost" ? "right" : "left", borderBottom: `1px solid ${C.border}` }}>{h}</th>
                             ))}
                           </tr>
                         </thead>
@@ -16869,7 +16875,7 @@ export default function App() {
                   {/* Footer buttons */}
                   {csvImportModal.rows.length > 0 && (
                     <div style={{ padding: "14px 20px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, flex: 1 }}>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, flex: 1 }}>
                         {csvImportModal.rows.length} position{csvImportModal.rows.length !== 1 ? "s" : ""} ready to import
                       </span>
                       <button
@@ -16887,7 +16893,7 @@ export default function App() {
                           });
                           setCsvImportModal(null);
                         }}
-                        style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: C.accentGlow, border: `1px solid ${C.accent}`, color: C.accent, borderRadius: 6, padding: "8px 18px", cursor: "pointer" }}
+                        style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: C.accentGlow, border: `1px solid ${C.accent}`, color: C.accent, borderRadius: 6, padding: "8px 18px", cursor: "pointer" }}
                       >
                         MERGE INTO EXISTING
                       </button>
@@ -16897,7 +16903,7 @@ export default function App() {
                           setPortfolioHoldings(valid);
                           setCsvImportModal(null);
                         }}
-                        style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: C.greenBg, border: `1px solid ${C.green}`, color: C.green, borderRadius: 6, padding: "8px 18px", cursor: "pointer" }}
+                        style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: C.greenBg, border: `1px solid ${C.green}`, color: C.green, borderRadius: 6, padding: "8px 18px", cursor: "pointer" }}
                       >
                         REPLACE ALL
                       </button>
@@ -16928,18 +16934,18 @@ export default function App() {
                 }}
               />
               <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>POSITIONS ({portfolioHoldings.length})</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>POSITIONS ({portfolioHoldings.length})</span>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   <button
                     onClick={() => { setPasteText(""); setPasteModal("input"); }}
-                    style={{ border: `1px solid ${C.green}66`, background: `${C.green}15`, color: C.green, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}
+                    style={{ border: `1px solid ${C.green}66`, background: `${C.green}15`, color: C.green, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}
                     title="Paste tickers or positions and scan live prices"
                   >
                     📋 PASTE & SCAN
                   </button>
                   <button
                     onClick={() => csvFileRef.current?.click()}
-                    style={{ border: `1px solid ${C.accent}66`, background: `${C.accent}15`, color: C.accent, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}
+                    style={{ border: `1px solid ${C.accent}66`, background: `${C.accent}15`, color: C.accent, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}
                     title="Import from Robinhood CSV or any broker CSV"
                   >
                     📥 IMPORT CSV
@@ -16947,13 +16953,13 @@ export default function App() {
                   <a
                     href="/api/portfolio/export.csv"
                     download
-                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "6px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer", textDecoration: "none" }}
+                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "6px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer", textDecoration: "none" }}
                   >
                     EXPORT CSV
                   </a>
                   <button
                     onClick={() => setPortfolioHoldings((prev) => [...prev, { symbol: "", shares: "0", avgCost: "0" }])}
-                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "6px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "6px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                   >
                     + ADD ROW
                   </button>
@@ -16963,14 +16969,14 @@ export default function App() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ background: C.surface }}>
-                      <th style={{ padding: "8px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Ticker</th>
-                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Shares</th>
-                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Avg Cost</th>
-                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Last</th>
-                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Mkt Value</th>
-                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>P/L</th>
-                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>P/L %</th>
-                      <th style={{ padding: "8px", textAlign: "center", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Action</th>
+                      <th style={{ padding: "8px", textAlign: "left", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Ticker</th>
+                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Shares</th>
+                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Avg Cost</th>
+                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Last</th>
+                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Mkt Value</th>
+                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>P/L</th>
+                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>P/L %</th>
+                      <th style={{ padding: "8px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -16980,21 +16986,21 @@ export default function App() {
                           <input
                             value={portfolioHoldings[row.idx]?.symbol || ""}
                             onChange={(e) => setPortfolioHoldings((prev) => prev.map((h, i) => i === row.idx ? { ...h, symbol: e.target.value.toUpperCase() } : h))}
-                            style={{ width: 90, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "6px 8px", fontFamily: MONO, fontSize: 11 }}
+                            style={{ width: 90, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "6px 8px", fontFamily: MONO, fontSize: 12 }}
                           />
                         </td>
                         <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right" }}>
                           <input
                             value={portfolioHoldings[row.idx]?.shares || ""}
                             onChange={(e) => setPortfolioHoldings((prev) => prev.map((h, i) => i === row.idx ? { ...h, shares: e.target.value.replace(/[^\d.]/g, "") } : h))}
-                            style={{ width: 90, textAlign: "right", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "6px 8px", fontFamily: MONO, fontSize: 11 }}
+                            style={{ width: 90, textAlign: "right", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "6px 8px", fontFamily: MONO, fontSize: 12 }}
                           />
                         </td>
                         <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right" }}>
                           <input
                             value={portfolioHoldings[row.idx]?.avgCost || ""}
                             onChange={(e) => setPortfolioHoldings((prev) => prev.map((h, i) => i === row.idx ? { ...h, avgCost: e.target.value.replace(/[^\d.]/g, "") } : h))}
-                            style={{ width: 100, textAlign: "right", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "6px 8px", fontFamily: MONO, fontSize: 11 }}
+                            style={{ width: 100, textAlign: "right", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "6px 8px", fontFamily: MONO, fontSize: 12 }}
                           />
                         </td>
                         <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.text }}>${(row.live?.price || 0).toFixed(2)}</td>
@@ -17010,18 +17016,18 @@ export default function App() {
                             {row.symbol && (
                               <button
                                 onClick={() => { setTerminalSymbol(row.symbol); setActiveTab("terminal"); }}
-                                style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 4, padding: "5px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 6, padding: "5px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                               >CHART</button>
                             )}
                             {row.symbol && (
                               <button
                                 onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(row.symbol) ? prev.filter(s => s !== row.symbol) : Array.from(new Set([...prev, row.symbol])))}
-                                style={{ border: `1px solid ${watchlistSymbols.includes(row.symbol) ? C.red : C.green}44`, background: watchlistSymbols.includes(row.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(row.symbol) ? C.red : C.green, borderRadius: 4, padding: "5px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                style={{ border: `1px solid ${watchlistSymbols.includes(row.symbol) ? C.red : C.green}44`, background: watchlistSymbols.includes(row.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(row.symbol) ? C.red : C.green, borderRadius: 6, padding: "5px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                               >{watchlistSymbols.includes(row.symbol) ? "−WL" : "+WL"}</button>
                             )}
                             <button
                               onClick={() => setPortfolioHoldings((prev) => prev.filter((_, i) => i !== row.idx))}
-                              style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.red, borderRadius: 4, padding: "5px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                              style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.red, borderRadius: 6, padding: "5px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                             >RM</button>
                           </div>
                         </td>
@@ -17058,7 +17064,7 @@ export default function App() {
               }
               return (
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 16, marginTop: 12 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 12 }}>ALLOCATION</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 12 }}>ALLOCATION</div>
                   <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
                     <svg width={200} height={200} viewBox="0 0 200 200">
                       {slices.map((s, i) => (
@@ -17071,8 +17077,8 @@ export default function App() {
                       {slices.map((s, i) => (
                         <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <div style={{ width: 10, height: 10, borderRadius: 2, background: s.color, flexShrink: 0 }} />
-                          <span style={{ fontFamily: MONO, fontSize: 11, color: C.text, fontWeight: 700 }}>{s.row.symbol}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{(s.pct * 100).toFixed(1)}%</span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, color: C.text, fontWeight: 700 }}>{s.row.symbol}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{(s.pct * 100).toFixed(1)}%</span>
                         </div>
                       ))}
                     </div>
@@ -17091,12 +17097,12 @@ export default function App() {
               </div>
               <div style={{ display: "flex", align: "center", gap: 10 }}>
                 {scannerRows.filter(r => r.scannerScore >= 70).length > 0 && (
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.green, fontWeight: 700 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.green, fontWeight: 700 }}>
                     ⭐ {scannerRows.filter(r => r.scannerScore >= 70).length} HIGH-SCORE SETUP{scannerRows.filter(r => r.scannerScore >= 70).length !== 1 ? "S" : ""}
                   </span>
                 )}
                 {lastUpdate && (
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                     Last scan: {lastUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     {dataFreshSec != null && dataFreshSec < 190 ? ` · refreshes in ${Math.max(0, 180 - dataFreshSec)}s` : ""}
                   </span>
@@ -17105,7 +17111,7 @@ export default function App() {
             </div>
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, marginBottom: 12 }}>
               <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, alignSelf: "center" }}>PRESETS:</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, alignSelf: "center" }}>PRESETS:</span>
                 {[
                   { label: "Momentum", f: { minPrice: "15", minChange: "2", minRvol: "1.5", minScore: "65", sector: "ALL" } },
                   { label: "Breakout", f: { minPrice: "20", minChange: "1", minRvol: "2", minScore: "70", sector: "ALL" } },
@@ -17116,55 +17122,55 @@ export default function App() {
                   { label: "Reset", f: { minPrice: "10", minChange: "0.5", minRvol: "1", minScore: "55", sector: "ALL" } },
                 ].map(({ label, f }) => (
                   <button key={label} onClick={() => setScannerFilters(s => ({ ...s, ...f }))}
-                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 999, padding: "3px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
+                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 999, padding: "3px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>
                     {label}
                   </button>
                 ))}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(120px, 1fr))", gap: 8, alignItems: "center" }}>
-                <input value={scannerFilters.minPrice} onChange={(e) => setScannerFilters((s) => ({ ...s, minPrice: e.target.value.replace(/[^\d.]/g, "") }))} placeholder="Min Price" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }} />
-                <input value={scannerFilters.minChange} onChange={(e) => setScannerFilters((s) => ({ ...s, minChange: e.target.value.replace(/[^\d.-]/g, "") }))} placeholder="Min |CHG%|" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }} />
-                <input value={scannerFilters.minRvol} onChange={(e) => setScannerFilters((s) => ({ ...s, minRvol: e.target.value.replace(/[^\d.]/g, "") }))} placeholder="Min RVOL" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }} />
-                <input value={scannerFilters.minScore} onChange={(e) => setScannerFilters((s) => ({ ...s, minScore: e.target.value.replace(/[^\d]/g, "") }))} placeholder="Min Score" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }} />
-                <select value={scannerFilters.sector} onChange={(e) => setScannerFilters((s) => ({ ...s, sector: e.target.value }))} style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }}>
+                <input value={scannerFilters.minPrice} onChange={(e) => setScannerFilters((s) => ({ ...s, minPrice: e.target.value.replace(/[^\d.]/g, "") }))} placeholder="Min Price" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+                <input value={scannerFilters.minChange} onChange={(e) => setScannerFilters((s) => ({ ...s, minChange: e.target.value.replace(/[^\d.-]/g, "") }))} placeholder="Min |CHG%|" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+                <input value={scannerFilters.minRvol} onChange={(e) => setScannerFilters((s) => ({ ...s, minRvol: e.target.value.replace(/[^\d.]/g, "") }))} placeholder="Min RVOL" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+                <input value={scannerFilters.minScore} onChange={(e) => setScannerFilters((s) => ({ ...s, minScore: e.target.value.replace(/[^\d]/g, "") }))} placeholder="Min Score" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+                <select value={scannerFilters.sector} onChange={(e) => setScannerFilters((s) => ({ ...s, sector: e.target.value }))} style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }}>
                   <option value="ALL">All Sectors</option>
                   {SECTOR_ETFS.map((s) => <option key={s.symbol} value={s.symbol}>{s.symbol}</option>)}
                 </select>
-                <select value={scannerFilters.scope} onChange={(e) => setScannerFilters((s) => ({ ...s, scope: e.target.value }))} style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }}>
+                <select value={scannerFilters.scope} onChange={(e) => setScannerFilters((s) => ({ ...s, scope: e.target.value }))} style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }}>
                   <option value="watchlist">Watchlist Scope</option>
                   <option value="market">Market-Wide Scope</option>
                 </select>
-                <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "8px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
+                <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "8px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>
                   REFRESH SCAN
                 </button>
-                <button onClick={runServerScreen} disabled={serverScreenLoading} style={{ border: `1px solid ${C.accent}`, background: serverScreenLoading ? C.surface : C.card, color: C.accent, borderRadius: 4, padding: "8px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
+                <button onClick={runServerScreen} disabled={serverScreenLoading} style={{ border: `1px solid ${C.accent}`, background: serverScreenLoading ? C.surface : C.card, color: C.accent, borderRadius: 6, padding: "8px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>
                   {serverScreenLoading ? "SCREENING…" : "SERVER SCREEN"}
                 </button>
               </div>
               {scannerFilters.scope === "market" && (
-                <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+                <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                   Market universe: {marketUniverseData.length} symbols loaded {marketUniverseLoading ? "(loading...)" : ""}.
-                  <button onClick={loadMarketUniverse} style={{ marginLeft: 8, border: `1px solid ${C.border}`, background: C.card, color: C.text, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
+                  <button onClick={loadMarketUniverse} style={{ marginLeft: 8, border: `1px solid ${C.border}`, background: C.card, color: C.text, borderRadius: 6, padding: "4px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>
                     RELOAD UNIVERSE
                   </button>
                 </div>
               )}
             </div>
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                 MATCHES: {scannerRows.length}
               </div>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ background: C.surface }}>
-                      <th style={{ padding: "8px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Symbol</th>
-                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Price</th>
-                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>CHG%</th>
-                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>RVOL</th>
-                      <th style={{ padding: "8px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Sector</th>
-                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Score</th>
-                      <th style={{ padding: "8px", textAlign: "center", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Flow</th>
+                      <th style={{ padding: "8px", textAlign: "left", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Symbol</th>
+                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Price</th>
+                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>CHG%</th>
+                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>RVOL</th>
+                      <th style={{ padding: "8px", textAlign: "left", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Sector</th>
+                      <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Score</th>
+                      <th style={{ padding: "8px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Flow</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -17178,26 +17184,26 @@ export default function App() {
                             <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
                               <button
                                 onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
-                                style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                               >CHART</button>
                               <button
                                 onClick={() => openTradingView(q.symbol)}
-                                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                               >TV</button>
                               <a
                                 href={`/workstation#${q.symbol}`}
                                 target="_blank"
                                 rel="noopener"
-                                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.purple, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer", textDecoration: "none" }}
+                                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.purple, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer", textDecoration: "none" }}
                               >WS</a>
                               <button
                                 onClick={() => setWatchlistSymbols((prev) => Array.from(new Set([...prev, q.symbol])))}
-                                style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                                 title="Add to watchlist"
                               >+WL</button>
                               <button
                                 onClick={() => setQuickLogModal({ symbol: q.symbol, price: q.price || 0, entry: (q.price || 0).toFixed(2), stopLoss: "", target: "", size: "", side: "BUY", timeframe: "1D", style: "Breakout", notes: `Scanner hit · CHG ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}% · RVOL ${q.rvol.toFixed(2)}x · Score ${q.scannerScore}`, score: q.scannerScore || 0, chg, rvol: q.rvol || 0 })}
-                                style={{ border: `1px solid ${C.accent}55`, background: C.surface, color: C.accent, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                style={{ border: `1px solid ${C.accent}55`, background: C.surface, color: C.accent, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                                 title="Quick log to journal"
                               >LOG</button>
                               <button
@@ -17205,7 +17211,7 @@ export default function App() {
                                   const msg = `🔍 *${q.symbol}* Scanner Hit\nPrice: $${q.price.toFixed(2)}  CHG: ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%\nRVOL: ${q.rvol.toFixed(2)}x  Score: ${q.scannerScore}${q.sectorEtf ? "\nSector: " + q.sectorEtf : ""}`;
                                   try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
                                 }}
-                                style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                                 title="Send to Telegram"
                               >PUSH</button>
                             </div>
@@ -17215,12 +17221,12 @@ export default function App() {
                           <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, color: q.rvol >= 1.2 ? C.green : C.text }}>{q.rvol.toFixed(2)}x</td>
                           <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, fontFamily: MONO, color: C.textSec }}>{q.sectorEtf || "-"}</td>
                           <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right" }}>
-                            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: q.scannerScore >= 75 ? C.green : q.scannerScore >= 65 ? C.amber : C.red, background: q.scannerScore >= 75 ? `${C.green}18` : q.scannerScore >= 65 ? `${C.amber}18` : `${C.red}12`, padding: "2px 6px", borderRadius: 4 }}>
+                            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: q.scannerScore >= 75 ? C.green : q.scannerScore >= 65 ? C.amber : C.red, background: q.scannerScore >= 75 ? `${C.green}18` : q.scannerScore >= 65 ? `${C.amber}18` : `${C.red}12`, padding: "3px 7px", borderRadius: 6 }}>
                               {q.scannerScore}
                             </span>
                           </td>
                           <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "center" }}>
-                            {flow ? <Badge color={Number(flow.callPutRatio || 1) >= 1 ? C.green : C.red}>C/P {Number(flow.callPutRatio || 0).toFixed(2)}</Badge> : <span style={{ color: C.textDim, fontSize: 10 }}>-</span>}
+                            {flow ? <Badge color={Number(flow.callPutRatio || 1) >= 1 ? C.green : C.red}>C/P {Number(flow.callPutRatio || 0).toFixed(2)}</Badge> : <span style={{ color: C.textDim, fontSize: 12 }}>-</span>}
                           </td>
                         </tr>
                       );
@@ -17239,19 +17245,19 @@ export default function App() {
             {serverScreenResults !== null && (
               <div style={{ background: C.card, border: `1px solid ${C.accent}`, borderRadius: 8, overflow: "hidden", marginTop: 12 }}>
                 <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.accent }}>SERVER SCREEN RESULTS: {serverScreenResults.length}</span>
-                  <button onClick={() => setServerScreenResults(null)} style={{ border: "none", background: "transparent", color: C.textDim, fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>CLEAR</button>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>SERVER SCREEN RESULTS: {serverScreenResults.length}</span>
+                  <button onClick={() => setServerScreenResults(null)} style={{ border: "none", background: "transparent", color: C.textDim, fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>CLEAR</button>
                 </div>
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                       <tr style={{ background: C.surface }}>
-                        <th style={{ padding: "8px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Symbol</th>
-                        <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Price</th>
-                        <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>CHG%</th>
-                        <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>RVOL</th>
-                        <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Tech</th>
-                        <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Score</th>
+                        <th style={{ padding: "8px", textAlign: "left", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Symbol</th>
+                        <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Price</th>
+                        <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>CHG%</th>
+                        <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>RVOL</th>
+                        <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Tech</th>
+                        <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Score</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -17262,15 +17268,15 @@ export default function App() {
                             <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, fontFamily: MONO, fontWeight: 700, color: C.text }}>
                               <div>{q.symbol}</div>
                               <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
-                                <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>CHART</button>
-                                <button onClick={() => openTradingView(q.symbol)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>TV</button>
-                                <a href={`/workstation#${q.symbol}`} target="_blank" rel="noopener" style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.purple, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer", textDecoration: "none" }}>WS</a>
-                                <button onClick={() => setWatchlistSymbols((prev) => Array.from(new Set([...prev, q.symbol])))} style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>+WL</button>
-                                <button onClick={() => setQuickLogModal({ symbol: q.symbol, price: Number(q.price) || 0, entry: (Number(q.price) || 0).toFixed(2), stopLoss: "", target: "", size: "", side: chg >= 0 ? "BUY" : "SELL", timeframe: "1D", style: "Breakout", notes: `Server scan · RVOL ${Number(q.rvol || 0).toFixed(2)}x · Score ${q.composite}`, score: Number(q.composite || 0), chg, rvol: Number(q.rvol || 0) })} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.green, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>LOG</button>
+                                <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 6, padding: "2px 5px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>CHART</button>
+                                <button onClick={() => openTradingView(q.symbol)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "2px 5px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>TV</button>
+                                <a href={`/workstation#${q.symbol}`} target="_blank" rel="noopener" style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.purple, borderRadius: 6, padding: "2px 5px", fontFamily: MONO, fontSize: 12, cursor: "pointer", textDecoration: "none" }}>WS</a>
+                                <button onClick={() => setWatchlistSymbols((prev) => Array.from(new Set([...prev, q.symbol])))} style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 6, padding: "2px 5px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>+WL</button>
+                                <button onClick={() => setQuickLogModal({ symbol: q.symbol, price: Number(q.price) || 0, entry: (Number(q.price) || 0).toFixed(2), stopLoss: "", target: "", size: "", side: chg >= 0 ? "BUY" : "SELL", timeframe: "1D", style: "Breakout", notes: `Server scan · RVOL ${Number(q.rvol || 0).toFixed(2)}x · Score ${q.composite}`, score: Number(q.composite || 0), chg, rvol: Number(q.rvol || 0) })} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.green, borderRadius: 6, padding: "2px 5px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>LOG</button>
                                 <button onClick={async () => {
                                   const msg = `🔍 *${q.symbol}* Server Screen Hit\nPrice: $${Number(q.price || 0).toFixed(2)}  CHG: ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%\nRVOL: ${Number(q.rvol || 0).toFixed(2)}x  Score: ${q.composite}`;
                                   try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
-                                }} style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "2px 5px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }} title="Send to Telegram">PUSH</button>
+                                }} style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 6, padding: "2px 5px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }} title="Send to Telegram">PUSH</button>
                               </div>
                             </td>
                             <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, color: C.text }}>${Number(q.price || 0).toFixed(2)}</td>
@@ -17309,15 +17315,15 @@ export default function App() {
               BACKTEST LAB - BREAKOUT + RISK MODEL
             </div>
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, marginBottom: 12, display: "grid", gridTemplateColumns: "180px 130px 130px auto", gap: 8, alignItems: "center" }}>
-              <input value={backtestSymbol} onChange={(e) => setBacktestSymbol(e.target.value.toUpperCase())} placeholder="Ticker" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }} />
-              <select value={backtestTf} onChange={(e) => setBacktestTf(e.target.value)} style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }}>
+              <input value={backtestSymbol} onChange={(e) => setBacktestSymbol(e.target.value.toUpperCase())} placeholder="Ticker" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+              <select value={backtestTf} onChange={(e) => setBacktestTf(e.target.value)} style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }}>
                 <option value="1D">1D</option>
                 <option value="1H">1H</option>
                 <option value="15M">15M</option>
                 <option value="5M">5M</option>
               </select>
-              <input value={backtestLookback} onChange={(e) => setBacktestLookback(e.target.value.replace(/[^\d]/g, ""))} placeholder="Breakout bars" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }} />
-              <button onClick={runBacktest} style={{ justifySelf: "start", border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "8px 12px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
+              <input value={backtestLookback} onChange={(e) => setBacktestLookback(e.target.value.replace(/[^\d]/g, ""))} placeholder="Breakout bars" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+              <button onClick={runBacktest} style={{ justifySelf: "start", border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "8px 12px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>
                 {backtestLoading ? "RUNNING..." : "RUN BACKTEST"}
               </button>
             </div>
@@ -17349,46 +17355,46 @@ export default function App() {
                         });
                       } catch {}
                     }}
-                    style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 4, padding: "6px 12px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                    style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 6, padding: "6px 12px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                   >LOG BACKTEST TO JOURNAL</button>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{backtestSymbol} · {backtestTf} · {backtestResult.totalTrades} trades</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{backtestSymbol} · {backtestTf} · {backtestResult.totalTrades} trades</span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(140px, 1fr))", gap: 10, marginBottom: 12 }}>
-                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Trades</div><div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800 }}>{backtestResult.totalTrades}</div></div>
-                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Win Rate</div><div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: backtestResult.winRate >= 50 ? C.green : C.red }}>{backtestResult.winRate.toFixed(1)}%</div></div>
-                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Avg Return</div><div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: backtestResult.avgRet >= 0 ? C.green : C.red }}>{backtestResult.avgRet >= 0 ? "+" : ""}{backtestResult.avgRet.toFixed(2)}%</div></div>
-                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Net Return</div><div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: backtestResult.netRet >= 0 ? C.green : C.red }}>{backtestResult.netRet >= 0 ? "+" : ""}{backtestResult.netRet.toFixed(2)}%</div></div>
-                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Max DD</div><div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: C.red }}>{backtestResult.maxDrawdown.toFixed(2)}%</div></div>
-                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Rule</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800 }}>Breakout {backtestResult.lookback}</div></div>
+                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Trades</div><div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800 }}>{backtestResult.totalTrades}</div></div>
+                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Win Rate</div><div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: backtestResult.winRate >= 50 ? C.green : C.red }}>{backtestResult.winRate.toFixed(1)}%</div></div>
+                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Avg Return</div><div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: backtestResult.avgRet >= 0 ? C.green : C.red }}>{backtestResult.avgRet >= 0 ? "+" : ""}{backtestResult.avgRet.toFixed(2)}%</div></div>
+                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Net Return</div><div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: backtestResult.netRet >= 0 ? C.green : C.red }}>{backtestResult.netRet >= 0 ? "+" : ""}{backtestResult.netRet.toFixed(2)}%</div></div>
+                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Max DD</div><div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: C.red }}>{backtestResult.maxDrawdown.toFixed(2)}%</div></div>
+                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Rule</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800 }}>Breakout {backtestResult.lookback}</div></div>
                 </div>
 
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-                  <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 11, color: C.textDim }}>RECENT TRADES</div>
+                  <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 12, color: C.textDim }}>RECENT TRADES</div>
                   <div style={{ overflowX: "auto" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
                       <thead>
                         <tr style={{ background: C.surface }}>
-                          <th style={{ padding: "8px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Date</th>
-                          <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Entry</th>
-                          <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Stop</th>
-                          <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Target</th>
-                          <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Exit</th>
-                          <th style={{ padding: "8px", textAlign: "center", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Outcome</th>
-                          <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 10, color: C.textDim }}>Return %</th>
+                          <th style={{ padding: "8px", textAlign: "left", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Date</th>
+                          <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Entry</th>
+                          <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Stop</th>
+                          <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Target</th>
+                          <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Exit</th>
+                          <th style={{ padding: "8px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Outcome</th>
+                          <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Return %</th>
                         </tr>
                       </thead>
                       <tbody>
                         {backtestResult.trades.map((t, i) => (
                           <tr key={`bt-${i}`}>
-                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, fontSize: 11, color: C.textSec }}>{String(t.date || "").replace("T", " ").slice(0, 16)}</td>
-                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 11 }}>${Number(t.entry || 0).toFixed(2)}</td>
-                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 11 }}>${Number(t.stop || 0).toFixed(2)}</td>
-                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 11 }}>${Number(t.target || 0).toFixed(2)}</td>
-                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 11 }}>${Number(t.exit || 0).toFixed(2)}</td>
+                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, fontSize: 12, color: C.textSec }}>{String(t.date || "").replace("T", " ").slice(0, 16)}</td>
+                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 12 }}>${Number(t.entry || 0).toFixed(2)}</td>
+                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 12 }}>${Number(t.stop || 0).toFixed(2)}</td>
+                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 12 }}>${Number(t.target || 0).toFixed(2)}</td>
+                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 12 }}>${Number(t.exit || 0).toFixed(2)}</td>
                             <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "center" }}>
                               <Badge color={t.outcome === "target" ? C.green : t.outcome === "stop" ? C.red : C.amber}>{String(t.outcome || "").toUpperCase()}</Badge>
                             </td>
-                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 11, color: Number(t.retPct || 0) >= 0 ? C.green : C.red }}>
+                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 12, color: Number(t.retPct || 0) >= 0 ? C.green : C.red }}>
                               {Number(t.retPct || 0) >= 0 ? "+" : ""}{Number(t.retPct || 0).toFixed(2)}%
                             </td>
                           </tr>
@@ -17413,19 +17419,19 @@ export default function App() {
                   {String(optionsFlow?.source || "").includes("estimated") ? "ESTIMATED" : "LIVE"}
                 </Badge>
                 <Badge color={flowBias === "CALL BIAS" ? C.green : flowBias === "PUT BIAS" ? C.red : C.amber}>{flowBias}</Badge>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                   Calls {formatNum(flowCallNotional)} · Puts {formatNum(flowPutNotional)}
                 </span>
               </div>
             </div>
 
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, marginBottom: 12 }}>
-              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 8 }}>FLOW FILTERS</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 8 }}>FLOW FILTERS</div>
               <div style={{ display: "grid", gridTemplateColumns: "160px 140px 170px 180px auto", gap: 8, alignItems: "center" }}>
                 <select
                   value={flowFilters.flowType}
                   onChange={(e) => setFlowFilters((prev) => ({ ...prev, flowType: e.target.value }))}
-                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }}
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }}
                 >
                   <option value="all">All Flow</option>
                   <option value="sweep">Sweeps</option>
@@ -17436,9 +17442,9 @@ export default function App() {
                   value={flowFilters.minNotional}
                   onChange={(e) => setFlowFilters((prev) => ({ ...prev, minNotional: e.target.value.replace(/[^\d]/g, "") }))}
                   placeholder="Min notional"
-                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }}
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }}
                 />
-                <label style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: MONO, fontSize: 11, color: C.textSec }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: MONO, fontSize: 12, color: C.textSec }}>
                   <input
                     type="checkbox"
                     checked={Boolean(flowFilters.unusualOnly)}
@@ -17450,11 +17456,11 @@ export default function App() {
                   value={flowFilters.autoAlertNotional}
                   onChange={(e) => setFlowFilters((prev) => ({ ...prev, autoAlertNotional: e.target.value.replace(/[^\d]/g, "") }))}
                   placeholder="Auto-alert threshold"
-                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }}
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }}
                 />
                 <button
                   onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }}
-                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, padding: "8px 10px", borderRadius: 4, fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, padding: "8px 10px", borderRadius: 6, fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                 >
                   APPLY
                 </button>
@@ -17463,7 +17469,7 @@ export default function App() {
 
             <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1.9fr", gap: 12 }}>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-                <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                   BY SYMBOL
                 </div>
                 <div>
@@ -17473,15 +17479,15 @@ export default function App() {
                         <span style={{ fontFamily: MONO, fontSize: 13, color: C.text, fontWeight: 700 }}>{row.symbol}</span>
                         <Badge color={Number(row.callPutRatio || 0) >= 1 ? C.green : C.red}>C/P {Number(row.callPutRatio || 0).toFixed(2)}</Badge>
                       </div>
-                      <div style={{ fontSize: 11, color: C.textDim, marginTop: 4, marginBottom: 6 }}>Expiry {row.expiration || "—"}</div>
+                      <div style={{ fontSize: 12, color: C.textDim, marginTop: 4, marginBottom: 6 }}>Expiry {row.expiration || "—"}</div>
                       <div style={{ display: "flex", gap: 5 }}>
                         <button
                           onClick={() => { setTerminalSymbol(row.symbol); setActiveTab("terminal"); }}
-                          style={{ fontFamily: MONO, fontSize: 9, padding: "2px 7px", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 3, cursor: "pointer" }}
+                          style={{ fontFamily: MONO, fontSize: 12, padding: "3px 8px", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 5, cursor: "pointer" }}
                         >CHART</button>
                         <button
                           onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(row.symbol) ? prev.filter(s => s !== row.symbol) : Array.from(new Set([...prev, row.symbol])))}
-                          style={{ fontFamily: MONO, fontSize: 9, padding: "2px 7px", background: watchlistSymbols.includes(row.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(row.symbol) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(row.symbol) ? C.red : C.green}44`, borderRadius: 3, cursor: "pointer" }}
+                          style={{ fontFamily: MONO, fontSize: 12, padding: "3px 8px", background: watchlistSymbols.includes(row.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(row.symbol) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(row.symbol) ? C.red : C.green}44`, borderRadius: 5, cursor: "pointer" }}
                         >{watchlistSymbols.includes(row.symbol) ? "−WL" : "+WL"}</button>
                       </div>
                     </div>
@@ -17491,7 +17497,7 @@ export default function App() {
               </div>
 
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-                <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                   TOP FLOW TAPE
                 </div>
                 <div>
@@ -17500,15 +17506,15 @@ export default function App() {
                       <span style={{ fontFamily: MONO, fontSize: 12, color: C.text, fontWeight: 700 }}>{row.symbol}</span>
                       <Badge color={row.side === "CALL" ? C.green : C.red}>{row.side}</Badge>
                       <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>K {Number(row.strike || 0).toFixed(0)}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{row.expiry || "—"}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Vol {row.volume || 0}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>OI {row.openInterest || 0}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.text }}>{formatNum(row.notional || 0)}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{row.expiry || "—"}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>Vol {row.volume || 0}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>OI {row.openInterest || 0}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{formatNum(row.notional || 0)}</span>
                       <Badge color={row.unusual ? C.amber : C.textDim}>{row.tradeType || "TAPE"}</Badge>
                       <div style={{ display: "flex", gap: 5 }}>
                         <button
                           onClick={() => { setTerminalSymbol(row.symbol); setActiveTab("terminal"); }}
-                          style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 4, padding: "4px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                          style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 6, padding: "4px 6px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                         >CHART</button>
                         <button
                           onClick={async () => {
@@ -17528,7 +17534,7 @@ export default function App() {
                               });
                             } catch {}
                           }}
-                          style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "4px 6px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                          style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 6, padding: "4px 6px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                         >LOG</button>
                       </div>
                     </div>
@@ -17552,7 +17558,7 @@ export default function App() {
                   <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: "0.06em" }}>
                     📅 ECONOMIC CALENDAR
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>
                     Upcoming market-moving events — Fed · CPI · NFP · GDP · Earnings · Central Banks
                   </div>
                 </div>
@@ -17562,9 +17568,9 @@ export default function App() {
                     { label: "MEDIUM",      color: C.amber },
                     { label: "LOW",         color: C.textDim },
                   ].map(({ label, color }) => (
-                    <span key={label} style={{ fontFamily: MONO, fontSize: 8, color,
+                    <span key={label} style={{ fontFamily: MONO, fontSize: 12, color,
                       background: color + "20", border: `1px solid ${color}44`,
-                      borderRadius: 4, padding: "2px 7px" }}>
+                      borderRadius: 6, padding: "3px 8px" }}>
                       {label}
                     </span>
                   ))}
@@ -17595,8 +17601,8 @@ export default function App() {
                   <div key={event} style={{ flex: "1 1 200px", minWidth: 180,
                     background: C.card, border: `1px solid ${color}33`,
                     borderLeft: `3px solid ${color}`, borderRadius: 6, padding: "8px 12px" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color }}>{event}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>{desc}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color }}>{event}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>{desc}</div>
                   </div>
                 ))}
               </div>
@@ -17619,7 +17625,7 @@ export default function App() {
                       ).join("\n");
                       try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `📊 *Rotation Top 10*\n\n${msg}` }) }); } catch {}
                     }}
-                    style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "5px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                    style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 6, padding: "5px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                   >PUSH TOP 10</button>
                   <button
                     onClick={() => {
@@ -17633,7 +17639,7 @@ export default function App() {
                       a.download = `rotation-${new Date().toISOString().slice(0, 10)}.csv`;
                       a.click();
                     }}
-                    style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}10`, color: C.accent, borderRadius: 4, padding: "5px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                    style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}10`, color: C.accent, borderRadius: 6, padding: "5px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                   >EXPORT CSV</button>
                 </div>
               )}
@@ -17651,7 +17657,7 @@ export default function App() {
                     { label: "LAGGERS (RS ≤ -1%)", value: laggers, color: C.red },
                   ].map(({ label, value, color }) => (
                     <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 12px" }}>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{label}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{label}</div>
                       <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color, marginTop: 2 }}>{value}</div>
                     </div>
                   ))}
@@ -17678,11 +17684,11 @@ export default function App() {
                   <div style={{ display: "flex", gap: 6 }}>
                     <button
                       onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
-                      style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 4, padding: "5px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                      style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 6, padding: "5px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                     >CHART</button>
                     <button
                       onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(q.symbol) ? prev.filter(s => s !== q.symbol) : Array.from(new Set([...prev, q.symbol])))}
-                      style={{ border: `1px solid ${watchlistSymbols.includes(q.symbol) ? C.red : C.green}55`, background: C.surface, color: watchlistSymbols.includes(q.symbol) ? C.red : C.green, borderRadius: 4, padding: "5px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                      style={{ border: `1px solid ${watchlistSymbols.includes(q.symbol) ? C.red : C.green}55`, background: C.surface, color: watchlistSymbols.includes(q.symbol) ? C.red : C.green, borderRadius: 6, padding: "5px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                     >{watchlistSymbols.includes(q.symbol) ? "−WL" : "+WL"}</button>
                     <button
                       onClick={async () => {
@@ -17702,14 +17708,14 @@ export default function App() {
                           });
                         } catch {}
                       }}
-                      style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "5px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                      style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "5px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                     >LOG</button>
                     <button
                       onClick={async () => {
                         const msg = `🔄 *${q.symbol}* Rotation #${idx + 1}\nRS vs SPY: ${q.relVsSpy >= 0 ? "+" : ""}${q.relVsSpy.toFixed(2)}%  RVOL: ${q.rvol.toFixed(2)}x\nStatus: ${idx < 3 ? "LEADER" : idx > 8 ? "LAGGER" : "NEUTRAL"}`;
                         try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
                       }}
-                      style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 4, padding: "5px 8px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                      style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 6, padding: "5px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                       title="Send to Telegram"
                     >PUSH</button>
                   </div>
@@ -17733,21 +17739,21 @@ export default function App() {
                   </Badge>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(100px, 1fr))", gap: 8, marginBottom: 8 }}>
-                  <input value={riskAccount} onChange={(e) => setRiskAccount(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Account $" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }} />
-                  <input value={riskPct} onChange={(e) => setRiskPct(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Risk %" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }} />
-                  <input value={riskEntry} onChange={(e) => setRiskEntry(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Entry" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }} />
-                  <input value={riskStop} onChange={(e) => setRiskStop(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Stop" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }} />
-                  <select value={riskSide} onChange={(e) => setRiskSide(e.target.value)} style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }}>
+                  <input value={riskAccount} onChange={(e) => setRiskAccount(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Account $" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+                  <input value={riskPct} onChange={(e) => setRiskPct(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Risk %" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+                  <input value={riskEntry} onChange={(e) => setRiskEntry(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Entry" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+                  <input value={riskStop} onChange={(e) => setRiskStop(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Stop" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+                  <select value={riskSide} onChange={(e) => setRiskSide(e.target.value)} style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }}>
                     <option value="long">Long</option>
                     <option value="short">Short</option>
                   </select>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(100px, 1fr))", gap: 8, marginBottom: 10 }}>
-                  <input value={riskMaxPosPct} onChange={(e) => setRiskMaxPosPct(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Max Pos %" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }} />
-                  <input value={riskCorrCap} onChange={(e) => setRiskCorrCap(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Corr Cap 0-1" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }} />
-                  <input value={riskAtrPct} onChange={(e) => setRiskAtrPct(e.target.value.replace(/[^\d.]/g, ""))} placeholder="ATR % Proxy" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }} />
-                  <input value={riskSlipBps} onChange={(e) => setRiskSlipBps(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Slip bps" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }} />
-                  <select value={riskSetupQuality} onChange={(e) => setRiskSetupQuality(e.target.value)} style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }}>
+                  <input value={riskMaxPosPct} onChange={(e) => setRiskMaxPosPct(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Max Pos %" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+                  <input value={riskCorrCap} onChange={(e) => setRiskCorrCap(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Corr Cap 0-1" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+                  <input value={riskAtrPct} onChange={(e) => setRiskAtrPct(e.target.value.replace(/[^\d.]/g, ""))} placeholder="ATR % Proxy" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+                  <input value={riskSlipBps} onChange={(e) => setRiskSlipBps(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Slip bps" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+                  <select value={riskSetupQuality} onChange={(e) => setRiskSetupQuality(e.target.value)} style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }}>
                     <option value="A+">A+ Setup</option>
                     <option value="A">A Setup</option>
                     <option value="B">B Setup</option>
@@ -17755,21 +17761,21 @@ export default function App() {
                   </select>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 8 }}>
-                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}><div style={{ fontSize: 9, color: C.textDim, fontFamily: MONO }}>Risk Budget $ (Adj)</div><div style={{ fontFamily: MONO, fontSize: 14, color: C.text }}>${riskPlan.riskDollars.toFixed(2)}</div></div>
-                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}><div style={{ fontSize: 9, color: C.textDim, fontFamily: MONO }}>Per-share Risk</div><div style={{ fontFamily: MONO, fontSize: 14, color: C.text }}>${riskPlan.perShare.toFixed(2)}</div></div>
-                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}><div style={{ fontSize: 9, color: C.textDim, fontFamily: MONO }}>Final Size (Shares)</div><div style={{ fontFamily: MONO, fontSize: 14, color: C.accent, fontWeight: 700 }}>{riskPlan.shares}</div></div>
-                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}><div style={{ fontSize: 9, color: C.textDim, fontFamily: MONO }}>Position $</div><div style={{ fontFamily: MONO, fontSize: 14, color: C.text }}>${riskPlan.position.toFixed(0)}</div></div>
+                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}><div style={{ fontSize: 12, color: C.textDim, fontFamily: MONO }}>Risk Budget $ (Adj)</div><div style={{ fontFamily: MONO, fontSize: 14, color: C.text }}>${riskPlan.riskDollars.toFixed(2)}</div></div>
+                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}><div style={{ fontSize: 12, color: C.textDim, fontFamily: MONO }}>Per-share Risk</div><div style={{ fontFamily: MONO, fontSize: 14, color: C.text }}>${riskPlan.perShare.toFixed(2)}</div></div>
+                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}><div style={{ fontSize: 12, color: C.textDim, fontFamily: MONO }}>Final Size (Shares)</div><div style={{ fontFamily: MONO, fontSize: 14, color: C.accent, fontWeight: 700 }}>{riskPlan.shares}</div></div>
+                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}><div style={{ fontSize: 12, color: C.textDim, fontFamily: MONO }}>Position $</div><div style={{ fontFamily: MONO, fontSize: 14, color: C.text }}>${riskPlan.position.toFixed(0)}</div></div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}><div style={{ fontSize: 9, color: C.textDim, fontFamily: MONO }}>Est. $ Risk</div><div style={{ fontFamily: MONO, fontSize: 13, color: C.red }}>${riskPlan.estRisk.toFixed(2)}</div></div>
-                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}><div style={{ fontSize: 9, color: C.textDim, fontFamily: MONO }}>T1 (1R)</div><div style={{ fontFamily: MONO, fontSize: 13, color: C.green }}>${riskPlan.t1.toFixed(2)}</div></div>
-                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}><div style={{ fontSize: 9, color: C.textDim, fontFamily: MONO }}>T2 (2R)</div><div style={{ fontFamily: MONO, fontSize: 13, color: C.green }}>${riskPlan.t2.toFixed(2)}</div></div>
-                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}><div style={{ fontSize: 9, color: C.textDim, fontFamily: MONO }}>Stop Distance</div><div style={{ fontFamily: MONO, fontSize: 13, color: C.text }}>{riskPlan.stopPct.toFixed(2)}%</div></div>
+                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}><div style={{ fontSize: 12, color: C.textDim, fontFamily: MONO }}>Est. $ Risk</div><div style={{ fontFamily: MONO, fontSize: 13, color: C.red }}>${riskPlan.estRisk.toFixed(2)}</div></div>
+                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}><div style={{ fontSize: 12, color: C.textDim, fontFamily: MONO }}>T1 (1R)</div><div style={{ fontFamily: MONO, fontSize: 13, color: C.green }}>${riskPlan.t1.toFixed(2)}</div></div>
+                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}><div style={{ fontSize: 12, color: C.textDim, fontFamily: MONO }}>T2 (2R)</div><div style={{ fontFamily: MONO, fontSize: 13, color: C.green }}>${riskPlan.t2.toFixed(2)}</div></div>
+                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}><div style={{ fontSize: 12, color: C.textDim, fontFamily: MONO }}>Stop Distance</div><div style={{ fontFamily: MONO, fontSize: 13, color: C.text }}>{riskPlan.stopPct.toFixed(2)}%</div></div>
                 </div>
                 <div style={{ marginTop: 8, borderTop: `1px solid ${C.border}`, paddingTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                  <div style={{ fontSize: 10, color: C.textSec }}>Base Risk Budget: <span style={{ fontFamily: MONO, color: C.text }}>${riskPlan.baseRiskDollars.toFixed(2)}</span></div>
-                  <div style={{ fontSize: 10, color: C.textSec }}>Regime Mult: <span style={{ fontFamily: MONO, color: C.text }}>{riskPlan.regimeMult.toFixed(2)}x</span> · Quality: <span style={{ fontFamily: MONO, color: C.text }}>{riskPlan.qualityMult.toFixed(2)}x</span></div>
-                  <div style={{ fontSize: 10, color: C.textSec }}>Vol Adj: <span style={{ fontFamily: MONO, color: C.text }}>{riskPlan.volAdj.toFixed(2)}x</span> · Corr Cap: <span style={{ fontFamily: MONO, color: C.text }}>{riskPlan.corrCap.toFixed(2)}x</span></div>
+                  <div style={{ fontSize: 12, color: C.textSec }}>Base Risk Budget: <span style={{ fontFamily: MONO, color: C.text }}>${riskPlan.baseRiskDollars.toFixed(2)}</span></div>
+                  <div style={{ fontSize: 12, color: C.textSec }}>Regime Mult: <span style={{ fontFamily: MONO, color: C.text }}>{riskPlan.regimeMult.toFixed(2)}x</span> · Quality: <span style={{ fontFamily: MONO, color: C.text }}>{riskPlan.qualityMult.toFixed(2)}x</span></div>
+                  <div style={{ fontSize: 12, color: C.textSec }}>Vol Adj: <span style={{ fontFamily: MONO, color: C.text }}>{riskPlan.volAdj.toFixed(2)}x</span> · Corr Cap: <span style={{ fontFamily: MONO, color: C.text }}>{riskPlan.corrCap.toFixed(2)}x</span></div>
                 </div>
                 <div style={{ marginTop: 10, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
                   <button
@@ -17794,7 +17800,7 @@ export default function App() {
                         });
                       } catch {}
                     }}
-                    style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 4, padding: "6px 12px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}
+                    style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 6, padding: "6px 12px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}
                   >LOG TRADE TO JOURNAL</button>
                 </div>
               </div>
@@ -17802,9 +17808,9 @@ export default function App() {
                 <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, marginBottom: 10 }}>Live Opportunity Scanner</div>
                 {scannerRank.map((q, i) => (
                   <div key={`${q.symbol}-${i}`} style={{ display: "grid", gridTemplateColumns: "56px 1fr 66px", gap: 8, alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
-                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.text }}>{q.symbol}</span>
-                    <span style={{ fontSize: 11, color: C.textSec }}>5m {q.delta5m >= 0 ? "+" : ""}{(q.delta5m || 0).toFixed(2)}% · RS {q.rel >= 0 ? "+" : ""}{q.rel.toFixed(2)}%</span>
-                    <span style={{ fontFamily: MONO, fontSize: 11, color: q.score >= 8 ? C.green : q.score >= 3 ? C.amber : C.red, textAlign: "right" }}>{q.score.toFixed(1)}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{q.symbol}</span>
+                    <span style={{ fontSize: 12, color: C.textSec }}>5m {q.delta5m >= 0 ? "+" : ""}{(q.delta5m || 0).toFixed(2)}% · RS {q.rel >= 0 ? "+" : ""}{q.rel.toFixed(2)}%</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: q.score >= 8 ? C.green : q.score >= 3 ? C.amber : C.red, textAlign: "right" }}>{q.score.toFixed(1)}</span>
                   </div>
                 ))}
               </div>
@@ -17817,21 +17823,21 @@ export default function App() {
                   value={providerKeys.finnhubKey}
                   onChange={(e) => setProviderKeys((prev) => ({ ...prev, finnhubKey: e.target.value.trim() }))}
                   placeholder="Finnhub API Key"
-                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }}
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }}
                 />
                 <input
                   type="password"
                   value={providerKeys.fmpKey}
                   onChange={(e) => setProviderKeys((prev) => ({ ...prev, fmpKey: e.target.value.trim() }))}
                   placeholder="FMP API Key"
-                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }}
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }}
                 />
                 <input
                   type="password"
                   value={providerKeys.polygonKey}
                   onChange={(e) => setProviderKeys((prev) => ({ ...prev, polygonKey: e.target.value.trim() }))}
                   placeholder="Polygon API Key"
-                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }}
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }}
                 />
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, alignItems: "center" }}>
@@ -17840,23 +17846,23 @@ export default function App() {
                   value={providerKeys.uwKey}
                   onChange={(e) => setProviderKeys((prev) => ({ ...prev, uwKey: e.target.value.trim() }))}
                   placeholder="Unusual Whales API Key"
-                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }}
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }}
                 />
                 <input
                   type="password"
                   value={providerKeys.tradierKey}
                   onChange={(e) => setProviderKeys((prev) => ({ ...prev, tradierKey: e.target.value.trim() }))}
                   placeholder="Tradier API Key (Options Flow)"
-                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }}
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }}
                 />
                 <button
                   onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }}
-                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, padding: "8px 10px", borderRadius: 4, fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, padding: "8px 10px", borderRadius: 6, fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                 >
                   APPLY
                 </button>
               </div>
-              <div style={{ fontSize: 11, color: C.textDim, marginTop: 8 }}>
+              <div style={{ fontSize: 12, color: C.textDim, marginTop: 8 }}>
                 Keys are saved in local storage on this browser only. Add Polygon, Unusual Whales, and Tradier keys for richer options flow and provider coverage.
               </div>
             </div>
@@ -17874,11 +17880,11 @@ export default function App() {
                   value={tvWebhookToken}
                   onChange={(e) => setSettings((s) => ({ ...s, tvWebhookToken: e.target.value.trim() }))}
                   placeholder="Webhook token (must match TV_WEBHOOK_SECRET on server)"
-                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }}
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }}
                 />
                 <button
                   onClick={runTvWebhookTest}
-                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "8px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "8px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                 >
                   TEST
                 </button>
@@ -17887,34 +17893,34 @@ export default function App() {
                 <input
                   readOnly
                   value={tvWebhookUrl}
-                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 11 }}
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }}
                 />
                 <button
                   onClick={() => { try { navigator.clipboard.writeText(tvWebhookUrl); } catch {} }}
-                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 4, padding: "8px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "8px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                 >
                   COPY URL
                 </button>
               </div>
-              <div style={{ fontSize: 11, color: C.textSec, marginBottom: 6 }}>
+              <div style={{ fontSize: 12, color: C.textSec, marginBottom: 6 }}>
                 In TradingView alert, use this webhook URL and JSON message body:
               </div>
-              <pre style={{ margin: 0, whiteSpace: "pre-wrap", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 10, fontFamily: MONO, fontSize: 10, color: C.textSec }}>
+              <pre style={{ margin: 0, whiteSpace: "pre-wrap", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 10, fontFamily: MONO, fontSize: 12, color: C.textSec }}>
 {`{"symbol":"{{ticker}}","side":"BUY","price":"{{close}}","timeframe":"{{interval}}","message":"{{exchange}}:{{ticker}} breakout"}`}
               </pre>
-              <div style={{ fontSize: 11, color: C.textDim, marginTop: 8 }}>
+              <div style={{ fontSize: 12, color: C.textDim, marginTop: 8 }}>
                 Incoming TradingView signals are merged into Alerts, AI Agent, and Market Report automatically.
                 {tvWebhookSecured ? " Token verification is ON." : " Set TV_WEBHOOK_SECRET on server to lock this endpoint."}
               </div>
               <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
                 {(tvWebhookRows || []).slice(0, 4).map((r, i) => (
                   <div key={`tv-row-${i}`} style={{ display: "grid", gridTemplateColumns: "80px 1fr 70px", gap: 8, borderBottom: `1px solid ${C.border}`, paddingBottom: 6 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{r.symbol}</span>
-                    <span style={{ fontSize: 11, color: C.textSec }}>{r.message || "Signal received"}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: "right" }}>{String(r.side || "INFO").toUpperCase()}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{r.symbol}</span>
+                    <span style={{ fontSize: 12, color: C.textSec }}>{r.message || "Signal received"}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "right" }}>{String(r.side || "INFO").toUpperCase()}</span>
                   </div>
                 ))}
-                {!tvWebhookRows.length && <div style={{ fontSize: 11, color: C.textDim }}>No TradingView webhook alerts received yet.</div>}
+                {!tvWebhookRows.length && <div style={{ fontSize: 12, color: C.textDim }}>No TradingView webhook alerts received yet.</div>}
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
@@ -18021,7 +18027,7 @@ export default function App() {
                   <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: "0.06em" }}>
                     📊 P&amp;L PERFORMANCE
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>
                     Equity curve from {closed.length} closed trade{closed.length !== 1 ? "s" : ""}
                   </div>
                 </div>
@@ -18030,7 +18036,7 @@ export default function App() {
                     color: totalPnl >= 0 ? C.green : C.red }}>
                     {totalPnl >= 0 ? "+" : ""}${Math.round(totalPnl).toLocaleString()}
                   </span>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 8 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: 8 }}>
                     TOTAL P&amp;L
                   </span>
                 </div>
@@ -18049,9 +18055,9 @@ export default function App() {
                   <div key={label} style={{ flex: "1 1 100px", minWidth: 90,
                     background: C.card, border: `1px solid ${C.border}`,
                     borderRadius: 8, padding: "10px 14px", textAlign: "center" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, letterSpacing: "0.06em" }}>{label}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.06em" }}>{label}</div>
                     <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color, lineHeight: 1.2, marginTop: 3 }}>{value}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, marginTop: 3 }}>{sub}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 3 }}>{sub}</div>
                   </div>
                 ))}
               </div>
@@ -18059,7 +18065,7 @@ export default function App() {
               {/* Equity curve SVG */}
               <div style={{ background: C.card, border: `1px solid ${C.border}`,
                 borderRadius: 10, padding: "16px 12px", marginBottom: 14 }}>
-                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim,
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim,
                   letterSpacing: "0.06em", marginBottom: 10 }}>
                   EQUITY CURVE
                 </div>
@@ -18105,7 +18111,7 @@ export default function App() {
               {months.length > 0 && (
                 <div style={{ background: C.card, border: `1px solid ${C.border}`,
                   borderRadius: 10, padding: "14px 16px", marginBottom: 14 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim,
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim,
                     letterSpacing: "0.06em", marginBottom: 10 }}>
                     MONTHLY BREAKDOWN
                   </div>
@@ -18117,13 +18123,13 @@ export default function App() {
                         <div key={month} style={{ flex: "1 1 80px", minWidth: 72,
                           background: col + "14", border: `1px solid ${col}44`,
                           borderRadius: 6, padding: "8px 10px", textAlign: "center" }}>
-                          <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim }}>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                             {month.slice(0, 7)}
                           </div>
                           <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: col, marginTop: 2 }}>
                             {m.pnl >= 0 ? "+" : ""}${Math.round(m.pnl)}
                           </div>
-                          <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, marginTop: 1 }}>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 1 }}>
                             {m.trades}t · {wr}% WR
                           </div>
                         </div>
@@ -18139,11 +18145,11 @@ export default function App() {
                   <div style={{ flex: "1 1 240px", background: C.card,
                     border: `1px solid ${C.green}44`, borderLeft: `3px solid ${C.green}`,
                     borderRadius: 8, padding: "10px 14px" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, letterSpacing: "0.06em" }}>🏆 BEST TRADE</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.06em" }}>🏆 BEST TRADE</div>
                     <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.green, marginTop: 2 }}>
                       +${bestTrade.pnl.toFixed(2)} — {bestTrade.ticker}
                     </div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>
                       {(bestTrade.closedAt || "").slice(0, 10)} · {bestTrade.style || "Swing"} · {bestTrade.timeframe || "1D"}
                     </div>
                   </div>
@@ -18152,11 +18158,11 @@ export default function App() {
                   <div style={{ flex: "1 1 240px", background: C.card,
                     border: `1px solid ${C.red}44`, borderLeft: `3px solid ${C.red}`,
                     borderRadius: 8, padding: "10px 14px" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, letterSpacing: "0.06em" }}>📉 WORST TRADE</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.06em" }}>📉 WORST TRADE</div>
                     <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.red, marginTop: 2 }}>
                       ${worstTrade.pnl.toFixed(2)} — {worstTrade.ticker}
                     </div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>
                       {(worstTrade.closedAt || "").slice(0, 10)} · {worstTrade.style || "Swing"} · {worstTrade.timeframe || "1D"}
                     </div>
                   </div>
@@ -18173,7 +18179,7 @@ export default function App() {
                 TRADE JOURNAL — PERFORMANCE TRACKER
               </div>
               <button onClick={fetchJournalReview} disabled={journalRevLoad || journalEntries.filter(e => e.closedAt).length < 3}
-                style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, fontWeight: 700,
                   background: journalRevLoad ? C.surface : `${C.purple}22`,
                   border: `1px solid ${C.purple}66`, color: journalRevLoad ? C.textDim : C.purple,
                   borderRadius: 6, padding: "7px 14px", cursor: journalRevLoad ? "default" : "pointer" }}>
@@ -18186,13 +18192,13 @@ export default function App() {
               <div style={{ background: C.card, border: `1px solid ${C.purple}44`, borderLeft: `3px solid ${C.purple}`,
                 borderRadius: 10, padding: 16, marginBottom: 14 }}>
                 {journalRevError ? (
-                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>{journalRevError}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>{journalRevError}</div>
                 ) : (
                   <>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.purple }}>🤖 AI COACHING REVIEW</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.purple }}>🤖 AI COACHING REVIEW</div>
                       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{journalReview?.at ? new Date(journalReview.at).toLocaleString() : ""}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{journalReview?.at ? new Date(journalReview.at).toLocaleString() : ""}</span>
                         <button onClick={() => setJournalReview(null)} style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", fontSize: 12 }}>✕</button>
                       </div>
                     </div>
@@ -18227,9 +18233,9 @@ export default function App() {
                     { label: "WIN RATE", value: journalStats?.closed ? `${journalStats.winRate ?? 0}%` : "—", color: (journalStats?.winRate || 0) >= 50 ? C.green : C.amber, sub: journalStats?.closed ? `${journalStats.wins}W / ${journalStats.losses}L` : "" },
                   ].map(({ label, value, color, sub }) => (
                     <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 14px", minWidth: 110 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.06em" }}>{label}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.06em" }}>{label}</div>
                       <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color, marginTop: 1 }}>{value}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 1 }}>{sub}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 1 }}>{sub}</div>
                     </div>
                   ))}
                 </div>
@@ -18277,15 +18283,15 @@ export default function App() {
                     { label: `LIVE UNRLZD (${openIds.length})`, value: livePnlDisplay, color: livePnlColor },
                   ].map(({ label, value, color }) => (
                     <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>
-                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{label}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{label}</div>
                       <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: color || C.text, marginTop: 2 }}>{value}</div>
                     </div>
                   ))}
                   {equityCurve.length >= 2 && (
                     <div style={{ gridColumn: "1 / -1", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 16 }}>
                       <div>
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 2 }}>EQUITY CURVE ({equityCurve.length} closed)</div>
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: equityColor, fontWeight: 700 }}>{equityFinal} cumulative P/L</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 2 }}>EQUITY CURVE ({equityCurve.length} closed)</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: equityColor, fontWeight: 700 }}>{equityFinal} cumulative P/L</div>
                       </div>
                       <svg width={eW} height={eH} style={{ overflow: "visible", flex: 1 }}>
                         <line x1="0" y1={eH / 2} x2={eW} y2={eH / 2} stroke={C.border} strokeWidth="1" strokeDasharray="3,3" />
@@ -18326,23 +18332,23 @@ export default function App() {
               const expectancy = closed.length ? closed.reduce((s, e) => s + e.pnl, 0) / closed.length : 0;
               return (
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 12 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>PERFORMANCE ANALYTICS ({closed.length} closed trades)</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>PERFORMANCE ANALYTICS ({closed.length} closed trades)</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8 }}>
-                    <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>AVG WIN</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.green }}>+${avgWin.toFixed(0)}</div></div>
-                    <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>AVG LOSS</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.red }}>-${avgLoss.toFixed(0)}</div></div>
-                    <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>R-FACTOR</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: rFactor >= 1.5 ? C.green : rFactor >= 1 ? C.amber : C.red }}>{isFinite(rFactor) ? rFactor.toFixed(2) : "∞"}</div></div>
-                    <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>PROFIT FACTOR</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: profitFactor >= 1.5 ? C.green : profitFactor >= 1 ? C.amber : C.red }}>{isFinite(profitFactor) ? profitFactor.toFixed(2) : "∞"}</div></div>
-                    <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>EXPECTANCY</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: expectancy >= 0 ? C.green : C.red }}>{expectancy >= 0 ? "+" : ""}${expectancy.toFixed(0)}</div></div>
-                    <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>MAX DRAWDOWN</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: maxDd > 0 ? C.red : C.textDim }}>{maxDd > 0 ? `-$${maxDd.toFixed(0)}` : "—"}</div></div>
+                    <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>AVG WIN</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.green }}>+${avgWin.toFixed(0)}</div></div>
+                    <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>AVG LOSS</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.red }}>-${avgLoss.toFixed(0)}</div></div>
+                    <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>R-FACTOR</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: rFactor >= 1.5 ? C.green : rFactor >= 1 ? C.amber : C.red }}>{isFinite(rFactor) ? rFactor.toFixed(2) : "∞"}</div></div>
+                    <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>PROFIT FACTOR</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: profitFactor >= 1.5 ? C.green : profitFactor >= 1 ? C.amber : C.red }}>{isFinite(profitFactor) ? profitFactor.toFixed(2) : "∞"}</div></div>
+                    <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>EXPECTANCY</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: expectancy >= 0 ? C.green : C.red }}>{expectancy >= 0 ? "+" : ""}${expectancy.toFixed(0)}</div></div>
+                    <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>MAX DRAWDOWN</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: maxDd > 0 ? C.red : C.textDim }}>{maxDd > 0 ? `-$${maxDd.toFixed(0)}` : "—"}</div></div>
                     <div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>STREAKS</div>
-                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>STREAKS</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700 }}>
                         <span style={{ color: closed.length ? (closed[closed.length-1].pnl > 0 ? C.green : C.red) : C.textDim }}>
                           {closed.length ? `${closed[closed.length-1].pnl > 0 ? "▲" : "▼"}${curStreak}` : "—"}
                         </span>
-                        <span style={{ color: C.textDim, fontSize: 9 }}>{" "}NOW</span>
+                        <span style={{ color: C.textDim, fontSize: 12 }}>{" "}NOW</span>
                       </div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>
                         <span style={{ color: C.green }}>W{maxWinStreak}</span>
                         <span>{" / "}</span>
                         <span style={{ color: C.red }}>L{maxLossStreak}</span>
@@ -18370,16 +18376,16 @@ export default function App() {
               if (rows.length < 2) return null;
               return (
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 12 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>PERFORMANCE BY STYLE</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>PERFORMANCE BY STYLE</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                     {rows.map(([style, s]) => {
                       const wr = Math.round((s.wins / s.trades) * 100);
                       const pnlColor = s.pnl >= 0 ? C.green : C.red;
                       return (
                         <div key={style} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 10px", minWidth: 100 }}>
-                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 3 }}>{style.toUpperCase()}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 3 }}>{style.toUpperCase()}</div>
                           <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: pnlColor }}>{s.pnl >= 0 ? "+" : ""}${Math.round(s.pnl)}</div>
-                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 1 }}>{s.trades} trades · <span style={{ color: wr >= 50 ? C.green : C.red }}>{wr}% WR</span></div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 1 }}>{s.trades} trades · <span style={{ color: wr >= 50 ? C.green : C.red }}>{wr}% WR</span></div>
                         </div>
                       );
                     })}
@@ -18408,7 +18414,7 @@ export default function App() {
               const MABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
               return (
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 12 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>MONTHLY P/L</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>MONTHLY P/L</div>
                   <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 80 }}>
                     {rows.map(r => {
                       const [yr, mo] = r.key.split("-");
@@ -18419,10 +18425,10 @@ export default function App() {
                       const wr = Math.round((r.wins / r.trades) * 100);
                       return (
                         <div key={r.key} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }} title={`${r.trades} trades · ${wr}% WR · ${r.pnl >= 0 ? "+" : ""}$${Math.round(r.pnl)}`}>
-                          <div style={{ fontFamily: MONO, fontSize: 9, color: col, fontWeight: 700 }}>{r.pnl >= 0 ? "+" : ""}${Math.round(r.pnl)}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: col, fontWeight: 700 }}>{r.pnl >= 0 ? "+" : ""}${Math.round(r.pnl)}</div>
                           <div style={{ width: "100%", height: barH, background: col, borderRadius: "3px 3px 0 0", opacity: 0.75, transition: "height 0.3s ease" }} />
-                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, whiteSpace: "nowrap" }}>{label}</div>
-                          <div style={{ fontFamily: MONO, fontSize: 9, color: wr >= 50 ? C.green : C.red }}>{wr}%</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, whiteSpace: "nowrap" }}>{label}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: wr >= 50 ? C.green : C.red }}>{wr}%</div>
                         </div>
                       );
                     })}
@@ -18435,7 +18441,7 @@ export default function App() {
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
               {["all", "open", "closed", "cancelled"].map(f => (
                 <button key={f} onClick={() => setJournalFilter(f)}
-                  style={{ border: `1px solid ${journalFilter === f ? C.accent : C.border}`, background: journalFilter === f ? `${C.accent}18` : C.surface, color: journalFilter === f ? C.accent : C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", textTransform: "uppercase" }}>
+                  style={{ border: `1px solid ${journalFilter === f ? C.accent : C.border}`, background: journalFilter === f ? `${C.accent}18` : C.surface, color: journalFilter === f ? C.accent : C.textSec, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer", textTransform: "uppercase" }}>
                   {f}
                 </button>
               ))}
@@ -18443,15 +18449,15 @@ export default function App() {
                 value={journalTickerSearch}
                 onChange={e => setJournalTickerSearch(e.target.value.toUpperCase())}
                 placeholder="Search ticker…"
-                style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 10, padding: "6px 8px", width: 120, borderRadius: 4 }}
+                style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "6px 8px", width: 120, borderRadius: 6 }}
               />
               <select value={journalStyleFilter} onChange={e => setJournalStyleFilter(e.target.value)}
-                style={{ background: C.surface, border: `1px solid ${journalStyleFilter !== "all" ? C.purple : C.border}`, color: journalStyleFilter !== "all" ? C.purple : C.textSec, fontFamily: MONO, fontSize: 10, padding: "6px 8px", borderRadius: 4 }}>
+                style={{ background: C.surface, border: `1px solid ${journalStyleFilter !== "all" ? C.purple : C.border}`, color: journalStyleFilter !== "all" ? C.purple : C.textSec, fontFamily: MONO, fontSize: 12, padding: "6px 8px", borderRadius: 6 }}>
                 <option value="all">All Styles</option>
                 {["Breakout","Pullback","Reversal","Momentum","Scalp","Swing","Day Trade","Watchlist","Scanner","Workflow","Terminal","Backtest","Analyzer"].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               <select value={journalDateRange} onChange={e => setJournalDateRange(e.target.value)}
-                style={{ background: C.surface, border: `1px solid ${journalDateRange !== "all" ? C.amber : C.border}`, color: journalDateRange !== "all" ? C.amber : C.textSec, fontFamily: MONO, fontSize: 10, padding: "6px 8px", borderRadius: 4 }}>
+                style={{ background: C.surface, border: `1px solid ${journalDateRange !== "all" ? C.amber : C.border}`, color: journalDateRange !== "all" ? C.amber : C.textSec, fontFamily: MONO, fontSize: 12, padding: "6px 8px", borderRadius: 6 }}>
                 <option value="all">All Time</option>
                 <option value="today">Today</option>
                 <option value="week">This Week</option>
@@ -18459,11 +18465,11 @@ export default function App() {
                 <option value="quarter">This Quarter</option>
               </select>
               <button onClick={loadJournalTab} disabled={journalLoading}
-                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", marginLeft: "auto" }}>
+                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer", marginLeft: "auto" }}>
                 {journalLoading ? "LOADING…" : "REFRESH"}
               </button>
               <a href="/api/journal/export.csv" download
-                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer", textDecoration: "none" }}>
+                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer", textDecoration: "none" }}>
                 EXPORT CSV
               </a>
             </div>
@@ -18513,7 +18519,7 @@ export default function App() {
                   const active = journalSort.col === col;
                   return (
                     <th onClick={sortable ? () => setJournalSort(s => ({ col, dir: s.col === col && s.dir === "desc" ? "asc" : "desc" })) : undefined}
-                      style={{ padding: "8px 10px", textAlign: align || "center", fontFamily: MONO, fontSize: 10, color: active ? C.accent : C.textDim, fontWeight: 600, cursor: sortable ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
+                      style={{ padding: "8px 10px", textAlign: align || "center", fontFamily: MONO, fontSize: 12, color: active ? C.accent : C.textDim, fontWeight: 600, cursor: sortable ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
                       {children}{active ? (journalSort.dir === "desc" ? " ↓" : " ↑") : ""}
                     </th>
                   );
@@ -18534,21 +18540,21 @@ export default function App() {
                         return (
                           <React.Fragment key={e.id}>
                             <tr style={{ borderTop: `1px solid ${C.border}` }}>
-                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.textSec }}>{new Date(e.openedAt).toLocaleDateString()}</td>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textSec }}>{new Date(e.openedAt).toLocaleDateString()}</td>
                               <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>
                                 <button onClick={() => { setTerminalSymbol(e.ticker); setActiveTab("terminal"); }}
                                   style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", padding: 0 }}>{e.ticker}</button>
                               </td>
-                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: e.side === "BUY" ? C.green : e.side === "SELL" ? C.red : C.amber, fontWeight: 700 }}>{e.side}</td>
-                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.textSec }}>{e.timeframe || "—"}</td>
-                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.textSec }}>{e.score}</td>
-                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.text }}>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: e.side === "BUY" ? C.green : e.side === "SELL" ? C.red : C.amber, fontWeight: 700 }}>{e.side}</td>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textSec }}>{e.timeframe || "—"}</td>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textSec }}>{e.score}</td>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.text }}>
                                 {e.entry ? `$${e.entry}` : "—"}
-                                {livePnlData && <div style={{ fontSize: 9, fontFamily: MONO, color: C.textDim, marginTop: 1 }}>{`$${livePnlData.livePrice.toFixed(2)}`}</div>}
+                                {livePnlData && <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, marginTop: 1 }}>{`$${livePnlData.livePrice.toFixed(2)}`}</div>}
                               </td>
-                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.red }}>{e.stopLoss ? `$${e.stopLoss}` : "—"}</td>
-                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.green }}>{e.target ? `$${e.target}` : "—"}</td>
-                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 11 }}>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.red }}>{e.stopLoss ? `$${e.stopLoss}` : "—"}</td>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.green }}>{e.target ? `$${e.target}` : "—"}</td>
+                              <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12 }}>
                                 {(() => {
                                   if (!e.entry || !e.stopLoss || !e.target) return <span style={{ color: C.textDim }}>—</span>;
                                   const risk = Math.abs(e.entry - e.stopLoss);
@@ -18563,19 +18569,19 @@ export default function App() {
                                 {livePnlData ? (
                                   <div>
                                     <div>{livePnlData.livePnl >= 0 ? "+" : ""}${livePnlData.livePnl.toFixed(2)}</div>
-                                    <div style={{ fontSize: 9, color: pnlColor, opacity: 0.8 }}>{livePnlData.livePnlPct >= 0 ? "+" : ""}{livePnlData.livePnlPct.toFixed(2)}% LIVE</div>
+                                    <div style={{ fontSize: 12, color: pnlColor, opacity: 0.8 }}>{livePnlData.livePnlPct >= 0 ? "+" : ""}{livePnlData.livePnlPct.toFixed(2)}% LIVE</div>
                                   </div>
                                 ) : e.pnl != null ? `${e.pnl >= 0 ? "+" : ""}$${e.pnl.toFixed(2)}` : "—"}
                               </td>
                               <td style={{ padding: "8px 10px", textAlign: "center" }}>
-                                <span style={{ background: e.status === "open" ? `${C.green}22` : e.status === "closed" ? `${C.accent}22` : `${C.amber}22`, color: e.status === "open" ? C.green : e.status === "closed" ? C.accent : C.amber, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>{e.status}</span>
+                                <span style={{ background: e.status === "open" ? `${C.green}22` : e.status === "closed" ? `${C.accent}22` : `${C.amber}22`, color: e.status === "open" ? C.green : e.status === "closed" ? C.accent : C.amber, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, fontWeight: 700, textTransform: "uppercase" }}>{e.status}</span>
                               </td>
-                              <td style={{ padding: "8px 10px", textAlign: "left", fontFamily: MONO, fontSize: 10, color: C.textSec, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.notes || "—"}</td>
+                              <td style={{ padding: "8px 10px", textAlign: "left", fontFamily: MONO, fontSize: 12, color: C.textSec, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.notes || "—"}</td>
                               <td style={{ padding: "8px 10px", textAlign: "center" }}>
                                 <div style={{ display: "flex", gap: 4, justifyContent: "center", flexWrap: "wrap" }}>
                                   {e.status === "open" && (
                                     <button onClick={() => { setJournalCloseId(e.id); setJournalClosePrice(livePnlData ? String(livePnlData.livePrice.toFixed(2)) : ""); }}
-                                      style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>CLOSE</button>
+                                      style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 6, padding: "4px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>CLOSE</button>
                                   )}
                                   <button
                                     onClick={() => {
@@ -18610,7 +18616,7 @@ export default function App() {
 </body></html>`);
                                       w.document.close();
                                     }}
-                                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "4px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                                   >PRINT</button>
                                   <button
                                     onClick={async () => {
@@ -18618,11 +18624,11 @@ export default function App() {
                                       await fetch(`/api/journal/${e.id}`, { method: "DELETE" });
                                       loadJournalTab();
                                     }}
-                                    style={{ border: `1px solid ${C.red}55`, background: `${C.red}0f`, color: C.red, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                    style={{ border: `1px solid ${C.red}55`, background: `${C.red}0f`, color: C.red, borderRadius: 6, padding: "4px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                                   >DEL</button>
                                   <button
                                     onClick={() => { setJournalEditId(journalEditId === e.id ? null : e.id); setJournalEditNotes(e.notes || ""); setJournalEditEntry(String(e.entry || "")); setJournalEditSL(String(e.stopLoss || "")); setJournalEditTarget(String(e.target || "")); setJournalEditSize(String(e.size || "")); }}
-                                    style={{ border: `1px solid ${C.accent}55`, background: journalEditId === e.id ? `${C.accent}28` : `${C.accent}0f`, color: C.accent, borderRadius: 4, padding: "4px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer" }}
+                                    style={{ border: `1px solid ${C.accent}55`, background: journalEditId === e.id ? `${C.accent}28` : `${C.accent}0f`, color: C.accent, borderRadius: 6, padding: "4px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                                   >EDIT</button>
                                 </div>
                               </td>
@@ -18632,34 +18638,34 @@ export default function App() {
                                 <td colSpan={13} style={{ padding: "10px 12px" }}>
                                   <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
                                     <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: "0 0 auto" }}>
-                                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>ENTRY</div>
+                                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>ENTRY</div>
                                       <input type="number" step="0.01" value={journalEditEntry} onChange={e2 => setJournalEditEntry(e2.target.value)} placeholder="Entry $"
-                                        style={{ width: 90, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: MONO, fontSize: 11, borderRadius: 4 }} />
+                                        style={{ width: 90, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: MONO, fontSize: 12, borderRadius: 6 }} />
                                     </div>
                                     <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: "0 0 auto" }}>
-                                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>STOP</div>
+                                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>STOP</div>
                                       <input type="number" step="0.01" value={journalEditSL} onChange={e2 => setJournalEditSL(e2.target.value)} placeholder="SL $"
-                                        style={{ width: 90, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: MONO, fontSize: 11, borderRadius: 4 }} />
+                                        style={{ width: 90, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: MONO, fontSize: 12, borderRadius: 6 }} />
                                     </div>
                                     <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: "0 0 auto" }}>
-                                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>TARGET</div>
+                                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>TARGET</div>
                                       <input type="number" step="0.01" value={journalEditTarget} onChange={e2 => setJournalEditTarget(e2.target.value)} placeholder="Target $"
-                                        style={{ width: 90, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: MONO, fontSize: 11, borderRadius: 4 }} />
+                                        style={{ width: 90, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: MONO, fontSize: 12, borderRadius: 6 }} />
                                     </div>
                                     <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: "0 0 auto" }}>
-                                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>SHARES</div>
+                                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>SHARES</div>
                                       <input type="number" step="1" value={journalEditSize} onChange={e2 => setJournalEditSize(e2.target.value)} placeholder="Qty"
-                                        style={{ width: 80, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: MONO, fontSize: 11, borderRadius: 4 }} />
+                                        style={{ width: 80, background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: MONO, fontSize: 12, borderRadius: 6 }} />
                                     </div>
                                     <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 160 }}>
-                                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>NOTES</div>
+                                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>NOTES</div>
                                       <textarea
                                         value={journalEditNotes}
                                         onChange={e2 => setJournalEditNotes(e2.target.value)}
                                         autoFocus
                                         rows={2}
                                         placeholder="Trade notes…"
-                                        style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: SANS, fontSize: 12, resize: "vertical", borderRadius: 4 }}
+                                        style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "5px 8px", fontFamily: SANS, fontSize: 12, resize: "vertical", borderRadius: 6 }}
                                       />
                                     </div>
                                     <div style={{ display: "flex", flexDirection: "column", gap: 6, alignSelf: "flex-end" }}>
@@ -18672,8 +18678,8 @@ export default function App() {
                                         await fetch(`/api/journal/${e.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
                                         setJournalEditId(null);
                                         loadJournalTab();
-                                      }} style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}18`, color: C.accent, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>SAVE</button>
-                                      <button onClick={() => setJournalEditId(null)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>CANCEL</button>
+                                      }} style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}18`, color: C.accent, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>SAVE</button>
+                                      <button onClick={() => setJournalEditId(null)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>CANCEL</button>
                                     </div>
                                   </div>
                                 </td>
@@ -18683,19 +18689,19 @@ export default function App() {
                               <tr style={{ background: `${C.green}08`, borderTop: `1px solid ${C.green}44` }}>
                                 <td colSpan={13} style={{ padding: "10px 12px" }}>
                                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Close price:</span>
+                                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>Close price:</span>
                                     <input type="number" step="0.01" value={journalClosePrice} onChange={e2 => setJournalClosePrice(e2.target.value)}
                                       placeholder="e.g. 184.50" autoFocus
-                                      style={{ width: 120, background: C.surface, border: `1px solid ${C.green}55`, color: C.text, padding: "6px 8px", fontFamily: MONO, fontSize: 11 }} />
-                                    {liveJournalPnl[e.id] && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Live: ${liveJournalPnl[e.id].livePrice.toFixed(2)}</span>}
+                                      style={{ width: 120, background: C.surface, border: `1px solid ${C.green}55`, color: C.text, padding: "6px 8px", fontFamily: MONO, fontSize: 12 }} />
+                                    {liveJournalPnl[e.id] && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Live: ${liveJournalPnl[e.id].livePrice.toFixed(2)}</span>}
                                     <button onClick={async () => {
                                       const cp = Number(journalClosePrice);
                                       if (!cp) return;
                                       await fetch(`/api/journal/${e.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "closed", closePrice: cp }) });
                                       setJournalCloseId(null);
                                       loadJournalTab();
-                                    }} style={{ border: `1px solid ${C.green}55`, background: `${C.green}18`, color: C.green, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>CONFIRM</button>
-                                    <button onClick={() => setJournalCloseId(null)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>CANCEL</button>
+                                    }} style={{ border: `1px solid ${C.green}55`, background: `${C.green}18`, color: C.green, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>CONFIRM</button>
+                                    <button onClick={() => setJournalCloseId(null)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>CANCEL</button>
                                   </div>
                                 </td>
                               </tr>
@@ -18741,10 +18747,10 @@ export default function App() {
           const color = s >= 80 ? C.green : s >= 70 ? C.accent : s >= 60 ? C.amber : C.red;
           return (
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <div style={{ flex: 1, height: 6, background: `${color}22`, borderRadius: 3, overflow: "hidden" }}>
-                <div style={{ width: `${s}%`, height: "100%", background: color, borderRadius: 3 }} />
+              <div style={{ flex: 1, height: 6, background: `${color}22`, borderRadius: 5, overflow: "hidden" }}>
+                <div style={{ width: `${s}%`, height: "100%", background: color, borderRadius: 5 }} />
               </div>
-              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color, minWidth: 28 }}>{s}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color, minWidth: 28 }}>{s}</span>
             </div>
           );
         };
@@ -18759,14 +18765,14 @@ export default function App() {
                 <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
                   TELEGRAM / TRADINGVIEW ALERT ANALYZER
                 </div>
-                <div style={{ fontSize: 10, color: C.textDim, marginTop: 3 }}>
+                <div style={{ fontSize: 12, color: C.textDim, marginTop: 3 }}>
                   Paste one or more alerts separated by blank lines or ---. Institution-grade scoring. A+ only.
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6 }}>
                 <button
                   onClick={() => { setAnalyzerInput(ANALYZER_SAMPLES.join("\n\n---\n\n")); }}
-                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                 >LOAD SAMPLES</button>
               </div>
             </div>
@@ -18801,20 +18807,20 @@ export default function App() {
               return (
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: C.card, border: `1px solid ${isError ? C.red + "55" : C.border}`, borderRadius: 6, flexWrap: "wrap" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.06em" }}>TELEGRAM BOT</span>
-                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: statusColor }}>{statusText}</span>
-                    {tgMsg && <span style={{ fontFamily: MONO, fontSize: 10, color: statusColor }}>{tgMsg}</span>}
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.06em" }}>TELEGRAM BOT</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: statusColor }}>{statusText}</span>
+                    {tgMsg && <span style={{ fontFamily: MONO, fontSize: 12, color: statusColor }}>{tgMsg}</span>}
                     <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
                       <button onClick={getChatId}
-                        style={{ border: "1px solid #7c3aed55", background: "#7c3aed12", color: "#7c3aed", borderRadius: 4, padding: "5px 12px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                        style={{ border: "1px solid #7c3aed55", background: "#7c3aed12", color: "#7c3aed", borderRadius: 6, padding: "5px 12px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                       >GET CHAT ID</button>
                       <button onClick={sendTest} disabled={tgStatus === "sending"}
-                        style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 4, padding: "5px 12px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                        style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 6, padding: "5px 12px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                       >{tgStatus === "sending" ? "SENDING…" : "SEND TEST"}</button>
                     </div>
                   </div>
                   {isError && (
-                    <div style={{ marginTop: 6, padding: "8px 12px", background: C.redBg, border: `1px solid ${C.red}55`, borderRadius: 6, fontFamily: MONO, fontSize: 10, color: C.red }}>
+                    <div style={{ marginTop: 6, padding: "8px 12px", background: C.redBg, border: `1px solid ${C.red}55`, borderRadius: 6, fontFamily: MONO, fontSize: 12, color: C.red }}>
                       <strong>Fix: </strong>
                       {tgStatus === "unconfigured"
                         ? 'Go to Render.com → your service → Environment → set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID'
@@ -18832,16 +18838,16 @@ export default function App() {
                 value={analyzerInput}
                 onChange={e => setAnalyzerInput(e.target.value)}
                 placeholder={`Paste alert(s) here. Separate multiple alerts with a blank line or ---\n\nExample:\n🚨 NVDA LONG\nPrice: $875\nVWAP: Above\nEMA: 9 > 21 Bullish\nRVOL: 2.4x\nEntry: $872–875\nStop: $862\nT1: $895  T2: $912  T3: $930`}
-                style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "10px 12px", borderRadius: 6, resize: "vertical", minHeight: 160, lineHeight: 1.6, width: "100%", boxSizing: "border-box" }}
+                style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "10px 12px", borderRadius: 6, resize: "vertical", minHeight: 160, lineHeight: 1.6, width: "100%", boxSizing: "border-box" }}
               />
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <button
                   onClick={() => runAnalysis()}
-                  style={{ background: C.accent, border: "none", color: "#fff", borderRadius: 4, padding: "10px 16px", fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
+                  style={{ background: C.accent, border: "none", color: "#fff", borderRadius: 6, padding: "10px 16px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
                 >ANALYZE</button>
                 <button
                   onClick={() => { setAnalyzerInput(""); setAnalyzerResults([]); setAnalyzerExpanded(null); }}
-                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "8px 12px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "8px 12px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                 >CLEAR</button>
               </div>
             </div>
@@ -18849,7 +18855,7 @@ export default function App() {
             {analyzerResults.length === 0 && (
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 32, textAlign: "center" }}>
                 <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginBottom: 6 }}>No alerts analyzed yet</div>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Click LOAD SAMPLES to test with demo alerts, or paste your own above.</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Click LOAD SAMPLES to test with demo alerts, or paste your own above.</div>
               </div>
             )}
 
@@ -18859,17 +18865,17 @@ export default function App() {
                 {/* Summary ranking table */}
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
                   <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, letterSpacing: "0.08em" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>
                       SIGNAL RANKING — {analyzerResults.length} ALERT{analyzerResults.length !== 1 ? "S" : ""} ANALYZED
                     </span>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Top 3 highlighted</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Top 3 highlighted</span>
                   </div>
                   <div style={{ overflowX: "auto" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
                       <thead>
                         <tr style={{ background: C.surface }}>
                           {["#","SYMBOL","DIR","TF","PRICE","VWAP","EMA","RVOL","SCORE","GRADE","DECISION","RISK LEVEL"].map(h => (
-                            <th key={h} style={{ padding: "8px 10px", fontFamily: MONO, fontSize: 9, color: C.textDim, fontWeight: 700, textAlign: h === "#" || h === "SCORE" ? "center" : "left", whiteSpace: "nowrap", letterSpacing: "0.06em" }}>{h}</th>
+                            <th key={h} style={{ padding: "8px 10px", fontFamily: MONO, fontSize: 12, color: C.textDim, fontWeight: 700, textAlign: h === "#" || h === "SCORE" ? "center" : "left", whiteSpace: "nowrap", letterSpacing: "0.06em" }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -18887,31 +18893,31 @@ export default function App() {
                               style={{ borderTop: `1px solid ${C.border}`, cursor: "pointer", background: isSelected ? `${C.accent}0a` : isTop ? `${C.green}04` : "transparent", transition: "background 0.1s" }}
                             >
                               <td style={{ padding: "9px 10px", textAlign: "center" }}>
-                                {isTop && <span style={{ background: idx === 0 ? C.green : idx === 1 ? C.accent : C.amber, color: "#fff", borderRadius: 4, padding: "2px 6px", fontFamily: MONO, fontSize: 9, fontWeight: 800 }}>#{idx + 1}</span>}
-                                {!isTop && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>#{idx + 1}</span>}
+                                {isTop && <span style={{ background: idx === 0 ? C.green : idx === 1 ? C.accent : C.amber, color: "#fff", borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, fontWeight: 800 }}>#{idx + 1}</span>}
+                                {!isTop && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>#{idx + 1}</span>}
                               </td>
                               <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 12, fontWeight: 800, color: isTop ? C.text : C.textSec }}>{p.symbol || "—"}</td>
-                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 11, fontWeight: 700, color: p.direction === "LONG" ? C.green : p.direction === "SHORT" ? C.red : C.textDim }}>{p.direction || "—"}</td>
-                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 10, color: C.textSec }}>{p.timeframe || "—"}</td>
-                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 11, color: C.text }}>{p.price ? `$${p.price.toFixed(2)}` : "—"}</td>
-                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 10, fontWeight: 700, color: p.vwapStatus === "above" ? C.green : p.vwapStatus === "below" ? C.red : C.textDim }}>
+                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: p.direction === "LONG" ? C.green : p.direction === "SHORT" ? C.red : C.textDim }}>{p.direction || "—"}</td>
+                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 12, color: C.textSec }}>{p.timeframe || "—"}</td>
+                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 12, color: C.text }}>{p.price ? `$${p.price.toFixed(2)}` : "—"}</td>
+                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: p.vwapStatus === "above" ? C.green : p.vwapStatus === "below" ? C.red : C.textDim }}>
                                 {p.vwapStatus ? p.vwapStatus.toUpperCase() : "—"}
                               </td>
-                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 10, color: p.emaTrend === "bullish" ? C.green : p.emaTrend === "bearish" ? C.red : C.textDim }}>
+                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 12, color: p.emaTrend === "bullish" ? C.green : p.emaTrend === "bearish" ? C.red : C.textDim }}>
                                 {p.emaTrend ? p.emaTrend.toUpperCase() : "—"}
                               </td>
-                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 10, color: (p.rvol || 0) >= 2 ? C.green : (p.rvol || 0) >= 1.5 ? C.amber : C.textDim }}>
+                              <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 12, color: (p.rvol || 0) >= 2 ? C.green : (p.rvol || 0) >= 1.5 ? C.amber : C.textDim }}>
                                 {p.rvol != null ? `${p.rvol.toFixed(1)}x` : "—"}
                               </td>
                               <td style={{ padding: "9px 10px", minWidth: 100 }}>{scoreBar(s.score)}</td>
                               <td style={{ padding: "9px 10px", textAlign: "center" }}>
-                                <span style={{ background: `${gradeColor(s.grade)}18`, color: gradeColor(s.grade), border: `1px solid ${gradeColor(s.grade)}44`, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10, fontWeight: 800 }}>{s.grade}</span>
+                                <span style={{ background: `${gradeColor(s.grade)}18`, color: gradeColor(s.grade), border: `1px solid ${gradeColor(s.grade)}44`, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, fontWeight: 800 }}>{s.grade}</span>
                               </td>
                               <td style={{ padding: "9px 10px" }}>
-                                <span style={{ background: `${decisionStyle(s.decision)}18`, color: decisionStyle(s.decision), border: `1px solid ${decisionStyle(s.decision)}44`, borderRadius: 4, padding: "4px 9px", fontFamily: MONO, fontSize: 11, fontWeight: 900, letterSpacing: "0.04em" }}>{s.decision}</span>
+                                <span style={{ background: `${decisionStyle(s.decision)}18`, color: decisionStyle(s.decision), border: `1px solid ${decisionStyle(s.decision)}44`, borderRadius: 6, padding: "4px 9px", fontFamily: MONO, fontSize: 12, fontWeight: 900, letterSpacing: "0.04em" }}>{s.decision}</span>
                               </td>
                               <td style={{ padding: "9px 10px" }}>
-                                <span style={{ color: riskColor, fontFamily: MONO, fontSize: 10, fontWeight: 700 }}>{riskLevel}</span>
+                                <span style={{ color: riskColor, fontFamily: MONO, fontSize: 12, fontWeight: 700 }}>{riskLevel}</span>
                               </td>
                             </tr>
                           );
@@ -18936,31 +18942,31 @@ export default function App() {
                       <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: `${headerColor}0c`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                           <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text }}>{p.symbol}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: p.direction === "LONG" ? C.green : C.red }}>{p.direction || "—"}</span>
-                          {p.timeframe && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{p.timeframe}</span>}
-                          <span style={{ background: `${headerColor}18`, color: headerColor, border: `1px solid ${headerColor}44`, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 12, fontWeight: 900 }}>{s.decision}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Score: <span style={{ color: gradeColor(s.grade), fontWeight: 800 }}>{s.score}/100</span></span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: p.direction === "LONG" ? C.green : C.red }}>{p.direction || "—"}</span>
+                          {p.timeframe && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{p.timeframe}</span>}
+                          <span style={{ background: `${headerColor}18`, color: headerColor, border: `1px solid ${headerColor}44`, borderRadius: 6, padding: "3px 8px", fontFamily: MONO, fontSize: 12, fontWeight: 900 }}>{s.decision}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Score: <span style={{ color: gradeColor(s.grade), fontWeight: 800 }}>{s.score}/100</span></span>
                           {p.symbol && (
                             <button
                               onClick={() => { setTerminalSymbol(p.symbol); setActiveTab("terminal"); }}
-                              style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 4, padding: "4px 9px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                              style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 6, padding: "4px 9px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                             >CHART</button>
                           )}
                           {p.symbol && (
                             <button
                               onClick={() => setWatchlistSymbols(prev => watchlistSymbols.includes(p.symbol) ? prev.filter(s => s !== p.symbol) : Array.from(new Set([...prev, p.symbol])))}
-                              style={{ border: `1px solid ${watchlistSymbols.includes(p.symbol) ? C.red : C.green}44`, background: watchlistSymbols.includes(p.symbol) ? `${C.red}15` : `${C.green}15`, color: watchlistSymbols.includes(p.symbol) ? C.red : C.green, borderRadius: 4, padding: "4px 9px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                              style={{ border: `1px solid ${watchlistSymbols.includes(p.symbol) ? C.red : C.green}44`, background: watchlistSymbols.includes(p.symbol) ? `${C.red}15` : `${C.green}15`, color: watchlistSymbols.includes(p.symbol) ? C.red : C.green, borderRadius: 6, padding: "4px 9px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                             >{watchlistSymbols.includes(p.symbol) ? "−WL" : "+WL"}</button>
                           )}
                         </div>
-                        <button onClick={() => setAnalyzerExpanded(null)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "4px 8px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>CLOSE ✕</button>
+                        <button onClick={() => setAnalyzerExpanded(null)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "4px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>CLOSE ✕</button>
                       </div>
 
                       <div style={{ padding: 14, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
 
                         {/* Trade Plan */}
                         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-                          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>TRADE PLAN</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>TRADE PLAN</div>
                           {[
                             { label: "Entry Zone", value: s.suggestedEntry ? (s.suggestedEntryHigh && s.suggestedEntryHigh !== s.suggestedEntry ? `$${s.suggestedEntry.toFixed(2)} – $${s.suggestedEntryHigh.toFixed(2)}` : `$${s.suggestedEntry.toFixed(2)}`): "—", color: C.accent },
                             { label: "Stop Loss",  value: s.suggestedStop  ? `$${s.suggestedStop.toFixed(2)}`  : "⚠ NOT DEFINED", color: C.red },
@@ -18971,8 +18977,8 @@ export default function App() {
                             { label: "Invalidate", value: s.invalidation, color: C.red },
                           ].map(({ label, value, color }) => (
                             <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6, gap: 8 }}>
-                              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, flexShrink: 0 }}>{label}</span>
-                              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color, textAlign: "right" }}>{value}</span>
+                              <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, flexShrink: 0 }}>{label}</span>
+                              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color, textAlign: "right" }}>{value}</span>
                             </div>
                           ))}
                           {/* Log to Journal button */}
@@ -18998,32 +19004,32 @@ export default function App() {
                                 alert(`${p.symbol} logged to journal.`);
                               } catch {}
                             }}
-                            style={{ marginTop: 10, width: "100%", border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 4, padding: "7px 0", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                            style={{ marginTop: 10, width: "100%", border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 6, padding: "7px 0", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                           >LOG TO JOURNAL</button>
                         </div>
 
                         {/* Signal Analysis */}
                         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-                          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>SIGNAL ANALYSIS</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>SIGNAL ANALYSIS</div>
 
                           {/* Score bar */}
                           <div style={{ marginBottom: 12 }}>
                             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Setup Score</span>
-                              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: gradeColor(s.grade) }}>{s.score}/100 — {s.grade}</span>
+                              <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Setup Score</span>
+                              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: gradeColor(s.grade) }}>{s.score}/100 — {s.grade}</span>
                             </div>
-                            <div style={{ height: 8, background: `${gradeColor(s.grade)}22`, borderRadius: 4, overflow: "hidden" }}>
-                              <div style={{ width: `${s.score}%`, height: "100%", background: gradeColor(s.grade), borderRadius: 4 }} />
+                            <div style={{ height: 8, background: `${gradeColor(s.grade)}22`, borderRadius: 6, overflow: "hidden" }}>
+                              <div style={{ width: `${s.score}%`, height: "100%", background: gradeColor(s.grade), borderRadius: 6 }} />
                             </div>
                           </div>
 
                           {s.positives.length > 0 && (
                             <div style={{ marginBottom: 10 }}>
-                              <div style={{ fontFamily: MONO, fontSize: 9, color: C.green, fontWeight: 700, marginBottom: 5, letterSpacing: "0.06em" }}>✓ STRENGTHS</div>
+                              <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, fontWeight: 700, marginBottom: 5, letterSpacing: "0.06em" }}>✓ STRENGTHS</div>
                               {s.positives.map((p, i) => (
                                 <div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 4 }}>
-                                  <span style={{ color: C.green, fontSize: 10, flexShrink: 0, marginTop: 1 }}>+</span>
-                                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textSec, lineHeight: 1.4 }}>{p}</span>
+                                  <span style={{ color: C.green, fontSize: 12, flexShrink: 0, marginTop: 1 }}>+</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, lineHeight: 1.4 }}>{p}</span>
                                 </div>
                               ))}
                             </div>
@@ -19031,11 +19037,11 @@ export default function App() {
 
                           {s.warnings.length > 0 && (
                             <div style={{ marginBottom: 10 }}>
-                              <div style={{ fontFamily: MONO, fontSize: 9, color: C.amber, fontWeight: 700, marginBottom: 5, letterSpacing: "0.06em" }}>⚠ CAUTIONS</div>
+                              <div style={{ fontFamily: MONO, fontSize: 12, color: C.amber, fontWeight: 700, marginBottom: 5, letterSpacing: "0.06em" }}>⚠ CAUTIONS</div>
                               {s.warnings.map((w, i) => (
                                 <div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 4 }}>
-                                  <span style={{ color: C.amber, fontSize: 10, flexShrink: 0, marginTop: 1 }}>!</span>
-                                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textSec, lineHeight: 1.4 }}>{w}</span>
+                                  <span style={{ color: C.amber, fontSize: 12, flexShrink: 0, marginTop: 1 }}>!</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, lineHeight: 1.4 }}>{w}</span>
                                 </div>
                               ))}
                             </div>
@@ -19043,11 +19049,11 @@ export default function App() {
 
                           {s.risks.length > 0 && (
                             <div>
-                              <div style={{ fontFamily: MONO, fontSize: 9, color: C.red, fontWeight: 700, marginBottom: 5, letterSpacing: "0.06em" }}>✗ RISK FLAGS</div>
+                              <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, fontWeight: 700, marginBottom: 5, letterSpacing: "0.06em" }}>✗ RISK FLAGS</div>
                               {s.risks.map((r, i) => (
                                 <div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 4 }}>
-                                  <span style={{ color: C.red, fontSize: 10, flexShrink: 0, marginTop: 1 }}>✕</span>
-                                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textSec, lineHeight: 1.4 }}>{r}</span>
+                                  <span style={{ color: C.red, fontSize: 12, flexShrink: 0, marginTop: 1 }}>✕</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, lineHeight: 1.4 }}>{r}</span>
                                 </div>
                               ))}
                             </div>
@@ -19056,11 +19062,11 @@ export default function App() {
 
                         {/* Raw alert + context */}
                         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-                          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>RAW ALERT + CONTEXT</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>RAW ALERT + CONTEXT</div>
 
                           {/* Parsed fields */}
                           <div style={{ marginBottom: 10 }}>
-                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, fontWeight: 700, marginBottom: 6, letterSpacing: "0.06em" }}>PARSED FIELDS</div>
+                            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, fontWeight: 700, marginBottom: 6, letterSpacing: "0.06em" }}>PARSED FIELDS</div>
                             {[
                               ["Symbol",    p.symbol || "—"],
                               ["Direction", p.direction || "—"],
@@ -19072,19 +19078,19 @@ export default function App() {
                               ["Setup",     p.setupType || "—"],
                             ].map(([label, val]) => (
                               <div key={label} style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{label}</span>
-                                <span style={{ fontFamily: MONO, fontSize: 10, color: C.text, fontWeight: 600 }}>{val}</span>
+                                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{label}</span>
+                                <span style={{ fontFamily: MONO, fontSize: 12, color: C.text, fontWeight: 600 }}>{val}</span>
                               </div>
                             ))}
                           </div>
 
                           {/* Raw text */}
-                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, fontWeight: 700, marginBottom: 5, letterSpacing: "0.06em" }}>RAW TEXT</div>
-                          <pre style={{ margin: 0, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, padding: "8px 10px", fontFamily: MONO, fontSize: 10, color: C.textSec, whiteSpace: "pre-wrap", maxHeight: 180, overflowY: "auto", lineHeight: 1.5 }}>{p.raw}</pre>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, fontWeight: 700, marginBottom: 5, letterSpacing: "0.06em" }}>RAW TEXT</div>
+                          <pre style={{ margin: 0, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", fontFamily: MONO, fontSize: 12, color: C.textSec, whiteSpace: "pre-wrap", maxHeight: 180, overflowY: "auto", lineHeight: 1.5 }}>{p.raw}</pre>
 
                           {/* WS link */}
                           {p.symbol && (
-                            <a href={`/workstation#${p.symbol}`} target="_blank" rel="noopener" style={{ display: "block", marginTop: 10, border: `1px solid ${C.border}`, background: C.bg, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, textAlign: "center", textDecoration: "none" }}>
+                            <a href={`/workstation#${p.symbol}`} target="_blank" rel="noopener" style={{ display: "block", marginTop: 10, border: `1px solid ${C.border}`, background: C.bg, color: C.textSec, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, textAlign: "center", textDecoration: "none" }}>
                               Open {p.symbol} in Workstation →
                             </a>
                           )}
@@ -19104,30 +19110,30 @@ export default function App() {
                       return (
                         <div key={r.id} onClick={() => setAnalyzerExpanded(r.id)} style={{ background: C.card, border: `2px solid ${headerColor}44`, borderRadius: 8, overflow: "hidden", cursor: "pointer" }}>
                           <div style={{ padding: "8px 12px", background: `${headerColor}10`, borderBottom: `1px solid ${headerColor}33`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: headerColor, letterSpacing: "0.08em" }}>{rankLabels[idx]}</span>
-                            <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>click to expand</span>
+                            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: headerColor, letterSpacing: "0.08em" }}>{rankLabels[idx]}</span>
+                            <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>click to expand</span>
                           </div>
                           <div style={{ padding: "10px 12px" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
                               <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>{p.symbol}</span>
-                              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: p.direction === "LONG" ? C.green : p.direction === "SHORT" ? C.red : C.textDim }}>{p.direction || "—"}</span>
+                              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: p.direction === "LONG" ? C.green : p.direction === "SHORT" ? C.red : C.textDim }}>{p.direction || "—"}</span>
                             </div>
                             <div style={{ marginBottom: 8 }}>{scoreBar(s.score)}</div>
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                              <span style={{ background: `${headerColor}18`, color: headerColor, border: `1px solid ${headerColor}44`, borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 11, fontWeight: 900 }}>{s.decision}</span>
-                              <span style={{ background: `${gradeColor(s.grade)}18`, color: gradeColor(s.grade), borderRadius: 4, padding: "3px 8px", fontFamily: MONO, fontSize: 10, fontWeight: 700 }}>{s.grade}</span>
-                              {p.rvol != null && <span style={{ background: C.surface, color: (p.rvol >= 2 ? C.green : p.rvol >= 1.5 ? C.amber : C.textDim), borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 10 }}>RVOL {p.rvol.toFixed(1)}x</span>}
+                              <span style={{ background: `${headerColor}18`, color: headerColor, border: `1px solid ${headerColor}44`, borderRadius: 6, padding: "3px 8px", fontFamily: MONO, fontSize: 12, fontWeight: 900 }}>{s.decision}</span>
+                              <span style={{ background: `${gradeColor(s.grade)}18`, color: gradeColor(s.grade), borderRadius: 6, padding: "3px 8px", fontFamily: MONO, fontSize: 12, fontWeight: 700 }}>{s.grade}</span>
+                              {p.rvol != null && <span style={{ background: C.surface, color: (p.rvol >= 2 ? C.green : p.rvol >= 1.5 ? C.amber : C.textDim), borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12 }}>RVOL {p.rvol.toFixed(1)}x</span>}
                             </div>
                             {s.suggestedEntry && (
                               <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                                <div style={{ background: C.surface, borderRadius: 4, padding: "5px 8px" }}>
-                                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>ENTRY</div>
-                                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 700 }}>${s.suggestedEntry.toFixed(2)}</div>
+                                <div style={{ background: C.surface, borderRadius: 6, padding: "5px 8px" }}>
+                                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>ENTRY</div>
+                                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700 }}>${s.suggestedEntry.toFixed(2)}</div>
                                 </div>
                                 {s.suggestedStop && (
-                                  <div style={{ background: C.surface, borderRadius: 4, padding: "5px 8px" }}>
-                                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>STOP</div>
-                                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.red, fontWeight: 700 }}>${s.suggestedStop.toFixed(2)}</div>
+                                  <div style={{ background: C.surface, borderRadius: 6, padding: "5px 8px" }}>
+                                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>STOP</div>
+                                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, fontWeight: 700 }}>${s.suggestedStop.toFixed(2)}</div>
                                   </div>
                                 )}
                               </div>
@@ -19164,20 +19170,20 @@ export default function App() {
             <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
               <div>
                 <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>🛒 DEALS FINDER</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>Powered by Reddit deal communities — 100% free · Set Telegram alerts</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>Powered by Reddit deal communities — 100% free · Set Telegram alerts</div>
               </div>
               <div style={{ display: "flex", gap: 6 }}>
                 <button
                   onClick={() => fetch("/api/deals/ping").then(r => r.json()).then(d => alert(d.ok ? "✅ Server alive — deals endpoint working!" : "❌ Endpoint error")).catch(e => alert("❌ " + e.message))}
-                  style={{ background: `${C.green}14`, border: `1px solid ${C.green}44`, color: C.green, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "6px 12px", borderRadius: 5, cursor: "pointer" }}
+                  style={{ background: `${C.green}14`, border: `1px solid ${C.green}44`, color: C.green, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "6px 12px", borderRadius: 5, cursor: "pointer" }}
                 >🔌 PING</button>
                 <button
                   onClick={() => fetch("/api/deals/debug").then(r => r.json()).then(d => alert("Source test:\n" + Object.entries(d.status || {}).map(([k,v]) => `${k}: ${v}`).join("\n"))).catch(e => alert("❌ " + e.message))}
-                  style={{ background: "#7c3aed18", border: "1px solid #7c3aed44", color: "#7c3aed", fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "6px 12px", borderRadius: 5, cursor: "pointer" }}
+                  style={{ background: "#7c3aed18", border: "1px solid #7c3aed44", color: "#7c3aed", fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "6px 12px", borderRadius: 5, cursor: "pointer" }}
                 >🔬 DEBUG</button>
                 <button
                   onClick={() => fetch("/api/deals/test-alert", { method: "POST" }).then(() => alert("Test Telegram alert sent!"))}
-                  style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}44`, color: C.accent, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "6px 12px", borderRadius: 5, cursor: "pointer" }}
+                  style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}44`, color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "6px 12px", borderRadius: 5, cursor: "pointer" }}
                 >📱 TEST TELEGRAM</button>
               </div>
             </div>
@@ -19191,7 +19197,7 @@ export default function App() {
                   <div style={{ display: "flex", gap: 6, marginBottom: 12, overflowX: "auto", scrollbarWidth: "none" }}>
                     {DEAL_CATS.map(c => (
                       <button key={c.id} onClick={() => setDealsCategory(c.id)}
-                        style={{ background: dealsCategory === c.id ? `${C.accent}18` : C.surface, border: `1px solid ${dealsCategory === c.id ? C.accent : C.border}`, color: dealsCategory === c.id ? C.accent : C.textSec, borderRadius: 20, padding: "5px 12px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                        style={{ background: dealsCategory === c.id ? `${C.accent}18` : C.surface, border: `1px solid ${dealsCategory === c.id ? C.accent : C.border}`, color: dealsCategory === c.id ? C.accent : C.textSec, borderRadius: 20, padding: "5px 12px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
                         {c.label}
                       </button>
                     ))}
@@ -19219,13 +19225,13 @@ export default function App() {
                     </button>
                     <button onClick={addDealsWatch} disabled={!dealsQuery.trim() || dealsWatchesLoading}
                       title="Save this search — get Telegram alerts when new deals appear"
-                      style={{ background: `${C.green}14`, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 6, padding: "9px 14px", fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer", opacity: !dealsQuery.trim() ? 0.5 : 1, flexShrink: 0 }}>
+                      style={{ background: `${C.green}14`, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 6, padding: "9px 14px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: !dealsQuery.trim() ? 0.5 : 1, flexShrink: 0 }}>
                       🔔 WATCH
                     </button>
                   </div>
 
                   {dealsError && (
-                    <div style={{ marginTop: 10, padding: "8px 12px", background: C.redBg, border: `1px solid ${C.red}44`, borderRadius: 6, fontFamily: MONO, fontSize: 10, color: C.red }}>
+                    <div style={{ marginTop: 10, padding: "8px 12px", background: C.redBg, border: `1px solid ${C.red}44`, borderRadius: 6, fontFamily: MONO, fontSize: 12, color: C.red }}>
                       ⚠ {dealsError}
                     </div>
                   )}
@@ -19233,33 +19239,33 @@ export default function App() {
 
                 {/* Results */}
                 {dealsLoading && (
-                  <div style={{ textAlign: "center", padding: 40, fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                  <div style={{ textAlign: "center", padding: 40, fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                     ⟳ Searching for deals…
                   </div>
                 )}
                 {!dealsLoading && dealsResults.length === 0 && !dealsError && !dealsSearched && (
-                  <div style={{ textAlign: "center", padding: 40, fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                  <div style={{ textAlign: "center", padding: 40, fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                     Enter a search above and press SEARCH, or leave blank for hot deals.<br/>
-                    <span style={{ fontSize: 10, marginTop: 4, display: "block" }}>
+                    <span style={{ fontSize: 12, marginTop: 4, display: "block" }}>
                       Sources: Reddit · SlickDeals · DealNews · Google News · DealsList
                     </span>
-                    <span style={{ fontSize: 10, color: C.textDim }}>
+                    <span style={{ fontSize: 12, color: C.textDim }}>
                       Examples: "gaming laptop" · "iPhone 15" · "TV under 500" · "used car deals"
                     </span>
                   </div>
                 )}
                 {!dealsLoading && dealsResults.length === 0 && !dealsError && dealsSearched && (
-                  <div style={{ textAlign: "center", padding: 40, fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                  <div style={{ textAlign: "center", padding: 40, fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                     <div style={{ fontSize: 24, marginBottom: 8 }}>{allSourcesBlocked ? "🚫" : "🔍"}</div>
                     {allSourcesBlocked ? (
                       <div>
                         <span style={{ color: C.red, fontWeight: 700 }}>All deal sources blocked or unreachable.</span><br/>
-                        <span style={{ fontSize: 10, marginTop: 4, display: "block" }}>The server could not reach any deal site. Common on cloud servers.<br/>Click DEBUG above to see which sources work.</span>
+                        <span style={{ fontSize: 12, marginTop: 4, display: "block" }}>The server could not reach any deal site. Common on cloud servers.<br/>Click DEBUG above to see which sources work.</span>
                       </div>
                     ) : (
                       <div>
                         <span>No deals found for that search.</span><br/>
-                        <span style={{ fontSize: 10, marginTop: 4, display: "block" }}>Try a broader term or leave blank for hot deals.</span>
+                        <span style={{ fontSize: 12, marginTop: 4, display: "block" }}>Try a broader term or leave blank for hot deals.</span>
                       </div>
                     )}
                     {Object.keys(dealsSources).length > 0 && (
@@ -19268,21 +19274,21 @@ export default function App() {
                           const v = dealsSources[key];
                           const bad = v === 0 || v === -1;
                           return (
-                            <span key={key} style={{ background: bad ? C.surface : color, color: bad ? C.textDim : "#fff", border: `1px solid ${bad ? C.border : color}`, borderRadius: 4, padding: "2px 7px", fontSize: 9, fontWeight: 700 }}>
+                            <span key={key} style={{ background: bad ? C.surface : color, color: bad ? C.textDim : "#fff", border: `1px solid ${bad ? C.border : color}`, borderRadius: 6, padding: "3px 8px", fontSize: 12, fontWeight: 700 }}>
                               {bad ? "✕" : "✓"} {label}{v > 0 ? " " + v : ""}
                             </span>
                           );
                         })}
                       </div>
                     )}
-                    <button onClick={runDealsSearch} style={{ marginTop: 12, background: C.accent, border: "none", color: "#fff", borderRadius: 6, padding: "8px 18px", fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                    <button onClick={runDealsSearch} style={{ marginTop: 12, background: C.accent, border: "none", color: "#fff", borderRadius: 6, padding: "8px 18px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
                       TRY AGAIN
                     </button>
                   </div>
                 )}
                 {!dealsLoading && dealsResults.length > 0 && (
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 10, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 10, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                       <span style={{ color: C.text, fontWeight: 700 }}>{dealsResults.length} RESULTS</span>
                       {dealsQuery && <span style={{ color: C.textDim }}>for "{dealsQuery}"</span>}
                       {Object.keys(dealsSources).length > 0 && <span>·</span>}
@@ -19291,7 +19297,7 @@ export default function App() {
                         if (v === undefined) return null;
                         const bad = v === 0 || v === -1;
                         return (
-                          <span key={key} style={{ background: bad ? C.surface : color, color: bad ? C.textDim : "#fff", border: `1px solid ${bad ? C.border : "transparent"}`, borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700 }}>
+                          <span key={key} style={{ background: bad ? C.surface : color, color: bad ? C.textDim : "#fff", border: `1px solid ${bad ? C.border : "transparent"}`, borderRadius: 6, padding: "1px 6px", fontSize: 12, fontWeight: 700 }}>
                             {bad ? ("✕ " + label) : (label + " " + v)}
                           </span>
                         );
@@ -19317,25 +19323,25 @@ export default function App() {
                               ) : (
                                 <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6 }}>
                                   <span style={{ fontSize: 38 }}>{catIcon}</span>
-                                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{srcLabel}</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{srcLabel}</span>
                                 </div>
                               )}
                               {/* Source badge top-left */}
-                              <div style={{ position: "absolute", top: 8, left: 8, background: srcColor, borderRadius: 5, padding: "2px 7px" }}>
-                                <span style={{ fontFamily: MONO, fontSize: 9, color: "#fff", fontWeight: 700 }}>{srcLabel}</span>
+                              <div style={{ position: "absolute", top: 8, left: 8, background: srcColor, borderRadius: 5, padding: "3px 8px" }}>
+                                <span style={{ fontFamily: MONO, fontSize: 12, color: "#fff", fontWeight: 700 }}>{srcLabel}</span>
                               </div>
                               {/* Age badge top-right */}
                               {deal.age !== null && (
-                                <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.65)", borderRadius: 5, padding: "2px 6px" }}>
-                                  <span style={{ fontFamily: MONO, fontSize: 9, color: "#e5e7eb" }}>
+                                <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.65)", borderRadius: 5, padding: "3px 7px" }}>
+                                  <span style={{ fontFamily: MONO, fontSize: 12, color: "#e5e7eb" }}>
                                     {deal.age < 24 ? `${deal.age}h ago` : `${Math.floor(deal.age / 24)}d ago`}
                                   </span>
                                 </div>
                               )}
                               {/* Upvote score bottom-left (Reddit only) */}
                               {deal.score > 0 && (
-                                <div style={{ position: "absolute", bottom: 8, left: 8, background: "rgba(0,0,0,0.65)", borderRadius: 5, padding: "2px 6px" }}>
-                                  <span style={{ fontFamily: MONO, fontSize: 9, color: "#f59e0b", fontWeight: 700 }}>▲ {deal.score?.toLocaleString()}</span>
+                                <div style={{ position: "absolute", bottom: 8, left: 8, background: "rgba(0,0,0,0.65)", borderRadius: 5, padding: "3px 7px" }}>
+                                  <span style={{ fontFamily: MONO, fontSize: 12, color: "#f59e0b", fontWeight: 700 }}>▲ {deal.score?.toLocaleString()}</span>
                                 </div>
                               )}
                             </div>
@@ -19345,22 +19351,22 @@ export default function App() {
                                 {deal.title}
                               </div>
                               {deal.description && (
-                                <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, lineHeight: 1.4 }}>
+                                <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, lineHeight: 1.4 }}>
                                   {deal.description.slice(0, 100)}{deal.description.length > 100 ? "…" : ""}
                                 </div>
                               )}
                               <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "auto", paddingTop: 6 }}>
                                 {deal.price && <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.green }}>{deal.price}</span>}
-                                {deal.comments > 0 && <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>💬 {deal.comments}</span>}
+                                {deal.comments > 0 && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>💬 {deal.comments}</span>}
                               </div>
                               <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
                                 <a href={deal.link} target="_blank" rel="noopener noreferrer"
-                                  style={{ flex: 1, background: srcColor, color: "#fff", textDecoration: "none", borderRadius: 5, padding: "6px 0", fontFamily: MONO, fontSize: 10, fontWeight: 700, textAlign: "center", display: "block" }}>
+                                  style={{ flex: 1, background: srcColor, color: "#fff", textDecoration: "none", borderRadius: 5, padding: "6px 0", fontFamily: MONO, fontSize: 12, fontWeight: 700, textAlign: "center", display: "block" }}>
                                   VIEW DEAL →
                                 </a>
                                 {deal.sourceKey === "reddit" && deal.redditLink && deal.redditLink !== deal.link && (
                                   <a href={deal.redditLink} target="_blank" rel="noopener noreferrer"
-                                    style={{ background: "#ff4500", color: "#fff", textDecoration: "none", borderRadius: 5, padding: "6px 8px", fontFamily: MONO, fontSize: 10, fontWeight: 700, display: "block" }}>
+                                    style={{ background: "#ff4500", color: "#fff", textDecoration: "none", borderRadius: 5, padding: "6px 8px", fontFamily: MONO, fontSize: 12, fontWeight: 700, display: "block" }}>
                                     💬
                                   </a>
                                 )}
@@ -19378,12 +19384,12 @@ export default function App() {
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {/* Active watches */}
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.text, marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span>🔔 TELEGRAM WATCHES ({dealsWatches.length})</span>
-                    <button onClick={fetchDealsWatches} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 9, cursor: "pointer" }}>REFRESH</button>
+                    <button onClick={fetchDealsWatches} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>REFRESH</button>
                   </div>
                   {dealsWatches.length === 0 ? (
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, padding: "12px 0" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "12px 0" }}>
                       No watches yet.<br/>
                       Search for something then click 🔔 WATCH to get Telegram alerts every 30 min when new deals appear.
                     </div>
@@ -19392,16 +19398,16 @@ export default function App() {
                       {dealsWatches.map(w => (
                         <div key={w.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 7, padding: "9px 10px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                           <div style={{ minWidth: 0 }}>
-                            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.query}</div>
-                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>
+                            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.query}</div>
+                            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>
                               {w.category.toUpperCase()}{w.maxPrice ? ` · max $${w.maxPrice}` : ""}{w.location ? ` · ${w.location}` : ""}
                             </div>
-                            <div style={{ fontFamily: MONO, fontSize: 9, color: w.lastAlerted ? C.green : C.textDim, marginTop: 2 }}>
+                            <div style={{ fontFamily: MONO, fontSize: 12, color: w.lastAlerted ? C.green : C.textDim, marginTop: 2 }}>
                               {w.lastAlerted ? `Last alerted: ${new Date(w.lastAlerted).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Not yet checked"}
                             </div>
                           </div>
                           <button onClick={() => removeDealsWatch(w.id)}
-                            style={{ background: C.redBg, border: `1px solid ${C.red}44`, color: C.red, borderRadius: 4, padding: "3px 7px", fontFamily: MONO, fontSize: 9, cursor: "pointer", flexShrink: 0 }}>✕</button>
+                            style={{ background: C.redBg, border: `1px solid ${C.red}44`, color: C.red, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer", flexShrink: 0 }}>✕</button>
                         </div>
                       ))}
                     </div>
@@ -19411,16 +19417,16 @@ export default function App() {
                 {/* Recent Telegram alerts */}
                 {dealsAlerts.length > 0 && (
                   <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.text, marginBottom: 10 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 10 }}>
                       📨 RECENT TELEGRAM ALERTS
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                       {dealsAlerts.slice(0, 10).map(a => (
                         <div key={a.id} style={{ background: `${C.green}08`, border: `1px solid ${C.green}22`, borderRadius: 7, padding: "8px 10px" }}>
-                          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text }}>{a.query} <span style={{ color: C.green, fontWeight: 900 }}>+{a.count} new</span></div>
-                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>{new Date(a.at).toLocaleString()}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{a.query} <span style={{ color: C.green, fontWeight: 900 }}>+{a.count} new</span></div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>{new Date(a.at).toLocaleString()}</div>
                           {a.preview?.map((p, i) => (
-                            <div key={i} style={{ fontFamily: SANS, fontSize: 10, color: C.textSec, marginTop: 3 }}>
+                            <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginTop: 3 }}>
                               • {p.title.slice(0, 50)}{p.title.length > 50 ? "…" : ""} {p.price && <span style={{ color: C.green, fontWeight: 700 }}>{p.price}</span>}
                             </div>
                           ))}
@@ -19432,8 +19438,8 @@ export default function App() {
 
                 {/* Info box */}
                 <div style={{ background: `${C.accent}08`, border: `1px solid ${C.accent}22`, borderRadius: 10, padding: 12 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, marginBottom: 6 }}>HOW DEAL ALERTS WORK</div>
-                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.6 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent, marginBottom: 6 }}>HOW DEAL ALERTS WORK</div>
+                  <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.6 }}>
                     1. Search or browse hot deals by category<br/>
                     2. Click 🔔 WATCH to save the search<br/>
                     3. Server checks Reddit every 30 min<br/>
@@ -19485,7 +19491,7 @@ export default function App() {
                     : blue;
           return (
             <span style={{ background: `${col}1a`, border: `1px solid ${col}44`, color: col,
-              fontFamily: MONO, fontSize: 9, fontWeight: 700, borderRadius: 4, padding: "2px 7px",
+              fontFamily: MONO, fontSize: 12, fontWeight: 700, borderRadius: 6, padding: "3px 8px",
               letterSpacing: "0.05em" }}>
               {label || "—"}
             </span>
@@ -19515,20 +19521,20 @@ export default function App() {
                 <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>
                   📊 COMMITMENTS OF TRADERS
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: dim, marginTop: 3, letterSpacing: "0.06em" }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: dim, marginTop: 3, letterSpacing: "0.06em" }}>
                   CFTC WEEKLY INSTITUTIONAL POSITIONING DATA
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 {/* Freshness badge */}
-                <div style={{ fontFamily: MONO, fontSize: 9, padding: "4px 10px", borderRadius: 5,
+                <div style={{ fontFamily: MONO, fontSize: 12, padding: "4px 10px", borderRadius: 5,
                   background: fresh ? `${green}18` : `${yellow}18`,
                   border: `1px solid ${fresh ? green : yellow}44`,
                   color: fresh ? green : yellow }}>
                   {fresh ? "✅ DATA FRESH" : "⚠️ MAY BE STALE"}
                 </div>
                 {repDate && (
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: dim, padding: "4px 10px",
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: dim, padding: "4px 10px",
                     border: `1px solid ${C.border}`, borderRadius: 5 }}>
                     COT date: {repDate}
                   </div>
@@ -19561,7 +19567,7 @@ export default function App() {
                     setTimeout(poll, 12000); // first check after 12s
                   }}
                   style={{ background: cotRunning ? C.surface : `${blue}1a`, border: `1px solid ${blue}55`,
-                    color: blue, fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "5px 12px",
+                    color: blue, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "5px 12px",
                     borderRadius: 5, cursor: cotRunning ? "not-allowed" : "pointer", letterSpacing: "0.05em" }}>
                   {cotRunning ? "⏳ DOWNLOADING…" : "⬇ UPDATE COT"}
                 </button>
@@ -19577,12 +19583,12 @@ export default function App() {
                       .finally(() => setCotRunning(false));
                   }}
                   style={{ background: cotRunning ? C.surface : `${green}1a`, border: `1px solid ${green}55`,
-                    color: green, fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "5px 12px",
+                    color: green, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "5px 12px",
                     borderRadius: 5, cursor: cotRunning ? "not-allowed" : "pointer", letterSpacing: "0.05em" }}>
                   📤 SEND TELEGRAM
                 </button>
                 {cotLastSent && (
-                  <span style={{ fontFamily: MONO, fontSize: 9, color: cotLastSent.startsWith("✅") ? green : red }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: cotLastSent.startsWith("✅") ? green : red }}>
                     {cotLastSent}
                   </span>
                 )}
@@ -19592,26 +19598,26 @@ export default function App() {
             {/* Stale warning */}
             {summary.staleWarning && (
               <div style={{ background: `${yellow}14`, border: `1px solid ${yellow}44`, borderRadius: 8,
-                padding: "8px 14px", fontFamily: MONO, fontSize: 10, color: yellow, marginBottom: 14 }}>
+                padding: "8px 14px", fontFamily: MONO, fontSize: 12, color: yellow, marginBottom: 14 }}>
                 ⚠️ {summary.staleWarning}
               </div>
             )}
 
             {/* Error / loading */}
             {cotLoading && (
-              <div style={{ textAlign: "center", padding: 40, fontFamily: MONO, fontSize: 11, color: dim }}>
+              <div style={{ textAlign: "center", padding: 40, fontFamily: MONO, fontSize: 12, color: dim }}>
                 ⏳ Loading COT data…
               </div>
             )}
             {cotError && !cotLoading && (
               <div style={{ background: `${red}14`, border: `1px solid ${red}44`, borderRadius: 8,
-                padding: "10px 14px", fontFamily: MONO, fontSize: 10, color: red, marginBottom: 14 }}>
+                padding: "10px 14px", fontFamily: MONO, fontSize: 12, color: red, marginBottom: 14 }}>
                 ❌ {cotError}
               </div>
             )}
 
             {!cotLoading && !cotError && !cotData && (
-              <div style={{ textAlign: "center", padding: 40, fontFamily: MONO, fontSize: 11, color: dim }}>
+              <div style={{ textAlign: "center", padding: 40, fontFamily: MONO, fontSize: 12, color: dim }}>
                 No COT data loaded yet. Click "UPDATE COT" to download the latest CFTC report.
               </div>
             )}
@@ -19632,7 +19638,7 @@ export default function App() {
                     return (
                       <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
                         padding: "10px 12px" }}>
-                        <div style={{ fontFamily: MONO, fontSize: 8, color: dim, letterSpacing: "0.08em", marginBottom: 5 }}>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: dim, letterSpacing: "0.08em", marginBottom: 5 }}>
                           {label.toUpperCase()}
                         </div>
                         {biasTag(value || "N/A")}
@@ -19644,16 +19650,16 @@ export default function App() {
                 {/* ── Market-by-market table ── */}
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12,
                   padding: "14px 16px", marginBottom: 16, overflowX: "auto" }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text,
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text,
                     letterSpacing: "0.08em", marginBottom: 12 }}>
                     MARKET POSITIONING TABLE
                   </div>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: MONO }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: MONO }}>
                     <thead>
                       <tr style={{ borderBottom: `1px solid ${C.border}` }}>
                         {["MARKET","CATEGORY","SCORE","BIAS","13W PCT","52W PCT","WK CHG","REPORT DATE","STATUS"].map(h => (
                           <th key={h} style={{ padding: "4px 10px", textAlign: "left", color: dim,
-                            fontWeight: 600, fontSize: 8, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>
+                            fontWeight: 600, fontSize: 12, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>
                             {h}
                           </th>
                         ))}
@@ -19670,7 +19676,7 @@ export default function App() {
                             <td style={{ padding: "6px 10px", color: C.text, fontWeight: 700, whiteSpace: "nowrap" }}>
                               {b.name || key}
                             </td>
-                            <td style={{ padding: "6px 10px", color: dim, fontSize: 9 }}>
+                            <td style={{ padding: "6px 10px", color: dim, fontSize: 12 }}>
                               {b.category || "—"}
                             </td>
                             <td style={{ padding: "6px 10px", color: col, fontWeight: 800 }}>
@@ -19695,10 +19701,10 @@ export default function App() {
                                 ? (b.weekChange > 0 ? "+" : "") + Number(b.weekChange).toLocaleString()
                                 : "—"}
                             </td>
-                            <td style={{ padding: "6px 10px", color: dim, fontSize: 9 }}>
+                            <td style={{ padding: "6px 10px", color: dim, fontSize: 12 }}>
                               {b.reportDate || "—"}
                             </td>
-                            <td style={{ padding: "6px 10px", fontSize: 9 }}>
+                            <td style={{ padding: "6px 10px", fontSize: 12 }}>
                               {extreme
                                 ? <span style={{ color: yellow }}>⚠️ EXTREME</span>
                                 : <span style={{ color: `${green}88` }}>OK</span>}
@@ -19708,7 +19714,7 @@ export default function App() {
                       })}
                       {Object.keys(allBiases).length === 0 && (
                         <tr>
-                          <td colSpan={9} style={{ padding: "20px 10px", textAlign: "center", color: dim, fontSize: 10 }}>
+                          <td colSpan={9} style={{ padding: "20px 10px", textAlign: "center", color: dim, fontSize: 12 }}>
                             No data — click UPDATE COT to download CFTC report
                           </td>
                         </tr>
@@ -19727,24 +19733,24 @@ export default function App() {
                       <div key={key} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
                         padding: "10px 14px" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text }}>
+                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>
                             {b.name || key}
                           </span>
-                          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: col }}>
+                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: col }}>
                             {sc > 0 ? "+" : ""}{sc}
                           </span>
                         </div>
-                        <div style={{ height: 5, background: C.surface, borderRadius: 3, overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${pct}%`, background: col, borderRadius: 3,
+                        <div style={{ height: 5, background: C.surface, borderRadius: 5, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${pct}%`, background: col, borderRadius: 5,
                             transition: "width 0.4s ease" }} />
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                          <span style={{ fontFamily: MONO, fontSize: 8, color: red }}>BEARISH</span>
-                          <span style={{ fontFamily: MONO, fontSize: 8, color: dim }}>NEUTRAL</span>
-                          <span style={{ fontFamily: MONO, fontSize: 8, color: green }}>BULLISH</span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, color: red }}>BEARISH</span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, color: dim }}>NEUTRAL</span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, color: green }}>BULLISH</span>
                         </div>
-                        {b.crowdedLong  && <div style={{ fontFamily: MONO, fontSize: 8, color: yellow, marginTop: 3 }}>⚠️ Crowded Long — monitor for reversal</div>}
-                        {b.crowdedShort && <div style={{ fontFamily: MONO, fontSize: 8, color: yellow, marginTop: 3 }}>⚠️ Crowded Short — squeeze risk</div>}
+                        {b.crowdedLong  && <div style={{ fontFamily: MONO, fontSize: 12, color: yellow, marginTop: 3 }}>⚠️ Crowded Long — monitor for reversal</div>}
+                        {b.crowdedShort && <div style={{ fontFamily: MONO, fontSize: 12, color: yellow, marginTop: 3 }}>⚠️ Crowded Short — squeeze risk</div>}
                       </div>
                     );
                   })}
@@ -19752,7 +19758,7 @@ export default function App() {
 
                 {/* ── COT Methodology note ── */}
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
-                  padding: "12px 16px", fontFamily: MONO, fontSize: 9, color: dim, lineHeight: 1.7 }}>
+                  padding: "12px 16px", fontFamily: MONO, fontSize: 12, color: dim, lineHeight: 1.7 }}>
                   <div style={{ color: C.text, fontWeight: 700, marginBottom: 6 }}>ℹ️ COT METHODOLOGY</div>
                   COT data is released by the CFTC each Friday at 3:30 PM ET, reflecting positions as of the prior Tuesday close.<br/>
                   <strong style={{ color: C.text }}>TFF</strong> (Traders in Financial Futures) is used for equity indexes, rates, FX, and bonds.<br/>
@@ -19798,7 +19804,7 @@ export default function App() {
               <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 20, color: gold, letterSpacing: "0.08em", marginBottom: 4, direction: "rtl" }}>
                 بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
               </div>
-              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.14em" }}>QURAN RECITATION PLAYER</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.14em" }}>QURAN RECITATION PLAYER</div>
             </div>
 
             {/* ── Main player card ── */}
@@ -19809,7 +19815,7 @@ export default function App() {
                 <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 36, fontWeight: 900, color: gold, lineHeight: 1.2 }}>
                   {surahInfo?.[1]}
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 4, direction: "ltr" }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 4, direction: "ltr" }}>
                   {surahNum}. {surahInfo?.[2]}
                 </div>
               </div>
@@ -19829,7 +19835,7 @@ export default function App() {
                   }}
                   style={{ width: "100%", accentColor: gold, height: 4, cursor: "pointer" }}
                 />
-                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 3 }}>
                   <span>{fmtTime(quranCurrentTime)}</span>
                   <span>{fmtTime(quranDuration)}</span>
                 </div>
@@ -19912,20 +19918,20 @@ export default function App() {
                   onChange={e => setQuranVolume(Number(e.target.value))}
                   style={{ flex: 1, accentColor: gold, cursor: "pointer" }}
                 />
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, minWidth: 30 }}>{Math.round(quranVolume * 100)}%</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, minWidth: 30 }}>{Math.round(quranVolume * 100)}%</span>
               </div>
 
               {/* ── Mode toggles ── */}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", direction: "ltr", justifyContent: "center" }}>
                 <button
                   onClick={() => setQuranRepeat(r => !r)}
-                  style={{ background: quranRepeat ? `${gold}22` : C.surface, border: `1px solid ${quranRepeat ? gold : C.border}`, color: quranRepeat ? gold : C.textDim, borderRadius: 6, padding: "7px 14px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}
+                  style={{ background: quranRepeat ? `${gold}22` : C.surface, border: `1px solid ${quranRepeat ? gold : C.border}`, color: quranRepeat ? gold : C.textDim, borderRadius: 6, padding: "7px 14px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}
                 >
                   🔂 <span>تكرار السورة</span>
                 </button>
                 <button
                   onClick={() => setQuranAutoNext(a => !a)}
-                  style={{ background: quranAutoNext ? `${gold}22` : C.surface, border: `1px solid ${quranAutoNext ? gold : C.border}`, color: quranAutoNext ? gold : C.textDim, borderRadius: 6, padding: "7px 14px", fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}
+                  style={{ background: quranAutoNext ? `${gold}22` : C.surface, border: `1px solid ${quranAutoNext ? gold : C.border}`, color: quranAutoNext ? gold : C.textDim, borderRadius: 6, padding: "7px 14px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}
                 >
                   ▶▶ <span>تشغيل تلقائي</span>
                 </button>
@@ -19933,7 +19939,7 @@ export default function App() {
                   href={qUrl(quranReciter, surahNum)}
                   download={`${surahInfo?.[2] || surahNum}.mp3`}
                   target="_blank" rel="noopener noreferrer"
-                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, padding: "7px 14px", fontFamily: MONO, fontSize: 10, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", gap: 5 }}
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, padding: "7px 14px", fontFamily: MONO, fontSize: 12, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", gap: 5 }}
                 >
                   ⬇ <span>تنزيل</span>
                 </a>
@@ -19943,8 +19949,8 @@ export default function App() {
               {quranAudioError && (
                 <div style={{ marginTop: 14, background: "#2a120a", border: "1px solid #cc4400", borderRadius: 10, padding: "12px 14px", direction: "ltr", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#ff6633" }}>⚠ تعذّر تشغيل الصوت — Audio unavailable</div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: "#cc7755", marginTop: 4 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: "#ff6633" }}>⚠ تعذّر تشغيل الصوت — Audio unavailable</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: "#cc7755", marginTop: 4 }}>
                       {quranReciter.full
                         ? <>ملف الصوت غير متاح مؤقتاً — Audio file temporarily unavailable.<br/>Try a different surah or click RETRY.</>
                         : <>هذه السورة غير متوفرة لهذا القارئ — surah not available for this reciter.<br/>Switch to a ★ reciter (Al-Afasy or Maher Al-Muaiqly have all 114 surahs).</>
@@ -19963,7 +19969,7 @@ export default function App() {
                         quranAudioRef.current.play().catch(() => {});
                       }
                     }}
-                    style={{ background: "#cc4400", border: "none", color: "#fff", borderRadius: 5, padding: "8px 14px", fontFamily: MONO, fontSize: 9, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
+                    style={{ background: "#cc4400", border: "none", color: "#fff", borderRadius: 5, padding: "8px 14px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
                   >RETRY</button>
                 </div>
               )}
@@ -19972,8 +19978,8 @@ export default function App() {
             {/* ── Reciter selector ── */}
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.1em" }}>القارئ — RECITER</div>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>★ = مكتبة كاملة 114 سورة</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.1em" }}>القارئ — RECITER</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>★ = مكتبة كاملة 114 سورة</div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 6 }}>
                 {QURAN_RECITERS.map(r => (
@@ -19996,7 +20002,7 @@ export default function App() {
                   >
                     {r.label}
                     {r.full && (
-                      <span style={{ position: "absolute", top: 5, left: 7, fontFamily: MONO, fontSize: 9, color: r.id === quranReciter.id ? gold : "#c9a84c88", lineHeight: 1 }}>★</span>
+                      <span style={{ position: "absolute", top: 5, left: 7, fontFamily: MONO, fontSize: 12, color: r.id === quranReciter.id ? gold : "#c9a84c88", lineHeight: 1 }}>★</span>
                     )}
                   </button>
                 ))}
@@ -20006,7 +20012,7 @@ export default function App() {
             {/* ── Surah list (all 114, searchable) ── */}
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.1em" }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.1em" }}>
                   السور — ALL SURAHS ({filteredSurahs.length}/114)
                 </div>
                 <input
@@ -20041,7 +20047,7 @@ export default function App() {
                       }}
                     >
                       <div style={{ fontFamily: "Arial, sans-serif", fontSize: 14, fontWeight: isActive ? 700 : 400 }}>{ar}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: isActive ? `${gold}bb` : C.textDim, marginTop: 2, direction: "ltr" }}>{n}. {en}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: isActive ? `${gold}bb` : C.textDim, marginTop: 2, direction: "ltr" }}>{n}. {en}</div>
                     </button>
                   );
                 })}
@@ -20103,7 +20109,7 @@ export default function App() {
             {/* Header */}
             <div style={{ textAlign: "center", marginBottom: 20 }}>
               <div style={{ fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 900, color: gold }}>أوقات الصلاة</div>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, direction: "ltr", marginTop: 4 }}>PRAYER TIMES</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, direction: "ltr", marginTop: 4 }}>PRAYER TIMES</div>
             </div>
 
             {/* Date display */}
@@ -20137,7 +20143,7 @@ export default function App() {
                     <div key={p.key} style={{ background: isNext ? `${gold}18` : C.card, border: `1px solid ${isNext ? gold : C.border}`, borderRadius: 10, padding: "14px 10px", textAlign: "center" }}>
                       <div style={{ fontSize: 16, fontWeight: 700, color: isNext ? gold : C.text, fontFamily: "Arial, sans-serif", marginBottom: 6 }}>{p.name}</div>
                       <div style={{ fontFamily: MONO, fontSize: 14, color: isPast ? C.textDim : C.text, direction: "ltr" }}>{p.timeStr}</div>
-                      {isNext && <div style={{ fontSize: 9, color: gold, fontFamily: MONO, marginTop: 4 }}>التالية</div>}
+                      {isNext && <div style={{ fontSize: 12, color: gold, fontFamily: MONO, marginTop: 4 }}>التالية</div>}
                     </div>
                   );
                 })}
@@ -20149,7 +20155,7 @@ export default function App() {
 
             {/* Location + Settings */}
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 10 }}>الإعدادات</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 10 }}>الإعدادات</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                 <input value={athanCity} onChange={e => setAthanCity(e.target.value)} placeholder="المدينة (مثل: مكة)" dir="rtl"
                   style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "9px 10px", borderRadius: 6, fontSize: 13, fontFamily: "Arial, sans-serif" }}
@@ -20164,11 +20170,11 @@ export default function App() {
                   {METHODS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
                 </select>
                 <button onClick={loadByGeo}
-                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.accent, borderRadius: 6, padding: "9px 12px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.accent, borderRadius: 6, padding: "9px 12px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>
                   📍 موقعي
                 </button>
                 <button onClick={() => { if (athanCity && athanCountry) fetchPrayerTimes(null, null, athanCity, athanCountry); else loadByGeo(); }}
-                  style={{ background: `${gold}18`, border: `1px solid ${gold}55`, color: gold, borderRadius: 6, padding: "9px 12px", fontFamily: MONO, fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
+                  style={{ background: `${gold}18`, border: `1px solid ${gold}55`, color: gold, borderRadius: 6, padding: "9px 12px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>
                   تحديث
                 </button>
               </div>
@@ -20181,7 +20187,7 @@ export default function App() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 12, color: C.textSec }}>تنبيه قبل الصلاة:</span>
                   <select value={athanReminder} onChange={e => { setAthanReminder(Number(e.target.value)); localStorage.setItem("athan_reminder", e.target.value); }}
-                    style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "4px 8px", borderRadius: 4, fontSize: 12, fontFamily: "Arial, sans-serif" }}>
+                    style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "4px 8px", borderRadius: 6, fontSize: 12, fontFamily: "Arial, sans-serif" }}>
                     <option value={5}>5 دقائق</option>
                     <option value={10}>10 دقائق</option>
                     <option value={15}>15 دقيقة</option>
@@ -20225,7 +20231,7 @@ export default function App() {
           <div dir="rtl" style={{ maxWidth: 760, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 20 }}>
               <div style={{ fontFamily: "Georgia, serif", fontSize: 24, fontWeight: 900, color: gold }}>الأذكار</div>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, direction: "ltr", marginTop: 4 }}>ISLAMIC REMEMBRANCE</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, direction: "ltr", marginTop: 4 }}>ISLAMIC REMEMBRANCE</div>
             </div>
 
             {/* Category tabs */}
@@ -20246,7 +20252,7 @@ export default function App() {
                   const reset = { ...athkarProgress };
                   catItems.forEach(item => { reset[item.id] = 0; });
                   saveProgress(reset);
-                }} style={{ marginTop: 10, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "6px 14px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
+                }} style={{ marginTop: 10, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "6px 14px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>
                   إعادة
                 </button>
               </div>
@@ -20261,8 +20267,8 @@ export default function App() {
                 return (
                   <div key={item.id} style={{ background: done ? `${gold}0a` : C.card, border: `1px solid ${done ? gold + "44" : C.border}`, borderRadius: 12, padding: "16px 14px", opacity: done ? 0.75 : 1 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                      <div style={{ fontSize: 11, color: gold, fontFamily: MONO }}>{item.label}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 11, color: done ? gold : C.textSec }}>{current}/{item.count}</div>
+                      <div style={{ fontSize: 12, color: gold, fontFamily: MONO }}>{item.label}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: done ? gold : C.textSec }}>{current}/{item.count}</div>
                     </div>
                     <div style={{ fontFamily: "Arial, sans-serif", fontSize: 17, lineHeight: 2, color: C.text, textAlign: "right", marginBottom: 12, whiteSpace: "pre-wrap" }}>
                       {item.text}
@@ -20283,7 +20289,7 @@ export default function App() {
                         {done ? "✓ مكتمل" : "عد — " + (item.count - current) + " متبقٍ"}
                       </button>
                       <button onClick={() => saveProgress({ ...athkarProgress, [item.id]: 0 })}
-                        style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textSec, borderRadius: 8, padding: "11px 14px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}>
+                        style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textSec, borderRadius: 8, padding: "11px 14px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>
                         إعادة
                       </button>
                     </div>
@@ -20320,7 +20326,7 @@ export default function App() {
           <div dir="rtl" style={{ maxWidth: 560, margin: "0 auto", textAlign: "center" }}>
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 900, color: gold }}>التسبيح</div>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, direction: "ltr", marginTop: 4 }}>DIGITAL TASBIH</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, direction: "ltr", marginTop: 4 }}>DIGITAL TASBIH</div>
             </div>
 
             {/* Current dhikr */}
@@ -20328,7 +20334,7 @@ export default function App() {
               <div style={{ fontFamily: "Arial, sans-serif", fontSize: 28, fontWeight: 900, color: gold, lineHeight: 1.7, marginBottom: 4 }}>
                 {tasbihDhikr.text}
               </div>
-              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, direction: "ltr", marginBottom: 20 }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, direction: "ltr", marginBottom: 20 }}>
                 {tasbihDhikr.transliteration}
               </div>
 
@@ -20341,8 +20347,8 @@ export default function App() {
               </div>
 
               {/* Progress ring-style bar */}
-              <div style={{ height: 6, background: C.border, borderRadius: 3, marginBottom: 20, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${pct}%`, background: done ? gold : C.accent, borderRadius: 3, transition: "width 0.1s" }} />
+              <div style={{ height: 6, background: C.border, borderRadius: 5, marginBottom: 20, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${pct}%`, background: done ? gold : C.accent, borderRadius: 5, transition: "width 0.1s" }} />
               </div>
               <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 20 }}>{pct.toFixed(1)}%</div>
 
@@ -20373,12 +20379,12 @@ export default function App() {
                 style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textSec, borderRadius: 8, padding: "10px 22px", fontFamily: "Arial, sans-serif", fontSize: 14, cursor: "pointer" }}>
                 إعادة
               </button>
-              {tasbihCount > 0 && <div style={{ display: "flex", alignItems: "center", fontFamily: MONO, fontSize: 11, color: C.textDim }}>العدد الحالي: {tasbihCount}</div>}
+              {tasbihCount > 0 && <div style={{ display: "flex", alignItems: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>العدد الحالي: {tasbihCount}</div>}
             </div>
 
             {/* Dhikr selector */}
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 8 }}>الذكر</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 8 }}>الذكر</div>
               <div style={{ display: "grid", gap: 6 }}>
                 {TASBIH_DHIKR.map(d => (
                   <button key={d.id} onClick={() => { setTasbihDhikr(d); doReset(); }}
@@ -20391,7 +20397,7 @@ export default function App() {
 
             {/* Target selector */}
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 8 }}>الهدف</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 8 }}>الهدف</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 10 }}>
                 {[33, 99, 100, 1000].map(t => (
                   <button key={t} onClick={() => { setTasbihTarget(t); setTasbihCustomTarget(""); }}
@@ -20423,7 +20429,7 @@ export default function App() {
             <div style={{ ...card(), padding: "14px 18px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>🌅 PRE-MARKET BRIEFING</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 3 }}>
                   {premktAt
                     ? (() => {
                         const genDate = new Date(premktAt);
@@ -20437,13 +20443,13 @@ export default function App() {
               </div>
               <div style={{ marginLeft: "auto", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                 <button onClick={fetchPremarketBriefing} disabled={premktLoading}
-                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                  style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                     background: premktLoading ? C.surface : C.accent, border: "none", color: premktLoading ? C.textDim : "#fff",
                     borderRadius: 7, padding: "10px 22px", cursor: premktLoading ? "default" : "pointer" }}>
                   {premktLoading ? "⏳ GENERATING…" : "🌅 GENERATE BRIEFING"}
                 </button>
                 {premktBriefing && !premktLoading && (
-                  <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>↺ Refresh for latest data</span>
+                  <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>↺ Refresh for latest data</span>
                 )}
               </div>
             </div>
@@ -20453,7 +20459,7 @@ export default function App() {
               <div style={{ ...card(), padding: 40, textAlign: "center" }}>
                 <div style={{ fontSize: 40, marginBottom: 12 }}>🌅</div>
                 <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 6 }}>Ready when you are</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Generates a personalized morning briefing using your live watchlist, macro data, and earnings calendar.</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Generates a personalized morning briefing using your live watchlist, macro data, and earnings calendar.</div>
               </div>
             )}
             {premktLoading && (
@@ -20471,7 +20477,7 @@ export default function App() {
                     return (
                       <div key={i} style={{ ...card({ padding: 16 }), gridColumn: isGamePlan ? "1 / -1" : undefined,
                         borderLeft: i === 0 ? `3px solid ${C.accent}` : `3px solid ${C.border}` }}>
-                        {s.title && <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.accent, letterSpacing: "0.08em", marginBottom: 8 }}>{icon} {s.title}</div>}
+                        {s.title && <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, letterSpacing: "0.08em", marginBottom: 8 }}>{icon} {s.title}</div>}
                         <div style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{s.body}</div>
                       </div>
                     );
@@ -20509,12 +20515,12 @@ export default function App() {
                 style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface, border: `1px solid ${C.accent}`,
                   color: C.text, borderRadius: 6, padding: "6px 12px", width: 120, outline: "none" }} />
               <button onClick={() => setMultitfSymbol(multitfInput.trim() || "SPY")}
-                style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: C.accent, border: "none", color: "#fff", borderRadius: 6, padding: "7px 16px", cursor: "pointer" }}>GO</button>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+                style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: C.accent, border: "none", color: "#fff", borderRadius: 6, padding: "7px 16px", cursor: "pointer" }}>GO</button>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                 Align trend across all 4 timeframes before entering a position
               </div>
               <a href={`https://www.tradingview.com/chart/?symbol=${sym}`} target="_blank" rel="noopener noreferrer"
-                style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, color: C.textDim, textDecoration: "none", border: `1px solid ${C.border}`, borderRadius: 4, padding: "5px 10px" }}>
+                style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, color: C.textDim, textDecoration: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "5px 10px" }}>
                 Full Chart ↗
               </a>
             </div>
@@ -20524,8 +20530,8 @@ export default function App() {
                 <div key={tf.key} style={card()}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px",
                     borderBottom: `1px solid ${C.border}`, background: C.surface }}>
-                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent }}>{sym}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 600, color: C.textDim }}>{tf.label}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent }}>{sym}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: C.textDim }}>{tf.label}</span>
                   </div>
                   <iframe
                     key={`mtf-${sym}-${tf.key}-${tvTheme}`}
@@ -20585,7 +20591,7 @@ export default function App() {
           setScreenerRules(prev => prev.map((r, idx) => idx === i ? { ...r, [key]: val } : r));
         }
 
-        const sel = { fontFamily: MONO, fontSize: 11, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 5, padding: "5px 8px", outline: "none" };
+        const sel = { fontFamily: MONO, fontSize: 12, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 5, padding: "5px 8px", outline: "none" };
         const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
 
         return (
@@ -20593,12 +20599,12 @@ export default function App() {
             {/* Header */}
             <div style={{ ...card({ padding: "14px 18px" }) }}>
               <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text, marginBottom: 6 }}>🔍 CUSTOM SCREENER</div>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Build filter rules and screen against Smart Scanner results. Run Smart Scan first to populate data.</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Build filter rules and screen against Smart Scanner results. Run Smart Scan first to populate data.</div>
             </div>
 
             {/* Rule builder */}
             <div style={card({ padding: 16 })}>
-              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, marginBottom: 10, letterSpacing: "0.06em" }}>FILTER RULES</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim, marginBottom: 10, letterSpacing: "0.06em" }}>FILTER RULES</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {screenerRules.map((rule, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -20611,18 +20617,18 @@ export default function App() {
                     <input type="number" value={rule.val} onChange={e => updateRule(i, "val", e.target.value)}
                       style={{ ...sel, width: 80 }} />
                     <button onClick={() => removeRule(i)}
-                      style={{ fontFamily: MONO, fontSize: 10, background: C.redBg, border: `1px solid ${C.red}44`,
+                      style={{ fontFamily: MONO, fontSize: 12, background: C.redBg, border: `1px solid ${C.red}44`,
                         color: C.red, borderRadius: 5, padding: "5px 10px", cursor: "pointer" }}>✕</button>
                   </div>
                 ))}
               </div>
               <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
                 <button onClick={addRule}
-                  style={{ fontFamily: MONO, fontSize: 11, background: C.surface, border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, padding: "8px 14px", cursor: "pointer" }}>
+                  style={{ fontFamily: MONO, fontSize: 12, background: C.surface, border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, padding: "8px 14px", cursor: "pointer" }}>
                   + ADD RULE
                 </button>
                 <button onClick={runScreener} disabled={!scanResults.length}
-                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                  style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                     background: scanResults.length ? C.accent : C.surface,
                     border: "none", color: scanResults.length ? "#fff" : C.textDim,
                     borderRadius: 6, padding: "8px 20px", cursor: scanResults.length ? "pointer" : "default" }}>
@@ -20634,7 +20640,7 @@ export default function App() {
             {/* Results */}
             {screenerRan && (
               <div style={card({ overflow: "hidden" })}>
-                <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: screenerResults.length ? C.green : C.textDim }}>
+                <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 12, fontWeight: 700, color: screenerResults.length ? C.green : C.textDim }}>
                   {screenerResults.length ? `✅ ${screenerResults.length} MATCHES` : "❌ NO MATCHES — Adjust your rules"}
                 </div>
                 {screenerResults.length > 0 && (
@@ -20643,7 +20649,7 @@ export default function App() {
                       <thead>
                         <tr style={{ background: C.surface }}>
                           {["TICKER","SCORE","RSI","CHANGE%","PRICE","REL VOL","ACTION"].map(h => (
-                            <th key={h} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, padding: "8px 12px", textAlign: h === "TICKER" ? "left" : "right", letterSpacing: "0.04em" }}>{h}</th>
+                            <th key={h} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim, padding: "8px 12px", textAlign: h === "TICKER" ? "left" : "right", letterSpacing: "0.04em" }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -20654,14 +20660,14 @@ export default function App() {
                           return (
                             <tr key={row.ticker} style={{ borderTop: `1px solid ${C.border}33`, background: i % 2 === 0 ? "transparent" : (themeMode === "dark" ? "#ffffff04" : "#00000003") }}>
                               <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, padding: "8px 12px" }}>{row.ticker}</td>
-                              <td style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: row.score >= 70 ? C.green : row.score >= 50 ? C.amber : C.red, textAlign: "right", padding: "8px 12px" }}>{row.score}</td>
-                              <td style={{ fontFamily: MONO, fontSize: 11, color: row.rsiVal < 30 ? C.green : row.rsiVal > 70 ? C.red : C.text, textAlign: "right", padding: "8px 12px" }}>{row.rsiVal != null ? row.rsiVal.toFixed(0) : "—"}</td>
-                              <td style={{ fontFamily: MONO, fontSize: 11, color: chg >= 0 ? C.green : C.red, textAlign: "right", padding: "8px 12px" }}>{chg >= 0 ? "+" : ""}{Number(chg).toFixed(2)}%</td>
-                              <td style={{ fontFamily: MONO, fontSize: 11, color: C.text, textAlign: "right", padding: "8px 12px" }}>${Number(row.quote?.price || 0).toFixed(2)}</td>
-                              <td style={{ fontFamily: MONO, fontSize: 11, color: rvol && rvol >= 1.5 ? C.green : C.textDim, textAlign: "right", padding: "8px 12px" }}>{rvol ? rvol.toFixed(2) + "x" : "—"}</td>
+                              <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: row.score >= 70 ? C.green : row.score >= 50 ? C.amber : C.red, textAlign: "right", padding: "8px 12px" }}>{row.score}</td>
+                              <td style={{ fontFamily: MONO, fontSize: 12, color: row.rsiVal < 30 ? C.green : row.rsiVal > 70 ? C.red : C.text, textAlign: "right", padding: "8px 12px" }}>{row.rsiVal != null ? row.rsiVal.toFixed(0) : "—"}</td>
+                              <td style={{ fontFamily: MONO, fontSize: 12, color: chg >= 0 ? C.green : C.red, textAlign: "right", padding: "8px 12px" }}>{chg >= 0 ? "+" : ""}{Number(chg).toFixed(2)}%</td>
+                              <td style={{ fontFamily: MONO, fontSize: 12, color: C.text, textAlign: "right", padding: "8px 12px" }}>${Number(row.quote?.price || 0).toFixed(2)}</td>
+                              <td style={{ fontFamily: MONO, fontSize: 12, color: rvol && rvol >= 1.5 ? C.green : C.textDim, textAlign: "right", padding: "8px 12px" }}>{rvol ? rvol.toFixed(2) + "x" : "—"}</td>
                               <td style={{ padding: "8px 12px", textAlign: "right" }}>
                                 <button onClick={() => { setActiveTab("openstock"); setTvOsSymbol(row.ticker); setTvOsInput(row.ticker); }}
-                                  style={{ fontFamily: MONO, fontSize: 9, background: `${C.accent}22`, border: `1px solid ${C.accent}44`, color: C.accent, borderRadius: 4, padding: "4px 10px", cursor: "pointer" }}>
+                                  style={{ fontFamily: MONO, fontSize: 12, background: `${C.accent}22`, border: `1px solid ${C.accent}44`, color: C.accent, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
                                   CHART
                                 </button>
                               </td>
@@ -20676,7 +20682,7 @@ export default function App() {
             )}
             {!scanResults.length && (
               <div style={{ ...card({ padding: 24 }), textAlign: "center" }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>No scan data yet — go to <strong style={{ color: C.accent }}>SCANNER → SMART SCAN</strong> and run a scan first</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>No scan data yet — go to <strong style={{ color: C.accent }}>SCANNER → SMART SCAN</strong> and run a scan first</div>
               </div>
             )}
           </div>
@@ -20693,14 +20699,14 @@ export default function App() {
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>🩳 SHORT INTEREST</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>Short float %, days-to-cover, squeeze potential</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 3 }}>Short float %, days-to-cover, squeeze potential</div>
               </div>
               <input value={shortIntInput || defaultTickers}
                 onChange={e => setShortIntInput(e.target.value.toUpperCase())}
                 placeholder="BBAI,PLTR,RKLB…"
-                style={{ fontFamily: MONO, fontSize: 11, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "7px 12px", flex: "1 1 220px", outline: "none" }} />
+                style={{ fontFamily: MONO, fontSize: 12, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "7px 12px", flex: "1 1 220px", outline: "none" }} />
               <button onClick={() => fetchShortInterest(shortIntInput || defaultTickers)} disabled={shortIntLoading}
-                style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: shortIntLoading ? C.surface : C.accent, border: "none", color: shortIntLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 18px", cursor: shortIntLoading ? "default" : "pointer" }}>
+                style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: shortIntLoading ? C.surface : C.accent, border: "none", color: shortIntLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 18px", cursor: shortIntLoading ? "default" : "pointer" }}>
                 {shortIntLoading ? "LOADING…" : "FETCH DATA"}
               </button>
             </div>
@@ -20710,7 +20716,7 @@ export default function App() {
               {[{ color: C.green, label: "< 5% — Low short interest" }, { color: C.amber, label: "5-15% — Moderate" }, { color: C.red, label: "> 15% — High squeeze potential" }].map(l => (
                 <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <div style={{ width: 10, height: 10, borderRadius: 2, background: l.color }} />
-                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{l.label}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{l.label}</span>
                 </div>
               ))}
             </div>
@@ -20723,7 +20729,7 @@ export default function App() {
                     <thead>
                       <tr style={{ background: C.surface }}>
                         {["TICKER","SHORT FLOAT %","DAYS TO COVER","SHARES SHORT","VS PRIOR MONTH","AS OF"].map(h => (
-                          <th key={h} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, padding: "9px 14px", textAlign: h === "TICKER" ? "left" : "right", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
+                          <th key={h} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim, padding: "9px 14px", textAlign: h === "TICKER" ? "left" : "right", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -20742,18 +20748,18 @@ export default function App() {
                             </td>
                             <td style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: sfColor, textAlign: "right", padding: "9px 14px" }}>
                               {sf != null ? sf.toFixed(1) + "%" : "—"}
-                              {sf != null && sf > 15 && <span style={{ marginLeft: 6, fontSize: 10, color: C.red }}>🔥 SQUEEZE</span>}
+                              {sf != null && sf > 15 && <span style={{ marginLeft: 6, fontSize: 12, color: C.red }}>🔥 SQUEEZE</span>}
                             </td>
                             <td style={{ fontFamily: MONO, fontSize: 12, color: row.shortRatio > 5 ? C.amber : C.text, textAlign: "right", padding: "9px 14px" }}>
                               {row.shortRatio != null ? row.shortRatio.toFixed(1) + " days" : "—"}
                             </td>
-                            <td style={{ fontFamily: MONO, fontSize: 11, color: C.textSec, textAlign: "right", padding: "9px 14px" }}>
+                            <td style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, textAlign: "right", padding: "9px 14px" }}>
                               {row.sharesShort ? (row.sharesShort / 1e6).toFixed(1) + "M" : "—"}
                             </td>
-                            <td style={{ fontFamily: MONO, fontSize: 11, color: change == null ? C.textDim : change > 0 ? C.red : C.green, textAlign: "right", padding: "9px 14px" }}>
+                            <td style={{ fontFamily: MONO, fontSize: 12, color: change == null ? C.textDim : change > 0 ? C.red : C.green, textAlign: "right", padding: "9px 14px" }}>
                               {change != null ? (change > 0 ? "+" : "") + change.toFixed(1) + "%" : "—"}
                             </td>
-                            <td style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: "right", padding: "9px 14px" }}>
+                            <td style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "right", padding: "9px 14px" }}>
                               {row.dateShortInterest || "—"}
                             </td>
                           </tr>
@@ -20767,7 +20773,7 @@ export default function App() {
             {!shortIntData.length && !shortIntLoading && (
               <div style={{ ...card({ padding: 32 }), textAlign: "center" }}>
                 <div style={{ fontSize: 32, marginBottom: 10 }}>🩳</div>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Enter tickers above and click Fetch Data</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Enter tickers above and click Fetch Data</div>
               </div>
             )}
           </div>
@@ -20801,13 +20807,13 @@ export default function App() {
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>🔥 PORTFOLIO HEAT MAP</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>Tile size = position value · Color = P&L</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 3 }}>Tile size = position value · Color = P&L</div>
               </div>
               <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
                 {[{ c: C.green, l: "Gain" }, { c: C.red, l: "Loss" }, { c: C.textDim, l: "Flat" }].map(({ c, l }) => (
                   <div key={l} style={{ display: "flex", alignItems: "center", gap: 5 }}>
                     <div style={{ width: 12, height: 12, borderRadius: 2, background: c, opacity: 0.7 }} />
-                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{l}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{l}</span>
                   </div>
                 ))}
               </div>
@@ -20815,7 +20821,7 @@ export default function App() {
 
             {sorted.length === 0 ? (
               <div style={{ ...card({ padding: 40 }), textAlign: "center" }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>No positions — add holdings in the PORTFOLIO tab</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>No positions — add holdings in the PORTFOLIO tab</div>
               </div>
             ) : (
               <>
@@ -20835,11 +20841,11 @@ export default function App() {
                             borderRadius: 8, cursor: "pointer", display: "flex", flexDirection: "column",
                             alignItems: "center", justifyContent: "center", gap: 4, padding: 6 }}>
                           <div style={{ fontFamily: MONO, fontSize: Math.max(10, tileW / 9), fontWeight: 800, color: C.text }}>{h.symbol}</div>
-                          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: h.pnlPct >= 0 ? C.green : C.red }}>
+                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: h.pnlPct >= 0 ? C.green : C.red }}>
                             {h.pnlPct >= 0 ? "+" : ""}{h.pnlPct.toFixed(2)}%
                           </div>
                           {tileH > 80 && (
-                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>${(h.value / 1000).toFixed(1)}K</div>
+                            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>${(h.value / 1000).toFixed(1)}K</div>
                           )}
                         </button>
                       );
@@ -20852,11 +20858,11 @@ export default function App() {
                   {sorted.map(h => (
                     <div key={h.symbol} style={{ ...card({ padding: "10px 14px" }), borderLeft: `3px solid ${h.pnlPct >= 0 ? C.green : C.red}` }}>
                       <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{h.symbol}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>{h.shares} shares @ ${Number(h.avgPrice || 0).toFixed(2)}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: h.pnlPct >= 0 ? C.green : C.red, marginTop: 4 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>{h.shares} shares @ ${Number(h.avgPrice || 0).toFixed(2)}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: h.pnlPct >= 0 ? C.green : C.red, marginTop: 4 }}>
                         {h.pnlPct >= 0 ? "▲" : "▼"} {Math.abs(h.pnlPct).toFixed(2)}%
                       </div>
-                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textSec }}>${h.value.toFixed(0)} ({totalValue > 0 ? (h.value / totalValue * 100).toFixed(1) : 0}%)</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>${h.value.toFixed(0)} ({totalValue > 0 ? (h.value / totalValue * 100).toFixed(1) : 0}%)</div>
                     </div>
                   ))}
                 </div>
@@ -20882,12 +20888,12 @@ export default function App() {
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>🔗 CORRELATION MATRIX</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 3 }}>
                   Pearson correlation of daily returns · {availSyms.length} tickers with candle data loaded
                 </div>
               </div>
               <button onClick={computeCorrelation} disabled={corrLoading || availSyms.length < 2}
-                style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, fontWeight: 700,
                   background: corrLoading || availSyms.length < 2 ? C.surface : C.accent,
                   border: "none", color: corrLoading || availSyms.length < 2 ? C.textDim : "#fff",
                   borderRadius: 6, padding: "9px 18px", cursor: corrLoading || availSyms.length < 2 ? "default" : "pointer" }}>
@@ -20900,17 +20906,17 @@ export default function App() {
               {[{ bg: corrColor(0.8), label: "> 0.7 Strong positive" }, { bg: corrColor(0.5), label: "0.3–0.7 Moderate" }, { bg: corrColor(0), label: "Near zero" }, { bg: corrColor(-0.5), label: "-0.7–-0.3 Moderate inverse" }, { bg: corrColor(-0.8), label: "< -0.7 Strong inverse" }].map(l => (
                 <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   <div style={{ width: 12, height: 12, borderRadius: 2, background: l.bg, border: `1px solid ${C.border}` }} />
-                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{l.label}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{l.label}</span>
                 </div>
               ))}
             </div>
 
             {availSyms.length < 2 && (
               <div style={{ ...card({ padding: 32 }), textAlign: "center" }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 8 }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 8 }}>
                   Need ≥2 tickers with candle data
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                   Go to <strong style={{ color: C.accent }}>WATCHLIST → SMART SCAN</strong> and expand any ticker to load candle data, then come back here.
                 </div>
               </div>
@@ -20918,7 +20924,7 @@ export default function App() {
 
             {corrMatrix?.error && (
               <div style={{ ...card({ padding: 20 }), borderLeft: `3px solid ${C.red}` }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>{corrMatrix.error}</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>{corrMatrix.error}</div>
               </div>
             )}
 
@@ -20927,24 +20933,24 @@ export default function App() {
                 <table style={{ borderCollapse: "separate", borderSpacing: 3 }}>
                   <thead>
                     <tr>
-                      <th style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, padding: "4px 8px", textAlign: "right" }}></th>
+                      <th style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "4px 8px", textAlign: "right" }}></th>
                       {corrMatrix.syms.map(s => (
-                        <th key={s} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, padding: "4px 8px", textAlign: "center", whiteSpace: "nowrap" }}>{s}</th>
+                        <th key={s} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim, padding: "4px 8px", textAlign: "center", whiteSpace: "nowrap" }}>{s}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {corrMatrix.syms.map(s1 => (
                       <tr key={s1}>
-                        <td style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, padding: "4px 8px", textAlign: "right", whiteSpace: "nowrap" }}>{s1}</td>
+                        <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim, padding: "4px 8px", textAlign: "right", whiteSpace: "nowrap" }}>{s1}</td>
                         {corrMatrix.syms.map(s2 => {
                           const v = corrMatrix.matrix[s1][s2];
                           const isDiag = s1 === s2;
                           return (
                             <td key={s2} title={`${s1} vs ${s2}: ${v.toFixed(2)}`}
                               style={{ background: isDiag ? `${C.accent}22` : corrColor(v),
-                                border: `1px solid ${C.border}33`, borderRadius: 4,
-                                fontFamily: MONO, fontSize: 10, fontWeight: isDiag ? 800 : 600,
+                                border: `1px solid ${C.border}33`, borderRadius: 6,
+                                fontFamily: MONO, fontSize: 12, fontWeight: isDiag ? 800 : 600,
                                 color: isDiag ? C.accent : C.text,
                                 padding: "6px 8px", textAlign: "center", minWidth: 48 }}>
                               {isDiag ? "—" : v.toFixed(2)}
@@ -20956,7 +20962,7 @@ export default function App() {
                   </tbody>
                 </table>
                 {corrMatrix.computedAt && (
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 10 }}>Computed {new Date(corrMatrix.computedAt).toLocaleTimeString()}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 10 }}>Computed {new Date(corrMatrix.computedAt).toLocaleTimeString()}</div>
                 )}
               </div>
             )}
@@ -20972,27 +20978,27 @@ export default function App() {
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>🌀 FIBONACCI CALCULATOR</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>Auto-detects swing high/low from 90-day daily candles</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 3 }}>Auto-detects swing high/low from 90-day daily candles</div>
               </div>
               <input value={fibInput} onChange={e => setFibInput(e.target.value.toUpperCase())}
                 onKeyDown={e => { if (e.key === "Enter") { setFibTicker(fibInput.trim() || "SPY"); fetchFibonacci(fibInput.trim() || "SPY"); } }}
                 placeholder="Ticker…"
                 style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface, border: `1px solid ${C.accent}`, color: C.text, borderRadius: 6, padding: "7px 12px", width: 130, outline: "none" }} />
               <button onClick={() => { const t = fibInput.trim() || "SPY"; setFibTicker(t); fetchFibonacci(t); }} disabled={fibLoading}
-                style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: fibLoading ? C.surface : C.accent, border: "none", color: fibLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 18px", cursor: fibLoading ? "default" : "pointer" }}>
+                style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: fibLoading ? C.surface : C.accent, border: "none", color: fibLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 18px", cursor: fibLoading ? "default" : "pointer" }}>
                 {fibLoading ? "LOADING…" : "CALCULATE"}
               </button>
               <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {["SPY","NVDA","AAPL","TSLA","BBAI","PLTR"].map(t => (
                   <button key={t} onClick={() => { setFibInput(t); setFibTicker(t); fetchFibonacci(t); }}
-                    style={{ fontFamily: MONO, fontSize: 9, background: fibTicker === t ? `${C.accent}22` : C.surface, border: `1px solid ${fibTicker === t ? C.accent : C.border}`, color: fibTicker === t ? C.accent : C.textDim, borderRadius: 4, padding: "4px 8px", cursor: "pointer" }}>{t}</button>
+                    style={{ fontFamily: MONO, fontSize: 12, background: fibTicker === t ? `${C.accent}22` : C.surface, border: `1px solid ${fibTicker === t ? C.accent : C.border}`, color: fibTicker === t ? C.accent : C.textDim, borderRadius: 6, padding: "4px 8px", cursor: "pointer" }}>{t}</button>
                 ))}
               </div>
             </div>
 
             {fibError && (
               <div style={{ ...card({ padding: 16 }), borderLeft: `3px solid ${C.red}` }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>Error: {fibError}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>Error: {fibError}</span>
               </div>
             )}
 
@@ -21009,7 +21015,7 @@ export default function App() {
                     { l: "POSITION",   v: (((fibData.lastPrice - fibData.swingLow) / (fibData.swingHigh - fibData.swingLow)) * 100).toFixed(1) + "% of range", c: C.amber },
                   ].map(stat => (
                     <div key={stat.l} style={{ ...card({ padding: "10px 14px" }) }}>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4, letterSpacing: "0.06em" }}>{stat.l}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 4, letterSpacing: "0.06em" }}>{stat.l}</div>
                       <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: stat.c }}>{stat.v}</div>
                     </div>
                   ))}
@@ -21017,7 +21023,7 @@ export default function App() {
 
                 {/* Levels table */}
                 <div style={{ ...card({ overflow: "hidden" }) }}>
-                  <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: "0.06em" }}>
+                  <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim, letterSpacing: "0.06em" }}>
                     FIBONACCI LEVELS — {fibData.ticker}
                   </div>
                   {fibData.levels.map((lvl, i) => {
@@ -21034,20 +21040,20 @@ export default function App() {
                         <div style={{ width: 4, height: 28, borderRadius: 2, flexShrink: 0,
                           background: lvl.isExt ? C.purple : lvl.isKey ? C.amber : lvl.ratio === 0 || lvl.ratio === 1 ? C.textDim : C.border }} />
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: lvl.isKey ? C.amber : lvl.isExt ? C.purple : C.textSec }}>
+                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: lvl.isKey ? C.amber : lvl.isExt ? C.purple : C.textSec }}>
                             {lvl.label} {isCurrent && <span style={{ color: C.amber }}>◄ PRICE IS HERE</span>}
                           </div>
                         </div>
                         <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: lvl.isKey ? C.amber : C.text, minWidth: 90, textAlign: "right" }}>
                           ${lvl.price.toFixed(2)}
                         </div>
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: above ? C.green : C.red, minWidth: 70, textAlign: "right" }}>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: above ? C.green : C.red, minWidth: 70, textAlign: "right" }}>
                           {above ? "▼ " : "▲ "}{distPct}% away
                         </div>
                         {/* Mini price bar visualization */}
-                        <div style={{ width: 80, height: 8, background: C.border, borderRadius: 4, overflow: "hidden", flexShrink: 0 }}>
+                        <div style={{ width: 80, height: 8, background: C.border, borderRadius: 6, overflow: "hidden", flexShrink: 0 }}>
                           <div style={{ width: `${Math.min(100, lvl.ratio * 100)}%`, height: "100%",
-                            background: lvl.isKey ? C.amber : C.accent, borderRadius: 4 }} />
+                            background: lvl.isKey ? C.amber : C.accent, borderRadius: 6 }} />
                         </div>
                       </div>
                     );
@@ -21060,7 +21066,7 @@ export default function App() {
               <div style={{ ...card({ padding: 40 }), textAlign: "center" }}>
                 <div style={{ fontSize: 36, marginBottom: 12 }}>🌀</div>
                 <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 6 }}>Enter a ticker and click Calculate</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Automatically finds swing high/low over last 90 days and draws all key Fibonacci levels</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Automatically finds swing high/low over last 90 days and draws all key Fibonacci levels</div>
               </div>
             )}
           </div>
@@ -21089,7 +21095,7 @@ export default function App() {
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: gold }}>☪ HALAL STOCK SCREENER</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 3 }}>
                   Islamic finance compliance check per AAOIFI standards — powered by AI
                 </div>
               </div>
@@ -21099,7 +21105,7 @@ export default function App() {
                   placeholder="Enter ticker…"
                   style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface, border: `1px solid ${gold}88`, color: C.text, borderRadius: 6, padding: "7px 12px", width: 140, outline: "none" }} />
                 <button onClick={() => halalInput.trim() && fetchHalalCheck(halalInput.trim())} disabled={halalLoading}
-                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: halalLoading ? C.surface : gold, border: "none", color: halalLoading ? C.textDim : "#1a1000", borderRadius: 6, padding: "9px 18px", cursor: halalLoading ? "default" : "pointer" }}>
+                  style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: halalLoading ? C.surface : gold, border: "none", color: halalLoading ? C.textDim : "#1a1000", borderRadius: 6, padding: "9px 18px", cursor: halalLoading ? "default" : "pointer" }}>
                   {halalLoading ? "CHECKING…" : "☪ CHECK"}
                 </button>
               </div>
@@ -21109,17 +21115,17 @@ export default function App() {
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {WATCHLIST_FOR_HALAL.map(t => (
                 <button key={t} onClick={() => { setHalalInput(t); fetchHalalCheck(t); }}
-                  style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                  style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                     background: halalReport?.ticker === t ? `${gold}22` : C.surface,
                     border: `1px solid ${halalReport?.ticker === t ? gold : C.border}`,
                     color: halalReport?.ticker === t ? gold : C.textDim,
-                    borderRadius: 4, padding: "5px 10px", cursor: "pointer" }}>{t}</button>
+                    borderRadius: 6, padding: "5px 10px", cursor: "pointer" }}>{t}</button>
               ))}
             </div>
 
             {halalError && (
               <div style={{ ...card({ padding: 16 }), borderLeft: `3px solid ${C.red}` }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>{halalError}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>{halalError}</span>
               </div>
             )}
 
@@ -21144,25 +21150,25 @@ export default function App() {
                   {/* Verdict card */}
                   <div style={{ ...card({ padding: 20, borderLeft: `4px solid ${verdict ? verdictColor(verdict) : gold}` }), display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
                     <div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>TICKER</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 4 }}>TICKER</div>
                       <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.accent }}>{halalReport.ticker}</div>
                     </div>
                     {verdict && (
                       <div>
-                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>VERDICT</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 4 }}>VERDICT</div>
                         <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: verdictColor(verdict) }}>{verdict}</div>
                       </div>
                     )}
                     {score != null && (
                       <div>
-                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>COMPLIANCE SCORE</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 4 }}>COMPLIANCE SCORE</div>
                         <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: score >= 70 ? C.green : score >= 40 ? C.amber : C.red }}>{score}/100</div>
-                        <div style={{ height: 6, width: 120, background: C.border, borderRadius: 3, marginTop: 4 }}>
-                          <div style={{ width: `${score}%`, height: "100%", background: score >= 70 ? C.green : score >= 40 ? C.amber : C.red, borderRadius: 3 }} />
+                        <div style={{ height: 6, width: 120, background: C.border, borderRadius: 5, marginTop: 4 }}>
+                          <div style={{ width: `${score}%`, height: "100%", background: score >= 70 ? C.green : score >= 40 ? C.amber : C.red, borderRadius: 5 }} />
                         </div>
                       </div>
                     )}
-                    <div style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, color: C.textDim, textAlign: "right" }}>
+                    <div style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "right" }}>
                       {halalReport.at && new Date(halalReport.at).toLocaleString()}
                     </div>
                   </div>
@@ -21172,7 +21178,7 @@ export default function App() {
                     {sections.map((s, i) => (
                       s.title !== "VERDICT" && s.title !== "COMPLIANCE SCORE" && (
                         <div key={i} style={{ ...card({ padding: 14, borderLeft: `3px solid ${gold}44` }) }}>
-                          {s.title && <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: gold, letterSpacing: "0.07em", marginBottom: 8 }}>☪ {s.title}</div>}
+                          {s.title && <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: gold, letterSpacing: "0.07em", marginBottom: 8 }}>☪ {s.title}</div>}
                           <div style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{s.body}</div>
                         </div>
                       )
@@ -21186,7 +21192,7 @@ export default function App() {
               <div style={{ ...card({ padding: 40 }), textAlign: "center" }}>
                 <div style={{ fontFamily: "Georgia, serif", fontSize: 36, color: gold, marginBottom: 12 }}>☪</div>
                 <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 6 }}>Enter a ticker to check halal compliance</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, maxWidth: 400, margin: "0 auto" }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, maxWidth: 400, margin: "0 auto" }}>
                   Checks business activities, revenue from haram sources, debt ratios, and interest income against AAOIFI Islamic finance screening standards.
                 </div>
               </div>
@@ -21204,7 +21210,7 @@ export default function App() {
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>🏦 SMART MONEY TRACKER</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>Insider transactions + institutional ownership from SEC filings</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>Insider transactions + institutional ownership from SEC filings</div>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: "auto", flexWrap: "wrap" }}>
                 <input value={insiderInput} onChange={e => setInsiderInput(e.target.value.toUpperCase())}
@@ -21212,7 +21218,7 @@ export default function App() {
                   placeholder="Ticker…"
                   style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "7px 12px", width: 120, outline: "none" }} />
                 <button onClick={() => insiderInput.trim() && fetchInsiderData(insiderInput.trim())} disabled={insiderLoading}
-                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: insiderLoading ? C.surface : C.accent, border: "none", color: insiderLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 16px", cursor: insiderLoading ? "default" : "pointer" }}>
+                  style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: insiderLoading ? C.surface : C.accent, border: "none", color: insiderLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 16px", cursor: insiderLoading ? "default" : "pointer" }}>
                   {insiderLoading ? "LOADING…" : "FETCH"}
                 </button>
               </div>
@@ -21220,7 +21226,7 @@ export default function App() {
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {SM_TICKERS.map(t => (
                 <button key={t} onClick={() => { setInsiderInput(t); fetchInsiderData(t); }}
-                  style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, background: insiderTicker === t && insiderData ? `${C.accent}22` : C.surface, border: `1px solid ${insiderTicker === t && insiderData ? C.accent : C.border}`, color: insiderTicker === t && insiderData ? C.accent : C.textDim, borderRadius: 4, padding: "5px 10px", cursor: "pointer" }}>{t}</button>
+                  style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: insiderTicker === t && insiderData ? `${C.accent}22` : C.surface, border: `1px solid ${insiderTicker === t && insiderData ? C.accent : C.border}`, color: insiderTicker === t && insiderData ? C.accent : C.textDim, borderRadius: 6, padding: "5px 10px", cursor: "pointer" }}>{t}</button>
               ))}
             </div>
             {insiderLoading && <div style={{ ...card({ padding: 40, textAlign: "center" }) }}><span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading insider data…</span></div>}
@@ -21230,41 +21236,41 @@ export default function App() {
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
                   {/* Insider Transactions */}
                   <div style={{ ...card({ padding: 16 }) }}>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 12, letterSpacing: "0.05em" }}>INSIDER TRANSACTIONS — {ins.symbol}</div>
-                    {ins.error ? <div style={{ color: C.red, fontFamily: MONO, fontSize: 11 }}>{ins.error}</div> : ins.transactions?.length > 0 ? (
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, marginBottom: 12, letterSpacing: "0.05em" }}>INSIDER TRANSACTIONS — {ins.symbol}</div>
+                    {ins.error ? <div style={{ color: C.red, fontFamily: MONO, fontSize: 12 }}>{ins.error}</div> : ins.transactions?.length > 0 ? (
                       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                         {ins.transactions.slice(0, 12).map((t, i) => (
                           <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: t.type === "BUY" ? C.greenBg : C.redBg, borderRadius: 6, borderLeft: `3px solid ${t.type === "BUY" ? C.green : C.red}` }}>
                             <div>
-                              <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: t.type === "BUY" ? C.green : C.red }}>{t.type} · {t.name}</div>
-                              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{t.role} · {t.date}</div>
+                              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: t.type === "BUY" ? C.green : C.red }}>{t.type} · {t.name}</div>
+                              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{t.role} · {t.date}</div>
                             </div>
                             <div style={{ textAlign: "right" }}>
-                              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{t.shares?.toLocaleString()} shares</div>
-                              {t.value > 0 && <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>${(t.value / 1e6).toFixed(1)}M</div>}
+                              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{t.shares?.toLocaleString()} shares</div>
+                              {t.value > 0 && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>${(t.value / 1e6).toFixed(1)}M</div>}
                             </div>
                           </div>
                         ))}
                       </div>
-                    ) : <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, padding: 20, textAlign: "center" }}>No recent insider transactions</div>}
+                    ) : <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: 20, textAlign: "center" }}>No recent insider transactions</div>}
                   </div>
                   {/* Institutional Ownership */}
                   <div style={{ ...card({ padding: 16 }) }}>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.purple, marginBottom: 12, letterSpacing: "0.05em" }}>INSTITUTIONAL OWNERSHIP</div>
-                    {ins.error ? <div style={{ color: C.red, fontFamily: MONO, fontSize: 11 }}>{ins.error}</div> : (
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.purple, marginBottom: 12, letterSpacing: "0.05em" }}>INSTITUTIONAL OWNERSHIP</div>
+                    {ins.error ? <div style={{ color: C.red, fontFamily: MONO, fontSize: 12 }}>{ins.error}</div> : (
                       <>
                         {(ins.insidersPct != null || ins.institutionsPct != null) && (
                           <div style={{ display: "flex", gap: 20, marginBottom: 14, flexWrap: "wrap" }}>
                             {ins.insidersPct != null && (
                               <div style={{ textAlign: "center" }}>
                                 <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.amber }}>{Number(ins.insidersPct).toFixed(1)}%</div>
-                                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>INSIDERS HELD</div>
+                                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>INSIDERS HELD</div>
                               </div>
                             )}
                             {ins.institutionsPct != null && (
                               <div style={{ textAlign: "center" }}>
                                 <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.purple }}>{Number(ins.institutionsPct).toFixed(1)}%</div>
-                                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>INSTITUTIONS HELD</div>
+                                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>INSTITUTIONS HELD</div>
                               </div>
                             )}
                           </div>
@@ -21273,8 +21279,8 @@ export default function App() {
                           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                             {ins.institutions.slice(0, 10).map((inst, i) => (
                               <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", background: C.surface, borderRadius: 5 }}>
-                                <div style={{ fontFamily: MONO, fontSize: 10, color: C.text, fontWeight: 700 }}>{inst.name}</div>
-                                <div style={{ fontFamily: MONO, fontSize: 10, color: inst.change > 0 ? C.green : inst.change < 0 ? C.red : C.textDim }}>
+                                <div style={{ fontFamily: MONO, fontSize: 12, color: C.text, fontWeight: 700 }}>{inst.name}</div>
+                                <div style={{ fontFamily: MONO, fontSize: 12, color: inst.change > 0 ? C.green : inst.change < 0 ? C.red : C.textDim }}>
                                   {inst.pctHeld != null ? `${Number(inst.pctHeld).toFixed(2)}%` : "—"}
                                   {inst.change != null && <span style={{ marginLeft: 8 }}>{inst.change > 0 ? "+" : ""}{inst.change?.toLocaleString()}</span>}
                                 </div>
@@ -21292,7 +21298,7 @@ export default function App() {
               <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
                 <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>🏦</div>
                 <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Enter a ticker to track smart money</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>See who's buying and selling before price moves</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 6 }}>See who's buying and selling before price moves</div>
               </div>
             )}
           </div>
@@ -21308,7 +21314,7 @@ export default function App() {
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.cyan }}>💬 SOCIAL SENTIMENT</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>StockTwits bull/bear + Reddit WallStreetBets mentions</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>StockTwits bull/bear + Reddit WallStreetBets mentions</div>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: "auto", flexWrap: "wrap" }}>
                 <input value={socialInput} onChange={e => setSocialInput(e.target.value.toUpperCase())}
@@ -21316,7 +21322,7 @@ export default function App() {
                   placeholder="Ticker…"
                   style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "7px 12px", width: 120, outline: "none" }} />
                 <button onClick={() => socialInput.trim() && fetchSocialSentiment(socialInput.trim())} disabled={socialLoading}
-                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: socialLoading ? C.surface : C.cyan, border: "none", color: socialLoading ? C.textDim : "#000", borderRadius: 6, padding: "9px 16px", cursor: socialLoading ? "default" : "pointer" }}>
+                  style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: socialLoading ? C.surface : C.cyan, border: "none", color: socialLoading ? C.textDim : "#000", borderRadius: 6, padding: "9px 16px", cursor: socialLoading ? "default" : "pointer" }}>
                   {socialLoading ? "LOADING…" : "FETCH"}
                 </button>
               </div>
@@ -21324,7 +21330,7 @@ export default function App() {
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {SOC_TICKERS.map(t => (
                 <button key={t} onClick={() => { setSocialInput(t); fetchSocialSentiment(t); }}
-                  style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, background: socialTicker === t && socialData ? `${C.cyan}22` : C.surface, border: `1px solid ${socialTicker === t && socialData ? C.cyan : C.border}`, color: socialTicker === t && socialData ? C.cyan : C.textDim, borderRadius: 4, padding: "5px 10px", cursor: "pointer" }}>{t}</button>
+                  style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: socialTicker === t && socialData ? `${C.cyan}22` : C.surface, border: `1px solid ${socialTicker === t && socialData ? C.cyan : C.border}`, color: socialTicker === t && socialData ? C.cyan : C.textDim, borderRadius: 6, padding: "5px 10px", cursor: "pointer" }}>{t}</button>
               ))}
             </div>
             {socialLoading && <div style={{ ...card({ padding: 40, textAlign: "center" }) }}><span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Fetching social data…</span></div>}
@@ -21341,26 +21347,26 @@ export default function App() {
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
                     <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.green}` }) }}>
                       <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.green }}>{bullPct.toFixed(0)}%</div>
-                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>🟢 BULLISH</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>🟢 BULLISH</div>
                     </div>
                     <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.red}` }) }}>
                       <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.red }}>{bearPct.toFixed(0)}%</div>
-                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>🔴 BEARISH</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>🔴 BEARISH</div>
                     </div>
                     <div style={{ ...card({ padding: 18, textAlign: "center" }) }}>
                       <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.text }}>{total}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>TOTAL POSTS</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>TOTAL POSTS</div>
                     </div>
                     {socialData.redditMentions != null && (
                       <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.amber}` }) }}>
                         <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.amber }}>{socialData.redditMentions}</div>
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>WSB MENTIONS</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>WSB MENTIONS</div>
                       </div>
                     )}
                   </div>
                   {/* Sentiment bar */}
                   <div style={{ ...card({ padding: "12px 16px" }) }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 8 }}>SENTIMENT DISTRIBUTION — {total > 0 ? `${total} posts analyzed` : "no sentiment data"}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 8 }}>SENTIMENT DISTRIBUTION — {total > 0 ? `${total} posts analyzed` : "no sentiment data"}</div>
                     <div style={{ display: "flex", height: 24, borderRadius: 6, overflow: "hidden" }}>
                       <div style={{ width: `${bullPct}%`, background: C.green, minWidth: bullPct > 0 ? 4 : 0 }} />
                       <div style={{ flex: 1, background: C.red }} />
@@ -21369,15 +21375,15 @@ export default function App() {
                   {/* Recent messages */}
                   {msgs.length > 0 && (
                     <div style={{ ...card({ padding: 16 }) }}>
-                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.cyan, marginBottom: 10 }}>RECENT POSTS — {stwits.symbol || socialData.ticker}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.cyan, marginBottom: 10 }}>RECENT POSTS — {stwits.symbol || socialData.ticker}</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                         {msgs.slice(0, 8).map((m, i) => (
                           <div key={i} style={{ padding: "10px 12px", background: C.surface, borderRadius: 6, borderLeft: `3px solid ${m.sentiment === "Bullish" ? C.green : m.sentiment === "Bearish" ? C.red : C.border}` }}>
                             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                              <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: m.sentiment === "Bullish" ? C.green : m.sentiment === "Bearish" ? C.red : C.textDim }}>
+                              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: m.sentiment === "Bullish" ? C.green : m.sentiment === "Bearish" ? C.red : C.textDim }}>
                                 {m.sentiment === "Bullish" ? "🟢" : m.sentiment === "Bearish" ? "🔴" : "⚪"} {m.user}
                               </span>
-                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{m.likes > 0 ? `❤ ${m.likes}` : ""}</span>
+                              <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{m.likes > 0 ? `❤ ${m.likes}` : ""}</span>
                             </div>
                             <div style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.5 }}>{m.body?.slice(0, 200)}</div>
                           </div>
@@ -21392,7 +21398,7 @@ export default function App() {
               <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
                 <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>💬</div>
                 <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Enter a ticker to see social sentiment</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>StockTwits real-time bull/bear ratio + Reddit WSB mentions</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 6 }}>StockTwits real-time bull/bear ratio + Reddit WSB mentions</div>
               </div>
             )}
           </div>
@@ -21422,7 +21428,7 @@ export default function App() {
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>🎯 ANALYST RATINGS</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>Wall Street consensus · price targets · upgrade/downgrade history</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>Wall Street consensus · price targets · upgrade/downgrade history</div>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: "auto", flexWrap: "wrap" }}>
                 <input value={analystInput} onChange={e => setAnalystInput(e.target.value.toUpperCase())}
@@ -21430,7 +21436,7 @@ export default function App() {
                   placeholder="Ticker…"
                   style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "7px 12px", width: 120, outline: "none" }} />
                 <button onClick={() => analystInput.trim() && fetchAnalystRatings(analystInput.trim())} disabled={analystLoading}
-                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: analystLoading ? C.surface : C.accent, border: "none", color: analystLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 16px", cursor: analystLoading ? "default" : "pointer" }}>
+                  style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: analystLoading ? C.surface : C.accent, border: "none", color: analystLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 16px", cursor: analystLoading ? "default" : "pointer" }}>
                   {analystLoading ? "LOADING…" : "FETCH"}
                 </button>
               </div>
@@ -21438,7 +21444,7 @@ export default function App() {
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {AN_TICKERS.map(t => (
                 <button key={t} onClick={() => { setAnalystInput(t); fetchAnalystRatings(t); }}
-                  style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, background: analystTicker === t && analystData ? `${C.accent}22` : C.surface, border: `1px solid ${analystTicker === t && analystData ? C.accent : C.border}`, color: analystTicker === t && analystData ? C.accent : C.textDim, borderRadius: 4, padding: "5px 10px", cursor: "pointer" }}>{t}</button>
+                  style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: analystTicker === t && analystData ? `${C.accent}22` : C.surface, border: `1px solid ${analystTicker === t && analystData ? C.accent : C.border}`, color: analystTicker === t && analystData ? C.accent : C.textDim, borderRadius: 6, padding: "5px 10px", cursor: "pointer" }}>{t}</button>
               ))}
             </div>
             {analystLoading && <div style={{ ...card({ padding: 40, textAlign: "center" }) }}><span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading analyst data…</span></div>}
@@ -21449,30 +21455,30 @@ export default function App() {
                   {/* Summary card */}
                   <div style={{ ...card({ padding: 20, borderLeft: `4px solid ${recColor(ad.recommendation)}` }), display: "flex", gap: 24, flexWrap: "wrap", alignItems: "center" }}>
                     <div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>TICKER</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>TICKER</div>
                       <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 900, color: C.accent }}>{ad.symbol}</div>
                     </div>
                     <div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>CONSENSUS</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>CONSENSUS</div>
                       <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: recColor(ad.recommendation) }}>{ad.recommendation?.toUpperCase() || "—"}</div>
                     </div>
                     <div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>ANALYSTS</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>ANALYSTS</div>
                       <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 800, color: C.text }}>{ad.numAnalysts || "—"}</div>
                     </div>
                     <div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>CURRENT PRICE</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>CURRENT PRICE</div>
                       <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 800, color: C.text }}>${ad.currentPrice?.toFixed(2) || "—"}</div>
                     </div>
                     <div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>PRICE TARGETS</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>PRICE TARGETS</div>
                       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                         <span style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>Low ${ad.targetLow?.toFixed(0)}</span>
                         <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.accent }}>Mean ${ad.targetMean?.toFixed(0)}</span>
                         <span style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>High ${ad.targetHigh?.toFixed(0)}</span>
                       </div>
                       {ad.currentPrice && ad.targetMean && (
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: ad.targetMean > ad.currentPrice ? C.green : C.red, marginTop: 2 }}>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: ad.targetMean > ad.currentPrice ? C.green : C.red, marginTop: 2 }}>
                           {ad.targetMean > ad.currentPrice ? "+" : ""}{(((ad.targetMean - ad.currentPrice) / ad.currentPrice) * 100).toFixed(1)}% upside
                         </div>
                       )}
@@ -21481,17 +21487,17 @@ export default function App() {
                   {/* Upgrade/downgrade history */}
                   {ad.history?.length > 0 && (
                     <div style={{ ...card({ padding: 16 }) }}>
-                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 10 }}>RATING HISTORY</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, marginBottom: 10 }}>RATING HISTORY</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                         {ad.history.slice(0, 12).map((h, i) => (
                           <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "7px 10px", background: h.action === "up" ? C.greenBg : h.action === "down" ? C.redBg : C.surface, borderRadius: 6, flexWrap: "wrap", gap: 6 }}>
                             <div>
-                              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text }}>{h.firm}</span>
-                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginLeft: 8 }}>{h.date}</span>
+                              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{h.firm}</span>
+                              <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: 8 }}>{h.date}</span>
                             </div>
                             <div>
-                              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{h.fromGrade} → </span>
-                              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: h.action === "up" ? C.green : h.action === "down" ? C.red : C.amber }}>{h.toGrade}</span>
+                              <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{h.fromGrade} → </span>
+                              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: h.action === "up" ? C.green : h.action === "down" ? C.red : C.amber }}>{h.toGrade}</span>
                             </div>
                           </div>
                         ))}
@@ -21501,20 +21507,20 @@ export default function App() {
                   {/* Trend table */}
                   {ad.trend?.length > 0 && (
                     <div style={{ ...card({ padding: 16 }) }}>
-                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 10 }}>RECOMMENDATION TREND</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, marginBottom: 10 }}>RECOMMENDATION TREND</div>
                       <div style={{ overflowX: "auto" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 11 }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12 }}>
                           <thead>
                             <tr style={{ borderBottom: `1px solid ${C.border}` }}>
                               {["PERIOD","STR BUY","BUY","HOLD","SELL","STR SELL"].map(h => (
-                                <th key={h} style={{ padding: "6px 10px", textAlign: "center", color: C.textDim, fontSize: 9, fontWeight: 600 }}>{h}</th>
+                                <th key={h} style={{ padding: "6px 10px", textAlign: "center", color: C.textDim, fontSize: 12, fontWeight: 600 }}>{h}</th>
                               ))}
                             </tr>
                           </thead>
                           <tbody>
                             {ad.trend.map((row, i) => (
                               <tr key={i} style={{ borderBottom: `1px solid ${C.border}30` }}>
-                                <td style={{ padding: "8px 10px", color: C.textSec, fontSize: 10 }}>{row.period}</td>
+                                <td style={{ padding: "8px 10px", color: C.textSec, fontSize: 12 }}>{row.period}</td>
                                 <td style={{ padding: "8px 10px", textAlign: "center", color: C.green, fontWeight: 700 }}>{row.strongBuy || 0}</td>
                                 <td style={{ padding: "8px 10px", textAlign: "center", color: C.green }}>{row.buy || 0}</td>
                                 <td style={{ padding: "8px 10px", textAlign: "center", color: C.amber }}>{row.hold || 0}</td>
@@ -21548,9 +21554,9 @@ export default function App() {
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.green }}>💸 DIVIDEND TRACKER</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>Ex-dividend dates, yields, payout ratios & stock splits</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>Ex-dividend dates, yields, payout ratios & stock splits</div>
               </div>
-              <button onClick={fetchDividendCalendar} disabled={dividendLoading} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 700, background: dividendLoading ? C.surface : C.green, border: "none", color: dividendLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 18px", cursor: dividendLoading ? "default" : "pointer" }}>
+              <button onClick={fetchDividendCalendar} disabled={dividendLoading} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, fontWeight: 700, background: dividendLoading ? C.surface : C.green, border: "none", color: dividendLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 18px", cursor: dividendLoading ? "default" : "pointer" }}>
                 {dividendLoading ? "LOADING…" : "LOAD DIVIDENDS"}
               </button>
             </div>
@@ -21569,29 +21575,29 @@ export default function App() {
                       <div>
                         <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.accent }}>{d.symbol}</div>
                         {/* dates are returned as formatted strings like "2026-03-14", not Unix timestamps */}
-                        {d.exDividendDate && <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>Ex-Div: {d.exDividendDate}</div>}
-                        {d.dividendDate && <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Pay Date: {d.dividendDate}</div>}
-                        {d.lastSplitFactor && <div style={{ fontFamily: MONO, fontSize: 9, color: C.amber, marginTop: 4 }}>Split: {d.lastSplitFactor} ({d.lastSplitDate || "—"})</div>}
+                        {d.exDividendDate && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>Ex-Div: {d.exDividendDate}</div>}
+                        {d.dividendDate && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Pay Date: {d.dividendDate}</div>}
+                        {d.lastSplitFactor && <div style={{ fontFamily: MONO, fontSize: 12, color: C.amber, marginTop: 4 }}>Split: {d.lastSplitFactor} ({d.lastSplitDate || "—"})</div>}
                       </div>
                       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                         {d.dividendYield > 0 && (
                           <div style={{ textAlign: "center" }}>
                             {/* dividendYield from backend is already a % value (e.g. 1.23 = 1.23%) */}
                             <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.green }}>{Number(d.dividendYield).toFixed(2)}%</div>
-                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>YIELD</div>
+                            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>YIELD</div>
                           </div>
                         )}
                         {d.dividendRate > 0 && (
                           <div style={{ textAlign: "center" }}>
                             <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.text }}>${Number(d.dividendRate).toFixed(2)}</div>
-                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>ANNUAL</div>
+                            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>ANNUAL</div>
                           </div>
                         )}
                         {d.payoutRatio > 0 && (
                           <div style={{ textAlign: "center" }}>
                             {/* payoutRatio is already a % (e.g. 45 = 45%) */}
                             <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: d.payoutRatio > 90 ? C.red : d.payoutRatio > 60 ? C.amber : C.text }}>{Number(d.payoutRatio).toFixed(0)}%</div>
-                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>PAYOUT</div>
+                            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>PAYOUT</div>
                           </div>
                         )}
                       </div>
@@ -21604,7 +21610,7 @@ export default function App() {
               <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
                 <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>💸</div>
                 <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Click LOAD DIVIDENDS to fetch your watchlist</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>Shows dividend yields, ex-dates, payout ratios, and stock splits</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 6 }}>Shows dividend yields, ex-dates, payout ratios, and stock splits</div>
               </div>
             )}
           </div>
@@ -21657,9 +21663,9 @@ export default function App() {
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.amber }}>⚠ RISK LABORATORY</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>Stress testing · VaR · Beta exposure · Tax-loss harvesting</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>Stress testing · VaR · Beta exposure · Tax-loss harvesting</div>
               </div>
-              <div style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.textDim }}>{portfolioRows.length} positions · ${totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} total</div>
+              <div style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, color: C.textDim }}>{portfolioRows.length} positions · ${totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} total</div>
             </div>
             {portfolioRows.length === 0 ? (
               <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
@@ -21672,31 +21678,31 @@ export default function App() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
                   <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.red}` }) }}>
                     <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.red }}>-${var95.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>VaR 95% (1-DAY)</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>VaR 95% (1-DAY)</div>
                   </div>
                   <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.red}` }) }}>
                     <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.red }}>-${var99.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>VaR 99% (1-DAY)</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>VaR 99% (1-DAY)</div>
                   </div>
                   <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.amber}` }) }}>
                     <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.amber }}>{approxBeta.toFixed(2)}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>PORTFOLIO BETA</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>PORTFOLIO BETA</div>
                   </div>
                   <div style={{ ...card({ padding: 18, textAlign: "center" }) }}>
                     <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.text }}>{(portVol * 100).toFixed(1)}%</div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>AVG DAILY VOL</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>AVG DAILY VOL</div>
                   </div>
                 </div>
                 {/* Stress tests */}
                 <div style={{ ...card({ padding: 16 }) }}>
-                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.amber, marginBottom: 12 }}>STRESS TEST SCENARIOS</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.amber, marginBottom: 12 }}>STRESS TEST SCENARIOS</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
                     {scenarios.map((sc, i) => {
                       const impact = totalValue * approxBeta * sc.spyShock;
                       return (
                         <div key={i} style={{ padding: "14px 16px", background: C.surface, borderRadius: 8, borderLeft: `4px solid ${sc.spyShock < 0 ? C.red : C.green}` }}>
-                          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text }}>{sc.name}</div>
-                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 2 }}>{sc.label}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{sc.name}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>{sc.label}</div>
                           <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: sc.spyShock < 0 ? C.red : C.green, marginTop: 8 }}>
                             {impact >= 0 ? "+" : ""}${impact.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                           </div>
@@ -21707,18 +21713,18 @@ export default function App() {
                 </div>
                 {/* Tax-loss harvesting */}
                 <div style={{ ...card({ padding: 16 }) }}>
-                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, marginBottom: 10 }}>TAX-LOSS HARVESTING OPPORTUNITIES</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.green, marginBottom: 10 }}>TAX-LOSS HARVESTING OPPORTUNITIES</div>
                   {losers.length === 0 ? (
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, padding: "12px 0" }}>No unrealized losses in portfolio — all positions are profitable</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "12px 0" }}>No unrealized losses in portfolio — all positions are profitable</div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       {losers.map((l, i) => (
                         <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: C.redBg, borderRadius: 6 }}>
-                          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{l.ticker}</div>
-                          <div style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>Loss: ${l.lossAmt.toFixed(0)} · Tax savings ≈ ${(l.lossAmt * 0.22).toFixed(0)} (22%)</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{l.ticker}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>Loss: ${l.lossAmt.toFixed(0)} · Tax savings ≈ ${(l.lossAmt * 0.22).toFixed(0)} (22%)</div>
                         </div>
                       ))}
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 6 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 6 }}>
                         * Estimated at 22% federal tax rate. Consult a tax professional. Wash-sale rule: do not repurchase within 30 days.
                       </div>
                     </div>
@@ -21747,7 +21753,7 @@ export default function App() {
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {sections.map(s => (
                   <button key={s.id} onClick={() => setAilabSection(s.id)}
-                    style={{ fontFamily: MONO, fontSize: 10, fontWeight: ailabSection === s.id ? 800 : 500, background: ailabSection === s.id ? `${C.purple}22` : C.surface, border: `1px solid ${ailabSection === s.id ? C.purple : C.border}`, color: ailabSection === s.id ? C.purple : C.textDim, borderRadius: 5, padding: "7px 14px", cursor: "pointer" }}>{s.label}</button>
+                    style={{ fontFamily: MONO, fontSize: 12, fontWeight: ailabSection === s.id ? 800 : 500, background: ailabSection === s.id ? `${C.purple}22` : C.surface, border: `1px solid ${ailabSection === s.id ? C.purple : C.border}`, color: ailabSection === s.id ? C.purple : C.textDim, borderRadius: 5, padding: "7px 14px", cursor: "pointer" }}>{s.label}</button>
                 ))}
               </div>
             </div>
@@ -21755,20 +21761,20 @@ export default function App() {
             {ailabSection === "pattern" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ ...card({ padding: 16 }), display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.purple }}>AI CHART PATTERN RECOGNIZER</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.purple }}>AI CHART PATTERN RECOGNIZER</div>
                   <input value={patternInput} onChange={e => setPatternInput(e.target.value.toUpperCase())}
                     onKeyDown={e => { if (e.key === "Enter" && patternInput.trim()) fetchAIPattern(patternInput.trim()); }}
                     placeholder="Ticker…"
                     style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "7px 12px", width: 120, outline: "none" }} />
                   <button onClick={() => patternInput.trim() && fetchAIPattern(patternInput.trim())} disabled={patternLoading}
-                    style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: patternLoading ? C.surface : C.purple, border: "none", color: patternLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 16px", cursor: patternLoading ? "default" : "pointer" }}>
+                    style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: patternLoading ? C.surface : C.purple, border: "none", color: patternLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 16px", cursor: patternLoading ? "default" : "pointer" }}>
                     {patternLoading ? "ANALYZING…" : "ANALYZE"}
                   </button>
                 </div>
                 {patternLoading && <div style={{ ...card({ padding: 40, textAlign: "center" }) }}><span style={{ fontFamily: MONO, color: C.textDim }}>AI analyzing price action…</span></div>}
                 {patternResult && !patternLoading && (
                   <div style={{ ...card({ padding: 20, borderLeft: `4px solid ${C.purple}` }) }}>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.purple, marginBottom: 10 }}>PATTERN ANALYSIS — {patternTicker}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.purple, marginBottom: 10 }}>PATTERN ANALYSIS — {patternTicker}</div>
                     {patternResult.error ? (
                       <div style={{ fontFamily: MONO, color: C.red }}>{patternResult.error}</div>
                     ) : (
@@ -21782,20 +21788,20 @@ export default function App() {
             {ailabSection === "scenario" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ ...card({ padding: 16 }) }}>
-                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.purple, marginBottom: 10 }}>MACRO SCENARIO PLANNER</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.purple, marginBottom: 10 }}>MACRO SCENARIO PLANNER</div>
                   <textarea value={scenarioInput} onChange={e => setScenarioInput(e.target.value)}
                     placeholder="Describe a macro scenario (e.g. 'Fed cuts rates by 50bps in September amid recession fears')"
                     rows={3}
                     style={{ width: "100%", fontFamily: SANS, fontSize: 13, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "10px 12px", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
                   <button onClick={() => fetchMacroScenario(scenarioInput)} disabled={scenarioLoading || !scenarioInput.trim()}
-                    style={{ marginTop: 10, fontFamily: MONO, fontSize: 11, fontWeight: 700, background: scenarioLoading || !scenarioInput.trim() ? C.surface : C.purple, border: "none", color: scenarioLoading ? C.textDim : "#fff", borderRadius: 6, padding: "10px 20px", cursor: "pointer" }}>
+                    style={{ marginTop: 10, fontFamily: MONO, fontSize: 12, fontWeight: 700, background: scenarioLoading || !scenarioInput.trim() ? C.surface : C.purple, border: "none", color: scenarioLoading ? C.textDim : "#fff", borderRadius: 6, padding: "10px 20px", cursor: "pointer" }}>
                     {scenarioLoading ? "ANALYZING…" : "ANALYZE IMPACT"}
                   </button>
                 </div>
                 {scenarioLoading && <div style={{ ...card({ padding: 40, textAlign: "center" }) }}><span style={{ fontFamily: MONO, color: C.textDim }}>Running scenario analysis…</span></div>}
                 {scenarioResult && !scenarioLoading && (
                   <div style={{ ...card({ padding: 20, borderLeft: `4px solid ${C.purple}` }) }}>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.purple, marginBottom: 10 }}>SCENARIO IMPACT</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.purple, marginBottom: 10 }}>SCENARIO IMPACT</div>
                     {scenarioResult.error ? (
                       <div style={{ fontFamily: MONO, color: C.red }}>{scenarioResult.error}</div>
                     ) : (
@@ -21809,16 +21815,16 @@ export default function App() {
             {ailabSection === "earnings" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ ...card({ padding: 16 }) }}>
-                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.purple, marginBottom: 10 }}>EARNINGS CALL SUMMARIZER</div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 8 }}>Paste earnings call transcript below (up to 12,000 characters)</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.purple, marginBottom: 10 }}>EARNINGS CALL SUMMARIZER</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 8 }}>Paste earnings call transcript below (up to 12,000 characters)</div>
                   <textarea value={earningsCallText} onChange={e => setEarningsCallText(e.target.value)}
                     placeholder="Paste earnings call transcript here…"
                     rows={8}
                     style={{ width: "100%", fontFamily: SANS, fontSize: 12, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "10px 12px", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{earningsCallText.length} / 12,000 chars</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{earningsCallText.length} / 12,000 chars</span>
                     <button onClick={summarizeEarningsCall} disabled={earningsCallLoad || !earningsCallText.trim()}
-                      style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: earningsCallLoad || !earningsCallText.trim() ? C.surface : C.purple, border: "none", color: earningsCallLoad ? C.textDim : "#fff", borderRadius: 6, padding: "10px 20px", cursor: "pointer" }}>
+                      style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: earningsCallLoad || !earningsCallText.trim() ? C.surface : C.purple, border: "none", color: earningsCallLoad ? C.textDim : "#fff", borderRadius: 6, padding: "10px 20px", cursor: "pointer" }}>
                       {earningsCallLoad ? "SUMMARIZING…" : "SUMMARIZE"}
                     </button>
                   </div>
@@ -21826,7 +21832,7 @@ export default function App() {
                 {earningsCallLoad && <div style={{ ...card({ padding: 40, textAlign: "center" }) }}><span style={{ fontFamily: MONO, color: C.textDim }}>AI reading the call…</span></div>}
                 {earningsCallResult && !earningsCallLoad && (
                   <div style={{ ...card({ padding: 20, borderLeft: `4px solid ${C.purple}` }) }}>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.purple, marginBottom: 10 }}>SUMMARY</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.purple, marginBottom: 10 }}>SUMMARY</div>
                     {earningsCallResult.error ? (
                       <div style={{ fontFamily: MONO, color: C.red }}>{earningsCallResult.error}</div>
                     ) : (
@@ -21841,18 +21847,18 @@ export default function App() {
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ ...card({ padding: 20 }), display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.purple }}>SESSION RECAP GENERATOR</div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 4 }}>AI reviews today's closed trades and market performance</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.purple }}>SESSION RECAP GENERATOR</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 4 }}>AI reviews today's closed trades and market performance</div>
                   </div>
                   <button onClick={generateSessionRecap} disabled={sessionRecapLoad}
-                    style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, background: sessionRecapLoad ? C.surface : C.purple, border: "none", color: sessionRecapLoad ? C.textDim : "#fff", borderRadius: 6, padding: "10px 20px", cursor: "pointer" }}>
+                    style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: sessionRecapLoad ? C.surface : C.purple, border: "none", color: sessionRecapLoad ? C.textDim : "#fff", borderRadius: 6, padding: "10px 20px", cursor: "pointer" }}>
                     {sessionRecapLoad ? "GENERATING…" : "GENERATE RECAP"}
                   </button>
                 </div>
                 {sessionRecapLoad && <div style={{ ...card({ padding: 40, textAlign: "center" }) }}><span style={{ fontFamily: MONO, color: C.textDim }}>Writing your session recap…</span></div>}
                 {sessionRecapResult && !sessionRecapLoad && (
                   <div style={{ ...card({ padding: 20, borderLeft: `4px solid ${C.purple}` }) }}>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.purple, marginBottom: 10 }}>TODAY'S SESSION RECAP</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.purple, marginBottom: 10 }}>TODAY'S SESSION RECAP</div>
                     {sessionRecapResult.error ? (
                       <div style={{ fontFamily: MONO, color: C.red }}>{sessionRecapResult.error}</div>
                     ) : (
@@ -21866,20 +21872,20 @@ export default function App() {
             {ailabSection === "checklist" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ ...card({ padding: 16 }), display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.purple }}>PRE-TRADE CHECKLIST</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.purple }}>PRE-TRADE CHECKLIST</div>
                   <div>
                     <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: checklistItems.filter(c => c.done).length === checklistItems.length ? C.green : C.amber }}>
                       {checklistItems.filter(c => c.done).length}/{checklistItems.length}
                     </span>
                     <button onClick={() => setChecklistItems(prev => prev.map(c => ({ ...c, done: false })))}
-                      style={{ marginLeft: 12, fontFamily: MONO, fontSize: 9, background: C.surface, border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 4, padding: "4px 10px", cursor: "pointer" }}>RESET</button>
+                      style={{ marginLeft: 12, fontFamily: MONO, fontSize: 12, background: C.surface, border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>RESET</button>
                   </div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {checklistItems.map(item => (
                     <div key={item.id} onClick={() => setChecklistItems(prev => prev.map(c => c.id === item.id ? { ...c, done: !c.done } : c))}
                       style={{ ...card({ padding: "12px 16px" }), display: "flex", alignItems: "center", gap: 12, cursor: "pointer", borderLeft: `4px solid ${item.done ? C.green : C.border}`, opacity: item.done ? 0.85 : 1 }}>
-                      <div style={{ width: 20, height: 20, borderRadius: 4, border: `2px solid ${item.done ? C.green : C.border}`, background: item.done ? C.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${item.done ? C.green : C.border}`, background: item.done ? C.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                         {item.done && <span style={{ color: "#fff", fontSize: 12, lineHeight: 1 }}>✓</span>}
                       </div>
                       <span style={{ fontFamily: SANS, fontSize: 13, color: item.done ? C.textDim : C.text, textDecoration: item.done ? "line-through" : "none" }}>{item.label}</span>
@@ -21906,17 +21912,17 @@ export default function App() {
               <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.green, marginBottom: 14 }}>📈 DCA PLANNER</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
                 <div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>TICKER</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 5 }}>TICKER</div>
                   <input value={dcaTicker} onChange={e => setDcaTicker(e.target.value.toUpperCase())}
                     style={{ width: "100%", fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 10px", boxSizing: "border-box", outline: "none" }} />
                 </div>
                 <div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>AMOUNT ($)</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 5 }}>AMOUNT ($)</div>
                   <input type="number" value={dcaAmount} onChange={e => setDcaAmount(e.target.value)}
                     style={{ width: "100%", fontFamily: MONO, fontSize: 13, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 10px", boxSizing: "border-box", outline: "none" }} />
                 </div>
                 <div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>FREQUENCY</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 5 }}>FREQUENCY</div>
                   <select value={dcaPeriod} onChange={e => setDcaPeriod(e.target.value)}
                     style={{ width: "100%", fontFamily: MONO, fontSize: 12, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 10px", boxSizing: "border-box", outline: "none" }}>
                     <option value="daily">Daily</option>
@@ -21925,12 +21931,12 @@ export default function App() {
                   </select>
                 </div>
                 <div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>MONTHS</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 5 }}>MONTHS</div>
                   <input type="number" value={dcaMonths} onChange={e => setDcaMonths(e.target.value)} min={1} max={120}
                     style={{ width: "100%", fontFamily: MONO, fontSize: 13, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 10px", boxSizing: "border-box", outline: "none" }} />
                 </div>
                 <div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>ANNUAL RETURN (%)</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 5 }}>ANNUAL RETURN (%)</div>
                   <input type="number" value={dcaReturn} onChange={e => setDcaReturn(e.target.value)} min={0} max={100}
                     style={{ width: "100%", fontFamily: MONO, fontSize: 13, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 10px", boxSizing: "border-box", outline: "none" }} />
                 </div>
@@ -21951,24 +21957,24 @@ export default function App() {
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
                     <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.green}` }) }}>
                       <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.green }}>${fv.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>FINAL VALUE</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>FINAL VALUE</div>
                     </div>
                     <div style={{ ...card({ padding: 18, textAlign: "center" }) }}>
                       <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.text }}>${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>TOTAL INVESTED</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>TOTAL INVESTED</div>
                     </div>
                     <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.accent}` }) }}>
                       <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.accent }}>${gain.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>TOTAL GAIN</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>TOTAL GAIN</div>
                     </div>
                     <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.accent}` }) }}>
                       <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.accent }}>{gainPct.toFixed(1)}%</div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>RETURN</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>RETURN</div>
                     </div>
                   </div>
                   {/* Equity curve */}
                   <div style={{ ...card({ padding: 16 }) }}>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, marginBottom: 12 }}>EQUITY CURVE — {dcaTicker}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.green, marginBottom: 12 }}>EQUITY CURVE — {dcaTicker}</div>
                     <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 120, padding: "0 4px" }}>
                       {curve.map((pt, i) => (
                         <div key={i} title={`Month ${pt.month}: $${pt.value.toFixed(0)}`} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 1, height: "100%" }}>
@@ -21978,8 +21984,8 @@ export default function App() {
                       ))}
                     </div>
                     <div style={{ display: "flex", gap: 14, marginTop: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 12, height: 8, background: `${C.green}88`, borderRadius: 2 }} /><span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Invested</span></div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 12, height: 8, background: C.green, borderRadius: 2 }} /><span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Growth</span></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 12, height: 8, background: `${C.green}88`, borderRadius: 2 }} /><span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Invested</span></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 12, height: 8, background: C.green, borderRadius: 2 }} /><span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Growth</span></div>
                     </div>
                   </div>
                 </div>
@@ -21989,7 +21995,7 @@ export default function App() {
               <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
                 <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>📈</div>
                 <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Set parameters and click CALCULATE</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>Projects the future value of regular investments using compound growth</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 6 }}>Projects the future value of regular investments using compound growth</div>
               </div>
             )}
           </div>
@@ -22005,7 +22011,7 @@ export default function App() {
               <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.amber, marginBottom: 14 }}>🎰 OPTIONS BREAK-EVEN CALCULATOR</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
                 <div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>TYPE</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 5 }}>TYPE</div>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button onClick={() => setOptionType("call")}
                       style={{ flex: 1, fontFamily: MONO, fontSize: 12, fontWeight: 700, background: optionType === "call" ? C.green : C.surface, border: `1px solid ${optionType === "call" ? C.green : C.border}`, color: optionType === "call" ? "#fff" : C.textDim, borderRadius: 5, padding: "8px 0", cursor: "pointer" }}>CALL</button>
@@ -22014,22 +22020,22 @@ export default function App() {
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>STRIKE PRICE</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 5 }}>STRIKE PRICE</div>
                   <input type="number" value={optionStrike} onChange={e => setOptionStrike(e.target.value)} placeholder="150"
                     style={{ width: "100%", fontFamily: MONO, fontSize: 13, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 10px", boxSizing: "border-box", outline: "none" }} />
                 </div>
                 <div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>PREMIUM PAID</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 5 }}>PREMIUM PAID</div>
                   <input type="number" value={optionPremium} onChange={e => setOptionPremium(e.target.value)} placeholder="3.50"
                     style={{ width: "100%", fontFamily: MONO, fontSize: 13, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 10px", boxSizing: "border-box", outline: "none" }} />
                 </div>
                 <div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>STOCK PRICE (opt)</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 5 }}>STOCK PRICE (opt)</div>
                   <input type="number" value={optionStock} onChange={e => setOptionStock(e.target.value)} placeholder="148"
                     style={{ width: "100%", fontFamily: MONO, fontSize: 13, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 10px", boxSizing: "border-box", outline: "none" }} />
                 </div>
                 <div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 5 }}>EXPIRY DATE (opt)</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 5 }}>EXPIRY DATE (opt)</div>
                   <input type="date" value={optionExpiry} onChange={e => setOptionExpiry(e.target.value)}
                     style={{ width: "100%", fontFamily: MONO, fontSize: 12, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 10px", boxSizing: "border-box", outline: "none" }} />
                 </div>
@@ -22048,43 +22054,43 @@ export default function App() {
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
                     <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.accent}` }) }}>
                       <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.accent }}>${breakEven.toFixed(2)}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>BREAK-EVEN</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>BREAK-EVEN</div>
                     </div>
                     <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.green}` }) }}>
                       <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.green }}>{isCall ? "Unlimited" : `$${maxProfit}`}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>MAX PROFIT</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>MAX PROFIT</div>
                     </div>
                     <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.red}` }) }}>
                       <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.red }}>-${maxLoss}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>MAX LOSS</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>MAX LOSS</div>
                     </div>
                     {intrinsic != null && (
                       <div style={{ ...card({ padding: 18, textAlign: "center" }) }}>
                         <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.text }}>${intrinsic.toFixed(2)}</div>
-                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>INTRINSIC VALUE</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>INTRINSIC VALUE</div>
                       </div>
                     )}
                     {timeValue != null && (
                       <div style={{ ...card({ padding: 18, textAlign: "center" }) }}>
                         <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.textSec }}>${timeValue.toFixed(2)}</div>
-                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>TIME VALUE</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>TIME VALUE</div>
                       </div>
                     )}
                     {currentPnL != null && (
                       <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${currentPnL >= 0 ? C.green : C.red}` }) }}>
                         <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: currentPnL >= 0 ? C.green : C.red }}>{currentPnL >= 0 ? "+" : ""}${currentPnL.toFixed(0)}</div>
-                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>CURRENT P&L</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>CURRENT P&L</div>
                       </div>
                     )}
                     {daysToExpiry != null && (
                       <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${daysToExpiry <= 7 ? C.red : daysToExpiry <= 21 ? C.amber : C.green}` }) }}>
                         <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: daysToExpiry <= 7 ? C.red : daysToExpiry <= 21 ? C.amber : C.green }}>{daysToExpiry}d</div>
-                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>DAYS TO EXPIRY</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>DAYS TO EXPIRY</div>
                       </div>
                     )}
                   </div>
                   <div style={{ ...card({ padding: 16, borderLeft: `4px solid ${isCall ? C.green : C.red}` }) }}>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 8 }}>TRADE SUMMARY — {isCall ? "CALL" : "PUT"} ${optionStrike} @ ${optionPremium}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8 }}>TRADE SUMMARY — {isCall ? "CALL" : "PUT"} ${optionStrike} @ ${optionPremium}</div>
                     <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.7 }}>
                       {isCall
                         ? `You paid $${optionPremium}/share ($${(parseFloat(optionPremium) * 100).toFixed(0)} per contract) for the right to BUY at $${optionStrike}. Stock must rise above $${breakEven.toFixed(2)} by expiry to profit.`
@@ -22098,7 +22104,7 @@ export default function App() {
               <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
                 <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>🎰</div>
                 <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Enter option details and click CALCULATE</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>Computes break-even, max profit/loss, intrinsic value, time value, and P&L</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 6 }}>Computes break-even, max profit/loss, intrinsic value, time value, and P&L</div>
               </div>
             )}
           </div>
@@ -22457,21 +22463,21 @@ export default function App() {
           <div onClick={(e) => e.stopPropagation()} style={{ width: 960, maxWidth: "94vw", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, boxShadow: "0 24px 60px rgba(15,27,45,0.18)", overflow: "hidden" }}>
             <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: C.text, fontWeight: 700 }}>MARKET OVERALL REPORT</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>{marketReportGeneratedAt || "Now"}</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.text, fontWeight: 700 }}>MARKET OVERALL REPORT</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>{marketReportGeneratedAt || "Now"}</div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   onClick={() => {
                     try { navigator.clipboard.writeText(marketReportText || ""); } catch {}
                   }}
-                  style={{ border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                 >
                   COPY
                 </button>
                 <button
                   onClick={() => setMarketReportOpen(false)}
-                  style={{ border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 4, padding: "6px 10px", fontFamily: MONO, fontSize: 10, cursor: "pointer" }}
+                  style={{ border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                 >
                   CLOSE
                 </button>
@@ -22544,7 +22550,7 @@ export default function App() {
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                     <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, marginBottom: 8 }}>DO NOW</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.green, marginBottom: 8 }}>DO NOW</div>
                       <div style={{ display: "grid", gap: 6 }}>
                         {(marketReportData.doNow || []).map((x, i) => (
                           <div key={`do-${i}`} style={{ fontSize: 12, color: C.textSec }}>• {x}</div>
@@ -22552,7 +22558,7 @@ export default function App() {
                       </div>
                     </div>
                     <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.red, marginBottom: 8 }}>AVOID NOW</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.red, marginBottom: 8 }}>AVOID NOW</div>
                       <div style={{ display: "grid", gap: 6 }}>
                         {(marketReportData.avoidNow || []).map((x, i) => (
                           <div key={`avoid-${i}`} style={{ fontSize: 12, color: C.textSec }}>• {x}</div>
@@ -22560,7 +22566,7 @@ export default function App() {
                       </div>
                     </div>
                     <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.amber, marginBottom: 8 }}>WATCH NOW</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.amber, marginBottom: 8 }}>WATCH NOW</div>
                       <div style={{ display: "grid", gap: 6 }}>
                         {(marketReportData.watchNow || []).map((x, i) => (
                           <div key={`watch-${i}`} style={{ fontSize: 12, color: C.textSec }}>• {x}</div>
@@ -22603,7 +22609,7 @@ export default function App() {
                             borderRadius: 999,
                             padding: "5px 10px",
                             fontFamily: MONO,
-                            fontSize: 11,
+                            fontSize: 12,
                             fontWeight: 800
                           }}
                         >
@@ -22649,9 +22655,9 @@ export default function App() {
                   <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
                     <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, marginBottom: 8 }}>MARKET OVERVIEW</div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <span style={{ background: `${C.accent}12`, border: `1px solid ${C.accent}33`, color: C.accent, borderRadius: 999, padding: "4px 10px", fontFamily: MONO, fontSize: 11, fontWeight: 700 }}>Session {marketReportData.session}</span>
-                      <span style={{ background: `${marketReportData.regime === "Risk-On" ? C.green : marketReportData.regime === "Risk-Off" ? C.red : C.amber}12`, border: `1px solid ${marketReportData.regime === "Risk-On" ? C.green : marketReportData.regime === "Risk-Off" ? C.red : C.amber}33`, color: marketReportData.regime === "Risk-On" ? C.green : marketReportData.regime === "Risk-Off" ? C.red : C.amber, borderRadius: 999, padding: "4px 10px", fontFamily: MONO, fontSize: 11, fontWeight: 800 }}>Regime {marketReportData.regime}</span>
-                      <span style={{ background: `${C.purple}12`, border: `1px solid ${C.purple}33`, color: C.purple, borderRadius: 999, padding: "4px 10px", fontFamily: MONO, fontSize: 11, fontWeight: 700 }}>Tone {marketReportData.macroTone}</span>
+                      <span style={{ background: `${C.accent}12`, border: `1px solid ${C.accent}33`, color: C.accent, borderRadius: 999, padding: "4px 10px", fontFamily: MONO, fontSize: 12, fontWeight: 700 }}>Session {marketReportData.session}</span>
+                      <span style={{ background: `${marketReportData.regime === "Risk-On" ? C.green : marketReportData.regime === "Risk-Off" ? C.red : C.amber}12`, border: `1px solid ${marketReportData.regime === "Risk-On" ? C.green : marketReportData.regime === "Risk-Off" ? C.red : C.amber}33`, color: marketReportData.regime === "Risk-On" ? C.green : marketReportData.regime === "Risk-Off" ? C.red : C.amber, borderRadius: 999, padding: "4px 10px", fontFamily: MONO, fontSize: 12, fontWeight: 800 }}>Regime {marketReportData.regime}</span>
+                      <span style={{ background: `${C.purple}12`, border: `1px solid ${C.purple}33`, color: C.purple, borderRadius: 999, padding: "4px 10px", fontFamily: MONO, fontSize: 12, fontWeight: 700 }}>Tone {marketReportData.macroTone}</span>
                     </div>
                   </div>
 
@@ -22662,7 +22668,7 @@ export default function App() {
                         const positive = r.invert ? r.value <= 0 : r.value >= 0;
                         const tone = positive ? C.green : C.red;
                         return (
-                          <span key={`idx-${r.label}`} style={{ background: positive ? C.greenBg : C.redBg, border: `1px solid ${tone}33`, color: tone, borderRadius: 999, padding: "4px 10px", fontFamily: MONO, fontSize: 11, fontWeight: 800 }}>
+                          <span key={`idx-${r.label}`} style={{ background: positive ? C.greenBg : C.redBg, border: `1px solid ${tone}33`, color: tone, borderRadius: 999, padding: "4px 10px", fontFamily: MONO, fontSize: 12, fontWeight: 800 }}>
                             {r.label} {r.value >= 0 ? "+" : ""}{r.value.toFixed(2)}%
                           </span>
                         );
@@ -22733,7 +22739,7 @@ export default function App() {
         <div onClick={() => setPaletteOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(8,18,34,0.18)", zIndex: 1200, display: "grid", placeItems: "start center", paddingTop: "14vh" }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: 680, maxWidth: "92vw", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, boxShadow: "0 24px 60px rgba(15,27,45,0.18)" }}>
             <div style={{ padding: 12, borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 8 }}>AXIOM COMMAND PALETTE (GO)</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 8 }}>AXIOM COMMAND PALETTE (GO)</div>
               <input
                 autoFocus
                 value={paletteInput}
@@ -22751,7 +22757,7 @@ export default function App() {
             </div>
             <div style={{ padding: "10px 12px", display: "grid", gap: 4 }}>
               {["NVDA GO", "EARNINGS GO", "MACRO GO", "NEWS GO", "TV GO", "ALERTS GO", "AGENT GO", "WORKFLOW GO", "FLOW GO", "PORTFOLIO GO", "SCANNER GO", "BACKTEST GO", "TERMINAL GO", "JOURNAL GO", "TF 5M GO", "TF 1D GO", "LAYOUT 2 GO", "LAYOUT 4 GO", "QURAN GO", "ATHAN GO", "ATHKAR GO", "TASBIH GO"].map((cmd) => (
-                <button key={cmd} onClick={() => { runPaletteCommand(cmd); setPaletteOpen(false); setPaletteInput(""); }} style={{ textAlign: "left", border: `1px solid ${C.border}`, background: C.card, borderRadius: 6, padding: "8px 10px", cursor: "pointer", fontFamily: MONO, fontSize: 11, color: C.textSec }}>
+                <button key={cmd} onClick={() => { runPaletteCommand(cmd); setPaletteOpen(false); setPaletteInput(""); }} style={{ textAlign: "left", border: `1px solid ${C.border}`, background: C.card, borderRadius: 6, padding: "8px 10px", cursor: "pointer", fontFamily: MONO, fontSize: 12, color: C.textSec }}>
                   {cmd}
                 </button>
               ))}
@@ -22798,13 +22804,13 @@ export default function App() {
               { key: "WS button", desc: "Open Workstation" },
               { key: "LOG button", desc: "Log trade to journal" },
             ].map((item, i) => item.section
-              ? <div key={i} style={{ fontFamily: MONO, fontSize: 9, color: C.accent, letterSpacing: "0.12em", fontWeight: 700, marginTop: i > 0 ? 14 : 0, marginBottom: 6 }}>{item.section}</div>
+              ? <div key={i} style={{ fontFamily: MONO, fontSize: 12, color: C.accent, letterSpacing: "0.12em", fontWeight: 700, marginTop: i > 0 ? 14 : 0, marginBottom: 6 }}>{item.section}</div>
               : <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
-                  <kbd style={{ fontFamily: MONO, fontSize: 11, background: C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: "2px 8px", color: C.text }}>{item.key}</kbd>
+                  <kbd style={{ fontFamily: MONO, fontSize: 12, background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "2px 8px", color: C.text }}>{item.key}</kbd>
                   <span style={{ fontFamily: SANS, fontSize: 12, color: C.textSec }}>{item.desc}</span>
                 </div>
             )}
-            <div style={{ marginTop: 16, fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: "center" }}>
+            <div style={{ marginTop: 16, fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>
               Hotkey profile: <strong>{hotkeyProfile}</strong> · Change in Terminal → profile selector
             </div>
           </div>
@@ -22820,8 +22826,8 @@ export default function App() {
               <div>
                 <span style={{ fontFamily: MONO, fontSize: 17, color: C.text, fontWeight: 800 }}>{quickLogModal.symbol}</span>
                 <span style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginLeft: 10 }}>${Number(quickLogModal.price).toFixed(2)}</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: quickLogModal.chg >= 0 ? C.green : C.red, marginLeft: 8, fontWeight: 700 }}>{quickLogModal.chg >= 0 ? "+" : ""}{quickLogModal.chg.toFixed(2)}%</span>
-                {quickLogModal.score > 0 && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 10 }}>Score {Math.round(quickLogModal.score)}</span>}
+                <span style={{ fontFamily: MONO, fontSize: 12, color: quickLogModal.chg >= 0 ? C.green : C.red, marginLeft: 8, fontWeight: 700 }}>{quickLogModal.chg >= 0 ? "+" : ""}{quickLogModal.chg.toFixed(2)}%</span>
+                {quickLogModal.score > 0 && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: 10 }}>Score {Math.round(quickLogModal.score)}</span>}
               </div>
               <button onClick={() => setQuickLogModal(null)} style={{ border: "none", background: "transparent", color: C.textDim, cursor: "pointer", fontSize: 20, lineHeight: 1, padding: "0 2px" }}>×</button>
             </div>
@@ -22845,10 +22851,10 @@ export default function App() {
                 { label: "SHARES", key: "size", step: "1" },
               ].map(({ label, key, step }) => (
                 <div key={key}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 4 }}>{label}</div>
                   <input type="number" step={step || "0.01"} value={quickLogModal[key]}
                     onChange={e => setQuickLogModal(m => ({ ...m, [key]: e.target.value }))}
-                    style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: "6px 8px", fontFamily: MONO, fontSize: 12, color: C.text, outline: "none" }} />
+                    style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", fontFamily: MONO, fontSize: 12, color: C.text, outline: "none" }} />
                 </div>
               ))}
             </div>
@@ -22861,7 +22867,7 @@ export default function App() {
               if (entry > 0 && stop > 0 && target > 0 && Math.abs(entry - stop) > 0) {
                 const rr = Math.abs(target - entry) / Math.abs(entry - stop);
                 return (
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: rr >= 2 ? C.green : rr >= 1 ? C.amber : C.red, textAlign: "right", marginBottom: 10, fontWeight: 700 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: rr >= 2 ? C.green : rr >= 1 ? C.amber : C.red, textAlign: "right", marginBottom: 10, fontWeight: 700 }}>
                     R:R {rr.toFixed(1)}:1 {rr >= 2 ? "✓" : rr >= 1 ? "~" : "✗"}
                   </div>
                 );
@@ -22872,16 +22878,16 @@ export default function App() {
             {/* Timeframe + Style */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
               <div>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", marginBottom: 4 }}>TIMEFRAME</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 4 }}>TIMEFRAME</div>
                 <select value={quickLogModal.timeframe} onChange={e => setQuickLogModal(m => ({ ...m, timeframe: e.target.value }))}
-                  style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: "6px 8px", fontFamily: MONO, fontSize: 12, color: C.text }}>
+                  style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", fontFamily: MONO, fontSize: 12, color: C.text }}>
                   {["1m","5m","15m","1H","4H","1D","1W"].map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", marginBottom: 4 }}>STYLE</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 4 }}>STYLE</div>
                 <select value={quickLogModal.style} onChange={e => setQuickLogModal(m => ({ ...m, style: e.target.value }))}
-                  style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: "6px 8px", fontFamily: MONO, fontSize: 12, color: C.text }}>
+                  style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", fontFamily: MONO, fontSize: 12, color: C.text }}>
                   {["Breakout","Pullback","Reversal","Momentum","Scalp","Swing","Watchlist"].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
@@ -22889,9 +22895,9 @@ export default function App() {
 
             {/* Notes */}
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", marginBottom: 4 }}>NOTES</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 4 }}>NOTES</div>
               <textarea rows={2} value={quickLogModal.notes} onChange={e => setQuickLogModal(m => ({ ...m, notes: e.target.value }))}
-                style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: "6px 8px", fontFamily: MONO, fontSize: 11, color: C.text, resize: "none", outline: "none" }} />
+                style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", fontFamily: MONO, fontSize: 12, color: C.text, resize: "none", outline: "none" }} />
             </div>
 
             {/* Action row */}
@@ -22911,7 +22917,7 @@ export default function App() {
                   ].filter(Boolean).join("\n");
                   navigator.clipboard.writeText(plan).catch(() => {});
                 }}
-                style={{ border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 5, padding: "11px 12px", fontFamily: MONO, fontSize: 11, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" }}
+                style={{ border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 5, padding: "11px 12px", fontFamily: MONO, fontSize: 12, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" }}
                 title="Copy trade plan to clipboard"
               >
                 COPY
