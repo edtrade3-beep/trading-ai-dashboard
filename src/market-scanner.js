@@ -641,26 +641,30 @@ async function runScan(options = {}) {
             const rr       = stop < entry ? round2((t1 - entry) / (entry - stop)) : 0;
 
             const lines = [
-              `${emoji} <b>SMC EARLY ALERT — $${sym}</b>`,
+              `${emoji} SMC EARLY ALERT — $${sym}`,
+              `──────────────────────`,
+              `📐 ${signal}`,
+              bos    ? `   └ BOS Level: $${bos.level}` : "",
+              choch  ? `   ⚠ ChoCh: ${choch.label}` : "",
+              nearOB ? `🔲 ORDER BLOCK: $${nearOB.bot} – $${nearOB.top}` : "",
+              hasBullFVG ? `🕳 FVG: unfilled gap — price magnet` : "",
+              nearVPOC ? `📊 At VPOC $${vp.vpoc} — max volume node` : "",
+              nearVAL  ? `📊 At VAL $${vp.val} — value area support` : "",
               ``,
-              `📐 <b>SIGNAL:</b> ${signal}`,
-              bos   ? `    BOS Level: $${bos.level}` : "",
-              choch ? `    ⚠️ ChoCh Detected — ${choch.label}` : "",
-              nearOB ? `🔲 <b>ORDER BLOCK:</b> $${nearOB.bot}–$${nearOB.top}` : "",
-              hasBullFVG ? `🕳 <b>FVG Zone:</b> unfilled gap — potential magnet` : "",
-              nearVPOC ? `📊 Price at VPOC $${vp.vpoc} — high-volume node` : "",
-              nearVAL  ? `📊 Price at VAL $${vp.val} — value area support` : "",
+              `🎯 TRADE PLAN`,
+              `   Entry : $${entry}`,
+              `   Stop  : $${stop}`,
+              `   T1    : $${t1}`,
+              `   T2    : $${t2}`,
+              `   R:R   : ${rr}:1`,
               ``,
-              `🎯 <b>TRADE PLAN:</b>`,
-              `   Entry: $${entry}   Stop: $${stop}`,
-              `   T1: $${t1}  T2: $${t2}   R:R ${rr}:1`,
-              ``,
-              `📈 Score: ${a.composite}/100  RSI: ${a.rsi?.toFixed(0)}  RVOL: ${a.rvol?.toFixed(1)}×`,
-              `   Trend: ${a.trend}  Change: ${a.chgPct > 0 ? "+" : ""}${a.chgPct?.toFixed(2)}%`,
-              ``,
-              liquidity.length ? `💧 Key levels nearby: ${liquidity.slice(0,3).map(l => `$${l.price} (${l.label.split("—")[0].trim()})`).join(" · ")}` : "",
-              ``,
-              `⏰ ${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} ET  •  Decision support only`,
+              `📊 Score ${a.composite}/100  RSI ${a.rsi?.toFixed(0)}  RVOL ${a.rvol?.toFixed(1)}x`,
+              `   Trend: ${a.trend}  Chg: ${a.chgPct > 0 ? "+" : ""}${a.chgPct?.toFixed(2)}%`,
+              liquidity.length
+                ? `💧 ${liquidity.slice(0,3).map(l => `$${l.price} ${l.label.split("—")[0].trim()}`).join("  ·  ")}`
+                : "",
+              `──────────────────────`,
+              `⏰ ${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} ET`,
             ].filter(Boolean).join("\n");
 
             await sendTelegramMessage(lines).catch(() => {});
