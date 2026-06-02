@@ -11369,557 +11369,279 @@ export default function App() {
         )}
 
 
-        {/* ── INSTITUTIONAL DISTRIBUTION MONITOR ── */}
+        {/* ══ COMMAND CENTER — Market Pulse + Radar + Fear&Greed + Signals ══ */}
         {activeTab === "dashboard" && (() => {
-          if (!distData && !distLoading) return null;
-          const ALERT_COLORS = { DANGER: C.red, CAUTION: C.amber, WATCH: "#4caf50", NORMAL: C.green };
-          const ALERT_ICONS  = { DANGER: "🚨", CAUTION: "⚠️", WATCH: "👁", NORMAL: "✅" };
-          const TAG_COLORS   = { DIST: C.red, ROTATION: C.amber, CREDIT: "#ff6b6b", DIVERGENCE: C.amber, MA: C.red, VIX: "#ff4444" };
-          const alertColor = distData ? (ALERT_COLORS[distData.alert] || C.green) : C.textDim;
-          const alertIcon  = distData ? (ALERT_ICONS[distData.alert]  || "✅")   : "⏳";
+          const pulse = ["SPY","QQQ","IWM","BTC-USD"].map(sym => {
+            const q = watchlistData.find(w => w.symbol === sym) || (macroData||[]).find(m => m.symbol === sym);
+            if (!q) return null;
+            const chg = Number(q.changesPercentage || q.delta1d || 0);
+            return { sym, chg, price: Number(q.price || 0) };
+          }).filter(Boolean);
+          const radarAlert = distData?.alert || "NORMAL";
+          const radarScore = distData?.riskScore || 0;
+          const radarColor = radarAlert === "DANGER" ? C.red : radarAlert === "CAUTION" ? C.amber : radarAlert === "WATCH" ? "#4caf50" : C.green;
+          const radarIcon  = radarAlert === "DANGER" ? "🚨" : radarAlert === "CAUTION" ? "⚠️" : radarAlert === "WATCH" ? "👁" : "✅";
           const highW = (distData?.warnings || []).filter(w => w.level === "HIGH");
-          return (
-            <div style={{ marginBottom: 14, borderRadius: 10, overflow: "hidden", border: "1px solid " + alertColor + "44", background: alertColor + "08" }}>
-              <div onClick={() => setDistExpanded(p => !p)}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: isTablet ? "14px 16px" : "10px 16px", minHeight: isTablet ? 52 : "auto", cursor: "pointer", borderBottom: distExpanded ? "1px solid " + alertColor + "33" : "none" }}>
-                <span style={{ fontSize: 18 }}>{distLoading ? "⏳" : alertIcon}</span>
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: alertColor, letterSpacing: "0.08em" }}>INSTITUTIONAL RADAR</span>
-                  {distData && (
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 10 }}>
-                      Risk: <b style={{ color: alertColor }}>{distData.riskScore}/100</b> · {distData.alert}
-                      {distData.vix > 0 && " · VIX " + distData.vix}
-                    </span>
-                  )}
-                </div>
-                {distData && (distData.indexSnapshot || []).map(idx => (
-                  <span key={idx.sym} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "3px 8px", borderRadius: 999,
-                    background: idx.chg >= 0 ? C.green + "18" : C.red + "18",
-                    color: idx.chg >= 0 ? C.green : C.red, border: "1px solid " + (idx.chg >= 0 ? C.green : C.red) + "33" }}>
-                    {idx.sym} {idx.chg >= 0 ? "+" : ""}{idx.chg}%
-                    {idx.distDays >= 2 && <span style={{ color: C.red, marginLeft: 4 }}>⚠{idx.distDays}D</span>}
-                  </span>
-                ))}
-                {highW.length > 0 && (
-                  <span style={{ background: C.red, color: "#fff", fontFamily: MONO, fontSize: 10, fontWeight: 900, borderRadius: 999, padding: "2px 8px" }}>
-                    {highW.length} ALERT{highW.length > 1 ? "S" : ""}
-                  </span>
-                )}
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{distExpanded ? "▲" : "▼ details"}</span>
-              </div>
-              {distExpanded && distData && (
-                <div style={{ padding: "12px 16px" }}>
-                  {/* Always show all 6 checks with status */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
-                    {(distData.checkStatus || []).map((c, i) => {
-                      const statusCol = c.status === "HIGH" ? C.red : c.status === "MED" ? C.amber : C.green;
-                      const statusIcon = c.status === "HIGH" ? "🔴" : c.status === "MED" ? "🟡" : "✅";
-                      return (
-                        <div key={i} style={{
-                          padding: "10px 12px", borderRadius: 8,
-                          background: c.status === "OK" ? C.surface : (c.status === "HIGH" ? C.red + "12" : C.amber + "0d"),
-                          border: "1px solid " + statusCol + (c.status === "OK" ? "33" : "55"),
-                        }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                            <span style={{ fontSize: 14 }}>{c.icon}</span>
-                            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: statusCol }}>{c.label}</span>
-                            <span style={{ marginLeft: "auto", fontSize: 12 }}>{statusIcon}</span>
-                          </div>
-                          <div style={{ fontFamily: SANS, fontSize: 11, color: c.status === "OK" ? C.textDim : C.textSec, lineHeight: 1.4 }}>
-                            {c.detail}
-                          </div>
-                          {c.status !== "OK" && (
-                            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: statusCol, marginTop: 4, letterSpacing: "0.06em" }}>
-                              {c.status === "HIGH" ? "⚠ HIGH ALERT" : "⚡ WATCH"}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {/* ── Money Flow ── */}
-                  {distData.moneyFlow && distData.moneyFlow.length > 0 && (
-                    <div style={{ marginTop: 12 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text,
-                        letterSpacing: "0.06em", marginBottom: 10, paddingBottom: 6,
-                        borderBottom: `2px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
-                        💰 WHERE IS THE MONEY FLOWING?
-                        <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 400, color: C.textDim }}>
-                          Volume-weighted sector rotation
-                        </span>
-                      </div>
-
-                      {/* Inflows */}
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-                        <div>
-                          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.green,
-                            marginBottom: 6, letterSpacing: "0.05em" }}>⬆ INFLOWS — INSTITUTIONS BUYING</div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            {(distData.topInflows || []).map((s, i) => (
-                              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8,
-                                padding: "7px 10px", borderRadius: 6,
-                                background: `${C.green}${i === 0 ? "18" : "0d"}`,
-                                border: `1px solid ${C.green}${i === 0 ? "44" : "22"}` }}>
-                                <span style={{ fontSize: 14 }}>{s.icon}</span>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{s.name}</div>
-                                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{s.sym} · RVOL {s.rvol}×</div>
-                                </div>
-                                <div style={{ textAlign: "right" }}>
-                                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900,
-                                    color: C.green }}>+{s.chg.toFixed(2)}%</div>
-                                  <div style={{ fontFamily: SANS, fontSize: 9, color: C.green }}>{s.flowLbl}</div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.red,
-                            marginBottom: 6, letterSpacing: "0.05em" }}>⬇ OUTFLOWS — INSTITUTIONS SELLING</div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            {(distData.topOutflows || []).map((s, i) => (
-                              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8,
-                                padding: "7px 10px", borderRadius: 6,
-                                background: `${C.red}${i === 0 ? "12" : "08"}`,
-                                border: `1px solid ${C.red}${i === 0 ? "44" : "22"}` }}>
-                                <span style={{ fontSize: 14 }}>{s.icon}</span>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{s.name}</div>
-                                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{s.sym} · RVOL {s.rvol}×</div>
-                                </div>
-                                <div style={{ textAlign: "right" }}>
-                                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900,
-                                    color: C.red }}>{s.chg.toFixed(2)}%</div>
-                                  <div style={{ fontFamily: SANS, fontSize: 9, color: C.red }}>{s.flowLbl}</div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Full sector heat grid */}
-                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim,
-                        marginBottom: 6, letterSpacing: "0.05em" }}>ALL SECTORS</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 4 }}>
-                        {(distData.moneyFlow || []).map((s, i) => {
-                          const col = s.chg > 1.5 ? C.green : s.chg > 0.3 ? "#4caf50"
-                            : s.chg > 0 ? "#26a69a" : s.chg > -0.3 ? C.textDim
-                            : s.chg > -1.5 ? C.amber : C.red;
-                          const bg  = s.chg > 0 ? `${C.green}${s.chg > 1 ? "18" : "0d"}` : s.chg < 0 ? `${C.red}${s.chg < -1 ? "12" : "08"}` : C.surface;
-                          return (
-                            <div key={i} style={{ padding: "6px 8px", borderRadius: 5,
-                              background: bg, border: `1px solid ${col}33`,
-                              display: "flex", alignItems: "center", gap: 6 }}>
-                              <span style={{ fontSize: 12 }}>{s.icon}</span>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontFamily: SANS, fontSize: 10, color: C.text,
-                                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</div>
-                                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: col }}>
-                                  {s.chg >= 0 ? "+" : ""}{s.chg.toFixed(2)}%
-                                  {s.ma50above !== null && (
-                                    <span style={{ marginLeft: 4, fontSize: 8, color: s.ma50above ? C.green : C.red }}>
-                                      {s.ma50above ? "▲MA50" : "▼MA50"}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 10 }}>
-                    Last scan: {new Date(distData.scannedAt).toLocaleTimeString()} · ✅ = clear  🟡 = watch  🔴 = alert
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
-        {/* ── FEAR & GREED — inline on Monitor tab ── */}
-        {activeTab === "dashboard" && (() => {
           const fg = fearGreedData;
-          const scoreColor = fg
-            ? fg.score <= 25 ? C.red : fg.score <= 45 ? C.amber
-            : fg.score <= 55 ? C.textSec : fg.score <= 75 ? "#22c55e" : C.green
-            : C.textDim;
-          return (
-            <div style={{ marginBottom: 14, borderRadius: 10, border: `1px solid ${C.borderLit}`,
-              background: C.card, overflow: "hidden" }}>
-              {/* Header */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px",
-                background: C.surface, borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ fontSize: 16 }}>😨</span>
-                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text, letterSpacing: "0.08em" }}>FEAR & GREED METER</span>
-                {fg && !fg.error && (
-                  <span style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: scoreColor, marginLeft: 8 }}>{fg.score}</span>
-                )}
-                {fg && !fg.error && (
-                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: scoreColor }}>{fg.label}</span>
-                )}
-                <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-                  <button onClick={fetchFearGreed} disabled={fearGreedLoading}
-                    style={{ fontFamily: MONO, fontSize: 9, border: `1px solid ${C.border}`,
-                      background: "transparent", color: fearGreedLoading ? C.textDim : C.accent,
-                      borderRadius: 4, padding: "3px 10px", cursor: "pointer" }}>
-                    {fearGreedLoading ? "⌛" : "↺ REFRESH"}
-                  </button>
-                </span>
-              </div>
-
-              {/* Score gauge + components */}
-              {fearGreedLoading && (
-                <div style={{ padding: "20px", fontFamily: MONO, fontSize: 11, color: C.textDim }}>Calculating…</div>
-              )}
-              {!fg && !fearGreedLoading && (
-                <div style={{ padding: "14px 16px", fontFamily: SANS, fontSize: 11, color: C.textDim }}>
-                  Click ↺ REFRESH to compute the Fear & Greed score from VIX · SPY momentum · RSI · 52w range · TLT · HYG
-                </div>
-              )}
-              {fg && !fearGreedLoading && !fg.error && (
-                <div style={{ padding: "14px 16px" }}>
-                  {/* Gauge bar */}
-                  <div style={{ marginBottom: 12 }}>
-                    <div style={{ position: "relative", marginBottom: 4 }}>
-                      <div style={{ height: 12, borderRadius: 6, background: "linear-gradient(to right, #ef4444, #f97316, #eab308, #22c55e, #16a34a)" }} />
-                      <div style={{ position: "absolute", top: -4, left: `${fg.score}%`, transform: "translateX(-50%)",
-                        width: 20, height: 20, borderRadius: "50%", background: scoreColor,
-                        border: "3px solid " + C.bg, boxShadow: "0 0 8px " + scoreColor }} />
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 9, color: C.textDim }}>
-                      <span>EXTREME FEAR</span><span>FEAR</span><span>NEUTRAL</span><span>GREED</span><span>EXTREME GREED</span>
-                    </div>
-                  </div>
-                  {/* Component breakdown compact */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 6 }}>
-                    {(fg.components || []).map((c, ci) => {
-                      const cc = c.score <= 25 ? C.red : c.score <= 45 ? C.amber : c.score <= 55 ? C.textSec : c.score <= 75 ? "#22c55e" : C.green;
-                      return (
-                        <div key={ci} style={{ padding: "8px 10px", borderRadius: 6,
-                          background: C.surface, border: `1px solid ${C.border}22` }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                            <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{c.name}</span>
-                            <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: cc }}>{c.score}</span>
-                          </div>
-                          <div style={{ height: 4, borderRadius: 2, background: C.border, overflow: "hidden" }}>
-                            <div style={{ height: "100%", width: `${c.score}%`, background: cc, borderRadius: 2 }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 8 }}>
-                    VIX: {fg.vix} · Updated: {new Date(fg.fetchedAt).toLocaleTimeString()}
-                  </div>
-                </div>
-              )}
-              {fg?.error && (
-                <div style={{ padding: "14px 16px", fontFamily: MONO, fontSize: 11, color: C.red }}>⚠ {fg.error}</div>
-              )}
-            </div>
-          );
-        })()}
-
-        {/* ── TICK/TRIN MARKET INTERNALS ── */}
-        {activeTab === "dashboard" && tickTrinData && (() => {
-          const d    = tickTrinData.data || {};
-          const tick = d["TICK"]?.price || 0;
-          const trin = Number(d["TRIN"]?.price || 1);
-          const vix  = Number(d["VIX"]?.price  || 0);
-          const br   = d["breadth"] || {};
-          const tickCol = tick > 300 ? C.green : tick < -300 ? C.red : C.amber;
-          const trinCol = trin < 0.9 ? C.green : trin > 1.3 ? C.red : C.amber;
-          const vixCol  = vix > 25 ? C.red : vix > 18 ? C.amber : C.green;
-          const breadthPct = br.total > 0 ? Math.round(br.adv / br.total * 100) : 0;
-          return (
-            <div style={{ marginBottom: 14, borderRadius: 10, border: `1px solid ${C.borderLit}`, background: C.card, overflow: "hidden" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ fontSize: 16 }}>📡</span>
-                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text, letterSpacing: "0.08em" }}>MARKET INTERNALS</span>
-                <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginLeft: 4 }}>Sector breadth · TRIN · VIX</span>
-                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.textDim }}>{new Date(tickTrinData.scannedAt).toLocaleTimeString()}</span>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 0 }}>
-                {[
-                  { label: "TICK Proxy", value: tick > 0 ? "+" + tick : String(tick), col: tickCol, sub: tickTrinData.tickSignal, desc: `${br.adv || 0} adv · ${br.dec || 0} dec sectors` },
-                  { label: "TRIN (Arms)", value: isFinite(trin) ? trin.toFixed(2) : "—", col: trinCol, sub: tickTrinData.trinSignal, desc: "<0.9 bullish · >1.3 bearish" },
-                  { label: "Breadth", value: breadthPct + "%", col: breadthPct > 60 ? C.green : breadthPct < 40 ? C.red : C.amber, sub: breadthPct > 60 ? "BROAD STRENGTH" : breadthPct < 40 ? "BROAD WEAKNESS" : "MIXED", desc: `Avg sector chg ${br.avgChg > 0 ? "+" : ""}${br.avgChg || 0}%` },
-                  { label: "VIX Fear", value: vix > 0 ? vix.toFixed(1) : "—", col: vixCol, sub: vix > 25 ? "ELEVATED" : vix > 18 ? "ABOVE NORMAL" : vix > 0 ? "CALM" : "—", desc: d["VIX"]?.pct ? (d["VIX"].pct > 0 ? "+" : "") + d["VIX"].pct + "% today" : "CBOE volatility index" },
-                ].map((item, i) => (
-                  <div key={i} style={{ padding: "14px 16px", borderRight: i < 3 ? `1px solid ${C.border}` : "none" }}>
-                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 4 }}>{item.label}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: item.col, marginBottom: 2 }}>{item.value}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: item.col, marginBottom: 2 }}>{item.sub}</div>
-                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{item.desc}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* ── LIVE TRADE SIGNAL ENGINE ── */}
-        {activeTab === "dashboard" && (() => {
-
-          const refresh = () => {
-            setSigLoading(true);
-            fetch("/api/market/trade-signals")
-              .then(r => r.json()).then(d => { if (d.ok) setSigData(d); })
-              .catch(() => {}).finally(() => setSigLoading(false));
-          };
-
-          const ACTION_COLOR = {
-            "LONG":          C.green,
-            "SHORT / AVOID": C.red,
-            "WATCH SHORT":   "#ff6b6b",
-            "WATCH":         C.amber,
-          };
-          const CONF_COLOR = { HIGH: C.accent, MEDIUM: C.green, LOW: C.textDim };
-
-          const filtered = (sigData?.signals || []).filter(s => {
+          const fgScore = fg?.score || 0;
+          const fgColor = fgScore <= 25 ? C.red : fgScore <= 45 ? C.amber : fgScore <= 55 ? C.textSec : fgScore <= 75 ? "#22c55e" : C.green;
+          const fgLabel = fgScore <= 25 ? "EXTREME FEAR" : fgScore <= 45 ? "FEAR" : fgScore <= 55 ? "NEUTRAL" : fgScore <= 75 ? "GREED" : "EXTREME GREED";
+          const ACT_COL = { "LONG": C.green, "SHORT / AVOID": C.red, "WATCH SHORT": "#ff6b6b", "WATCH": C.amber };
+          const filtered2 = (sigData?.signals || []).filter(s => {
             if (sigFilter === "LONG")    return s.action === "LONG" || s.action === "WATCH";
             if (sigFilter === "SHORT")   return s.action === "SHORT / AVOID" || s.action === "WATCH SHORT";
             if (sigFilter === "OPTIONS") return s.optionType != null;
             return true;
           });
-
+          const handleSigClick = (s) => {
+            const ticker = s.sym;
+            setTerminalSymbol(ticker);
+            const row2 = { ticker, score: s.score||50, signal: s.action === "LONG" ? "BUY" : s.action === "SHORT / AVOID" ? "SELL" : "WATCH",
+              signals: (s.rationale||[]).map(r => ({ txt: r, bull: s.action === "LONG" })),
+              sColor: ACT_COL[s.action] || C.amber, rsiVal: null, macdBull: null, ema9v: null, ema21v: null,
+              quote: { price: s.entry, changePercent: s.chgPct, yearHigh: s.hi52, priceAvg50: s.ma50, priceAvg200: s.ma200, volume: 0, avgVolume: 0 }, candles: null };
+            setScanResults(prev => prev.some(r => r.ticker === ticker) ? prev : [row2, ...prev]);
+            setActiveTab("smartscan"); setScanExpanded(ticker);
+            loadDeepDive(ticker); loadDeepSocial(ticker);
+          };
           return (
-            <div style={{ marginBottom: 14, borderRadius: 10, overflow: "hidden",
-              border: `1px solid ${C.borderLit}`, background: C.card }}>
-
-              {/* Header */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px",
-                background: C.surface, borderBottom: sigCollapsed ? "none" : `1px solid ${C.border}` }}>
-                <span style={{ fontSize: 16 }}>{sigLoading ? "⏳" : "⚡"}</span>
-                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text, letterSpacing: "0.08em" }}>
-                  LIVE TRADE SIGNALS
-                </span>
-                <span style={{ fontFamily: SANS, fontSize: 9, color: C.textDim, background: `${C.green}18`,
-                  border: `1px solid ${C.green}33`, borderRadius: 10, padding: "1px 7px" }}>
-                  AUTO ↺ 1min
-                </span>
-                {sigData && (
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
-                    {sigData.mktEnv && (
-                      <span style={{ color: sigData.mktEnv === "RISK-ON" ? C.green : sigData.mktEnv === "RISK-OFF" ? C.red : C.amber, fontWeight: 700, marginRight: 8 }}>
-                        {sigData.mktEnv === "RISK-ON" ? "🟢" : sigData.mktEnv === "RISK-OFF" ? "🔴" : "🟡"} {sigData.mktEnv}
-                      </span>
-                    )}
-                    {sigData.vix > 0 && `VIX ${sigData.vix}`}
-                  </span>
+            <>
+            {/* 1: MARKET PULSE STRIP */}
+            <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 10, padding: "8px 16px",
+              background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
+              overflowX: "auto", scrollbarWidth: "none" }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginRight: 14, flexShrink: 0, letterSpacing: "0.08em" }}>
+                MARKET
+              </span>
+              {pulse.map((p, i) => (
+                <div key={p.sym} style={{ display: "flex", alignItems: "center" }}>
+                  {i > 0 && <span style={{ width: 1, height: 16, background: C.border, margin: "0 12px", flexShrink: 0 }} />}
+                  <div style={{ textAlign: "center", flexShrink: 0 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent }}>{p.sym}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: p.chg >= 0 ? C.green : C.red }}>
+                      {p.chg >= 0 ? "+" : ""}{p.chg.toFixed(2)}%
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <span style={{ width: 1, height: 16, background: C.border, margin: "0 12px", flexShrink: 0 }} />
+              <div style={{ display: "flex", gap: 16, alignItems: "center", flexShrink: 0 }}>
+                {distData && (
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim }}>REGIME</div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: radarColor }}>{radarIcon} {radarAlert}</div>
+                  </div>
                 )}
-                <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+                {(distData?.vix || 0) > 0 && (
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim }}>VIX</div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800,
+                      color: distData.vix > 25 ? C.red : distData.vix > 18 ? C.amber : C.green }}>
+                      {distData.vix.toFixed(1)}
+                    </div>
+                  </div>
+                )}
+                {fg && (
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim }}>F&G</div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: fgColor }}>{fgScore} · {fgLabel}</div>
+                  </div>
+                )}
+              </div>
+              <button onClick={() => {
+                setSigLoading(true);
+                fetch("/api/market/trade-signals").then(r=>r.json()).then(d=>{if(d.ok)setSigData(d);}).catch(()=>{}).finally(()=>setSigLoading(false));
+                if (!fearGreedData) fetchFearGreed();
+                fetch("/api/market/distribution?refresh=1").then(r=>r.json()).then(d=>{if(d.ok)setDistData(d);}).catch(()=>{});
+              }} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, border: `1px solid ${C.border}`,
+                background: "transparent", color: C.textDim, borderRadius: 4, padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}>
+                ↺ REFRESH ALL
+              </button>
+            </div>
+
+            {/* 2: INTELLIGENCE ROW */}
+            <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 10 }}>
+              {/* Radar */}
+              <div style={{ background: C.card, border: `1px solid ${radarColor}44`,
+                borderLeft: `4px solid ${radarColor}`, borderRadius: 8, overflow: "hidden" }}>
+                <div onClick={() => setDistExpanded(p => !p)}
+                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px",
+                    background: C.surface, borderBottom: `1px solid ${C.border}`, cursor: "pointer" }}>
+                  <span style={{ fontSize: 15 }}>{distLoading ? "⏳" : radarIcon}</span>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: radarColor }}>INSTITUTIONAL RADAR</span>
+                    {distData && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 8 }}>{radarScore}/100 · {radarAlert}</span>}
+                  </div>
+                  {highW.length > 0 && (
+                    <span style={{ background: C.red, color: "#fff", fontFamily: MONO, fontSize: 9, fontWeight: 900,
+                      borderRadius: 999, padding: "1px 6px" }}>{highW.length} ALERT{highW.length > 1 ? "S" : ""}</span>
+                  )}
+                  {distData && (distData.indexSnapshot||[]).map(idx => (
+                    <span key={idx.sym} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "2px 5px",
+                      borderRadius: 3, background: (idx.chg >= 0 ? C.green : C.red) + "18",
+                      color: idx.chg >= 0 ? C.green : C.red }}>
+                      {idx.sym} {idx.chg >= 0 ? "+" : ""}{idx.chg}%
+                    </span>
+                  ))}
+                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{distExpanded ? "▲" : "▼"}</span>
+                </div>
+                {distExpanded && distData && (
+                  <div style={{ padding: "10px 14px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 5, marginBottom: 8 }}>
+                      {(distData.checkStatus||[]).map((c, i) => {
+                        const sc = c.status === "HIGH" ? C.red : c.status === "MED" ? C.amber : C.green;
+                        return (
+                          <div key={i} style={{ padding: "5px 7px", borderRadius: 4,
+                            background: c.status === "OK" ? C.surface : (c.status === "HIGH" ? C.red + "12" : C.amber + "0d"),
+                            border: "1px solid " + sc + "33" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span style={{ fontFamily: SANS, fontSize: 9, color: sc, fontWeight: 700 }}>{c.icon}</span>
+                              <span style={{ fontSize: 9 }}>{c.status === "HIGH" ? "🔴" : c.status === "MED" ? "🟡" : "✅"}</span>
+                            </div>
+                            <div style={{ fontFamily: SANS, fontSize: 9, color: sc, fontWeight: 700, marginTop: 1 }}>{c.label.split(" ")[0]}</div>
+                            <div style={{ fontFamily: SANS, fontSize: 8, color: C.textDim, lineHeight: 1.3 }}>{(c.detail||"").slice(0,40)}{(c.detail||"").length > 40 ? "…" : ""}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {(distData.topInflows||[]).length > 0 && (
+                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+                        <span style={{ fontFamily: SANS, fontSize: 9, color: C.green, fontWeight: 700 }}>⬆ IN:</span>
+                        {(distData.topInflows||[]).slice(0,3).map(s => (
+                          <span key={s.sym} style={{ fontFamily: MONO, fontSize: 9, color: C.green, background: C.green + "14", borderRadius: 3, padding: "1px 5px" }}>{s.sym} +{s.chg.toFixed(1)}%</span>
+                        ))}
+                        <span style={{ fontFamily: SANS, fontSize: 9, color: C.red, fontWeight: 700, marginLeft: 4 }}>⬇ OUT:</span>
+                        {(distData.topOutflows||[]).slice(0,3).map(s => (
+                          <span key={s.sym} style={{ fontFamily: MONO, fontSize: 9, color: C.red, background: C.red + "12", borderRadius: 3, padding: "1px 5px" }}>{s.sym} {s.chg.toFixed(1)}%</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              {/* Fear & Greed */}
+              <div style={{ background: C.card, border: `1px solid ${C.borderLit}`, borderRadius: 8, overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px",
+                  background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: 14 }}>😨</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.text }}>FEAR & GREED</span>
+                  {fg && !fg.error && (
+                    <><span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: fgColor, marginLeft: 4 }}>{fgScore}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: fgColor }}>{fgLabel}</span></>
+                  )}
+                  <button onClick={fetchFearGreed} disabled={fearGreedLoading}
+                    style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, border: `1px solid ${C.border}`,
+                      background: "transparent", color: fearGreedLoading ? C.textDim : C.accent,
+                      borderRadius: 4, padding: "3px 8px", cursor: "pointer" }}>
+                    {fearGreedLoading ? "⌛" : "↺"}
+                  </button>
+                </div>
+                {fg && !fearGreedLoading && !fg.error ? (
+                  <div style={{ padding: "10px 14px" }}>
+                    <div style={{ position: "relative", marginBottom: 6 }}>
+                      <div style={{ height: 10, borderRadius: 5, background: "linear-gradient(to right,#ef4444,#f97316,#eab308,#22c55e,#16a34a)" }} />
+                      <div style={{ position: "absolute", top: -4, left: fgScore + "%", transform: "translateX(-50%)",
+                        width: 18, height: 18, borderRadius: "50%", background: fgColor, border: "2px solid " + C.bg, boxShadow: "0 0 6px " + fgColor }} />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 8, color: C.textDim, marginBottom: 8 }}>
+                      <span>FEAR</span><span>NEUTRAL</span><span>GREED</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 4 }}>
+                      {(fg.components||[]).map((c, ci) => {
+                        const cc = c.score <= 25 ? C.red : c.score <= 45 ? C.amber : c.score <= 75 ? "#22c55e" : C.green;
+                        return (
+                          <div key={ci} style={{ padding: "5px 6px", borderRadius: 4, background: C.surface, border: `1px solid ${C.border}22` }}>
+                            <div style={{ fontFamily: SANS, fontSize: 8, color: C.textDim }}>{c.name}</div>
+                            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: cc }}>{c.score}</div>
+                            <div style={{ height: 2, borderRadius: 1, background: C.border, marginTop: 2 }}>
+                              <div style={{ width: c.score + "%", height: "100%", background: cc, borderRadius: 1 }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : !fearGreedLoading ? (
+                  <div style={{ padding: "14px", fontFamily: SANS, fontSize: 11, color: C.textDim, textAlign: "center" }}>Click ↺ to load</div>
+                ) : null}
+              </div>
+            </div>
+
+            {/* 3: LIVE SIGNALS TABLE */}
+            <div style={{ background: C.card, border: `1px solid ${C.borderLit}`, borderRadius: 8, overflow: "hidden", marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px",
+                background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+                <span style={{ fontSize: 14 }}>{sigLoading ? "⏳" : "⚡"}</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.text }}>LIVE SIGNALS</span>
+                <span style={{ fontFamily: SANS, fontSize: 9, color: C.green, background: C.green + "18",
+                  border: `1px solid ${C.green}33`, borderRadius: 10, padding: "1px 6px" }}>AUTO ↺ 1MIN</span>
+                <div style={{ display: "flex", gap: 3 }}>
                   {["ALL","LONG","SHORT","OPTIONS"].map(f => (
                     <button key={f} onClick={() => setSigFilter(f)}
                       style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, border: "none",
                         background: sigFilter === f ? C.accent : C.surface,
                         color: sigFilter === f ? "#fff" : C.textDim,
-                        borderRadius: 4, padding: "3px 8px", cursor: "pointer" }}>
-                      {f}
-                    </button>
+                        borderRadius: 3, padding: "2px 7px", cursor: "pointer" }}>{f}</button>
                   ))}
                 </div>
-                <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
-                  <button onClick={refresh} style={{ fontFamily: MONO, fontSize: 9, border: `1px solid ${C.border}`,
-                    background: "transparent", color: C.textDim, borderRadius: 4, padding: "3px 8px", cursor: "pointer" }}>
-                    {sigLoading ? "⌛" : "↺ REFRESH"}
-                  </button>
-                  <button onClick={() => setSigCollapsed(p => !p)}
-                    style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", fontFamily: MONO, fontSize: 10 }}>
-                    {sigCollapsed ? "▼ show" : "▲ hide"}
-                  </button>
-                </div>
+                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, color: C.textDim }}>
+                  {sigData ? `${sigData.mktEnv} · VIX ${sigData.vix} · ${new Date(sigData.scannedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}` : "Scanning…"}
+                </span>
               </div>
-
-              {!sigCollapsed && (
-                <div style={{ padding: "12px 16px" }}>
-                  {sigLoading && !sigData && (
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center", padding: "20px 0" }}>
-                      ⌛ Scanning {" — "} analyzing signals across 50 symbols…
-                    </div>
-                  )}
-                  {sigLoading && (
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center", padding: "16px 0" }}>
-                      ⌛ Scanning 50 symbols for setups…
-                    </div>
-                  )}
-                  {!sigLoading && filtered.length === 0 && sigData && (
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center", padding: "16px 0" }}>
-                      No {sigFilter === "ALL" ? "" : sigFilter + " "}signals right now — market may be quiet.
-                      {sigFilter !== "ALL" && <span style={{ color: C.accent, cursor: "pointer", marginLeft: 6 }} onClick={() => setSigFilter("ALL")}>Show ALL</span>}
-                    </div>
-                  )}
-                  {!sigLoading && !sigData && (
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center", padding: "16px 0" }}>
-                      ⌛ Loading signals… (scans 50 symbols, takes ~5s)
-                    </div>
-                  )}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 10 }}>
-                    {filtered.map((s, i) => {
-                      const ac = ACTION_COLOR[s.action] || C.amber;
-                      const cc = CONF_COLOR[s.confidence] || C.textDim;
-                      const isLong  = s.action === "LONG";
-                      const isShort = s.action === "SHORT / AVOID";
-                      return (
-                        <div key={`${s.sym}-${i}`}
-                          onClick={() => {
-                            const ticker = s.sym;
-                            setTerminalSymbol(ticker);
-
-                            // Build a scan row from signal data we already have — no fetch needed
-                            const signalRow = {
-                              ticker,
-                              score:     s.score || 50,
-                              signal:    s.action === "LONG" ? "BUY" : s.action === "SHORT / AVOID" ? "SELL" : "WATCH",
-                              signals:   s.rationale.map(r => ({ txt: r, bull: s.action === "LONG" })),
-                              sColor:    s.action === "LONG" ? "#00e676" : s.action.startsWith("SHORT") ? "#ff4444" : "#ffaa00",
-                              rsiVal:    null,
-                              macdBull:  null,
-                              ema9v:     null, ema21v: null,
-                              quote:     { price: s.entry, changePercent: s.chgPct, yearHigh: s.hi52,
-                                           priceAvg50: s.ma50, priceAvg200: s.ma200,
-                                           volume: 0, avgVolume: 0 },
-                              candles:   null,
-                            };
-
-                            // Inject into scan results immediately (no wait)
-                            setScanResults(prev => {
-                              const exists = prev.some(r => r.ticker === ticker);
-                              if (exists) return prev;
-                              return [signalRow, ...prev];
-                            });
-
-                            // Switch tab and expand — synchronous, no race condition
-                            setActiveTab("smartscan");
-                            setScanExpanded(ticker);
-
-                            // Load full deep dive data in background
-                            loadDeepDive(ticker);
-                            loadDeepSocial(ticker);
-
-                            // Optionally fetch richer quote data and update the row
-                            fetch(`/api/scanner/smart-scan?tickers=${ticker}`)
-                              .then(r => r.json())
-                              .then(data => {
-                                if (!data.ok || !data.results?.length) return;
-                                const [{ quote, candles }] = data.results;
-                                const richer = { ...scoreTicker(ticker, quote, candles), quote, candles };
-                                setScanResults(prev => prev.map(r => r.ticker === ticker ? richer : r));
-                              })
-                              .catch(() => {});
-                          }}
-                          style={{ borderRadius: 8, border: `1px solid ${ac}44`, background: `${ac}08`,
-                            padding: "12px 14px", cursor: "pointer",
-                            borderLeft: `4px solid ${ac}` }}>
-
-                          {/* Top row: ticker + action + confidence */}
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                            <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>{s.sym}</span>
-                            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: ac,
-                              background: `${ac}18`, borderRadius: 4, padding: "2px 8px", letterSpacing: "0.05em" }}>
-                              {isLong ? "▲" : isShort ? "▼" : "👁"} {s.action}
-                            </span>
-                            <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9, fontWeight: 700, color: cc }}>
-                              {s.confidence} · {s.score}
-                            </span>
-                          </div>
-
-                          {/* Options trade details */}
-                          {s.optDetail ? (
-                            <div style={{ borderRadius: 6, padding: "8px 10px", marginBottom: 8,
-                              background: `${C.purple}14`, border: `1px solid ${C.purple}44` }}>
-                              {/* Trade string */}
-                              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.purple, marginBottom: 6 }}>
-                                🎰 {s.optDetail.action} {s.optDetail.type}
-                                <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 400, color: C.textDim, marginLeft: 6 }}>
-                                  {s.optionNote}
-                                </span>
-                              </div>
-                              {/* Strike / Expiry / Premium grid */}
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4 }}>
-                                {[
-                                  ["STRIKE", `$${s.optDetail.strike}`, C.purple],
-                                  ["EXPIRY", s.optDetail.expiry, C.amber],
-                                  ["DTE",    `${s.optDetail.dte}d`, C.textSec],
-                                  ["~PREM",  s.optDetail.estPrem ? `$${s.optDetail.estPrem}` : "—", C.green],
-                                  ["CONT",   `${s.optDetail.contracts}×`, C.text],
-                                  ["COST",   s.optDetail.estPrem ? `$${Math.round(s.optDetail.estPrem * s.optDetail.contracts * 100)}` : "—", C.textDim],
-                                ].map(([lbl, val, col]) => (
-                                  <div key={lbl} style={{ textAlign: "center", padding: "4px 2px",
-                                    background: C.surface, borderRadius: 3 }}>
-                                    <div style={{ fontFamily: SANS, fontSize: 8, color: C.textDim }}>{lbl}</div>
-                                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: col }}>{val}</div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ) : s.optionType && !s.optionType.includes("WAIT") && (
-                            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.purple,
-                              background: `${C.purple}12`, borderRadius: 4, padding: "4px 8px", marginBottom: 8 }}>
-                              🎰 {s.optionType}
-                              <span style={{ fontFamily: SANS, fontSize: 9, fontWeight: 400, color: C.textDim, marginLeft: 6 }}>
-                                {s.optionNote}
+              {sigLoading && !sigData ? (
+                <div style={{ padding: "14px", fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>⌛ Scanning 50 symbols…</div>
+              ) : !filtered2.length ? (
+                <div style={{ padding: "12px", fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "center" }}>
+                  No {sigFilter !== "ALL" ? sigFilter + " " : ""}signals
+                  {sigFilter !== "ALL" && <span style={{ color: C.accent, cursor: "pointer", marginLeft: 6 }} onClick={() => setSigFilter("ALL")}>Show ALL</span>}
+                </div>
+              ) : (
+                <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead><tr style={{ background: C.surface }}>
+                      {["TICKER","ACTION","SCORE","ENTRY","STOP","T1","R:R","OPTIONS","RVOL"].map(h => (
+                        <th key={h} style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, fontWeight: 700,
+                          padding: "6px 10px", textAlign: "left", borderBottom: `1px solid ${C.border}`,
+                          whiteSpace: "nowrap", letterSpacing: "0.05em" }}>{h}</th>
+                      ))}</tr></thead>
+                    <tbody>
+                      {filtered2.slice(0,12).map((s, i) => {
+                        const ac2 = ACT_COL[s.action] || C.amber;
+                        return (
+                          <tr key={s.sym + i} onClick={() => handleSigClick(s)}
+                            style={{ borderBottom: `1px solid ${C.border}22`, cursor: "pointer",
+                              background: i % 2 === 0 ? "transparent" : C.surface }}
+                            onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
+                            onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : C.surface}>
+                            <td style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent, padding: "8px 10px" }}>{s.sym}</td>
+                            <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
+                              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: ac2,
+                                background: ac2 + "18", borderRadius: 3, padding: "2px 6px" }}>
+                                {s.action === "LONG" ? "▲ LONG" : s.action === "SHORT / AVOID" ? "▼ SHORT" : "👁 WATCH"}
                               </span>
-                            </div>
-                          )}
-
-                          {/* Entry / Stop / Targets */}
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 4, marginBottom: 8 }}>
-                            {[
-                              ["ENTRY", `$${s.entry}`, C.text],
-                              ["STOP",  `$${s.stop}`,  C.red],
-                              ["T1",    `$${s.target1}`, C.green],
-                              ["R:R",   `${s.rr}:1`,  s.rr >= 2 ? C.green : s.rr >= 1.5 ? C.amber : C.textDim],
-                            ].map(([lbl, val, col]) => (
-                              <div key={lbl} style={{ textAlign: "center", padding: "4px 0",
-                                background: C.surface, borderRadius: 4 }}>
-                                <div style={{ fontFamily: SANS, fontSize: 8, color: C.textDim }}>{lbl}</div>
-                                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: col }}>{val}</div>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Stats row */}
-                          <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
-                            <span style={{ fontFamily: MONO, fontSize: 10, color: s.chgPct >= 0 ? C.green : C.red }}>
-                              {s.chgPct >= 0 ? "+" : ""}{s.chgPct}%
-                            </span>
-                            <span style={{ fontFamily: MONO, fontSize: 10, color: s.rvol >= 2 ? C.accent : C.textDim }}>
-                              RVOL {s.rvol}×
-                            </span>
-                            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
-                              IV {s.ivProxy}
-                            </span>
-                          </div>
-
-                          {/* Rationale bullets */}
-                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                            {s.rationale.map((r, ri) => (
-                              <div key={ri} style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>
-                                • {r}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {sigData && (
-                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 10 }}>
-                      {filtered.length} signals · {new Date(sigData.scannedAt).toLocaleTimeString()} · Click any card to open chart · Decision support only, not financial advice
-                    </div>
-                  )}
+                            </td>
+                            <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: ac2, padding: "8px 10px" }}>{s.score}</td>
+                            <td style={{ fontFamily: MONO, fontSize: 12, color: C.text, padding: "8px 10px" }}>${s.entry}</td>
+                            <td style={{ fontFamily: MONO, fontSize: 12, color: C.red, padding: "8px 10px" }}>${s.stop}</td>
+                            <td style={{ fontFamily: MONO, fontSize: 12, color: C.green, padding: "8px 10px" }}>${s.target1}</td>
+                            <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 10px",
+                              color: s.rr >= 2 ? C.green : s.rr >= 1.5 ? C.amber : C.textDim }}>{s.rr}:1</td>
+                            <td style={{ fontFamily: MONO, fontSize: 10, color: C.purple, padding: "8px 10px", whiteSpace: "nowrap" }}>
+                              {s.optionType && !s.optionType.includes("WAIT") ? s.optionType : "—"}
+                            </td>
+                            <td style={{ fontFamily: MONO, fontSize: 11, color: s.rvol >= 2 ? C.accent : C.textDim, padding: "8px 10px" }}>{s.rvol}×</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
+            </>
           );
         })()}
+
 
         {activeTab === "dashboard" && watchlistData.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : `minmax(0, 1fr) minmax(260px, ${LAYOUT.sidebarWidth}px)`, gap: LAYOUT.gridGap, alignItems: "start", width: "100%", overflow: "hidden" }}>
