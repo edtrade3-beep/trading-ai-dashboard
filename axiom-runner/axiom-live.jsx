@@ -11763,7 +11763,36 @@ export default function App() {
                       const isShort = s.action === "SHORT / AVOID";
                       return (
                         <div key={`${s.sym}-${i}`}
-                          onClick={() => { setTerminalSymbol(s.sym); setActiveTab("terminal"); }}
+                          onClick={async () => {
+                            const ticker = s.sym;
+                            setTerminalSymbol(ticker);
+                            setActiveTab("smartscan");
+                            // If already in scan results, just expand it
+                            const existing = scanResults.find(r => r.ticker === ticker);
+                            if (existing) {
+                              setScanExpanded(ticker);
+                              loadDeepDive(ticker);
+                              loadDeepSocial(ticker);
+                            } else {
+                              // Fetch and inject into scanner, then expand
+                              try {
+                                const res  = await fetch(`/api/scanner/smart-scan?tickers=${ticker}`);
+                                const data = await res.json();
+                                if (data.ok && data.results?.length) {
+                                  const [{ quote, candles }] = data.results;
+                                  const scored = { ...scoreTicker(ticker, quote, candles), quote, candles };
+                                  setScanResults(prev => {
+                                    const exists = prev.some(r => r.ticker === ticker);
+                                    const updated = exists ? prev.map(r => r.ticker === ticker ? scored : r) : [scored, ...prev];
+                                    return updated.sort((a, b) => b.score - a.score);
+                                  });
+                                  setScanExpanded(ticker);
+                                  loadDeepDive(ticker);
+                                  loadDeepSocial(ticker);
+                                }
+                              } catch {}
+                            }
+                          }}
                           style={{ borderRadius: 8, border: `1px solid ${ac}44`, background: `${ac}08`,
                             padding: "12px 14px", cursor: "pointer",
                             borderLeft: `4px solid ${ac}` }}>
