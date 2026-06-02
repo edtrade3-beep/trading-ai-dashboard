@@ -5,6 +5,10 @@ const { fetchYahooBars } = require("./providers/yahoo");
 const { computeEMA, computeRSI } = require("./indicators");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
 const { detectFVGs, detectOrderBlocks, detectBOSChoCh, computeVolumeProfile, detectLiquidityLevels } = require("./smc-engine");
+// Lazy-import bot helpers to avoid circular dep at load time
+function getBotHelpers() {
+  try { return require("./telegram-bot"); } catch { return {}; }
+}
 const { maybeAutoExecute } = require("./routes/autoexec");
 const { fetchTrending: stTrending }  = require("./providers/stocktwits");
 const { fetchAllNews, fetchFinanceNews } = require("./providers/reddit-news");
@@ -573,6 +577,15 @@ async function runScan(options = {}) {
       };
       hits.push(hit);
 
+      // Route through pro bot batch queue (quiet hours + level filter applied there)
+      try {
+        const { enqueueScanAlert, isQuietHours } = getBotHelpers();
+        if (enqueueScanAlert && !isQuietHours?.()) {
+          enqueueScanAlert({ symbol: sym, signal, score: a.composite,
+            chgPct: a.chgPct, rvol: a.rvol, trend: a.trend, hasBOS: false });
+        }
+      } catch {}
+
       // Auto-execute fire-level signals via Tradier
       maybeAutoExecute({
         symbol: sym, signal,
@@ -600,6 +613,12 @@ async function runScan(options = {}) {
     if (telegramConfigured()) {
       (async () => {
         try {
+          // Skip SMC alerts during quiet hours
+          const { isQuietHours, getAlertLevel } = getBotHelpers();
+          if (isQuietHours?.()) return;
+          const level = getAlertLevel?.() || "normal";
+          if (level === "off") return;
+
           let smcSentThisScan = 0;          // max 2 SMC alerts per scan run
           const SMC_MAX_PER_SCAN = 2;
           const SMC_COOLDOWN_MS  = 8 * 3600_000; // 8-hour cooldown per symbol

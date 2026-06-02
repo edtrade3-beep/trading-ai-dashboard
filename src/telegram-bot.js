@@ -31,6 +31,60 @@ const { withTimeout, round2 }                    = require("./utils");
 
 const API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 
+// ── Pro Bot State ──────────────────────────────────────────────────────────────
+// Alert level: "quiet" (≥85+BOS only) | "normal" (≥75, default) | "all"
+let alertLevel   = "normal";
+// Batch queue: holds pending scan alerts to group into one message
+let batchQueue   = [];       // { symbol, signal, score, chgPct, rvol, trend }
+let batchTimer   = null;
+const BATCH_WAIT = 90_000;   // 90 seconds — collect signals then send once
+
+// Quiet hours: no alerts 4:30pm–7:00am ET + weekends
+function isQuietHours() {
+  const etStr  = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
+  const et     = new Date(etStr);
+  const h      = et.getHours(), m = et.getMinutes(), day = et.getDay();
+  if (day === 0 || day === 6) return true;                    // weekend
+  if (h > 16 || (h === 16 && m >= 30)) return true;          // after 4:30 PM
+  if (h < 7) return true;                                     // before 7:00 AM
+  return false;
+}
+
+// Check if alert passes the current level filter
+function passesAlertLevel(score, hasBOS) {
+  if (alertLevel === "quiet") return score >= 85 && hasBOS;
+  if (alertLevel === "normal") return score >= 72;
+  return true; // "all"
+}
+
+// Add to batch queue and schedule a grouped send
+function queueBatchAlert(item) {
+  if (isQuietHours()) return;
+  if (!passesAlertLevel(item.score || 50, item.hasBOS)) return;
+  batchQueue.push(item);
+  if (batchTimer) return; // already scheduled
+  batchTimer = setTimeout(async () => {
+    batchTimer = null;
+    if (!batchQueue.length) return;
+    const items  = batchQueue.splice(0);
+    const time   = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+    const header = `⚡ SCAN UPDATE — ${time} ET`;
+    const divider = "━━━━━━━━━━━━━━━━━━";
+    const rows = items.slice(0, 6).map(s => {
+      const icon  = s.signal === "BUY" ? "🟢" : s.signal === "SELL" ? "🔴" : "🟡";
+      const bos   = s.hasBOS ? " BOS✓" : "";
+      return `${icon} ${s.symbol.padEnd(6)} ${String(s.score).padStart(3)}/100  ${s.signal}  ${s.chgPct > 0 ? "+" : ""}${s.chgPct?.toFixed(1)}%  ${s.rvol?.toFixed(1)}×${bos}`;
+    });
+    // Footer: regime + extras
+    const extra = items.length > 6 ? `\n+${items.length - 6} more signals` : "";
+    await reply([header, divider, ...rows, divider + extra].join("\n")).catch(() => {});
+  }, BATCH_WAIT);
+}
+
+// Module exports for scanner to call
+function enqueueScanAlert(item) { queueBatchAlert(item); }
+function getAlertLevel()        { return alertLevel; }
+
 // ── Core send ─────────────────────────────────────────────────────────────────
 async function reply(text) {
   if (!TELEGRAM_CHAT_ID) return;
@@ -673,6 +727,79 @@ const COMMANDS = {
   ml:        ()  => cmdNews(["MachineLearning"]),
   finance:   ()  => cmdNews(["finance"]),
   r:         (a) => cmdNews(a),
+
+  // ── New Pro Commands ──────────────────────────────────────────────────────
+  score: async (args) => {
+    const sym = (args[0] || "").toUpperCase();
+    if (!sym) return reply("Usage: /score NVDA");
+    await reply(`⌛ Analysing ${sym}…`);
+    try {
+      const bars = await fetchYahooBars(sym, "3mo", "1d").catch(() => []);
+      if (!bars.length) return reply(`No data for ${sym}`);
+      const { detectBOSChoCh, detectOrderBlocks, detectFVGs, computeVolumeProfile } = require("./smc-engine");
+      const q = await fetchYahooQuoteBatch([sym]).catch(() => []);
+      const quote = q[0] || {};
+      const price = round2(Number(quote.regularMarketPrice || bars.at(-1)?.close || 0));
+      const { bos, choch } = detectBOSChoCh(bars);
+      const obs = detectOrderBlocks(bars);
+      const fvgs = detectFVGs(bars);
+      const vp  = computeVolumeProfile(bars);
+      const chgPct = round2(Number(quote.regularMarketChangePercent || 0));
+      const lines = [
+        `📊 ${sym} ANALYSIS — $${price}  ${chgPct >= 0 ? "+" : ""}${chgPct}%`,
+        `━━━━━━━━━━━━━━━━━━━━`,
+        bos   ? `📐 ${bos.label} @ $${bos.level}` : "📐 No BOS yet",
+        choch ? `⚠ ${choch.label}` : "",
+        obs.length ? `🔲 OBs: ${obs.map(o => `${o.type === "BULL_OB" ? "🟢" : "🔴"}$${o.bot}-$${o.top}`).join("  ")}` : "",
+        fvgs.length ? `🕳 FVGs: ${fvgs.slice(0,3).map(f => `${f.type === "BULL_FVG" ? "▲" : "▼"}$${f.bot}-$${f.top}`).join("  ")}` : "",
+        vp.vpoc ? `📊 VPOC $${vp.vpoc}  VAH $${vp.vah}  VAL $${vp.val}` : "",
+        `━━━━━━━━━━━━━━━━━━━━`,
+        bos?.type === "BULL_BOS"
+          ? `✅ ACTIONABLE — Bull BOS confirmed. Watch for pullback to OB.`
+          : `👁 WATCH — No BOS yet. Wait for structure break above swing high.`,
+      ].filter(Boolean).join("\n");
+      await reply(lines);
+    } catch (e) { await reply(`Error: ${e.message}`); }
+  },
+
+  smc: async (args) => { return COMMANDS.score(args); }, // alias
+
+  top5: async () => {
+    const status = getScannerStatus();
+    const hits   = (status.lastHits || []).filter(h => h.signal === "BUY").slice(0, 5);
+    if (!hits.length) return reply("No recent BUY signals. Run /scan first.");
+    const time = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+    const rows = hits.map((h, i) =>
+      `${i+1}. ${h.symbol.padEnd(6)}  ${h.composite}/100  +${h.chgPct?.toFixed(1)}%  RVOL ${h.rvol?.toFixed(1)}×`
+    );
+    await reply([`🏆 TOP 5 BUY SETUPS — ${time} ET`, "━━━━━━━━━━━━━━━━", ...rows, "━━━━━━━━━━━━━━━━", "Tip: Type a ticker for full SMC analysis"].join("\n"));
+  },
+
+  brief: async () => {
+    await reply("⌛ Generating morning briefing… (takes 20-30s)");
+    try {
+      const { sendMacroReport } = require("./market-scanner");
+      await sendMacroReport();
+    } catch (e) { await reply(`Error: ${e.message}`); }
+  },
+
+  mute: async (args) => {
+    const level = (args[0] || "").toLowerCase();
+    if (level === "quiet") { alertLevel = "quiet"; return reply("🔕 QUIET MODE — Only score ≥85 + BOS alerts"); }
+    if (level === "all")   { alertLevel = "all";   return reply("🔔🔔🔔 ALL ALERTS — Everything enabled"); }
+    if (level === "off")   { alertLevel = "off";   return reply("🚫 ALERTS OFF — Use /mute on to resume"); }
+    if (level === "on")    { alertLevel = "normal"; return reply("🔔 NORMAL MODE — Score ≥72 alerts"); }
+    alertLevel = "normal";
+    return reply(
+      `🎚 ALERT LEVELS\n` +
+      `━━━━━━━━━━━━━━━━\n` +
+      `/mute quiet  — Score≥85 + BOS only (1-2/day)\n` +
+      `/mute on     — Score≥72 normal (default)\n` +
+      `/mute all    — Everything\n` +
+      `/mute off    — Silence all alerts\n\n` +
+      `Current: ${alertLevel.toUpperCase()}`
+    );
+  },
 };
 
 async function dispatch(text) {
@@ -781,6 +908,11 @@ async function registerCommands() {
       { command: "alert",     description: "Set price alert — /alert AAPL above 200" },
       { command: "alerts",    description: "List active price alerts" },
       { command: "cancel",    description: "Cancel alert — /cancel <id>" },
+      { command: "score",     description: "SMC analysis — /score NVDA" },
+      { command: "smc",       description: "SMC analysis — /smc NVDA (alias for /score)" },
+      { command: "top5",      description: "Top 5 buy setups from last scan" },
+      { command: "brief",     description: "Generate market briefing now" },
+      { command: "mute",      description: "Alert level — /mute quiet | on | all | off" },
       { command: "deals",     description: "Top deals — /deals laptop" },
       { command: "scanner",   description: "Scanner control — on / off / interval 5" },
       { command: "help",      description: "All commands" },
@@ -828,4 +960,4 @@ function startTelegramBot() {
 
 function stopTelegramBot() { _polling = false; }
 
-module.exports = { startTelegramBot, stopTelegramBot };
+module.exports = { startTelegramBot, stopTelegramBot, enqueueScanAlert, isQuietHours, getAlertLevel };
