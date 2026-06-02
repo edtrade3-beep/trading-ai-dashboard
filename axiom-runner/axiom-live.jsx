@@ -11129,7 +11129,6 @@ export default function App() {
             { id: "screener",   label: "🔍 SCREENER" },
             { id: "flow",       label: "💰 OPTIONS FLOW" },
             { id: "fivex",      label: "🚀 5X PLAYS" },
-            { id:    label: "🤖 AI ADVISOR" },
             { id: "autoexec",   label: "⚙ AUTO-EXEC" },
           ],
           markets: [
@@ -11153,7 +11152,6 @@ export default function App() {
             { id: "ipo",        label: "💸 DIVIDENDS" },
             { id: "options",    label: "🎰 OPTIONS" },
             { id: "sec-filings",label: "📄 SEC FILINGS" },
-            { id:   label: "🔬 ANALYZER" },
           ],
           portfolio: [
             { id: "portfolio",    label: "💼 POSITIONS" },
@@ -11161,7 +11159,6 @@ export default function App() {
             { id: "journal",      label: "📓 JOURNAL" },
             { id: "alerts",       label: "🔔 ALERTS" },
             { id: "risklab",      label: "⚠ RISK LAB" },
-            { id:          label: "📈 DCA" },
             { id: "heatmap",      label: "🔥 HEAT MAP" },
             { id: "correlation",  label: "🔗 CORRELATION" },
             { id: "options-calc", label: "🎰 OPTIONS CALC" },
@@ -11169,9 +11166,7 @@ export default function App() {
           tools: [
             { id: "workflow",  label: "📋 WORKFLOW" },
             { id: "agent",     label: "🤖 AI AGENT" },
-            { id:     label: "🧪 AI LAB" },
             { id: "backtest",  label: "⏮ BACKTEST" },
-            { id:     label: "🛒 DEALS" },
             { id: "telegram",  label: "✈ TELEGRAM" },
             { id: "tools",     label: "⚙ SETTINGS" },
           ],
