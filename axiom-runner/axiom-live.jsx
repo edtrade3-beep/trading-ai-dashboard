@@ -14439,6 +14439,127 @@ export default function App() {
                                       ⌛ Loading deep dive data for {row.ticker}…
                                     </div>
                                   ) : (
+                                    <>
+                                    {/* ── MASTER VERDICT BANNER ── */}
+                                    {(() => {
+                                      const smc    = deepData?.smc;
+                                      const fd2    = deepData?.fundamentals;
+                                      const sd     = deepSocialData[row.ticker];
+                                      const px     = Number(livePrice || row.quote?.price || 0);
+                                      const hi52   = Number(row.quote?.yearHigh || 0);
+                                      const lo52   = Number(row.quote?.yearLow  || 0);
+                                      const ma50   = Number(row.quote?.priceAvg50  || 0);
+                                      const ma200  = Number(row.quote?.priceAvg200 || 0);
+                                      const ttScore = (() => {
+                                        let pass = 0, total = 0;
+                                        if (ma200 > 0 && px > 0) { total++; if (px > ma200) pass++; }
+                                        if (ma50 > 0 && ma200 > 0) { total++; if (ma50 > ma200) pass++; }
+                                        if (ma50 > 0 && px > 0) { total++; if (px > ma50) pass++; }
+                                        if (hi52 > 0 && lo52 > 0 && px > 0) { total++; if (px >= lo52 * 1.30) pass++; }
+                                        if (hi52 > 0 && px > 0) { total++; if (px >= hi52 * 0.75) pass++; }
+                                        if (row.rsiVal) { total++; if (row.rsiVal >= 60) pass++; }
+                                        if (row.ema9v && row.ema21v) { total++; if (row.ema9v > row.ema21v) pass++; }
+                                        return total > 0 ? Math.round(pass / total * 100) : 50;
+                                      })();
+                                      const bosBull  = smc?.bos?.type === "BULL_BOS";
+                                      const bosBear  = smc?.bos?.type === "BEAR_BOS";
+                                      const chochBear= smc?.choch?.type === "CHOCH_BEAR";
+                                      const sentBull = sd?.stocktwits?.bullPct ?? 50;
+                                      const recKey   = fd2?.recommendationKey || "";
+                                      const analystBull = recKey.includes("buy") || recKey.includes("outperform");
+                                      const analystBear = recKey.includes("sell") || recKey.includes("underperform");
+                                      const techScore   = row.score || 50;
+                                      const rsi         = row.rsiVal || 50;
+                                      const macdBull2   = row.macdBull;
+
+                                      // ── Weight signals (0-100 each) ───────────────────────────────────
+                                      const weights = {
+                                        tech:      { score: techScore,          w: 0.20, label: "Tech Score" },
+                                        smc:       { score: bosBull ? 80 : bosBear ? 20 : chochBear ? 30 : 50, w: 0.25, label: "SMC Structure" },
+                                        trend:     { score: ttScore,            w: 0.20, label: "Trend Template" },
+                                        sentiment: { score: sentBull,           w: 0.15, label: "Sentiment" },
+                                        analyst:   { score: analystBull ? 75 : analystBear ? 25 : 50, w: 0.10, label: "Analyst" },
+                                        macd:      { score: macdBull2 === true ? 70 : macdBull2 === false ? 30 : 50, w: 0.10, label: "MACD" },
+                                      };
+                                      const composite = Object.values(weights).reduce((sum, w) => sum + w.score * w.w, 0);
+                                      const verdict =
+                                        composite >= 72 ? { label: "STRONG BUY",  col: "#00e676", bg: "#00e67614", icon: "🚀", action: "Enter now or on next pullback to MA50." } :
+                                        composite >= 62 ? { label: "BUY",         col: C.green,   bg: `${C.green}14`, icon: "✅", action: "Good setup — confirm entry with volume." } :
+                                        composite >= 53 ? { label: "WATCH",       col: C.amber,   bg: `${C.amber}12`, icon: "👁", action: "Wait for a clearer trigger before entering." } :
+                                        composite >= 40 ? { label: "AVOID",       col: C.red,     bg: `${C.red}12`, icon: "⛔", action: "Conflicting signals — stay out for now." } :
+                                                          { label: "SELL / SHORT",col: "#ff2244",  bg: "#ff224412", icon: "🔴", action: "Bearish confluence — reduce or short." };
+
+                                      // Top 3 reasons WHY
+                                      const sorted = Object.entries(weights).sort((a,b) => {
+                                        const diff = Math.abs(b[1].score - 50) - Math.abs(a[1].score - 50);
+                                        return diff;
+                                      });
+                                      const reasons = sorted.slice(0,3).map(([, w]) => {
+                                        const up = w.score >= 60;
+                                        return `${up ? "▲" : "▼"} ${w.label}: ${w.score.toFixed(0)}/100`;
+                                      });
+
+                                      // Conflicts (signals pointing opposite direction from verdict)
+                                      const conflicts = sorted.filter(([, w]) => {
+                                        const verdictUp = composite >= 53;
+                                        return verdictUp ? w.score < 45 : w.score > 55;
+                                      }).slice(0,2).map(([, w]) => w.label);
+
+                                      return (
+                                        <div style={{ padding: "12px 14px", marginBottom: 10,
+                                          background: verdict.bg, borderRadius: 8,
+                                          border: `1px solid ${verdict.col}55`,
+                                          borderLeft: `5px solid ${verdict.col}` }}>
+                                          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                                            {/* Verdict */}
+                                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                              <span style={{ fontSize: 22 }}>{verdict.icon}</span>
+                                              <div>
+                                                <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: verdict.col, letterSpacing: "0.06em" }}>
+                                                  {verdict.label}
+                                                </div>
+                                                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 1 }}>
+                                                  {verdict.action}
+                                                </div>
+                                              </div>
+                                            </div>
+
+                                            {/* Score gauge */}
+                                            <div style={{ flex: 1, minWidth: 140 }}>
+                                              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 3 }}>
+                                                <span>MASTER SCORE</span>
+                                                <span style={{ color: verdict.col, fontWeight: 800 }}>{composite.toFixed(0)}/100</span>
+                                              </div>
+                                              <div style={{ height: 8, borderRadius: 4, background: C.border, overflow: "hidden" }}>
+                                                <div style={{ width: `${composite}%`, height: "100%", background: verdict.col, borderRadius: 4, transition: "width 0.5s" }} />
+                                              </div>
+                                            </div>
+
+                                            {/* Signal breakdown pills */}
+                                            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                                              {Object.entries(weights).map(([key, w]) => {
+                                                const col = w.score >= 62 ? C.green : w.score <= 40 ? C.red : C.textDim;
+                                                return (
+                                                  <span key={key} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700,
+                                                    color: col, background: `${col}18`,
+                                                    border: `1px solid ${col}33`, borderRadius: 4, padding: "2px 6px" }}>
+                                                    {w.label.split(" ")[0]} {w.score.toFixed(0)}
+                                                  </span>
+                                                );
+                                              })}
+                                            </div>
+                                          </div>
+
+                                          {/* Conflict warning */}
+                                          {conflicts.length > 0 && (
+                                            <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 10, color: C.amber }}>
+                                              ⚠ Conflicting signals: {conflicts.join(", ")} — reduce position size
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
+
                                     <div
                                       ref={el => {
                                         if (!el) return;
@@ -15497,6 +15618,7 @@ export default function App() {
                                       })()}
 
                                     </div>
+                                    </>
                                   )}
                                 </td>
                               </tr>
