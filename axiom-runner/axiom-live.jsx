@@ -7201,6 +7201,11 @@ export default function App() {
   // ── Smart Scanner state ──────────────────────────────────────────────────
   const [scanResults,  setScanResults]  = useState([]);
   const [scanLoading,  setScanLoading]  = useState(false);
+  // Scanner filters — hoisted to top level (Rules of Hooks)
+  const [sfSig,      setSfSig]      = useState("ALL");   // signal filter
+  const [sfMinScore, setSfMinScore] = useState(0);        // min score
+  const [sfMaxPrice, setSfMaxPrice] = useState(0);        // max price (0=any)
+  const [sfZone,     setSfZone]     = useState("ALL");    // zone filter
   const [scanProgress, setScanProgress] = useState({ done: 0, total: 30 });
   const [scanExpanded, setScanExpanded] = useState(null);
   const [scanLastRun,  setScanLastRun]  = useState(null);
@@ -13935,6 +13940,28 @@ export default function App() {
             borderRadius: 4, padding: "2px 7px", whiteSpace: "nowrap",
           });
 
+          // ── Apply filters using hoisted state (sfSig, sfMinScore, sfMaxPrice, sfZone) ──
+          const filteredResults = scanResults.filter(r => {
+            const px = Number(r.quote?.price || 0);
+            if (sfSig !== "ALL" && r.signal !== sfSig) return false;
+            if (sfMinScore > 0 && (r.score || 0) < sfMinScore) return false;
+            if (sfMaxPrice > 0 && px > sfMaxPrice) return false;
+            if (sfZone !== "ALL") {
+              const ref2 = FIVEX_REF[r.ticker];
+              let z = "";
+              if (px > 0 && ref2) {
+                if (px <= ref2.stop) z = "STOP";
+                else if (px <= ref2.e3) z = "DEEP";
+                else if (px <= ref2.e2) z = "BETTER";
+                else if (px <= ref2.e1) z = "STARTER";
+                else if (px >= ref2.trigger) z = "ABOVE";
+                else z = "WAIT";
+              }
+              if (!z.includes(sfZone)) return false;
+            }
+            return true;
+          });
+
           // ── Summary counts ────────────────────────────────────────────────
           const sigCounts = { "STRONG BUY": 0, "BUY": 0, "WATCH": 0, "NEUTRAL": 0, "AVOID": 0 };
           scanResults.forEach(r => { if (sigCounts[r.signal] !== undefined) sigCounts[r.signal]++; });
@@ -14136,6 +14163,90 @@ export default function App() {
                 </div>
               )}
 
+              {/* ── FILTER BAR ── */}
+              {scanResults.length > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+                  marginBottom: 10, padding: "10px 14px",
+                  background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }}>
+
+                  {/* Signal filter */}
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginRight: 2 }}>SIGNAL</span>
+                    {["ALL","STRONG BUY","BUY","WATCH","NEUTRAL","AVOID"].map(s => (
+                      <button key={s} onClick={() => setSfSig(s)}
+                        style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, border: "none",
+                          background: sfSig === s ? C.accent : C.surface,
+                          color: sfSig === s ? "#fff" : C.textDim,
+                          borderRadius: 4, padding: "4px 8px", cursor: "pointer",
+                          minHeight: 28 }}>
+                        {s === "ALL" ? "ALL" : s}
+                      </button>
+                    ))}
+                  </div>
+
+                  <span style={{ width: 1, height: 20, background: C.border }} />
+
+                  {/* Zone filter */}
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginRight: 2 }}>ZONE</span>
+                    {["ALL","DEEP","BETTER","STARTER","ABOVE","WAIT"].map(z => (
+                      <button key={z} onClick={() => setSfZone(z)}
+                        style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, border: "none",
+                          background: sfZone === z ? "#26a69a" : C.surface,
+                          color: sfZone === z ? "#fff" : C.textDim,
+                          borderRadius: 4, padding: "4px 8px", cursor: "pointer",
+                          minHeight: 28 }}>
+                        {z}
+                      </button>
+                    ))}
+                  </div>
+
+                  <span style={{ width: 1, height: 20, background: C.border }} />
+
+                  {/* Score filter */}
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginRight: 2 }}>MIN SCORE</span>
+                    {[[0,"ALL"],[60,"60+"],[70,"70+"],[80,"80+"],[90,"90+"]].map(([v,lbl]) => (
+                      <button key={v} onClick={() => setSfMinScore(v)}
+                        style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, border: "none",
+                          background: sfMinScore === v ? C.green : C.surface,
+                          color: sfMinScore === v ? "#fff" : C.textDim,
+                          borderRadius: 4, padding: "4px 8px", cursor: "pointer",
+                          minHeight: 28 }}>
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+
+                  <span style={{ width: 1, height: 20, background: C.border }} />
+
+                  {/* Price filter */}
+                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>MAX $</span>
+                    <input type="number" value={sfMaxPrice || ""} placeholder="Any"
+                      onChange={e => setSfMaxPrice(Number(e.target.value) || 0)}
+                      style={{ width: 70, fontFamily: MONO, fontSize: 11,
+                        background: C.surface, border: `1px solid ${C.border}`,
+                        color: C.text, borderRadius: 4, padding: "4px 6px" }} />
+                  </div>
+
+                  {/* Active filter count + clear */}
+                  <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: filteredResults.length < scanResults.length ? C.accent : C.textDim }}>
+                      {filteredResults.length}/{scanResults.length} shown
+                    </span>
+                    {(sfSig !== "ALL" || sfZone !== "ALL" || sfMinScore > 0 || sfMaxPrice > 0) && (
+                      <button onClick={() => { setSfSig("ALL"); setSfZone("ALL"); setSfMinScore(0); setSfMaxPrice(0); }}
+                        style={{ fontFamily: MONO, fontSize: 9, border: `1px solid ${C.border}`,
+                          background: C.surface, color: C.red, borderRadius: 4,
+                          padding: "3px 8px", cursor: "pointer" }}>
+                        ✕ CLEAR
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* ── Results table ── */}
               {scanResults.length > 0 && (
                 <div style={{ background: C.card, border: `1px solid ${C.border}`,
@@ -14167,7 +14278,7 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {scanResults.map((row, idx) => {
+                      {filteredResults.map((row, idx) => {
                         const isExpanded = scanExpanded === row.ticker;
                         const ref = FIVEX_REF[row.ticker];
                         const livePrice = Number(row.quote?.price || 0);
