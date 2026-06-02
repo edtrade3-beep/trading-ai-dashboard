@@ -7862,13 +7862,17 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const t = setTimeout(() => {
+    const fetchSigs = () => {
       setSigLoading(true);
       fetch("/api/market/trade-signals")
         .then(r => r.json()).then(d => { if (d.ok) setSigData(d); })
         .catch(() => {}).finally(() => setSigLoading(false));
-    }, 2000); // reduced from 6s → 2s
-    return () => clearTimeout(t);
+    };
+    // Initial load after 2s
+    const init = setTimeout(fetchSigs, 2000);
+    // Auto-refresh every 60 seconds
+    const interval = setInterval(fetchSigs, 60_000);
+    return () => { clearTimeout(init); clearInterval(interval); };
   }, []);
 
   // ── Morning Brief auto-run (#5) ────────────────────────────────────────────
@@ -11687,9 +11691,13 @@ export default function App() {
               {/* Header */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px",
                 background: C.surface, borderBottom: sigCollapsed ? "none" : `1px solid ${C.border}` }}>
-                <span style={{ fontSize: 16 }}>⚡</span>
+                <span style={{ fontSize: 16 }}>{sigLoading ? "⏳" : "⚡"}</span>
                 <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text, letterSpacing: "0.08em" }}>
                   LIVE TRADE SIGNALS
+                </span>
+                <span style={{ fontFamily: SANS, fontSize: 9, color: C.textDim, background: `${C.green}18`,
+                  border: `1px solid ${C.green}33`, borderRadius: 10, padding: "1px 7px" }}>
+                  AUTO ↺ 1min
                 </span>
                 {sigData && (
                   <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>

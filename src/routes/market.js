@@ -1514,7 +1514,7 @@ async function handleMarket(req, res, requestUrl) {
     }
 
     const _sigCache = handleMarket._sigCache || (handleMarket._sigCache = { data: null, ts: 0 });
-    const SIG_TTL = 3 * 60 * 1000; // 3 min cache
+    const SIG_TTL = 60 * 1000; // 1 min cache — matches frontend auto-refresh interval
     if (_sigCache.data && Date.now() - _sigCache.ts < SIG_TTL) {
       return writeJson(res, 200, _sigCache.data);
     }
