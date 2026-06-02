@@ -600,14 +600,21 @@ async function runScan(options = {}) {
     if (telegramConfigured()) {
       (async () => {
         try {
+          let smcSentThisScan = 0;          // max 2 SMC alerts per scan run
+          const SMC_MAX_PER_SCAN = 2;
+          const SMC_COOLDOWN_MS  = 8 * 3600_000; // 8-hour cooldown per symbol
+
           for (let i = 0; i < symbols.length; i++) {
+            if (smcSentThisScan >= SMC_MAX_PER_SCAN) break; // cap reached
+
             const sym  = symbols[i];
             const a    = results[i];
-            if (!a || a.error || a.composite < 65) continue; // only quality stocks
+            // High bar: score >= 75 AND positive momentum AND volume
+            if (!a || a.error || a.composite < 75 || a.chgPct <= 0 || a.rvol < 1.0) continue;
 
-            const smcKey = `${sym}:SMC`;
+            const smcKey  = `${sym}:SMC`;
             const lastSmc = smcCooldown.get(smcKey);
-            if (lastSmc && Date.now() - lastSmc < 4 * 3600_000) continue; // 4h cooldown
+            if (lastSmc && Date.now() - lastSmc < SMC_COOLDOWN_MS) continue;
 
             const bars = await fetchYahooBars(sym, "3mo", "1d").catch(() => []);
             if (bars.length < 20) continue;
@@ -619,14 +626,15 @@ async function runScan(options = {}) {
             const liquidity       = detectLiquidityLevels(bars);
             const price           = a.price;
 
-            // Gate: need at least one actionable SMC signal
-            const hasBullBOS    = bos?.type === "BULL_BOS";
-            const hasBullOB     = obs.some(ob => ob.type === "BULL_OB" && Math.abs(ob.mid - price) / price < 0.08);
-            const hasBullFVG    = fvgs.some(f => f.type === "BULL_FVG" && price >= f.bot && price <= f.top * 1.03);
-            const nearVPOC      = vp.vpoc > 0 && Math.abs(price - vp.vpoc) / price < 0.03;
-            const nearVAL       = vp.val > 0 && Math.abs(price - vp.val) / price < 0.03;
+            // STRICT gate: require Bull BOS as the primary signal
+            // OB or FVG can co-exist but BOS is mandatory for high-conviction
+            const hasBullBOS = bos?.type === "BULL_BOS";
+            if (!hasBullBOS) continue;
 
-            if (!hasBullBOS && !hasBullOB && !hasBullFVG) continue; // no SMC signal
+            const hasBullOB  = obs.some(ob => ob.type === "BULL_OB" && Math.abs(ob.mid - price) / price < 0.08);
+            const hasBullFVG = fvgs.some(f => f.type === "BULL_FVG" && price >= f.bot && price <= f.top * 1.03);
+            const nearVPOC   = vp.vpoc > 0 && Math.abs(price - vp.vpoc) / price < 0.03;
+            const nearVAL    = vp.val > 0 && Math.abs(price - vp.val) / price < 0.03;
 
             smcCooldown.set(smcKey, Date.now());
 
@@ -668,6 +676,7 @@ async function runScan(options = {}) {
             ].filter(Boolean).join("\n");
 
             await sendTelegramMessage(lines).catch(() => {});
+            smcSentThisScan++;
           }
         } catch (err) {
           console.error("[SMC Alert] Error:", err.message);
