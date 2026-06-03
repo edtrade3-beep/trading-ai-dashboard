@@ -14167,6 +14167,24 @@ export default function App() {
                       <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
                         {FIVEX_TICKERS.length} stocks in scan
                       </span>
+                      {/* Scan my watchlist button */}
+                      <button
+                        onClick={() => {
+                          const wlSyms = watchlistSymbols.slice(0, 40);
+                          if (!wlSyms.length) return;
+                          // Temporarily replace scan universe with watchlist
+                          setScanLoading(true); setScanError(null); setScanResults([]);
+                          fetch(`/api/scanner/smart-scan?tickers=${wlSyms.join(",")}`)
+                            .then(r => r.json()).then(data => {
+                              if (!data.ok) throw new Error(data.error || "Scan failed");
+                              const scored = (data.results||[]).map(({ticker,quote,candles}) => ({...scoreTicker(ticker,quote,candles), quote, candles})).sort((a,b) => b.score - a.score);
+                              setScanResults(scored); setScanLastRun(new Date());
+                            }).catch(e => setScanError(e.message)).finally(() => setScanLoading(false));
+                        }}
+                        style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, border: `1px solid ${C.accent}44`,
+                          background: `${C.accent}12`, color: C.accent, borderRadius: 6, padding: "5px 12px", cursor: "pointer", whiteSpace: "nowrap" }}>
+                        📋 SCAN MY WATCHLIST ({watchlistSymbols.length})
+                      </button>
                     </div>
 
                     {/* Custom tickers chips */}
