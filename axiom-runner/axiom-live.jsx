@@ -11450,7 +11450,12 @@ export default function App() {
                 <div key={p.sym} style={{ display: "flex", alignItems: "center" }}>
                   {i > 0 && <span style={{ width: 1, height: 16, background: C.border, margin: "0 12px", flexShrink: 0 }} />}
                   <div style={{ textAlign: "center", flexShrink: 0 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent }}>{p.sym}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>{p.sym}</div>
+                    {p.price > 0 && (
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>
+                        ${p.price < 1 ? p.price.toFixed(4) : p.price < 100 ? p.price.toFixed(2) : p.price.toFixed(2)}
+                      </div>
+                    )}
                     <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: p.chg >= 0 ? C.green : C.red }}>
                       {p.chg >= 0 ? "+" : ""}{p.chg.toFixed(2)}%
                     </div>
