@@ -11787,6 +11787,49 @@ export default function App() {
               </div>
             </div>
 
+            {/* TOP SETUP HIGHLIGHT — best A+ signal today */}
+            {sigData && (() => {
+              const topSetup = (sigData.signals || []).find(s => s.action === "LONG" && s.confidence === "HIGH");
+              if (!topSetup) return null;
+              return (
+                <div style={{ background: `${C.green}0a`, border: `1px solid ${C.green}44`,
+                  borderLeft: `5px solid ${C.green}`, borderRadius: 8, padding: "10px 16px",
+                  marginBottom: 10, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 18 }}>🚀</span>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>TODAY'S BEST SETUP  </span>
+                    <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.green }}>{topSetup.sym}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: 8 }}>A+ LONG · {topSetup.score}/100</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 14 }}>
+                    {[["Entry", `$${topSetup.entry}`, C.text], ["Stop", `$${topSetup.stop}`, C.red], ["T1", `$${topSetup.target1}`, C.green]].map(([l,v,c]) => (
+                      <div key={l} style={{ textAlign: "center" }}>
+                        <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{l}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: c }}>{v}</div>
+                      </div>
+                    ))}
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>R:R</div>
+                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: topSetup.rr >= 2 ? C.green : C.amber }}>{topSetup.rr}:1</div>
+                    </div>
+                  </div>
+                  <button onClick={() => { setTerminalSymbol(topSetup.sym); setActiveTab("smartscan");
+                    const row2 = { ticker: topSetup.sym, score: topSetup.score||80, signal: "BUY",
+                      signals: (topSetup.rationale||[]).map(r => ({txt:r,bull:true})), sColor: C.green,
+                      rsiVal: null, macdBull: null, ema9v: null, ema21v: null,
+                      quote: {price: topSetup.entry, changePercent: topSetup.chgPct, yearHigh: topSetup.hi52,
+                        priceAvg50: topSetup.ma50, priceAvg200: topSetup.ma200, volume: 0, avgVolume: 0}, candles: null };
+                    setScanResults(prev => prev.some(r => r.ticker === topSetup.sym) ? prev : [row2,...prev]);
+                    setScanExpanded(topSetup.sym); loadDeepDive(topSetup.sym); loadDeepSocial(topSetup.sym);
+                  }}
+                    style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, border: `1px solid ${C.green}`,
+                      background: `${C.green}18`, color: C.green, borderRadius: 6, padding: "6px 14px", cursor: "pointer", whiteSpace: "nowrap" }}>
+                    ANALYZE →
+                  </button>
+                </div>
+              );
+            })()}
+
             {/* 3: LIVE SIGNALS TABLE */}
             <div style={{ background: C.card, border: `1px solid ${C.borderLit}`, borderRadius: 8, overflow: "hidden", marginBottom: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px",
