@@ -22551,6 +22551,22 @@ export default function App() {
               {ecData && <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Updated: {new Date(ecData.scannedAt).toLocaleTimeString()}</span>}
             </div>
             {ecLoad && !ecData && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>⌛ Loading earnings calendar…</div>}
+            {/* Urgent banner if earnings TODAY */}
+            {groups.today.length > 0 && (
+              <div style={{ padding: "12px 16px", background: `${C.red}12`, border: `1px solid ${C.red}44`,
+                borderRadius: 8, marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 20 }}>🔥</span>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.red }}>
+                    EARNINGS TODAY — {groups.today.map(e => e.sym).join(", ")}
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginTop: 3 }}>
+                    Avoid new long positions in these stocks. High volatility expected.
+                    Expected moves: {groups.today.map(e => `${e.sym} ±${e.expMove}%`).join(", ")}
+                  </div>
+                </div>
+              </div>
+            )}
             <Section title="🔥 TODAY" color={C.red} events={groups.today} />
             <Section title="📅 THIS WEEK (1-7 DAYS)" color={C.amber} events={groups.week} />
             <Section title="📆 UPCOMING (8+ DAYS)" color={C.text} events={groups.later} />
@@ -22567,7 +22583,23 @@ export default function App() {
         const IMPACT_COL = { HIGH: C.red, MED: C.amber, LOW: C.green };
         return (
           <div style={{ padding: "16px 20px" }}>
-            <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 20 }}>🗓 ECONOMIC CALENDAR</div>
+            <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 12 }}>🗓 ECONOMIC CALENDAR</div>
+            {evData && (evData.events||[]).filter(e => e.isUrgent).length > 0 && (
+              <div style={{ padding: "12px 16px", background: `${C.red}12`, border: `1px solid ${C.red}44`,
+                borderRadius: 8, marginBottom: 16 }}>
+                <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.red, marginBottom: 4 }}>
+                  ⚠ HIGH-IMPACT EVENT WITHIN 48 HOURS
+                </div>
+                {(evData.events||[]).filter(e => e.isUrgent).map((e,i) => (
+                  <div key={i} style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, marginTop: 4 }}>
+                    <strong>{e.name}</strong> — {e.countdown} · {e.note}
+                  </div>
+                ))}
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.red, marginTop: 8 }}>
+                  Action: Reduce position size. Avoid new entries until after the print.
+                </div>
+              </div>
+            )}
             {!evData && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>⌛ Loading…</div>}
             {evData && (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
