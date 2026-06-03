@@ -11538,6 +11538,79 @@ export default function App() {
                   ))}
                   <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{distExpanded ? "▲" : "▼"}</span>
                 </div>
+                {/* ── WHY HEADLINE — always visible, no expand needed ── */}
+                {distData && (() => {
+                  // Build plain-English explanation of WHY the regime is what it is
+                  const checks  = distData.checkStatus || [];
+                  const high    = checks.filter(c => c.status === "HIGH");
+                  const med     = checks.filter(c => c.status === "MED");
+                  const spyChg  = (distData.indexSnapshot||[]).find(i => i.sym === "SPY")?.chg || 0;
+                  const vix     = distData.vix || 0;
+                  const rot     = distData.rotationDiff || 0;
+                  const inflows = (distData.topInflows||[]).slice(0,2).map(s => s.name || s.sym).join(", ");
+                  const outflows= (distData.topOutflows||[]).slice(0,2).map(s => s.name || s.sym).join(", ");
+
+                  // Generate headline sentence
+                  let headline = "";
+                  if (radarAlert === "DANGER") {
+                    headline = `⚠️ Market is under pressure — ${high.map(w => w.label).join(", ")} signaling institutional de-risking.`;
+                  } else if (radarAlert === "CAUTION") {
+                    const reasons = [];
+                    if (med.some(c => c.tag === "DIST" || c.label?.includes("Dist"))) reasons.push("distribution days building");
+                    if (rot > 0.3) reasons.push("money rotating to defensives");
+                    if (distData.vixChg > 8) reasons.push(`VIX spiking +${distData.vixChg?.toFixed(0)}%`);
+                    if (med.some(c => c.tag === "CREDIT")) reasons.push("credit spreads widening");
+                    headline = `Market is CAUTIOUS — ${reasons.length ? reasons.join(", ") : "mixed signals, no clear edge"}.`;
+                  } else if (radarAlert === "NORMAL" || radarAlert === "WATCH") {
+                    const bull = [];
+                    if (spyChg > 0) bull.push(`SPY ${spyChg > 0 ? "+" : ""}${spyChg.toFixed(2)}%`);
+                    if (rot < -0.2) bull.push("growth sectors leading");
+                    if (vix < 16) bull.push(`VIX low at ${vix.toFixed(1)}`);
+                    if (inflows) bull.push(`money flowing into ${inflows}`);
+                    headline = bull.length
+                      ? `Market is healthy — ${bull.join(", ")}.`
+                      : "No major warnings — conditions normal.";
+                  }
+
+                  // Add what's moving the market
+                  const mktMove = spyChg !== 0
+                    ? `SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}% today — ${
+                        spyChg >= 1 ? "strong buying, risk-on day" :
+                        spyChg >= 0.2 ? "mild positive, watch for follow-through" :
+                        spyChg <= -1 ? "heavy selling, institutions reducing risk" :
+                        spyChg <= -0.3 ? "mild selling, cautious day" :
+                        "flat, no conviction either way"
+                      }.`
+                    : "";
+
+                  // Money flow summary
+                  const flowSummary = (inflows || outflows)
+                    ? `Institutions buying ${inflows || "—"} and selling ${outflows || "—"}.`
+                    : "";
+
+                  return (
+                    <div style={{ padding: "10px 14px 6px",
+                      borderBottom: distExpanded ? `1px solid ${C.border}22` : "none",
+                      background: `${radarColor}06` }}>
+                      {headline && (
+                        <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>
+                          {headline}
+                        </div>
+                      )}
+                      {mktMove && (
+                        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginBottom: 3 }}>
+                          📈 {mktMove}
+                        </div>
+                      )}
+                      {flowSummary && (
+                        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec }}>
+                          💰 {flowSummary}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {distExpanded && distData && (
                   <div style={{ padding: "10px 14px" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 5, marginBottom: 8 }}>
