@@ -611,10 +611,27 @@ function buildTradeSetup(body) {
 
   const newsHeadlines = news.slice(0, 3).map(n => `• ${n.title || n.headline || ""}`).join("\n");
 
+  // Final Verdict using same 4-signal formula as frontend
+  const ma50  = Number(fundamentals?.priceAvg50  || body?.ema21v || 0);
+  const ma200 = Number(fundamentals?.priceAvg200 || 0);
+  const ttPx = [
+    (ma200 > 0 && price > ma200),
+    (ma50 > 0 && ma200 > 0 && ma50 > ma200),
+    (ma50 > 0 && price > ma50),
+    (rsi >= 55),
+    (bias === "LONG"),
+  ].filter(Boolean).length;
+  const ttScore = Math.round(ttPx / 5 * 100);
+  const macdScore2 = macdBull === true ? 72 : macdBull === false ? 30 : 50;
+  const fvComposite = Math.round((score||50)*0.35 + ttScore*0.35 + macdScore2*0.15 + 50*0.15);
+  const fvLabel = fvComposite >= 72 ? "A+ LONG" : fvComposite >= 62 ? "LONG" :
+                  fvComposite >= 53 ? "WATCH" : fvComposite >= 40 ? "AVOID" : "SHORT";
+
   const plan = [
     `TRADE SETUP — ${ticker.toUpperCase()}`,
     `${"═".repeat(40)}`,
     ``,
+    `FINAL VERDICT: ${fvLabel}  (${fvComposite}/100)`,
     `BIAS: ${bias}  |  CONVICTION: ${conviction}  |  AI SCORE: ${score}/100`,
     ``,
     `ENTRY`,
