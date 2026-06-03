@@ -14859,8 +14859,7 @@ export default function App() {
                                               "T1: $" + (px4*1.08).toFixed(2) + " (+8%)  T2: $" + (px4*1.15).toFixed(2) + " (+15%)",
                                               vWarnings.length ? "Warnings: " + vWarnings.join(" | ") : "No warnings",
                                               "Score: " + row.score + "/100  Generated: " + new Date().toLocaleString()
-                                            ].join("
-");
+                                            ].join("\n");
                                             try { navigator.clipboard.writeText(plan); } catch {}
                                           }}
                                             style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, border: "1px solid " + C.border,
