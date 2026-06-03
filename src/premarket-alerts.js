@@ -72,24 +72,31 @@ async function runPreMarketAlert(label) {
       return;
     }
 
+    const date = new Date().toLocaleDateString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric" });
     const fmt = s => {
       const arrow = s.gapPct > 0 ? "🟢" : "🔴";
       const pre   = s.hasPreMkt ? " [PRE]" : "";
-      return `${arrow} <b>${s.sym}</b>${pre}  ${s.gapPct > 0 ? "+" : ""}${s.gapPct}%  $${s.price}  rvol ${s.rvol}x`;
+      return `${arrow} ${s.sym}${pre}  ${s.gapPct > 0 ? "+" : ""}${s.gapPct}%  $${s.price}  rvol ${s.rvol}x`;
     };
 
-    let msg = `⚡ <b>PRE-MARKET GAPS — ${label} ET</b>\n`;
-    msg += `📅 ${new Date().toLocaleDateString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric" })}\n\n`;
-
+    const lines = [
+      `⚡ PRE-MARKET GAPS — ${label} ET`,
+      `📅 ${date}`,
+      `━━━━━━━━━━━━━━━━━━━━`,
+    ];
     if (gapUp.length) {
-      msg += `🔼 <b>GAP UP</b>\n`;
-      msg += gapUp.map(fmt).join("\n") + "\n\n";
+      lines.push(`🔼 GAP UP`);
+      gapUp.map(fmt).forEach(r => lines.push(r));
+      lines.push("");
     }
     if (gapDown.length) {
-      msg += `🔽 <b>GAP DOWN</b>\n`;
-      msg += gapDown.map(fmt).join("\n") + "\n\n";
+      lines.push(`🔽 GAP DOWN`);
+      gapDown.map(fmt).forEach(r => lines.push(r));
+      lines.push("");
     }
-    msg += `<i>Top ${gappers.length} gappers scanned from ${GAP_UNIVERSE.length} symbols</i>`;
+    lines.push(`━━━━━━━━━━━━━━━━━━━━`);
+    lines.push(`${gappers.length} gappers from ${GAP_UNIVERSE.length} symbols`);
+    const msg = lines.join("\n");
 
     await sendTelegramMessage(msg);
     console.log(`[PreMarket] ${label} alert sent — ${gappers.length} gappers`);
