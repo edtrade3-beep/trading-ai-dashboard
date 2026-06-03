@@ -8088,6 +8088,15 @@ export default function App() {
         .sort((a, b) => b.score - a.score);
       setScanResults(scored);
       setScanLastRun(new Date());
+      // Pre-warm deep dive for top 3 results (loads in background so clicking is instant)
+      setTimeout(() => {
+        scored.slice(0, 3).forEach(r => {
+          if (!scanDeepData[r.ticker]) {
+            loadDeepDive(r.ticker);
+            loadDeepSocial(r.ticker);
+          }
+        });
+      }, 2000); // 2s delay so UI renders first
       // Save to scan history (keep last 8)
       setScanHistory(prev => [{
         ts: new Date(),
