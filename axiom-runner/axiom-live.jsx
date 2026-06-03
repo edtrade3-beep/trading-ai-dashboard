@@ -14422,14 +14422,20 @@ export default function App() {
                                 // Color-code rows by signal for instant scanning
                                 background: isExpanded
                                   ? `${row.sColor}18`
-                                  : row.signal === "STRONG BUY" ? `${C.green}08`
-                                  : row.signal === "AVOID" ? `${C.red}06`
+                                  : row.score >= 82 ? `${C.green}0c`   // A+ strong green
+                                  : row.score >= 70 ? `${C.green}06`   // BUY mild green
+                                  : row.score <= 30 ? `${C.red}0a`     // SHORT red
+                                  : row.score <= 40 ? `${C.red}06`     // AVOID mild red
                                   : (idx % 2 === 0 ? "transparent" : C.surface),
-                                borderLeft: `3px solid ${isExpanded ? row.sColor : row.signal === "STRONG BUY" ? C.green + "88" : row.signal === "AVOID" ? C.red + "88" : "transparent"}`,
+                                borderLeft: isExpanded ? `4px solid ${row.sColor}` :
+                                  row.score >= 82 ? `4px solid ${C.green}` :
+                                  row.score >= 70 ? `3px solid ${C.green}66` :
+                                  row.score <= 30 ? `4px solid ${C.red}` :
+                                  row.score <= 40 ? `3px solid ${C.red}66` : "3px solid transparent",
                                 transition: "background 0.1s",
                               }}
                               onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = C.cardHover; }}
-                              onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = row.signal === "STRONG BUY" ? `${C.green}08` : row.signal === "AVOID" ? `${C.red}06` : idx % 2 === 0 ? "transparent" : C.surface; }}
+                              onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = row.score >= 82 ? C.green+"0c" : row.score >= 70 ? C.green+"06" : row.score <= 30 ? C.red+"0a" : row.score <= 40 ? C.red+"06" : idx % 2 === 0 ? "transparent" : C.surface; }}
                             >
                               {/* Rank */}
                               <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
