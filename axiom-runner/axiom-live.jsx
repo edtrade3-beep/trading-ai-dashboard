@@ -11203,7 +11203,6 @@ export default function App() {
           terminal: [
             { id: "terminal",  label: "📈 CHART" },
             { id: "tv",        label: "📺 TV LIVE" },
-            { id:   label: "⏱ MULTI-TF" },
             { id: "fibonacci", label: "🌀 FIB LEVELS" },
           ],
           scanner: [
@@ -11225,9 +11224,6 @@ export default function App() {
             { id: "sectors",     label: "📊 SECTORS" },
             { id: "crypto",      label: "₿ CRYPTO" },
             { id: "feargreed",   label: "😨 FEAR/GREED" },
-            { id:     label: "📡 BREADTH" },
-            { id:    label: "🔄 ROTATION" },
-            { id: label: "📆 SEASONAL" },
           ],
           research: [
             { id: "cot",         label: "📜 COT" },
@@ -11247,15 +11243,11 @@ export default function App() {
             { id: "journal",     label: "📓 JOURNAL" },
             { id: "journal-stats", label: "📊 ANALYTICS" },
             { id: "alerts",      label: "🔔 ALERTS" },
-            { id:     label: "⚠ RISK LAB" },
-            { id:     label: "🔥 HEAT MAP" },
-            { id: label: "🔗 CORRELATION" },
           ],
           tools: [
             { id: "academy",   label: "📚 ACADEMY" },
             { id: "workflow",  label: "📋 WORKFLOW" },
             { id: "agent",     label: "🤖 AI AGENT" },
-            { id:  label: "⏮ BACKTEST" },
             { id: "telegram",  label: "✈ TELEGRAM" },
             { id: "tools",     label: "⚙ SETTINGS" },
           ],
