@@ -6931,7 +6931,7 @@ Risk small and follow the stop.`
       <div style={{ background: C.card, border: `1px solid ${C.red}33`, borderRadius: 8, overflow: "hidden" }}>
         <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <SectionHeader title="AVOID / TRAP ZONE" count={trapZones.length} color={C.red} badge="do not chase these" />
-          <span style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>⚠ Extended · weak · below VWAP · score < 50</span>
+          <span style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>⚠ Extended · weak · below VWAP · score &lt; 50</span>
         </div>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
