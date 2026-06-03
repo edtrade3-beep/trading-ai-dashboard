@@ -328,6 +328,37 @@ function App() {
   const [editForm, setEditForm] = useState({});
   const [deleteConfirmVin, setDeleteConfirmVin] = useState(null);
   const [toast, setToast] = useState(null);
+
+  // ── Facebook Hub state ────────────────────────────────────────────────────
+  const [fbSubTab, setFbSubTab]         = useState("inbox");      // inbox | autorules | appointments
+  const [fbMessages, setFbMessages]     = useState([]);
+  const [fbAppts, setFbAppts]           = useState([]);
+  const [fbRules, setFbRules]           = useState([]);
+  const [fbStatus, setFbStatus]         = useState(null);
+  const [fbLoading, setFbLoading]       = useState(false);
+  const [fbActiveThread, setFbActiveThread] = useState(null);  // threadId
+  const [fbReplyText, setFbReplyText]   = useState("");
+  const [fbReplySending, setFbReplySending] = useState(false);
+  const [fbNewRule, setFbNewRule]       = useState({ keyword: "", reply: "", enabled: true });
+  const [fbApptForm, setFbApptForm]     = useState({ name: "", phone: "", vehicle: "", date: "", time: "", notes: "" });
+  const [fbApptSaving, setFbApptSaving] = useState(false);
+
+  // Load FB data when switching to the Facebook tab
+  useEffect(() => {
+    if (tab !== "Facebook") return;
+    setFbLoading(true);
+    Promise.all([
+      fetch("/api/dealer/fb/status").then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch("/api/dealer/fb/messages").then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch("/api/dealer/fb/appointments").then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch("/api/dealer/fb/auto-rules").then(r => r.ok ? r.json() : []).catch(() => []),
+    ]).then(([status, msgs, appts, rules]) => {
+      setFbStatus(status);
+      setFbMessages(Array.isArray(msgs) ? msgs : []);
+      setFbAppts(Array.isArray(appts) ? appts : []);
+      setFbRules(Array.isArray(rules) ? rules : []);
+    }).finally(() => setFbLoading(false));
+  }, [tab]);
   const toastTimer = useRef(null);
 
   const showToast = useCallback((msg, type = "info") => {
@@ -1481,100 +1512,446 @@ ${tradeValue > 0 ? `<tr><td>Net Trade</td><td>${netTrade >= 0 ? money(netTrade) 
             )}
 
             {tab === "Facebook" && (
-              <div style={{ display: "grid", gap: 18 }}>
-              <div style={styles.twoColWide}>
-                <Panel title="Facebook Ad Builder" badge="Copy Ready" styles={styles}>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-                    <button onClick={() => setAdStyle("standard")} style={adStyle === "standard" ? styles.buttonPrimary : styles.buttonGhost}>Facebook</button>
-                    <button onClick={() => setAdStyle("hot")} style={adStyle === "hot" ? styles.buttonWarn : styles.buttonGhost}>Hot Deal</button>
-                    <button onClick={() => setAdStyle("cash")} style={adStyle === "cash" ? styles.buttonSuccess : styles.buttonGhost}>Cash Buyer</button>
-                    <button onClick={() => setAdStyle("craigslist")} style={adStyle === "craigslist" ? styles.buttonPrimary : styles.buttonGhost}>Craigslist</button>
-                    <button onClick={() => setAdStyle("offerup")} style={adStyle === "offerup" ? styles.buttonPrimary : styles.buttonGhost}>OfferUp</button>
-                    <button onClick={() => setAdStyle("spanish")} style={adStyle === "spanish" ? styles.buttonPrimary : styles.buttonGhost}>Español</button>
-                  </div>
-                  <Field label="Extra Notes" styles={styles}>
-                    <textarea value={notes} onChange={(e) => setNotes(e.target.value)} style={styles.textarea} placeholder="Add custom notes for the ad..." />
-                  </Field>
-                  <div style={{ marginTop: 12 }}>
-                    <Field label="Ad Text" styles={styles}>
-                      <textarea value={adText} readOnly style={styles.textarea} />
-                    </Field>
-                    {adText && (() => {
-                      const len = adText.length;
-                      const limits = { craigslist: 5000, offerup: 4000 };
-                      const limit = limits[adStyle] || null;
-                      const overLimit = limit && len > limit;
-                      return (
-                        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 11 }}>
-                          <span style={{ color: theme.muted }}>{len.toLocaleString()} characters</span>
-                          {limit && (
-                            <span style={{ color: overLimit ? "#dc2626" : theme.muted, fontWeight: overLimit ? 700 : 400 }}>
-                              {overLimit ? `⚠️ Over ${limit.toLocaleString()} char limit` : `Limit: ${limit.toLocaleString()}`}
-                            </span>
-                          )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
+                {/* ── Connection status banner ── */}
+                {fbStatus && (
+                  <div style={{ padding: "12px 16px", borderRadius: 10,
+                    background: fbStatus.connected ? "#f0fdf4" : "#fffbeb",
+                    border: `1px solid ${fbStatus.connected ? "#bbf7d0" : "#fde68a"}`,
+                    display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 18 }}>{fbStatus.connected ? "✅" : "⚠️"}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: fbStatus.connected ? "#16a34a" : "#92400e" }}>
+                        {fbStatus.connected ? "Facebook Messenger Connected" : "Facebook Not Connected — Set FB_PAGE_ACCESS_TOKEN"}
+                      </div>
+                      {!fbStatus.connected && (
+                        <div style={{ fontSize: 11, color: "#92400e", marginTop: 3 }}>
+                          1. Go to <strong>developers.facebook.com</strong> → Your App → Messenger → Settings&nbsp;
+                          2. Generate a Page Access Token and add it as <code>FB_PAGE_ACCESS_TOKEN</code> in Render env vars&nbsp;
+                          3. Set Webhook URL to: <strong>{fbStatus.webhookUrl}</strong>&nbsp;
+                          4. Set Verify Token to: <strong>{fbStatus.verifyToken}</strong>
                         </div>
-                      );
-                    })()}
-                  </div>
-                  {adText ? (
-                    <button
-                      onClick={() => navigator.clipboard.writeText(adText).catch(() => {})}
-                      style={{ ...styles.buttonSuccess, marginTop: 10, width: "100%" }}
-                    >Copy Ad</button>
-                  ) : null}
-                </Panel>
-
-                <Panel title="Ad Summary" badge="Finance Included" styles={styles}>
-                  <InfoRow label="Platform" value={{ standard: "Facebook", hot: "Facebook", cash: "Facebook", craigslist: "Craigslist", offerup: "OfferUp", spanish: "Facebook (Español)" }[adStyle] || adStyle} styles={styles} />
-                  <InfoRow label="Price" value={pricing ? money(pricing.suggested) : "-"} styles={styles} />
-                  <InfoRow label="Payment" value={pricing ? `${money(payment)}/mo` : "-"} styles={styles} />
-                  <InfoRow label="W.A.C." value={`after ${money(finance.downPayment)} down`} styles={styles} />
-                </Panel>
-              </div>
-
-              {/* Customer reply generator */}
-              <Panel title="Customer Reply Generator" badge="Inbox Ready" styles={styles}>
-                <div style={{ color: theme.muted, fontSize: 12, marginBottom: 12 }}>
-                  Buyer messages you on Facebook Marketplace, WhatsApp, or by text — pick a tone and copy the reply.
-                </div>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
-                  {[
-                    { key: "info",        label: "Just Info" },
-                    { key: "firm",        label: "Price Firm" },
-                    { key: "flex",        label: "Some Flexibility" },
-                    { key: "finance",     label: "Finance Push" },
-                    { key: "whatsapp",    label: "WhatsApp" },
-                    { key: "lowball",     label: "Counter Lowball" },
-                    { key: "appointment", label: "Confirm Appt" },
-                    { key: "followup",    label: "Follow Up" },
-                    { key: "spanish",     label: "Español 🇲🇽" },
-                  ].map(({ key, label }) => (
-                    <button
-                      key={key}
-                      onClick={() => setReplyStyle(key)}
-                      style={replyStyle === key ? styles.buttonPrimary : styles.buttonGhost}
-                    >{label}</button>
-                  ))}
-                </div>
-                {vehicle && pricing ? (
-                  <div style={styles.twoColWide}>
-                    <Field label="Reply Text" styles={styles}>
-                      <textarea value={replyText} readOnly style={{ ...styles.textarea, minHeight: 160 }} />
-                    </Field>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      <button
-                        onClick={() => navigator.clipboard.writeText(replyText).catch(() => {})}
-                        style={{ ...styles.buttonSuccess, height: 46 }}
-                      >Copy Reply</button>
-                      <InfoRow label="Vehicle" value={`${vehicle.year} ${vehicle.make} ${vehicle.model}`} styles={styles} />
-                      <InfoRow label="Price" value={money(pricing.suggested)} styles={styles} />
-                      <InfoRow label="Payment" value={`${money(payment)}/mo`} styles={styles} />
+                      )}
                     </div>
                   </div>
-                ) : (
-                  <EmptyState text="Decode a VIN first to generate customer replies." styles={styles} />
                 )}
-              </Panel>
+
+                {/* ── Sub-tab nav ── */}
+                <div style={{ display: "flex", gap: 8, borderBottom: `2px solid ${theme.border}`, paddingBottom: 0 }}>
+                  {[
+                    { key: "inbox",        icon: "📨", label: "Inbox" },
+                    { key: "autorules",    icon: "🤖", label: "Auto-Reply Rules" },
+                    { key: "appointments", icon: "📅", label: "Appointments" },
+                    { key: "adbuilder",    icon: "📢", label: "Ad Builder" },
+                  ].map(({ key, icon, label }) => (
+                    <button key={key} onClick={() => setFbSubTab(key)} style={{
+                      padding: "9px 16px", border: "none", cursor: "pointer", fontWeight: 700,
+                      fontSize: 13, borderRadius: "8px 8px 0 0",
+                      background: fbSubTab === key ? theme.primary : "transparent",
+                      color: fbSubTab === key ? "#fff" : theme.muted,
+                      borderBottom: fbSubTab === key ? `2px solid ${theme.primary}` : "none",
+                      marginBottom: -2,
+                    }}>{icon} {label}</button>
+                  ))}
+                </div>
+
+                {/* ════════════════════════════════════════════════════════════
+                    📨  INBOX
+                ══════════════════════════════════════════════════════════════ */}
+                {fbSubTab === "inbox" && (
+                  <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 14, minHeight: 480 }}>
+
+                    {/* Thread list */}
+                    <div style={{ border: `1px solid ${theme.border}`, borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                      <div style={{ padding: "10px 14px", background: theme.card, fontWeight: 700, fontSize: 12,
+                        color: theme.muted, textTransform: "uppercase", letterSpacing: "0.06em",
+                        borderBottom: `1px solid ${theme.border}` }}>
+                        Conversations ({fbMessages.length})
+                      </div>
+                      <div style={{ flex: 1, overflowY: "auto" }}>
+                        {fbMessages.length === 0 ? (
+                          <div style={{ padding: 20, color: theme.muted, fontSize: 12, textAlign: "center" }}>
+                            {fbLoading ? "Loading…" : "No messages yet. Connect Facebook Messenger to receive messages here."}
+                          </div>
+                        ) : fbMessages.map(thread => (
+                          <div key={thread.threadId}
+                            onClick={() => {
+                              setFbActiveThread(thread.threadId);
+                              setFbReplyText("");
+                              if (thread.unread > 0) {
+                                fetch("/api/dealer/fb/messages/read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ threadId: thread.threadId }) }).catch(() => {});
+                                setFbMessages(prev => prev.map(t => t.threadId === thread.threadId ? { ...t, unread: 0 } : t));
+                              }
+                            }}
+                            style={{ padding: "12px 14px", cursor: "pointer", borderBottom: `1px solid ${theme.border}`,
+                              background: fbActiveThread === thread.threadId ? `${theme.primary}18` : "transparent",
+                              borderLeft: fbActiveThread === thread.threadId ? `3px solid ${theme.primary}` : "3px solid transparent",
+                              display: "flex", alignItems: "flex-start", gap: 10 }}>
+                            <div style={{ width: 36, height: 36, borderRadius: "50%", background: theme.primary,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              color: "#fff", fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
+                              {(thread.senderName || "?")[0].toUpperCase()}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span style={{ fontWeight: 700, fontSize: 13, color: theme.text }}>{thread.senderName}</span>
+                                {thread.unread > 0 && (
+                                  <span style={{ background: theme.primary, color: "#fff", borderRadius: 10, fontSize: 10, fontWeight: 800, padding: "1px 7px" }}>{thread.unread}</span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: 11, color: theme.muted, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {thread.preview || (thread.messages?.[thread.messages.length - 1]?.text || "").slice(0, 50)}
+                              </div>
+                              <div style={{ fontSize: 10, color: theme.muted, marginTop: 2 }}>
+                                {thread.lastTs ? new Date(thread.lastTs).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Message thread */}
+                    <div style={{ border: `1px solid ${theme.border}`, borderRadius: 10, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                      {!fbActiveThread ? (
+                        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: theme.muted, fontSize: 14 }}>
+                          Select a conversation
+                        </div>
+                      ) : (() => {
+                        const thread = fbMessages.find(t => t.threadId === fbActiveThread);
+                        if (!thread) return null;
+                        return (
+                          <>
+                            {/* Thread header */}
+                            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${theme.border}`, background: theme.card,
+                              display: "flex", alignItems: "center", gap: 12 }}>
+                              <div style={{ width: 38, height: 38, borderRadius: "50%", background: theme.primary,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                color: "#fff", fontWeight: 800, fontSize: 16 }}>
+                                {(thread.senderName || "?")[0].toUpperCase()}
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: 700, fontSize: 14, color: theme.text }}>{thread.senderName}</div>
+                                <div style={{ fontSize: 11, color: theme.muted }}>Facebook Messenger · ID {thread.senderId}</div>
+                              </div>
+                              <button onClick={() => {
+                                setFbApptForm(p => ({ ...p, name: thread.senderName }));
+                                setFbSubTab("appointments");
+                              }} style={{ ...styles.buttonGhost, marginLeft: "auto", fontSize: 12, padding: "6px 14px" }}>
+                                📅 Book Appointment
+                              </button>
+                            </div>
+
+                            {/* Messages */}
+                            <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+                              {(thread.messages || []).map((msg, mi) => (
+                                <div key={mi} style={{ display: "flex", justifyContent: msg.from === "page" ? "flex-end" : "flex-start" }}>
+                                  <div style={{ maxWidth: "70%", padding: "9px 13px", borderRadius: msg.from === "page" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+                                    background: msg.from === "page" ? theme.primary : theme.card,
+                                    color: msg.from === "page" ? "#fff" : theme.text,
+                                    border: msg.from === "customer" ? `1px solid ${theme.border}` : "none",
+                                    fontSize: 13 }}>
+                                    {msg.text}
+                                    {msg.auto && <span style={{ fontSize: 10, opacity: 0.7, marginLeft: 6 }}>🤖 auto</span>}
+                                    <div style={{ fontSize: 10, opacity: 0.6, marginTop: 3, textAlign: "right" }}>
+                                      {new Date(msg.ts).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Reply box */}
+                            <div style={{ padding: "12px 16px", borderTop: `1px solid ${theme.border}`, display: "flex", gap: 10 }}>
+                              <textarea
+                                value={fbReplyText}
+                                onChange={e => setFbReplyText(e.target.value)}
+                                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); document.getElementById("fb-send-btn")?.click(); } }}
+                                placeholder="Type a reply… (Enter to send)"
+                                style={{ ...styles.textarea, flex: 1, minHeight: 48, maxHeight: 120, resize: "vertical" }}
+                              />
+                              <button id="fb-send-btn"
+                                disabled={fbReplySending || !fbReplyText.trim()}
+                                onClick={async () => {
+                                  if (!fbReplyText.trim()) return;
+                                  setFbReplySending(true);
+                                  try {
+                                    const r = await fetch("/api/dealer/fb/reply", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ senderId: thread.senderId, threadId: thread.threadId, text: fbReplyText }),
+                                    });
+                                    const d = await r.json();
+                                    if (d.error) { showToast(d.error, "error"); return; }
+                                    setFbMessages(prev => prev.map(t => t.threadId === thread.threadId
+                                      ? { ...t, messages: [...(t.messages || []), { from: "page", text: fbReplyText, ts: Date.now() }] }
+                                      : t));
+                                    setFbReplyText("");
+                                  } catch { showToast("Send failed", "error"); }
+                                  finally { setFbReplySending(false); }
+                                }}
+                                style={{ ...styles.buttonPrimary, height: 48, padding: "0 20px", flexShrink: 0 }}>
+                                {fbReplySending ? "…" : "Send"}
+                              </button>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* ════════════════════════════════════════════════════════════
+                    🤖  AUTO-REPLY RULES
+                ══════════════════════════════════════════════════════════════ */}
+                {fbSubTab === "autorules" && (
+                  <div style={{ display: "grid", gap: 16 }}>
+                    <Panel title="Auto-Reply Rules" badge={`${fbRules.filter(r => r.enabled).length} active`} styles={styles}>
+                      <div style={{ color: theme.muted, fontSize: 12, marginBottom: 14 }}>
+                        When a customer messages a keyword, Messenger automatically replies. Works 24/7 — no manual action needed.
+                      </div>
+
+                      {/* Add new rule */}
+                      <div style={{ padding: 14, background: theme.card, borderRadius: 10, border: `1px solid ${theme.border}`, marginBottom: 16 }}>
+                        <div style={{ fontWeight: 700, fontSize: 12, color: theme.muted, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>+ New Rule</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 10, alignItems: "flex-end" }}>
+                          <Field label="Keyword / phrase" styles={styles}>
+                            <input value={fbNewRule.keyword} onChange={e => setFbNewRule(p => ({ ...p, keyword: e.target.value }))}
+                              placeholder="e.g. price, available, test drive"
+                              style={styles.input} />
+                          </Field>
+                          <Field label="Auto-reply text" styles={styles}>
+                            <input value={fbNewRule.reply} onChange={e => setFbNewRule(p => ({ ...p, reply: e.target.value }))}
+                              placeholder="e.g. Hi! Thanks for reaching out. The price is $X. Want to book a test drive?"
+                              style={styles.input} />
+                          </Field>
+                          <button onClick={() => {
+                            if (!fbNewRule.keyword.trim() || !fbNewRule.reply.trim()) return;
+                            const updated = [...fbRules, { ...fbNewRule, id: Date.now().toString(36) }];
+                            setFbRules(updated);
+                            fetch("/api/dealer/fb/auto-rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updated) }).catch(() => {});
+                            setFbNewRule({ keyword: "", reply: "", enabled: true });
+                            showToast("Rule added", "success");
+                          }} style={{ ...styles.buttonPrimary, height: 42 }}>Add</button>
+                        </div>
+                      </div>
+
+                      {/* Pre-built templates */}
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ fontWeight: 700, fontSize: 12, color: theme.muted, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>Quick Templates</div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          {[
+                            { keyword: "price",       reply: "Hi! Thanks for your interest. Please share which vehicle you're looking at and I'll get you the price right away!" },
+                            { keyword: "available",   reply: "Yes it's still available! When would you like to come see it? We're open Mon-Sat 9AM-7PM." },
+                            { keyword: "test drive",  reply: "Absolutely! We'd love to set up a test drive. What day works best for you — weekday or weekend?" },
+                            { keyword: "finance",     reply: "We work with multiple lenders to get you the best rate. Bad credit OK! Come in and we'll find a payment that works for you." },
+                            { keyword: "trade",       reply: "We accept all trades! Bring your vehicle in for a free appraisal or send photos and mileage for a quick estimate." },
+                            { keyword: "hours",       reply: "We're open Monday–Saturday 9AM to 7PM and Sunday 11AM–5PM. Walk-ins welcome!" },
+                          ].map(tpl => (
+                            <button key={tpl.keyword} onClick={() => setFbNewRule({ keyword: tpl.keyword, reply: tpl.reply, enabled: true })}
+                              style={{ ...styles.buttonGhost, fontSize: 11, padding: "5px 12px" }}>
+                              + {tpl.keyword}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Rules list */}
+                      {fbRules.length === 0 ? (
+                        <div style={{ padding: 20, textAlign: "center", color: theme.muted, fontSize: 12 }}>No rules yet — add one above or use a quick template.</div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                          {fbRules.map((rule, ri) => (
+                            <div key={rule.id || ri} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: 12,
+                              borderRadius: 8, border: `1px solid ${rule.enabled ? theme.primary + "44" : theme.border}`,
+                              background: rule.enabled ? `${theme.primary}08` : theme.card, opacity: rule.enabled ? 1 : 0.6 }}>
+                              <button onClick={() => {
+                                const updated = fbRules.map((r, i) => i === ri ? { ...r, enabled: !r.enabled } : r);
+                                setFbRules(updated);
+                                fetch("/api/dealer/fb/auto-rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updated) }).catch(() => {});
+                              }} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 18, padding: 0, lineHeight: 1 }}>
+                                {rule.enabled ? "🟢" : "⭕"}
+                              </button>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 700, fontSize: 13, color: theme.text, marginBottom: 2 }}>
+                                  Keyword: <span style={{ color: theme.primary }}>"{rule.keyword}"</span>
+                                </div>
+                                <div style={{ fontSize: 12, color: theme.muted }}>{rule.reply}</div>
+                              </div>
+                              <button onClick={() => {
+                                const updated = fbRules.filter((_, i) => i !== ri);
+                                setFbRules(updated);
+                                fetch("/api/dealer/fb/auto-rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updated) }).catch(() => {});
+                              }} style={{ border: "none", background: "none", cursor: "pointer", color: "#dc2626", fontSize: 16, padding: "0 4px" }}>✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </Panel>
+                  </div>
+                )}
+
+                {/* ════════════════════════════════════════════════════════════
+                    📅  APPOINTMENTS
+                ══════════════════════════════════════════════════════════════ */}
+                {fbSubTab === "appointments" && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+
+                    {/* Book new */}
+                    <Panel title="Book Appointment" badge="New" styles={styles}>
+                      {[
+                        { key: "name",    label: "Customer Name",   placeholder: "Full name" },
+                        { key: "phone",   label: "Phone / Facebook", placeholder: "+1 555-000-0000 or Messenger name" },
+                        { key: "vehicle", label: "Vehicle of Interest", placeholder: "e.g. 2021 Toyota Camry" },
+                        { key: "date",    label: "Date",            type: "date" },
+                        { key: "time",    label: "Time",            type: "time" },
+                        { key: "notes",   label: "Notes",           placeholder: "Trade-in, financing, special requests…" },
+                      ].map(({ key, label, placeholder, type }) => (
+                        <Field key={key} label={label} styles={styles}>
+                          <input type={type || "text"} value={fbApptForm[key]} placeholder={placeholder}
+                            onChange={e => setFbApptForm(p => ({ ...p, [key]: e.target.value }))}
+                            style={styles.input} />
+                        </Field>
+                      ))}
+                      <button
+                        disabled={fbApptSaving || !fbApptForm.name.trim() || !fbApptForm.date}
+                        onClick={async () => {
+                          setFbApptSaving(true);
+                          try {
+                            const r = await fetch("/api/dealer/fb/appointments", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ ...fbApptForm, source: "manual" }),
+                            });
+                            const newAppt = await r.json();
+                            setFbAppts(prev => [newAppt, ...prev]);
+                            setFbApptForm({ name: "", phone: "", vehicle: "", date: "", time: "", notes: "" });
+                            showToast("Appointment booked!", "success");
+                          } catch { showToast("Failed to save", "error"); }
+                          finally { setFbApptSaving(false); }
+                        }}
+                        style={{ ...styles.buttonSuccess, marginTop: 8, width: "100%" }}>
+                        {fbApptSaving ? "Saving…" : "📅 Book Appointment"}
+                      </button>
+                    </Panel>
+
+                    {/* Upcoming appointments */}
+                    <Panel title="Upcoming Appointments" badge={`${fbAppts.filter(a => a.status !== "done").length} pending`} styles={styles}>
+                      {fbAppts.length === 0 ? (
+                        <div style={{ padding: 20, textAlign: "center", color: theme.muted, fontSize: 12 }}>No appointments yet.</div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 520, overflowY: "auto" }}>
+                          {fbAppts.map(appt => (
+                            <div key={appt.id} style={{ padding: 12, borderRadius: 8,
+                              border: `1px solid ${appt.status === "done" ? theme.border : appt.status === "confirmed" ? "#bbf7d0" : "#fde68a"}`,
+                              background: appt.status === "done" ? theme.card : appt.status === "confirmed" ? "#f0fdf4" : "#fffbeb",
+                              opacity: appt.status === "done" ? 0.6 : 1 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                <div>
+                                  <div style={{ fontWeight: 700, fontSize: 13, color: theme.text }}>{appt.name}</div>
+                                  {appt.phone && <div style={{ fontSize: 11, color: theme.muted }}>{appt.phone}</div>}
+                                  {appt.vehicle && <div style={{ fontSize: 12, color: theme.primary, fontWeight: 600, marginTop: 2 }}>{appt.vehicle}</div>}
+                                  <div style={{ fontSize: 12, color: theme.text, marginTop: 4, fontWeight: 700 }}>
+                                    {appt.date} {appt.time && `@ ${appt.time}`}
+                                  </div>
+                                  {appt.notes && <div style={{ fontSize: 11, color: theme.muted, marginTop: 2 }}>{appt.notes}</div>}
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-end" }}>
+                                  <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
+                                    background: appt.status === "done" ? "#e2e8f0" : appt.status === "confirmed" ? "#bbf7d0" : "#fde68a",
+                                    color: appt.status === "done" ? "#64748b" : appt.status === "confirmed" ? "#15803d" : "#92400e" }}>
+                                    {(appt.status || "pending").toUpperCase()}
+                                  </span>
+                                  <div style={{ display: "flex", gap: 5 }}>
+                                    {appt.status !== "confirmed" && appt.status !== "done" && (
+                                      <button onClick={() => {
+                                        fetch(`/api/dealer/fb/appointments/${appt.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "confirmed" }) }).catch(() => {});
+                                        setFbAppts(prev => prev.map(a => a.id === appt.id ? { ...a, status: "confirmed" } : a));
+                                      }} style={{ ...styles.buttonSuccess, fontSize: 10, padding: "3px 9px", height: 26 }}>Confirm</button>
+                                    )}
+                                    {appt.status !== "done" && (
+                                      <button onClick={() => {
+                                        fetch(`/api/dealer/fb/appointments/${appt.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "done" }) }).catch(() => {});
+                                        setFbAppts(prev => prev.map(a => a.id === appt.id ? { ...a, status: "done" } : a));
+                                      }} style={{ ...styles.buttonGhost, fontSize: 10, padding: "3px 9px", height: 26 }}>Done</button>
+                                    )}
+                                    <button onClick={() => {
+                                      fetch(`/api/dealer/fb/appointments/${appt.id}`, { method: "DELETE" }).catch(() => {});
+                                      setFbAppts(prev => prev.filter(a => a.id !== appt.id));
+                                    }} style={{ border: "none", background: "none", cursor: "pointer", color: "#dc2626", fontSize: 14, padding: "0 3px" }}>✕</button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </Panel>
+                  </div>
+                )}
+
+                {/* ════════════════════════════════════════════════════════════
+                    📢  AD BUILDER (kept from original)
+                ══════════════════════════════════════════════════════════════ */}
+                {fbSubTab === "adbuilder" && (
+                  <div style={{ display: "grid", gap: 18 }}>
+                  <div style={styles.twoColWide}>
+                    <Panel title="Facebook Ad Builder" badge="Copy Ready" styles={styles}>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+                        <button onClick={() => setAdStyle("standard")} style={adStyle === "standard" ? styles.buttonPrimary : styles.buttonGhost}>Facebook</button>
+                        <button onClick={() => setAdStyle("hot")} style={adStyle === "hot" ? styles.buttonWarn : styles.buttonGhost}>Hot Deal</button>
+                        <button onClick={() => setAdStyle("cash")} style={adStyle === "cash" ? styles.buttonSuccess : styles.buttonGhost}>Cash Buyer</button>
+                        <button onClick={() => setAdStyle("craigslist")} style={adStyle === "craigslist" ? styles.buttonPrimary : styles.buttonGhost}>Craigslist</button>
+                        <button onClick={() => setAdStyle("offerup")} style={adStyle === "offerup" ? styles.buttonPrimary : styles.buttonGhost}>OfferUp</button>
+                        <button onClick={() => setAdStyle("spanish")} style={adStyle === "spanish" ? styles.buttonPrimary : styles.buttonGhost}>Español</button>
+                      </div>
+                      <Field label="Extra Notes" styles={styles}>
+                        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} style={styles.textarea} placeholder="Add custom notes for the ad..." />
+                      </Field>
+                      <div style={{ marginTop: 12 }}>
+                        <Field label="Ad Text" styles={styles}>
+                          <textarea value={adText} readOnly style={styles.textarea} />
+                        </Field>
+                      </div>
+                      {adText ? (
+                        <button onClick={() => navigator.clipboard.writeText(adText).catch(() => {})}
+                          style={{ ...styles.buttonSuccess, marginTop: 10, width: "100%" }}>Copy Ad</button>
+                      ) : null}
+                    </Panel>
+
+                    <Panel title="Customer Reply Generator" badge="Inbox Ready" styles={styles}>
+                      <div style={{ color: theme.muted, fontSize: 12, marginBottom: 12 }}>
+                        Pick a tone and copy a ready-made reply for any buyer message.
+                      </div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+                        {[
+                          { key: "info", label: "Just Info" }, { key: "firm", label: "Price Firm" },
+                          { key: "flex", label: "Some Flexibility" }, { key: "finance", label: "Finance Push" },
+                          { key: "whatsapp", label: "WhatsApp" }, { key: "lowball", label: "Counter Lowball" },
+                          { key: "appointment", label: "Confirm Appt" }, { key: "followup", label: "Follow Up" },
+                          { key: "spanish", label: "Español 🇲🇽" },
+                        ].map(({ key, label }) => (
+                          <button key={key} onClick={() => setReplyStyle(key)}
+                            style={replyStyle === key ? styles.buttonPrimary : styles.buttonGhost}>{label}</button>
+                        ))}
+                      </div>
+                      {vehicle && pricing ? (
+                        <div>
+                          <Field label="Reply Text" styles={styles}>
+                            <textarea value={replyText} readOnly style={{ ...styles.textarea, minHeight: 160 }} />
+                          </Field>
+                          <button onClick={() => navigator.clipboard.writeText(replyText).catch(() => {})}
+                            style={{ ...styles.buttonSuccess, marginTop: 8, width: "100%" }}>Copy Reply</button>
+                        </div>
+                      ) : (
+                        <EmptyState text="Decode a VIN first to generate customer replies." styles={styles} />
+                      )}
+                    </Panel>
+                  </div>
+                  </div>
+                )}
+
               </div>
             )}
 

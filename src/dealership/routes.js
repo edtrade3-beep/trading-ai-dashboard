@@ -126,10 +126,23 @@ function buildComps(year, make, model, trim, mileage, condition, marketValue) {
   });
 }
 
+const { handleFbHub } = require("./fb-hub");
+
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 async function handleDealership(req, res, requestUrl) {
   const { pathname, searchParams } = requestUrl;
+
+  // ── Facebook Hub routes ──
+  if (pathname.startsWith("/api/dealer/fb/")) {
+    let body = "";
+    await new Promise(resolve => {
+      req.on("data", c => body += c);
+      req.on("end", resolve);
+    });
+    const handled = await handleFbHub(req, res, pathname, searchParams, body || "{}");
+    if (handled !== null) return;
+  }
 
   if (pathname === "/api/dealer/vin-decode") {
     const raw = String(searchParams.get("vin") || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 17);
