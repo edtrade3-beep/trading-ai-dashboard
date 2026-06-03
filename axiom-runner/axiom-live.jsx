@@ -7151,7 +7151,16 @@ export default function App() {
   const [briefLoading, setBriefLoading] = useState(false);
   const [briefAt, setBriefAt] = useState("");
   const [briefExpanded, setBriefExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const t = localStorage.getItem("last_tab");
+      // Restore only safe tabs (don't restore modals/dialogs)
+      const safeTabs = ["dashboard","briefing","terminal","tv","multitf","fibonacci","scanner","smartscan","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","portfolio","performance","journal","journal-stats","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","quran","athan","athkar","tasbih","halal","soccer"];
+      return (t && safeTabs.includes(t)) ? t : "dashboard";
+    } catch { return "dashboard"; }
+  });
+  // Save tab on change
+  React.useEffect(() => { try { localStorage.setItem("last_tab", activeTab); } catch {} }, [activeTab]);
   const [loading, setLoading] = useState(false);
   const [portfolioHoldings, setPortfolioHoldings] = useState(DEFAULT_PORTFOLIO);
   const [csvImportModal, setCsvImportModal] = useState(null); // null | { rows, parseInfo }
@@ -7834,9 +7843,12 @@ export default function App() {
     if (activeTab === "fivex" && Object.keys(fivexPrices).length === 0 && !fivexLoading) {
       fetchLivePrices();
     }
-    // Auto-run smart scan on first open if no results yet
-    if ((activeTab === "smartscan" || activeTab === "scanner") && scanResults.length === 0 && !scanLoading) {
-      runSmartScan();
+    // Auto-run smart scan when tab opens if no results OR results are stale (> 20 min old)
+    if ((activeTab === "smartscan" || activeTab === "scanner") && !scanLoading) {
+      const stale = !scanLastRun || (Date.now() - scanLastRun.getTime() > 20 * 60 * 1000);
+      if (scanResults.length === 0 || stale) {
+        runSmartScan();
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
