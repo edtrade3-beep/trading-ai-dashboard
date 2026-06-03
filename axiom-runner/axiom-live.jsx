@@ -3666,7 +3666,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
             🤖 AI TRADE ADVISOR
           </div>
           <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
-            Real-time setups from your watchlist · entry, stop loss, targets &amp; reasoning
+            Real-time setups from your watchlist · entry, stop loss, targets & reasoning
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -3924,7 +3924,7 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
 
       {setups.length > 0 && (
         <div style={{ marginTop: 14, fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>
-          ⚠ These are algorithmic signals based on price action &amp; momentum data. Always confirm with your own analysis. Never risk more than you can afford to lose.
+          ⚠ These are algorithmic signals based on price action & momentum data. Always confirm with your own analysis. Never risk more than you can afford to lose.
         </div>
       )}
     </div>
@@ -6292,7 +6292,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
                   <div style={{ marginTop: 14, padding: "12px 14px", background: `${C.green}0f`, border: `1px solid ${C.green}33`, borderRadius: 6 }}>
                     <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.green, marginBottom: 4 }}>📖 RULE OF THUMB</div>
                     <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.7 }}>
-                      A strong bull setup checks at least 4 of these 6 signals. Price above 50D + Golden Cross + RVOL &gt; 1.2 = institutional sponsorship. Never buy a stock without at least 2 active bullish signals.
+                      A strong bull setup checks at least 4 of these 6 signals. Price above 50D + Golden Cross + RVOL > 1.2 = institutional sponsorship. Never buy a stock without at least 2 active bullish signals.
                     </div>
                   </div>
                 </div>
@@ -6857,7 +6857,7 @@ Risk small and follow the stop.`
           </table>
           <div style={{ padding: "8px 14px", borderTop: `1px solid ${C.border}`, background: C.surface }}>
             <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>
-              Qualifies: price above 200 EMA · EMA 9 &gt; 21 &gt; 50 · pulling near 50D<br />
+              Qualifies: price above 200 EMA · EMA 9 > 21 > 50 · pulling near 50D<br />
               low selling volume · green bounce from support
             </div>
           </div>
@@ -6931,7 +6931,7 @@ Risk small and follow the stop.`
       <div style={{ background: C.card, border: `1px solid ${C.red}33`, borderRadius: 8, overflow: "hidden" }}>
         <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <SectionHeader title="AVOID / TRAP ZONE" count={trapZones.length} color={C.red} badge="do not chase these" />
-          <span style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>⚠ Extended · weak · below VWAP · score &lt; 50</span>
+          <span style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>⚠ Extended · weak · below VWAP · score < 50</span>
         </div>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -12340,7 +12340,7 @@ export default function App() {
               {/* Tablet: show a divider label */}
               {isTablet && (
                 <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim, padding: "8px 0", borderTop: `2px solid ${C.border}`, letterSpacing: "0.08em" }}>
-                  ▼ BRIEF &amp; ALERTS
+                  ▼ BRIEF & ALERTS
                 </div>
               )}
               {/* Morning Brief */}
@@ -14631,7 +14631,7 @@ export default function App() {
                                             { k: "EMA 9/21", v: (row.ema9v && row.ema21v) ? (row.ema9v > row.ema21v ? "9 > 21 ▲" : "9 < 21 ▼") : "—",
                                               col: (row.ema9v && row.ema21v) ? (row.ema9v > row.ema21v ? C.green : C.red) : C.textDim },
                                             { k: "Zone", v: zoneLbl, col: zoneCol },
-                                            { k: "Score", v: `${row.score} / 100`, col: row.sColor },
+                                            { k: "Momentum", v: `${row.score}/100 (tech only)`, col: row.sColor },
                                           ].map(({ k, v, col }) => (
                                             <div key={k} style={{ display: "flex", justifyContent: "space-between",
                                               fontFamily: MONO, fontSize: 13, padding: "6px 0",
@@ -15068,45 +15068,6 @@ export default function App() {
                                           );
                                         })()}
 
-                                        {/* IV Rank proxy from 52w range */}
-                                        {(() => {
-                                          const hi2 = Number(row.quote?.yearHigh || 0);
-                                          const lo2 = Number(row.quote?.yearLow  || 0);
-                                          const px2 = Number(livePrice || row.quote?.price || 0);
-                                          const rw  = (hi2 > lo2 && px2 > 0) ? (hi2 - lo2) / px2 * 100 : 0;
-                                          const ivR = Math.min(99, Math.round(rw * 1.4));
-                                          const ivC = ivR > 70 ? C.red : ivR > 50 ? C.amber : C.green;
-                                          // IV label uses Master Verdict context for correct options direction
-                                          const smcIV  = deepData?.smc?.bos?.type;
-                                          const sentIV = deepSocialData[row.ticker]?.stocktwits?.bullPct ?? 50;
-                                          const isBearishSetup = smcIV === "BEAR_BOS" || sentIV < 40 || (row.score && row.score < 45);
-                                          const ivLbl = ivR > 70
-                                            ? (isBearishSetup ? "HIGH — sell calls / buy puts" : "HIGH — sell puts for income")
-                                            : ivR > 50
-                                              ? "MODERATE — spreads recommended"
-                                              : (isBearishSetup ? "LOW — BUY PUTS (cheap)" : "LOW — BUY CALLS (cheap)");
-                                          const opt2 = deepData?.options;
-                                          if (!ivR) return null;
-                                          return (
-                                            <div style={{ marginBottom: 12 }}>
-                                              <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>📊 IV RANK (PROXY)</div>
-                                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                                                <div style={{ flex: 1, height: 8, borderRadius: 6, background: C.border, overflow: "hidden" }}>
-                                                  <div style={{ width: ivR + "%", height: "100%", background: ivC, borderRadius: 6 }} />
-                                                </div>
-                                                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: ivC }}>{ivR}</span>
-                                              </div>
-                                              <div style={{ fontFamily: SANS, fontSize: 12, color: ivC, marginBottom: 6 }}>{ivLbl}</div>
-                                              {opt2 && opt2.callPutRatio != null && (
-                                                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12, padding: "4px 0", borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>C/P Ratio</span>
-                                                  <span style={{ color: Number(opt2.callPutRatio) > 1 ? C.green : C.red, fontWeight: 700 }}>{Number(opt2.callPutRatio).toFixed(2)}×</span>
-                                                </div>
-                                              )}
-                                            </div>
-                                          );
-                                        })()}
-
                                         {/* Earnings */}
                                         {(() => {
                                           const earnDate  = fd?.earningsDate;
@@ -15389,214 +15350,6 @@ export default function App() {
                                           );
                                         })()}
                                       </div>
-
-                                      {/* ── Col 8: TREND TEMPLATE + PRICE TARGETS ── */}
-                                      {(() => {
-                                        const q = row.quote || {};
-                                        const px   = Number(livePrice || q.price || q.regularMarketPrice || 0);
-                                        const ma50  = Number(q.priceAvg50  || 0);
-                                        const ma200 = Number(q.priceAvg200 || 0);
-                                        const ma150 = (ma50 > 0 && ma200 > 0) ? (ma50 * 0.4 + ma200 * 0.6) : 0;
-                                        const hi52  = Number(q.yearHigh || 0);
-                                        const lo52  = Number(q.yearLow  || 0);
-                                        const rsi   = row.rsiVal || 0;
-
-                                        const conditions = [
-                                          {
-                                            label: "Price > MA150 & MA200",
-                                            pass: px > 0 && ((ma150 > 0 && px > ma150) || ma150 === 0) && (ma200 > 0 && px > ma200),
-                                            detail: ma200 > 0 ? `$${px.toFixed(2)} vs MA200 $${ma200.toFixed(2)}` : "MA200 unavailable",
-                                            skip: ma200 === 0,
-                                          },
-                                          {
-                                            label: "MA150 > MA200",
-                                            pass: ma150 > 0 && ma200 > 0 && ma150 > ma200,
-                                            detail: (ma150 > 0 && ma200 > 0) ? `$${ma150.toFixed(2)} vs $${ma200.toFixed(2)}` : "—",
-                                            skip: ma150 === 0 || ma200 === 0,
-                                          },
-                                          {
-                                            label: "MA50 > MA150 & MA200",
-                                            pass: ma50 > 0 && ma150 > 0 && ma200 > 0 && ma50 > ma150 && ma50 > ma200,
-                                            detail: ma50 > 0 ? `MA50 $${ma50.toFixed(2)}` : "MA50 unavailable",
-                                            skip: ma50 === 0,
-                                          },
-                                          {
-                                            label: "Price > MA50",
-                                            pass: px > 0 && ma50 > 0 && px > ma50,
-                                            detail: ma50 > 0 ? `$${px.toFixed(2)} vs $${ma50.toFixed(2)}` : "MA50 unavailable",
-                                            skip: ma50 === 0,
-                                          },
-                                          {
-                                            label: "≥ 30% above 52w Low",
-                                            pass: lo52 > 0 && px >= lo52 * 1.30,
-                                            detail: lo52 > 0 ? `Low $${lo52.toFixed(2)} → need $${(lo52 * 1.3).toFixed(2)}` : "—",
-                                            skip: lo52 === 0,
-                                          },
-                                          {
-                                            label: "≤ 25% from 52w High",
-                                            pass: hi52 > 0 && px >= hi52 * 0.75,
-                                            detail: hi52 > 0 ? `High $${hi52.toFixed(2)}` : "—",
-                                            skip: hi52 === 0,
-                                          },
-                                          {
-                                            label: "RS ≥ 70",
-                                            pass: rsi >= 60,
-                                            detail: `RSI proxy: ${rsi > 0 ? rsi.toFixed(0) : "—"}`,
-                                            skip: false,
-                                          },
-                                          {
-                                            label: "EMA Alignment ↑",
-                                            pass: !!(row.ema9v && row.ema21v && row.ema9v > row.ema21v),
-                                            detail: (row.ema9v && row.ema21v) ? `EMA9 ${row.ema9v > row.ema21v ? ">" : "<"} EMA21` : "—",
-                                            skip: false,
-                                          },
-                                        ];
-
-                                        const scored = conditions.filter(c => !c.skip);
-                                        const passed = scored.filter(c => c.pass).length;
-                                        const total  = scored.length;
-                                        const pct    = total > 0 ? passed / total : 0;
-                                        const grade  = pct >= 0.87 ? { lbl: "STRONG SETUP", col: C.green } :
-                                                        pct >= 0.62 ? { lbl: "GOOD SETUP",   col: "#4caf50" } :
-                                                        pct >= 0.37 ? { lbl: "MIXED",         col: C.amber } :
-                                                                      { lbl: "WEAK",          col: C.red };
-
-                                        // ── Best Entry calculation (Minervini logic) ──────────────────
-                                        // How far above MA50 is the price? (extension %)
-                                        const extPct = (px > 0 && ma50 > 0) ? ((px - ma50) / ma50 * 100) : 0;
-                                        let entryNote, entryZone, entryColor, entryAction;
-                                        if (pct < 0.37) {
-                                          entryNote   = "Avoid — weak template";
-                                          entryZone   = null;
-                                          entryColor  = C.red;
-                                          entryAction = "WAIT";
-                                        } else if (extPct > 15) {
-                                          // Extended — wait for pullback to MA50
-                                          entryNote   = `Extended +${extPct.toFixed(1)}% above MA50 — wait for pullback`;
-                                          entryZone   = ma50 > 0 ? ma50 * 1.01 : null;
-                                          entryColor  = C.amber;
-                                          entryAction = "WAIT PULLBACK";
-                                        } else if (extPct > 0 && extPct <= 15) {
-                                          // In buy zone — within 15% of MA50
-                                          entryNote   = `${extPct.toFixed(1)}% above MA50 — buy zone`;
-                                          entryZone   = px;
-                                          entryColor  = C.green;
-                                          entryAction = "BUY NOW";
-                                        } else if (extPct <= 0 && ma50 > 0) {
-                                          // Below MA50 — wait for reclaim
-                                          entryNote   = `Below MA50 — wait for reclaim`;
-                                          entryZone   = ma50 * 1.005;
-                                          entryColor  = C.amber;
-                                          entryAction = "WAIT RECLAIM";
-                                        } else {
-                                          entryNote   = "Insufficient MA data";
-                                          entryZone   = px || null;
-                                          entryColor  = C.textDim;
-                                          entryAction = "—";
-                                        }
-                                        const entryStop = entryZone ? entryZone * 0.92 : null; // 8% stop
-                                        const entryR1   = entryZone ? entryZone * 1.10 : null; // +10% T1
-                                        const entryR2   = entryZone ? entryZone * 1.20 : null; // +20% T2
-                                        const rrRatio   = entryZone && entryStop ? ((entryR1 - entryZone) / (entryZone - entryStop)).toFixed(1) : null;
-
-                                        // ── Price targets
-                                        const support1 = ma50  > 0 ? ma50  : (lo52 > 0 ? lo52 * 1.05 : 0);
-                                        const support2 = ma200 > 0 ? ma200 : (lo52 > 0 ? lo52 * 1.15 : 0);
-                                        const target1  = hi52  > 0 ? hi52  : (px * 1.10);
-                                        const target2  = hi52  > 0 ? hi52 * 1.08 : (px * 1.18);
-                                        const stopLvl  = ma200 > 0 ? Math.max(ma200 * 0.97, px * 0.90) : px * 0.90;
-                                        const upside1  = px > 0 && target1 > 0 ? ((target1 - px) / px * 100) : null;
-                                        const upside2  = px > 0 && target2 > 0 ? ((target2 - px) / px * 100) : null;
-                                        const downside = px > 0 && stopLvl > 0 ? ((stopLvl - px) / px * 100) : null;
-
-                                        return (
-                                          <div style={{ width: 260, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
-                                            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
-                                              📐 TREND TEMPLATE
-                                            </div>
-
-                                            {/* Score badge */}
-                                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: grade.col }}>{passed}/{total}</div>
-                                              <div>
-                                                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: grade.col }}>{grade.lbl}</div>
-                                                <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Minervini conditions</div>
-                                              </div>
-                                            </div>
-
-                                            {/* Conditions table */}
-                                            <div style={{ display: "flex", flexDirection: "column", gap: 1, marginBottom: 14 }}>
-                                              {conditions.map((c, ci) => c.skip ? null : (
-                                                <div key={ci} style={{ display: "flex", alignItems: "flex-start", gap: 6, padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }}>{c.pass ? "✅" : "❌"}</span>
-                                                  <div style={{ flex: 1 }}>
-                                                    <div style={{ fontFamily: SANS, fontSize: 12, color: c.pass ? C.text : C.textDim, fontWeight: c.pass ? 700 : 400 }}>{c.label}</div>
-                                                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 1 }}>{c.detail}</div>
-                                                  </div>
-                                                </div>
-                                              ))}
-                                            </div>
-
-                                            {/* ── Best Entry ── */}
-                                            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, paddingBottom: 5, borderBottom: `2px solid ${C.border}`, letterSpacing: "0.05em" }}>
-                                              🎯 BEST ENTRY
-                                            </div>
-                                            <div style={{ padding: "10px 10px", borderRadius: 6, marginBottom: 12,
-                                              background: `${entryColor}15`, border: `1px solid ${entryColor}44` }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: entryColor, marginBottom: 4 }}>
-                                                {entryAction}
-                                              </div>
-                                              <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.5 }}>
-                                                {entryNote}
-                                              </div>
-                                            </div>
-                                            {entryZone && (
-                                              <div style={{ display: "flex", flexDirection: "column", gap: 1, marginBottom: 14 }}>
-                                                {[
-                                                  ["Entry Zone", entryZone, entryColor],
-                                                  ["Stop Loss",  entryStop, C.red],
-                                                  ["Target 1",   entryR1,   C.green],
-                                                  ["Target 2",   entryR2,   "#4caf50"],
-                                                  ["R:R Ratio",  null,      C.amber],
-                                                ].map(([k, v, col]) => (
-                                                  <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                    fontFamily: MONO, fontSize: 13, padding: "5px 0",
-                                                    borderBottom: `1px solid ${C.border}22` }}>
-                                                    <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>{k}</span>
-                                                    <span style={{ color: col, fontWeight: 700 }}>
-                                                      {k === "R:R Ratio" ? (rrRatio ? `${rrRatio} : 1` : "—") : (v > 0 ? `$${Number(v).toFixed(2)}` : "—")}
-                                                    </span>
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            )}
-
-                                            {/* Price prediction levels */}
-                                            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, paddingBottom: 5, borderBottom: `2px solid ${C.border}`, letterSpacing: "0.05em" }}>
-                                              📊 PRICE TARGETS
-                                            </div>
-                                            <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                                              {[
-                                                ["Target 1",  target1,  upside1,  C.green, upside1 != null ? `+${upside1.toFixed(1)}%` : ""],
-                                                ["Target 2",  target2,  upside2,  "#4caf50", upside2 != null ? `+${upside2.toFixed(1)}%` : ""],
-                                                ["Support 1", support1, null,     C.amber, "MA50"],
-                                                ["Support 2", support2, null,     "#ff9800", "MA200"],
-                                                ["Stop",      stopLvl,  downside, C.red, downside != null ? `${downside.toFixed(1)}%` : ""],
-                                              ].filter(([,v]) => v > 0).map(([label, val, , col, note]) => (
-                                                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
-                                                  fontFamily: MONO, fontSize: 13, padding: "6px 0",
-                                                  borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>{label}</span>
-                                                  <div style={{ textAlign: "right" }}>
-                                                    <span style={{ color: col, fontWeight: 700 }}>${Number(val).toFixed(2)}</span>
-                                                    {note && <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginLeft: 5 }}>{note}</span>}
-                                                  </div>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        );
-                                      })()}
 
                                     </div>
                                     </>
@@ -18085,7 +17838,7 @@ export default function App() {
                 background: C.card, border: `1px solid ${C.border}`, borderRadius: 10 }}>
                 <div>
                   <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: "0.06em" }}>
-                    📊 P&amp;L PERFORMANCE
+                    📊 P&L PERFORMANCE
                   </div>
                   <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>
                     Equity curve from {closed.length} closed trade{closed.length !== 1 ? "s" : ""}
@@ -18097,7 +17850,7 @@ export default function App() {
                     {totalPnl >= 0 ? "+" : ""}${Math.round(totalPnl).toLocaleString()}
                   </span>
                   <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: 8 }}>
-                    TOTAL P&amp;L
+                    TOTAL P&L
                   </span>
                 </div>
               </div>
@@ -22262,7 +22015,7 @@ export default function App() {
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, flexWrap:"wrap", gap:10 }}>
               <div>
                 <div style={{ fontFamily:MONO, fontSize:13, fontWeight:900, color:C.text, letterSpacing:2 }}>MARKET BREADTH DASHBOARD</div>
-                <div style={{ fontFamily:MONO, fontSize:10, color:C.textDim, marginTop:3 }}>11 S&amp;P sector ETFs — advance/decline, 50MA, 200MA analysis</div>
+                <div style={{ fontFamily:MONO, fontSize:10, color:C.textDim, marginTop:3 }}>11 S&P sector ETFs — advance/decline, 50MA, 200MA analysis</div>
               </div>
               <button onClick={fetchBreadth} disabled={breadthLoading}
                 style={{ fontFamily:MONO, fontSize:11, fontWeight:700, background:breadthLoading?C.surface:C.accent, border:"none", color:breadthLoading?C.textDim:"#fff", borderRadius:6, padding:"9px 18px", cursor:breadthLoading?"default":"pointer" }}>
@@ -22343,7 +22096,7 @@ export default function App() {
               <div style={{ ...card({padding:60, textAlign:"center"}) }}>
                 <div style={{ fontFamily:MONO, fontSize:32, marginBottom:12 }}>&#128202;</div>
                 <div style={{ fontFamily:MONO, fontSize:13, fontWeight:700, color:C.text }}>Click REFRESH to load sector breadth data</div>
-                <div style={{ fontFamily:MONO, fontSize:10, color:C.textDim, marginTop:6 }}>Tracks 11 S&amp;P sector ETFs vs their 50MA and 200MA</div>
+                <div style={{ fontFamily:MONO, fontSize:10, color:C.textDim, marginTop:6 }}>Tracks 11 S&P sector ETFs vs their 50MA and 200MA</div>
               </div>
             )}
           </div>
