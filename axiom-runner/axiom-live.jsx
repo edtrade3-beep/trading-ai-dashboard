@@ -7058,6 +7058,7 @@ export default function App() {
   const [dailyMaxLoss, setDailyMaxLoss] = useState(() => { try { return localStorage.getItem("daily_max_loss") || "200"; } catch { return "200"; } });
   const [tradingLocked, setTradingLocked] = useState(false);
   const [lockReason,   setLockReason]   = useState("");
+  const [activeLesson, setActiveLesson] = useState(null); // Academy tab
   const [riskEntry, setRiskEntry] = useState("100");
   const [riskStop, setRiskStop] = useState("95");
   const [riskSide, setRiskSide] = useState("long");
@@ -23144,7 +23145,7 @@ export default function App() {
           },
         ];
 
-        const [activeLesson, setActiveLesson] = React.useState(null);
+        // activeLesson state hoisted to top level (Rules of Hooks)
         const lesson = LESSONS.find(l => l.id === activeLesson);
 
         return (
