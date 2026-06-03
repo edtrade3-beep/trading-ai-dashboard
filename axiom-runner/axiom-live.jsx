@@ -7907,14 +7907,14 @@ export default function App() {
   }, []);
 
   // ── Daily Max Loss Lock ──────────────────────────────────────────────────────
+  const _dayPnlForLock = portfolioSummary ? (portfolioSummary.dayPnlTotal || 0) : 0;
   useEffect(() => {
     const maxLoss = Number(dailyMaxLoss || 200);
-    const todayPnl = portfolioSummary?.dayPnlTotal || 0;
-    if (todayPnl < 0 && Math.abs(todayPnl) >= maxLoss && !tradingLocked) {
+    if (_dayPnlForLock < 0 && Math.abs(_dayPnlForLock) >= maxLoss && !tradingLocked) {
       setTradingLocked(true);
-      setLockReason(`Daily max loss of $${maxLoss} reached. Today's P&L: -$${Math.abs(todayPnl).toFixed(0)}. Stop trading. Review tomorrow.`);
+      setLockReason("Daily max loss of $" + maxLoss + " reached. Today P&L: -$" + Math.abs(_dayPnlForLock).toFixed(0) + ". Stop trading.");
     }
-  }, [portfolioSummary?.dayPnlTotal, dailyMaxLoss]);
+  }, [_dayPnlForLock, dailyMaxLoss]);
 
   // ── Morning Brief auto-run (#5) ────────────────────────────────────────────
   // On weekdays between 6:30 AM–9:30 AM ET: auto-generate briefing if not done today
