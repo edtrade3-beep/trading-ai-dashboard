@@ -14342,7 +14342,7 @@ export default function App() {
                     )}
                   </div>
                 </div>
-              )
+              )}
 
               {/* ── Results table ── */}
               {scanResults.length > 0 && (
