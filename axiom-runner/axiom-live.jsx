@@ -7056,6 +7056,7 @@ export default function App() {
   const [riskPct, setRiskPct] = useState("1");
   // Daily Max Loss Lock
   const [dailyMaxLoss, setDailyMaxLoss] = useState(() => { try { return localStorage.getItem("daily_max_loss") || "200"; } catch { return "200"; } });
+  const [lockEnabled,  setLockEnabled]  = useState(() => { try { return localStorage.getItem("lock_enabled") === "true"; } catch { return false; } }); // OFF by default
   const [tradingLocked, setTradingLocked] = useState(false);
   const [lockReason,   setLockReason]   = useState("");
   const [activeLesson, setActiveLesson] = useState(null); // Academy tab
@@ -9892,7 +9893,7 @@ export default function App() {
   useEffect(() => {
     const dayPnl = portfolioSummary ? (portfolioSummary.dayPnlTotal || 0) : 0;
     const maxLoss = Number(_dailyMaxLossRef.current || 200);
-    if (dayPnl < 0 && Math.abs(dayPnl) >= maxLoss && !tradingLocked) {
+    if (lockEnabled && dayPnl < 0 && Math.abs(dayPnl) >= maxLoss && !tradingLocked) {
       setTradingLocked(true);
       setLockReason("Daily max loss of $" + maxLoss + " reached. Today P&L: -$" + Math.abs(dayPnl).toFixed(0) + ". Stop trading. Review tomorrow.");
     }
@@ -23251,24 +23252,40 @@ export default function App() {
                 <div style={{ background: `${C.red}0d`, border: `1px solid ${C.red}44`, borderRadius: 10,
                   padding: "16px 20px", marginBottom: 24 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                    <div>
-                      <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.red }}>🛑 DAILY MAX LOSS LOCK</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.red }}>🛑 DAILY MAX LOSS LOCK</div>
+                        {/* ON/OFF toggle */}
+                        <button
+                          onClick={() => { const n = !lockEnabled; setLockEnabled(n); try{localStorage.setItem("lock_enabled",String(n));}catch{} if (!n) { setTradingLocked(false); setLockReason(""); } }}
+                          style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, border: "none",
+                            background: lockEnabled ? C.green : C.surface,
+                            color: lockEnabled ? "#fff" : C.textDim,
+                            borderRadius: 20, padding: "4px 14px", cursor: "pointer",
+                            border: `1px solid ${lockEnabled ? C.green : C.border}` }}>
+                          {lockEnabled ? "ON" : "OFF"}
+                        </button>
+                      </div>
                       <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, marginTop: 4 }}>
-                        Platform locks when your daily P&L hits this level. Prevents revenge trading.
+                        {lockEnabled ? "Platform will lock when daily P&L reaches -$" + dailyMaxLoss + ". Toggle OFF to disable." : "Toggle ON to activate. Prevents revenge trading after big losses."}
                       </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
-                      <span style={{ fontFamily: SANS, fontSize: 13, color: C.textDim }}>Lock at -$</span>
-                      <input type="number" value={dailyMaxLoss}
-                        onChange={e => { setDailyMaxLoss(e.target.value); try { localStorage.setItem("daily_max_loss", e.target.value); } catch {} }}
-                        style={{ width: 80, fontFamily: MONO, fontSize: 14, fontWeight: 700,
-                          background: C.surface, border: `1px solid ${C.red}44`, color: C.red,
-                          borderRadius: 6, padding: "6px 10px", textAlign: "center" }} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {lockEnabled && (
+                        <>
+                          <span style={{ fontFamily: SANS, fontSize: 13, color: C.textDim }}>Lock at -$</span>
+                          <input type="number" value={dailyMaxLoss}
+                            onChange={e => { setDailyMaxLoss(e.target.value); try { localStorage.setItem("daily_max_loss", e.target.value); } catch {} }}
+                            style={{ width: 80, fontFamily: MONO, fontSize: 14, fontWeight: 700,
+                              background: C.surface, border: `1px solid ${C.red}44`, color: C.red,
+                              borderRadius: 6, padding: "6px 10px", textAlign: "center" }} />
+                        </>
+                      )}
                       {tradingLocked && (
                         <button onClick={() => { setTradingLocked(false); setLockReason(""); }}
-                          style={{ fontFamily: MONO, fontSize: 11, border: `1px solid ${C.border}`,
-                            background: C.surface, color: C.textDim, borderRadius: 6, padding: "6px 12px", cursor: "pointer" }}>
-                          Unlock
+                          style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, border: `1px solid ${C.accent}`,
+                            background: `${C.accent}18`, color: C.accent, borderRadius: 6, padding: "7px 16px", cursor: "pointer" }}>
+                          🔓 UNLOCK NOW
                         </button>
                       )}
                     </div>
@@ -23332,21 +23349,25 @@ export default function App() {
                 After hitting your daily loss limit, the brain switches to "revenge mode" — you start chasing trades to make it back. This is how small losses become catastrophic losses. Professional traders never trade past their daily limit. Come back tomorrow with a clear head.
               </div>
             </div>
-            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+              <button onClick={() => { setTradingLocked(false); setLockReason(""); }}
+                style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, border: "none",
+                  background: C.green, color: "#fff", borderRadius: 8, padding: "12px 28px", cursor: "pointer" }}>
+                🔓 UNLOCK PLATFORM
+              </button>
               <button onClick={() => setActiveTab("journal")}
                 style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, border: `1px solid ${C.accent}`,
                   background: `${C.accent}18`, color: C.accent, borderRadius: 8, padding: "10px 24px", cursor: "pointer" }}>
                 📓 REVIEW MY TRADES
               </button>
-              <button onClick={() => { setTradingLocked(false); setLockReason(""); }}
-                style={{ fontFamily: MONO, fontSize: 13, border: `1px solid ${C.border}`,
-                  background: "transparent", color: C.textDim, borderRadius: 8, padding: "10px 16px", cursor: "pointer" }}
-                title="Override — use with discipline">
-                Override
+              <button onClick={() => { setTradingLocked(false); setLockReason(""); setLockEnabled(false); try{localStorage.setItem("lock_enabled","false");}catch{} }}
+                style={{ fontFamily: MONO, fontSize: 12, border: `1px solid ${C.border}`,
+                  background: "transparent", color: C.textDim, borderRadius: 8, padding: "10px 14px", cursor: "pointer" }}>
+                Disable Lock Feature
               </button>
             </div>
-            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 16 }}>
-              Daily max loss: ${dailyMaxLoss} · Change in PORTFOLIO → Risk Settings
+            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 16, textAlign: "center" }}>
+              Locked at -${dailyMaxLoss} · Turn off in TOOLS → 📚 ACADEMY
             </div>
           </div>
         </div>
