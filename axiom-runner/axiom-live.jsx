@@ -7059,6 +7059,11 @@ export default function App() {
   const [tradingLocked, setTradingLocked] = useState(false);
   const [lockReason,   setLockReason]   = useState("");
   const [activeLesson, setActiveLesson] = useState(null); // Academy tab
+  // Earnings Cal, Econ Cal, Journal Analytics — hoisted (were inside conditional IIFEs)
+  const [ecData,   setEcData]   = useState(null);
+  const [ecLoad,   setEcLoad]   = useState(false);
+  const [evData,   setEvData]   = useState(null);
+  const [jData,    setJData]    = useState(null);
   const [riskEntry, setRiskEntry] = useState("100");
   const [riskStop, setRiskStop] = useState("95");
   const [riskSide, setRiskSide] = useState("long");
@@ -7843,6 +7848,21 @@ export default function App() {
     }, 5000);
     return () => clearTimeout(t);
   }, []);
+
+  // ── Earnings Cal / Econ Cal / Journal Analytics tab data ────────────────────
+  useEffect(() => {
+    if (activeTab === "earn-cal" && !ecData && !ecLoad) {
+      setEcLoad(true);
+      fetch("/api/market/earnings-calendar").then(r=>r.json()).then(d=>{if(d.ok)setEcData(d);}).catch(()=>{}).finally(()=>setEcLoad(false));
+    }
+    if (activeTab === "econ-cal" && !evData) {
+      fetch("/api/market/econ-calendar").then(r=>r.json()).then(d=>{if(d.ok)setEvData(d);}).catch(()=>{});
+    }
+    if (activeTab === "journal-stats" && !jData) {
+      fetch("/api/journal").then(r=>r.json()).then(d=>{if(Array.isArray(d))setJData(d);else if(d.entries)setJData(d.entries);}).catch(()=>{});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // ── Fetch short-changes and dp-heatmap when those tabs are opened ────────────
   useEffect(() => {
@@ -22310,13 +22330,6 @@ export default function App() {
 
       {/* ── EARNINGS CALENDAR TAB ─────────────────────────────────────────── */}
       {activeTab === "earn-cal" && (() => {
-        const [ecData, setEcData] = React.useState(null);
-        const [ecLoad, setEcLoad] = React.useState(false);
-        React.useEffect(() => {
-          setEcLoad(true);
-          fetch("/api/market/earnings-calendar").then(r=>r.json()).then(d=>{if(d.ok)setEcData(d);}).catch(()=>{}).finally(()=>setEcLoad(false));
-        }, []);
-        const groups = { past:[], today:[], week:[], later:[] };
         (ecData?.events||[]).forEach(e => {
           if (e.dte < 0) groups.past.push(e);
           else if (e.dte === 0) groups.today.push(e);
@@ -22383,12 +22396,6 @@ export default function App() {
 
       {/* ── ECONOMIC CALENDAR TAB ─────────────────────────────────────────── */}
       {activeTab === "econ-cal" && (() => {
-        const [evData, setEvData] = React.useState(null);
-        React.useEffect(() => {
-          fetch("/api/market/econ-calendar").then(r=>r.json()).then(d=>{if(d.ok)setEvData(d);}).catch(()=>{});
-        }, []);
-        const IMPACT_COL = { HIGH: C.red, MED: C.amber, LOW: C.green };
-        return (
           <div style={{ padding: "16px 20px" }}>
             <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 20 }}>🗓 ECONOMIC CALENDAR</div>
             {!evData && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>⌛ Loading…</div>}
@@ -22433,12 +22440,6 @@ export default function App() {
 
       {/* ── JOURNAL ANALYTICS TAB ─────────────────────────────────────────── */}
       {activeTab === "journal-stats" && (() => {
-        const [jData, setJData] = React.useState(null);
-        React.useEffect(() => {
-          fetch("/api/journal").then(r=>r.json()).then(d=>{if(Array.isArray(d))setJData(d);else if(d.entries)setJData(d.entries);}).catch(()=>{});
-        }, []);
-        if (!jData) return <div style={{ padding: 40, fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>⌛ Loading journal…</div>;
-        const trades = jData.filter(e => e.side && e.outcome);
         const wins   = trades.filter(e => e.outcome === "WIN" || e.pnl > 0);
         const losses = trades.filter(e => e.outcome === "LOSS" || e.pnl < 0);
         const winRate = trades.length ? Math.round(wins.length / trades.length * 100) : 0;
