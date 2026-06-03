@@ -7906,15 +7906,11 @@ export default function App() {
     return () => { clearTimeout(init); clearInterval(interval); };
   }, []);
 
-  // ── Daily Max Loss Lock ──────────────────────────────────────────────────────
-  const _dayPnlForLock = portfolioSummary ? (portfolioSummary.dayPnlTotal || 0) : 0;
-  useEffect(() => {
-    const maxLoss = Number(dailyMaxLoss || 200);
-    if (_dayPnlForLock < 0 && Math.abs(_dayPnlForLock) >= maxLoss && !tradingLocked) {
-      setTradingLocked(true);
-      setLockReason("Daily max loss of $" + maxLoss + " reached. Today P&L: -$" + Math.abs(_dayPnlForLock).toFixed(0) + ". Stop trading.");
-    }
-  }, [_dayPnlForLock, dailyMaxLoss]);
+  // ── Daily Max Loss Lock — runs after portfolioSummary is set ─────────────────
+  // NOTE: portfolioSummary is declared later via useMemo — this effect reads
+  // the current value from a ref to avoid the TDZ issue.
+  const _dailyMaxLossRef = React.useRef(dailyMaxLoss);
+  _dailyMaxLossRef.current = dailyMaxLoss;
 
   // ── Morning Brief auto-run (#5) ────────────────────────────────────────────
   // On weekdays between 6:30 AM–9:30 AM ET: auto-generate briefing if not done today
@@ -9891,6 +9887,18 @@ export default function App() {
     const dayPnlPct   = totalValue > 0 ? dayPnlTotal / totalValue * 100 : 0;
     return { totalValue, totalCost, totalPnl, totalPnlPct, winners, losers, dayPnlTotal, dayPnlPct };
   }, [portfolioRows]);
+
+  // ── Daily Max Loss Lock check (after portfolioSummary is available) ───────────
+  useEffect(() => {
+    const dayPnl = portfolioSummary ? (portfolioSummary.dayPnlTotal || 0) : 0;
+    const maxLoss = Number(_dailyMaxLossRef.current || 200);
+    if (dayPnl < 0 && Math.abs(dayPnl) >= maxLoss && !tradingLocked) {
+      setTradingLocked(true);
+      setLockReason("Daily max loss of $" + maxLoss + " reached. Today P&L: -$" + Math.abs(dayPnl).toFixed(0) + ". Stop trading. Review tomorrow.");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [portfolioSummary, dailyMaxLoss]);
+
   const liveJournalPnl = useMemo(() => {
     const map = {};
     for (const e of journalEntries) {
