@@ -15166,7 +15166,7 @@ export default function App() {
                                             </div>
                                           );
                                         })()}
-
+                                      </div>
 
                                       {/* ── Col 7: AI Trade Setup + Auto-Execute ── */}
                                       <div style={{ width: 280, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
