@@ -2,7 +2,7 @@ const { useMemo, useState, useEffect, useRef, useCallback } = React;
 
 // App password is validated server-side via POST /api/auth/check (never stored in source)
 const PDF_SLOTS = 3;
-const TABS = ["Overview", "Vehicle", "Finance", "Facebook", "Inventory", "Leads"];
+const TABS = ["Overview", "Vehicle", "Finance", "Facebook", "Showroom", "Inventory", "Leads"];
 
 const THEMES = {
   dark: {
@@ -1954,6 +1954,307 @@ ${tradeValue > 0 ? `<tr><td>Net Trade</td><td>${netTrade >= 0 ? money(netTrade) 
 
               </div>
             )}
+
+            {tab === "Showroom" && (() => {
+              const ShowroomComposer = () => {
+                const [bg, setBg]               = useState(null);
+                const [bgName, setBgName]       = useState("");
+                const [slots, setSlots]         = useState(Array(6).fill(null));
+                const [active, setActive]       = useState(0);
+                const [scale, setScale]         = useState(62);
+                const [posX, setPosX]           = useState(50);
+                const [posY, setPosY]           = useState(72);
+                const [shadow, setShadow]       = useState(true);
+                const [composites, setComposites] = useState(Array(6).fill(null));
+                const canvasRef = useRef(null);
+                const fileRef   = useRef(null);
+                const bgRef     = useRef(null);
+
+                // Read file as dataURL
+                function readFile(file) {
+                  return new Promise(resolve => {
+                    const r = new FileReader();
+                    r.onload = e => resolve(e.target.result);
+                    r.readAsDataURL(file);
+                  });
+                }
+
+                // Composite active slot onto background
+                const draw = useCallback(() => {
+                  if (!bg || !canvasRef.current) return;
+                  const canvas = canvasRef.current;
+                  const ctx    = canvas.getContext("2d");
+                  const bgImg  = new Image();
+                  bgImg.onload = () => {
+                    canvas.width  = bgImg.naturalWidth;
+                    canvas.height = bgImg.naturalHeight;
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(bgImg, 0, 0);
+
+                    const car = slots[active];
+                    if (car) {
+                      const carImg = new Image();
+                      carImg.onload = () => {
+                        const carW = canvas.width * (scale / 100);
+                        const carH = carImg.naturalHeight * (carW / carImg.naturalWidth);
+                        const x    = canvas.width  * (posX / 100) - carW / 2;
+                        const y    = canvas.height * (posY / 100) - carH;
+
+                        if (shadow) {
+                          ctx.save();
+                          ctx.shadowColor = "rgba(0,0,0,0.55)";
+                          ctx.shadowBlur  = 40;
+                          ctx.shadowOffsetY = 18;
+                          ctx.drawImage(carImg, x, y, carW, carH);
+                          ctx.restore();
+                        } else {
+                          ctx.drawImage(carImg, x, y, carW, carH);
+                        }
+
+                        const dataUrl = canvas.toDataURL("image/jpeg", 0.93);
+                        setComposites(prev => { const a = [...prev]; a[active] = dataUrl; return a; });
+                      };
+                      carImg.src = car.url;
+                    } else {
+                      const dataUrl = canvas.toDataURL("image/jpeg", 0.93);
+                      setComposites(prev => { const a = [...prev]; a[active] = dataUrl; return a; });
+                    }
+                  };
+                  bgImg.src = bg;
+                }, [bg, slots, active, scale, posX, posY, shadow]);
+
+                useEffect(() => { draw(); }, [draw]);
+
+                function download(slotIdx) {
+                  const url = composites[slotIdx];
+                  if (!url) return;
+                  const a  = document.createElement("a");
+                  a.href   = url;
+                  a.download = `showroom-${slots[slotIdx]?.name || "car"}-${slotIdx + 1}.jpg`;
+                  a.click();
+                }
+
+                function downloadAll() {
+                  composites.forEach((url, i) => { if (url && slots[i]) download(i); });
+                }
+
+                const sBtn = { padding: "8px 16px", border: "none", borderRadius: 8,
+                  fontWeight: 800, fontSize: 12, cursor: "pointer" };
+
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 20, fontFamily: theme.font || "system-ui" }}>
+
+                    {/* Header */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: theme.text }}>
+                        🏛 Virtual Showroom Composer
+                      </div>
+                      <div style={{ fontSize: 13, color: theme.muted }}>
+                        Place your vehicles inside the showroom · Adjust position · Download
+                      </div>
+                    </div>
+
+                    {/* Step 1 — Upload background */}
+                    <div style={{ padding: 16, background: theme.card, border: `1px solid ${theme.border}`,
+                      borderRadius: 12 }}>
+                      <div style={{ fontWeight: 800, fontSize: 13, color: theme.text, marginBottom: 10 }}>
+                        Step 1 — Upload Showroom Background
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                        <input ref={bgRef} type="file" accept="image/*" style={{ display: "none" }}
+                          onChange={async e => {
+                            if (!e.target.files[0]) return;
+                            const url = await readFile(e.target.files[0]);
+                            setBg(url);
+                            setBgName(e.target.files[0].name);
+                          }} />
+                        <button onClick={() => bgRef.current?.click()}
+                          style={{ ...sBtn, background: theme.primary, color: "#fff" }}>
+                          📁 Upload Background Image
+                        </button>
+                        {bg && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <img src={bg} alt="bg" style={{ width: 80, height: 45, objectFit: "cover", borderRadius: 6, border: `1px solid ${theme.border}` }} />
+                            <span style={{ fontSize: 12, color: theme.muted }}>{bgName}</span>
+                          </div>
+                        )}
+                        {!bg && (
+                          <span style={{ fontSize: 12, color: theme.muted }}>
+                            Upload the showroom image you shared — drag the file or click Upload
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Step 2 — 6 car slots */}
+                    <div style={{ padding: 16, background: theme.card, border: `1px solid ${theme.border}`,
+                      borderRadius: 12 }}>
+                      <div style={{ fontWeight: 800, fontSize: 13, color: theme.text, marginBottom: 12 }}>
+                        Step 2 — Upload Car Photos (up to 6)
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10 }}>
+                        {Array(6).fill(null).map((_, i) => (
+                          <div key={i} onClick={() => setActive(i)} style={{
+                            borderRadius: 10, border: `2px solid ${active === i ? theme.primary : theme.border}`,
+                            background: active === i ? `${theme.primary}15` : theme.surface,
+                            cursor: "pointer", padding: 8, display: "flex", flexDirection: "column",
+                            alignItems: "center", gap: 6, transition: "all 0.15s",
+                            boxShadow: active === i ? `0 0 0 3px ${theme.primary}44` : "none",
+                          }}>
+                            {slots[i] ? (
+                              <>
+                                <img src={slots[i].url} alt={`Car ${i+1}`}
+                                  style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover", borderRadius: 6 }} />
+                                <div style={{ fontSize: 10, color: theme.muted, textAlign: "center",
+                                  maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {slots[i].name}
+                                </div>
+                                {composites[i] && (
+                                  <button onClick={e => { e.stopPropagation(); download(i); }}
+                                    style={{ ...sBtn, background: "#16a34a", color: "#fff", fontSize: 10, padding: "4px 10px", width: "100%" }}>
+                                    ⬇ Download
+                                  </button>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <label style={{ cursor: "pointer", display: "flex", flexDirection: "column",
+                                  alignItems: "center", gap: 4, width: "100%" }}>
+                                  <input type="file" accept="image/*" style={{ display: "none" }}
+                                    onChange={async e => {
+                                      if (!e.target.files[0]) return;
+                                      const url  = await readFile(e.target.files[0]);
+                                      const name = e.target.files[0].name.replace(/\.[^.]+$/, "");
+                                      setSlots(prev => { const a = [...prev]; a[i] = { url, name }; return a; });
+                                      setActive(i);
+                                    }} />
+                                  <div style={{ fontSize: 24, color: theme.muted }}>📷</div>
+                                  <div style={{ fontSize: 10, color: theme.muted, textAlign: "center" }}>
+                                    Car {i + 1}
+                                  </div>
+                                </label>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Main editor */}
+                    {bg && (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 16, alignItems: "flex-start" }}>
+
+                        {/* Canvas preview */}
+                        <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${theme.border}`,
+                          background: "#000", position: "relative" }}>
+                          <canvas ref={canvasRef} style={{ width: "100%", display: "block" }} />
+                          {!slots[active] && (
+                            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center",
+                              justifyContent: "center", pointerEvents: "none" }}>
+                              <div style={{ background: "rgba(0,0,0,0.55)", borderRadius: 10, padding: "12px 20px",
+                                color: "#fff", fontWeight: 700, fontSize: 14, textAlign: "center" }}>
+                                Upload Car {active + 1} to see it in the showroom
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Controls */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                          <div style={{ padding: 14, background: theme.card, border: `1px solid ${theme.border}`,
+                            borderRadius: 10 }}>
+                            <div style={{ fontWeight: 800, fontSize: 12, color: theme.muted, marginBottom: 12,
+                              textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                              Editing: Car {active + 1}
+                            </div>
+
+                            {[
+                              { label: "Size", value: scale, set: setScale, min: 10, max: 100, unit: "%" },
+                              { label: "Left / Right", value: posX, set: setPosX, min: 0, max: 100, unit: "%" },
+                              { label: "Up / Down", value: posY, set: setPosY, min: 20, max: 95, unit: "%" },
+                            ].map(({ label, value, set, min, max, unit }) => (
+                              <div key={label} style={{ marginBottom: 14 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                                  <span style={{ fontSize: 12, color: theme.muted, fontWeight: 600 }}>{label}</span>
+                                  <span style={{ fontSize: 12, color: theme.text, fontWeight: 800 }}>{value}{unit}</span>
+                                </div>
+                                <input type="range" min={min} max={max} value={value}
+                                  onChange={e => set(Number(e.target.value))}
+                                  style={{ width: "100%", accentColor: theme.primary }} />
+                              </div>
+                            ))}
+
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                              marginBottom: 14 }}>
+                              <span style={{ fontSize: 12, color: theme.muted, fontWeight: 600 }}>Drop Shadow</span>
+                              <button onClick={() => setShadow(s => !s)}
+                                style={{ ...sBtn, padding: "4px 14px",
+                                  background: shadow ? theme.primary : theme.surface,
+                                  color: shadow ? "#fff" : theme.muted,
+                                  border: `1px solid ${theme.border}` }}>
+                                {shadow ? "ON" : "OFF"}
+                              </button>
+                            </div>
+
+                            {/* Quick presets */}
+                            <div style={{ fontWeight: 700, fontSize: 11, color: theme.muted, marginBottom: 8,
+                              textTransform: "uppercase", letterSpacing: "0.06em" }}>Quick Presets</div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              {[
+                                { label: "🏎 Center Floor",    s: 62, x: 50, y: 75 },
+                                { label: "◼ Left Platform",    s: 42, x: 25, y: 72 },
+                                { label: "◼ Right Platform",   s: 42, x: 75, y: 72 },
+                                { label: "🔭 Wide Shot",        s: 80, x: 50, y: 82 },
+                                { label: "🔍 Detail Shot",      s: 40, x: 50, y: 65 },
+                              ].map(p => (
+                                <button key={p.label}
+                                  onClick={() => { setScale(p.s); setPosX(p.x); setPosY(p.y); }}
+                                  style={{ ...sBtn, background: theme.surface, color: theme.text,
+                                    border: `1px solid ${theme.border}`, textAlign: "left", fontSize: 11 }}>
+                                  {p.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Download buttons */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <button
+                              disabled={!composites[active] || !slots[active]}
+                              onClick={() => download(active)}
+                              style={{ ...sBtn, background: "#16a34a", color: "#fff",
+                                opacity: composites[active] && slots[active] ? 1 : 0.4,
+                                width: "100%", fontSize: 13 }}>
+                              ⬇ Download Car {active + 1}
+                            </button>
+                            <button
+                              disabled={!composites.some((c, i) => c && slots[i])}
+                              onClick={downloadAll}
+                              style={{ ...sBtn, background: theme.primary, color: "#fff",
+                                opacity: composites.some((c, i) => c && slots[i]) ? 1 : 0.4,
+                                width: "100%", fontSize: 13 }}>
+                              ⬇ Download All {composites.filter((c, i) => c && slots[i]).length} Photos
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {!bg && (
+                      <div style={{ padding: 40, textAlign: "center", color: theme.muted, fontSize: 14,
+                        border: `2px dashed ${theme.border}`, borderRadius: 12 }}>
+                        ☝ Upload the showroom background image first to get started
+                      </div>
+                    )}
+                  </div>
+                );
+              };
+              return (
+                <div style={{ padding: "4px 0" }}>
+                  <ShowroomComposer />
+                </div>
+              );
+            })()}
 
             {tab === "Inventory" && (
               <Panel title="Inventory Ranking" badge="Best Deal First" styles={styles}>
