@@ -12334,7 +12334,7 @@ export default function App() {
                         const trend = classifyTrend(q);
                         const rvol = q.avgVolume ? (q.volume / q.avgVolume) : 0;
                         const mtf = computeMTFSignal(q);
-                        const colSpan = ((marketSession === "PREMARKET" || marketSession === "AFTERMARKET") ? 14 : 13) - (isTablet ? 4 : 0);
+                        const colSpan = ((marketSession === "PREMARKET" || marketSession === "AFTERMARKET") ? 15 : 14) - (isTablet ? 4 : 0);
                         return (
                           <React.Fragment key={q.symbol}>
                           <tr

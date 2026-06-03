@@ -96,6 +96,7 @@ async function runPreMarketAlert(label) {
     }
     lines.push(`━━━━━━━━━━━━━━━━━━━━`);
     lines.push(`${gappers.length} gappers from ${GAP_UNIVERSE.length} symbols`);
+    lines.push(`Type /today for top setups · /score TICKER for analysis`);
     const msg = lines.join("\n");
 
     await sendTelegramMessage(msg);
