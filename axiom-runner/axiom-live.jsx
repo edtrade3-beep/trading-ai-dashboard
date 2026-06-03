@@ -14025,7 +14025,7 @@ export default function App() {
                   <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text,
                     letterSpacing: "0.06em" }}>🧠 SMART SCANNER</div>
                   <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-                    AI-scored technical + entry zone + volume + sentiment — 30 high-growth tickers
+                    AI-scored momentum + SMC structure + trend quality — Final Verdict for every setup
                   </div>
                 </div>
                 {/* ── Risk Position Sizer — always visible in scanner ── */}
