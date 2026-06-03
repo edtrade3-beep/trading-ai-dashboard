@@ -1628,4 +1628,87 @@ async function scanWatchlistAlerts(watchlistSymbols) {
   } catch (e) { console.error("[WL Alert]", e.message); }
 }
 
-module.exports = { startMarketScanner, runScan, getScannerStatus, sendMacroReport, loadConfig, saveConfig, DEFAULT_SYMBOLS, analyzeSymbol, computeMacroRegime, SCHEDULED_SCAN_TIMES_ET, scanWatchlistAlerts };
+// ── Entry Zone Alert — fires when a watchlist stock drops into buy zone ────────
+const entryZoneCooldown = new Map();
+
+async function scanEntryZoneAlerts(watchlistSymbols, fivexRef = {}) {
+  if (!watchlistSymbols?.length || !telegramConfigured()) return;
+  try {
+    const { isQuietHours, getAlertLevel, checkDailyBudget: checkBudget, incrementDailyCount: incCount } = getBotHelpers();
+    if (isQuietHours?.()) return;
+    if (getAlertLevel?.() === "off") return;
+    if (checkBudget && !checkBudget()) return;
+
+    const { fetchYahooQuoteBatch } = require("./providers/yahoo");
+    const unique = [...new Set(watchlistSymbols.map(s => String(s).toUpperCase()))].slice(0, 30);
+    const quotes = await fetchYahooQuoteBatch(unique).catch(() => []);
+
+    for (const q of quotes) {
+      const sym   = String(q.symbol || "").toUpperCase();
+      const price = round2(Number(q.regularMarketPrice || 0));
+      if (!price) continue;
+
+      const ref = fivexRef[sym]; // optional — works without it
+
+      const coolKey = `${sym}:ZONE`;
+      const last = entryZoneCooldown.get(coolKey);
+      if (last && Date.now() - last < 8 * 3600_000) continue; // 8h cooldown
+
+      // Get key levels — prefer 5X ref, fallback to MA50/52w range
+      const ma50  = Number(q.fiftyDayAverage || 0);
+      const ma200 = Number(q.twoHundredDayAverage || 0);
+      const hi52  = Number(q.fiftyTwoWeekHigh || 0);
+      const lo52  = Number(q.fiftyTwoWeekLow  || 0);
+
+      // Skip if trend is broken
+      if (ma200 > 0 && price < ma200 * 0.80) continue;
+
+      // Compute entry zones from MA50 or 52w range
+      const e1 = ref?.e1 || (ma50 > 0 ? ma50 * 1.02 : price);
+      const e2 = ref?.e2 || (ma50 > 0 ? ma50 * 0.97 : price * 0.95);
+      const e3 = ref?.e3 || (ma50 > 0 ? ma50 * 0.90 : price * 0.88);
+      const stopLevel = ref?.stop || (ma50 > 0 ? ma50 * 0.92 : price * 0.85);
+
+      // Determine which zone price is in
+      let zoneName = null;
+      if (price <= stopLevel) continue; // below stop — no alert
+      else if (price <= e3)   zoneName = "🟢 DEEP VALUE ZONE";
+      else if (price <= e2)   zoneName = "⚡ BETTER ENTRY ZONE";
+      else if (price <= e1)   zoneName = "🔵 STARTER ENTRY";
+
+      if (!zoneName) continue; // not in any entry zone
+
+      entryZoneCooldown.set(coolKey, Date.now());
+      if (incCount) incCount();
+
+      const entry  = round2(price);
+      const stop   = round2(stopLevel);
+      const t1     = round2(ref?.trigger ? ref.trigger * 1.05 : price * 1.08);
+      const t2     = round2(ref?.target2 || (hi52 > price ? hi52 : price * 1.15));
+      const rr     = stop < entry ? round2((t1 - entry) / (entry - stop)) : 0;
+
+      const msg = [
+        `🎯 ENTRY ZONE ALERT — $${sym}`,
+        `━━━━━━━━━━━━━━━━━━━━`,
+        `${zoneName}`,
+        `Price: $${price}  Target zone: $${round2(ref.e3||entry)} – $${round2(ref.e1||entry)}`,
+        ``,
+        `📋 TRADE PLAN`,
+        `   Entry  : $${entry}`,
+        `   Stop   : $${stop}  (below entry zone)`,
+        `   Target1: $${t1}`,
+        `   Target2: $${t2}`,
+        `   R:R    : ${rr}:1`,
+        ``,
+        `${ref.thesis || ""}`,
+        `━━━━━━━━━━━━━━━━━━━━`,
+        `⏰ ${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} ET`,
+        `Type /score ${sym} for full analysis`,
+      ].filter(Boolean).join("\n");
+
+      await sendTelegramMessage(msg).catch(() => {});
+    }
+  } catch (e) { console.error("[Zone Alert]", e.message); }
+}
+
+module.exports = { startMarketScanner, runScan, getScannerStatus, sendMacroReport, loadConfig, saveConfig, DEFAULT_SYMBOLS, analyzeSymbol, computeMacroRegime, SCHEDULED_SCAN_TIMES_ET, scanWatchlistAlerts, scanEntryZoneAlerts };
