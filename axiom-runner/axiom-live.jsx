@@ -11423,7 +11423,7 @@ export default function App() {
           const filtered2 = (sigData?.signals || []).filter(s => {
             if (sigFilter === "LONG")    return s.action === "LONG" || s.action === "WATCH";
             if (sigFilter === "SHORT")   return s.action === "SHORT / AVOID" || s.action === "WATCH SHORT";
-            if (sigFilter === "OPTIONS") return s.optionType != null;
+            
             return true;
           });
           const handleSigClick = (s) => {
@@ -11609,7 +11609,7 @@ export default function App() {
                 <span style={{ fontFamily: SANS, fontSize: 12, color: C.green, background: C.green + "18",
                   border: `1px solid ${C.green}33`, borderRadius: 10, padding: "1px 6px" }}>AUTO ↺ 1MIN</span>
                 <div style={{ display: "flex", gap: 3 }}>
-                  {["ALL","LONG","SHORT","OPTIONS"].map(f => (
+                  {["ALL","LONG","SHORT"].map(f => (
                     <button key={f} onClick={() => setSigFilter(f)}
                       style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, border: "none",
                         background: sigFilter === f ? C.accent : C.surface,
@@ -11632,7 +11632,7 @@ export default function App() {
                 <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead><tr style={{ background: C.surface }}>
-                      {["TICKER","ACTION","SCORE","ENTRY","STOP","T1","R:R","OPTIONS","RVOL"].map(h => (
+                      {["TICKER","ACTION","SCORE","ENTRY","STOP","T1","R:R","RVOL"].map(h => (
                         <th key={h} style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, fontWeight: 700,
                           padding: "6px 10px", textAlign: "left", borderBottom: `1px solid ${C.border}`,
                           whiteSpace: "nowrap", letterSpacing: "0.05em" }}>{h}</th>
@@ -14421,119 +14421,149 @@ export default function App() {
                                     </div>
                                   ) : (
                                     <>
-                                    {/* ── MASTER VERDICT BANNER ── */}
+                                    {/* ── FINAL VERDICT BANNER ── */}
                                     {(() => {
-                                      const smc    = deepData?.smc;
-                                      const fd2    = deepData?.fundamentals;
-                                      const sd     = deepSocialData[row.ticker];
-                                      const px     = Number(livePrice || row.quote?.price || 0);
-                                      const hi52   = Number(row.quote?.yearHigh || 0);
-                                      const lo52   = Number(row.quote?.yearLow  || 0);
-                                      const ma50   = Number(row.quote?.priceAvg50  || 0);
-                                      const ma200  = Number(row.quote?.priceAvg200 || 0);
-                                      const ttScore = (() => {
-                                        let pass = 0, total = 0;
-                                        if (ma200 > 0 && px > 0) { total++; if (px > ma200) pass++; }
-                                        if (ma50 > 0 && ma200 > 0) { total++; if (ma50 > ma200) pass++; }
-                                        if (ma50 > 0 && px > 0) { total++; if (px > ma50) pass++; }
-                                        if (hi52 > 0 && lo52 > 0 && px > 0) { total++; if (px >= lo52 * 1.30) pass++; }
-                                        if (hi52 > 0 && px > 0) { total++; if (px >= hi52 * 0.75) pass++; }
-                                        if (row.rsiVal) { total++; if (row.rsiVal >= 60) pass++; }
-                                        if (row.ema9v && row.ema21v) { total++; if (row.ema9v > row.ema21v) pass++; }
-                                        return total > 0 ? Math.round(pass / total * 100) : 50;
-                                      })();
-                                      const bosBull  = smc?.bos?.type === "BULL_BOS";
-                                      const bosBear  = smc?.bos?.type === "BEAR_BOS";
-                                      const chochBear= smc?.choch?.type === "CHOCH_BEAR";
-                                      const sentBull = sd?.stocktwits?.bullPct ?? 50;
-                                      const recKey   = fd2?.recommendationKey || "";
-                                      const analystBull = recKey.includes("buy") || recKey.includes("outperform");
-                                      const analystBear = recKey.includes("sell") || recKey.includes("underperform");
-                                      const techScore   = row.score || 50;
-                                      const rsi         = row.rsiVal || 50;
-                                      const macdBull2   = row.macdBull;
+                                      const smc  = deepData?.smc;
+                                      const sd   = deepSocialData[row.ticker];
+                                      const px   = Number(livePrice || row.quote?.price || 0);
+                                      const ma50v = Number(row.quote?.priceAvg50  || 0);
+                                      const ma200v= Number(row.quote?.priceAvg200 || 0);
+                                      const hi52v = Number(row.quote?.yearHigh || 0);
+                                      const lo52v = Number(row.quote?.yearLow  || 0);
 
-                                      // ── Same 4-signal formula as scanner row badge (scan data only)
-                                      // This keeps the deep dive verdict IDENTICAL to the row signal
-                                      const weights = {
-                                        tech:  { score: techScore,   w: 0.35, label: "Tech Score" },
-                                        trend: { score: ttScore,     w: 0.35, label: "Trend Template" },
-                                        macd:  { score: macdBull2 === true ? 72 : macdBull2 === false ? 30 : 50, w: 0.15, label: "MACD" },
-                                        smc:   { score: bosBull ? 80 : bosBear ? 20 : chochBear ? 30 : 50, w: 0.15, label: "SMC Structure" },
-                                      };
-                                      const composite = Object.values(weights).reduce((sum, w) => sum + w.score * w.w, 0);
-                                      const verdict =
-                                        composite >= 72 ? { label: "STRONG BUY",  col: "#00e676", bg: "#00e67614", icon: "🚀", action: "Enter now or on next pullback to MA50." } :
-                                        composite >= 62 ? { label: "BUY",         col: C.green,   bg: `${C.green}14`, icon: "✅", action: "Good setup — confirm entry with volume." } :
-                                        composite >= 53 ? { label: "WATCH",       col: C.amber,   bg: `${C.amber}12`, icon: "👁", action: "Wait for a clearer trigger before entering." } :
-                                        composite >= 40 ? { label: "AVOID",       col: C.red,     bg: `${C.red}12`, icon: "⛔", action: "Conflicting signals — stay out for now." } :
-                                                          { label: "SELL / SHORT",col: "#ff2244",  bg: "#ff224412", icon: "🔴", action: "Bearish confluence — reduce or short." };
+                                      // Trend score
+                                      const ttChecks = [
+                                        ma200v > 0 && px > ma200v, ma50v > 0 && ma200v > 0 && ma50v > ma200v,
+                                        ma50v > 0 && px > ma50v, lo52v > 0 && px >= lo52v * 1.30,
+                                        hi52v > 0 && px >= hi52v * 0.75, (row.rsiVal || 50) >= 55,
+                                        !!(row.ema9v && row.ema21v && row.ema9v > row.ema21v),
+                                      ].filter(Boolean).length;
+                                      const trendScore = Math.round(ttChecks / 7 * 100);
 
-                                      // Top 3 reasons WHY
-                                      const sorted = Object.entries(weights).sort((a,b) => {
-                                        const diff = Math.abs(b[1].score - 50) - Math.abs(a[1].score - 50);
-                                        return diff;
-                                      });
-                                      const reasons = sorted.slice(0,3).map(([, w]) => {
-                                        const up = w.score >= 60;
-                                        return `${up ? "▲" : "▼"} ${w.label}: ${w.score.toFixed(0)}/100`;
-                                      });
+                                      // Build verdict using the engine
+                                      const bosType  = smc?.bos?.type || null;
+                                      const chochType= smc?.choch?.type || null;
+                                      const smcScore = bosType === "BULL_BOS" ? 80 : bosType === "BEAR_BOS" ? 20 : chochType === "CHOCH_BEAR" ? 35 : 50;
+                                      const macdScore= row.macdBull === true ? 72 : row.macdBull === false ? 30 : 50;
+                                      const techScore= row.score || 50;
 
-                                      // Conflicts (signals pointing opposite direction from verdict)
-                                      const conflicts = sorted.filter(([, w]) => {
-                                        const verdictUp = composite >= 53;
-                                        return verdictUp ? w.score < 45 : w.score > 55;
-                                      }).slice(0,2).map(([, w]) => w.label);
+                                      const composite = Math.round(techScore * 0.30 + trendScore * 0.35 + smcScore * 0.20 + macdScore * 0.15);
+
+                                      // Hard rules
+                                      const bearBOS     = bosType === "BEAR_BOS";
+                                      const bullBOS     = bosType === "BULL_BOS";
+                                      const belowEMA21  = row.ema21v && px > 0 && px < row.ema21v;
+                                      const trendWeak   = trendScore < 45;
+                                      const techBull    = techScore >= 65;
+                                      const smcBear     = smcScore <= 35 || bearBOS;
+
+                                      let vLabel, vColor, vIcon, vAction, vSetup, vWarnings = [];
+
+                                      if (bearBOS && belowEMA21) {
+                                        vLabel = "AVOID / WAIT"; vColor = "#ff4444"; vIcon = "⛔";
+                                        vAction = "Bear BOS + below EMA21 — institutional sellers in control. Do not buy.";
+                                        vSetup = "Distribution / Topping";
+                                        vWarnings = ["Bear BOS: structure broke down", "Price below EMA21", "Wait for reversal signal"];
+                                      } else if (techBull && smcBear && trendWeak) {
+                                        vLabel = "CONFLICT SETUP"; vColor = "#ffaa00"; vIcon = "⚠️";
+                                        vAction = "Momentum bullish but trend/structure bearish. Reduce size or wait.";
+                                        vSetup = "Conflicting Signals";
+                                        vWarnings = ["SMC structure is bearish", "Trend is weak", "Not a quality long setup"];
+                                      } else if (techBull && smcBear) {
+                                        vLabel = "CONFLICT SETUP"; vColor = "#ffaa00"; vIcon = "⚠️";
+                                        vAction = "Technical score is high but smart money signals are bearish.";
+                                        vSetup = "Tech vs SMC Conflict";
+                                        vWarnings = ["Tech momentum: bullish", "SMC structure: bearish", "Wait for alignment"];
+                                      } else if (composite >= 82 && bullBOS && !trendWeak) {
+                                        vLabel = "A+ LONG"; vColor = "#00e676"; vIcon = "🚀";
+                                        vAction = "Full alignment. Enter now or on next pullback to MA50.";
+                                        vSetup = bullBOS ? "Breakout" : "Trend Continuation";
+                                      } else if (composite >= 68 && !trendWeak) {
+                                        vLabel = "LONG"; vColor = "#4caf50"; vIcon = "✅";
+                                        vAction = "Good setup — confirm with volume before entry.";
+                                        vSetup = "Trend Continuation";
+                                        if (trendWeak) vWarnings.push("Trend is weak — use smaller size");
+                                      } else if (composite >= 55) {
+                                        vLabel = "WATCH LONG"; vColor = "#26a69a"; vIcon = "👁";
+                                        vAction = "Setup forming — wait for clearer trigger.";
+                                        vSetup = "Developing Setup";
+                                        vWarnings = ["Not confirmed — wait for Bull BOS or volume spike"];
+                                      } else if (composite <= 32) {
+                                        vLabel = "SHORT"; vColor = "#ff2244"; vIcon = "🔴";
+                                        vAction = "Bearish confluence — reduce longs or short.";
+                                        vSetup = "Breakdown";
+                                      } else if (composite <= 44) {
+                                        vLabel = "WATCH SHORT"; vColor = "#ff9800"; vIcon = "👁";
+                                        vAction = "Weakness developing — monitor for breakdown.";
+                                        vSetup = "Distribution";
+                                      } else {
+                                        vLabel = "NEUTRAL"; vColor = "#607494"; vIcon = "—";
+                                        vAction = "No clear edge — stay flat.";
+                                        vSetup = "No Setup";
+                                      }
+
+                                      const vBg = `${vColor}0e`;
+
+                                      // Alignment bars
+                                      const alignPills = [
+                                        { k: "Tech",  v: techScore,  c: techScore  >= 65 ? C.green : techScore  < 45 ? C.red : C.amber },
+                                        { k: "Trend", v: trendScore, c: trendScore >= 65 ? C.green : trendScore < 45 ? C.red : C.amber },
+                                        { k: "SMC",   v: smcScore,   c: smcScore   >= 65 ? C.green : smcScore   < 45 ? C.red : C.amber },
+                                        { k: "MACD",  v: macdScore,  c: macdScore  >= 65 ? C.green : macdScore  < 45 ? C.red : C.amber },
+                                      ];
 
                                       return (
-                                        <div style={{ padding: "12px 14px", marginBottom: 10,
-                                          background: verdict.bg, borderRadius: 8,
-                                          border: `1px solid ${verdict.col}55`,
-                                          borderLeft: `5px solid ${verdict.col}` }}>
-                                          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                                            {/* Verdict */}
-                                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                              <span style={{ fontSize: 22 }}>{verdict.icon}</span>
+                                        <div style={{ padding: "14px 16px", marginBottom: 12,
+                                          background: vBg, borderRadius: 10,
+                                          border: `1px solid ${vColor}55`,
+                                          borderLeft: `6px solid ${vColor}` }}>
+
+                                          {/* Row 1: Verdict + Score */}
+                                          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                              <span style={{ fontSize: 24 }}>{vIcon}</span>
                                               <div>
-                                                <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: verdict.col, letterSpacing: "0.06em" }}>
-                                                  {verdict.label}
+                                                <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: vColor, letterSpacing: "0.05em" }}>
+                                                  {vLabel}
                                                 </div>
-                                                <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginTop: 1 }}>
-                                                  {verdict.action}
+                                                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 2 }}>
+                                                  Setup: {vSetup}
                                                 </div>
                                               </div>
                                             </div>
-
-                                            {/* Score gauge */}
-                                            <div style={{ flex: 1, minWidth: 140 }}>
-                                              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 3 }}>
-                                                <span>MASTER SCORE</span>
-                                                <span style={{ color: verdict.col, fontWeight: 800 }}>{composite.toFixed(0)}/100</span>
+                                            <div style={{ flex: 1, minWidth: 160 }}>
+                                              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 3 }}>
+                                                <span>ALIGNMENT SCORE</span>
+                                                <span style={{ color: vColor, fontWeight: 900, fontSize: 14 }}>{composite}/100</span>
                                               </div>
-                                              <div style={{ height: 8, borderRadius: 6, background: C.border, overflow: "hidden" }}>
-                                                <div style={{ width: `${composite}%`, height: "100%", background: verdict.col, borderRadius: 6, transition: "width 0.5s" }} />
+                                              <div style={{ height: 10, borderRadius: 5, background: C.border, overflow: "hidden" }}>
+                                                <div style={{ width: `${composite}%`, height: "100%", background: vColor, borderRadius: 5, transition: "width 0.5s" }} />
                                               </div>
                                             </div>
-
-                                            {/* Signal breakdown pills */}
                                             <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                                              {Object.entries(weights).map(([key, w]) => {
-                                                const col = w.score >= 62 ? C.green : w.score <= 40 ? C.red : C.textDim;
-                                                return (
-                                                  <span key={key} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
-                                                    color: col, background: `${col}18`,
-                                                    border: `1px solid ${col}33`, borderRadius: 6, padding: "3px 7px" }}>
-                                                    {w.label.split(" ")[0]} {w.score.toFixed(0)}
-                                                  </span>
-                                                );
-                                              })}
+                                              {alignPills.map(p => (
+                                                <div key={p.k} style={{ textAlign: "center", padding: "3px 8px",
+                                                  background: `${p.c}18`, border: `1px solid ${p.c}33`, borderRadius: 5 }}>
+                                                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{p.k}</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: p.c }}>{p.v}</div>
+                                                </div>
+                                              ))}
                                             </div>
                                           </div>
 
-                                          {/* Conflict warning */}
-                                          {conflicts.length > 0 && (
-                                            <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 12, color: C.amber }}>
-                                              ⚠ Conflicting signals: {conflicts.join(", ")} — reduce position size
+                                          {/* Row 2: Action */}
+                                          <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, marginBottom: vWarnings.length ? 8 : 0, lineHeight: 1.5 }}>
+                                            {vAction}
+                                          </div>
+
+                                          {/* Row 3: Warnings */}
+                                          {vWarnings.length > 0 && (
+                                            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                              {vWarnings.map((w, wi) => (
+                                                <div key={wi} style={{ fontFamily: SANS, fontSize: 12, color: C.amber }}>
+                                                  ⚠ {w}
+                                                </div>
+                                              ))}
                                             </div>
                                           )}
                                         </div>
@@ -15137,150 +15167,6 @@ export default function App() {
                                           );
                                         })()}
 
-                                        {/* ── Options Trade Recommendation ── */}
-                                        {(() => {
-                                          const px    = Number(livePrice || row.quote?.price || 0);
-                                          const hi52  = Number(row.quote?.yearHigh || 0);
-                                          const lo52  = Number(row.quote?.yearLow  || 0);
-                                          const ivR   = (hi52 > lo52 && px > 0) ? Math.min(99, Math.round((hi52 - lo52) / px * 100 * 1.4)) : 40;
-                                          const score = row.score || 50;
-                                          if (px <= 0) return null;
-
-                                          // Always show options for every stock — score drives direction
-                                          const isBullish = score >= 50; // above 50 = lean bullish
-                                          const isBearish = score < 50;
-
-                                          const optAct  = isBullish
-                                            ? (ivR < 45 ? "BUY CALLS" : ivR > 65 ? "SELL PUTS" : "CALLS or STOCK")
-                                            : (ivR < 45 ? "BUY PUTS"  : ivR > 65 ? "SELL CALLS" : "PUTS or SHORT");
-                                          const optCol  = isBullish ? C.green : C.red;
-                                          const optLabel = score >= 70 ? "HIGH conviction" : score >= 55 ? "MODERATE" : score >= 50 ? "LOW — wait for confirmation" : "BEARISH setup";
-
-                                          // Strike calculation
-                                          const step = px < 25 ? 0.5 : px < 50 ? 1 : px < 100 ? 2 : px < 200 ? 5 : px < 500 ? 10 : 20;
-                                          const snap = v => Math.round(v / step) * step;
-                                          const strike = (() => {
-                                            if (optAct === "BUY CALLS")  return snap(px * 1.02);
-                                            if (optAct === "SELL PUTS")  return snap(px * 0.95);
-                                            if (optAct === "BUY PUTS")   return snap(px * 0.98);
-                                            if (optAct === "SELL CALLS") return snap(px * 1.05);
-                                            return snap(px);
-                                          })();
-
-                                          // Next 3rd-Friday expiry ≥21 DTE (optimal theta range)
-                                          const expiry = (() => {
-                                            const now   = new Date();
-                                            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                                            for (let m = 0; m < 6; m++) {
-                                              const d = new Date(today.getFullYear(), today.getMonth() + m, 1);
-                                              let fri = 0;
-                                              while (fri < 3) { if (d.getDay() === 5) fri++; if (fri < 3) d.setDate(d.getDate() + 1); }
-                                              const dte = Math.round((d - today) / 86400000);
-                                              if (dte >= 21) {
-                                                const mm   = String(d.getMonth()+1).padStart(2,"0");
-                                                const dd2  = String(d.getDate()).padStart(2,"0");
-                                                const yyyy = d.getFullYear();
-                                                return { label: `${mm}/${dd2}/${yyyy}`, dte };
-                                              }
-                                            }
-                                            return { label: "—", dte: 30 };
-                                          })();
-
-                                          // Simplified ATM premium estimate
-                                          const iv   = ivR / 100;
-                                          const T    = expiry.dte / 365;
-                                          const isCall = optAct.includes("CALL");
-                                          const mono  = isCall ? (px / strike) : (strike / px);
-                                          const adj   = mono > 1.05 ? 0.5 : mono > 1.02 ? 0.75 : 1.0;
-                                          const prem  = Math.round(px * iv * Math.sqrt(T) * 0.4 * adj * 100) / 100;
-                                          const contr = prem > 0 ? Math.max(1, Math.round(500 / (prem * 100))) : 1;
-                                          const cost  = prem > 0 ? Math.round(prem * contr * 100) : 0;
-
-                                          return (
-                                            <div style={{ marginTop: 12 }}>
-                                              <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text,
-                                                marginBottom: 8, paddingBottom: 5,
-                                                borderBottom: `2px solid ${C.border}`, letterSpacing: "0.05em" }}>
-                                                🎰 OPTIONS TRADE
-                                              </div>
-                                              <div style={{ padding: "10px 10px", borderRadius: 6,
-                                                background: `${optCol}12`, border: `1px solid ${optCol}44`, marginBottom: 10 }}>
-                                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: optCol }}>
-                                                    {optAct}
-                                                  </div>
-                                                  <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: optCol,
-                                                    background: `${optCol}20`, borderRadius: 5, padding: "1px 6px" }}>
-                                                    {optLabel}
-                                                  </div>
-                                                </div>
-                                                <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec }}>
-                                                  {ivR < 45 ? `IV ${ivR} — options cheap, buying has edge` :
-                                                   ivR > 65 ? `IV ${ivR} — premium elevated, selling is better` :
-                                                   `IV ${ivR} — moderate, consider stock + options combo`}
-                                                </div>
-                                              </div>
-                                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 5, marginBottom: 8 }}>
-                                                {[
-                                                  ["STRIKE",  `$${strike.toFixed(step < 1 ? 2 : 0)}`, C.purple],
-                                                  ["EXPIRY",  expiry.label, C.amber],
-                                                  ["DTE",     `${expiry.dte}d`, C.textSec],
-                                                  ["~PREM",   prem > 0 ? `$${prem.toFixed(2)}` : "—", C.green],
-                                                  ["CONT",    `${contr}×`, C.text],
-                                                  ["COST",    cost > 0 ? `$${cost}` : "—", C.textDim],
-                                                ].map(([lbl, val, col]) => (
-                                                  <div key={lbl} style={{ textAlign: "center", padding: "5px 0",
-                                                    background: C.surface, borderRadius: 6 }}>
-                                                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{lbl}</div>
-                                                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{val}</div>
-                                                  </div>
-                                                ))}
-                                              </div>
-                                              <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, lineHeight: 1.5 }}>
-                                                Full trade: <span style={{ fontFamily: MONO, color: C.purple, fontSize: 12, fontWeight: 700 }}>
-                                                  {optAct.includes("BUY") ? "BUY" : "SELL"} {contr}× {row.ticker} ${strike.toFixed(step < 1 ? 2 : 0)} {isCall ? "CALL" : "PUT"} {expiry.label}
-                                                </span>
-                                                <br />~${prem.toFixed(2)}/contract · Est. cost ${cost}
-                                              </div>
-                                              {/* Options Greeks estimates */}
-                                              {prem > 0 && expiry.dte > 0 && (
-                                                <div style={{ marginTop: 8, padding: "7px 10px", borderRadius: 5,
-                                                  background: C.surface, border: `1px solid ${C.border}22` }}>
-                                                  <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: C.textDim, marginBottom: 5 }}>
-                                                    GREEKS (estimates)
-                                                  </div>
-                                                  {(() => {
-                                                    const moneyness = isCall ? strike / px : px / strike;
-                                                    const delta = moneyness < 0.98 ? 0.5 + (1 - moneyness) * 2 :
-                                                                  moneyness < 1.02 ? 0.48 - (moneyness - 0.98) * 3 :
-                                                                  moneyness < 1.05 ? 0.35 - (moneyness - 1.02) * 4 : 0.20;
-                                                    const absDelta = Math.max(0.05, Math.min(0.95, isCall ? delta : 1 - delta));
-                                                    const theta = -(prem * (iv / 100)) / Math.sqrt(expiry.dte) * 0.5;
-                                                    const gamma = (0.4 * Math.exp(-0.5 * Math.pow(Math.log(px/strike) / (iv/100 * Math.sqrt(expiry.dte/365)), 2))) / (px * (iv/100) * Math.sqrt(expiry.dte/365));
-                                                    return (
-                                                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4 }}>
-                                                        {[
-                                                          { label: "Δ DELTA",  val: absDelta.toFixed(2),        col: C.green, tip: "Price move per $1 in stock" },
-                                                          { label: "Θ THETA",  val: theta.toFixed(2) + "/day",  col: C.red,   tip: "$ lost per day (time decay)" },
-                                                          { label: "Γ GAMMA",  val: gamma.toFixed(3),           col: C.amber, tip: "Delta change rate" },
-                                                        ].map(g => (
-                                                          <div key={g.label} style={{ textAlign: "center", padding: "4px", borderRadius: 4, background: C.card }} title={g.tip}>
-                                                            <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{g.label}</div>
-                                                            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: g.col }}>{g.val}</div>
-                                                          </div>
-                                                        ))}
-                                                      </div>
-                                                    );
-                                                  })()}
-                                                </div>
-                                              )}
-                                              <div style={{ fontFamily: SANS, fontSize: 10, color: C.amber, marginTop: 6 }}>
-                                                <br /><span style={{ color: C.amber }}>⚠ Estimates only — verify with broker</span>
-                                              </div>
-                                            </div>
-                                          );
-                                        })()}
-                                      </div>
 
                                       {/* ── Col 7: AI Trade Setup + Auto-Execute ── */}
                                       <div style={{ width: 280, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>

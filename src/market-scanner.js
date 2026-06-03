@@ -5,6 +5,7 @@ const { fetchYahooBars } = require("./providers/yahoo");
 const { computeEMA, computeRSI } = require("./indicators");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
 const { detectFVGs, detectOrderBlocks, detectBOSChoCh, computeVolumeProfile, detectLiquidityLevels } = require("./smc-engine");
+const { computeVerdict } = require("./verdict-engine");
 // Lazy-import bot helpers to avoid circular dep at load time
 function getBotHelpers() {
   try { return require("./telegram-bot"); } catch { return {}; }
@@ -608,31 +609,24 @@ async function runScan(options = {}) {
       }).catch(() => {});
     }
 
-    // ── SMC EARLY ALERTS — fire separate Telegram for institutional setups ──────
-    // Runs in parallel — won't block the main alert dispatch below.
+    // ── VERDICT-BASED ALERTS — A+ only, full structured message ────────────────
     if (telegramConfigured()) {
       (async () => {
         try {
-          // Skip SMC alerts during quiet hours
-          const { isQuietHours, getAlertLevel } = getBotHelpers();
+          const { isQuietHours, getAlertLevel, checkDailyBudget: checkBudget, incrementDailyCount: incCount } = getBotHelpers();
           if (isQuietHours?.()) return;
-          const level = getAlertLevel?.() || "normal";
-          if (level === "off") return;
+          if (getAlertLevel?.() === "off") return;
+          if (checkBudget && !checkBudget()) return;
 
-          // Check daily budget
-          const { checkDailyBudget: checkBudget, incrementDailyCount: incCount } = getBotHelpers();
-          if (checkBudget && !checkBudget()) return; // daily cap reached
-
-          let smcSentThisScan = 0;          // max 1 SMC alert per scan run
-          const SMC_MAX_PER_SCAN = 1;       // only the single best setup per scan
-          const SMC_COOLDOWN_MS  = 24 * 3600_000; // 24-hour cooldown (once per day per symbol)
+          let alertsSentThisScan = 0;
+          const MAX_PER_SCAN   = 1;
+          const SMC_COOLDOWN_MS = 24 * 3600_000;
 
           for (let i = 0; i < symbols.length; i++) {
-            if (smcSentThisScan >= SMC_MAX_PER_SCAN) break; // cap reached
+            if (alertsSentThisScan >= MAX_PER_SCAN) break;
 
-            const sym  = symbols[i];
-            const a    = results[i];
-            // Very high bar: score >= 82 AND positive momentum AND volume >= 1.3×
+            const sym = symbols[i];
+            const a   = results[i];
             if (!a || a.error || a.composite < 82 || a.chgPct <= 0 || a.rvol < 1.3) continue;
 
             const smcKey  = `${sym}:SMC`;
@@ -642,64 +636,70 @@ async function runScan(options = {}) {
             const bars = await fetchYahooBars(sym, "3mo", "1d").catch(() => []);
             if (bars.length < 20) continue;
 
-            const { bos, choch }  = detectBOSChoCh(bars);
-            const fvgs            = detectFVGs(bars);
-            const obs             = detectOrderBlocks(bars);
-            const vp              = computeVolumeProfile(bars);
-            const liquidity       = detectLiquidityLevels(bars);
-            const price           = a.price;
+            const { bos, choch } = detectBOSChoCh(bars);
+            const obs            = detectOrderBlocks(bars);
+            const vp             = computeVolumeProfile(bars);
+            const liquidity      = detectLiquidityLevels(bars);
+            const price          = a.price;
 
-            // STRICT gate: require Bull BOS as the primary signal
-            // OB or FVG can co-exist but BOS is mandatory for high-conviction
-            const hasBullBOS = bos?.type === "BULL_BOS";
-            if (!hasBullBOS) continue;
+            if (bos?.type !== "BULL_BOS") continue; // Bull BOS required
 
-            const hasBullOB  = obs.some(ob => ob.type === "BULL_OB" && Math.abs(ob.mid - price) / price < 0.08);
-            const hasBullFVG = fvgs.some(f => f.type === "BULL_FVG" && price >= f.bot && price <= f.top * 1.03);
-            const nearVPOC   = vp.vpoc > 0 && Math.abs(price - vp.vpoc) / price < 0.03;
-            const nearVAL    = vp.val > 0 && Math.abs(price - vp.val) / price < 0.03;
+            // Use Verdict Engine to compute final verdict
+            const v = computeVerdict({
+              techScore:       a.composite,
+              trendScore:      (a.trend === "Uptrend" ? 80 : a.trend === "Weak Uptrend" ? 60 : a.trend === "Downtrend" ? 20 : 40),
+              smcScore:        80, // Bull BOS = 80
+              regimeScore:     50, // neutral default
+              rsiVal:          a.rsi,
+              macdBull:        a.emaAligned === "↑",
+              ema9aboveEma21:  a.emaAligned === "↑",
+              priceAboveEma21: a.price > (a.ema21 || a.price * 0.95),
+              bosType:         "BULL_BOS",
+              marketRegime:    "CAUTION",
+              price,
+            });
+
+            // Only send A+ LONG or LONG verdicts
+            if (v.label !== "A+ LONG" && v.label !== "LONG") continue;
 
             smcCooldown.set(smcKey, Date.now());
+            if (incCount) incCount();
 
-            // Build the alert message
-            const emoji    = a.composite >= 85 ? "🔥" : a.composite >= 75 ? "⚡" : "📐";
-            const signal   = hasBullBOS ? "BULL BOS — Structure Break" : hasBullOB ? "BULL ORDER BLOCK — Support Zone" : "BULL FVG — Gap Fill Zone";
-            const nearOB   = obs.find(ob => ob.type === "BULL_OB" && Math.abs(ob.mid - price) / price < 0.08);
-            const entry    = nearOB ? round2((nearOB.top + nearOB.bot) / 2) : round2(price);
-            const stop     = nearOB ? round2(nearOB.bot * 0.985) : round2(price * 0.92);
-            const t1       = round2(entry * 1.08);
-            const t2       = round2(entry * 1.15);
-            const rr       = stop < entry ? round2((t1 - entry) / (entry - stop)) : 0;
+            // Entry/stop/targets
+            const nearOB = obs.find(ob => ob.type === "BULL_OB" && Math.abs(ob.mid - price) / price < 0.08);
+            const entry  = nearOB ? round2((nearOB.top + nearOB.bot) / 2) : round2(price);
+            const stop   = round2(Math.max((nearOB?.bot || price) * 0.985, price * 0.92));
+            const t1     = round2(entry * 1.08);
+            const t2     = round2(entry * 1.15);
+            const rr     = stop < entry ? round2((t1 - entry) / (entry - stop)) : 0;
+            const riskAmt = entry > stop ? round2((entry - stop) * 10) : 0; // per 10 shares
 
-            const lines = [
-              `${emoji} SMC EARLY ALERT — $${sym}`,
-              `──────────────────────`,
-              `📐 ${signal}`,
-              bos    ? `   └ BOS Level: $${bos.level}` : "",
-              choch  ? `   ⚠ ChoCh: ${choch.label}` : "",
-              nearOB ? `🔲 ORDER BLOCK: $${nearOB.bot} – $${nearOB.top}` : "",
-              hasBullFVG ? `🕳 FVG: unfilled gap — price magnet` : "",
-              nearVPOC ? `📊 At VPOC $${vp.vpoc} — max volume node` : "",
-              nearVAL  ? `📊 At VAL $${vp.val} — value area support` : "",
+            // KEY LEVELS from liquidity
+            const keyLevels = liquidity.slice(0,3).map(l => `$${l.price} (${l.label.split("—")[0].trim()})`).join(" · ");
+
+            const msg = [
+              `${v.icon} ${v.label} — $${sym}`,
+              `━━━━━━━━━━━━━━━━━━━━`,
+              `Setup: ${v.setupType}`,
+              `Alignment: ${v.alignScore}/100`,
               ``,
-              `🎯 TRADE PLAN`,
-              `   Entry : $${entry}`,
-              `   Stop  : $${stop}`,
-              `   T1    : $${t1}`,
-              `   T2    : $${t2}`,
-              `   R:R   : ${rr}:1`,
+              `Entry  : $${entry}`,
+              `Stop   : $${stop}`,
+              `Target1: $${t1}  (+8%)`,
+              `Target2: $${t2}  (+15%)`,
+              `R:R    : ${rr}:1`,
+              riskAmt ? `Risk/10sh: $${riskAmt}` : "",
               ``,
-              `📊 Score ${a.composite}/100  RSI ${a.rsi?.toFixed(0)}  RVOL ${a.rvol?.toFixed(1)}x`,
-              `   Trend: ${a.trend}  Chg: ${a.chgPct > 0 ? "+" : ""}${a.chgPct?.toFixed(2)}%`,
-              liquidity.length
-                ? `💧 ${liquidity.slice(0,3).map(l => `$${l.price} ${l.label.split("—")[0].trim()}`).join("  ·  ")}`
-                : "",
-              `──────────────────────`,
+              `Score ${a.composite}/100  RSI ${a.rsi?.toFixed(0)}  RVOL ${a.rvol?.toFixed(1)}x`,
+              `BOS @ $${bos.level}  Trend: ${a.trend}  ${a.chgPct > 0 ? "+" : ""}${a.chgPct?.toFixed(2)}%`,
+              keyLevels ? `Key Levels: ${keyLevels}` : "",
+              v.warnings?.length ? `⚠ ${v.warnings.join(" | ")}` : "",
+              `━━━━━━━━━━━━━━━━━━━━`,
               `⏰ ${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} ET`,
             ].filter(Boolean).join("\n");
 
-            await sendTelegramMessage(lines).catch(() => {});
-            smcSentThisScan++;
+            await sendTelegramMessage(msg).catch(() => {});
+            alertsSentThisScan++;
           }
         } catch (err) {
           console.error("[SMC Alert] Error:", err.message);
