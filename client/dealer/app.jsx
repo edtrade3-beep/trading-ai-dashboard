@@ -2163,19 +2163,64 @@ ${tradeValue > 0 ? `<tr><td>Net Trade</td><td>${netTrade >= 0 ? money(netTrade) 
                     {bg && (
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 16, alignItems: "flex-start" }}>
 
-                        {/* Canvas preview */}
-                        <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${theme.border}`,
-                          background: "#000", position: "relative" }}>
-                          <canvas ref={canvasRef} style={{ width: "100%", display: "block" }} />
-                          {!slots[active] && (
-                            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center",
-                              justifyContent: "center", pointerEvents: "none" }}>
-                              <div style={{ background: "rgba(0,0,0,0.55)", borderRadius: 10, padding: "12px 20px",
-                                color: "#fff", fontWeight: 700, fontSize: 14, textAlign: "center" }}>
-                                Upload Car {active + 1} to see it in the showroom
+                        {/* Canvas preview + download bar */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                          <div style={{ borderRadius: "12px 12px 0 0", overflow: "hidden", border: `1px solid ${theme.border}`,
+                            borderBottom: "none", background: "#000", position: "relative" }}>
+                            <canvas ref={canvasRef} style={{ width: "100%", display: "block" }} />
+                            {!slots[active] && (
+                              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center",
+                                justifyContent: "center", pointerEvents: "none" }}>
+                                <div style={{ background: "rgba(0,0,0,0.65)", borderRadius: 10, padding: "14px 24px",
+                                  color: "#fff", fontWeight: 700, fontSize: 14, textAlign: "center" }}>
+                                  ☝ Upload a car photo in Step 2 to see it in the showroom
+                                </div>
                               </div>
+                            )}
+                          </div>
+
+                          {/* ── BIG PROCESS & DOWNLOAD BAR ── */}
+                          <div style={{ borderRadius: "0 0 12px 12px", border: `1px solid ${theme.border}`,
+                            background: theme.card, padding: "14px 16px",
+                            display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+
+                            {/* Status */}
+                            <div style={{ flex: 1, minWidth: 160 }}>
+                              {composites[active] && slots[active] ? (
+                                <div style={{ fontSize: 13, fontWeight: 700, color: "#16a34a" }}>
+                                  ✅ Car {active + 1} ready to download
+                                </div>
+                              ) : slots[active] ? (
+                                <div style={{ fontSize: 13, color: theme.muted }}>Adjust position then download</div>
+                              ) : (
+                                <div style={{ fontSize: 13, color: theme.muted }}>Upload a car photo to get started</div>
+                              )}
                             </div>
-                          )}
+
+                            {/* Download THIS car */}
+                            <button
+                              disabled={!composites[active] || !slots[active]}
+                              onClick={() => download(active)}
+                              style={{ padding: "12px 24px", borderRadius: 10, border: "none",
+                                fontWeight: 900, fontSize: 14, cursor: "pointer",
+                                background: composites[active] && slots[active] ? "#16a34a" : "#e2e8f0",
+                                color: composites[active] && slots[active] ? "#fff" : "#94a3b8",
+                                display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
+                              ⬇ Download Car {active + 1}
+                            </button>
+
+                            {/* Download ALL */}
+                            <button
+                              disabled={!composites.some((c, i) => c && slots[i])}
+                              onClick={downloadAll}
+                              style={{ padding: "12px 24px", borderRadius: 10, border: "none",
+                                fontWeight: 900, fontSize: 14, cursor: "pointer",
+                                background: composites.some((c, i) => c && slots[i]) ? theme.primary : "#e2e8f0",
+                                color: composites.some((c, i) => c && slots[i]) ? "#fff" : "#94a3b8",
+                                display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
+                              ⬇ Download All ({composites.filter((c, i) => c && slots[i]).length}/6)
+                            </button>
+                          </div>
                         </div>
 
                         {/* Controls */}
@@ -2236,24 +2281,11 @@ ${tradeValue > 0 ? `<tr><td>Net Trade</td><td>${netTrade >= 0 ? money(netTrade) 
                             </div>
                           </div>
 
-                          {/* Download buttons */}
-                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                            <button
-                              disabled={!composites[active] || !slots[active]}
-                              onClick={() => download(active)}
-                              style={{ ...sBtn, background: "#16a34a", color: "#fff",
-                                opacity: composites[active] && slots[active] ? 1 : 0.4,
-                                width: "100%", fontSize: 13 }}>
-                              ⬇ Download Car {active + 1}
-                            </button>
-                            <button
-                              disabled={!composites.some((c, i) => c && slots[i])}
-                              onClick={downloadAll}
-                              style={{ ...sBtn, background: theme.primary, color: "#fff",
-                                opacity: composites.some((c, i) => c && slots[i]) ? 1 : 0.4,
-                                width: "100%", fontSize: 13 }}>
-                              ⬇ Download All {composites.filter((c, i) => c && slots[i]).length} Photos
-                            </button>
+                          {/* Download hint */}
+                          <div style={{ padding: "10px 12px", borderRadius: 8,
+                            background: `${theme.primary}12`, border: `1px solid ${theme.primary}33`,
+                            fontSize: 11, color: theme.muted, textAlign: "center" }}>
+                            ☝ Download buttons are below the preview image
                           </div>
                         </div>
                       </div>
