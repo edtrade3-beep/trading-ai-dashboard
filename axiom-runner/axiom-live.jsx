@@ -14013,7 +14013,7 @@ export default function App() {
                   )}
                   {scanLoading && false && (
                     <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>
-                      ⌛ Scanning {scanProgress.done}/{scanProgress.total}…
+                      ⌛ Scanning {scanProgress.done}/{scanProgress.total} stocks…
                       <div style={{ marginTop: 4, width: 160, height: 4, background: C.border, borderRadius: 2, overflow: "hidden" }}>
                         <div style={{ width: `${Math.round((scanProgress.done / scanProgress.total) * 100)}%`,
                           height: "100%", background: C.accent, borderRadius: 2, transition: "width 0.3s" }} />
@@ -20502,9 +20502,9 @@ export default function App() {
             {/* Content */}
             {!premktBriefing && !premktLoading && (
               <div style={{ ...card(), padding: 40, textAlign: "center" }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>🌅</div>
-                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 6 }}>Ready when you are</div>
-                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Generates a personalized morning briefing using your live watchlist, macro data, and earnings calendar.</div>
+                <div style={{ fontSize: 52, marginBottom: 16 }}>🌅</div>
+                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 6 }}>Morning Brief</div>
+                <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, lineHeight: 1.6, maxWidth: 360, margin: "0 auto" }}>Click GENERATE BRIEFING for a full AI analysis: market regime · top setups · what to avoid · game plan for today.</div>
               </div>
             )}
             {premktLoading && (

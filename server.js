@@ -73,14 +73,26 @@ server.listen(PORT, HOST, () => {
     }
   }, 10_000); // wait 10s for server to fully stabilize
 
-  // Macro report: once at noon ET only (was every 30 min = 16 reports/day — way too spammy)
-  const _sendNoonMacro = () => {
-    const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-    const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
-    if (day >= 1 && day <= 5 && h === 12 && m < 5) sendMacroReport().catch(() => {});
+  // Macro reports: 10 AM (market check-in) + 3:30 PM (power hour alert)
+  let _macroSent = { "10": null, "15": null };
+  const _sendScheduledMacro = () => {
+    const et  = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const h   = et.getHours(), m = et.getMinutes(), day = et.getDay();
+    const today = `${et.getFullYear()}-${et.getMonth()}-${et.getDate()}`;
+    if (day < 1 || day > 5) return;
+    // 10:00 AM — morning market check-in
+    if (h === 10 && m < 5 && _macroSent["10"] !== today) {
+      _macroSent["10"] = today;
+      sendMacroReport().catch(() => {});
+    }
+    // 3:30 PM — power hour setup
+    if (h === 15 && m >= 30 && m < 35 && _macroSent["15"] !== today) {
+      _macroSent["15"] = today;
+      sendMacroReport().catch(() => {});
+    }
   };
-  setInterval(_sendNoonMacro, 5 * 60 * 1000); // check every 5 min, only fires at noon
-  console.log("[Macro] Noon-only macro report scheduler started (12:00 PM ET weekdays)");
+  setInterval(_sendScheduledMacro, 5 * 60_000);
+  console.log("[Macro] Scheduled macro reports: 10:00 AM + 3:30 PM ET weekdays");
 
   // Deal watches: disabled from Telegram (not trading-related)
   // setInterval(checkDealWatches, 30 * 60 * 1000);
