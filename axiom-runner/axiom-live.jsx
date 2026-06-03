@@ -14246,8 +14246,8 @@ export default function App() {
                 </div>
               )}
 
-              {/* ── FILTER BAR ── */}
-              {scanResults.length > 0 && (
+              {/* ── FILTER BAR — always shown ── */}
+              {(
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
                   marginBottom: 10, padding: "10px 14px",
                   background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }}>
@@ -14342,7 +14342,7 @@ export default function App() {
                     )}
                   </div>
                 </div>
-              )}
+              )
 
               {/* ── Results table ── */}
               {scanResults.length > 0 && (
