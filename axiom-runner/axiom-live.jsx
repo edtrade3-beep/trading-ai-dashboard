@@ -15269,9 +15269,30 @@ export default function App() {
 
                                       {/* ── Col 5: RECENT NEWS ── */}
                                       <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
-                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", gap: 8, position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
                                           📰 RECENT NEWS
-                                        </div>
+                                          {/* WHY MOVING — computed from keywords, no state needed */}
+                                          {deepData?.news?.length > 0 && (() => {
+                                            const headlines = (deepData.news||[]).slice(0,5).map(n => n.title||n.headline||"").filter(Boolean);
+                                            const tl  = headlines.join(" ").toLowerCase();
+                                            const chg6 = Number(row.quote?.changePercent || row.quote?.changesPercentage || 0);
+                                            const why =
+                                              (tl.includes("earn") || tl.includes("report") || tl.includes("quarter")) ? "📅 Earnings" :
+                                              (tl.includes("upgrade") || tl.includes("price target")) ? "🎯 Analyst upgrade" :
+                                              (tl.includes("downgrade")) ? "🎯 Analyst downgrade" :
+                                              (tl.includes("contract") || tl.includes("awarded") || tl.includes("partnership")) ? "📄 New contract" :
+                                              (tl.includes("fda") || tl.includes("approval")) ? "🧬 FDA news" :
+                                              (tl.includes("insider") || tl.includes("purchased") || tl.includes("bought")) ? "🏦 Insider buy" :
+                                              (tl.includes("lawsuit") || tl.includes("probe")) ? "⚠️ Legal risk" :
+                                              (tl.includes("buyback") || tl.includes("dividend")) ? "💰 Corp action" :
+                                              chg6 > 5 ? "📈 Momentum" : chg6 < -5 ? "📉 Selling" : "🔄 Rotation";
+                                            return (
+                                              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent,
+                                                background: `${C.accent}14`, borderRadius: 4, padding: "2px 7px", marginLeft: "auto", whiteSpace: "nowrap" }}>
+                                                {why}
+                                              </span>
+                                            );
+                                          })()}
                                         {deepData?.news?.length > 0 ? (
                                           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                                             {deepData.news.slice(0, 5).map((n, ni) => {
