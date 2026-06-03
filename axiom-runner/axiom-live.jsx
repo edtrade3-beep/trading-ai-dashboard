@@ -11576,8 +11576,15 @@ export default function App() {
                   const spyChg  = (distData.indexSnapshot||[]).find(i => i.sym === "SPY")?.chg || 0;
                   const vix     = distData.vix || 0;
                   const rot     = distData.rotationDiff || 0;
-                  const inflows = (distData.topInflows||[]).slice(0,2).map(s => s.name || s.sym).join(", ");
-                  const outflows= (distData.topOutflows||[]).slice(0,2).map(s => s.name || s.sym).join(", ");
+                  // Show sector + top stock for each
+                  const inflows = (distData.topInflows||[]).slice(0,2).map(s => {
+                    const topSt = (s.topStocks||[])[0];
+                    return topSt ? `${s.name} (${topSt.sym} ${topSt.chg >= 0 ? "+" : ""}${topSt.chg.toFixed(1)}%)` : s.name;
+                  }).join(", ");
+                  const outflows= (distData.topOutflows||[]).slice(0,2).map(s => {
+                    const topSt = (s.topStocks||[])[0];
+                    return topSt ? `${s.name} (${topSt.sym} ${topSt.chg.toFixed(1)}%)` : s.name;
+                  }).join(", ");
 
                   // Generate headline sentence
                   let headline = "";
@@ -11660,15 +11667,49 @@ export default function App() {
                       })}
                     </div>
                     {(distData.topInflows||[]).length > 0 && (
-                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
-                        <span style={{ fontFamily: SANS, fontSize: 12, color: C.green, fontWeight: 700 }}>⬆ IN:</span>
-                        {(distData.topInflows||[]).slice(0,3).map(s => (
-                          <span key={s.sym} style={{ fontFamily: MONO, fontSize: 12, color: C.green, background: C.green + "14", borderRadius: 5, padding: "2px 6px" }}>{s.sym} +{s.chg.toFixed(1)}%</span>
-                        ))}
-                        <span style={{ fontFamily: SANS, fontSize: 12, color: C.red, fontWeight: 700, marginLeft: 4 }}>⬇ OUT:</span>
-                        {(distData.topOutflows||[]).slice(0,3).map(s => (
-                          <span key={s.sym} style={{ fontFamily: MONO, fontSize: 12, color: C.red, background: C.red + "12", borderRadius: 5, padding: "2px 6px" }}>{s.sym} {s.chg.toFixed(1)}%</span>
-                        ))}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {/* Inflows with constituent stocks */}
+                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+                          <span style={{ fontFamily: SANS, fontSize: 12, color: C.green, fontWeight: 700 }}>⬆ IN:</span>
+                          {(distData.topInflows||[]).slice(0,3).map(s => (
+                            <div key={s.sym} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                              <span style={{ fontFamily: MONO, fontSize: 12, color: C.green, background: C.green + "14", borderRadius: 5, padding: "2px 6px", fontWeight: 700 }}>
+                                {s.icon} {s.name} ({s.sym}) +{s.chg.toFixed(1)}%
+                              </span>
+                              {(s.topStocks||[]).length > 0 && (
+                                <div style={{ display: "flex", gap: 3, flexWrap: "wrap", paddingLeft: 4 }}>
+                                  {(s.topStocks||[]).map(st => (
+                                    <span key={st.sym} style={{ fontFamily: MONO, fontSize: 11, color: st.chg >= 0 ? C.green : C.red,
+                                      background: (st.chg >= 0 ? C.green : C.red) + "12", borderRadius: 3, padding: "1px 5px" }}>
+                                      {st.sym} {st.chg >= 0 ? "+" : ""}{st.chg.toFixed(1)}%
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {/* Outflows with constituent stocks */}
+                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+                          <span style={{ fontFamily: SANS, fontSize: 12, color: C.red, fontWeight: 700 }}>⬇ OUT:</span>
+                          {(distData.topOutflows||[]).slice(0,3).map(s => (
+                            <div key={s.sym} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                              <span style={{ fontFamily: MONO, fontSize: 12, color: C.red, background: C.red + "12", borderRadius: 5, padding: "2px 6px", fontWeight: 700 }}>
+                                {s.icon} {s.name} ({s.sym}) {s.chg.toFixed(1)}%
+                              </span>
+                              {(s.topStocks||[]).length > 0 && (
+                                <div style={{ display: "flex", gap: 3, flexWrap: "wrap", paddingLeft: 4 }}>
+                                  {(s.topStocks||[]).map(st => (
+                                    <span key={st.sym} style={{ fontFamily: MONO, fontSize: 11, color: st.chg >= 0 ? C.green : C.red,
+                                      background: (st.chg >= 0 ? C.green : C.red) + "12", borderRadius: 3, padding: "1px 5px" }}>
+                                      {st.sym} {st.chg >= 0 ? "+" : ""}{st.chg.toFixed(1)}%
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

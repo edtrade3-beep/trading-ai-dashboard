@@ -1121,22 +1121,22 @@ async function handleMarket(req, res, requestUrl) {
       const GROWTH    = ["XLK", "XLY", "SMH", "ARKK"];
       const CREDIT    = ["HYG", "LQD"];
 
-      // All 11 S&P sectors + key macro ETFs for money flow
+      // All 11 S&P sectors + key macro ETFs — with top constituent stocks
       const SECTORS = [
-        { sym: "XLK",  name: "Tech",        icon: "💻" },
-        { sym: "XLF",  name: "Financials",  icon: "🏦" },
-        { sym: "XLV",  name: "Healthcare",  icon: "🏥" },
-        { sym: "XLE",  name: "Energy",      icon: "⚡" },
-        { sym: "XLI",  name: "Industrials", icon: "🏭" },
-        { sym: "XLY",  name: "Cons. Disc.", icon: "🛍" },
-        { sym: "XLP",  name: "Cons. Staples",icon: "🛒"},
-        { sym: "XLU",  name: "Utilities",   icon: "💡" },
-        { sym: "XLRE", name: "Real Estate", icon: "🏠" },
-        { sym: "XLB",  name: "Materials",   icon: "⛏" },
-        { sym: "XLC",  name: "Comm. Svcs",  icon: "📡" },
-        { sym: "GLD",  name: "Gold",        icon: "🥇" },
-        { sym: "TLT",  name: "Bonds (TLT)", icon: "📜" },
-        { sym: "IBIT", name: "Bitcoin",     icon: "₿"  },
+        { sym: "XLK",  name: "Tech",         icon: "💻", stocks: ["NVDA","MSFT","AAPL","AMD","AVGO"] },
+        { sym: "XLF",  name: "Financials",   icon: "🏦", stocks: ["JPM","BAC","GS","MS","WFC"] },
+        { sym: "XLV",  name: "Healthcare",   icon: "🏥", stocks: ["UNH","JNJ","LLY","ABBV","MRK"] },
+        { sym: "XLE",  name: "Energy",       icon: "⚡", stocks: ["XOM","CVX","COP","EOG","SLB","VST","CEG"] },
+        { sym: "XLI",  name: "Industrials",  icon: "🏭", stocks: ["GE","CAT","RTX","HON","UNP"] },
+        { sym: "XLY",  name: "Cons. Disc.",  icon: "🛍", stocks: ["AMZN","TSLA","HD","MCD","NKE"] },
+        { sym: "XLP",  name: "Cons. Staples",icon: "🛒", stocks: ["PG","KO","PEP","WMT","COST"] },
+        { sym: "XLU",  name: "Utilities",    icon: "💡", stocks: ["NEE","DUK","SO","AEP","EXC"] },
+        { sym: "XLRE", name: "Real Estate",  icon: "🏠", stocks: ["AMT","PLD","EQIX","SPG","PSA"] },
+        { sym: "XLB",  name: "Materials",    icon: "⛏", stocks: ["LIN","SHW","APD","ECL","NEM"] },
+        { sym: "XLC",  name: "Comm. Svcs",   icon: "📡", stocks: ["META","GOOGL","NFLX","DIS","T"] },
+        { sym: "GLD",  name: "Gold",         icon: "🥇", stocks: ["GLD","GDX","GDXJ","NEM","AEM"] },
+        { sym: "TLT",  name: "Bonds (TLT)",  icon: "📜", stocks: ["TLT","IEF","BND","AGG","HYG"] },
+        { sym: "IBIT", name: "Bitcoin",      icon: "₿",  stocks: ["IBIT","MSTR","COIN","MARA","RIOT"] },
       ];
 
       const allSyms = [...new Set([
@@ -1354,6 +1354,14 @@ async function handleMarket(req, res, requestUrl) {
         };
       });
 
+      // ── Fetch constituent stock quotes for sectors ─────────────────────────
+      const allConstituents = [...new Set(SECTORS.flatMap(s => s.stocks || []))];
+      const constChunks = [];
+      for (let i = 0; i < allConstituents.length; i += 20) constChunks.push(allConstituents.slice(i, i + 20));
+      const constResults = await Promise.allSettled(constChunks.map(c => fetchYahooQuoteBatch(c)));
+      const constQuotes  = constResults.flatMap(r => r.status === "fulfilled" ? r.value : []);
+      const constMap     = Object.fromEntries(constQuotes.map(q => [String(q.symbol||"").toUpperCase(), q]));
+
       // ── Money Flow: where institutions are rotating ─────────────────────────
       const moneyFlow = SECTORS.map(sec => {
         const q    = qMap[sec.sym];
@@ -1407,7 +1415,17 @@ async function handleMarket(req, res, requestUrl) {
         const flowLbl = flow > 1.5 ? "STRONG IN" : flow > 0.5 ? "IN" : flow > 0 ? "MILD IN"
           : flow < -1.5 ? "STRONG OUT" : flow < -0.5 ? "OUT" : flow < 0 ? "MILD OUT" : "NEUTRAL";
 
-        return { ...sec, chg, rvol, flow, flowLbl, ma50above, price };
+        // Top movers within this sector
+        const topStocks = (sec.stocks || []).map(sym => {
+          const sq  = constMap[sym];
+          if (!sq) return null;
+          const sp  = round2(Number(sq.regularMarketPrice || 0));
+          const sc  = round2(Number(sq.regularMarketChange || 0));
+          const scp = sp > 0 && sc !== 0 ? round2(sc / (sp - sc) * 100) : round2(Number(sq.regularMarketChangePercent || 0));
+          return { sym, price: sp, chg: scp, name: sq.shortName || sq.longName || sym };
+        }).filter(Boolean).sort((a,b) => Math.abs(b.chg) - Math.abs(a.chg)).slice(0, 3);
+
+        return { ...sec, chg, rvol, flow, flowLbl, ma50above, price, topStocks };
       }).sort((a, b) => b.flow - a.flow);
 
       const topInflows  = moneyFlow.filter(s => s.flow > 0).slice(0, 5);
