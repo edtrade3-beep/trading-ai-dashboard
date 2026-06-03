@@ -3391,6 +3391,255 @@ function SecFilingsTab({ C, MONO, SANS, watchlistSymbols }) {
   );
 }
 
+// ─── CryptoLiquidations ──────────────────────────────────────────────────────
+function CryptoLiquidations({ C, MONO, SANS }) {
+  const [symbol, setSymbol] = React.useState("BTC");
+  const [data, setData]     = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError]   = React.useState(null);
+
+  const SYMBOLS = ["BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "AVAX"];
+
+  const load = React.useCallback(async (sym) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await fetch(`/api/crypto/liquidations?symbol=${sym}`);
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || "Failed");
+      setData(d);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => { load(symbol); }, [symbol, load]);
+
+  function fmtUsd(n) {
+    if (!n) return "$0";
+    if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
+    if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
+    if (n >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
+    return `$${Math.round(n)}`;
+  }
+
+  function fmtPrice(n) {
+    if (!n) return "—";
+    if (n >= 1000) return `$${Number(n).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+    return `$${Number(n).toFixed(2)}`;
+  }
+
+  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16 };
+
+  return (
+    <div style={{ fontFamily: SANS }}>
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+        <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: "0.06em" }}>
+          💧 LIQUIDATION LEVELS
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {SYMBOLS.map(s => (
+            <button key={s} onClick={() => setSymbol(s)} style={{
+              fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "4px 10px",
+              borderRadius: 6, border: `1px solid ${symbol === s ? C.accent : C.border}`,
+              background: symbol === s ? C.accent : "transparent",
+              color: symbol === s ? "#fff" : C.textDim, cursor: "pointer",
+            }}>{s}</button>
+          ))}
+        </div>
+        <button onClick={() => load(symbol)} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11,
+          padding: "4px 12px", borderRadius: 6, border: `1px solid ${C.border}`,
+          background: "transparent", color: C.textDim, cursor: "pointer" }}>
+          {loading ? "…" : "↻ Refresh"}
+        </button>
+      </div>
+
+      {error && (
+        <div style={{ padding: 14, background: `${C.red}15`, border: `1px solid ${C.red}44`, borderRadius: 8,
+          fontFamily: MONO, fontSize: 12, color: C.red, marginBottom: 14 }}>
+          ⚠ {error}
+        </div>
+      )}
+
+      {data && (
+        <>
+          {/* Price + 24h stats row */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 16 }}>
+            {/* Current price */}
+            <div style={{ ...card, textAlign: "center" }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 4 }}>{symbol} PRICE</div>
+              <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>{fmtPrice(data.price)}</div>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: data.change24h >= 0 ? C.green : C.red, marginTop: 2 }}>
+                {data.change24h >= 0 ? "+" : ""}{Number(data.change24h || 0).toFixed(2)}% 24h
+              </div>
+            </div>
+
+            {/* 24h Long liqs */}
+            <div style={{ ...card, textAlign: "center" }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 4 }}>LONGS LIQ'D 24H</div>
+              <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.red }}>
+                {data.liqs24h ? fmtUsd(data.liqs24h.longs) : "—"}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>bulls wiped</div>
+            </div>
+
+            {/* 24h Short liqs */}
+            <div style={{ ...card, textAlign: "center" }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 4 }}>SHORTS LIQ'D 24H</div>
+              <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.green }}>
+                {data.liqs24h ? fmtUsd(data.liqs24h.shorts) : "—"}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>bears wiped</div>
+            </div>
+
+            {/* OI */}
+            <div style={{ ...card, textAlign: "center" }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 4 }}>OPEN INTEREST</div>
+              <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.amber }}>
+                {data.oiUsd ? fmtUsd(data.oiUsd) : "—"}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>total leveraged</div>
+            </div>
+          </div>
+
+          {/* Key levels callout */}
+          {data.keyLevels && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+              {data.keyLevels.biggestLongLiq && (
+                <div style={{ padding: "12px 14px", borderRadius: 8, background: `${C.red}12`,
+                  border: `1px solid ${C.red}44` }}>
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.red, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 4 }}>
+                    🔴 MAJOR LONG LIQ ZONE
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.red }}>
+                    {fmtPrice(data.keyLevels.biggestLongLiq.price)}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 3 }}>
+                    {fmtUsd(data.keyLevels.biggestLongLiq.liqUsd)} at {data.keyLevels.biggestLongLiq.leverage}x leverage
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 4 }}>
+                    If price drops here, long liquidations cascade price lower
+                  </div>
+                </div>
+              )}
+              {data.keyLevels.biggestShortLiq && (
+                <div style={{ padding: "12px 14px", borderRadius: 8, background: `${C.green}12`,
+                  border: `1px solid ${C.green}44` }}>
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.green, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 4 }}>
+                    🟢 MAJOR SHORT LIQ ZONE
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.green }}>
+                    {fmtPrice(data.keyLevels.biggestShortLiq.price)}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 3 }}>
+                    {fmtUsd(data.keyLevels.biggestShortLiq.liqUsd)} at {data.keyLevels.biggestShortLiq.leverage}x leverage
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 4 }}>
+                    If price rises here, short liquidations cascade price higher
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Liquidation level map */}
+          <div style={{ ...card, padding: "14px 16px" }}>
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim,
+              letterSpacing: "0.08em", marginBottom: 12 }}>
+              LIQUIDATION MAP — {symbol}/USD
+            </div>
+
+            {/* Legend */}
+            <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 12, height: 12, borderRadius: 2, background: C.green }} />
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Short liq zone (price pumps → bears wiped)</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 12, height: 12, borderRadius: 2, background: C.red }} />
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Long liq zone (price drops → bulls wiped)</span>
+              </div>
+            </div>
+
+            {/* Level rows */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {data.levels.map((lvl, i) => {
+                const pct = Math.max(4, Math.round((lvl.liqUsd / data.maxLiq) * 100));
+                const isLong = lvl.side === "long";
+                const color = isLong ? C.red : C.green;
+                const distPct = data.price > 0
+                  ? Math.abs((lvl.price - data.price) / data.price * 100).toFixed(1)
+                  : "—";
+                const isCurrent = lvl.price === data.price;
+                return (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {/* Price label */}
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: color, fontWeight: 700,
+                      width: 100, flexShrink: 0, textAlign: "right" }}>
+                      {fmtPrice(lvl.price)}
+                    </div>
+
+                    {/* Bar */}
+                    <div style={{ flex: 1, position: "relative", height: 20, background: `${color}18`,
+                      borderRadius: 3, overflow: "hidden" }}>
+                      <div style={{ width: `${pct}%`, height: "100%", background: `${color}55`,
+                        borderRadius: 3, transition: "width 0.4s" }} />
+                      <div style={{ position: "absolute", left: 8, top: 0, height: "100%",
+                        display: "flex", alignItems: "center",
+                        fontFamily: MONO, fontSize: 10, color: color, fontWeight: 700 }}>
+                        {fmtUsd(lvl.liqUsd)} · {lvl.leverage}x {isLong ? "longs" : "shorts"}
+                      </div>
+                    </div>
+
+                    {/* Distance from current price */}
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, width: 50, textAlign: "right", flexShrink: 0 }}>
+                      {distPct}%
+                    </div>
+                  </div>
+                );
+              }).reduce((acc, el, i, arr) => {
+                // Insert current price marker between long and short zones
+                const levels = data.levels;
+                if (i > 0 && levels[i - 1].price > data.price && levels[i].price <= data.price) {
+                  acc.push(
+                    <div key="current-price" style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0" }}>
+                      <div style={{ width: 100, textAlign: "right", fontFamily: MONO, fontSize: 11,
+                        color: C.accent, fontWeight: 900, flexShrink: 0 }}>
+                        ▶ {fmtPrice(data.price)}
+                      </div>
+                      <div style={{ flex: 1, height: 2, background: `${C.accent}88`, borderRadius: 2 }} />
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.accent, fontWeight: 700, width: 50, textAlign: "right", flexShrink: 0 }}>
+                        CURRENT
+                      </div>
+                    </div>
+                  );
+                }
+                acc.push(el);
+                return acc;
+              }, [])}
+            </div>
+          </div>
+
+          {data.estimated && (
+            <div style={{ marginTop: 10, fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: "center" }}>
+              ⚠ Levels estimated from price + leverage distribution · Add COINGLASS_API_KEY for live precision data
+            </div>
+          )}
+        </>
+      )}
+
+      {loading && !data && (
+        <div style={{ padding: 30, textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>
+          Loading liquidation data…
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── CryptoTab ──────────────────────────────────────────────────────────────
 // ─── parsePortfolioCSV ────────────────────────────────────────────────────────
 // Handles three formats:
@@ -4539,6 +4788,11 @@ function CryptoTab({ C, MONO, SANS }) {
             </div>
           );
         })}
+      </div>
+
+      {/* Liquidation Levels */}
+      <div style={{ marginTop: 24, padding: 18, background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
+        <CryptoLiquidations C={C} MONO={MONO} SANS={SANS} />
       </div>
 
       {/* Crypto News */}
