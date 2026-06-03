@@ -22330,6 +22330,7 @@ export default function App() {
 
       {/* ── EARNINGS CALENDAR TAB ─────────────────────────────────────────── */}
       {activeTab === "earn-cal" && (() => {
+        const groups = { past:[], today:[], week:[], later:[] };
         (ecData?.events||[]).forEach(e => {
           if (e.dte < 0) groups.past.push(e);
           else if (e.dte === 0) groups.today.push(e);
@@ -22396,6 +22397,8 @@ export default function App() {
 
       {/* ── ECONOMIC CALENDAR TAB ─────────────────────────────────────────── */}
       {activeTab === "econ-cal" && (() => {
+        const IMPACT_COL = { HIGH: C.red, MED: C.amber, LOW: C.green };
+        return (
           <div style={{ padding: "16px 20px" }}>
             <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 20 }}>🗓 ECONOMIC CALENDAR</div>
             {!evData && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>⌛ Loading…</div>}
@@ -22440,6 +22443,7 @@ export default function App() {
 
       {/* ── JOURNAL ANALYTICS TAB ─────────────────────────────────────────── */}
       {activeTab === "journal-stats" && (() => {
+        const trades = (jData || []).filter(e => e.side && e.outcome);
         const wins   = trades.filter(e => e.outcome === "WIN" || e.pnl > 0);
         const losses = trades.filter(e => e.outcome === "LOSS" || e.pnl < 0);
         const winRate = trades.length ? Math.round(wins.length / trades.length * 100) : 0;
