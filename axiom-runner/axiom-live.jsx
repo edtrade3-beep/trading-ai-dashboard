@@ -15303,6 +15303,7 @@ export default function App() {
                                               </span>
                                             );
                                           })()}
+                                        </div>
                                         {deepData?.news?.length > 0 ? (
                                           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                                             {deepData.news.slice(0, 5).map((n, ni) => {
