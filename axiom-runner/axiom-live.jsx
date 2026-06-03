@@ -7054,6 +7054,10 @@ export default function App() {
   const [flowFilters, setFlowFilters] = useState(DEFAULT_SETTINGS.flowFilters);
   const [riskAccount, setRiskAccount] = useState("100000");
   const [riskPct, setRiskPct] = useState("1");
+  // Daily Max Loss Lock
+  const [dailyMaxLoss, setDailyMaxLoss] = useState(() => { try { return localStorage.getItem("daily_max_loss") || "200"; } catch { return "200"; } });
+  const [tradingLocked, setTradingLocked] = useState(false);
+  const [lockReason,   setLockReason]   = useState("");
   const [riskEntry, setRiskEntry] = useState("100");
   const [riskStop, setRiskStop] = useState("95");
   const [riskSide, setRiskSide] = useState("long");
@@ -7880,6 +7884,16 @@ export default function App() {
     const interval = setInterval(fetchSigs, 60_000);
     return () => { clearTimeout(init); clearInterval(interval); };
   }, []);
+
+  // ── Daily Max Loss Lock ──────────────────────────────────────────────────────
+  useEffect(() => {
+    const maxLoss = Number(dailyMaxLoss || 200);
+    const todayPnl = portfolioSummary?.dayPnlTotal || 0;
+    if (todayPnl < 0 && Math.abs(todayPnl) >= maxLoss && !tradingLocked) {
+      setTradingLocked(true);
+      setLockReason(`Daily max loss of $${maxLoss} reached. Today's P&L: -$${Math.abs(todayPnl).toFixed(0)}. Stop trading. Review tomorrow.`);
+    }
+  }, [portfolioSummary?.dayPnlTotal, dailyMaxLoss]);
 
   // ── Morning Brief auto-run (#5) ────────────────────────────────────────────
   // On weekdays between 6:30 AM–9:30 AM ET: auto-generate briefing if not done today
@@ -11164,6 +11178,7 @@ export default function App() {
             { id: "options-calc", label: "🎰 OPTIONS CALC" },
           ],
           tools: [
+            { id: "academy",   label: "📚 ACADEMY" },
             { id: "workflow",  label: "📋 WORKFLOW" },
             { id: "agent",     label: "🤖 AI AGENT" },
             { id: "backtest",  label: "⏮ BACKTEST" },
@@ -22995,6 +23010,219 @@ export default function App() {
       {/* ⚽ SOCCER WATCH */}
       {activeTab === "soccer" && <SoccerWatchTab C={C} MONO={MONO} SANS={SANS} isTablet={isTablet} />}
 
+      {/* ── TRADING ACADEMY ──────────────────────────────────────────────────── */}
+      {activeTab === "academy" && (() => {
+        const LESSONS = [
+          {
+            id: "verdict", icon: "🎯", title: "The Final Verdict",
+            tagline: "One signal. No confusion.",
+            body: `The platform shows ONE verdict for every stock: A+ LONG, LONG, WATCH, CONFLICT, AVOID, SHORT.\n\nThis is not just the technical score. It weighs 4 signals:\n• Tech Momentum (30%) — RSI, EMA, Volume\n• Trend Quality (35%) — MA50, MA200, 52-week position\n• SMC Structure (20%) — Bull/Bear BOS, Order Blocks\n• MACD (15%) — direction\n\nTechnical score alone NEVER means Buy. A stock with RSI 96 can still be AVOID if it has a Bear BOS and is below EMA21. That's exactly what happened with MSTR.`,
+            rule: "Never buy a stock just because the tech score is high. Always check the Final Verdict.",
+            color: C.accent,
+          },
+          {
+            id: "bos", icon: "📐", title: "Bull BOS — What It Really Means",
+            tagline: "The most important signal on this platform.",
+            body: `BOS = Break of Structure.\n\nA Bull BOS happens when price breaks ABOVE a previous swing high. This is when institutional money (hedge funds, banks) decides to commit to buying.\n\nBefore a Bull BOS: price is "testing" an area. Could go either way.\nAfter a Bull BOS: institutions have shown their hand. They're buying.\n\nThis is why the platform requires Bull BOS for A+ LONG. Without it, you're guessing. With it, you're following the money.\n\nOn the platform: look at the SMC column → STRUCTURE → Bull BOS @ $X`,
+            rule: "Wait for Bull BOS before entering a long. The entry AFTER the break is safer than the entry before.",
+            color: C.green,
+          },
+          {
+            id: "risksize", icon: "💰", title: "Position Sizing — The #1 Skill",
+            tagline: "How much to buy. Not what to buy.",
+            body: `Most traders focus on finding the right stock. Professionals focus on sizing correctly.\n\nThe formula:\n  Risk Amount = Account × Risk %\n  Shares = Risk Amount ÷ (Entry − Stop)\n\nExample:\n  Account: $10,000\n  Risk %: 1% = $100\n  Entry: $50.00, Stop: $47.00 → gap = $3.00\n  Shares = $100 ÷ $3.00 = 33 shares\n  Position size = 33 × $50 = $1,650\n\nNotice: You're only putting $1,650 into a $10,000 account. This is correct. Most beginners put in $5,000 and wonder why they blow up.\n\nThe risk sizer in the scanner does this automatically.`,
+            rule: "Never put more than 2% of your account at risk on any single trade. Ever.",
+            color: C.amber,
+          },
+          {
+            id: "conflict", icon: "⚠️", title: "CONFLICT SETUP — Walk Away",
+            tagline: "When signals disagree, the market is telling you something.",
+            body: `A CONFLICT SETUP appears when:\n• Technical score is bullish (high RSI, above EMAs)\n• BUT the structure is bearish (Bear BOS or weak trend)\n\nThis is the most dangerous situation for new traders. Everything LOOKS bullish on the surface. But institutions are quietly distributing (selling to you).\n\nExample: MSTR had score 96/100 — looks great. But Bear BOS + below EMA21 = AVOID.\n\nThe platform catches this automatically. When you see CONFLICT SETUP:\n1. Do not trade it\n2. Wait for alignment\n3. There are other setups\n\nProfessional traders skip more than 90% of setups. Patience is the edge.`,
+            rule: "CONFLICT SETUP = no trade. Period. Move on.",
+            color: C.amber,
+          },
+          {
+            id: "stops", icon: "🛑", title: "Stop Losses — Why You Must Use Them",
+            tagline: "A stop loss is not a sign of weakness. It's your business insurance.",
+            body: `Every trade has an entry AND a stop loss. The stop loss answers: "At what price am I wrong?"\n\nWithout a stop: One bad trade can wipe out weeks of gains.\nWith a stop: Your worst trade is controlled. You live to trade another day.\n\nThe platform calculates your stop automatically:\n• For breakouts: below the Order Block\n• For pullbacks: below MA50 or MA200\n• For all setups: maximum 8% from entry\n\nWhen price hits your stop — EXIT. Don't hope. Don't average down. Exit.\n\nThe reason: every professional has a preset stop before they enter. The decision is made when you're CALM, not when the stock is -12% and you're panicking.`,
+            rule: "Set your stop before you enter. Honor it without exception.",
+            color: C.red,
+          },
+          {
+            id: "regime", icon: "🌍", title: "Market Regime — Trade With The Wind",
+            tagline: "Swimming upstream is hard. Swimming with the current is easy.",
+            body: `The Institutional Radar shows the market regime: RISK-ON, CAUTION, or RISK-OFF.\n\nRISK-ON: Institutional money flowing into stocks. Go long. Longs work.\nCAUTION: Mixed signals. Smaller size. Be selective.\nRISK-OFF: Institutions reducing risk. Avoid longs. Consider cash or shorts.\n\nThe regime is set by:\n• VIX level (fear)\n• Sector rotation (are defensives outperforming?)\n• Distribution days (how many high-volume down days?)\n• Credit spreads (are bonds weakening?)\n\nYou can be 100% right about a stock and still lose if the regime is Risk-Off. A rising tide lifts all boats. A falling tide sinks them.`,
+            rule: "Check the regime every morning. Do not go long in Risk-Off.",
+            color: "#42c9d8",
+          },
+          {
+            id: "journal", icon: "📓", title: "The Trading Journal — Your Edge Over Time",
+            tagline: "You can't improve what you don't measure.",
+            body: `The journal is the most underused feature on the platform.\n\nWhat to log after EVERY trade:\n1. Setup type (Bull Flag, Breakout, etc.)\n2. Entry, Stop, Target\n3. Outcome (Win/Loss)\n4. Why you took it\n5. What you would do differently\n\nAfter 30 trades, the analytics show you:\n• Your win rate by setup type → trade only your best setup\n• Your best day of week → trade more on those days\n• Your biggest mistakes → stop repeating them\n\nMost traders spend 10 hours studying charts and 0 hours studying themselves. The journal reverses this. Your patterns are in your data.`,
+            rule: "Log every trade within 1 hour of closing it. Every single one.",
+            color: C.purple,
+          },
+          {
+            id: "patience", icon: "⏳", title: "The Most Profitable Trade Is No Trade",
+            tagline: "Professionals get paid to wait.",
+            body: `This is the hardest lesson and the most valuable.\n\nOn most days, the right action is: DO NOTHING.\n\nThe market does not owe you a trade every day. Forcing setups because you're bored, or because you need to make back yesterday's loss, is how accounts get destroyed.\n\nPro traders operate like a sniper:\n• 95% of the time: watching, waiting, preparing\n• 5% of the time: taking the shot with confidence\n\nWhen the A+ LONG appears with full alignment:\n• Bull BOS confirmed\n• Trend is strong\n• Market regime is Risk-On\n• Volume is above average\n\nTHEN you act — with full size and confidence. Not before.`,
+            rule: "No A+ setup = no trade. Turn off the screen and come back tomorrow.",
+            color: "#4caf50",
+          },
+        ];
+
+        const [activeLesson, setActiveLesson] = React.useState(null);
+        const lesson = LESSONS.find(l => l.id === activeLesson);
+
+        return (
+          <div style={{ padding: "16px 20px", maxWidth: 960, margin: "0 auto" }}>
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 6 }}>
+                📚 TRADING ACADEMY
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 14, color: C.textSec, lineHeight: 1.6 }}>
+                Practical education built into your trading platform. Every lesson is connected to what you see in the scanner and deep dive. No theory for theory's sake — only what matters for real trading.
+              </div>
+            </div>
+
+            {/* Lesson detail */}
+            {lesson ? (
+              <div>
+                <button onClick={() => setActiveLesson(null)}
+                  style={{ fontFamily: MONO, fontSize: 12, border: `1px solid ${C.border}`, background: C.surface,
+                    color: C.textDim, borderRadius: 6, padding: "6px 14px", cursor: "pointer", marginBottom: 20 }}>
+                  ← Back to lessons
+                </button>
+                <div style={{ background: C.card, border: `1px solid ${lesson.color}44`,
+                  borderLeft: `6px solid ${lesson.color}`, borderRadius: 12, padding: 28 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+                    <span style={{ fontSize: 36 }}>{lesson.icon}</span>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: lesson.color }}>{lesson.title}</div>
+                      <div style={{ fontFamily: SANS, fontSize: 14, color: C.textSec, fontStyle: "italic", marginTop: 4 }}>"{lesson.tagline}"</div>
+                    </div>
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.9,
+                    whiteSpace: "pre-line", marginBottom: 24 }}>
+                    {lesson.body}
+                  </div>
+                  <div style={{ background: `${lesson.color}14`, border: `1px solid ${lesson.color}44`,
+                    borderRadius: 8, padding: "14px 18px" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: lesson.color, marginBottom: 6, letterSpacing: "0.06em" }}>
+                      📌 THE RULE
+                    </div>
+                    <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 700, color: C.text }}>
+                      {lesson.rule}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Max Loss Setting */}
+                <div style={{ background: `${C.red}0d`, border: `1px solid ${C.red}44`, borderRadius: 10,
+                  padding: "16px 20px", marginBottom: 24 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.red }}>🛑 DAILY MAX LOSS LOCK</div>
+                      <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, marginTop: 4 }}>
+                        Platform locks when your daily P&L hits this level. Prevents revenge trading.
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+                      <span style={{ fontFamily: SANS, fontSize: 13, color: C.textDim }}>Lock at -$</span>
+                      <input type="number" value={dailyMaxLoss}
+                        onChange={e => { setDailyMaxLoss(e.target.value); try { localStorage.setItem("daily_max_loss", e.target.value); } catch {} }}
+                        style={{ width: 80, fontFamily: MONO, fontSize: 14, fontWeight: 700,
+                          background: C.surface, border: `1px solid ${C.red}44`, color: C.red,
+                          borderRadius: 6, padding: "6px 10px", textAlign: "center" }} />
+                      {tradingLocked && (
+                        <button onClick={() => { setTradingLocked(false); setLockReason(""); }}
+                          style={{ fontFamily: MONO, fontSize: 11, border: `1px solid ${C.border}`,
+                            background: C.surface, color: C.textDim, borderRadius: 6, padding: "6px 12px", cursor: "pointer" }}>
+                          Unlock
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Lessons grid */}
+                <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "1fr 1fr", gap: 12 }}>
+                  {LESSONS.map(l => (
+                    <div key={l.id} onClick={() => setActiveLesson(l.id)}
+                      style={{ background: C.card, border: `1px solid ${l.color}33`,
+                        borderLeft: `4px solid ${l.color}`, borderRadius: 10,
+                        padding: "16px 18px", cursor: "pointer",
+                        transition: "background 0.15s" }}
+                      onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
+                      onMouseLeave={e => e.currentTarget.style.background = C.card}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                        <span style={{ fontSize: 22 }}>{l.icon}</span>
+                        <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: l.color }}>{l.title}</div>
+                      </div>
+                      <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, fontStyle: "italic", marginBottom: 8 }}>
+                        "{l.tagline}"
+                      </div>
+                      <div style={{ fontFamily: MONO, fontSize: 11, color: l.color, fontWeight: 700 }}>
+                        Read lesson →
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ marginTop: 24, padding: "14px 18px", background: C.surface, borderRadius: 8,
+                  border: `1px solid ${C.border}`, fontFamily: SANS, fontSize: 13, color: C.textSec, lineHeight: 1.7 }}>
+                  💡 <strong style={{ color: C.text }}>How to use the Academy:</strong> After every scan, before you trade anything, ask yourself: "Do I understand WHY the Final Verdict says what it says?" If not — open the relevant lesson. The goal is not to memorize rules. It's to understand them so deeply that they become automatic.
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
+
+
+      {/* ── DAILY MAX LOSS LOCK OVERLAY ── */}
+      {tradingLocked && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 9999,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          padding: 24 }}>
+          <div style={{ maxWidth: 520, width: "100%", background: C.surface, borderRadius: 16,
+            border: `2px solid ${C.red}`, boxShadow: `0 0 60px ${C.red}44`, padding: 36, textAlign: "center" }}>
+            <div style={{ fontSize: 56, marginBottom: 16 }}>🛑</div>
+            <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.red, marginBottom: 12 }}>
+              TRADING LOCKED
+            </div>
+            <div style={{ fontFamily: SANS, fontSize: 15, color: C.textSec, lineHeight: 1.7, marginBottom: 24 }}>
+              {lockReason}
+            </div>
+            <div style={{ background: `${C.red}12`, border: `1px solid ${C.red}33`, borderRadius: 10, padding: "16px 20px", marginBottom: 24 }}>
+              <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.red, marginBottom: 8 }}>
+                WHY THIS RULE EXISTS
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, lineHeight: 1.7, textAlign: "left" }}>
+                After hitting your daily loss limit, the brain switches to "revenge mode" — you start chasing trades to make it back. This is how small losses become catastrophic losses. Professional traders never trade past their daily limit. Come back tomorrow with a clear head.
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button onClick={() => setActiveTab("journal")}
+                style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, border: `1px solid ${C.accent}`,
+                  background: `${C.accent}18`, color: C.accent, borderRadius: 8, padding: "10px 24px", cursor: "pointer" }}>
+                📓 REVIEW MY TRADES
+              </button>
+              <button onClick={() => { setTradingLocked(false); setLockReason(""); }}
+                style={{ fontFamily: MONO, fontSize: 13, border: `1px solid ${C.border}`,
+                  background: "transparent", color: C.textDim, borderRadius: 8, padding: "10px 16px", cursor: "pointer" }}
+                title="Override — use with discipline">
+                Override
+              </button>
+            </div>
+            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 16 }}>
+              Daily max loss: ${dailyMaxLoss} · Change in PORTFOLIO → Risk Settings
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.3 } }
