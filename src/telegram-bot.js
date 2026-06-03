@@ -792,9 +792,44 @@ const COMMANDS = {
     await reply(lines.join("\n"));
   },
 
-  // ── /c — quick price (alias) ────────────────────────────────────────────────
-  c:         (args) => COMMANDS.price(args),
-  q:         (args) => COMMANDS.price(args),
+  // ── Quick aliases ─────────────────────────────────────────────────────────────
+  c:    (args) => COMMANDS.price(args),  // /c NVDA = quick price
+  q:    (args) => COMMANDS.price(args),  // /q NVDA = quick price
+  t:    ()     => COMMANDS.today(),      // /t = today's setups
+
+  // ── /regime — current market regime ─────────────────────────────────────────
+  regime: async () => {
+    try {
+      const r = await fetch("http://localhost:" + (process.env.PORT || 3000) + "/api/market/distribution");
+      const d = await r.json();
+      if (!d.ok) return reply("Regime data unavailable. Try again.");
+      const et = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+      const lines = [
+        `🌍 MARKET REGIME — ${et} ET`,
+        `━━━━━━━━━━━━━━━━━━━━`,
+        `Regime: ${d.alert} (Risk Score: ${d.riskScore}/100)`,
+        d.vix > 0 ? `VIX: ${d.vix} — ${d.vix > 25 ? "ELEVATED FEAR" : d.vix > 18 ? "above normal" : "calm"}` : "",
+        ``,
+      ];
+      if (d.topInflows?.length) {
+        lines.push(`⬆ INSTITUTIONS BUYING:`);
+        d.topInflows.slice(0,3).forEach(s => {
+          const top = s.topStocks?.[0];
+          lines.push(`  ${s.name} ${s.chg >= 0 ? "+" : ""}${s.chg.toFixed(1)}%${top ? ` (${top.sym} ${top.chg >= 0 ? "+" : ""}${top.chg.toFixed(1)}%)` : ""}`);
+        });
+      }
+      if (d.topOutflows?.length) {
+        lines.push(`⬇ INSTITUTIONS SELLING:`);
+        d.topOutflows.slice(0,3).forEach(s => {
+          lines.push(`  ${s.name} ${s.chg.toFixed(1)}%`);
+        });
+      }
+      lines.push(`━━━━━━━━━━━━━━━━━━━━`);
+      const highW = (d.warnings||[]).filter(w => w.level === "HIGH");
+      if (highW.length) highW.forEach(w => lines.push(`⚠ ${w.sig}`));
+      await reply(lines.filter(Boolean).join("\n"));
+    } catch (e) { await reply("Error: " + e.message); }
+  },
 
   top5: async () => {
     const status = getScannerStatus();
@@ -1035,6 +1070,7 @@ async function registerCommands() {
       { command: "top5",      description: "Top 5 setups from last scan" },
       { command: "brief",     description: "Generate morning briefing" },
       { command: "today",     description: "Today's top setups + regime summary" },
+      { command: "regime",    description: "Current market regime + money flow" },
       { command: "status",    description: "Bot settings + scanner status" },
       { command: "wl",        description: "Watchlist — /wl | /wl add NVDA | /wl remove NVDA" },
       { command: "mute",      description: "Alert level — /mute quiet|on|all|off" },
