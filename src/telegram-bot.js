@@ -763,6 +763,39 @@ const COMMANDS = {
 
   smc: async (args) => { return COMMANDS.score(args); }, // alias
 
+  // ── /today — morning summary with top setups + regime ──────────────────────
+  today: async () => {
+    const status = getScannerStatus();
+    const hits   = status.lastHits || [];
+    const buys   = hits.filter(h => h.signal === "BUY" || h.composite >= 75).slice(0, 5);
+    const sells  = hits.filter(h => h.signal === "SELL" || h.composite <= 35).slice(0, 3);
+    const et = new Date().toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+
+    if (!hits.length) return reply(`No scan data yet. Run /scan first.\n${et} ET`);
+
+    const lines = [
+      `📅 TODAY — ${et} ET`,
+      `━━━━━━━━━━━━━━━━━━━━`,
+    ];
+    if (buys.length) {
+      lines.push(`🟢 TOP SETUPS TO WATCH`);
+      buys.forEach(h => lines.push(`  ${h.symbol.padEnd(6)} ${String(h.composite||h.score||0).padStart(2)}/100  ${h.trend}  RVOL ${h.rvol?.toFixed(1)}x`));
+      lines.push("");
+    }
+    if (sells.length) {
+      lines.push(`🔴 AVOID`);
+      sells.forEach(h => lines.push(`  ${h.symbol.padEnd(6)} ${String(h.composite||h.score||0).padStart(2)}/100  ${h.trend}`));
+      lines.push("");
+    }
+    lines.push(`━━━━━━━━━━━━━━━━━━━━`);
+    lines.push(`Use /score TICKER for full SMC analysis`);
+    await reply(lines.join("\n"));
+  },
+
+  // ── /c — quick price (alias) ────────────────────────────────────────────────
+  c:         (args) => COMMANDS.price(args),
+  q:         (args) => COMMANDS.price(args),
+
   top5: async () => {
     const status = getScannerStatus();
     const hits   = (status.lastHits || []).filter(h => h.signal === "BUY").slice(0, 5);
@@ -1001,6 +1034,7 @@ async function registerCommands() {
       { command: "score",     description: "SMC analysis — /score NVDA" },
       { command: "top5",      description: "Top 5 setups from last scan" },
       { command: "brief",     description: "Generate morning briefing" },
+      { command: "today",     description: "Today's top setups + regime summary" },
       { command: "status",    description: "Bot settings + scanner status" },
       { command: "wl",        description: "Watchlist — /wl | /wl add NVDA | /wl remove NVDA" },
       { command: "mute",      description: "Alert level — /mute quiet|on|all|off" },

@@ -7834,6 +7834,11 @@ export default function App() {
     if (activeTab === "fivex" && Object.keys(fivexPrices).length === 0 && !fivexLoading) {
       fetchLivePrices();
     }
+    // Auto-run smart scan on first open if no results yet
+    if ((activeTab === "smartscan" || activeTab === "scanner") && scanResults.length === 0 && !scanLoading) {
+      runSmartScan();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
   // Auto-refresh live prices every 5 min while 5X PLAYS tab is open
   useEffect(() => {
@@ -11126,6 +11131,23 @@ export default function App() {
         </div>
       )}
 
+      {/* Market Session Banner — shows when market is NOT regular hours */}
+      {marketSession !== "REGULAR" && (() => {
+        const cfg = {
+          PREMARKET:   { label: "PRE-MARKET", col: C.amber, bg: `${C.amber}14`, msg: "Market opens 9:30 AM ET · Pre-market prices may differ" },
+          AFTERMARKET: { label: "AFTER-HOURS", col: C.purple, bg: `${C.purple}12`, msg: "Market closed · After-hours trading 4:00–8:00 PM ET" },
+          OVERNIGHT:   { label: "MARKET CLOSED", col: C.textDim, bg: C.surface, msg: "Market opens 9:30 AM ET · Pre-market starts 4:00 AM ET" },
+        }[marketSession] || null;
+        if (!cfg) return null;
+        return (
+          <div style={{ padding: "5px 16px", background: cfg.bg, borderBottom: `1px solid ${cfg.col}33`,
+            display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: cfg.col }}>{cfg.label}</span>
+            <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{cfg.msg}</span>
+          </div>
+        );
+      })()}
+
       {/* Market Index Strip — matches screenshot layout */}
       <MacroTape data={macroData} cryptoSnapshot={cryptoSnapshot} />
 
@@ -13986,10 +14008,10 @@ export default function App() {
                 <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   {scanLastRun && (
                     <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
-                      Last scan: {scanLastRun.toLocaleTimeString()}
+                      Last scan: {scanLastRun.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})} · {scanResults.length} stocks
                     </span>
                   )}
-                  {scanLoading && (
+                  {scanLoading && false && (
                     <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>
                       ⌛ Scanning {scanProgress.done}/{scanProgress.total}…
                       <div style={{ marginTop: 4, width: 160, height: 4, background: C.border, borderRadius: 2, overflow: "hidden" }}>
@@ -14026,7 +14048,7 @@ export default function App() {
                       color: autoScanOn ? C.amber : C.textDim,
                       borderRadius: 6, padding: "7px 12px", cursor: "pointer", minWidth: 90, textAlign: "center" }}>
                     {autoScanOn
-                      ? `⏱ ${Math.floor(autoScanCountdown / 60)}:${String(autoScanCountdown % 60).padStart(2, "0")} min`
+                      ? `⏱ NEXT SCAN ${Math.floor(autoScanCountdown / 60)}:${String(autoScanCountdown % 60).padStart(2, "0")}`
                       : "▶ AUTO ON"}
                   </button>
                   <button onClick={runSmartScan} disabled={scanLoading}
@@ -14129,11 +14151,13 @@ export default function App() {
 
               {/* ── Empty state ── */}
               {!scanLoading && !scanError && scanResults.length === 0 && (
-                <div style={{ textAlign: "center", padding: "60px 0",
-                  fontFamily: MONO, fontSize: 13, color: C.textDim }}>
-                  Press <strong style={{ color: C.green }}>▶ RUN SCAN</strong> to analyse all 30 watchlist stocks
-                  <div style={{ fontSize: 12, marginTop: 8, color: C.textDim }}>
-                    RSI · MACD · EMA · Entry zones · Volume · 52W position · News sentiment
+                <div style={{ textAlign: "center", padding: "50px 20px" }}>
+                  <div style={{ fontSize: 36, marginBottom: 12 }}>🔍</div>
+                  <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 8 }}>
+                    Auto-scanning {FIVEX_TICKERS.length} stocks…
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, maxWidth: 400, margin: "0 auto" }}>
+                    Checking RSI · MACD · EMA · Entry zones · Volume · 52W position · Sentiment
                   </div>
                 </div>
               )}
@@ -14424,7 +14448,7 @@ export default function App() {
                                   const sigLabel = composite >= 72 ? "STRONG BUY" : composite >= 62 ? "BUY" :
                                                    composite >= 53 ? "WATCH"      : composite >= 40 ? "AVOID" : "SELL/SHORT";
 
-                                  return <span style={{ ...SIG_STYLE(sigColor), background: `${sigColor}22`, borderColor: `${sigColor}55` }}>{sigLabel}</span>;
+                                  return (<div><span style={{ ...SIG_STYLE(sigColor), background: `${sigColor}22`, borderColor: `${sigColor}55`, fontSize: 12 }}>{sigLabel}</span><div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: sigColor, marginTop: 2 }}>{composite.toFixed(0)}/100</div></div>);
                                 })()}
                               </td>
 
