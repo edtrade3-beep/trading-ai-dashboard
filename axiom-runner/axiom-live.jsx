@@ -14847,6 +14847,50 @@ export default function App() {
                                               ))}
                                             </div>
                                           )}
+                                          {/* ── POSITION CALCULATOR ── */}
+                                          {(() => {
+                                            const px5   = Number(livePrice || row.quote?.price || 0);
+                                            const ma505 = Number(row.quote?.priceAvg50 || 0);
+                                            const stop5 = ma505 > 0 ? ma505 * 0.97 : px5 * 0.92;
+                                            const acct  = Number(riskAccount || 10000);
+                                            const pct   = Number(riskPct || 1) / 100;
+                                            const riskAmt = acct * pct;
+                                            const riskPerShare = Math.max(0.01, px5 - stop5);
+                                            const shares = px5 > 0 ? Math.floor(riskAmt / riskPerShare) : 0;
+                                            const cost   = shares * px5;
+                                            const t1     = px5 * 1.08;
+                                            const t2     = px5 * 1.15;
+                                            const profitT1 = shares * (t1 - px5);
+                                            if (!px5 || shares <= 0) return null;
+                                            return (
+                                              <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8,
+                                                background: `${C.accent}08`, border: `1px solid ${C.accent}22` }}>
+                                                <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
+                                                  💰 POSITION CALCULATOR
+                                                  <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 400, marginLeft: 8, color: C.textDim }}>
+                                                    ${acct.toLocaleString()} account · {(pct*100).toFixed(1)}% risk = ${riskAmt.toFixed(0)}
+                                                  </span>
+                                                </div>
+                                                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6 }}>
+                                                  {[
+                                                    ["SHARES", shares, C.text],
+                                                    ["COST",  `$${cost.toFixed(0)}`, C.text],
+                                                    ["RISK",  `$${riskAmt.toFixed(0)}`, C.red],
+                                                    ["T1 PROFIT", `+$${profitT1.toFixed(0)}`, C.green],
+                                                  ].map(([l,v,c]) => (
+                                                    <div key={l} style={{ background: C.surface, borderRadius: 5, padding: "6px 8px", textAlign: "center" }}>
+                                                      <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim, marginBottom: 2 }}>{l}</div>
+                                                      <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: c }}>{v}</div>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                                <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 6 }}>
+                                                  Stop: ${stop5.toFixed(2)} · T1: ${t1.toFixed(2)} · T2: ${t2.toFixed(2)} · Uses risk sizer settings
+                                                </div>
+                                              </div>
+                                            );
+                                          })()}
+
                                           {/* Copy Trade Plan */}
                                           <button onClick={() => {
                                             const px4 = Number(livePrice || row.quote?.price || 0);
