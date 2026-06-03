@@ -1957,8 +1957,8 @@ ${tradeValue > 0 ? `<tr><td>Net Trade</td><td>${netTrade >= 0 ? money(netTrade) 
 
             {tab === "Showroom" && (() => {
               const ShowroomComposer = () => {
-                const [bg, setBg]               = useState(null);
-                const [bgName, setBgName]       = useState("");
+                const [bg, setBg]               = useState(() => { try { return localStorage.getItem("showroom_bg") || null; } catch { return null; } });
+                const [bgName, setBgName]       = useState(() => { try { return localStorage.getItem("showroom_bg_name") || ""; } catch { return ""; } });
                 const [slots, setSlots]         = useState(Array(6).fill(null));
                 const [active, setActive]       = useState(0);
                 const [scale, setScale]         = useState(62);
@@ -2057,8 +2057,16 @@ ${tradeValue > 0 ? `<tr><td>Net Trade</td><td>${netTrade >= 0 ? money(netTrade) 
                     {/* Step 1 — Upload background */}
                     <div style={{ padding: 16, background: theme.card, border: `1px solid ${theme.border}`,
                       borderRadius: 12 }}>
-                      <div style={{ fontWeight: 800, fontSize: 13, color: theme.text, marginBottom: 10 }}>
-                        Step 1 — Upload Showroom Background
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                        <div style={{ fontWeight: 800, fontSize: 13, color: theme.text }}>
+                          Step 1 — Showroom Background
+                        </div>
+                        {bg && (
+                          <span style={{ fontSize: 11, padding: "2px 10px", borderRadius: 20,
+                            background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#16a34a", fontWeight: 700 }}>
+                            ✅ Saved — loads automatically
+                          </span>
+                        )}
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                         <input ref={bgRef} type="file" accept="image/*" style={{ display: "none" }}
@@ -2067,20 +2075,31 @@ ${tradeValue > 0 ? `<tr><td>Net Trade</td><td>${netTrade >= 0 ? money(netTrade) 
                             const url = await readFile(e.target.files[0]);
                             setBg(url);
                             setBgName(e.target.files[0].name);
+                            try { localStorage.setItem("showroom_bg", url); localStorage.setItem("showroom_bg_name", e.target.files[0].name); } catch {}
                           }} />
                         <button onClick={() => bgRef.current?.click()}
                           style={{ ...sBtn, background: theme.primary, color: "#fff" }}>
-                          📁 Upload Background Image
+                          {bg ? "🔄 Replace Background" : "📁 Upload Background Image"}
                         </button>
                         {bg && (
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <img src={bg} alt="bg" style={{ width: 80, height: 45, objectFit: "cover", borderRadius: 6, border: `1px solid ${theme.border}` }} />
-                            <span style={{ fontSize: 12, color: theme.muted }}>{bgName}</span>
+                            <img src={bg} alt="bg" style={{ width: 80, height: 45, objectFit: "cover", borderRadius: 6, border: `2px solid #16a34a` }} />
+                            <div>
+                              <div style={{ fontSize: 12, color: theme.text, fontWeight: 700 }}>{bgName}</div>
+                              <div style={{ fontSize: 11, color: theme.muted }}>Upload once — stays forever</div>
+                            </div>
+                            <button onClick={() => {
+                              setBg(null); setBgName("");
+                              try { localStorage.removeItem("showroom_bg"); localStorage.removeItem("showroom_bg_name"); } catch {}
+                            }} style={{ ...sBtn, background: "transparent", color: "#dc2626",
+                              border: "1px solid #fecaca", fontSize: 11, padding: "4px 10px" }}>
+                              ✕ Clear
+                            </button>
                           </div>
                         )}
                         {!bg && (
                           <span style={{ fontSize: 12, color: theme.muted }}>
-                            Upload the showroom image you shared — drag the file or click Upload
+                            Upload once — it saves automatically and reloads every time you open this tab
                           </span>
                         )}
                       </div>
