@@ -7213,10 +7213,10 @@ export default function App() {
   const [scanResults,  setScanResults]  = useState([]);
   const [scanLoading,  setScanLoading]  = useState(false);
   // Scanner filters — hoisted to top level (Rules of Hooks)
-  const [sfSig,      setSfSig]      = useState("ALL");   // signal filter
-  const [sfMinScore, setSfMinScore] = useState(0);        // min score
-  const [sfMaxPrice, setSfMaxPrice] = useState(0);        // max price (0=any)
-  const [sfZone,     setSfZone]     = useState("ALL");    // zone filter
+  const [sfSig,      setSfSig]      = useState(() => { try { return localStorage.getItem("sf_sig") || "ALL"; } catch { return "ALL"; } });
+  const [sfMinScore, setSfMinScore] = useState(() => { try { return Number(localStorage.getItem("sf_score") || "0"); } catch { return 0; } });
+  const [sfMaxPrice, setSfMaxPrice] = useState(0);
+  const [sfZone,     setSfZone]     = useState("ALL");
   const [scanProgress, setScanProgress] = useState({ done: 0, total: 30 });
   const [scanExpanded, setScanExpanded] = useState(null);
   const [scanLastRun,  setScanLastRun]  = useState(null);
@@ -12258,6 +12258,7 @@ export default function App() {
                         <SortH col="tech">TECH</SortH>
                         {!isTablet && <SortH col="fund">FUND</SortH>}
                         <th style={{ padding: "10px 8px", fontSize: 12, fontFamily: MONO, color: C.textDim, textAlign: "center", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>SIGNAL</th>
+                        <th style={{ padding: "10px 8px", fontSize: 12, fontFamily: MONO, color: C.textDim, textAlign: "center", borderBottom: `1px solid ${C.border}` }}>⚡</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -12420,6 +12421,27 @@ export default function App() {
                                   </div>
                                 );
                               })()}
+                            </td>
+                            {/* Quick Alert button */}
+                            <td style={{ padding: "6px 8px", borderTop: `1px solid ${C.border}`, textAlign: "center" }}>
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  const price = Number(q.price || 0);
+                                  const alertPx = prompt(`Set price alert for ${q.symbol} (current: $${price.toFixed(2)})`, price.toFixed(2));
+                                  if (alertPx && !isNaN(Number(alertPx))) {
+                                    const dir = Number(alertPx) >= price ? "above" : "below";
+                                    fetch("/api/alerts/price", { method: "POST", headers: {"Content-Type":"application/json"},
+                                      body: JSON.stringify({ symbol: q.symbol, target: Number(alertPx), direction: dir, note: `Quick alert from watchlist` })
+                                    }).catch(() => {});
+                                  }
+                                }}
+                                style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                  border: `1px solid ${C.amber}44`, background: `${C.amber}12`,
+                                  color: C.amber, borderRadius: 5, padding: "4px 7px", cursor: "pointer" }}
+                                title="Set price alert">
+                                🔔
+                              </button>
                             </td>
                           </tr>
                           {openNoteSymbol === q.symbol && (
@@ -14146,7 +14168,7 @@ export default function App() {
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
                     <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginRight: 2 }}>SIGNAL</span>
                     {["ALL","STRONG BUY","BUY","WATCH","NEUTRAL","AVOID"].map(s => (
-                      <button key={s} onClick={() => setSfSig(s)}
+                      <button key={s} onClick={() => { setSfSig(s); try{localStorage.setItem("sf_sig",s);}catch{} }}
                         style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, border: "none",
                           background: sfSig === s ? C.accent : C.surface,
                           color: sfSig === s ? "#fff" : C.textDim,
@@ -14180,7 +14202,7 @@ export default function App() {
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
                     <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginRight: 2 }}>MIN SCORE</span>
                     {[[0,"ALL"],[60,"60+"],[70,"70+"],[80,"80+"],[90,"90+"]].map(([v,lbl]) => (
-                      <button key={v} onClick={() => setSfMinScore(v)}
+                      <button key={v} onClick={() => { setSfMinScore(v); try{localStorage.setItem("sf_score",String(v));}catch{} }}
                         style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, border: "none",
                           background: sfMinScore === v ? C.green : C.surface,
                           color: sfMinScore === v ? "#fff" : C.textDim,
@@ -14207,8 +14229,8 @@ export default function App() {
                   <button
                     onClick={() => {
                       const isAPlus = sfMinScore === 80 && sfZone === "ALL" && sfSig === "ALL";
-                      if (isAPlus) { setSfMinScore(0); setSfZone("ALL"); setSfSig("ALL"); }
-                      else { setSfMinScore(80); setSfZone("ALL"); setSfSig("ALL"); }
+                      if (isAPlus) { setSfMinScore(0); setSfZone("ALL"); setSfSig("ALL"); try{localStorage.setItem("sf_score","0");localStorage.setItem("sf_sig","ALL");}catch{} }
+                      else { setSfMinScore(80); setSfZone("ALL"); setSfSig("ALL"); try{localStorage.setItem("sf_score","80");localStorage.setItem("sf_sig","ALL");}catch{} }
                     }}
                     style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, border: "none",
                       background: sfMinScore === 80 ? C.accent : `${C.accent}18`,
@@ -14731,6 +14753,27 @@ export default function App() {
                                               ))}
                                             </div>
                                           )}
+                                          {/* Copy Trade Plan */}
+                                          <button onClick={() => {
+                                            const px4 = Number(livePrice || row.quote?.price || 0);
+                                            const ma504 = Number(row.quote?.priceAvg50 || 0);
+                                            const s4 = ma504 > 0 ? (ma504*0.97).toFixed(2) : (px4*0.92).toFixed(2);
+                                            const plan = [
+                                              "TRADE PLAN — " + row.ticker,
+                                              "Verdict: " + vLabel + "  Alignment: " + composite + "/100",
+                                              "Entry: $" + px4.toFixed(2) + "  Stop: $" + s4,
+                                              "T1: $" + (px4*1.08).toFixed(2) + " (+8%)  T2: $" + (px4*1.15).toFixed(2) + " (+15%)",
+                                              vWarnings.length ? "Warnings: " + vWarnings.join(" | ") : "No warnings",
+                                              "Score: " + row.score + "/100  Generated: " + new Date().toLocaleString()
+                                            ].join("
+");
+                                            try { navigator.clipboard.writeText(plan); } catch {}
+                                          }}
+                                            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, border: "1px solid " + C.border,
+                                              background: C.surface, color: C.textDim, borderRadius: 6, padding: "4px 10px",
+                                              cursor: "pointer", marginTop: 8 }}>
+                                            📋 COPY TRADE PLAN
+                                          </button>
                                         </div>
                                       );
                                     })()}
