@@ -13807,15 +13807,19 @@ export default function App() {
                         return (
                           <React.Fragment key={q.symbol}>
                           <tr
+                            className="wl-row"
                             onClick={() => setSelectedStock(q)}
                             style={{ cursor: "pointer", transition: "background 0.1s" }}
-                            onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
-                            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                            onMouseEnter={e => { e.currentTarget.style.background = C.cardHover; const btns = e.currentTarget.querySelector(".wl-btns"); if(btns) btns.style.opacity="1"; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; const btns = e.currentTarget.querySelector(".wl-btns"); if(btns) btns.style.opacity="0"; }}
                           >
-                            <td style={{ padding: "10px 10px", borderBottom: `1px solid ${C.border}` }}>
-                              <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: 14, color: C.text }}>{q.symbol}</div>
-                              <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.name}</div>
-                              <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+                            <td style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, verticalAlign: "middle" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <div>
+                                  <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: 14, color: C.text }}>{q.symbol}</div>
+                                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.name}</div>
+                                </div>
+                                <div className="wl-btns" style={{ display: "flex", gap: 3, opacity: 0, transition: "opacity 0.15s" }}>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
                                   style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}
@@ -13864,14 +13868,15 @@ export default function App() {
                                 >
                                   ×
                                 </button>
+                                </div>
                               </div>
                               {watchlistNotes[q.symbol] && openNoteSymbol !== q.symbol && (
-                                <div style={{ fontFamily: MONO, fontSize: 12, color: C.amber, marginTop: 3, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                <div style={{ fontFamily: MONO, fontSize: 11, color: C.amber, marginTop: 2, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                   📝 {watchlistNotes[q.symbol]}
                                 </div>
                               )}
                             </td>
-                            <td style={{ padding: "10px 8px", fontFamily: MONO, fontSize: 15, color: C.text, textAlign: "right", borderBottom: `1px solid ${C.border}`, fontWeight: 700 }}>
+                            <td style={{ padding: "8px 8px", fontFamily: MONO, fontSize: 14, color: C.text, textAlign: "right", borderBottom: `1px solid ${C.border}`, fontWeight: 700, verticalAlign: "middle" }}>
                               ${q.price?.toFixed(2)}
                             </td>
                             <td style={{
@@ -13888,18 +13893,18 @@ export default function App() {
                               const extColor = marketSession === "PREMARKET" ? C.accent : C.amber;
                               const extBg = marketSession === "PREMARKET" ? C.accentGlow : C.amberBg;
                               return (
-                                <td style={{ padding: "10px 8px", fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "right", borderBottom: `1px solid ${C.border}`, color: extChg !== 0 ? extColor : C.textDim, background: extChg !== 0 ? extBg : "transparent" }}>
+                                <td style={{ padding: "8px 8px", fontFamily: MONO, fontSize: 13, fontWeight: 700, textAlign: "right", borderBottom: `1px solid ${C.border}`, verticalAlign: "middle", color: extChg !== 0 ? extColor : C.textDim, background: extChg !== 0 ? extBg : "transparent" }}>
                                   {extChg !== 0 ? `${extChg >= 0 ? "+" : ""}${extChg.toFixed(2)}%` : "—"}
                                 </td>
                               );
                             })()}
-                            {!isTablet && <td style={{ padding: "10px 8px", fontFamily: MONO, fontSize: 12, textAlign: "right", borderBottom: `1px solid ${C.border}`, color: (q.delta5m || 0) >= 0 ? C.green : C.red }}>
+                            {!isTablet && <td style={{ padding: "8px 8px", fontFamily: MONO, fontSize: 12, textAlign: "right", borderBottom: `1px solid ${C.border}`, verticalAlign: "middle", color: (q.delta5m || 0) >= 0 ? C.green : C.red }}>
                               {(q.delta5m || 0) >= 0 ? "+" : ""}{(q.delta5m || 0).toFixed(2)}%
                             </td>}
-                            {!isTablet && <td style={{ padding: "10px 8px", fontFamily: MONO, fontSize: 12, textAlign: "right", borderBottom: `1px solid ${C.border}`, color: (q.delta30m || 0) >= 0 ? C.green : C.red }}>
+                            {!isTablet && <td style={{ padding: "8px 8px", fontFamily: MONO, fontSize: 12, textAlign: "right", borderBottom: `1px solid ${C.border}`, verticalAlign: "middle", color: (q.delta30m || 0) >= 0 ? C.green : C.red }}>
                               {(q.delta30m || 0) >= 0 ? "+" : ""}{(q.delta30m || 0).toFixed(2)}%
                             </td>}
-                            <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>
+                            <td style={{ padding: "8px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, verticalAlign: "middle" }}>
                               <TrendTag trend={trend} />
                             </td>
                             <td style={{
@@ -13909,10 +13914,10 @@ export default function App() {
                             }}>
                               {rvol.toFixed(2)}x
                             </td>
-                            <td style={{ padding: "10px 8px", fontFamily: MONO, fontSize: 13, color: C.textSec, textAlign: "right", borderBottom: `1px solid ${C.border}` }}>
+                            <td style={{ padding: "8px 8px", fontFamily: MONO, fontSize: 13, color: C.textSec, textAlign: "right", borderBottom: `1px solid ${C.border}`, verticalAlign: "middle" }}>
                               {q.volume ? (q.volume / 1e6).toFixed(1) + "M" : "—"}
                             </td>
-                            {!isTablet && <td style={{ padding: "10px 8px", fontFamily: MONO, fontSize: 13, color: C.textSec, textAlign: "right", borderBottom: `1px solid ${C.border}` }}>
+                            {!isTablet && <td style={{ padding: "8px 8px", fontFamily: MONO, fontSize: 13, color: C.textSec, textAlign: "right", borderBottom: `1px solid ${C.border}`, verticalAlign: "middle" }}>
                               {formatNum(q.marketCap)}
                             </td>}
                             <td style={{ padding: "7px 6px", borderBottom: `1px solid ${C.border}`, minWidth: 65 }}>
