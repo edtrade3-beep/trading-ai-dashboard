@@ -121,17 +121,83 @@ function analyze(sym, bars, price) {
   };
 }
 
+// Step 1: batch quote all symbols cheaply — one HTTP call per 20 symbols
+function fetchBatchQuotes(syms) {
+  return new Promise(resolve => {
+    const url = `https://query1.finance.yahoo.com/v8/finance/spark?symbols=${syms.join(",")}&range=5d&interval=1d`;
+    const req = https.get(url, { headers: { "User-Agent": "Mozilla/5.0" } }, res => {
+      let d = ""; res.on("data", c => d += c);
+      res.on("end", () => {
+        try {
+          const j = JSON.parse(d);
+          const spark = j?.spark?.result || [];
+          const out = {};
+          spark.forEach(s => {
+            if (!s?.symbol) return;
+            const closes = s?.response?.[0]?.indicators?.quote?.[0]?.close?.filter(Boolean) || [];
+            const volumes = s?.response?.[0]?.indicators?.quote?.[0]?.volume?.filter(Boolean) || [];
+            const meta = s?.response?.[0]?.meta || {};
+            out[s.symbol.toUpperCase()] = {
+              price: meta.regularMarketPrice || closes[closes.length - 1] || 0,
+              hi52: meta.fiftyTwoWeekHigh || 0,
+              lo52: meta.fiftyTwoWeekLow || 0,
+              closes, volumes,
+            };
+          });
+          resolve(out);
+        } catch { resolve({}); }
+      });
+    });
+    req.on("error", () => resolve({}));
+    req.setTimeout(8000, () => { req.destroy(); resolve({}); });
+  });
+}
+
+// Step 2: pre-filter — only candidates worth fetching full history for
+function isCandidate(q) {
+  if (!q || q.price <= 0) return false;
+  // Must be within 20% of 52w high (near breakout zone)
+  const nearHigh = q.hi52 > 0 ? (q.hi52 - q.price) / q.hi52 * 100 : 100;
+  if (nearHigh > 20) return false;
+  // Volume trend: last 2 days below 5-day average
+  const vols = q.volumes;
+  if (vols.length >= 4) {
+    const recent = (vols[vols.length - 1] + (vols[vols.length - 2] || 0)) / 2;
+    const avg    = vols.reduce((a, b) => a + b, 0) / vols.length;
+    if (avg > 0 && recent / avg > 1.2) return false; // volume spiking = NOT compressing
+  }
+  // Not in free-fall: last close > 3 days ago close
+  const cls = q.closes;
+  if (cls.length >= 4) {
+    const pct = (cls[cls.length - 1] - cls[0]) / cls[0] * 100;
+    if (pct < -15) return false; // dropped >15% in 5 days = trending down hard
+  }
+  return true;
+}
+
 async function runCompression(symbols) {
-  const syms = symbols && symbols.length ? symbols : UNIVERSE;
-  // Deduplicate
-  const uniq = [...new Set(syms)];
-  // Fetch in batches of 10
+  const syms = [...new Set(symbols && symbols.length ? symbols : UNIVERSE)];
+
+  // ── Step 1: Batch quotes for all symbols (fast) ──
+  const QCHUNK = 20;
+  const quoteMap = {};
+  for (let i = 0; i < syms.length; i += QCHUNK) {
+    const chunk = syms.slice(i, i + QCHUNK);
+    const q = await fetchBatchQuotes(chunk);
+    Object.assign(quoteMap, q);
+  }
+
+  // ── Step 2: Pre-filter to candidates only ──
+  const candidates = syms.filter(s => isCandidate(quoteMap[s]));
+  console.log(`[Compression] ${syms.length} stocks → ${candidates.length} candidates after pre-filter`);
+
+  // ── Step 3: Full history + analysis only for candidates ──
   const results = [];
-  for (let i = 0; i < uniq.length; i += 10) {
-    const batch = await Promise.all(uniq.slice(i, i + 10).map(s => fetchHistory(s)));
+  for (let i = 0; i < candidates.length; i += 10) {
+    const batch = await Promise.all(candidates.slice(i, i + 10).map(s => fetchHistory(s)));
     for (const { sym, bars, price } of batch) {
       const r = analyze(sym, bars, price);
-      if (r && r.score >= 20) results.push(r); // lower threshold = more results
+      if (r && r.score >= 20) results.push(r);
     }
   }
   return results.sort((a, b) => b.score - a.score);
