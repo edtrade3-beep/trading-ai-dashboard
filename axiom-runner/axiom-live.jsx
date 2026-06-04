@@ -347,7 +347,7 @@ const WATCHLIST_SYMBOLS = [
   // Healthcare & biotech
   "UNH","LLY","ABBV","MRK","PFE","TMO","ISRG","AMGN","VRTX","REGN",
   // Consumer & retail
-  "COST","WMT","HD","MCD","NKE","SBUX","CMG","TGT","AMZN",
+  "COST","WMT","HD","MCD","NKE","SBUX","CMG","TGT",
   // Energy
   "XOM","CVX","COP","OXY","SLB",
   // Industrial & defense
@@ -8609,6 +8609,28 @@ export default function App() {
   const [macroData, setMacroData] = useState([]);
   const [sectorData, setSectorData] = useState([]);
   const [selectedStock, setSelectedStock] = useState(null);
+
+  // ── selectedStock → redirect to Smart Scanner deep dive (useEffect, NOT during render) ──
+  useEffect(() => {
+    if (!selectedStock) return;
+    const sym = selectedStock.symbol || selectedStock.ticker;
+    if (!sym) { setSelectedStock(null); return; }
+    const sc = computeScores(selectedStock).composite || 50;
+    setScanResults(prev => prev.some(r => r.ticker === sym) ? prev : [{
+      ticker: sym, score: sc, signal: "WATCH", scannerScore: sc, signals: [], sColor: "#f59e0b",
+      quote: { price: selectedStock.price || 0, changePercent: selectedStock.changesPercentage || 0,
+        yearHigh: selectedStock.yearHigh, yearLow: selectedStock.yearLow,
+        priceAvg50: selectedStock.priceAvg50, priceAvg200: selectedStock.priceAvg200,
+        volume: selectedStock.volume, avgVolume: selectedStock.avgVolume },
+      candles: null, rsiVal: null, macdBull: null, ema9v: null, ema21v: null,
+    }, ...prev]);
+    setSfSig("ALL"); setSfMinScore(0);
+    setActiveTab("smartscan");
+    setSelectedStock(null);
+    setTimeout(() => { setScanExpanded(sym); loadDeepDive(sym); loadDeepSocial(sym); }, 80);
+    setTimeout(() => fetchTradeSetup(sym, { ticker: sym, score: sc, signal: "WATCH", signals: [], quote: { price: selectedStock.price || 0 } }), 1300);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStock]);
   const [terminalSymbol, setTerminalSymbol] = useState(WATCHLIST_SYMBOLS[0]);
   const [myTvChartUrl,   setMyTvChartUrl]   = useState(() => { try { return localStorage.getItem("my_tv_chart_url") || ""; } catch { return ""; } });
   const [tvChartMode,    setTvChartMode]     = useState(() => { try { return localStorage.getItem("tv_chart_mode") || "widget"; } catch { return "widget"; } }); // "widget" | "my_chart"
@@ -25367,31 +25389,7 @@ export default function App() {
       )}
 
       {/* Old DeepDive replaced by Smart Scanner deep dive */}
-      {selectedStock && (() => {
-        const sym = selectedStock.symbol || selectedStock.ticker;
-        if (sym) {
-          // Redirect to Smart Scanner deep dive
-          setScanResults(prev => prev.some(r => r.ticker === sym) ? prev : [{
-            ticker: sym, score: computeScores(selectedStock).composite || 50,
-            signal: "WATCH", scannerScore: 50, signals: [], sColor: "#f59e0b",
-            quote: { price: selectedStock.price || 0, changePercent: selectedStock.changesPercentage || 0,
-              yearHigh: selectedStock.yearHigh, yearLow: selectedStock.yearLow,
-              priceAvg50: selectedStock.priceAvg50, priceAvg200: selectedStock.priceAvg200,
-              volume: selectedStock.volume, avgVolume: selectedStock.avgVolume },
-            candles: null, rsiVal: null, macdBull: null, ema9v: null, ema21v: null,
-          }, ...prev]);
-          setSfSig("ALL"); setSfMinScore(0);
-          setActiveTab("smartscan");
-          setTimeout(() => {
-            setScanExpanded(sym);
-            loadDeepDive(sym);
-            loadDeepSocial(sym);
-          }, 80);
-          setTimeout(() => fetchTradeSetup(sym, { ticker: sym, score: 50, signal: "WATCH", signals: [], quote: { price: selectedStock.price || 0 } }), 1300);
-          setSelectedStock(null);
-        }
-        return null;
-      })()}
+      {/* selectedStock redirect — handled by useEffect below, NOT during render */}
 
       {shortcutHelpOpen && (
         <div onClick={() => setShortcutHelpOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(8,18,34,0.55)", zIndex: 1300, display: "grid", placeItems: "center" }}>
