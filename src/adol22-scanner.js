@@ -353,16 +353,111 @@ async function runAdol22(watchlistSymbols) {
     return;
   }
 
-  if (bull) await sendAdol22Alert(bull, "BULL");
-  if (bear) await sendAdol22Alert(bear, "BEAR");
+  lastScanTime = new Date().toISOString();
+  lastScanResult = { bull: bull ? { sym: bull.sym, pattern: bull.pattern.name, confidence: Math.round(bull.total), price: bull.price } : null,
+                     bear: bear ? { sym: bear.sym, pattern: bear.pattern.name, confidence: Math.round(bear.total), price: bear.price } : null,
+                     spyChg: Math.round(spyChg * 100) / 100, vix: Math.round(vixPrice * 10) / 10 };
+
+  if (bull) {
+    await sendAdol22Alert(bull, "BULL");
+    saveHistory({ type: "BULL", sym: bull.sym, pattern: bull.pattern.name, price: bull.price, confidence: Math.round(bull.total), reasons: bull.scoring.reasons });
+  }
+  if (bear) {
+    await sendAdol22Alert(bear, "BEAR");
+    saveHistory({ type: "BEAR", sym: bear.sym, pattern: bear.pattern.name, price: bear.price, confidence: Math.round(bear.total), reasons: bear.scoring.reasons });
+  }
 }
 
-// ── API endpoint — latest scan + manual trigger ───────────────────────────────
+// ── More patterns — added to detectPatterns ──────────────────────────────────
+// (patch detectPatterns to add more)
+const _origDetect = detectPatterns;
+function detectPatterns(bars) {
+  const base = _origDetect(bars);
+  if (bars.length < 4) return base;
+  const prev3 = bars[bars.length - 4];
+  const prev2 = bars[bars.length - 3];
+  const prev  = bars[bars.length - 2];
+  const curr  = bars[bars.length - 1];
+
+  // Pin Bar (long wick rejection)
+  const lw = lowerWick(curr), uw = upperWick(curr), body = bodySize(curr), range = totalRange(curr);
+  if (range > 0 && lw >= range * 0.6 && body <= range * 0.25) {
+    base.push({ type: "BULL", name: "Bullish Pin Bar", strength: 80 });
+  }
+  if (range > 0 && uw >= range * 0.6 && body <= range * 0.25) {
+    base.push({ type: "BEAR", name: "Bearish Pin Bar", strength: 80 });
+  }
+
+  // Three White Soldiers (3 consecutive bull candles, each closes higher)
+  if ([prev3, prev2, prev, curr].every(b => isBodyUp(b)) &&
+      prev2.c > prev3.c && prev.c > prev2.c && curr.c > prev.c) {
+    base.push({ type: "BULL", name: "Three White Soldiers", strength: 87 });
+  }
+
+  // Three Black Crows (3 consecutive bear candles)
+  if ([prev3, prev2, prev, curr].every(b => isBodyDown(b)) &&
+      prev2.c < prev3.c && prev.c < prev2.c && curr.c < prev.c) {
+    base.push({ type: "BEAR", name: "Three Black Crows", strength: 87 });
+  }
+
+  // Doji Reversal (very small body after strong candle)
+  if (bodySize(prev) > totalRange(prev) * 0.6 && isBodyDown(prev) &&
+      bodySize(curr) < totalRange(curr) * 0.1 && curr.v > prev.v) {
+    base.push({ type: "BULL", name: "Doji Reversal (Bull)", strength: 76 });
+  }
+  if (bodySize(prev) > totalRange(prev) * 0.6 && isBodyUp(prev) &&
+      bodySize(curr) < totalRange(curr) * 0.1 && curr.v > prev.v) {
+    base.push({ type: "BEAR", name: "Doji Reversal (Bear)", strength: 76 });
+  }
+
+  // VWAP Rejection — needs VWAP in scope — approximate here
+  // Strong bounce off a round number
+  const roundLevels = [50,100,150,200,250,300,400,500,750,1000].map(n => n);
+  const price = curr.c;
+  for (const lvl of roundLevels) {
+    if (Math.abs(price - lvl) / lvl < 0.005 && isBodyUp(curr) && lw > body) {
+      base.push({ type: "BULL", name: `Round Level Bounce $${lvl}`, strength: 78 });
+      break;
+    }
+    if (Math.abs(price - lvl) / lvl < 0.005 && isBodyDown(curr) && uw > body) {
+      base.push({ type: "BEAR", name: `Round Level Rejection $${lvl}`, strength: 78 });
+      break;
+    }
+  }
+
+  return base;
+}
+
+// ── Signal history storage ─────────────────────────────────────────────────────
+const fs   = require("fs");
+const path = require("path");
+const HISTORY_FILE = path.join(__dirname, "../data/adol22-history.json");
+const MAX_HISTORY  = 50;
+
+function loadHistory() {
+  try {
+    if (!fs.existsSync(HISTORY_FILE)) return [];
+    return JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8"));
+  } catch { return []; }
+}
+
+function saveHistory(entry) {
+  try {
+    const dir = path.join(__dirname, "../data");
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const hist = loadHistory();
+    hist.unshift({ ...entry, savedAt: new Date().toISOString() });
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(hist.slice(0, MAX_HISTORY), null, 2));
+  } catch {}
+}
+
+// ── API endpoint — latest scan + history + manual trigger ─────────────────────
 let lastScanResult = null;
 let lastScanTime   = null;
 
 async function handleAdol22Api(req, res, requestUrl) {
   const { writeJson } = require("./utils");
+
   if (requestUrl.pathname === "/api/adol22/scan" && req.method === "POST") {
     try {
       const { loadSettings } = require("./settings-store");
@@ -372,10 +467,22 @@ async function handleAdol22Api(req, res, requestUrl) {
       return writeJson(res, 200, { ok: true, message: "ADOL22 scan started" });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
-  if (requestUrl.pathname === "/api/adol22/status") {
-    return writeJson(res, 200, { ok: true, lastScan: lastScanTime, cooldowns: Object.fromEntries(cooldownMap) });
+
+  if (requestUrl.pathname === "/api/adol22/history") {
+    return writeJson(res, 200, { ok: true, history: loadHistory() });
   }
+
+  if (requestUrl.pathname === "/api/adol22/status") {
+    return writeJson(res, 200, {
+      ok: true,
+      lastScan: lastScanTime,
+      lastResult: lastScanResult,
+      totalPatterns: 16,
+      history: loadHistory().slice(0, 5),
+    });
+  }
+
   return null;
 }
 
-module.exports = { runAdol22, handleAdol22Api };
+module.exports = { runAdol22, handleAdol22Api, saveHistory };
