@@ -5555,6 +5555,40 @@ function RecapTab({ C, MONO, SANS }) {
 
       {recap && (
         <>
+          {/* Download bar — visible immediately when any file is ready */}
+          {(recap.voiceGenerated || recap.videoUrl) && (
+            <div style={{ background: `${C.green}10`, border: `1px solid ${C.green}44`, borderRadius: 12,
+              padding: "14px 16px", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.green, flex: 1 }}>
+                ✅ Files ready — download below
+              </span>
+              {recap.voiceGenerated && (
+                <a href="/api/recap/audio" download="market-recap.mp3"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO,
+                    fontSize: 12, fontWeight: 800, textDecoration: "none", padding: "8px 18px",
+                    borderRadius: 7, background: C.accent, color: "#fff" }}>
+                  ⬇ MP3
+                </a>
+              )}
+              {recap.videoUrl && (
+                <a href="/api/recap/video" download="market-recap.mp4"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO,
+                    fontSize: 12, fontWeight: 800, textDecoration: "none", padding: "8px 18px",
+                    borderRadius: 7, background: "#16a34a", color: "#fff" }}>
+                  ⬇ MP4
+                </a>
+              )}
+              {recap.script && (
+                <button onClick={() => navigator.clipboard?.writeText(recap.script).catch(() => {})}
+                  style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 18px",
+                    borderRadius: 7, border: `1px solid ${C.border}`, background: C.surface,
+                    color: C.text, cursor: "pointer" }}>
+                  📋 Script
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Market snapshot */}
           {data && (
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 }}>
@@ -5604,9 +5638,11 @@ function RecapTab({ C, MONO, SANS }) {
                 Your browser does not support audio.
               </audio>
               <a href="/api/recap/audio" download="market-recap.mp3"
-                style={{ display: "inline-block", marginTop: 8, fontFamily: MONO, fontSize: 11,
-                  color: C.accent, textDecoration: "none" }}>
-                ⬇ Download MP3
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 12,
+                  fontFamily: MONO, fontSize: 13, fontWeight: 800, textDecoration: "none",
+                  background: C.accent, color: "#fff", padding: "10px 20px",
+                  borderRadius: 8, width: "100%", justifyContent: "center", boxSizing: "border-box" }}>
+                ⬇ DOWNLOAD MP3
               </a>
             </div>
           )}
@@ -5621,12 +5657,19 @@ function RecapTab({ C, MONO, SANS }) {
                 src="/api/recap/video">
                 Your browser does not support video.
               </video>
-              <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
                 <a href="/api/recap/video" download="market-recap.mp4"
-                  style={{ fontFamily: MONO, fontSize: 11, color: C.accent, textDecoration: "none" }}>
-                  ⬇ Download MP4
+                  style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    fontFamily: MONO, fontSize: 13, fontWeight: 800, textDecoration: "none",
+                    background: "#16a34a", color: "#fff", padding: "10px 20px", borderRadius: 8 }}>
+                  ⬇ DOWNLOAD MP4
                 </a>
-                <span style={{ color: C.textDim, fontSize: 11, fontFamily: SANS }}>Ready for YouTube upload</span>
+                <a href="/api/recap/video" download="market-recap.mp4"
+                  style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    fontFamily: MONO, fontSize: 12, fontWeight: 700, textDecoration: "none",
+                    background: "#ff0000", color: "#fff", padding: "10px 16px", borderRadius: 8 }}>
+                  ▶ Upload to YouTube
+                </a>
               </div>
             </div>
           )}
