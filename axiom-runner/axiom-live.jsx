@@ -13381,11 +13381,8 @@ export default function App() {
               }}
               style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}
             >☁ LOAD</button>
-            <a href="/dealer" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>DEALER</a>
-            <button onClick={generateMarketReport} style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>MARKET RESET</button>
-            <button onClick={handleLock} style={{ background: `${C.red}10`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>LOCK</button>
-            <button onClick={() => setPaletteOpen(true)} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>CMD</button>
-            <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>
+            <button onClick={handleLock} style={{ background: `${C.red}10`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, cursor: "pointer", height: 24 }}>🔒 LOCK</button>
+            <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 14, padding: "0 8px", borderRadius: 6, cursor: "pointer", height: 24 }}>
               {themeMode === "dark" ? "☀" : "●"}
             </button>
 
@@ -15045,42 +15042,6 @@ export default function App() {
                   ▼ BRIEF & ALERTS
                 </div>
               )}
-              {/* Morning Brief */}
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>MORNING BRIEF</div>
-                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    {briefAt && <span style={{ fontSize: 12, fontFamily: MONO, color: C.textDim }}>{briefAt}</span>}
-                    <button
-                      onClick={runMorningBrief}
-                      disabled={briefLoading}
-                      style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}14`, color: C.accent, borderRadius: 6, padding: "3px 8px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-                    >
-                      {briefLoading ? "..." : briefText ? "REFRESH" : "BRIEF ME"}
-                    </button>
-                  </div>
-                </div>
-                {briefText ? (
-                  <>
-                    <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, lineHeight: 1.45, whiteSpace: "pre-wrap", maxHeight: briefExpanded ? "none" : 120, overflow: "hidden" }}>
-                      {briefText}
-                    </div>
-                    <button
-                      onClick={() => setBriefExpanded(x => !x)}
-                      style={{ marginTop: 6, border: "none", background: "none", color: C.accent, fontFamily: MONO, fontSize: 12, cursor: "pointer", padding: 0 }}
-                    >
-                      {briefExpanded ? "COLLAPSE ▲" : "EXPAND ▼"}
-                    </button>
-                  </>
-                ) : (
-                  <div style={{ fontSize: 12, fontFamily: SANS, color: C.textDim }}>
-                    Click BRIEF ME for an AI-generated market summary.
-                  </div>
-                )}
-              </div>
-              {/* Alerts Feed */}
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                   <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
                     ALERT FEED
                   </div>
@@ -15138,90 +15099,10 @@ export default function App() {
                 })}
               </div>
 
-              {/* Daily Economic Calendar */}
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em" }}>
-                    DAILY ECONOMIC CALENDAR
-                  </div>
-                  <Badge color={(econCalendarRows || []).some((e) => e.phase === "live" || e.phase === "imminent") ? C.red : C.green}>
-                    {(econCalendarRows || []).some((e) => e.phase === "live" || e.phase === "imminent") ? "RISK WINDOW" : "NORMAL"}
-                  </Badge>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
-                  <button
-                    onClick={() => setSettings((s) => ({ ...s, econCalendarView: "today" }))}
-                    style={{ border: `1px solid ${econCalendarView === "today" ? C.accent : C.border}`, background: econCalendarView === "today" ? `${C.accent}14` : C.surface, color: econCalendarView === "today" ? C.accent : C.textSec, borderRadius: 6, padding: "4px 6px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-                  >
-                    TODAY
-                  </button>
-                  <button
-                    onClick={() => setSettings((s) => ({ ...s, econCalendarView: "week" }))}
-                    style={{ border: `1px solid ${econCalendarView === "week" ? C.accent : C.border}`, background: econCalendarView === "week" ? `${C.accent}14` : C.surface, color: econCalendarView === "week" ? C.accent : C.textSec, borderRadius: 6, padding: "4px 6px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-                  >
-                    THIS WEEK
-                  </button>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
-                  <button
-                    onClick={() => setSettings((s) => ({ ...s, econCalendarRegion: "US" }))}
-                    style={{ border: `1px solid ${econCalendarRegion === "US" ? C.green : C.border}`, background: econCalendarRegion === "US" ? `${C.green}14` : C.surface, color: econCalendarRegion === "US" ? C.green : C.textSec, borderRadius: 6, padding: "4px 6px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-                  >
-                    US ONLY
-                  </button>
-                  <button
-                    onClick={() => setSettings((s) => ({ ...s, econCalendarRegion: "GLOBAL" }))}
-                    style={{ border: `1px solid ${econCalendarRegion === "GLOBAL" ? C.purple : C.border}`, background: econCalendarRegion === "GLOBAL" ? `${C.purple}14` : C.surface, color: econCalendarRegion === "GLOBAL" ? C.purple : C.textSec, borderRadius: 6, padding: "4px 6px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-                  >
-                    GLOBAL
-                  </button>
-                </div>
-                <button
-                  onClick={() => setSettings((s) => ({ ...s, econAutoRisk30m: !econAutoRisk30m }))}
-                  style={{ width: "100%", marginBottom: 8, border: `1px solid ${econAutoRisk30m ? C.red : C.border}`, background: econAutoRisk30m ? `${C.red}14` : C.surface, color: econAutoRisk30m ? C.red : C.textSec, borderRadius: 6, padding: "5px 8px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-                >
-                  {econAutoRisk30m ? "AUTO REDUCE RISK T-30M: ON" : "AUTO REDUCE RISK T-30M: OFF"}
-                </button>
-                {(econCalendarRows || [])
-                  .map((e) => (
-                    <div key={`daily-eco-${e.id}`} style={{
-                      borderBottom: `1px solid ${C.border}`,
-                      padding: "6px 0",
-                      display: "grid",
-                      gridTemplateColumns: "54px 1fr 78px",
-                      gap: 8,
-                      alignItems: "center",
-                    }}>
-                      <div>
-                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent }}>{e.tag}</span>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: e.severity === "high" ? C.red : e.severity === "medium" ? C.amber : C.green, fontWeight: 700 }}>
-                          {e.impact || String(e.severity || "").toUpperCase()}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.3 }}>{e.title}</div>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-                          {e.region} • {e.time.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                        </div>
-                      </div>
-                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, textAlign: "right", color: e.phase === "live" ? C.red : e.phase === "imminent" ? C.amber : C.textSec }}>
-                        {e.phase === "live" ? "LIVE" : formatCountdown(e.tteMs)}
-                      </span>
-                    </div>
-                  ))}
-                {!((econCalendarRows || []).length) && (
-                  <div style={{ fontSize: 12, fontFamily: SANS, color: C.textDim }}>
-                    No major events in selected window.
-                  </div>
-                )}
-              </div>
 
               {/* Weather */}
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em" }}>
-                    WEATHER ({WEATHER_ZIP})
-                  </div>
                   <button
                     onClick={fetchWeather}
                     style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
@@ -15247,11 +15128,6 @@ export default function App() {
                 {!weatherError && !weatherData && <div style={{ fontSize: 12, color: C.textDim }}>Loading weather...</div>}
               </div>
 
-              {/* Sector Heatmap */}
-              <div>
-                <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 8 }}>
-                  SECTOR HEATMAP
-                </div>
                 <SectorHeatmap data={sectorData} />
               </div>
 
