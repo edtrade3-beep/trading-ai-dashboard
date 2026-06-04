@@ -25,6 +25,7 @@ const { handleAutoExec } = require("./routes/autoexec");
 const { handleLiquidations } = require("./routes/liquidations");
 const { handleMonitorExtras } = require("./routes/monitor-extras");
 const { handleRecapApi }      = require("./market-recap");
+const { handleAdol22Api }     = require("./adol22-scanner");
 const { handleSqueeze }       = require("./routes/squeeze");
 const { handleCompression }   = require("./routes/compression");
 const { handleInsider }       = require("./routes/insider");
@@ -83,6 +84,11 @@ async function handleRequest(req, res) {
 
     if (pathname === "/api/crypto/liquidations") {
       return handleLiquidations(req, res, requestUrl);
+    }
+
+    if (pathname.startsWith("/api/adol22/")) {
+      const handled = await handleAdol22Api(req, res, requestUrl);
+      if (handled !== null) return;
     }
 
     if (pathname.startsWith("/api/recap/")) {

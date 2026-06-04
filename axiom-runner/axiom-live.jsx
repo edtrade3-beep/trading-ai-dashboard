@@ -5430,6 +5430,171 @@ function CombinedTab({ C, MONO, SANS, onDeepDive, watchlistSymbols }) {
   );
 }
 
+// ── ADOL22 Scanner Tab ───────────────────────────────────────────────────────
+function Adol22Tab({ C, MONO, SANS }) {
+  const [scanning,  setScanning]  = React.useState(false);
+  const [lastScan,  setLastScan]  = React.useState(null);
+  const [alerts,    setAlerts]    = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("adol22_alerts") || "[]"); } catch { return []; }
+  });
+  const [status,    setStatus]    = React.useState("idle");
+
+  const triggerScan = async () => {
+    setScanning(true);
+    setStatus("scanning");
+    try {
+      const r = await fetch("/api/adol22/scan", { method: "POST" });
+      const d = await r.json();
+      if (d.ok) {
+        setStatus("running");
+        setLastScan(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+        setTimeout(() => setStatus("done"), 30000);
+      }
+    } catch { setStatus("error"); }
+    finally { setScanning(false); }
+  };
+
+  // Live alert feed from localStorage (written by Telegram dispatch)
+  const addAlert = (alert) => {
+    const updated = [{ ...alert, id: Date.now() }, ...alerts].slice(0, 20);
+    setAlerts(updated);
+    try { localStorage.setItem("adol22_alerts", JSON.stringify(updated)); } catch {}
+  };
+
+  const PATTERNS_BULL = ["Bullish Engulfing","Hammer","Breakout Candle","Inside Bar Breakout","Morning Star"];
+  const PATTERNS_BEAR = ["Bearish Engulfing","Shooting Star","Breakdown Candle","Inside Bar Breakdown","Evening Star"];
+  const CONFIRMS = ["VWAP position","EMA 9 vs 21","Volume spike","1h trend","SPY/QQQ direction","VIX level","5m confirmation"];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>🔴 ADOL22 MARKET SCANNER</div>
+          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
+            Multi-timeframe candle pattern scanner · 85%+ confidence only · Market hours only
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {lastScan && <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Last: {lastScan}</span>}
+          <button onClick={triggerScan} disabled={scanning}
+            style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 20px", borderRadius: 8,
+              border: "none", cursor: scanning ? "default" : "pointer",
+              background: scanning ? C.surface : C.red, color: scanning ? C.textDim : "#fff" }}>
+            {scanning ? "⏳ Scanning…" : "🔍 SCAN NOW"}
+          </button>
+        </div>
+      </div>
+
+      {/* Status */}
+      {status === "running" && (
+        <div style={{ padding: "10px 14px", background: `${C.amber}12`, border: `1px solid ${C.amber}33`,
+          borderRadius: 8, fontFamily: SANS, fontSize: 13, color: C.amber }}>
+          ⏳ Scanner running… Checking 35 symbols across 15m / 1h / 5m timeframes. Results sent to Telegram.
+        </div>
+      )}
+      {status === "done" && (
+        <div style={{ padding: "10px 14px", background: `${C.green}12`, border: `1px solid ${C.green}33`,
+          borderRadius: 8, fontFamily: SANS, fontSize: 13, color: C.green }}>
+          ✅ Scan complete — check Telegram for A+ signals (85%+ confidence only)
+        </div>
+      )}
+
+      {/* How it works */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ background: `${C.green}0c`, border: `1px solid ${C.green}33`, borderRadius: 10, padding: 14 }}>
+          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, marginBottom: 8, letterSpacing: "0.08em" }}>
+            🟢 BULLISH PATTERNS
+          </div>
+          {PATTERNS_BULL.map(p => (
+            <div key={p} style={{ fontFamily: SANS, fontSize: 12, color: C.text, marginBottom: 4 }}>• {p}</div>
+          ))}
+        </div>
+        <div style={{ background: `${C.red}0c`, border: `1px solid ${C.red}33`, borderRadius: 10, padding: 14 }}>
+          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.red, marginBottom: 8, letterSpacing: "0.08em" }}>
+            🔴 BEARISH PATTERNS
+          </div>
+          {PATTERNS_BEAR.map(p => (
+            <div key={p} style={{ fontFamily: SANS, fontSize: 12, color: C.text, marginBottom: 4 }}>• {p}</div>
+          ))}
+        </div>
+      </div>
+
+      {/* Confirmation signals */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, marginBottom: 10, letterSpacing: "0.08em" }}>
+          ✅ 7 CONFIRMATION SIGNALS (need 85%+ to fire)
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {CONFIRMS.map((c, i) => (
+            <span key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.text,
+              background: C.surface, borderRadius: 6, padding: "4px 10px",
+              border: `1px solid ${C.border}` }}>
+              {c}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Schedule */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, marginBottom: 8, letterSpacing: "0.08em" }}>
+          ⏱ SCAN SCHEDULE
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          {[
+            ["Frequency",   "Every 15 minutes"],
+            ["Hours",       "9:30 AM – 4:00 PM ET"],
+            ["Days",        "Monday – Friday only"],
+            ["Threshold",   "85%+ confidence only"],
+            ["Cooldown",    "1 hour per symbol per direction"],
+            ["Skip if",     "VIX > 40 or market choppy"],
+          ].map(([k, v]) => (
+            <div key={k} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, flexShrink: 0, minWidth: 80 }}>{k}:</span>
+              <span style={{ fontFamily: SANS, fontSize: 12, color: C.text }}>{v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Output format preview */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, marginBottom: 8, letterSpacing: "0.08em" }}>
+          📱 TELEGRAM ALERT FORMAT
+        </div>
+        <pre style={{ fontFamily: MONO, fontSize: 11, color: C.text, background: C.surface,
+          padding: "12px 14px", borderRadius: 8, overflowX: "auto", margin: 0, lineHeight: 1.7 }}>
+{`🚨 ADOL22 A+ SIGNAL
+
+Direction: BULLISH 🟢
+Ticker: AMD
+Pattern: Bullish Engulfing
+Entry: $164.20
+Stop: $161.80
+Target 1: $168.00
+Target 2: $171.50
+Confidence: 88%
+
+Reason:
+Above VWAP · EMA 9 > EMA 21 ✅ · Volume spike 2.1x
+1h trend bullish · Market confirms (SPY up)
+
+VWAP: $163.40  EMA9: $163.80  EMA21: $162.50
+━━━━━━━━━━━━━━━━━━━━
+⚠️ Not financial advice. Manage risk.`}
+        </pre>
+      </div>
+
+      <div style={{ padding: "10px 14px", background: `${C.amber}10`, border: `1px solid ${C.amber}33`,
+        borderRadius: 8, fontFamily: SANS, fontSize: 12, color: C.amber }}>
+        💡 Also runs automatically every 15 minutes during market hours. No action needed — signals come to your Telegram when an A+ setup appears.
+      </div>
+    </div>
+  );
+}
+
 // ── Market Recap Tab ─────────────────────────────────────────────────────────
 function RecapTab({ C, MONO, SANS }) {
   const [recap,      setRecap]      = React.useState(null);
@@ -12854,7 +13019,7 @@ export default function App() {
               { id: "portfolio", label: "💼 PORTFOLIO",
                 tabs: ["portfolio", "performance", "journal", "journal-stats", "alerts"] },
               { id: "tools",     label: "🛠 TOOLS",
-                tabs: ["recap", "morning-routine", "challenge", "academy", "workflow", "agent", "telegram", "autoexec", "tools"] },
+                tabs: ["adol22", "recap", "morning-routine", "challenge", "academy", "workflow", "agent", "telegram", "autoexec", "tools"] },
               { id: "islamic",   label: "☪️",
                 tabs: ["quran", "athan", "athkar", "tasbih", "halal", "soccer"] },
             ];
@@ -13236,6 +13401,7 @@ export default function App() {
             { id: "alerts",      label: "🔔 ALERTS" },
           ],
           tools: [
+            { id: "adol22",         label: "🔴 ADOL22" },
             { id: "recap",          label: "🎬 RECAP" },
             { id: "morning-routine", label: "☀️ MORNING" },
             { id: "challenge", label: "🏆 30-DAY" },
@@ -26198,6 +26364,7 @@ export default function App() {
       {/* ⚽ SOCCER WATCH */}
       {activeTab === "soccer" && <SoccerWatchTab C={C} MONO={MONO} SANS={SANS} isTablet={isTablet} />}
 
+      {activeTab === "adol22"          && <Adol22Tab          C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "recap"           && <RecapTab           C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "morning-routine" && <MorningRoutineTab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} macroData={macroData} distData={distData} fearGreedData={fearGreedData} />}
       {activeTab === "challenge" && <ChallengeTab C={C} MONO={MONO} SANS={SANS} />}

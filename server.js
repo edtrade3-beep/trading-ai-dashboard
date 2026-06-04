@@ -29,6 +29,7 @@ const { checkDealWatches }   = require("./src/routes/deals");
 const { startCOTScheduler }  = require("./src/cot/scheduler");
 const { startPreMarketAlerts } = require("./src/premarket-alerts");
 const { runMarketRecap }       = require("./src/market-recap");
+const { runAdol22, handleAdol22Api } = require("./src/adol22-scanner");
 const { updateCOTData, isDataFresh } = require("./src/cot/cotService");
 
 const server = http.createServer(handleRequest);
@@ -108,6 +109,17 @@ server.listen(PORT, HOST, () => {
     }
   }, 60_000);
   console.log("[Recap] 3:45 PM market recap scheduled — weekdays only");
+
+  // ADOL22 — scan every 15 min during market hours (9:30 AM – 4:00 PM ET)
+  setInterval(() => {
+    try {
+      const { loadSettings } = require("./src/settings-store");
+      const s  = loadSettings() || {};
+      const wl = Array.isArray(s.watchlistSymbols) ? s.watchlistSymbols : [];
+      runAdol22(wl).catch(() => {});
+    } catch {}
+  }, 15 * 60_000);
+  console.log("[ADOL22] Market scanner active — every 15 min, market hours only");
 
   // Deal watches: disabled from Telegram (not trading-related)
   // setInterval(checkDealWatches, 30 * 60 * 1000);
