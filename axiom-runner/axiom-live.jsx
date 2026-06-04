@@ -5031,341 +5031,352 @@ function Under10Tab({ C, MONO, SANS, setActiveTab, watchlistSymbols }) {
   );
 }
 
-// ── Pro Dashboard Component ──────────────────────────────────────────────────
-function ProDashboard({
-  C, MONO, SANS, macroData, distData, vixPrice, spyChg, qqqChg, regime, flowBias,
-  portfolioSummary, combinedAlerts, futuresData, preMktMovers, eventCountdowns,
-  scanResults, journalEntries, tiltStreak, tiltLocked, tiltEnabled, setActiveTab,
-  isTablet, scanDeepData, regimeColor, regimeLabel
-}) {
-  const card = {
-    background: C.card, border: `1px solid ${C.border}`,
-    borderRadius: 10, padding: 16, boxShadow: "0 1px 6px rgba(0,0,0,0.06)"
-  };
-  const cardHdr = {
-    fontFamily: MONO, fontSize: 11, fontWeight: 900, letterSpacing: "0.1em",
-    color: C.textDim, marginBottom: 12, display: "flex", alignItems: "center",
-    justifyContent: "space-between"
-  };
-  const fmt$ = n => n >= 1000 ? `$${(n/1000).toFixed(1)}k` : `$${Math.round(n)}`;
-  const fmtPct = n => `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
+// ── Pro Dashboard ─────────────────────────────────────────────────────────────
+function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
+  combinedAlerts, eventCountdowns, scanResults, journalEntries,
+  tiltStreak, tiltLocked, setActiveTab, isTablet, regime, regimeColor, regimeLabel }) {
 
-  // Regime data
-  const vix = distData?.vix || vixPrice || 0;
-  const regimeConf = vix > 30 ? 85 : vix > 20 ? 65 : 78;
-  const playbook = regime === "BULL TREND" ? [
-    "Full size on A+ long setups",
-    "Buy pullbacks to EMA21",
-    "Let winners run — trend is your friend",
-    "Avoid shorting into strength",
-  ] : regime === "BEAR / RISK-OFF" ? [
-    "Reduce position size 50%",
-    "Only short setups or cash",
-    "Tighten stops — volatility is high",
-    "No longs unless SPY reclaims key level",
-  ] : regime === "CHOP / NEUTRAL" ? [
-    "Reduce size to 50–75%",
-    "Take profits faster — no overnight holds",
-    "Avoid breakout trades — they fail in chop",
-    "Wait for regime to resolve",
-  ] : [
-    "Smaller size — uncertainty is elevated",
-    "Favor defensive sectors (XLU, XLV, XLP)",
-    "No momentum plays until market stabilizes",
-    "Keep 30–40% cash",
-  ];
+  const CARD=C.card, BORDER=C.border, TEXT=C.text, DIM=C.textDim;
+  const GREEN=C.green, RED=C.red, AMBER=C.amber, ACCENT=C.accent;
+  const fmtP = n => `${n>=0?'+':''}${n.toFixed(2)}%`;
+  const fmtD = n => `${n>=0?'+':'-'}$${Math.abs(n).toFixed(0)}`;
 
-  // Top signals
-  const topSignals = (scanResults || [])
-    .filter(r => r.signal === "STRONG BUY" || r.signal === "BUY" || r.score >= 70)
-    .slice(0, 3);
+  const Card = ({children, accent, style={}}) => (
+    <div style={{ background:CARD, border:`1px solid ${BORDER}`,
+      borderTop: accent ? `3px solid ${accent}` : `1px solid ${BORDER}`,
+      borderRadius:8, overflow:'hidden',
+      boxShadow:'0 2px 8px rgba(0,0,0,0.06)', ...style }}>
+      {children}
+    </div>
+  );
+  const CardHead = ({icon, title, badge, action}) => (
+    <div style={{ display:'flex', alignItems:'center', gap:8,
+      padding:'10px 14px', borderBottom:`1px solid ${BORDER}`, background:C.surface }}>
+      {icon && <span style={{fontSize:14}}>{icon}</span>}
+      <span style={{ fontFamily:MONO, fontSize:11, fontWeight:900, color:DIM,
+        letterSpacing:'0.1em', flex:1 }}>{title}</span>
+      {badge}{action}
+    </div>
+  );
+  const Pill = ({label, color}) => (
+    <span style={{ fontFamily:MONO, fontSize:9, fontWeight:900, padding:'2px 7px',
+      borderRadius:4, background:`${color}20`, color, border:`1px solid ${color}44`,
+      letterSpacing:'0.04em', whiteSpace:'nowrap' }}>{label}</span>
+  );
 
-  // Today's journal trades
-  const today = new Date().toISOString().slice(0, 10);
-  const todayTrades = (journalEntries || []).filter(e => e.status === "closed" && e.pnl != null && String(e.closedAt || "").startsWith(today));
-  const todayPnl = todayTrades.reduce((s, e) => s + e.pnl, 0);
+  const vix     = distData?.vix || 0;
+  const spySym  = (macroData||[]).find(m => m.symbol==='SPY');
+  const qqqSym  = (macroData||[]).find(m => m.symbol==='QQQ');
+  const iwmSym  = (macroData||[]).find(m => m.symbol==='IWM');
+  const spyChg  = Number(spySym?.changesPercentage||0);
+  const qqqChg  = Number(qqqSym?.changesPercentage||0);
+  const iwmChg  = Number(iwmSym?.changesPercentage||0);
+  const regConf = vix>25?85:vix>18?68:75;
+  const playbook = regime?.includes('BULL')
+    ? ['Full size on A+ confirmed setups','Buy pullbacks to EMA21 with volume','Let winners run — trail stop to breakeven']
+    : regime?.includes('BEAR')
+    ? ['Reduce size 50% — cash is a position','Only short setups or stay in cash','Tighten all stops — high volatility']
+    : regime?.includes('CHOP')
+    ? ['Reduce size to 50–75%','Take profits faster — no overnight holds','Wait for clean directional breakout']
+    : ['Smaller size — uncertainty elevated','Favor defensive sectors (XLU, XLV)','No momentum plays until market stabilizes'];
+
+  const topBuys = (scanResults||[]).filter(r=>r.score>=65).slice(0,4);
+  const today   = new Date().toISOString().slice(0,10);
+  const todayTrades = (journalEntries||[]).filter(e =>
+    e.status==='closed' && e.pnl!=null && String(e.closedAt||'').startsWith(today));
+  const dayWins = todayTrades.filter(e=>e.pnl>0).length;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
 
-      {/* ── Row 1: 3 equal cards ── */}
-      <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "1fr 1fr 1fr", gap: 12 }}>
+      {/* ── Stats Strip ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))', gap:8 }}>
+        {[
+          { label:'SPY', val:spySym?`$${spySym.price?.toFixed(2)}`:'—', sub:fmtP(spyChg), col:spyChg>=0?GREEN:RED },
+          { label:'QQQ', val:qqqSym?`$${qqqSym.price?.toFixed(2)}`:'—', sub:fmtP(qqqChg), col:qqqChg>=0?GREEN:RED },
+          { label:'VIX', val:vix>0?vix.toFixed(1):'—', sub:vix>25?'FEAR':vix>18?'CAUTION':'CALM', col:vix>25?RED:vix>18?AMBER:GREEN },
+          portfolioSummary?.totalCost>0
+            ? { label:'TODAY P&L', val:fmtD(portfolioSummary.dayPnlTotal||0), sub:fmtP(portfolioSummary.dayPnlPct||0), col:(portfolioSummary.dayPnlTotal||0)>=0?GREEN:RED }
+            : { label:'REGIME', val:(regimeLabel||'—').split(' ')[0], sub:`${regConf}% conf`, col:regimeColor||ACCENT },
+          { label:'SIGNALS', val:String((scanResults||[]).filter(r=>r.score>=70).length), sub:'A+ setups', col:ACCENT },
+          { label:'ALERTS', val:String(combinedAlerts.length), sub:combinedAlerts.length>0?'ACTIVE':'CLEAR', col:combinedAlerts.length>0?AMBER:GREEN },
+        ].map((s,i) => (
+          <div key={i} style={{ background:CARD, border:`1px solid ${BORDER}`,
+            borderTop:`2px solid ${s.col}`, borderRadius:8, padding:'10px 12px',
+            boxShadow:'0 1px 4px rgba(0,0,0,0.05)' }}>
+            <div style={{ fontFamily:MONO, fontSize:9, color:DIM, fontWeight:800,
+              letterSpacing:'0.1em', marginBottom:4 }}>{s.label}</div>
+            <div style={{ fontFamily:MONO, fontSize:18, fontWeight:900, color:s.col, lineHeight:1 }}>{s.val}</div>
+            <div style={{ fontFamily:MONO, fontSize:10, color:DIM, marginTop:3 }}>{s.sub}</div>
+          </div>
+        ))}
+      </div>
 
-        {/* Card 1: Intelligence & Regime */}
-        <div style={{ ...card, borderLeft: `4px solid ${regimeColor || C.accent}` }}>
-          <div style={cardHdr}>
-            <span>🧠 INTELLIGENCE & REGIME</span>
-            <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{regimeConf}% Confidence</span>
-          </div>
-          <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: regimeColor || C.accent, marginBottom: 4 }}>
-            {regimeLabel || regime || "LOADING…"}
-          </div>
-          <div style={{ height: 6, background: C.border, borderRadius: 3, overflow: "hidden", marginBottom: 12 }}>
-            <div style={{ width: `${regimeConf}%`, height: "100%", background: regimeColor || C.accent, borderRadius: 3 }} />
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            {playbook.map((p, i) => (
-              <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.text, display: "flex", gap: 6 }}>
-                <span style={{ color: regimeColor || C.accent, flexShrink: 0 }}>{i + 1}.</span>{p}
+      {/* ── Main 3-Col Grid ── */}
+      <div style={{ display:'grid', gridTemplateColumns:isTablet?'1fr':'1fr 1fr 340px', gap:10, alignItems:'start' }}>
+
+        {/* Col 1: Intelligence + Screener */}
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+
+          <Card accent={regimeColor||ACCENT}>
+            <CardHead icon="🧠" title="INTELLIGENCE & REGIME"
+              badge={<Pill label={`${regConf}% CONFIDENCE`} color={regimeColor||ACCENT} />} />
+            <div style={{ padding:'14px 14px 10px' }}>
+              <div style={{ fontFamily:MONO, fontSize:24, fontWeight:900, color:regimeColor||ACCENT, marginBottom:8 }}>
+                {regimeLabel||'LOADING…'}
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Card 2: Calendar & Events */}
-        <div style={card}>
-          <div style={cardHdr}><span>📅 CALENDAR & EVENTS</span></div>
-          {eventCountdowns.length === 0 ? (
-            <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No major events soon</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {eventCountdowns.slice(0, 4).map((ev, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12,
-                  padding: "8px 10px", borderRadius: 8,
-                  background: ev.days === 0 ? `${C.red}15` : ev.days <= 2 ? `${C.amber}10` : C.surface,
-                  border: `1px solid ${ev.days === 0 ? C.red+"44" : ev.days <= 2 ? C.amber+"33" : C.border}` }}>
-                  <div style={{ textAlign: "center", minWidth: 44, padding: "4px 8px", borderRadius: 6,
-                    background: ev.days === 0 ? C.red : ev.days <= 2 ? C.amber : C.accent, color: "#fff" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900 }}>{ev.days}d</div>
-                  </div>
-                  <div>
-                    <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>{ev.name}</div>
-                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{ev.date}</div>
-                  </div>
+              <div style={{ height:6, background:BORDER, borderRadius:3, overflow:'hidden', marginBottom:12 }}>
+                <div style={{ width:`${regConf}%`, height:'100%', borderRadius:3, transition:'width 0.6s',
+                  background:`linear-gradient(90deg,${regimeColor||ACCENT}88,${regimeColor||ACCENT})` }} />
+              </div>
+              {playbook.map((p,i) => (
+                <div key={i} style={{ fontFamily:SANS, fontSize:12, color:TEXT, display:'flex', gap:8, marginBottom:5 }}>
+                  <span style={{ fontFamily:MONO, fontSize:10, color:regimeColor||ACCENT, flexShrink:0, fontWeight:800 }}>{i+1}.</span>
+                  <span style={{ lineHeight:1.4 }}>{p}</span>
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </Card>
 
-        {/* Card 3: Alert & Flow Feed */}
-        <div style={card}>
-          <div style={cardHdr}>
-            <span>⚡ ALERT & FLOW FEED</span>
-            {combinedAlerts.length > 0 && (
-              <span style={{ background: C.amber, color: "#fff", fontFamily: MONO, fontSize: 10,
-                borderRadius: 999, padding: "1px 7px", fontWeight: 800 }}>{combinedAlerts.length}</span>
-            )}
-          </div>
-          {combinedAlerts.length === 0 ? (
-            <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No active alerts</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {combinedAlerts.slice(0, 4).map((a, i) => {
-                const col = a.type === "risk" ? C.red : a.type === "flow" ? C.amber : C.green;
-                return (
-                  <div key={i} style={{ display: "flex", gap: 10, padding: "8px 10px", borderRadius: 8,
-                    background: C.surface, borderLeft: `3px solid ${col}` }}>
-                    <div style={{ flexShrink: 0 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>{a.symbol}</div>
-                      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: col,
-                        background: `${col}18`, borderRadius: 3, padding: "1px 5px" }}>
-                        {(a.type || "").toUpperCase()}
-                      </span>
-                    </div>
-                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.4 }}>
-                      {a.text?.slice(0, 70)}{a.text?.length > 70 ? "…" : ""}
-                    </div>
-                  </div>
-                );
-              })}
+          <Card accent={ACCENT}>
+            <CardHead icon="📊" title="REAL-TIME QUOTES SCREENER"
+              action={
+                <button onClick={() => setActiveTab('smartscan')} style={{ fontFamily:MONO, fontSize:9,
+                  padding:'3px 10px', borderRadius:4, border:`1px solid ${ACCENT}44`,
+                  background:`${ACCENT}15`, color:ACCENT, cursor:'pointer', fontWeight:700 }}>
+                  Full Scan →
+                </button>
+              } />
+            <div style={{ display:'flex', gap:6, padding:'8px 14px', borderBottom:`1px solid ${BORDER}` }}>
+              {['ALL','A+ BUY','BUY','WATCH'].map((f,fi) => (
+                <span key={f} style={{ fontFamily:MONO, fontSize:9, fontWeight:800, padding:'3px 10px',
+                  borderRadius:12, background:fi===0?ACCENT:C.surface, color:fi===0?'#fff':DIM,
+                  border:`1px solid ${fi===0?ACCENT:BORDER}`, cursor:'pointer', letterSpacing:'0.04em' }}>{f}</span>
+              ))}
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Row 2: Quotes Screener (wide) + Right column ── */}
-      <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "1.6fr 1fr", gap: 12, alignItems: "start" }}>
-
-        {/* Left: Real-time Quotes Screener */}
-        <div style={card}>
-          <div style={cardHdr}>
-            <span>📊 REAL-TIME QUOTES SCREENER</span>
-            <button onClick={() => setActiveTab("smartscan")}
-              style={{ fontFamily: MONO, fontSize: 9, padding: "2px 8px", borderRadius: 4,
-                border: `1px solid ${C.accent}44`, background: `${C.accent}15`, color: C.accent, cursor: "pointer" }}>
-              Full Scan →
-            </button>
-          </div>
-          {/* Filters */}
-          <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-            {["ALL","BUY","STRONG BUY","WATCH"].map(f => (
-              <span key={f} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "2px 8px",
-                borderRadius: 4, background: f === "ALL" ? C.accent : C.surface,
-                color: f === "ALL" ? "#fff" : C.textDim, border: `1px solid ${f === "ALL" ? C.accent : C.border}`,
-                cursor: "pointer" }}>{f}</span>
-            ))}
-          </div>
-          {/* Table */}
-          <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12 }}>
-            <thead>
-              <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                {["SYMBOL","PRICE","CHG%","TREND","RVOL","SCORE","SIGNAL"].map(h => (
-                  <th key={h} style={{ padding: "4px 8px", textAlign: h === "SYMBOL" ? "left" : "right",
-                    color: C.textDim, fontWeight: 700, fontSize: 10, letterSpacing: "0.06em" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(scanResults || []).slice(0, 8).map((r, i) => {
-                const price = r.quote?.price || 0;
-                const chg   = r.quote?.changePercent || 0;
-                const rvol  = r.quote?.volume && r.quote?.avgVolume ? r.quote.volume / r.quote.avgVolume : 0;
-                const sigColor = r.signal === "STRONG BUY" ? C.green : r.signal === "BUY" ? "#22c55e" :
-                                 r.signal === "WATCH" ? C.amber : r.signal === "AVOID" ? C.red : C.textDim;
-                return (
-                  <tr key={r.ticker} onClick={() => setActiveTab("smartscan")}
-                    style={{ borderBottom: `1px solid ${C.border}22`, cursor: "pointer",
-                      background: i % 2 === 0 ? "transparent" : `${C.surface}66` }}>
-                    <td style={{ padding: "7px 8px", fontWeight: 900, color: C.accent }}>{r.ticker}</td>
-                    <td style={{ padding: "7px 8px", textAlign: "right", color: C.text }}>${price.toFixed(2)}</td>
-                    <td style={{ padding: "7px 8px", textAlign: "right", color: chg >= 0 ? C.green : C.red, fontWeight: 700 }}>
-                      {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
-                    </td>
-                    <td style={{ padding: "7px 8px", textAlign: "right", color: C.textDim, fontSize: 10 }}>
-                      {r.quote?.priceAvg50 && price > r.quote.priceAvg50 ? "▲ UP" : "▼ DOWN"}
-                    </td>
-                    <td style={{ padding: "7px 8px", textAlign: "right", color: rvol >= 1.5 ? C.amber : C.textDim }}>
-                      {rvol > 0 ? rvol.toFixed(1) + "x" : "—"}
-                    </td>
-                    <td style={{ padding: "7px 8px", textAlign: "right" }}>
-                      <div style={{ height: 4, width: 40, background: C.border, borderRadius: 2, overflow: "hidden", display: "inline-block" }}>
-                        <div style={{ width: `${r.score}%`, height: "100%", background: sigColor, borderRadius: 2 }} />
-                      </div>
-                      <span style={{ marginLeft: 4, color: sigColor }}>{r.score}</span>
-                    </td>
-                    <td style={{ padding: "7px 8px", textAlign: "right" }}>
-                      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: sigColor,
-                        background: `${sigColor}18`, borderRadius: 3, padding: "2px 6px" }}>{r.signal || "—"}</span>
-                    </td>
-                  </tr>
-                );
-              })}
-              {(scanResults || []).length === 0 && (
-                <tr><td colSpan={7} style={{ padding: 16, textAlign: "center", color: C.textDim, fontSize: 12 }}>
-                  Run scan to see setups
-                </td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Right column: 3 stacked cards */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-
-          {/* Risk Management */}
-          <div style={card}>
-            <div style={cardHdr}><span>🛡 RISK MANAGEMENT</span></div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {/* Tilt Detector */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "8px 10px", borderRadius: 7,
-                background: tiltLocked ? `${C.red}12` : tiltStreak >= 2 ? `${C.amber}10` : `${C.green}08`,
-                border: `1px solid ${tiltLocked ? C.red+"44" : tiltStreak >= 2 ? C.amber+"33" : C.green+"33"}` }}>
-                <span style={{ fontFamily: SANS, fontSize: 12, color: C.text }}>🧠 Tilt Detector</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800,
-                  color: tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green }}>
-                  {tiltLocked ? "🔒 LOCKED" : tiltStreak === 0 ? "✅ Clear" : `⚠️ ${tiltStreak}/3`}
-                </span>
-              </div>
-              {/* P&L */}
-              {portfolioSummary && portfolioSummary.totalCost > 0 && (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "8px 10px", borderRadius: 7, background: C.surface }}>
-                  <span style={{ fontFamily: SANS, fontSize: 12, color: C.text }}>TODAY P&L</span>
-                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900,
-                    color: (portfolioSummary.dayPnlTotal || 0) >= 0 ? C.green : C.red }}>
-                    {fmtPct(portfolioSummary.dayPnlPct || 0)} · {fmt$(Math.abs(portfolioSummary.dayPnlTotal || 0))}
-                  </span>
-                </div>
-              )}
-              {/* VIX */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "8px 10px", borderRadius: 7, background: C.surface }}>
-                <span style={{ fontFamily: SANS, fontSize: 12, color: C.text }}>VIX</span>
-                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900,
-                  color: vix > 25 ? C.red : vix > 18 ? C.amber : C.green }}>
-                  {vix.toFixed(1)} {vix > 25 ? "⚠️ FEAR" : vix > 18 ? "🟡 CAUTION" : "🟢 CALM"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Market Snapshot */}
-          <div style={card}>
-            <div style={cardHdr}><span>📈 MARKET SNAPSHOT</span></div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {(macroData || []).filter(q => ["SPY","QQQ","IWM","DIA"].includes(q.symbol)).map(q => {
-                const chg = q.changesPercentage || 0;
-                return (
-                  <div key={q.symbol} style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
-                    <div>
-                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{q.symbol}</span>
-                      <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginLeft: 6 }}>{q._label}</span>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>${(q.price||0).toFixed(2)}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: chg >= 0 ? C.green : C.red }}>
-                        {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Live Signals */}
-          <div style={card}>
-            <div style={cardHdr}>
-              <span>⚡ LIVE SIGNALS</span>
-              <button onClick={() => setActiveTab("smartscan")}
-                style={{ fontFamily: MONO, fontSize: 9, padding: "2px 8px", borderRadius: 4,
-                  border: `1px solid ${C.accent}44`, background: `${C.accent}15`, color: C.accent, cursor: "pointer" }}>
-                View All →
-              </button>
-            </div>
-            {topSignals.length === 0 ? (
-              <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Run scanner for live signals</div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
-                  fontFamily: MONO, fontSize: 10, color: C.textDim, fontWeight: 700,
-                  paddingBottom: 4, borderBottom: `1px solid ${C.border}` }}>
-                  <span>TICKER</span><span style={{ textAlign: "right" }}>ACTION</span>
-                  <span style={{ textAlign: "right" }}>PRICE</span>
-                  <span style={{ textAlign: "right" }}>ENTRY</span>
-                  <span style={{ textAlign: "right" }}>T1</span>
-                </div>
-                {topSignals.map((r) => {
-                  const price = r.quote?.price || 0;
-                  const t1 = (price * 1.08).toFixed(2);
-                  const sigC = r.signal === "STRONG BUY" ? C.green : C.amber;
+            <table style={{ width:'100%', borderCollapse:'collapse' }}>
+              <thead>
+                <tr style={{ background:C.surface }}>
+                  {[['SYMBOL','left'],['PRICE','right'],['CHG%','right'],['TREND','center'],['RVOL','right'],['SCORE','right'],['SIGNAL','right']].map(([h,a]) => (
+                    <th key={h} style={{ padding:'6px 10px', fontFamily:MONO, fontSize:9, fontWeight:800,
+                      color:DIM, textAlign:a, letterSpacing:'0.08em', borderBottom:`1px solid ${BORDER}` }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(scanResults||[]).slice(0,7).map((r,i) => {
+                  const price=r.quote?.price||0, chg=r.quote?.changePercent||0;
+                  const rvol=r.quote?.volume&&r.quote?.avgVolume?r.quote.volume/r.quote.avgVolume:0;
+                  const ma50=r.quote?.priceAvg50||0;
+                  const trend=ma50>0?(price>ma50?'▲ UP':'▼ DN'):'—';
+                  const trendC=ma50>0?(price>ma50?GREEN:RED):DIM;
+                  const sigC=r.score>=75?GREEN:r.score>=62?'#22c55e':r.score>=50?AMBER:r.score>=38?RED:DIM;
+                  const sig=r.score>=75?'STRONG BUY':r.score>=62?'BUY':r.score>=50?'WATCH':'AVOID';
                   return (
-                    <div key={r.ticker} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
-                      alignItems: "center", padding: "4px 0" }}>
-                      <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent }}>{r.ticker}</span>
-                      <span style={{ textAlign: "right" }}>
-                        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: sigC,
-                          background: `${sigC}18`, borderRadius: 3, padding: "2px 5px" }}>
-                          {r.signal === "STRONG BUY" ? "▲ LONG" : "▲ BUY"}
-                        </span>
-                      </span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, textAlign: "right", color: C.text }}>${price.toFixed(2)}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, textAlign: "right", color: C.green }}>${price.toFixed(2)}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, textAlign: "right", color: C.accent }}>${t1}</span>
+                    <tr key={r.ticker} onClick={() => setActiveTab('smartscan')}
+                      style={{ cursor:'pointer', borderBottom:`1px solid ${BORDER}22`,
+                        background:i%2===0?'transparent':`${C.surface}88` }}>
+                      <td style={{ padding:'8px 10px' }}>
+                        <div style={{ fontFamily:MONO, fontSize:13, fontWeight:900, color:ACCENT }}>{r.ticker}</div>
+                      </td>
+                      <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:MONO, fontSize:12, fontWeight:700, color:TEXT }}>${price.toFixed(2)}</td>
+                      <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:MONO, fontSize:11, fontWeight:700, color:chg>=0?GREEN:RED }}>{chg>=0?'+':''}{chg.toFixed(2)}%</td>
+                      <td style={{ padding:'8px 10px', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:trendC }}>{trend}</td>
+                      <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:MONO, fontSize:11, color:rvol>=2?AMBER:DIM }}>{rvol>0?rvol.toFixed(1)+'x':'—'}</td>
+                      <td style={{ padding:'8px 10px', textAlign:'right' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:4, justifyContent:'flex-end' }}>
+                          <div style={{ width:28, height:3, background:BORDER, borderRadius:2, overflow:'hidden' }}>
+                            <div style={{ width:`${r.score}%`, height:'100%', background:sigC }} />
+                          </div>
+                          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:800, color:sigC }}>{r.score}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding:'8px 10px', textAlign:'right' }}><Pill label={sig} color={sigC} /></td>
+                    </tr>
+                  );
+                })}
+                {(scanResults||[]).length===0 && (
+                  <tr><td colSpan={7} style={{ padding:'24px', textAlign:'center', fontFamily:SANS, fontSize:12, color:DIM }}>
+                    No scan data — run scanner first
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </Card>
+        </div>
+
+        {/* Col 2: Calendar + Alerts + Snapshot */}
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+
+          <Card accent="#6366f1">
+            <CardHead icon="📅" title="CALENDAR & EVENTS" />
+            <div style={{ padding:'10px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+              {eventCountdowns.length===0
+                ? <div style={{ fontFamily:SANS, fontSize:12, color:DIM, padding:'8px 0' }}>No major events soon</div>
+                : eventCountdowns.slice(0,4).map((ev,i) => (
+                  <div key={i} style={{ display:'flex', alignItems:'center', gap:12,
+                    padding:'10px 12px', borderRadius:8,
+                    background:ev.days===0?`${RED}10`:ev.days<=1?`${AMBER}10`:C.surface,
+                    border:`1px solid ${ev.days===0?RED+'33':ev.days<=1?AMBER+'33':BORDER}` }}>
+                    <div style={{ textAlign:'center', minWidth:44, padding:'6px 8px', borderRadius:6, flexShrink:0,
+                      background:ev.days===0?RED:ev.days<=1?AMBER:ev.days<=3?'#f59e0b':ACCENT, color:'#fff' }}>
+                      <div style={{ fontFamily:MONO, fontSize:15, fontWeight:900, lineHeight:1 }}>{ev.days}</div>
+                      <div style={{ fontFamily:MONO, fontSize:8, fontWeight:700 }}>DAYS</div>
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontFamily:MONO, fontSize:13, fontWeight:800, color:TEXT }}>{ev.name}</div>
+                      <div style={{ fontFamily:SANS, fontSize:11, color:DIM, marginTop:2 }}>{ev.date}</div>
+                    </div>
+                    {ev.days===0 && <Pill label="TODAY" color={RED} />}
+                  </div>
+                ))}
+            </div>
+          </Card>
+
+          <Card accent={AMBER}>
+            <CardHead icon="⚡" title="ALERT & FLOW FEED"
+              badge={combinedAlerts.length>0
+                ? <span style={{ background:AMBER, color:'#fff', fontFamily:MONO, fontSize:10,
+                    fontWeight:900, borderRadius:999, padding:'2px 8px' }}>{combinedAlerts.length} ACTIVE</span>
+                : <Pill label="CLEAR" color={GREEN} />} />
+            <div style={{ padding:'8px 0' }}>
+              {combinedAlerts.length===0
+                ? <div style={{ padding:'12px 14px', fontFamily:SANS, fontSize:12, color:DIM }}>No active alerts — market is quiet</div>
+                : combinedAlerts.slice(0,5).map((a,i) => {
+                  const col=a.type==='risk'?RED:a.type==='flow'?AMBER:GREEN;
+                  return (
+                    <div key={i} style={{ display:'flex', gap:10, padding:'8px 14px',
+                      borderBottom:`1px solid ${BORDER}22`, borderLeft:`3px solid ${col}` }}>
+                      <div style={{ flexShrink:0, minWidth:42 }}>
+                        <div style={{ fontFamily:MONO, fontSize:13, fontWeight:900, color:TEXT }}>{a.symbol}</div>
+                        <Pill label={(a.type||'').toUpperCase()} color={col} />
+                      </div>
+                      <div style={{ fontFamily:SANS, fontSize:11, color:C.textSec, lineHeight:1.5, flex:1 }}>
+                        {a.text?.slice(0,75)}{a.text?.length>75?'…':''}
+                      </div>
                     </div>
                   );
                 })}
+            </div>
+          </Card>
+
+          <Card accent={regimeColor||ACCENT}>
+            <CardHead icon="📈" title="MARKET SNAPSHOT" />
+            {[
+              ['SPY S&P 500', spySym, spyChg],
+              ['QQQ Nasdaq 100', qqqSym, qqqChg],
+              ['IWM Russell 2000', iwmSym, iwmChg],
+              ['VIX Volatility', null, 0],
+            ].map(([label, sym, chg], i) => {
+              const val = label==='VIX' ? (vix>0?vix.toFixed(1):'—') : (sym?`$${sym.price?.toFixed(2)}`:'—');
+              const sub = label==='VIX' ? (vix>25?'FEAR':vix>18?'CAUTION':'CALM') : fmtP(chg);
+              const col = label==='VIX' ? (vix>25?RED:vix>18?AMBER:GREEN) : (chg>=0?GREEN:RED);
+              return (
+                <div key={label} style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                  padding:'8px 14px', borderBottom:i<3?`1px solid ${BORDER}22`:'none' }}>
+                  <span style={{ fontFamily:SANS, fontSize:12, color:DIM }}>{label}</span>
+                  <div style={{ textAlign:'right' }}>
+                    <div style={{ fontFamily:MONO, fontSize:13, fontWeight:700, color:TEXT }}>{val}</div>
+                    <div style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:col }}>{sub}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </Card>
+        </div>
+
+        {/* Col 3: Risk + Live Signals */}
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+
+          <Card accent={tiltLocked?RED:tiltStreak>=2?AMBER:GREEN}>
+            <CardHead icon="🛡" title="RISK MANAGEMENT" />
+            <div style={{ padding:'10px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+              <div style={{ padding:'10px 12px', borderRadius:8,
+                background:tiltLocked?`${RED}12`:tiltStreak>=2?`${AMBER}10`:`${GREEN}08`,
+                border:`1px solid ${tiltLocked?RED+'44':tiltStreak>=2?AMBER+'33':GREEN+'33'}` }}>
+                <div style={{ fontFamily:MONO, fontSize:9, color:DIM, marginBottom:4 }}>TILT DETECTOR</div>
+                <div style={{ fontFamily:MONO, fontSize:14, fontWeight:900,
+                  color:tiltLocked?RED:tiltStreak>=2?AMBER:GREEN }}>
+                  {tiltLocked?'🔒 PLATFORM LOCKED':tiltStreak===0?'✅ 0 losses — clear':`⚠️ ${tiltStreak}/3 losses`}
+                </div>
               </div>
-            )}
-          </div>
+              {portfolioSummary?.totalCost>0 && (
+                <div style={{ padding:'10px 12px', borderRadius:8, background:C.surface, border:`1px solid ${BORDER}` }}>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:DIM, marginBottom:6 }}>TODAY'S PERFORMANCE</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                    <div>
+                      <div style={{ fontFamily:MONO, fontSize:8, color:DIM }}>P&L</div>
+                      <div style={{ fontFamily:MONO, fontSize:16, fontWeight:900, color:(portfolioSummary.dayPnlTotal||0)>=0?GREEN:RED }}>
+                        {fmtD(portfolioSummary.dayPnlTotal||0)}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontFamily:MONO, fontSize:8, color:DIM }}>TRADES</div>
+                      <div style={{ fontFamily:MONO, fontSize:16, fontWeight:900, color:TEXT }}>
+                        {dayWins}W / {todayTrades.length-dayWins}L
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div style={{ background:`${regimeColor||ACCENT}08`, border:`1px solid ${regimeColor||ACCENT}22`, borderRadius:8, padding:'10px 12px' }}>
+                <div style={{ fontFamily:MONO, fontSize:9, color:regimeColor||ACCENT, fontWeight:900, marginBottom:6, letterSpacing:'0.08em' }}>REGIME RULES</div>
+                {playbook.slice(0,2).map((p,i) => (
+                  <div key={i} style={{ fontFamily:SANS, fontSize:11, color:TEXT, display:'flex', gap:6, marginBottom:3 }}>
+                    <span style={{ color:regimeColor||ACCENT, fontWeight:800, flexShrink:0 }}>{i+1}.</span>{p}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+
+          <Card accent={GREEN}>
+            <CardHead icon="⚡" title="LIVE SIGNALS"
+              badge={topBuys.length>0?<Pill label={`${topBuys.length} ACTIVE`} color={GREEN}/>:null}
+              action={
+                <button onClick={() => setActiveTab('smartscan')} style={{ fontFamily:MONO, fontSize:9,
+                  padding:'2px 8px', borderRadius:4, border:`1px solid ${ACCENT}44`,
+                  background:`${ACCENT}15`, color:ACCENT, cursor:'pointer' }}>All →</button>
+              } />
+            {topBuys.length===0
+              ? <div style={{ padding:'16px 14px', fontFamily:SANS, fontSize:12, color:DIM }}>Run scanner to generate signals</div>
+              : (
+                <div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1.5fr 1fr 1fr 1fr',
+                    padding:'5px 12px', background:C.surface, borderBottom:`1px solid ${BORDER}` }}>
+                    {['TICKER','ENTRY','STOP','T1'].map(h => (
+                      <span key={h} style={{ fontFamily:MONO, fontSize:8, fontWeight:800, color:DIM,
+                        letterSpacing:'0.08em', textAlign:h==='TICKER'?'left':'right' }}>{h}</span>
+                    ))}
+                  </div>
+                  {topBuys.map(r => {
+                    const price=r.quote?.price||0;
+                    const t1=(price*1.08).toFixed(2), stop=(price*0.97).toFixed(2);
+                    const sigC=r.score>=75?GREEN:ACCENT;
+                    return (
+                      <div key={r.ticker} onClick={() => setActiveTab('smartscan')}
+                        style={{ display:'grid', gridTemplateColumns:'1.5fr 1fr 1fr 1fr',
+                          padding:'9px 12px', borderBottom:`1px solid ${BORDER}22`,
+                          cursor:'pointer', alignItems:'center' }}>
+                        <div>
+                          <div style={{ fontFamily:MONO, fontSize:14, fontWeight:900, color:ACCENT }}>{r.ticker}</div>
+                          <Pill label={r.score>=75?'▲ STRONG BUY':'▲ BUY'} color={sigC} />
+                        </div>
+                        <div style={{ fontFamily:MONO, fontSize:11, textAlign:'right', color:GREEN, fontWeight:700 }}>${price.toFixed(2)}</div>
+                        <div style={{ fontFamily:MONO, fontSize:11, textAlign:'right', color:RED }}>${stop}</div>
+                        <div style={{ fontFamily:MONO, fontSize:11, textAlign:'right', color:ACCENT, fontWeight:700 }}>${t1}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+          </Card>
         </div>
       </div>
     </div>
   );
 }
+
 
 // ── Compression Scanner ──────────────────────────────────────────────────────
 function CompressionTab({ C, MONO, SANS, setActiveTab, onDeepDive, watchlistSymbols }) {
