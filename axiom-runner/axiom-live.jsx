@@ -12138,7 +12138,6 @@ export default function App() {
               style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}
             >☁ LOAD</button>
             <a href="/dealer" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>DEALER</a>
-            <a href="/workstation" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>WS</a>
             <button onClick={generateMarketReport} style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>MARKET RESET</button>
             <button onClick={handleLock} style={{ background: `${C.red}10`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>LOCK</button>
             <button onClick={() => setPaletteOpen(true)} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>CMD</button>
@@ -12290,11 +12289,6 @@ export default function App() {
               onClick={() => setMobileMenuOpen(false)}
               style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "12px 8px", borderRadius: 8, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 48, fontWeight: 700 }}
             >DEALER</a>
-            <a
-              href="/workstation" target="_blank" rel="noopener"
-              onClick={() => setMobileMenuOpen(false)}
-              style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "12px 8px", borderRadius: 8, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 48, fontWeight: 700 }}
-            >WS</a>
             <button
               onClick={() => { generateMarketReport(); setMobileMenuOpen(false); }}
               style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}44`, color: C.accent, fontFamily: MONO, fontSize: 12, padding: "12px 8px", borderRadius: 8, cursor: "pointer", minHeight: 48, fontWeight: 700 }}
@@ -13832,15 +13826,10 @@ export default function App() {
                                 >
                                   TV
                                 </button>}
-                                {!isTablet && <a
-                                  href={`/workstation#${q.symbol}`}
-                                  target="_blank"
-                                  rel="noopener"
-                                  onClick={(e) => e.stopPropagation()}
-                                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.purple, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer", textDecoration: "none" }}
-                                >
-                                  WS
-                                </a>}
+                                {!isTablet && <button
+                                  onClick={(e) => { e.stopPropagation(); setScanResults(prev => prev.some(r=>r.ticker===q.symbol)?prev:[{ticker:q.symbol,score:scores.composite||50,signal:"WATCH",scannerScore:scores.composite||50,signals:[],sColor:"#f59e0b",quote:{price:q.price||0,changePercent:q.changesPercentage||0},candles:null},...prev]); setActiveTab("smartscan"); setTimeout(()=>{setScanExpanded(q.symbol);loadDeepDive(q.symbol);loadDeepSocial(q.symbol);},100); }}
+                                  style={{ border: `1px solid ${C.accent}44`, background: `${C.accent}15`, color: C.accent, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}
+                                >DIVE</button>}
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setQuickLogModal({ symbol: q.symbol, price: q.price || 0, entry: (q.price || 0).toFixed(2), stopLoss: "", target: "", size: "", side: "BUY", timeframe: "1D", style: "Watchlist", notes: `CHG ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}% · RVOL ${rvol.toFixed(2)}x`, score: scores.composite || 0, chg, rvol }); }}
                                   style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}
@@ -18952,12 +18941,7 @@ export default function App() {
                                 onClick={() => openTradingView(q.symbol)}
                                 style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                               >TV</button>
-                              <a
-                                href={`/workstation#${q.symbol}`}
-                                target="_blank"
-                                rel="noopener"
-                                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.purple, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer", textDecoration: "none" }}
-                              >WS</a>
+                              <button onClick={() => { setScanResults(prev => prev.some(r=>r.ticker===q.symbol)?prev:[{ticker:q.symbol,score:50,signal:"WATCH",scannerScore:50,signals:[],sColor:"#f59e0b",quote:{price:q.price||0,changePercent:0},candles:null},...prev]); setActiveTab("smartscan"); setTimeout(()=>{setScanExpanded(q.symbol);loadDeepDive(q.symbol);loadDeepSocial(q.symbol);},100); }} style={{ border: `1px solid ${C.accent}44`, background: `${C.accent}15`, color: C.accent, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>DIVE</button>
                               <button
                                 onClick={() => setWatchlistSymbols((prev) => Array.from(new Set([...prev, q.symbol])))}
                                 style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
@@ -19032,7 +19016,7 @@ export default function App() {
                               <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
                                 <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 6, padding: "2px 5px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>CHART</button>
                                 <button onClick={() => openTradingView(q.symbol)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "2px 5px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>TV</button>
-                                <a href={`/workstation#${q.symbol}`} target="_blank" rel="noopener" style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.purple, borderRadius: 6, padding: "2px 5px", fontFamily: MONO, fontSize: 12, cursor: "pointer", textDecoration: "none" }}>WS</a>
+                                <button onClick={() => { setScanResults(prev => prev.some(r=>r.ticker===q.symbol)?prev:[{ticker:q.symbol,score:50,signal:"WATCH",scannerScore:50,signals:[],sColor:"#f59e0b",quote:{price:Number(q.price)||0,changePercent:0},candles:null},...prev]); setActiveTab("smartscan"); setTimeout(()=>{setScanExpanded(q.symbol);loadDeepDive(q.symbol);loadDeepSocial(q.symbol);},100); }} style={{ border: `1px solid ${C.accent}44`, background: `${C.accent}15`, color: C.accent, borderRadius: 6, padding: "2px 5px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>DIVE</button>
                                 <button onClick={() => setWatchlistSymbols((prev) => Array.from(new Set([...prev, q.symbol])))} style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 6, padding: "2px 5px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>+WL</button>
                                 <button onClick={() => setQuickLogModal({ symbol: q.symbol, price: Number(q.price) || 0, entry: (Number(q.price) || 0).toFixed(2), stopLoss: "", target: "", size: "", side: chg >= 0 ? "BUY" : "SELL", timeframe: "1D", style: "Breakout", notes: `Server scan · RVOL ${Number(q.rvol || 0).toFixed(2)}x · Score ${q.composite}`, score: Number(q.composite || 0), chg, rvol: Number(q.rvol || 0) })} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.green, borderRadius: 6, padding: "2px 5px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>LOG</button>
                                 <button onClick={async () => {
@@ -20996,11 +20980,10 @@ export default function App() {
                           <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, fontWeight: 700, marginBottom: 5, letterSpacing: "0.06em" }}>RAW TEXT</div>
                           <pre style={{ margin: 0, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", fontFamily: MONO, fontSize: 12, color: C.textSec, whiteSpace: "pre-wrap", maxHeight: 180, overflowY: "auto", lineHeight: 1.5 }}>{p.raw}</pre>
 
-                          {/* WS link */}
                           {p.symbol && (
-                            <a href={`/workstation#${p.symbol}`} target="_blank" rel="noopener" style={{ display: "block", marginTop: 10, border: `1px solid ${C.border}`, background: C.bg, color: C.textSec, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, textAlign: "center", textDecoration: "none" }}>
-                              Open {p.symbol} in Workstation →
-                            </a>
+                            <button onClick={() => { setScanResults(prev => prev.some(r=>r.ticker===p.symbol)?prev:[{ticker:p.symbol,score:50,signal:"WATCH",scannerScore:50,signals:[],sColor:"#f59e0b",quote:{price:p.live||0,changePercent:0},candles:null},...prev]); setActiveTab("smartscan"); setTimeout(()=>{setScanExpanded(p.symbol);loadDeepDive(p.symbol);loadDeepSocial(p.symbol);},100); }} style={{ display:"block",marginTop:10,width:"100%",border:`1px solid ${C.accent}44`,background:`${C.accent}15`,color:C.accent,borderRadius:6,padding:"6px 10px",fontFamily:MONO,fontSize:12,textAlign:"center",cursor:"pointer",fontWeight:700 }}>
+                              🔍 Deep Dive {p.symbol} →
+                            </button>
                           )}
                         </div>
                       </div>

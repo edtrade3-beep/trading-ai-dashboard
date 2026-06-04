@@ -262,7 +262,8 @@ async function handleRequest(req, res) {
       return;
     }
     if (pathname === "/workstation" || pathname === "/workstation/") {
-      res.writeHead(302, { Location: "/client/trading/workstation.html" });
+      // Workstation replaced by Smart Scanner deep dive — redirect to main platform
+      res.writeHead(302, { Location: "/" });
       res.end();
       return;
     }
