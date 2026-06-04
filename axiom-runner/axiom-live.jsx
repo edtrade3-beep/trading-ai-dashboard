@@ -7312,6 +7312,11 @@ export default function App() {
   const [dailyMaxLoss, setDailyMaxLoss] = useState(() => { try { return localStorage.getItem("daily_max_loss") || "200"; } catch { return "200"; } });
   const [lockEnabled,  setLockEnabled]  = useState(() => { try { return localStorage.getItem("lock_enabled") === "true"; } catch { return false; } }); // OFF by default
   const [tradingLocked, setTradingLocked] = useState(false);
+  // ── Tilt Detector ─────────────────────────────────────────────────────────
+  const [tiltStreak,    setTiltStreak]    = useState(0);   // consecutive losses today
+  const [tiltLocked,    setTiltLocked]    = useState(false);
+  const [tiltUnlockAt,  setTiltUnlockAt]  = useState(null); // Date object
+  const [tiltEnabled,   setTiltEnabled]   = useState(() => { try { return localStorage.getItem("tilt_enabled") !== "false"; } catch { return true; } });
   const [lockReason,   setLockReason]   = useState("");
   const [activeLesson, setActiveLesson] = useState(null); // Academy tab
   // Earnings Cal, Econ Cal, Journal Analytics — hoisted (were inside conditional IIFEs)
@@ -10180,6 +10185,36 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [portfolioSummary, dailyMaxLoss]);
 
+  // ── Tilt Detector — watch journal for 3 consecutive losses ────────────────
+  useEffect(() => {
+    if (!tiltEnabled) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const todayTrades = journalEntries
+      .filter(e => e.status === "closed" && e.pnl != null && String(e.closedAt || "").startsWith(today))
+      .sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt));
+    // Count trailing consecutive losses
+    let streak = 0;
+    for (let i = todayTrades.length - 1; i >= 0; i--) {
+      if (todayTrades[i].pnl < 0) streak++;
+      else break;
+    }
+    setTiltStreak(streak);
+    if (streak >= 3 && !tiltLocked) {
+      const unlockAt = new Date(Date.now() + 30 * 60 * 1000);
+      setTiltLocked(true);
+      setTiltUnlockAt(unlockAt);
+    }
+  }, [journalEntries, tiltEnabled]);
+
+  // ── Auto-unlock tilt after 30 min ─────────────────────────────────────────
+  useEffect(() => {
+    if (!tiltLocked || !tiltUnlockAt) return;
+    const ms = tiltUnlockAt.getTime() - Date.now();
+    if (ms <= 0) { setTiltLocked(false); setTiltUnlockAt(null); return; }
+    const t = setTimeout(() => { setTiltLocked(false); setTiltUnlockAt(null); }, ms);
+    return () => clearTimeout(t);
+  }, [tiltLocked, tiltUnlockAt]);
+
   const liveJournalPnl = useMemo(() => {
     const map = {};
     for (const e of journalEntries) {
@@ -11820,6 +11855,15 @@ export default function App() {
                     <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: fgColor }}>{fgScore} · {fgLabel}</div>
                   </div>
                 )}
+                {tiltEnabled && (
+                  <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => tiltLocked && setTiltLocked(false)} title={tiltLocked ? "Click to override tilt lock" : `${tiltStreak} consecutive losses today`}>
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>TILT</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800,
+                      color: tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green }}>
+                      {tiltLocked ? "🔒 LOCKED" : tiltStreak === 0 ? "✅ 0" : `⚠ ${tiltStreak}/3`}
+                    </div>
+                  </div>
+                )}
               </div>
               <button onClick={() => {
                 setSigLoading(true);
@@ -11831,6 +11875,80 @@ export default function App() {
                 ↺ REFRESH ALL
               </button>
             </div>
+
+            {/* ── MARKET REGIME DASHBOARD ── */}
+            {(() => {
+              const spy   = macroData.find(m => m.symbol === "SPY");
+              const qqq   = macroData.find(m => m.symbol === "QQQ");
+              const vix   = distData?.vix || 0;
+              const spyChg = Number(spy?.changesPercentage || 0);
+              const qqqChg = Number(qqq?.changesPercentage || 0);
+              const spyAbove200 = spy && spy.price && spy.price > (spy.price * 0.97); // rough proxy
+              // Determine regime
+              let regLabel, regColor, regIcon, regBg, regConf, playbook;
+              if (vix > 30 || spyChg < -1.5) {
+                regLabel = "BEAR / RISK-OFF"; regIcon = "🐻"; regColor = C.red; regBg = `${C.red}10`; regConf = vix > 35 ? 92 : 78;
+                playbook = ["Reduce position size 50%", "Only take short setups or cash", "Tighten stops — volatility is high", "No longs unless SPY reclaims key level"];
+              } else if (vix < 16 && spyChg > 0.3 && qqqChg > 0.3) {
+                regLabel = "BULL TREND"; regIcon = "🐂"; regColor = C.green; regBg = `${C.green}10`; regConf = vix < 13 ? 90 : 75;
+                playbook = ["Full size on A+ long setups", "Let winners run — trend is your friend", "Buy pullbacks to EMA21", "Avoid shorting into strength"];
+              } else if (Math.abs(spyChg) < 0.3 && vix < 22) {
+                regLabel = "CHOP / NEUTRAL"; regIcon = "〰️"; regColor = C.amber; regBg = `${C.amber}10`; regConf = 65;
+                playbook = ["Reduce size to 50-75%", "Take profits faster — don't hold overnight", "Avoid breakout trades — they fail in chop", "Wait for regime to resolve before adding risk"];
+              } else if (spyChg > 0.5) {
+                regLabel = "CAUTIOUS BULL"; regIcon = "📈"; regColor = "#22c55e"; regBg = "#22c55e10"; regConf = 68;
+                playbook = ["Normal size on confirmed setups", "Watch for VIX spike that could reverse", "Focus on sector leaders, not laggards", "Keep stops tight"];
+              } else {
+                regLabel = "DEFENSIVE"; regIcon = "🛡"; regColor = C.amber; regBg = `${C.amber}10`; regConf = 60;
+                playbook = ["Smaller size — uncertainty is elevated", "Favor defensive sectors (XLU, XLV, XLP)", "No momentum plays until market stabilizes", "Keep 30-40% cash"];
+              }
+              const signals = [
+                { label: "SPY",  val: `${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}%`, color: spyChg > 0 ? C.green : C.red },
+                { label: "QQQ",  val: `${qqqChg >= 0 ? "+" : ""}${qqqChg.toFixed(2)}%`, color: qqqChg > 0 ? C.green : C.red },
+                { label: "VIX",  val: vix > 0 ? vix.toFixed(1) : "—",  color: vix > 25 ? C.red : vix > 18 ? C.amber : C.green },
+                { label: "FLOW", val: flowBias || "—", color: (flowBias || "").includes("Bull") ? C.green : (flowBias || "").includes("Bear") ? C.red : C.amber },
+              ];
+              return (
+                <div style={{ padding: "12px 16px", marginBottom: 10, background: regBg,
+                  border: `1px solid ${regColor}44`, borderRadius: 10,
+                  display: "flex", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+                  {/* Regime badge */}
+                  <div style={{ flexShrink: 0 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 3 }}>MARKET REGIME</div>
+                    <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: regColor }}>
+                      {regIcon} {regLabel}
+                    </div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 2 }}>
+                      {regConf}% confidence
+                    </div>
+                  </div>
+                  {/* Divider */}
+                  <div style={{ width: 1, background: `${regColor}33`, alignSelf: "stretch", flexShrink: 0 }} />
+                  {/* Signals row */}
+                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+                    {signals.map(s => (
+                      <div key={s.label} style={{ textAlign: "center" }}>
+                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{s.label}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: s.color }}>{s.val}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Divider */}
+                  <div style={{ width: 1, background: `${regColor}33`, alignSelf: "stretch", flexShrink: 0 }} />
+                  {/* Playbook */}
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 5 }}>TODAY'S PLAYBOOK</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                      {playbook.map((p, i) => (
+                        <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: regColor, display: "flex", gap: 6 }}>
+                          <span style={{ flexShrink: 0, opacity: 0.7 }}>{i + 1}.</span>{p}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* 2: INTELLIGENCE ROW */}
             <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 10 }}>
@@ -18881,6 +18999,65 @@ export default function App() {
               );
             })()}
 
+            {/* ── Performance by Time of Day ── */}
+            {journalEntries.filter(e => e.status === "closed" && e.pnl != null && e.closedAt).length >= 3 && (() => {
+              const closed = journalEntries.filter(e => e.status === "closed" && e.pnl != null && e.closedAt);
+              const byHour = {};
+              closed.forEach(e => {
+                const h = new Date(e.closedAt).getHours();
+                if (!byHour[h]) byHour[h] = { trades: 0, wins: 0, pnl: 0 };
+                byHour[h].trades++;
+                byHour[h].pnl += e.pnl;
+                if (e.pnl > 0) byHour[h].wins++;
+              });
+              const hours = Object.entries(byHour)
+                .map(([h, d]) => ({ h: Number(h), ...d, wr: Math.round(d.wins / d.trades * 100) }))
+                .sort((a, b) => a.h - b.h);
+              if (hours.length < 2) return null;
+              const maxAbs = Math.max(...hours.map(h => Math.abs(h.pnl)), 1);
+              const bestHour  = [...hours].sort((a, b) => b.pnl - a.pnl)[0];
+              const worstHour = [...hours].sort((a, b) => a.pnl - b.pnl)[0];
+              const fmt12 = h => { const ampm = h >= 12 ? "PM" : "AM"; const h12 = h % 12 || 12; return `${h12}${ampm}`; };
+              return (
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, marginBottom: 14 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text, marginBottom: 4 }}>⏱ PERFORMANCE BY TIME OF DAY</div>
+                  <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 14 }}>
+                    Your P&L and win rate broken down by the hour you closed each trade.
+                    {bestHour && <span style={{ color: C.green }}> Best hour: <strong>{fmt12(bestHour.h)}</strong> ({bestHour.wr}% WR · +${Math.round(bestHour.pnl)}).</span>}
+                    {worstHour && <span style={{ color: C.red }}> Worst hour: <strong>{fmt12(worstHour.h)}</strong> ({worstHour.wr}% WR · ${Math.round(worstHour.pnl)}).</span>}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "flex-end", flexWrap: "wrap" }}>
+                    {hours.map(({ h, trades, wins, pnl, wr }) => {
+                      const col   = pnl >= 0 ? C.green : C.red;
+                      const barH  = Math.max(6, Math.round(Math.abs(pnl) / maxAbs * 80));
+                      const isTop = h === bestHour?.h;
+                      const isBot = h === worstHour?.h;
+                      return (
+                        <div key={h} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, flex: 1, minWidth: 44,
+                          background: (isTop || isBot) ? `${col}12` : "transparent", borderRadius: 6, padding: "4px 2px",
+                          border: (isTop || isBot) ? `1px solid ${col}33` : "1px solid transparent" }}>
+                          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: col }}>
+                            {pnl >= 0 ? "+" : ""}${Math.abs(pnl) >= 1000 ? (pnl / 1000).toFixed(1) + "k" : Math.round(pnl)}
+                          </div>
+                          <div style={{ width: "80%", height: barH, background: col, borderRadius: "3px 3px 0 0", opacity: 0.7 }} />
+                          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{fmt12(h)}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 10, color: wr >= 50 ? C.green : C.red, fontWeight: 700 }}>{wr}%</div>
+                          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{trades}t</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {bestHour && (
+                    <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 7, background: `${C.green}12`, border: `1px solid ${C.green}33`,
+                      fontFamily: SANS, fontSize: 12, color: C.green, fontWeight: 600 }}>
+                      💡 Trade most between <strong>{fmt12(bestHour.h)}–{fmt12(bestHour.h + 1)}</strong> — your highest win rate and best average P&L.
+                      {worstHour && worstHour.pnl < 0 && <span style={{ color: C.red }}> Avoid <strong>{fmt12(worstHour.h)}</strong> — you lose money consistently at this hour.</span>}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Toolbar */}
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
               {["all", "open", "closed", "cancelled"].map(f => (
@@ -23932,6 +24109,49 @@ export default function App() {
 
 
       {/* ── DAILY MAX LOSS LOCK OVERLAY ── */}
+      {/* ── Tilt Detector Banner ── */}
+      {tiltLocked && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.93)", zIndex: 9998,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ maxWidth: 500, width: "100%", background: C.surface, borderRadius: 16,
+            border: `2px solid ${C.amber}`, boxShadow: `0 0 60px ${C.amber}44`, padding: 36, textAlign: "center" }}>
+            <div style={{ fontSize: 52, marginBottom: 12 }}>🧠</div>
+            <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.amber, marginBottom: 10 }}>
+              TILT DETECTED — STEP AWAY
+            </div>
+            <div style={{ fontFamily: SANS, fontSize: 15, color: C.textSec, lineHeight: 1.7, marginBottom: 18 }}>
+              You have <strong style={{ color: C.red }}>3 consecutive losses</strong> today. The platform is locked for <strong>30 minutes</strong>.
+              {tiltUnlockAt && (
+                <div style={{ fontFamily: MONO, fontSize: 13, color: C.amber, marginTop: 8 }}>
+                  Unlocks at {tiltUnlockAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </div>
+              )}
+            </div>
+            <div style={{ background: `${C.amber}12`, border: `1px solid ${C.amber}33`, borderRadius: 10, padding: "14px 18px", marginBottom: 20, textAlign: "left" }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.amber, marginBottom: 6 }}>WHAT TO DO RIGHT NOW</div>
+              <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, lineHeight: 1.8 }}>
+                1. Close your laptop or put down the phone<br/>
+                2. Go for a 10-minute walk<br/>
+                3. Come back and review what went wrong — not to fix it, just to understand it<br/>
+                4. No more trades today unless the setup is a perfect 10
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+              <button onClick={() => setActiveTab("journal")}
+                style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, border: `1px solid ${C.accent}`,
+                  background: `${C.accent}18`, color: C.accent, borderRadius: 8, padding: "10px 24px", cursor: "pointer" }}>
+                📓 Review My Trades
+              </button>
+              <button onClick={() => { setTiltLocked(false); setTiltUnlockAt(null); }}
+                style={{ fontFamily: MONO, fontSize: 12, border: `1px solid ${C.border}`,
+                  background: "transparent", color: C.textDim, borderRadius: 8, padding: "10px 14px", cursor: "pointer" }}>
+                Override Unlock
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {tradingLocked && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 9999,
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
