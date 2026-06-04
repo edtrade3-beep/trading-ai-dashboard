@@ -7,6 +7,7 @@
 const fs   = require("fs");
 const path = require("path");
 const https = require("https");
+const { writeJson } = require("../utils");
 
 const DATA_DIR   = path.join(__dirname, "../../data");
 const MSG_FILE   = path.join(DATA_DIR, "fb-messages.json");
@@ -23,8 +24,12 @@ function readJson(file, fallback) {
 }
 
 function saveJson(file, data) {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(data, null, 2));
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(data, null, 2));
+  } catch (e) {
+    console.error("[FB Hub] saveJson failed:", e.message);
+  }
 }
 
 function uid() {
@@ -137,7 +142,6 @@ async function processMessagingEvent(event) {
 // ── Exported route handler ────────────────────────────────────────────────────
 
 async function handleFbHub(req, res, pathname, searchParams, body) {
-  const { writeJson } = require("../utils");
 
   // ── Webhook verification (Facebook calls this once during setup) ──
   if (pathname === "/api/dealer/fb/webhook" && req.method === "GET") {
