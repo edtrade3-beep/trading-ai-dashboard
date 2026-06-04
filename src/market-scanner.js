@@ -1568,15 +1568,16 @@ async function scanWatchlistAlerts(watchlistSymbols) {
   if (!watchlistSymbols || !watchlistSymbols.length) return;
   if (!telegramConfigured()) return;
   try {
-    const { isQuietHours, getAlertLevel } = getBotHelpers();
+    const { isQuietHours, getAlertLevel, checkDailyBudget: checkBudget, incrementDailyCount: incCount } = getBotHelpers();
     if (isQuietHours?.()) return;
     if (getAlertLevel?.() === "off") return;
+    if (checkBudget && !checkBudget()) return; // respect daily cap
 
     const unique = [...new Set(watchlistSymbols.map(s => String(s).toUpperCase()))].slice(0, 30);
     for (const sym of unique) {
       const coolKey = `${sym}:WL`;
       const last = watchlistAlertCooldown.get(coolKey);
-      if (last && Date.now() - last < 24 * 3600_000) continue; // 24h cooldown (once per day)
+      if (last && Date.now() - last < 48 * 3600_000) continue; // 48h cooldown (max once per 2 days)
 
       let bars;
       try { bars = await fetchYahooBars(sym, "1mo", "1d"); } catch { continue; }
@@ -1600,8 +1601,8 @@ async function scanWatchlistAlerts(watchlistSymbols) {
       if (rvol > 2) score += 15; else if (rvol > 1.3) score += 8;
       if (rsi > 50 && rsi < 75) score += 5;
 
-      const signal = score >= 80 ? "STRONG BUY" : score >= 68 ? "BUY" : null;
-      if (!signal) continue; // only bullish setups from watchlist
+      const signal = score >= 88 ? "STRONG BUY" : null; // ONLY fire on very high conviction
+      if (!signal) continue;
 
       // Require Bull BOS confirmation — no BOS = no alert
       const { detectBOSChoCh } = require("./smc-engine");
@@ -1610,7 +1611,8 @@ async function scanWatchlistAlerts(watchlistSymbols) {
       if (!bullBOS) continue; // Bull BOS required for watchlist alerts
 
       watchlistAlertCooldown.set(coolKey, Date.now());
-      const emoji = score >= 80 ? "🔥" : "⚡";
+      if (incCount) incCount(); // count against daily budget
+      const emoji = "🔥";
       const msg = [
         `${emoji} WATCHLIST ALERT — $${sym}`,
         `━━━━━━━━━━━━━━━━━━━━`,
@@ -1652,7 +1654,7 @@ async function scanEntryZoneAlerts(watchlistSymbols, fivexRef = {}) {
 
       const coolKey = `${sym}:ZONE`;
       const last = entryZoneCooldown.get(coolKey);
-      if (last && Date.now() - last < 8 * 3600_000) continue; // 8h cooldown
+      if (last && Date.now() - last < 24 * 3600_000) continue; // 24h cooldown (once per day max)
 
       // Get key levels — prefer 5X ref, fallback to MA50/52w range
       const ma50  = Number(q.fiftyDayAverage || 0);

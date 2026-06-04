@@ -89,14 +89,10 @@ server.listen(PORT, HOST, () => {
       _macroSent["10"] = today;
       sendMacroReport().catch(() => {});
     }
-    // 3:30 PM — power hour setup
-    if (h === 15 && m >= 30 && m < 35 && _macroSent["15"] !== today) {
-      _macroSent["15"] = today;
-      sendMacroReport().catch(() => {});
-    }
+    // 3:30 PM macro disabled — one daily report is enough
   };
   setInterval(_sendScheduledMacro, 5 * 60_000);
-  console.log("[Macro] Scheduled macro reports: 10:00 AM + 3:30 PM ET weekdays");
+  console.log("[Macro] Scheduled macro report: 10:00 AM ET weekdays only");
 
   // Deal watches: disabled from Telegram (not trading-related)
   // setInterval(checkDealWatches, 30 * 60 * 1000);

@@ -37,12 +37,12 @@ let alertLevel   = "normal";
 // Batch queue: holds pending scan alerts to group into one message
 let batchQueue    = [];       // { symbol, signal, score, chgPct, rvol, trend }
 let batchTimer    = null;
-const BATCH_WAIT  = 120_000; // 2 minutes — collect signals then send ONE message
-const BATCH_LIMIT = 5;       // max signals per batch message
+const BATCH_WAIT  = 180_000; // 3 minutes — collect signals then send ONE message
+const BATCH_LIMIT = 3;       // max 3 signals per batch (was 5)
 // Daily alert budget — reset at midnight ET
 let dailyAlertCount = 0;
 let dailyAlertDate  = "";
-const MAX_DAILY_ALERTS = 8;  // hard cap: no more than 8 alerts per day total
+const MAX_DAILY_ALERTS = 4;  // hard cap: max 4 alerts per day (was 8)
 
 function checkDailyBudget() {
   const today = new Date().toLocaleDateString("en-US", { timeZone: "America/New_York" });
@@ -51,23 +51,23 @@ function checkDailyBudget() {
 }
 function incrementDailyCount() { dailyAlertCount++; }
 
-// Quiet hours: no alerts 4:30pm–7:00am ET + weekends
+// Quiet hours: no alerts outside 9:00am–3:30pm ET + no weekends
 function isQuietHours() {
   const etStr  = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
   const et     = new Date(etStr);
   const h      = et.getHours(), m = et.getMinutes(), day = et.getDay();
-  if (day === 0 || day === 6) return true;                    // weekend
-  if (h > 16 || (h === 16 && m >= 30)) return true;          // after 4:30 PM
-  if (h < 7) return true;                                     // before 7:00 AM
+  if (day === 0 || day === 6) return true;                      // weekend
+  if (h > 15 || (h === 15 && m >= 30)) return true;            // after 3:30 PM (tightened from 4:30)
+  if (h < 9) return true;                                       // before 9:00 AM (tightened from 7:00)
   return false;
 }
 
 // Check if alert passes the current level filter
 function passesAlertLevel(score, hasBOS) {
-  if (alertLevel === "off")   return false;
-  if (alertLevel === "quiet") return score >= 88 && hasBOS;  // very strict
-  if (alertLevel === "normal") return score >= 80 && hasBOS; // require BOS confirmation
-  return score >= 72; // "all" mode — still needs decent score
+  if (alertLevel === "off")    return false;
+  if (alertLevel === "quiet")  return score >= 90 && hasBOS;  // extreme only
+  if (alertLevel === "normal") return score >= 85 && hasBOS;  // require BOS + high score
+  return score >= 80 && hasBOS; // "all" mode still needs BOS + 80+
 }
 
 // Add to batch queue and schedule a grouped send

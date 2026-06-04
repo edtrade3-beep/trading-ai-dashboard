@@ -90,7 +90,7 @@ async function checkT1Alerts() {
 
       const cooldownKey = `${trade.id || trade.ticker}_t1`;
       const last        = T1_COOLDOWN.get(cooldownKey) || 0;
-      if (now - last < 4 * 60 * 60 * 1000) continue; // 4h cooldown per trade
+      if (now - last < 24 * 60 * 60 * 1000) continue; // 24h cooldown — once per trade only
 
       T1_COOLDOWN.set(cooldownKey, now);
       const rr = entry > 0 ? Math.abs((target - entry) / (entry - Number(trade.stopLoss || entry))).toFixed(1) : "—";
