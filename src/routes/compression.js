@@ -6,7 +6,7 @@ const https  = require("https");
 const { writeJson } = require("../utils");
 
 let _cache = null, _cacheTs = 0;
-const TTL = 20 * 60 * 1000; // 20 min
+const TTL = 15 * 60 * 1000; // 15 min
 
 const UNIVERSE = [
   // Mega-cap tech
@@ -188,8 +188,18 @@ async function runCompression(symbols) {
   }
 
   // ── Step 2: Pre-filter to candidates only ──
-  const candidates = syms.filter(s => isCandidate(quoteMap[s]));
-  console.log(`[Compression] ${syms.length} stocks → ${candidates.length} candidates after pre-filter`);
+  const quotedCount = Object.keys(quoteMap).length;
+  let candidates;
+  if (quotedCount < 5) {
+    // Batch quote failed — skip pre-filter, scan all
+    console.log(`[Compression] Batch quote returned ${quotedCount} — skipping pre-filter, scanning all ${syms.length}`);
+    candidates = syms;
+  } else {
+    candidates = syms.filter(s => isCandidate(quoteMap[s]));
+    // Safety: if filter is too aggressive, use all anyway
+    if (candidates.length < 8) candidates = syms;
+    console.log(`[Compression] ${syms.length} stocks → ${candidates.length} candidates after pre-filter`);
+  }
 
   // ── Step 3: Full history + analysis only for candidates ──
   const results = [];
