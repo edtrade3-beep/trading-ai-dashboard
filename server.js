@@ -28,6 +28,7 @@ const { startTelegramBot }    = require("./src/telegram-bot");
 const { checkDealWatches }   = require("./src/routes/deals");
 const { startCOTScheduler }  = require("./src/cot/scheduler");
 const { startPreMarketAlerts } = require("./src/premarket-alerts");
+const { runMarketRecap }       = require("./src/market-recap");
 const { updateCOTData, isDataFresh } = require("./src/cot/cotService");
 
 const server = http.createServer(handleRequest);
@@ -89,10 +90,24 @@ server.listen(PORT, HOST, () => {
       _macroSent["10"] = today;
       sendMacroReport().catch(() => {});
     }
-    // 3:30 PM macro disabled — one daily report is enough
+      // 3:30 PM macro disabled — one daily report is enough
   };
   setInterval(_sendScheduledMacro, 5 * 60_000);
   console.log("[Macro] Scheduled macro report: 10:00 AM ET weekdays only");
+
+  // 3:45 PM — Daily Market Recap (video script + Telegram)
+  let _recapSent = null;
+  setInterval(() => {
+    const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
+    const today = `${et.getFullYear()}-${et.getMonth()}-${et.getDate()}`;
+    if (day < 1 || day > 5) return;
+    if (h === 15 && m >= 44 && m < 50 && _recapSent !== today) {
+      _recapSent = today;
+      runMarketRecap().catch(() => {});
+    }
+  }, 60_000);
+  console.log("[Recap] 3:45 PM market recap scheduled — weekdays only");
 
   // Deal watches: disabled from Telegram (not trading-related)
   // setInterval(checkDealWatches, 30 * 60 * 1000);
