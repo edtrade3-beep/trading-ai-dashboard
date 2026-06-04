@@ -177,6 +177,108 @@ function formatTelegramMessage(script, data) {
   return lines.join("\n");
 }
 
+// ── ElevenLabs Voiceover ──────────────────────────────────────────────────────
+// Requires: ELEVENLABS_API_KEY env var
+// Voice: Antoni (professional male) — change VOICE_ID for different voice
+// Available voices: Antoni=ErXwobaYiN019PkySvjV  Adam=pNInz6obpgDQGcFmaJgB
+//                   Josh=TxGEqnHWrfWFTfGW9XjX   Sam=yoZ06aMxZJJ28mfd3POQ
+
+const VOICE_ID = "ErXwobaYiN019PkySvjV"; // Antoni — calm professional male
+
+function extractVoiceoverText(script) {
+  // Remove scene labels and extract clean text only
+  return script
+    .split("\n")
+    .filter(l => l.trim() && !l.startsWith("TITLE:") && !l.startsWith("DESCRIPTION:"))
+    .map(l => l.replace(/^SCENE \d+ \[[A-Z ]+\]:\s*/, "").trim())
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function generateVoiceover(text) {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) {
+    console.log("[Voiceover] ELEVENLABS_API_KEY not set — skipping audio generation");
+    return null;
+  }
+
+  const https = require("https");
+  const body  = JSON.stringify({
+    text,
+    model_id: "eleven_monolingual_v1",
+    voice_settings: { stability: 0.65, similarity_boost: 0.75, style: 0.1, use_speaker_boost: true },
+  });
+
+  return new Promise((resolve, reject) => {
+    const opts = {
+      hostname: "api.elevenlabs.io",
+      path: `/v1/text-to-speech/${VOICE_ID}`,
+      method: "POST",
+      headers: {
+        "Accept":       "audio/mpeg",
+        "xi-api-key":   apiKey,
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(body),
+      },
+    };
+
+    const req = https.request(opts, res => {
+      if (res.statusCode !== 200) {
+        let errBody = "";
+        res.on("data", c => errBody += c);
+        res.on("end", () => reject(new Error(`ElevenLabs ${res.statusCode}: ${errBody.slice(0, 200)}`)));
+        return;
+      }
+      const chunks = [];
+      res.on("data", c => chunks.push(c));
+      res.on("end", () => resolve(Buffer.concat(chunks)));
+    });
+    req.on("error", reject);
+    req.setTimeout(30000, () => { req.destroy(); reject(new Error("ElevenLabs timeout")); });
+    req.write(body);
+    req.end();
+  });
+}
+
+async function sendVoiceToTelegram(audioBuffer, caption) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) return false;
+
+  const https = require("https");
+  const boundary = "----RecapBoundary" + Date.now();
+
+  // Build multipart/form-data
+  const parts = [];
+  parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n${chatId}\r\n`));
+  parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="caption"\r\n\r\n${caption}\r\n`));
+  parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="voice"; filename="market-recap.mp3"\r\nContent-Type: audio/mpeg\r\n\r\n`));
+  parts.push(audioBuffer);
+  parts.push(Buffer.from(`\r\n--${boundary}--\r\n`));
+  const body = Buffer.concat(parts);
+
+  return new Promise(resolve => {
+    const opts = {
+      hostname: "api.telegram.org",
+      path: `/bot${token}/sendVoice`,
+      method: "POST",
+      headers: { "Content-Type": `multipart/form-data; boundary=${boundary}`, "Content-Length": body.length },
+    };
+    const req = https.request(opts, res => {
+      let d = ""; res.on("data", c => d += c);
+      res.on("end", () => {
+        try { const j = JSON.parse(d); resolve(j.ok); } catch { resolve(false); }
+      });
+    });
+    req.on("error", () => resolve(false));
+    req.setTimeout(20000, () => { req.destroy(); resolve(false); });
+    req.write(body);
+    req.end();
+  });
+}
+
 // ── Main function — called at 3:45 PM ET ─────────────────────────────────────
 
 async function runMarketRecap() {
@@ -191,19 +293,56 @@ async function runMarketRecap() {
 
   console.log("[Recap] 3:45 PM — fetching market data…");
   try {
-    const data   = await fetchMarketData();
-    const script = await generateRecapScript(data);
-    const msg    = formatTelegramMessage(script, data);
-    await sendTelegramMessage(msg);
-    console.log("[Recap] Sent to Telegram ✓");
+    // Step 1: Fetch market data
+    const data = await fetchMarketData();
+    console.log(`[Recap] Data: SPY ${data.spy.price} (${data.spy.chg}%)`);
 
-    // Also save script to file for video production tools
+    // Step 2: Generate script with Claude
+    const script = await generateRecapScript(data);
+    console.log("[Recap] Script generated ✓");
+
+    // Step 3: Send text recap to Telegram
+    const msg = formatTelegramMessage(script, data);
+    await sendTelegramMessage(msg);
+    console.log("[Recap] Text sent to Telegram ✓");
+
+    // Step 4: Generate voiceover with ElevenLabs (if API key set)
+    const voiceText = extractVoiceoverText(script);
+    console.log(`[Recap] Voiceover text: ${voiceText.slice(0, 80)}…`);
+
+    let audioBuffer = null;
+    try {
+      audioBuffer = await generateVoiceover(voiceText);
+      if (audioBuffer) console.log(`[Recap] Audio generated: ${(audioBuffer.length / 1024).toFixed(0)} KB ✓`);
+    } catch (e) {
+      console.warn("[Recap] Voiceover failed:", e.message);
+    }
+
+    // Step 5: Send audio to Telegram as voice message
+    if (audioBuffer) {
+      const audioCaption = `🎙 3:45 PM Market Recap — ${data.date}\nSPY ${data.spy.price} · QQQ ${data.qqq.price} · VIX ${data.vix.price.toFixed(1)}`;
+      const sent = await sendVoiceToTelegram(audioBuffer, audioCaption);
+      console.log(sent ? "[Recap] Audio sent to Telegram ✓" : "[Recap] Audio send failed");
+
+      // Save audio file
+      const fs = require("fs");
+      const path = require("path");
+      const dir = path.join(__dirname, "../data");
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, "latest-recap.mp3"), audioBuffer);
+      console.log("[Recap] Audio saved to data/latest-recap.mp3");
+    }
+
+    // Step 6: Save full JSON
     const fs   = require("fs");
     const path = require("path");
     const dir  = path.join(__dirname, "../data");
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, "latest-recap.json"), JSON.stringify({ script, data, generatedAt: new Date().toISOString() }, null, 2));
-    console.log("[Recap] Script saved to data/latest-recap.json");
+    fs.writeFileSync(path.join(dir, "latest-recap.json"), JSON.stringify({
+      script, data, voiceGenerated: !!audioBuffer, generatedAt: new Date().toISOString()
+    }, null, 2));
+    console.log("[Recap] Complete pipeline done ✓");
+
   } catch (e) {
     console.error("[Recap] Error:", e.message);
   }
@@ -221,6 +360,18 @@ async function handleRecapApi(req, res, requestUrl) {
       const file = path.join(__dirname, "../data/latest-recap.json");
       if (!fs.existsSync(file)) return writeJson(res, 200, { ok: false, error: "No recap yet" });
       return writeJson(res, 200, { ok: true, ...JSON.parse(fs.readFileSync(file, "utf8")) });
+    } catch (e) { return writeJson(res, 500, { ok: false, error: e.message }); }
+  }
+
+  if (requestUrl.pathname === "/api/recap/audio") {
+    try {
+      const fs   = require("fs");
+      const path = require("path");
+      const file = path.join(__dirname, "../data/latest-recap.mp3");
+      if (!fs.existsSync(file)) return writeJson(res, 404, { ok: false, error: "No audio yet" });
+      const buf = fs.readFileSync(file);
+      res.writeHead(200, { "Content-Type": "audio/mpeg", "Content-Length": buf.length, "Content-Disposition": "attachment; filename=market-recap.mp3" });
+      return res.end(buf);
     } catch (e) { return writeJson(res, 500, { ok: false, error: e.message }); }
   }
 
