@@ -26,6 +26,7 @@ const { handleLiquidations } = require("./routes/liquidations");
 const { handleMonitorExtras } = require("./routes/monitor-extras");
 const { handleRecapApi }      = require("./market-recap");
 const { handleAdol22Api }     = require("./adol22-scanner");
+const { handleUnder10 }       = require("./routes/under10");
 const { handleSqueeze }       = require("./routes/squeeze");
 const { handleCompression }   = require("./routes/compression");
 const { handleInsider }       = require("./routes/insider");
@@ -61,6 +62,7 @@ async function handleRequest(req, res) {
       return handleFinviz(req, res, requestUrl);
     }
 
+    if (pathname === "/api/scanner/under10")      return handleUnder10(req, res, requestUrl);
     if (pathname === "/api/scanner/squeeze")      return handleSqueeze(req, res);
     if (pathname === "/api/scanner/compression")  return handleCompression(req, res, requestUrl);
     if (pathname === "/api/scanner/insider")      return handleInsider(req, res);
