@@ -5506,7 +5506,7 @@ function CombinedTab({ C, MONO, SANS, watchlistSymbols, loadDeepDive, scanDeepDa
               </tr>
             </thead>
             <tbody>
-              {visible.map((r, i) => (
+              {visible.map((r, i) => (<React.Fragment key={`cf-${r.sym}`}>
                 <tr key={r.sym} style={{ borderBottom: `1px solid ${C.border}22`,
                   background: r.decision === "ENTER" ? `${C.green}08` : i % 2 === 0 ? "transparent" : `${C.surface}44` }}>
 
@@ -5673,7 +5673,7 @@ function CombinedTab({ C, MONO, SANS, watchlistSymbols, loadDeepDive, scanDeepDa
                     </td>
                   </tr>
                 )}
-              ))}
+              </React.Fragment>))}
             </tbody>
           </table>
         </div>
