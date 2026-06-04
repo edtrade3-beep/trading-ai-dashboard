@@ -4802,7 +4802,7 @@ function CryptoTab({ C, MONO, SANS }) {
 }
 
 // ── Compression Scanner ──────────────────────────────────────────────────────
-function CompressionTab({ C, MONO, SANS, setActiveTab, onDeepDive }) {
+function CompressionTab({ C, MONO, SANS, setActiveTab, onDeepDive, watchlistSymbols }) {
   const [data,       setData]       = React.useState(null);
   const [loading,    setLoading]    = React.useState(false);
   const [error,      setError]      = React.useState(null);
@@ -4810,7 +4810,10 @@ function CompressionTab({ C, MONO, SANS, setActiveTab, onDeepDive }) {
 
   const load = React.useCallback(() => {
     setLoading(true);
-    fetch("/api/scanner/compression")
+    const wlParam = watchlistSymbols && watchlistSymbols.length
+      ? `?symbols=${watchlistSymbols.slice(0, 30).join(",")}`
+      : "";
+    fetch(`/api/scanner/compression${wlParam}`)
       .then(r => r.json())
       .then(d => {
         if (!d.ok) { setError(d.error); return; }
@@ -4863,7 +4866,8 @@ function CompressionTab({ C, MONO, SANS, setActiveTab, onDeepDive }) {
             🌀 COMPRESSION SCANNER
           </div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-            Stocks coiling before a big move — buy the quiet before the explosion
+            Stocks coiling before a big move — includes your watchlist + 80 momentum stocks
+            {data?.total ? ` · ${data.total} scanned` : ""}
             {data?.updatedAt ? ` · ${new Date(data.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
           </div>
         </div>
@@ -22080,7 +22084,7 @@ export default function App() {
 
       {/* ── CUSTOM SCREENER ──────────────────────────────────────────────── */}
       {activeTab === "squeeze"      && <SqueezeTab      C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
-      {activeTab === "compression"  && <CompressionTab  C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab}
+      {activeTab === "compression"  && <CompressionTab  C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} watchlistSymbols={watchlistSymbols}
         onDeepDive={sym => {
           // Add synthetic row if ticker not already in scan results
           setScanResults(prev => {

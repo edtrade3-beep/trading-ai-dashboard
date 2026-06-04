@@ -9,11 +9,24 @@ let _cache = null, _cacheTs = 0;
 const TTL = 20 * 60 * 1000; // 20 min
 
 const UNIVERSE = [
-  "NVDA","TSLA","AAPL","META","AMZN","GOOGL","MSFT","AMD","NFLX","COIN",
-  "SMCI","PLTR","MSTR","RIVN","SOFI","MARA","RIOT","HOOD","RBLX","UPST",
-  "AFRM","CRWD","NET","SNOW","DKNG","BBAI","SOUN","IONQ","ACHR","ASTS",
-  "RKLB","OKLO","SMR","HIMS","SNAP","UBER","DASH","ABNB","RDDT","PINS",
-  "SPY","QQQ","IWM","IBIT","BITO",
+  // Mega-cap tech
+  "NVDA","TSLA","AAPL","META","AMZN","GOOGL","MSFT","AMD","NFLX","AVGO",
+  // High-momentum
+  "COIN","PLTR","MSTR","SMCI","HOOD","RBLX","UPST","AFRM","CRWD","PANW",
+  "NET","SNOW","DKNG","PATH","AI","ZS","OKTA","GTLB","DDOG","MDB",
+  // Small/Mid momentum
+  "RIVN","SOFI","MARA","RIOT","BBAI","SOUN","IONQ","ACHR","ASTS","RKLB",
+  "OKLO","SMR","NNE","HIMS","RXRX","RDDT","SNAP","PINS","ABNB","DASH",
+  "UBER","LYFT","HOOD","OPEN","AFRM","SQ","PYPL","SHOP","SE","MELI",
+  // Energy/Crypto
+  "MARA","RIOT","CLSK","IREN","HUT","BTBT","IBIT","BITO",
+  "VST","CEG","GEV","CCJ","NNE","OKLO","SMR",
+  // ETFs
+  "SPY","QQQ","IWM","XLK","XLE","XLF","XBI","ARKK","SOXL",
+  // Biotech/Healthcare
+  "MRNA","BNTX","HIMS","RXRX","NVAX","CRSP","BEAM","NTLA",
+  // Other
+  "GM","F","RIVN","LCID","NIO","XPEV","LI",
 ];
 
 // Fetch 30 days of daily OHLCV via Yahoo v8
@@ -110,13 +123,15 @@ function analyze(sym, bars, price) {
 
 async function runCompression(symbols) {
   const syms = symbols && symbols.length ? symbols : UNIVERSE;
-  // Fetch in batches of 6
+  // Deduplicate
+  const uniq = [...new Set(syms)];
+  // Fetch in batches of 10
   const results = [];
-  for (let i = 0; i < syms.length; i += 6) {
-    const batch = await Promise.all(syms.slice(i, i + 6).map(s => fetchHistory(s)));
+  for (let i = 0; i < uniq.length; i += 10) {
+    const batch = await Promise.all(uniq.slice(i, i + 10).map(s => fetchHistory(s)));
     for (const { sym, bars, price } of batch) {
       const r = analyze(sym, bars, price);
-      if (r && r.score >= 25) results.push(r);
+      if (r && r.score >= 20) results.push(r); // lower threshold = more results
     }
   }
   return results.sort((a, b) => b.score - a.score);
@@ -127,11 +142,25 @@ async function handleCompression(req, res, requestUrl) {
     return writeJson(res, 200, { ok: true, results: _cache, updatedAt: new Date(_cacheTs).toISOString() });
   }
   try {
-    const wl = requestUrl.searchParams.get("symbols");
-    const symbols = wl ? wl.split(",").map(s => s.trim().toUpperCase()).filter(Boolean) : null;
-    const results = await runCompression(symbols);
+    // Merge: user watchlist + request symbols + default universe (deduplicated)
+    const extra = requestUrl.searchParams.get("symbols");
+    const extraSyms = extra ? extra.split(",").map(s => s.trim().toUpperCase()).filter(Boolean) : [];
+
+    // Load user watchlist from settings
+    let watchlistSyms = [];
+    try {
+      const { loadSettings } = require("../settings-store");
+      const settings = loadSettings() || {};
+      watchlistSyms = Array.isArray(settings.watchlistSymbols) ? settings.watchlistSymbols
+        : Array.isArray(settings.watchlists?.[0]?.symbols) ? settings.watchlists[0].symbols : [];
+    } catch {}
+
+    // Merge all, deduplicate, cap at 80
+    const allSyms = [...new Set([...extraSyms, ...watchlistSyms, ...UNIVERSE])].slice(0, 80);
+
+    const results = await runCompression(allSyms);
     _cache = results; _cacheTs = Date.now();
-    return writeJson(res, 200, { ok: true, results, updatedAt: new Date(_cacheTs).toISOString() });
+    return writeJson(res, 200, { ok: true, results, total: allSyms.length, updatedAt: new Date(_cacheTs).toISOString() });
   } catch (e) {
     return writeJson(res, 200, { ok: false, results: [], error: e.message });
   }
