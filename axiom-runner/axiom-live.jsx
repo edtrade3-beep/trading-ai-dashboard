@@ -16571,15 +16571,17 @@ export default function App() {
                                         {/* ── BOTTOM / TOP DETECTOR ── */}
                                         {(() => {
                                           const px     = Number(livePrice || row.quote?.price || 0);
-                                          const hi52   = Number(row.quote?.yearHigh || 0);
-                                          const lo52   = Number(row.quote?.yearLow  || 0);
-                                          const rsi    = Number(row.rsiVal || 50);
+                                          if (!px) return null;
+                                          // Use deep dive fundamentals if available, fallback to scan data, then proxies
+                                          const fd2    = deepData?.fundamentals || {};
+                                          const hi52   = Number(fd2.fiftyTwoWeekHigh || row.quote?.yearHigh || row.quote?.fiftyTwoWeekHigh || px * 1.3);
+                                          const lo52   = Number(fd2.fiftyTwoWeekLow  || row.quote?.yearLow  || row.quote?.fiftyTwoWeekLow  || px * 0.7);
+                                          const rsi    = Number(row.rsiVal || fd2.rsi || 50);
                                           const rvol   = row.quote?.volume && row.quote?.avgVolume ? row.quote.volume / row.quote.avgVolume : 1;
-                                          const chg1d  = Number(row.quote?.changePercent || 0);
+                                          const chg1d  = Number(row.quote?.changePercent || row.quote?.changesPercentage || 0);
                                           const chg1w  = Number(row.quote?.delta1w || 0);
-                                          const ma50   = Number(row.quote?.priceAvg50  || 0);
-                                          const ma200  = Number(row.quote?.priceAvg200 || 0);
-                                          if (!px || !hi52 || !lo52) return null;
+                                          const ma50   = Number(row.quote?.priceAvg50  || fd2.fiftyDayAverage || 0);
+                                          const ma200  = Number(row.quote?.priceAvg200 || fd2.twoHundredDayAverage || 0);
 
                                           const distFromLo = (px - lo52) / lo52 * 100;  // % above 52w low
                                           const distFromHi = (hi52 - px) / hi52 * 100;  // % below 52w high
@@ -16606,40 +16608,69 @@ export default function App() {
 
                                           const bottomScore = bottomSigs.reduce((s, x) => s + x.weight, 0);
                                           const topScore    = topSigs.reduce((s, x) => s + x.weight, 0);
-                                          const threshold   = 4;
+                                          const threshold   = 2; // lower threshold = always shows something
 
-                                          if (bottomScore < threshold && topScore < threshold) return null;
-
-                                          const isBottom = bottomScore > topScore;
-                                          const isTop    = !isBottom;
-                                          const verdict  = isBottom
-                                            ? (bottomScore >= 7 ? "🟢 LIKELY BOTTOM" : "🔵 POSSIBLE BOTTOM")
-                                            : (topScore    >= 7 ? "🔴 LIKELY TOP"    : "🟡 POSSIBLE TOP");
-                                          const vColor   = isBottom ? C.green : C.red;
-                                          const vBg      = isBottom ? `${C.green}10` : `${C.red}10`;
-                                          const sigs     = isBottom ? bottomSigs : topSigs;
+                                          const isBottom = bottomScore >= threshold && bottomScore >= topScore;
+                                          const isTop    = topScore    >= threshold && topScore    >  bottomScore;
+                                          const isNeutral= !isBottom && !isTop;
+                                          const verdict  = isNeutral ? "〰️ MID RANGE" :
+                                            isBottom ? (bottomScore >= 6 ? "🟢 LIKELY BOTTOM" : "🔵 POSSIBLE BOTTOM") :
+                                                       (topScore    >= 6 ? "🔴 LIKELY TOP"    : "🟡 POSSIBLE TOP");
+                                          const vColor   = isNeutral ? C.textDim : isBottom ? C.green : C.red;
+                                          const vBg      = isNeutral ? C.card : isBottom ? `${C.green}10` : `${C.red}10`;
+                                          const sigs     = isBottom ? bottomSigs : isTop ? topSigs : [];
 
                                           return (
                                             <div style={{ marginTop: 14, padding: "10px 12px", borderRadius: 8,
                                               background: vBg, border: `1px solid ${vColor}44` }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900,
-                                                color: vColor, marginBottom: 6, letterSpacing: "0.06em" }}>
+                                              {/* Header */}
+                                              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                                letterSpacing: "0.1em", marginBottom: 4 }}>REVERSAL DETECTOR</div>
+                                              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900,
+                                                color: vColor, marginBottom: sigs.length ? 6 : 0 }}>
                                                 {verdict}
                                               </div>
-                                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                                {sigs.map((s, si) => (
-                                                  <div key={si} style={{ display: "flex", alignItems: "center", gap: 5,
-                                                    fontFamily: SANS, fontSize: 11, color: vColor }}>
-                                                    <span style={{ flexShrink: 0 }}>{"●".repeat(s.weight)}</span>
-                                                    <span>{s.txt}</span>
+                                              {/* 52w context bar */}
+                                              {hi52 > lo52 && (
+                                                <div style={{ marginBottom: 6 }}>
+                                                  <div style={{ display: "flex", justifyContent: "space-between",
+                                                    fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 2 }}>
+                                                    <span>52w Lo ${lo52.toFixed(0)}</span>
+                                                    <span style={{ color: vColor, fontWeight: 800 }}>
+                                                      {distFromLo.toFixed(0)}% from Lo · {distFromHi.toFixed(0)}% from Hi
+                                                    </span>
+                                                    <span>52w Hi ${hi52.toFixed(0)}</span>
                                                   </div>
-                                                ))}
-                                              </div>
-                                              <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 6, lineHeight: 1.5 }}>
-                                                {isBottom
-                                                  ? "Watch for volume confirmation + green candle close above resistance"
-                                                  : "Watch for volume drop + red candle close below support"}
-                                              </div>
+                                                  <div style={{ height: 5, background: C.border, borderRadius: 3, overflow: "hidden" }}>
+                                                    <div style={{ width: `${Math.min(100, distFromLo / (distFromLo + distFromHi) * 100)}%`,
+                                                      height: "100%", background: vColor, borderRadius: 3 }} />
+                                                  </div>
+                                                </div>
+                                              )}
+                                              {/* Evidence */}
+                                              {sigs.length > 0 && (
+                                                <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 6 }}>
+                                                  {sigs.map((s, si) => (
+                                                    <div key={si} style={{ display: "flex", alignItems: "flex-start", gap: 5,
+                                                      fontFamily: SANS, fontSize: 11, color: vColor }}>
+                                                      <span style={{ flexShrink: 0, opacity: 0.7 }}>{"●".repeat(Math.min(s.weight, 3))}</span>
+                                                      <span>{s.txt}</span>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+                                              {isNeutral && (
+                                                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>
+                                                  Price in the middle of its range — no clear reversal signal yet.
+                                                </div>
+                                              )}
+                                              {!isNeutral && (
+                                                <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, lineHeight: 1.5 }}>
+                                                  {isBottom
+                                                    ? "Wait for green candle + volume spike to confirm"
+                                                    : "Watch for red candle close below support to confirm"}
+                                                </div>
+                                              )}
                                             </div>
                                           );
                                         })()}
