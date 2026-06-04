@@ -5178,15 +5178,14 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
 
       {/* ── Stats Strip ── */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))', gap:8 }}>
+        {/* Stats strip: only data NOT shown in cards below */}
         {[
-          { label:'REGIME', val:(regimeLabel||'—').split('/')[0].trim(), sub:`${regConf}% confidence`, col:regimeColor||ACCENT },
           portfolioSummary?.totalCost>0
             ? { label:'TODAY P&L', val:fmtD(portfolioSummary.dayPnlTotal||0), sub:fmtP(portfolioSummary.dayPnlPct||0), col:(portfolioSummary.dayPnlTotal||0)>=0?GREEN:RED }
-            : { label:'TILT', val:tiltLocked?'LOCKED':tiltStreak===0?'CLEAR':`${tiltStreak}/3`, sub:tiltLocked?'Platform locked':tiltStreak===0?'No losses':'Warning', col:tiltLocked?RED:tiltStreak>=2?AMBER:GREEN },
-          { label:'A+ SIGNALS', val:String((scanResults||[]).filter(r=>r.score>=70).length), sub:'from scanner', col:ACCENT },
-          { label:'ALERTS', val:String(combinedAlerts.length), sub:combinedAlerts.length>0?'ACTIVE':'ALL CLEAR', col:combinedAlerts.length>0?AMBER:GREEN },
-          { label:'NEXT EVENT', val:eventCountdowns[0]?.name||'None', sub:eventCountdowns[0]?`in ${eventCountdowns[0].days}d`:'No events', col:eventCountdowns[0]?.days<=2?RED:eventCountdowns[0]?.days<=5?AMBER:C.textDim },
-          { label:'FLOW BIAS', val:combinedAlerts.filter(a=>a.type==='flow').length>0?'ACTIVE':'NEUTRAL', sub:`${combinedAlerts.filter(a=>a.type==='flow').length} flow alerts`, col:combinedAlerts.filter(a=>a.type==='flow').length>0?AMBER:C.textDim },
+            : { label:'ACCOUNT', val:'$10,000', sub:'risk 1% = $100', col:ACCENT },
+          { label:'TILT STATUS', val:tiltLocked?'🔒 LOCKED':tiltStreak===0?'✅ CLEAR':`⚠️ ${tiltStreak}/3`, sub:tiltLocked?'Stop trading now':tiltStreak===0?'Good to trade':'1 more = lock', col:tiltLocked?RED:tiltStreak>=2?AMBER:GREEN },
+          { label:'A+ SETUPS', val:String((scanResults||[]).filter(r=>r.score>=70).length||liveSignals.length), sub:'ready to trade', col:(scanResults||[]).filter(r=>r.score>=70).length>0?GREEN:ACCENT },
+          { label:'MARKET TIME', val:(() => { const et=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'})); const h=et.getHours(),m=et.getMinutes(); if(h>=9&&(h<16||(h===9&&m>=30))) return 'OPEN'; if(h<9||(h===9&&m<30)) return 'PRE-MKT'; return 'AFTER-HRS'; })(), sub:new Date().toLocaleTimeString('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit'})+' ET', col:(() => { const et=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'})); const h=et.getHours(),m=et.getMinutes(); return (h>=9&&(h<16||(h===9&&m>=30)))?GREEN:AMBER; })() },
         ].map((s,i) => (
           <div key={i} style={{ background:CARD, border:`1px solid ${BORDER}`,
             borderTop:`2px solid ${s.col}`, borderRadius:8, padding:'10px 12px',
@@ -5369,33 +5368,17 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
                   {tiltLocked?'🔒 PLATFORM LOCKED':tiltStreak===0?'✅ 0 losses — clear':`⚠️ ${tiltStreak}/3 losses`}
                 </div>
               </div>
-              {portfolioSummary?.totalCost>0 && (
+              {todayTrades.length>0 && (
                 <div style={{ padding:'10px 12px', borderRadius:8, background:C.surface, border:`1px solid ${BORDER}` }}>
-                  <div style={{ fontFamily:MONO, fontSize:9, color:DIM, marginBottom:6 }}>TODAY'S PERFORMANCE</div>
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-                    <div>
-                      <div style={{ fontFamily:MONO, fontSize:8, color:DIM }}>P&L</div>
-                      <div style={{ fontFamily:MONO, fontSize:16, fontWeight:900, color:(portfolioSummary.dayPnlTotal||0)>=0?GREEN:RED }}>
-                        {fmtD(portfolioSummary.dayPnlTotal||0)}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontFamily:MONO, fontSize:8, color:DIM }}>TRADES</div>
-                      <div style={{ fontFamily:MONO, fontSize:16, fontWeight:900, color:TEXT }}>
-                        {dayWins}W / {todayTrades.length-dayWins}L
-                      </div>
-                    </div>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:DIM, marginBottom:6 }}>TODAY'S TRADES</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8 }}>
+                    <div><div style={{ fontFamily:MONO, fontSize:8, color:DIM }}>WINS</div><div style={{ fontFamily:MONO, fontSize:16, fontWeight:900, color:GREEN }}>{dayWins}</div></div>
+                    <div><div style={{ fontFamily:MONO, fontSize:8, color:DIM }}>LOSSES</div><div style={{ fontFamily:MONO, fontSize:16, fontWeight:900, color:RED }}>{todayTrades.length-dayWins}</div></div>
+                    <div><div style={{ fontFamily:MONO, fontSize:8, color:DIM }}>WIN RATE</div><div style={{ fontFamily:MONO, fontSize:16, fontWeight:900, color:ACCENT }}>{todayTrades.length?Math.round(dayWins/todayTrades.length*100):0}%</div></div>
                   </div>
                 </div>
               )}
-              <div style={{ background:`${regimeColor||ACCENT}08`, border:`1px solid ${regimeColor||ACCENT}22`, borderRadius:8, padding:'10px 12px' }}>
-                <div style={{ fontFamily:MONO, fontSize:9, color:regimeColor||ACCENT, fontWeight:900, marginBottom:6, letterSpacing:'0.08em' }}>REGIME RULES</div>
-                {playbook.slice(0,2).map((p,i) => (
-                  <div key={i} style={{ fontFamily:SANS, fontSize:11, color:TEXT, display:'flex', gap:6, marginBottom:3 }}>
-                    <span style={{ color:regimeColor||ACCENT, fontWeight:800, flexShrink:0 }}>{i+1}.</span>{p}
-                  </div>
-                ))}
-              </div>
+{/* Regime rules removed — see Intelligence & Regime card */}
             </div>
           </Card>
 
