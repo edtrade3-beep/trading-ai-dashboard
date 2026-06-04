@@ -4849,7 +4849,7 @@ function CryptoTab({ C, MONO, SANS }) {
 }
 
 // ── Under $10 Opportunity Scanner ────────────────────────────────────────────
-function Under10Tab({ C, MONO, SANS, setActiveTab, onDeepDive, watchlistSymbols }) {
+function Under10Tab({ C, MONO, SANS, setActiveTab, watchlistSymbols }) {
   const [data,    setData]    = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [filter,  setFilter]  = React.useState("ALL"); // ALL | CHEAP | TECHNICAL | FUNDAMENTAL
@@ -4992,12 +4992,14 @@ function Under10Tab({ C, MONO, SANS, setActiveTab, onDeepDive, watchlistSymbols 
                       </div>
                     </td>
                     <td style={{ padding: "9px 6px" }}>
-                      <button onClick={() => onDeepDive ? onDeepDive(r.sym, r) : setActiveTab("smartscan")}
-                        style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, padding: "4px 10px",
-                          borderRadius: 5, border: "none", cursor: "pointer", whiteSpace: "nowrap",
-                          background: r.total >= 55 ? C.green : `${C.accent}20`,
-                          color: r.total >= 55 ? "#fff" : C.accent }}>
-                        Dive →
+                      <button onClick={() => {
+                        navigator.clipboard?.writeText(r.sym).catch(() => {});
+                        setActiveTab("smartscan");
+                      }} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, padding: "4px 10px",
+                        borderRadius: 5, border: "none", cursor: "pointer", whiteSpace: "nowrap",
+                        background: r.total >= 55 ? C.green : `${C.accent}20`,
+                        color: r.total >= 55 ? "#fff" : C.accent }}>
+                        Scan →
                       </button>
                     </td>
                   </tr>
@@ -23916,25 +23918,7 @@ export default function App() {
       })()}
 
       {/* ── CUSTOM SCREENER ──────────────────────────────────────────────── */}
-      {activeTab === "under10" && <Under10Tab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} watchlistSymbols={watchlistSymbols}
-        onDeepDive={(sym) => {
-          setScanResults(prev => prev.some(r => r.ticker === sym) ? prev : [
-            { ticker: sym, score: 50, signal: "WATCH", scannerScore: 50, signals: [],
-              sColor: "#f59e0b", quote: { price: 0, changePercent: 0 }, candles: null },
-            ...prev
-          ]);
-          setSfSig("ALL");
-          setSfMinScore(0);
-          setActiveTab("smartscan");
-          setTimeout(() => {
-            setScanExpanded(sym);
-            loadDeepDive(sym);
-            loadDeepSocial(sym);
-          }, 100);
-          setTimeout(() => fetchTradeSetup(sym, {
-            ticker: sym, score: 50, signal: "WATCH", signals: [], quote: { price: 0 }
-          }), 1400);
-        }} />}
+      {activeTab === "under10" && <Under10Tab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "combined"     && <CombinedTab     C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols}
         onDeepDive={(sym, row) => {
           // Step 1: clear filters + add row + switch tab
