@@ -24,6 +24,7 @@ const handleCOT     = require("./routes/cot");
 const { handleAutoExec } = require("./routes/autoexec");
 const { handleLiquidations } = require("./routes/liquidations");
 const { handleMonitorExtras } = require("./routes/monitor-extras");
+const { handleSqueeze }       = require("./routes/squeeze");
 const { sendTelegramAlert, sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
 
 async function handleRequest(req, res) {
@@ -73,6 +74,10 @@ async function handleRequest(req, res) {
 
     if (pathname === "/api/crypto/liquidations") {
       return handleLiquidations(req, res, requestUrl);
+    }
+
+    if (pathname === "/api/scanner/squeeze") {
+      return handleSqueeze(req, res);
     }
 
     if (pathname === "/api/market/futures" ||

@@ -11143,7 +11143,7 @@ export default function App() {
               { id: "terminal",  label: "📈 CHARTS",
                 tabs: ["terminal", "tv", "fibonacci"] },
               { id: "scanner",   label: "🔍 SCANNER",
-                tabs: ["scanner", "smartscan", "gap", "early", "screener", "flow", "fivex", "autoexec"] },
+                tabs: ["scanner", "smartscan", "gap", "early", "screener", "squeeze", "flow", "fivex", "autoexec"] },
               { id: "markets",   label: "🌍 MARKETS",
                 tabs: ["news", "macro", "earn-cal", "econ-cal", "calendar", "sectors", "crypto", "feargreed"] },
               { id: "research",  label: "🔬 RESEARCH", tabs: ["cot"] },
@@ -11514,6 +11514,7 @@ export default function App() {
             { id: "gap",       label: "📈 GAP SCAN" },
             { id: "early",     label: "🎯 EARLY ENTRY" },
             { id: "screener",  label: "🔍 SCREENER" },
+            { id: "squeeze",   label: "🔥 SQUEEZE" },
             { id: "flow",      label: "⚡ INST. FLOW" },
             { id: "fivex",     label: "🚀 5X PLAYS" },
             { id: "autoexec",  label: "⚙ AUTO-EXEC" },
@@ -19096,6 +19097,86 @@ export default function App() {
               );
             })()}
 
+            {/* ── Weekly Review Generator ── */}
+            {(() => {
+              const today     = new Date();
+              const dow       = today.getDay(); // 0=Sun
+              const isSunday  = dow === 0;
+              // Get last 7 days of closed trades
+              const cutoff    = new Date(today); cutoff.setDate(cutoff.getDate() - 7);
+              const weekTrades = journalEntries.filter(e =>
+                e.status === "closed" && e.pnl != null && e.closedAt &&
+                new Date(e.closedAt) >= cutoff
+              );
+              const weekPnl   = weekTrades.reduce((s, e) => s + e.pnl, 0);
+              const weekWins  = weekTrades.filter(e => e.pnl > 0).length;
+              const weekWR    = weekTrades.length ? Math.round(weekWins / weekTrades.length * 100) : 0;
+              const bestTrade = weekTrades.length ? [...weekTrades].sort((a,b) => b.pnl - a.pnl)[0] : null;
+              const worstTrade = weekTrades.length ? [...weekTrades].sort((a,b) => a.pnl - b.pnl)[0] : null;
+              // Best setup this week
+              const byStyle   = {};
+              weekTrades.forEach(e => {
+                const s = e.style || "Other";
+                if (!byStyle[s]) byStyle[s] = { pnl: 0, trades: 0 };
+                byStyle[s].pnl += e.pnl; byStyle[s].trades++;
+              });
+              const topSetup  = Object.entries(byStyle).sort((a,b) => b[1].pnl - a[1].pnl)[0];
+              return (
+                <div style={{ background: C.card, border: `1px solid ${C.purple}44`, borderRadius: 10,
+                  padding: 16, marginBottom: 14 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                    marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>
+                        📋 WEEKLY REVIEW — Last 7 Days
+                      </div>
+                      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 2 }}>
+                        {isSunday ? "✅ It's Sunday — perfect time for your weekly review" : `${7 - dow} days until Sunday review`}
+                      </div>
+                    </div>
+                    <button onClick={fetchJournalReview} disabled={journalRevLoad || weekTrades.length < 2}
+                      style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 16px",
+                        borderRadius: 7, border: `1px solid ${C.purple}66`, cursor: "pointer",
+                        background: journalRevLoad ? C.surface : `${C.purple}22`,
+                        color: journalRevLoad ? C.textDim : C.purple }}>
+                      {journalRevLoad ? "🤖 Analyzing…" : "🤖 Generate AI Review"}
+                    </button>
+                  </div>
+                  {weekTrades.length === 0 ? (
+                    <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, padding: "10px 0" }}>
+                      No closed trades in the last 7 days. Log trades in your Journal to see the weekly review.
+                    </div>
+                  ) : (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8, marginBottom: journalReview ? 12 : 0 }}>
+                      {[
+                        { label: "WEEK P&L",  val: `${weekPnl >= 0 ? "+" : ""}$${Math.round(weekPnl)}`, color: weekPnl >= 0 ? C.green : C.red },
+                        { label: "TRADES",    val: weekTrades.length, color: C.text },
+                        { label: "WIN RATE",  val: `${weekWR}%`, color: weekWR >= 60 ? C.green : weekWR >= 45 ? C.amber : C.red },
+                        { label: "BEST TRADE",val: bestTrade ? `${bestTrade.ticker} +$${Math.round(bestTrade.pnl)}` : "—", color: C.green },
+                        { label: "WORST TRADE",val: worstTrade ? `${worstTrade.ticker} -$${Math.abs(Math.round(worstTrade.pnl))}` : "—", color: C.red },
+                        { label: "TOP SETUP", val: topSetup ? topSetup[0] : "—", color: C.accent },
+                      ].map(({ label, val, color }) => (
+                        <div key={label} style={{ padding: "10px 12px", background: C.surface, borderRadius: 8,
+                          border: `1px solid ${C.border}`, textAlign: "center" }}>
+                          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 3 }}>{label}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color }}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* AI Review output */}
+                  {journalReview?.text && (
+                    <div style={{ marginTop: 12, padding: 12, background: `${C.purple}10`,
+                      border: `1px solid ${C.purple}33`, borderRadius: 8,
+                      fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.7,
+                      whiteSpace: "pre-wrap" }}>
+                      {journalReview.text}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Monthly P/L chart */}
             {journalEntries.length > 1 && (() => {
               const closed = journalEntries.filter(e => e.status === "closed" && e.pnl != null && e.closedAt);
@@ -21315,6 +21396,136 @@ export default function App() {
       })()}
 
       {/* ── CUSTOM SCREENER ──────────────────────────────────────────────── */}
+      {activeTab === "squeeze" && (() => {
+        const [sqData,    setSqData]    = React.useState(null);
+        const [sqLoading, setSqLoading] = React.useState(false);
+        const [sqError,   setSqError]   = React.useState(null);
+        const [sqFilter,  setSqFilter]  = React.useState("ALL");
+
+        React.useEffect(() => {
+          setSqLoading(true);
+          fetch("/api/scanner/squeeze")
+            .then(r => r.json())
+            .then(d => { if (d.ok) setSqData(d); else setSqError(d.error); })
+            .catch(e => setSqError(e.message))
+            .finally(() => setSqLoading(false));
+        }, []);
+
+        const rows = (sqData?.results || []).filter(r =>
+          sqFilter === "ALL"    ? true :
+          sqFilter === "HIGH"   ? r.score >= 70 :
+          sqFilter === "MEDIUM" ? r.score >= 45 && r.score < 70 :
+          sqFilter === "WATCH"  ? r.score >= 25 && r.score < 45 : true
+        );
+
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>
+                  🔥 SHORT SQUEEZE SCREENER
+                </div>
+                <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
+                  High short interest + rising momentum + volume = squeeze candidate · {sqData?.updatedAt ? `Updated ${new Date(sqData.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+                </div>
+              </div>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {["ALL","HIGH","MEDIUM","WATCH"].map(f => (
+                  <button key={f} onClick={() => setSqFilter(f)}
+                    style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px",
+                      borderRadius: 6, border: `1px solid ${sqFilter === f ? C.accent : C.border}`,
+                      background: sqFilter === f ? `${C.accent}18` : "transparent",
+                      color: sqFilter === f ? C.accent : C.textDim, cursor: "pointer" }}>
+                    {f === "HIGH" ? "🔥 HIGH" : f === "MEDIUM" ? "⚡ MEDIUM" : f === "WATCH" ? "👀 WATCH" : "ALL"}
+                  </button>
+                ))}
+                <button onClick={() => { setSqLoading(true); fetch("/api/scanner/squeeze").then(r=>r.json()).then(d=>{if(d.ok)setSqData(d);}).catch(()=>{}).finally(()=>setSqLoading(false)); }}
+                  style={{ fontFamily: MONO, fontSize: 11, padding: "5px 12px", borderRadius: 6,
+                    border: `1px solid ${C.border}`, background: "transparent", color: C.textDim, cursor: "pointer" }}>
+                  {sqLoading ? "…" : "↻ Refresh"}
+                </button>
+              </div>
+            </div>
+
+            {sqError && <div style={{ padding: 12, background: `${C.red}15`, border: `1px solid ${C.red}44`, borderRadius: 8, fontFamily: MONO, fontSize: 12, color: C.red }}>⚠ {sqError}</div>}
+            {sqLoading && !sqData && <div style={{ padding: 40, textAlign: "center", fontFamily: MONO, fontSize: 13, color: C.textDim }}>🔍 Scanning {60}+ stocks for squeeze setups…</div>}
+
+            {rows.length > 0 && (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ borderBottom: `2px solid ${C.border}` }}>
+                      {["TICKER","GRADE","SCORE","PRICE","1D CHG","RVOL","SI % FLOAT","DAYS CVR","FLOAT (M)","MKT CAP"].map(h => (
+                        <th key={h} style={{ padding: "8px 10px", textAlign: h === "TICKER" || h === "GRADE" ? "left" : "right",
+                          color: C.textDim, fontWeight: 800, fontSize: 11, letterSpacing: "0.06em", whiteSpace: "nowrap" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r, i) => {
+                      const scoreColor = r.score >= 70 ? C.red : r.score >= 45 ? C.amber : C.textDim;
+                      return (
+                        <tr key={r.sym} style={{ borderBottom: `1px solid ${C.border}33`,
+                          background: i % 2 === 0 ? "transparent" : `${C.surface}66` }}
+                          onClick={() => { setActiveTab("scanner"); setTimeout(() => { const el = document.querySelector('[data-scanner-search]'); if (el) { el.value = r.sym; el.dispatchEvent(new Event('input', {bubbles:true})); } }, 100); }}
+                          onMouseEnter={e => e.currentTarget.style.background = `${C.accent}12`}
+                          onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : `${C.surface}66`}
+                          style={{ cursor: "pointer", borderBottom: `1px solid ${C.border}33` }}>
+                          <td style={{ padding: "8px 10px", color: C.accent, fontWeight: 900 }}>{r.sym}</td>
+                          <td style={{ padding: "8px 10px" }}>{r.grade}</td>
+                          <td style={{ padding: "8px 10px", textAlign: "right" }}>
+                            <span style={{ background: `${scoreColor}20`, color: scoreColor, borderRadius: 4,
+                              padding: "2px 8px", fontWeight: 900 }}>{r.score}</span>
+                          </td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", color: C.text }}>${r.price}</td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", color: r.chg1d >= 0 ? C.green : C.red, fontWeight: 700 }}>
+                            {r.chg1d >= 0 ? "+" : ""}{r.chg1d}%
+                          </td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", color: r.rvol >= 2 ? C.amber : C.text }}>
+                            {r.rvol > 0 ? r.rvol + "x" : "—"}
+                          </td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", color: r.siPct >= 20 ? C.red : r.siPct >= 10 ? C.amber : C.text, fontWeight: r.siPct >= 10 ? 700 : 400 }}>
+                            {r.siPct > 0 ? r.siPct + "%" : "—"}
+                          </td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", color: r.siDays >= 7 ? C.red : C.text }}>
+                            {r.siDays > 0 ? r.siDays + "d" : "—"}
+                          </td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", color: C.textDim }}>
+                            {r.floatM ? r.floatM + "M" : "—"}
+                          </td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", color: C.textDim }}>
+                            {r.mktCapB ? "$" + r.mktCapB + "B" : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Legend */}
+            <div style={{ padding: "10px 14px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
+              display: "flex", gap: 20, flexWrap: "wrap" }}>
+              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>
+                <strong style={{ color: C.red }}>🔥 HIGH (70+)</strong> — Prime squeeze candidate. High SI, volume surging, price moving.
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>
+                <strong style={{ color: C.amber }}>⚡ MEDIUM (45-69)</strong> — Worth watching. Squeeze potential building.
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>
+                <strong style={{ color: C.textDim }}>👀 WATCH (25-44)</strong> — Early stage. Monitor for catalyst.
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>
+                <strong>SI % Float</strong> = short interest as % of float. Above 20% = heavy short position.&nbsp;
+                <strong>Days Cover</strong> = days for shorts to exit at avg volume. Above 7 = trapped.
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {activeTab === "screener" && (() => {
         const FIELDS = [
           { id: "score",    label: "AI Score",    get: r => r.score },
