@@ -2364,42 +2364,68 @@ function TerminalWorkspace({
     <div style={{ display: "grid", gridTemplateColumns: `${showLeft ? `${leftW}px` : "0px"} ${showLeft ? "6px" : "0px"} 1fr ${showRight ? "6px" : "0px"} ${showRight ? `${rightW}px` : "0px"}`, gap: 0, minHeight: "calc(100vh - 164px)" }}>
       {showLeft && (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", display: "flex", flexDirection: "column", marginRight: 4 }}>
-          <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", display: "flex", justifyContent: "space-between" }}>
-            WATCHLIST GRID
-            <button onClick={() => setShowLeft(false)} style={{ border: "none", background: "transparent", cursor: "pointer", color: C.textDim, fontFamily: MONO, fontSize: 12 }}>HIDE</button>
+          {/* Watchlist header */}
+          <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface }}>
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.1em" }}>WATCHLIST</span>
+            <button onClick={() => setShowLeft(false)} style={{ border: "none", background: "transparent", cursor: "pointer", color: C.textDim, fontSize: 16, lineHeight: 1 }}>‹</button>
           </div>
-          <div style={{ overflowY: "auto" }}>
+          <div style={{ overflowY: "auto", flex: 1 }}>
             {watchlistData.slice(0, 20).map((q) => {
-              const up = (q.changesPercentage || 0) >= 0;
+              const chgPct = q.changesPercentage || 0;
+              const up = chgPct >= 0;
               const active = q.symbol === selected.symbol;
+              const scores = computeScores(q);
+              const sig = scores.composite >= 72 ? "BUY" : scores.composite >= 55 ? "WATCH" : scores.composite >= 40 ? "HOLD" : "AVOID";
+              const sigColor = sig === "BUY" ? C.green : sig === "WATCH" ? C.amber : sig === "HOLD" ? C.textDim : C.red;
+              const rvol = q.avgVolume > 0 ? q.volume / q.avgVolume : 0;
               const isPreMarket = marketSession === "PREMARKET";
               const isPostMarket = marketSession === "AFTERMARKET";
-              const extChg = isPreMarket
-                ? Number(q.preMarketChangePercent || 0)
-                : isPostMarket ? Number(q.postMarketChangePercent || 0) : null;
-              const extColor = isPreMarket ? C.accent : C.amber;
+              const extChg = isPreMarket ? Number(q.preMarketChangePercent || 0) : isPostMarket ? Number(q.postMarketChangePercent || 0) : null;
               return (
-                <div key={q.symbol} style={{ width: "100%", borderBottom: `1px solid ${C.border}`, background: active ? C.cardHover : "transparent", display: "flex", alignItems: "stretch" }}>
-                  <div onClick={() => onSelectSymbol(q.symbol)} style={{ flex: 1, cursor: "pointer", padding: "9px 10px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{q.symbol}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: up ? C.green : C.red }}>{up ? "+" : ""}{(q.changesPercentage || 0).toFixed(2)}%</span>
+                <div key={q.symbol}
+                  onClick={() => onSelectSymbol(q.symbol)}
+                  style={{ borderBottom: `1px solid ${C.border}22`, cursor: "pointer",
+                    background: active ? `${C.accent}12` : "transparent",
+                    borderLeft: `3px solid ${active ? C.accent : sigColor + "60"}`,
+                    transition: "background 0.1s" }}
+                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = C.cardHover; }}
+                  onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}>
+                  <div style={{ padding: "8px 10px 6px 10px" }}>
+                    {/* Row 1: ticker + change */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                      <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: active ? C.accent : C.text }}>{q.symbol}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: up ? C.green : C.red }}>
+                        {up ? "+" : ""}{chgPct.toFixed(2)}%
+                      </span>
                     </div>
-                    <div style={{ marginTop: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>${q.price?.toFixed(2)}</span>
-                      {extChg !== null && extChg !== 0 && (
-                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: extColor, background: `${extColor}18`, borderRadius: 5, padding: "2px 5px" }}>
-                          {isPreMarket ? "PRE" : "POST"} {extChg >= 0 ? "+" : ""}{extChg.toFixed(2)}%
+                    {/* Row 2: price + signal badge */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>${q.price?.toFixed(2)}</span>
+                      <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                        {rvol > 1.5 && <span style={{ fontFamily: MONO, fontSize: 9, color: C.amber, fontWeight: 700 }}>{rvol.toFixed(1)}x</span>}
+                        {extChg !== null && extChg !== 0 && (
+                          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: isPreMarket ? C.accent : C.amber }}>
+                            {extChg >= 0 ? "+" : ""}{extChg.toFixed(1)}%
+                          </span>
+                        )}
+                        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: sigColor,
+                          background: `${sigColor}18`, borderRadius: 3, padding: "1px 5px" }}>
+                          {sig}
                         </span>
-                      )}
+                      </div>
+                    </div>
+                    {/* Score bar */}
+                    <div style={{ marginTop: 4, height: 2, background: `${C.border}`, borderRadius: 2, overflow: "hidden" }}>
+                      <div style={{ width: `${scores.composite}%`, height: "100%", background: sigColor, borderRadius: 2, transition: "width 0.4s" }} />
                     </div>
                   </div>
-                  {onQuickLog && (
-                    <button
-                      onClick={() => onQuickLog({ symbol: q.symbol, price: q.price || 0, entry: (q.price || 0).toFixed(2), stopLoss: "", target: "", size: "", side: "BUY", timeframe: "1D", style: "Breakout", notes: `WL entry · CHG ${up ? "+" : ""}${(q.changesPercentage || 0).toFixed(2)}%`, score: 0, chg: q.changesPercentage || 0, rvol: 0 })}
-                      title="Quick log to journal"
-                      style={{ border: "none", borderLeft: `1px solid ${C.border}`, background: "transparent", color: C.textDim, fontFamily: MONO, fontSize: 12, cursor: "pointer", padding: "0 7px", flexShrink: 0 }}
-                    >LOG</button>
+                  {onQuickLog && active && (
+                    <div style={{ borderTop: `1px solid ${C.border}22`, padding: "4px 10px", display: "flex", gap: 6 }}>
+                      <button onClick={e => { e.stopPropagation(); onQuickLog({ symbol: q.symbol, price: q.price || 0, entry: (q.price||0).toFixed(2), stopLoss: "", target: "", size: "", side: "BUY", timeframe: "1D", style: "Breakout", notes: `WL · ${chgPct >= 0 ? "+" : ""}${chgPct.toFixed(2)}%`, score: scores.composite||0, chg: chgPct, rvol }); }}
+                        style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, border: `1px solid ${C.green}44`, background: `${C.green}15`, color: C.green, borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>
+                        LOG
+                      </button>
+                    </div>
                   )}
                 </div>
               );
@@ -2421,11 +2447,19 @@ function TerminalWorkspace({
 
       <div style={{ display: "grid", gridTemplateRows: "1fr auto", gap: 10, margin: "0 4px" }}>
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr auto" }}>
-          <div style={{ display: "flex", flexDirection: termIsTablet ? "column" : "row", justifyContent: "space-between", alignItems: termIsTablet ? "flex-start" : "center", padding: "8px 12px", gap: termIsTablet ? 6 : 0, borderBottom: `1px solid ${C.border}`, background: C.surface }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-              <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 20 : 18, fontWeight: 800 }}>{selected.symbol}</span>
-              <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 13 : 11, color: C.textDim }}>${selected.price?.toFixed(2)}</span>
-              <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 13 : 11, color: chg >= 0 ? C.green : C.red }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span>
+          <div style={{ display: "flex", flexDirection: termIsTablet ? "column" : "row", justifyContent: "space-between", alignItems: termIsTablet ? "flex-start" : "center", padding: "8px 14px", gap: termIsTablet ? 6 : 0, borderBottom: `1px solid ${C.border}`, background: C.surface }}>
+            {/* Ticker info */}
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>{selected.symbol}</span>
+              <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: chg >= 0 ? C.green : C.red }}>
+                ${selected.price?.toFixed(2)} <span style={{ fontSize: 12 }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span>
+              </span>
+              {(() => {
+                const sc = computeScores(selected).composite;
+                const scColor = sc >= 72 ? C.green : sc >= 55 ? C.amber : sc >= 40 ? C.textDim : C.red;
+                const scLabel = sc >= 72 ? "BUY" : sc >= 55 ? "WATCH" : sc >= 40 ? "HOLD" : "AVOID";
+                return <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: scColor, background: `${scColor}18`, borderRadius: 4, padding: "2px 7px", border: `1px solid ${scColor}33` }}>{scLabel} {sc}</span>;
+              })()}
             </div>
             <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
               {!showLeft && <button onClick={() => setShowLeft(true)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 8px", borderRadius: 6, cursor: "pointer" }}>WL</button>}
@@ -2543,29 +2577,41 @@ function TerminalWorkspace({
           )}
           <div style={{ overflow: "auto" }}>
           <div style={{ padding: 10, background: C.surface, display: "grid", gap: 10, gridTemplateColumns: termIsTablet ? "1fr" : "1.15fr 1fr" }}>
-            <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, background: C.surface, overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr" }}>
-              <div style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>INSTITUTIONAL RANKING LADDER</span>
-                <Badge color={C.accent}>LIVE</Badge>
+            <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, background: C.card, overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr" }}>
+              <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.1em" }}>⭐ TOP SETUPS</span>
+                <Badge color={C.green}>LIVE</Badge>
               </div>
-              <div style={{ overflowY: "auto", maxHeight: terminalLayout === "1" ? 400 : 220 }}>
-                {terminalRankRows.slice(0, 16).map((q, idx) => (
-                  <button
-                    key={`rank-${q.symbol}`}
-                    onClick={() => onSelectSymbol(q.symbol)}
-                    style={{ width: "100%", border: "none", borderBottom: `1px solid ${C.border}`, background: selected.symbol === q.symbol ? C.cardHover : C.surface, padding: "8px 10px", textAlign: "left", cursor: "pointer" }}
-                  >
-                    <div style={{ display: "grid", gridTemplateColumns: termIsTablet ? "32px 64px 1fr 76px 72px" : "28px 56px 1fr 68px 64px 72px", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 12 : 10, color: C.textDim }}>#{idx + 1}</span>
-                      <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 13 : 11, fontWeight: 700, color: C.text }}>{q.symbol}</span>
-                      {!termIsTablet && <span style={{ fontSize: 12, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.name}</span>}
-                      {termIsTablet && <span style={{ fontSize: 12, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.name}</span>}
-                      <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 12 : 10, color: (q.changesPercentage || 0) >= 0 ? C.green : C.red }}>{(q.changesPercentage || 0) >= 0 ? "+" : ""}{(q.changesPercentage || 0).toFixed(2)}%</span>
-                      <span style={{ fontFamily: MONO, fontSize: termIsTablet ? 12 : 10, color: q.r >= 1.2 ? C.green : C.textDim }}>R {q.r.toFixed(2)}x</span>
-                      {!termIsTablet && <span style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>S {q.s.composite}</span>}
-                    </div>
-                  </button>
-                ))}
+              <div style={{ overflowY: "auto", maxHeight: terminalLayout === "1" ? 380 : 200 }}>
+                {terminalRankRows.slice(0, 12).map((q, idx) => {
+                  const chg = q.changesPercentage || 0;
+                  const sc = q.s?.composite || 0;
+                  const scColor = sc >= 72 ? C.green : sc >= 55 ? C.amber : C.textDim;
+                  const isActive = selected.symbol === q.symbol;
+                  return (
+                    <button key={`rank-${q.symbol}`} onClick={() => onSelectSymbol(q.symbol)}
+                      style={{ width: "100%", border: "none", borderBottom: `1px solid ${C.border}22`,
+                        background: isActive ? `${C.accent}10` : "transparent",
+                        borderLeft: `3px solid ${isActive ? C.accent : scColor + "60"}`,
+                        padding: "8px 12px", textAlign: "left", cursor: "pointer" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, minWidth: 18 }}>#{idx+1}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: isActive ? C.accent : C.text, minWidth: 44 }}>{q.symbol}</span>
+                        {!termIsTablet && <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.name}</span>}
+                        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: chg >= 0 ? C.green : C.red, minWidth: 52, textAlign: "right" }}>
+                          {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
+                        </span>
+                        <span style={{ fontFamily: MONO, fontSize: 10, color: q.r >= 1.2 ? C.amber : C.textDim, minWidth: 36, textAlign: "right" }}>
+                          {q.r.toFixed(1)}x
+                        </span>
+                        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: scColor,
+                          background: `${scColor}18`, borderRadius: 4, padding: "1px 6px", minWidth: 28, textAlign: "center" }}>
+                          {sc}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
               <div style={{ borderTop: `1px solid ${C.border}`, background: C.surface, padding: 10 }}>
                 <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
