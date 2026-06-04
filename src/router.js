@@ -23,6 +23,7 @@ const handleDeals   = require("./routes/deals");
 const handleCOT     = require("./routes/cot");
 const { handleAutoExec } = require("./routes/autoexec");
 const { handleLiquidations } = require("./routes/liquidations");
+const { handleMonitorExtras } = require("./routes/monitor-extras");
 const { sendTelegramAlert, sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
 
 async function handleRequest(req, res) {
@@ -72,6 +73,12 @@ async function handleRequest(req, res) {
 
     if (pathname === "/api/crypto/liquidations") {
       return handleLiquidations(req, res, requestUrl);
+    }
+
+    if (pathname === "/api/market/futures" ||
+        pathname === "/api/market/premarket-movers" ||
+        pathname === "/api/market/event-countdowns") {
+      return handleMonitorExtras(req, res, pathname);
     }
 
     if (pathname.startsWith("/api/market/") || pathname === "/api/live") {

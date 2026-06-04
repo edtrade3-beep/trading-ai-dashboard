@@ -7497,6 +7497,9 @@ export default function App() {
   // ── Hoisted state for Institutional Radar, Trade Signals, Dark Pool ─────────
   // Must be at top level — NOT inside conditional IIFEs (Rules of Hooks)
   const [distData,     setDistData]     = useState(null);
+  const [futuresData,  setFuturesData]  = useState([]);
+  const [preMktMovers, setPreMktMovers] = useState([]);
+  const [eventCountdowns, setEventCountdowns] = useState([]);
   const [tickTrinData, setTickTrinData] = useState(null);
   const [shortChgData, setShortChgData] = useState(null);
   const [dpHeatData,   setDpHeatData]   = useState(null);
@@ -8167,6 +8170,18 @@ export default function App() {
         .catch(() => {}).finally(() => setDistLoading(false));
     }, 3000);
     return () => clearTimeout(t);
+  }, []);
+
+  // ── Futures + Pre-Market Movers + Event Countdowns ────────────────────────
+  useEffect(() => {
+    const load = () => {
+      fetch("/api/market/futures").then(r => r.ok ? r.json() : null).then(d => { if (d?.ok) setFuturesData(d.futures || []); }).catch(() => {});
+      fetch("/api/market/premarket-movers").then(r => r.ok ? r.json() : null).then(d => { if (d?.ok) setPreMktMovers(d.movers || []); }).catch(() => {});
+      fetch("/api/market/event-countdowns").then(r => r.ok ? r.json() : null).then(d => { if (d?.ok) setEventCountdowns(d.events || []); }).catch(() => {});
+    };
+    const t = setTimeout(load, 2500);
+    const iv = setInterval(load, 5 * 60_000); // refresh every 5 min
+    return () => { clearTimeout(t); clearInterval(iv); };
   }, []);
 
   useEffect(() => {
@@ -11864,6 +11879,83 @@ export default function App() {
                 background: "transparent", color: C.textDim, borderRadius: 6, padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}>
                 ↺ REFRESH ALL
               </button>
+            </div>
+
+            {/* ── FUTURES STRIP ── */}
+            {futuresData.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 10, padding: "8px 16px",
+                background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
+                overflowX: "auto", scrollbarWidth: "none" }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim,
+                  marginRight: 14, flexShrink: 0, letterSpacing: "0.08em" }}>FUTURES</span>
+                {futuresData.map((f, i) => (
+                  <div key={f.sym} style={{ display: "flex", alignItems: "center" }}>
+                    {i > 0 && <span style={{ width: 1, height: 16, background: C.border, margin: "0 14px", flexShrink: 0 }} />}
+                    <div style={{ textAlign: "center", flexShrink: 0 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>{f.sym}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>
+                        {f.price > 1000 ? f.price.toLocaleString("en-US", { maximumFractionDigits: 0 }) : f.price.toFixed(2)}
+                      </div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: f.chg >= 0 ? C.green : C.red }}>
+                        {f.chg >= 0 ? "+" : ""}{f.chg.toFixed(2)}%
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.textDim, flexShrink: 0 }}>
+                  {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "America/New_York" })} ET
+                </span>
+              </div>
+            )}
+
+            {/* ── EVENT COUNTDOWN + PRE-MARKET MOVERS ── */}
+            <div style={{ display: "grid", gridTemplateColumns: eventCountdowns.length > 0 && preMktMovers.length > 0 ? "1fr 1fr" : "1fr",
+              gap: 10, marginBottom: 10 }}>
+
+              {/* Event Countdown */}
+              {eventCountdowns.length > 0 && (
+                <div style={{ padding: "10px 14px", background: C.surface, border: `1px solid ${C.border}`,
+                  borderRadius: 8, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em", flexShrink: 0 }}>
+                    ⏰ EVENTS
+                  </span>
+                  {eventCountdowns.slice(0, 4).map((ev, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                      {i > 0 && <span style={{ width: 1, height: 14, background: C.border }} />}
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                          color: ev.days <= 1 ? C.red : ev.days <= 3 ? C.amber : C.textDim }}>
+                          {ev.days === 0 ? "TODAY" : ev.days === 1 ? "TOMORROW" : `${ev.days}d`}
+                        </div>
+                        <div style={{ fontFamily: SANS, fontSize: 11, color: C.text, fontWeight: 600 }}>{ev.name}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Pre-Market Movers */}
+              {preMktMovers.length > 0 && (
+                <div style={{ padding: "10px 14px", background: C.surface, border: `1px solid ${C.border}`,
+                  borderRadius: 8, overflowX: "auto", scrollbarWidth: "none" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em", flexShrink: 0 }}>
+                      ⚡ PRE-MKT
+                    </span>
+                    {preMktMovers.slice(0, 6).map((m, i) => (
+                      <div key={m.sym} style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                        {i > 0 && <span style={{ width: 1, height: 14, background: C.border, marginRight: 12 }} />}
+                        <div style={{ textAlign: "center", flexShrink: 0 }}>
+                          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>{m.sym}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: m.chg >= 0 ? C.green : C.red }}>
+                            {m.chg >= 0 ? "+" : ""}{m.chg.toFixed(1)}%
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* ── MARKET REGIME DASHBOARD ── */}
