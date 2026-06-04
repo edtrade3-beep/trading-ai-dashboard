@@ -4803,15 +4803,31 @@ function CryptoTab({ C, MONO, SANS }) {
 
 // ── Compression Scanner ──────────────────────────────────────────────────────
 function CompressionTab({ C, MONO, SANS, setActiveTab }) {
-  const [data,    setData]    = React.useState(null);
-  const [loading, setLoading] = React.useState(false);
-  const [error,   setError]   = React.useState(null);
+  const [data,       setData]       = React.useState(null);
+  const [loading,    setLoading]    = React.useState(false);
+  const [error,      setError]      = React.useState(null);
+  const [scanScores, setScanScores] = React.useState({}); // sym → { signal, score }
 
   const load = React.useCallback(() => {
     setLoading(true);
     fetch("/api/scanner/compression")
       .then(r => r.json())
-      .then(d => { if (d.ok) setData(d); else setError(d.error); })
+      .then(d => {
+        if (!d.ok) { setError(d.error); return; }
+        setData(d);
+        // Fetch Smart Scan scores for top results
+        const syms = (d.results || []).slice(0, 12).map(r => r.sym);
+        if (syms.length) {
+          fetch(`/api/scanner/scan?symbols=${syms.join(",")}&lite=1`)
+            .then(r => r.ok ? r.json() : null)
+            .then(sd => {
+              if (!sd?.results) return;
+              const map = {};
+              sd.results.forEach(r => { map[r.ticker] = { signal: r.signal, score: r.score }; });
+              setScanScores(map);
+            }).catch(() => {});
+        }
+      })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
@@ -4912,38 +4928,68 @@ function CompressionTab({ C, MONO, SANS, setActiveTab }) {
                   </div>
                 </div>
 
-                {/* 3 signals */}
+                {/* 3 signals — same rule everywhere: 🔥=GO ✅=OK ⬜=NO */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                  {/* Volatility */}
-                  <div style={{ textAlign: "center", padding: "8px 4px", background: C.surface,
-                    borderRadius: 8, border: `1px solid ${r.atrRatio < 0.65 ? C.green + "66" : C.border}` }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>VOLATILITY</div>
-                    <div style={{ fontSize: 16 }}>{r.atrRatio < 0.65 ? "🔥" : r.atrRatio < 0.80 ? "✅" : "⬜"}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: r.atrRatio < 0.65 ? C.green : C.textDim, marginTop: 2 }}>
-                      {r.atrRatio < 0.65 ? "CRUSHED" : r.atrRatio < 0.80 ? "LOW" : "NORMAL"}
+                  {[
+                    {
+                      label: "VOLATILITY",
+                      icon:  r.atrRatio < 0.65 ? "🔥" : r.atrRatio < 0.80 ? "✅" : "⬜",
+                      text:  r.atrRatio < 0.65 ? "GO" : r.atrRatio < 0.80 ? "OK" : "NO",
+                      color: r.atrRatio < 0.65 ? C.green : r.atrRatio < 0.80 ? C.amber : C.textDim,
+                      tip:   r.atrRatio < 0.65 ? "Crushed — coiling" : r.atrRatio < 0.80 ? "Low — quieting" : "Normal — not ready",
+                      hot:   r.atrRatio < 0.65,
+                    },
+                    {
+                      label: "VOLUME",
+                      icon:  r.volRatio < 0.65 ? "🔥" : r.volRatio < 0.85 ? "✅" : "⬜",
+                      text:  r.volRatio < 0.65 ? "GO" : r.volRatio < 0.85 ? "OK" : "NO",
+                      color: r.volRatio < 0.65 ? C.green : r.volRatio < 0.85 ? C.amber : C.textDim,
+                      tip:   r.volRatio < 0.65 ? "Dried up — loading" : r.volRatio < 0.85 ? "Quiet — slowing" : "Normal — not ready",
+                      hot:   r.volRatio < 0.65,
+                    },
+                    {
+                      label: "PROXIMITY",
+                      icon:  r.nearHigh < 3 ? "🔥" : r.nearHigh < 8 ? "✅" : "⬜",
+                      text:  r.nearHigh < 3 ? "GO" : r.nearHigh < 8 ? "OK" : "NO",
+                      color: r.nearHigh < 3 ? C.green : r.nearHigh < 8 ? C.amber : C.textDim,
+                      tip:   `-${r.nearHigh}% to breakout`,
+                      hot:   r.nearHigh < 3,
+                    },
+                  ].map(s => (
+                    <div key={s.label} title={s.tip} style={{ textAlign: "center", padding: "8px 4px", background: C.surface,
+                      borderRadius: 8, border: `1px solid ${s.hot ? s.color + "66" : C.border}` }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 3 }}>{s.label}</div>
+                      <div style={{ fontSize: 16 }}>{s.icon}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: s.color, marginTop: 2, fontWeight: 800 }}>{s.text}</div>
                     </div>
-                  </div>
-
-                  {/* Volume */}
-                  <div style={{ textAlign: "center", padding: "8px 4px", background: C.surface,
-                    borderRadius: 8, border: `1px solid ${r.volRatio < 0.65 ? C.green + "66" : C.border}` }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>VOLUME</div>
-                    <div style={{ fontSize: 16 }}>{r.volRatio < 0.65 ? "🔥" : r.volRatio < 0.85 ? "✅" : "⬜"}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: r.volRatio < 0.65 ? C.green : C.textDim, marginTop: 2 }}>
-                      {r.volRatio < 0.65 ? "DRY" : r.volRatio < 0.85 ? "QUIET" : "NORMAL"}
-                    </div>
-                  </div>
-
-                  {/* Proximity to breakout */}
-                  <div style={{ textAlign: "center", padding: "8px 4px", background: C.surface,
-                    borderRadius: 8, border: `1px solid ${r.nearHigh < 3 ? C.amber + "66" : C.border}` }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>PROXIMITY</div>
-                    <div style={{ fontSize: 16 }}>{r.nearHigh < 3 ? "🎯" : r.nearHigh < 8 ? "✅" : "⬜"}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: r.nearHigh < 5 ? C.amber : C.textDim, marginTop: 2 }}>
-                      -{r.nearHigh}% TO HI
-                    </div>
-                  </div>
+                  ))}
                 </div>
+
+                {/* Smart Scan verdict badge — combined signal */}
+                {(() => {
+                  const ss = scanScores[r.sym];
+                  const allGo = r.atrRatio < 0.80 && r.volRatio < 0.85 && r.trending !== "DOWN";
+                  const ssSignal = ss?.signal || null;
+                  const ssBuy    = ssSignal && (ssSignal.includes("BUY") || ssSignal === "LONG" || ssSignal === "A+ LONG");
+                  const combined = allGo && ssBuy;
+                  return (
+                    <div style={{ padding: "7px 10px", borderRadius: 7, marginBottom: 2,
+                      background: combined ? `${C.green}15` : ss ? `${C.surface}` : `${C.border}18`,
+                      border: `1px solid ${combined ? C.green + "55" : C.border}`,
+                      display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 1 }}>SMART SCAN</div>
+                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800,
+                          color: ssBuy ? C.green : ss ? C.red : C.textDim }}>
+                          {ss ? ssSignal : "Loading…"}
+                          {ss ? ` · ${ss.score}/100` : ""}
+                        </div>
+                      </div>
+                      {combined && <span style={{ fontSize: 14 }}>✅ CONFIRMED</span>}
+                      {ss && !ssBuy && <span style={{ fontFamily: MONO, fontSize: 9, color: C.red }}>⚠ SKIP</span>}
+                    </div>
+                  );
+                })()}
 
                 {/* Breakout level + trend + action button */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -4961,8 +5007,9 @@ function CompressionTab({ C, MONO, SANS, setActiveTab }) {
                   <button onClick={() => { navigator.clipboard?.writeText(r.sym).catch(()=>{}); setActiveTab("smartscan"); }}
                     style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "7px 16px",
                       borderRadius: 7, border: "none", cursor: "pointer",
-                      background: isPrime ? C.green : C.accent, color: "#fff" }}>
-                    Scan →
+                      background: scanScores[r.sym]?.signal?.includes("BUY") ? C.green : isPrime ? C.accent : C.surface,
+                      color: scanScores[r.sym]?.signal?.includes("BUY") || isPrime ? "#fff" : C.textDim }}>
+                    Deep Dive →
                   </button>
                 </div>
               </div>

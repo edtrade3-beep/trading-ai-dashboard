@@ -9,6 +9,23 @@ async function handleScanner(req, res, requestUrl) {
     return writeJson(res, 200, getScannerStatus());
   }
 
+  // GET /api/scanner/scan?symbols=AMD,NVDA&lite=1 — quick signal check for compression overlay
+  if (pathname === "/api/scanner/scan" && req.method === "GET") {
+    const symsRaw = requestUrl.searchParams.get("symbols") || "";
+    const tickers = symsRaw.split(",").map(s => s.trim().toUpperCase()).filter(Boolean).slice(0, 15);
+    if (!tickers.length) return writeJson(res, 400, { error: "symbols required" });
+    try {
+      const status = getScannerStatus();
+      const cached = (status.results || []).filter(r => tickers.includes(r.ticker));
+      if (cached.length > 0) {
+        return writeJson(res, 200, { ok: true, results: cached.map(r => ({ ticker: r.ticker, signal: r.signal, score: r.score })) });
+      }
+      return writeJson(res, 200, { ok: true, results: [] });
+    } catch {
+      return writeJson(res, 200, { ok: true, results: [] });
+    }
+  }
+
   // POST /api/scanner/run — manual trigger
   if (pathname === "/api/scanner/run" && req.method === "POST") {
     const result = await runScan();
