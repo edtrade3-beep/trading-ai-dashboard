@@ -7865,7 +7865,17 @@ export default function App() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [providerKeys, setProviderKeys] = useState(DEFAULT_SETTINGS.providerKeys);
   const [flowFilters, setFlowFilters] = useState(DEFAULT_SETTINGS.flowFilters);
-  const [riskAccount, setRiskAccount] = useState(() => { try { return localStorage.getItem("risk_account") || "10000"; } catch { return "10000"; } });
+  const [riskAccount, setRiskAccount] = useState(() => {
+    try {
+      const saved = localStorage.getItem("risk_account");
+      // Migrate old $100,000 default → $10,000
+      if (!saved || saved === "100000") {
+        localStorage.setItem("risk_account", "10000");
+        return "10000";
+      }
+      return saved;
+    } catch { return "10000"; }
+  });
   const [riskPct, setRiskPct] = useState("1");
   // Daily Max Loss Lock
   const [dailyMaxLoss, setDailyMaxLoss] = useState(() => { try { return localStorage.getItem("daily_max_loss") || "200"; } catch { return "200"; } });
@@ -15964,7 +15974,7 @@ export default function App() {
                                           borderLeft: `6px solid ${vColor}` }}>
 
                                           {/* Row 1: Verdict + Score */}
-                                          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
+                                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap", minWidth: 0 }}>
                                             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                               <span style={{ fontSize: 24 }}>{vIcon}</span>
                                               <div>
@@ -15976,25 +15986,24 @@ export default function App() {
                                                 </div>
                                               </div>
                                             </div>
-                                            <div style={{ flex: 1, minWidth: 160 }}>
-                                              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 3 }}>
-                                                <span>ALIGNMENT SCORE</span>
-                                                <span style={{ color: vColor, fontWeight: 900, fontSize: 14 }}>{composite}/100</span>
+                                            <div style={{ flex: 1, minWidth: 120, maxWidth: 280 }}>
+                                              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 3 }}>
+                                                <span>ALIGNMENT</span>
+                                                <span style={{ color: vColor, fontWeight: 900, fontSize: 13 }}>{composite}/100</span>
                                               </div>
-                                              <div style={{ height: 10, borderRadius: 5, background: C.border, overflow: "hidden" }}>
+                                              <div style={{ height: 8, borderRadius: 5, background: C.border, overflow: "hidden" }}>
                                                 <div style={{ width: `${composite}%`, height: "100%", background: vColor, borderRadius: 5, transition: "width 0.5s" }} />
                                               </div>
                                             </div>
-                                            {/* 3 Signal boxes — same as Compression Scanner */}
-                                            <div style={{ display: "flex", gap: 8 }}>
+                                            {/* 3 Signal boxes — compact inline */}
+                                            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                                               {sigBoxes.map(s => (
-                                                <div key={s.label} style={{ textAlign: "center", padding: "8px 10px",
-                                                  background: C.surface, borderRadius: 8,
-                                                  border: `1px solid ${s.score >= 65 ? s.color + "66" : C.border}`,
-                                                  minWidth: 72 }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 3 }}>{s.label}</div>
-                                                  <div style={{ fontSize: 18, lineHeight: 1 }}>{s.icon}</div>
-                                                  <div style={{ fontFamily: MONO, fontSize: 9, color: s.color, marginTop: 3, fontWeight: 700 }}>{s.status}</div>
+                                                <div key={s.label} style={{ textAlign: "center", padding: "5px 8px",
+                                                  background: C.surface, borderRadius: 7,
+                                                  border: `1px solid ${s.score >= 65 ? s.color + "55" : C.border}` }}>
+                                                  <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, marginBottom: 2, letterSpacing: "0.05em" }}>{s.label}</div>
+                                                  <div style={{ fontSize: 14, lineHeight: 1 }}>{s.icon}</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 8, color: s.color, marginTop: 2, fontWeight: 800 }}>{s.status}</div>
                                                 </div>
                                               ))}
                                             </div>
@@ -16019,11 +16028,13 @@ export default function App() {
                                           {(() => {
                                             const px5   = Number(livePrice || row.quote?.price || 0);
                                             const ma505 = Number(row.quote?.priceAvg50 || 0);
-                                            const stop5 = ma505 > 0 ? ma505 * 0.97 : px5 * 0.97;
+                                            // Stop must ALWAYS be below current price
+                                            const rawStop = ma505 > 0 && ma505 < px5 ? ma505 * 0.97 : px5 * 0.97;
+                                            const stop5 = Math.min(rawStop, px5 * 0.97); // cap at 3% below price
                                             const acct  = Number(riskAccount || 10000);
                                             const pct   = Number(riskPct || 1) / 100;
                                             const riskAmt = acct * pct;
-                                            const riskPerShare = Math.max(0.01, px5 - stop5);
+                                            const riskPerShare = Math.max(px5 * 0.01, px5 - stop5); // min 1% per share
                                             const shares = px5 > 0 ? Math.floor(riskAmt / riskPerShare) : 0;
                                             const cost   = shares * px5;
                                             const t1     = px5 * 1.08;
