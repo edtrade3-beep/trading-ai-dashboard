@@ -11954,51 +11954,59 @@ export default function App() {
               );
             })()}
 
-            {/* ── TILT DETECTOR CARD ── */}
-            {tiltEnabled && (
-              <div style={{ marginBottom: 10, padding: "12px 16px", borderRadius: 12,
-                background: tiltLocked ? `${C.red}15` : tiltStreak >= 2 ? `${C.amber}12` : `${C.green}10`,
-                border: `2px solid ${tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green}44`,
-                display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-                <div>
-                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim,
-                    letterSpacing: "0.1em", marginBottom: 4 }}>🧠 TILT DETECTOR</div>
-                  <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900,
-                    color: tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green }}>
-                    {tiltLocked ? "🔒 LOCKED — Step Away" : tiltStreak === 0 ? "✅ Clear — 0 losses" : `⚠️ Warning — ${tiltStreak}/3 losses`}
+            {/* ── TILT DETECTOR CARD ── always visible ── */}
+            <div style={{ marginBottom: 10, padding: "12px 16px", borderRadius: 12,
+              background: !tiltEnabled ? C.card : tiltLocked ? `${C.red}15` : tiltStreak >= 2 ? `${C.amber}12` : `${C.green}10`,
+              border: `2px solid ${!tiltEnabled ? C.border : tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green}55`,
+              display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim,
+                  letterSpacing: "0.1em", marginBottom: 4 }}>🧠 TILT DETECTOR</div>
+                {!tiltEnabled ? (
+                  <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 700, color: C.textDim }}>
+                    ⭕ Disabled — click Enable to turn on
                   </div>
-                  {tiltLocked && tiltUnlockAt && (
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 3 }}>
-                      Auto-unlocks at {tiltUnlockAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                ) : (
+                  <>
+                    <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900,
+                      color: tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green }}>
+                      {tiltLocked ? "🔒 LOCKED — Step Away" : tiltStreak === 0 ? "✅ Clear — 0 losses in a row" : `⚠️ Warning — ${tiltStreak}/3 losses`}
                     </div>
-                  )}
-                  {!tiltLocked && tiltStreak === 0 && (
-                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-                      3 consecutive losses → platform locks 30 min to prevent revenge trading
-                    </div>
-                  )}
-                  {tiltStreak >= 2 && !tiltLocked && (
-                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.amber, marginTop: 2 }}>
-                      One more loss triggers a 30-minute forced cooldown. Consider stopping now.
-                    </div>
-                  )}
-                </div>
-                <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-                  {tiltLocked && (
-                    <button onClick={() => { setTiltLocked(false); setTiltUnlockAt(null); }}
-                      style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 16px",
-                        borderRadius: 8, border: "none", background: C.amber, color: "#fff", cursor: "pointer" }}>
-                      Override Unlock
-                    </button>
-                  )}
-                  <button onClick={() => { const n = !tiltEnabled; setTiltEnabled(n); try { localStorage.setItem("tilt_enabled", String(n)); } catch {} }}
-                    style={{ fontFamily: MONO, fontSize: 11, padding: "6px 12px", borderRadius: 7, cursor: "pointer",
-                      border: `1px solid ${C.border}`, background: "transparent", color: C.textDim }}>
-                    {tiltEnabled ? "Disable" : "Enable"}
-                  </button>
-                </div>
+                    {tiltLocked && tiltUnlockAt && (
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 3 }}>
+                        Auto-unlocks at {tiltUnlockAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </div>
+                    )}
+                    {!tiltLocked && tiltStreak === 0 && (
+                      <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
+                        3 consecutive losses → platform locks 30 min to prevent revenge trading
+                      </div>
+                    )}
+                    {tiltStreak >= 2 && !tiltLocked && (
+                      <div style={{ fontFamily: SANS, fontSize: 12, color: C.amber, marginTop: 2, fontWeight: 600 }}>
+                        ⚠ One more loss triggers a 30-minute cooldown. Consider stopping now.
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
-            )}
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                {tiltEnabled && tiltLocked && (
+                  <button onClick={() => { setTiltLocked(false); setTiltUnlockAt(null); }}
+                    style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 16px",
+                      borderRadius: 8, border: "none", background: C.amber, color: "#fff", cursor: "pointer" }}>
+                    Override Unlock
+                  </button>
+                )}
+                <button onClick={() => { const n = !tiltEnabled; setTiltEnabled(n); try { localStorage.setItem("tilt_enabled", String(n)); } catch {} }}
+                  style={{ fontFamily: MONO, fontSize: 11, padding: "7px 14px", borderRadius: 7, cursor: "pointer",
+                    border: `1px solid ${tiltEnabled ? C.border : C.green}`,
+                    background: tiltEnabled ? "transparent" : `${C.green}18`,
+                    color: tiltEnabled ? C.textDim : C.green, fontWeight: tiltEnabled ? 400 : 700 }}>
+                  {tiltEnabled ? "Disable" : "Enable"}
+                </button>
+              </div>
+            </div>
 
             {/* 2: INTELLIGENCE ROW */}
             <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 10 }}>
@@ -24171,22 +24179,16 @@ export default function App() {
         const total = checklistItems.length;
         const allDone = done === total;
         return (
-          <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 8000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+          <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 8000 }}>
             <button
               onClick={() => setActiveTab("tools")}
-              title={`Trade Checklist: ${done}/${total} complete`}
-              style={{ width: 56, height: 56, borderRadius: "50%", border: "none", cursor: "pointer",
+              style={{ width: 52, height: 52, borderRadius: "50%", border: "none", cursor: "pointer",
                 background: allDone ? C.green : done > 0 ? C.amber : C.red,
-                boxShadow: `0 4px 20px ${allDone ? C.green : done > 0 ? C.amber : C.red}66`,
+                boxShadow: `0 4px 18px ${allDone ? C.green : done > 0 ? C.amber : C.red}66`,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 22, transition: "all 0.2s" }}>
+                fontSize: 20, transition: "all 0.2s" }}>
               ✅
             </button>
-            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: allDone ? C.green : done > 0 ? C.amber : C.red,
-              background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6,
-              padding: "2px 8px", whiteSpace: "nowrap" }}>
-              {done}/{total} CHECKLIST
-            </div>
           </div>
         );
       })()}
