@@ -925,31 +925,51 @@ const COMMANDS = {
 
   // ── /adol22 — trigger ADOL22 scan or show last result ───────────────────────
   adol22: async (args) => {
-    if (args[0] === "scan") {
-      await reply("🔴 ADOL22 scan starting… Results sent here when A+ signal found (85%+ only)");
-      try {
-        const { loadSettings } = require("./settings-store");
-        const s  = loadSettings() || {};
-        const wl = Array.isArray(s.watchlistSymbols) ? s.watchlistSymbols : [];
-        const { runAdol22 } = require("./adol22-scanner");
-        runAdol22(wl).catch(() => {});
-      } catch (e) { await reply(`Error: ${e.message}`); }
+    const { loadSettings } = require("./settings-store");
+    const { runAdol22, loadHistory } = require("./adol22-scanner");
+
+    if (args[0] === "scan" || args[0] === "run") {
+      await reply("🔴 ADOL22 scanning 35 symbols…\nChecking 15m patterns + 7 confirmations.\nResults arrive here in ~60 seconds.");
+      const s  = loadSettings() || {};
+      const wl = Array.isArray(s.watchlistSymbols) ? s.watchlistSymbols : [];
+      global._adol22Manual = true;
+      runAdol22(wl).catch(e => reply(`Scan error: ${e.message}`));
       return;
     }
-    // Show last result + recent history
-    try {
-      const { loadHistory } = (() => { try { return require("./adol22-scanner"); } catch { return { loadHistory: () => [] }; } })();
-      const hist = loadHistory ? loadHistory().slice(0, 5) : [];
-      if (!hist.length) return reply("No ADOL22 signals yet.\nSend /adol22 scan to run now.");
-      const lines = ["🔴 ADOL22 RECENT SIGNALS", "━━━━━━━━━━━━━━━━━━━━"];
-      hist.forEach(h => {
-        lines.push(`\n${h.type === "BULL" ? "🟢" : "🔴"} ${h.sym} — ${h.pattern}`);
-        lines.push(`Entry: $${h.price}  Confidence: ${h.confidence}%`);
-        lines.push(`${new Date(h.savedAt).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" })} ET`);
-      });
-      lines.push("\n/adol22 scan — run scan now");
-      await reply(lines.join("\n"));
-    } catch { await reply("Send /adol22 scan to trigger a scan."); }
+
+    // Show recent history
+    const hist = loadHistory().slice(0, 5);
+
+    if (!hist.length) {
+      // Auto-trigger scan
+      await reply([
+        "🔴 ADOL22 — No signals in history yet.",
+        "",
+        "Starting a scan now… (~60 seconds)",
+        "You will receive an alert here if an A+ setup (80%+) is found.",
+        "If no setup found, you will be told that too.",
+        "",
+        "Also runs automatically every 15 min during market hours.",
+      ].join("\n"));
+      const s  = loadSettings() || {};
+      const wl = Array.isArray(s.watchlistSymbols) ? s.watchlistSymbols : [];
+      global._adol22Manual = true;
+      runAdol22(wl).catch(() => {});
+      return;
+    }
+
+    const lines = ["🔴 ADOL22 — LAST SIGNALS", "━━━━━━━━━━━━━━━━━━━━"];
+    hist.forEach(h => {
+      const t = h.savedAt ? new Date(h.savedAt).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" }) : "";
+      lines.push(`\n${h.type === "BULL" ? "🟢 BULL" : "🔴 BEAR"} — ${h.sym}`);
+      lines.push(`Pattern: ${h.pattern}`);
+      lines.push(`Entry: $${h.price}  Confidence: ${h.confidence}%`);
+      if (t) lines.push(`Time: ${t} ET`);
+      if (h.reasons) lines.push(h.reasons.slice(0, 2).join(" · "));
+    });
+    lines.push("\n━━━━━━━━━━━━━━━━━━━━");
+    lines.push("/adol22 scan — run new scan now");
+    await reply(lines.join("\n"));
   },
 
   // ── /plan TICKER — full AI trade plan with entry/stop/target ─────────────────

@@ -281,7 +281,7 @@ async function runAdol22Scan(symbols, spyChg, vixPrice) {
         const scoring = scoreSignal(pattern.type, d15m.bars, d1h.bars, d5m.bars, spyChg, vixPrice);
         const total   = pattern.strength * 0.4 + scoring.score * 0.6;
 
-        if (total < 85) continue; // strict threshold
+        if (total < 80) continue; // 80% threshold
 
         const candidate = { sym, pattern, price, scoring, atr, total };
 
@@ -350,6 +350,22 @@ async function runAdol22(watchlistSymbols) {
 
   if (!bull && !bear) {
     console.log("[ADOL22] No A+ setup found this scan");
+    // Only send "no setup" message if manually triggered (not on auto-15min to avoid spam)
+    const calledManually = global._adol22Manual;
+    if (calledManually) {
+      global._adol22Manual = false;
+      await sendTelegramMessage([
+        `🔴 ADOL22 SCAN COMPLETE — ${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" })} ET`,
+        `━━━━━━━━━━━━━━━━━━━━`,
+        `NO A+ SETUP FOUND`,
+        ``,
+        `Scanned ${symbols.length} symbols`,
+        `SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}%  VIX ${vixPrice.toFixed(1)}`,
+        ``,
+        `Market conditions: ${vixPrice > 25 ? "⚠️ Elevated VIX — tough conditions" : spyRange < 0.15 ? "Choppy — waiting for momentum" : "Normal — no strong setups right now"}`,
+        `Try again at next 15-min interval.`,
+      ].join("\n")).catch(() => {});
+    }
     return;
   }
 
@@ -463,6 +479,7 @@ async function handleAdol22Api(req, res, requestUrl) {
       const { loadSettings } = require("./settings-store");
       const s  = loadSettings() || {};
       const wl = Array.isArray(s.watchlistSymbols) ? s.watchlistSymbols : [];
+      global._adol22Manual = true; // flag as manual so we send "no setup" message
       runAdol22(wl).catch(() => {});
       return writeJson(res, 200, { ok: true, message: "ADOL22 scan started" });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
