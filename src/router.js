@@ -56,6 +56,10 @@ async function handleRequest(req, res) {
       return handleFinviz(req, res, requestUrl);
     }
 
+    if (pathname === "/api/scanner/squeeze") {
+      return handleSqueeze(req, res);
+    }
+
     if (pathname.startsWith("/api/scanner/")) {
       return handleScanner(req, res, requestUrl);
     }
@@ -74,10 +78,6 @@ async function handleRequest(req, res) {
 
     if (pathname === "/api/crypto/liquidations") {
       return handleLiquidations(req, res, requestUrl);
-    }
-
-    if (pathname === "/api/scanner/squeeze") {
-      return handleSqueeze(req, res);
     }
 
     if (pathname === "/api/market/futures" ||
