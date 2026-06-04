@@ -16568,6 +16568,82 @@ export default function App() {
                                             ))}
                                           </div>
                                         )}
+                                        {/* ── BOTTOM / TOP DETECTOR ── */}
+                                        {(() => {
+                                          const px     = Number(livePrice || row.quote?.price || 0);
+                                          const hi52   = Number(row.quote?.yearHigh || 0);
+                                          const lo52   = Number(row.quote?.yearLow  || 0);
+                                          const rsi    = Number(row.rsiVal || 50);
+                                          const rvol   = row.quote?.volume && row.quote?.avgVolume ? row.quote.volume / row.quote.avgVolume : 1;
+                                          const chg1d  = Number(row.quote?.changePercent || 0);
+                                          const chg1w  = Number(row.quote?.delta1w || 0);
+                                          const ma50   = Number(row.quote?.priceAvg50  || 0);
+                                          const ma200  = Number(row.quote?.priceAvg200 || 0);
+                                          if (!px || !hi52 || !lo52) return null;
+
+                                          const distFromLo = (px - lo52) / lo52 * 100;  // % above 52w low
+                                          const distFromHi = (hi52 - px) / hi52 * 100;  // % below 52w high
+
+                                          // ── Bottom signals ──
+                                          const bottomSigs = [];
+                                          if (distFromLo < 10)            bottomSigs.push({ txt: `Near 52w low (-${distFromLo.toFixed(1)}%)`, weight: 3 });
+                                          if (rsi < 30)                   bottomSigs.push({ txt: `RSI oversold (${rsi.toFixed(0)})`, weight: 3 });
+                                          if (rsi < 40 && chg1d > 1)      bottomSigs.push({ txt: "RSI recovering + price up", weight: 2 });
+                                          if (rvol > 2.5 && chg1d < -3)   bottomSigs.push({ txt: `Climax sell volume (${rvol.toFixed(1)}x) — exhaustion`, weight: 2 });
+                                          if (chg1w < -15 && chg1d > 0)   bottomSigs.push({ txt: "Sharp drop + reversal candle", weight: 2 });
+                                          if (ma50 > 0 && px < ma50 * 0.85) bottomSigs.push({ txt: "Far below 50MA — stretched", weight: 1 });
+                                          if (row.macdBull === true && rsi < 45) bottomSigs.push({ txt: "MACD bullish while RSI low", weight: 2 });
+
+                                          // ── Top signals ──
+                                          const topSigs = [];
+                                          if (distFromHi < 5)             topSigs.push({ txt: `Near 52w high (-${distFromHi.toFixed(1)}%)`, weight: 3 });
+                                          if (rsi > 70)                   topSigs.push({ txt: `RSI overbought (${rsi.toFixed(0)})`, weight: 3 });
+                                          if (rsi > 65 && chg1d < -1)     topSigs.push({ txt: "RSI dropping + price down", weight: 2 });
+                                          if (rvol > 2.5 && chg1d > 5)    topSigs.push({ txt: `Climax buy volume (${rvol.toFixed(1)}x) — exhaustion`, weight: 2 });
+                                          if (chg1w > 20 && chg1d < 0)    topSigs.push({ txt: "Parabolic run + reversal candle", weight: 2 });
+                                          if (ma50 > 0 && px > ma50 * 1.20) topSigs.push({ txt: "Far above 50MA — extended", weight: 1 });
+                                          if (row.macdBull === false && rsi > 60) topSigs.push({ txt: "MACD bearish while RSI high", weight: 2 });
+
+                                          const bottomScore = bottomSigs.reduce((s, x) => s + x.weight, 0);
+                                          const topScore    = topSigs.reduce((s, x) => s + x.weight, 0);
+                                          const threshold   = 4;
+
+                                          if (bottomScore < threshold && topScore < threshold) return null;
+
+                                          const isBottom = bottomScore > topScore;
+                                          const isTop    = !isBottom;
+                                          const verdict  = isBottom
+                                            ? (bottomScore >= 7 ? "🟢 LIKELY BOTTOM" : "🔵 POSSIBLE BOTTOM")
+                                            : (topScore    >= 7 ? "🔴 LIKELY TOP"    : "🟡 POSSIBLE TOP");
+                                          const vColor   = isBottom ? C.green : C.red;
+                                          const vBg      = isBottom ? `${C.green}10` : `${C.red}10`;
+                                          const sigs     = isBottom ? bottomSigs : topSigs;
+
+                                          return (
+                                            <div style={{ marginTop: 14, padding: "10px 12px", borderRadius: 8,
+                                              background: vBg, border: `1px solid ${vColor}44` }}>
+                                              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900,
+                                                color: vColor, marginBottom: 6, letterSpacing: "0.06em" }}>
+                                                {verdict}
+                                              </div>
+                                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                                {sigs.map((s, si) => (
+                                                  <div key={si} style={{ display: "flex", alignItems: "center", gap: 5,
+                                                    fontFamily: SANS, fontSize: 11, color: vColor }}>
+                                                    <span style={{ flexShrink: 0 }}>{"●".repeat(s.weight)}</span>
+                                                    <span>{s.txt}</span>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                              <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 6, lineHeight: 1.5 }}>
+                                                {isBottom
+                                                  ? "Watch for volume confirmation + green candle close above resistance"
+                                                  : "Watch for volume drop + red candle close below support"}
+                                              </div>
+                                            </div>
+                                          );
+                                        })()}
+
                                         <div style={{ flex: 1 }} />
                                       </div>
 
