@@ -11488,7 +11488,7 @@ export default function App() {
               { id: "terminal",  label: "📈 CHARTS",
                 tabs: ["terminal", "tv", "fibonacci"] },
               { id: "scanner",   label: "🔍 SCANNER",
-                tabs: ["scanner", "smartscan", "gap", "early", "screener", "squeeze", "compression", "insider", "flow", "fivex", "autoexec"] },
+                tabs: ["scanner","smartscan","gap","early","screener","squeeze","compression","insider","flow","fivex","autoexec"] },
               { id: "markets",   label: "🌍 MARKETS",
                 tabs: ["news", "macro", "earn-cal", "econ-cal", "calendar", "sectors", "crypto", "feargreed"] },
               { id: "research",  label: "🔬 RESEARCH", tabs: ["cot"] },
@@ -11854,17 +11854,20 @@ export default function App() {
             { id: "fibonacci", label: "🌀 FIB LEVELS" },
           ],
           scanner: [
-            { id: "scanner",   label: "⚡ SCANNER" },
-            { id: "smartscan", label: "🧠 SMART SCAN" },
-            { id: "gap",       label: "📈 GAP SCAN" },
-            { id: "early",     label: "🎯 EARLY ENTRY" },
-            { id: "screener",    label: "🔍 SCREENER" },
-            { id: "squeeze",     label: "🔥 SQUEEZE" },
+            { divider: "SCAN" },
+            { id: "smartscan",   label: "🧠 SMART SCAN" },
+            { id: "scanner",     label: "⚡ LIVE SIGNALS" },
+            { id: "gap",         label: "📈 GAP SCAN" },
+            { id: "early",       label: "🎯 EARLY ENTRY" },
+            { divider: "EDGE" },
             { id: "compression", label: "🌀 COMPRESS" },
-            { id: "insider",     label: "🏦 INSIDER BUYS" },
+            { id: "squeeze",     label: "🔥 SQUEEZE" },
+            { id: "insider",     label: "🏦 INSIDER" },
+            { divider: "TOOLS" },
+            { id: "screener",    label: "🔍 FILTER" },
             { id: "flow",        label: "⚡ INST. FLOW" },
-            { id: "fivex",     label: "🚀 5X PLAYS" },
-            { id: "autoexec",  label: "⚙ AUTO-EXEC" },
+            { id: "fivex",       label: "🚀 5X PLAYS" },
+            { id: "autoexec",    label: "⚙ AUTO-EXEC" },
           ],
           markets: [
             { id: "news",        label: "📰 NEWS" },
@@ -11903,7 +11906,7 @@ export default function App() {
           ],
         };
         const activeGroup = Object.entries(SUB_GROUPS).find(([, tabs]) =>
-          tabs.some(t => t.id === activeTab)
+          tabs.some(t => !t.divider && t.id === activeTab)
         );
         if (!activeGroup) return null;
         const [, subTabs] = activeGroup;
@@ -11944,7 +11947,14 @@ export default function App() {
               </div>
             )}
 
-            {subTabs.map(t => {
+            {subTabs.map((t, ti) => {
+              if (t.divider) return (
+                <div key={`div-${ti}`} style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 6px", flexShrink: 0 }}>
+                  <div style={{ width: 1, height: 16, background: C.border }} />
+                  <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 900, color: C.textDim,
+                    letterSpacing: "0.12em", opacity: 0.6 }}>{t.divider}</span>
+                </div>
+              );
               const isActive = activeTab === t.id;
               return (
                 <button
