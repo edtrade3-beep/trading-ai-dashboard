@@ -433,7 +433,7 @@ const STORAGE_KEY = "axiom_local_config_v1";
 // App password is validated server-side via POST /api/auth/check (never stored in source)
 const AUTH_STORAGE_KEY = "axiom_app_unlock_v1";
 const DEFAULT_SETTINGS = {
-  refreshMs: 180000,
+  refreshMs: 60000,
   terminalLayout: "1",
   hotkeyProfile: "classic",
   themeMode: "dark", // permanent default
@@ -9105,7 +9105,7 @@ export default function App() {
       fetch("/api/market/event-countdowns").then(r => r.ok ? r.json() : null).then(d => { if (d?.ok) setEventCountdowns(d.events || []); }).catch(() => {});
     };
     const t = setTimeout(load, 2500);
-    const iv = setInterval(load, 5 * 60_000); // refresh every 5 min
+    const iv = setInterval(load, 60_000); // refresh every 1 min with the rest of monitor
     return () => { clearTimeout(t); clearInterval(iv); };
   }, []);
 
@@ -12801,6 +12801,8 @@ export default function App() {
                 fetch("/api/market/trade-signals").then(r=>r.json()).then(d=>{if(d.ok)setSigData(d);}).catch(()=>{}).finally(()=>setSigLoading(false));
                 if (!fearGreedData) fetchFearGreed();
                 fetch("/api/market/distribution?refresh=1").then(r=>r.json()).then(d=>{if(d.ok)setDistData(d);}).catch(()=>{});
+                fetch("/api/market/futures").then(r=>r.ok?r.json():null).then(d=>{if(d?.ok)setFuturesData(d.futures||[]);}).catch(()=>{});
+                fetch("/api/market/premarket-movers").then(r=>r.ok?r.json():null).then(d=>{if(d?.ok)setPreMktMovers(d.movers||[]);}).catch(()=>{});
               }} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, border: `1px solid ${C.border}`,
                 background: "transparent", color: C.textDim, borderRadius: 6, padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}>
                 ↺ REFRESH ALL
