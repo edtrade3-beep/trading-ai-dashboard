@@ -17353,17 +17353,15 @@ export default function App() {
                                               color: C.accent, borderRadius: 6, padding: "5px 12px", cursor: "pointer" }}>
                                               ⭐ Watch
                                             </button>
-                                            {/* Send to Telegram */}
+                                            {/* Send to Telegram — no state, use DOM directly */}
                                             {(() => {
-                                              const [tgSent, setTgSent] = React.useState(false);
                                               const px   = Number(livePrice || row.quote?.price || 0);
                                               const stop = round2(px * 0.97);
                                               const t1   = round2(px * 1.08);
                                               const t2   = round2(px * 1.15);
-                                              const rr   = round2((t1 - px) / (px - stop));
+                                              const rr   = round2((t1 - px) / Math.max(px - stop, 0.01));
                                               const chg  = Number(row.quote?.changePercent || 0);
-                                              const vLabel2 = row.signal || row.sColor;
-                                              const msg = [
+                                              const msg  = [
                                                 `📊 ${row.ticker} SETUP — $${px} (${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%)`,
                                                 `Score: ${row.score}/100  Signal: ${row.signal || "WATCH"}`,
                                                 ``,
@@ -17377,17 +17375,17 @@ export default function App() {
                                                 `⚠️ Not financial advice. Manage risk.`,
                                               ].join("\n");
                                               return (
-                                                <button onClick={() => {
-                                                  fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) })
-                                                    .then(() => setTgSent(true))
-                                                    .catch(() => {});
-                                                  setTimeout(() => setTgSent(false), 3000);
-                                                }} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
-                                                  border: `1px solid ${tgSent ? C.green + "88" : C.textDim + "44"}`,
-                                                  background: tgSent ? `${C.green}18` : "transparent",
-                                                  color: tgSent ? C.green : C.textDim,
-                                                  borderRadius: 6, padding: "5px 12px", cursor: "pointer" }}>
-                                                  {tgSent ? "✅ Sent!" : "📱 Telegram"}
+                                                <button
+                                                  onClick={e => {
+                                                    const btn = e.currentTarget;
+                                                    fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) })
+                                                      .then(() => { btn.textContent = "✅ Sent!"; btn.style.color = "#22c55e"; setTimeout(() => { btn.textContent = "📱 Telegram"; btn.style.color = ""; }, 3000); })
+                                                      .catch(() => {});
+                                                  }}
+                                                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                                    border: `1px solid ${C.textDim}44`, background: "transparent",
+                                                    color: C.textDim, borderRadius: 6, padding: "5px 12px", cursor: "pointer" }}>
+                                                  📱 Telegram
                                                 </button>
                                               );
                                             })()}
