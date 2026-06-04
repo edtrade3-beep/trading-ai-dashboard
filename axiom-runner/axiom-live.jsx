@@ -5031,6 +5031,65 @@ function Under10Tab({ C, MONO, SANS, setActiveTab, watchlistSymbols }) {
   );
 }
 
+// ── News Widget (used in ProDashboard) ───────────────────────────────────────
+function NewsWidget({ C, MONO, SANS }) {
+  const [news, setNews]   = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    setLoading(true);
+    fetch("/api/market/news?tickers=SPY,NVDA,TSLA,AAPL,META,AMD&limit=6")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        const articles = Array.isArray(d) ? d : (d?.articles || d?.news || []);
+        setNews(articles.slice(0, 6));
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const sentColor = (title = "") => {
+    const tl = title.toLowerCase();
+    const bull = ["surge","gain","rise","up","beat","record","strong","buy","upgrade","bullish","rally","soar"].some(w=>tl.includes(w));
+    const bear = ["drop","fall","loss","miss","cut","decline","sell","downgrade","bearish","crash","sink","weak"].some(w=>tl.includes(w));
+    return bull ? C.green : bear ? C.red : C.textDim;
+  };
+
+  if (loading) return <div style={{ padding:'20px 14px', fontFamily:SANS, fontSize:12, color:C.textDim }}>Loading news…</div>;
+  if (!news.length) return <div style={{ padding:'20px 14px', fontFamily:SANS, fontSize:12, color:C.textDim }}>No news available</div>;
+
+  return (
+    <div>
+      {news.map((n, i) => {
+        const title   = n.title || n.headline || n.text || "";
+        const source  = n.source || n.publisher || n.site || "";
+        const url     = n.url || n.link || "#";
+        const sentC   = sentColor(title);
+        return (
+          <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+            style={{ display:'block', textDecoration:'none', padding:'9px 14px',
+              borderBottom:i < news.length-1 ? `1px solid ${C.border}22` : 'none',
+              borderLeft:`3px solid ${sentC}`,
+              transition:'background 0.1s' }}
+            onMouseEnter={e => e.currentTarget.style.background = `${C.accent}08`}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+            <div style={{ fontFamily:SANS, fontSize:12, color:C.text, lineHeight:1.4,
+              fontWeight:500, marginBottom:3 }}>
+              {title.length > 75 ? title.slice(0,75)+'…' : title}
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              {source && <span style={{ fontFamily:MONO, fontSize:9, color:C.textDim }}>{source}</span>}
+              <span style={{ fontFamily:MONO, fontSize:9, color:sentC, fontWeight:700 }}>
+                {sentC === C.green ? '▲ BULLISH' : sentC === C.red ? '▼ BEARISH' : '— NEUTRAL'}
+              </span>
+            </div>
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Pro Dashboard ─────────────────────────────────────────────────────────────
 function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
   combinedAlerts, eventCountdowns, scanResults, watchlistData, journalEntries,
@@ -5286,28 +5345,12 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
             </div>
           </Card>
 
-          <Card accent={regimeColor||ACCENT}>
-            <CardHead icon="📈" title="MARKET SNAPSHOT" />
-            {[
-              ['SPY S&P 500', spySym, spyChg],
-              ['QQQ Nasdaq 100', qqqSym, qqqChg],
-              ['IWM Russell 2000', iwmSym, iwmChg],
-              ['VIX Volatility', null, 0],
-            ].map(([label, sym, chg], i) => {
-              const val = label==='VIX' ? (vix>0?vix.toFixed(1):'—') : (sym?`$${sym.price?.toFixed(2)}`:'—');
-              const sub = label==='VIX' ? (vix>25?'FEAR':vix>18?'CAUTION':'CALM') : fmtP(chg);
-              const col = label==='VIX' ? (vix>25?RED:vix>18?AMBER:GREEN) : (chg>=0?GREEN:RED);
-              return (
-                <div key={label} style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-                  padding:'8px 14px', borderBottom:i<3?`1px solid ${BORDER}22`:'none' }}>
-                  <span style={{ fontFamily:SANS, fontSize:12, color:DIM }}>{label}</span>
-                  <div style={{ textAlign:'right' }}>
-                    <div style={{ fontFamily:MONO, fontSize:13, fontWeight:700, color:TEXT }}>{val}</div>
-                    <div style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:col }}>{sub}</div>
-                  </div>
-                </div>
-              );
-            })}
+          <Card accent="#0ea5e9">
+            <CardHead icon="📰" title="MARKET NEWS"
+              action={<button onClick={() => setActiveTab('news')} style={{ fontFamily:MONO, fontSize:9,
+                padding:'2px 8px', borderRadius:4, border:`1px solid #0ea5e944`,
+                background:'#0ea5e915', color:'#0ea5e9', cursor:'pointer' }}>All News →</button>} />
+            <NewsWidget C={C} MONO={MONO} SANS={SANS} />
           </Card>
         </div>
 
