@@ -4853,7 +4853,7 @@ function Under10Tab({ C, MONO, SANS, setActiveTab, onDeepDive, watchlistSymbols 
   const [data,    setData]    = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [filter,  setFilter]  = React.useState("ALL"); // ALL | CHEAP | TECHNICAL | FUNDAMENTAL
-  const [maxPrice, setMaxPrice] = React.useState(10);
+  const [maxPrice, setMaxPrice] = React.useState(50);
 
   const load = React.useCallback(() => {
     setLoading(true);
@@ -4869,7 +4869,7 @@ function Under10Tab({ C, MONO, SANS, setActiveTab, onDeepDive, watchlistSymbols 
 
   const rows = (data?.results || []).filter(r => {
     if (r.price > maxPrice) return false;
-    if (filter === "CHEAP")       return r.price < 3;
+    if (filter === "CHEAP")       return r.price < 10;
     if (filter === "TECHNICAL")   return r.techScore >= 35;
     if (filter === "FUNDAMENTAL") return r.fundScore >= 20;
     if (filter === "APLUS")       return r.total >= 55;
@@ -4883,7 +4883,7 @@ function Under10Tab({ C, MONO, SANS, setActiveTab, onDeepDive, watchlistSymbols 
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <div>
-          <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>💎 UNDER $10 OPPORTUNITIES</div>
+          <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>💎 UNDER ${maxPrice} OPPORTUNITIES</div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
             Quality stocks under ${maxPrice} · Scored on Technical + Fundamental + Upside · {rows.length} found
             {data?.updatedAt ? ` · ${new Date(data.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
@@ -4893,11 +4893,12 @@ function Under10Tab({ C, MONO, SANS, setActiveTab, onDeepDive, watchlistSymbols 
           <select value={maxPrice} onChange={e => setMaxPrice(Number(e.target.value))}
             style={{ fontFamily: MONO, fontSize: 11, padding: "5px 8px", borderRadius: 6,
               border: `1px solid ${C.border}`, background: C.surface, color: C.text, cursor: "pointer" }}>
-            <option value={3}>Under $3</option>
             <option value={5}>Under $5</option>
             <option value={10}>Under $10</option>
+            <option value={20}>Under $20</option>
+            <option value={50}>Under $50</option>
           </select>
-          {[["ALL","All"],["APLUS","🔥 A+"],["TECHNICAL","📈 Technical"],["FUNDAMENTAL","📊 Fundamental"],["CHEAP","💵 Sub-$3"]].map(([k,l]) => (
+          {[["ALL","All"],["APLUS","🔥 A+"],["TECHNICAL","📈 Technical"],["FUNDAMENTAL","📊 Fundamental"],["CHEAP","💵 Under $10"]].map(([k,l]) => (
             <button key={k} onClick={() => setFilter(k)} style={{ fontFamily: MONO, fontSize: 10, fontWeight: filter===k?800:500,
               padding: "5px 10px", borderRadius: 6, cursor: "pointer",
               border: `1px solid ${filter===k ? C.accent : C.border}`,
@@ -4912,7 +4913,7 @@ function Under10Tab({ C, MONO, SANS, setActiveTab, onDeepDive, watchlistSymbols 
 
       {loading && !data && (
         <div style={{ padding: 40, textAlign: "center", fontFamily: MONO, fontSize: 13, color: C.textDim }}>
-          💎 Scanning 70 stocks under ${maxPrice}…
+          💎 Scanning stocks under ${maxPrice}…
         </div>
       )}
 
@@ -13625,7 +13626,7 @@ export default function App() {
             { id: "smartscan",    label: "🧠 SMART SCAN" },
             { id: "adol22",       label: "🔴 ADOL22" },
             { id: "compression",  label: "🌀 COMPRESS" },
-            { id: "under10",      label: "💎 UNDER $10" },
+            { id: "under10",      label: "💎 UNDER $50" },
           ],
           markets: [
             { id: "news",         label: "📰 NEWS" },

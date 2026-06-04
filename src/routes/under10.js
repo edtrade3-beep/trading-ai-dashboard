@@ -85,15 +85,16 @@ function calcRSI(closes, n = 14) {
 
 function scoreStock(sym, meta, bars) {
   const price = Number(meta.regularMarketPrice || bars.at(-1)?.c || 0);
-  if (!price || price <= 0 || price > 10) return null; // only under $10
+  if (!price || price <= 0 || price > 50) return null; // only under $50
 
-  const avgVol   = Number(meta.averageDailyVolume3Month || meta.averageDailyVolume10Day || 0);
-  const mktCap   = Number(meta.marketCap || 0);
+  // Calculate avgVol from bars (more reliable than meta which often missing)
+  const recentVols = bars.slice(-20).map(b => b.v).filter(v => v > 0);
+  const avgVol   = recentVols.length ? Math.round(recentVols.reduce((a,b)=>a+b,0) / recentVols.length) : 0;
   const currVol  = Number(meta.regularMarketVolume || bars.at(-1)?.v || 0);
+  const mktCap   = Number(meta.marketCap || 0);
 
-  // Quality filters — skip garbage
-  if (avgVol < 300_000)  return null; // too illiquid
-  if (mktCap > 0 && mktCap < 30_000_000) return null; // micro-cap trap
+  // Quality filters — relaxed to not miss good stocks
+  if (avgVol > 0 && avgVol < 100_000) return null; // extremely illiquid only
 
   const hi52   = Number(meta.fiftyTwoWeekHigh || 0);
   const lo52   = Number(meta.fiftyTwoWeekLow  || 0);
@@ -150,7 +151,7 @@ function scoreStock(sym, meta, bars) {
   if (price < 5)         upsideScore += 5; // sub-$5 = biggest % potential
 
   const total = techScore + fundScore + upsideScore;
-  if (total < 25) return null; // minimum quality threshold
+  if (total < 15) return null; // low threshold — show more results
 
   // Determine opportunity grade
   const grade = total >= 70 ? "🔥 A+"   :
