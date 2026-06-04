@@ -923,40 +923,231 @@ const COMMANDS = {
     return reply(`📋 WATCHLIST (${wl.length})\n━━━━━━━━━━━━━━\n${rows.join("\n")}\n\n/wl add NVDA  |  /wl remove NVDA`);
   },
 
-  // ── Help ─────────────────────────────────────────────────────────────────────
+  // ── /plan TICKER — full AI trade plan with entry/stop/target ─────────────────
+  plan: async (args) => {
+    const sym = (args[0] || "").toUpperCase();
+    if (!sym) return reply("Usage: /plan NVDA");
+    await reply(`⚙️ Building trade plan for ${sym}…`);
+    try {
+      const { fetchYahooQuoteBatch } = require("./providers/yahoo");
+      const { detectBOSChoCh, detectOrderBlocks, detectFVGs } = require("./smc-engine");
+      const bars  = await fetchYahooBars(sym, "3mo", "1d").catch(() => []);
+      const q     = await fetchYahooQuoteBatch([sym]).catch(() => []);
+      const quote = q[0] || {};
+      const price = Number(quote.regularMarketPrice || bars.at(-1)?.close || 0);
+      if (!price) return reply(`No data for ${sym}`);
+      const { bos } = detectBOSChoCh(bars);
+      const obs  = detectOrderBlocks(bars);
+      const fvgs = detectFVGs(bars);
+      const ma50  = Number(quote.fiftyDayAverage || 0);
+      const ma200 = Number(quote.twoHundredDayAverage || 0);
+      const rsi   = (() => { if (bars.length < 14) return 50; const cl = bars.map(b => b.close); const g = [], l = []; for (let i = 1; i < cl.length; i++) { const d = cl[i]-cl[i-1]; d > 0 ? g.push(d) : l.push(Math.abs(d)); } const ag = g.slice(-14).reduce((a,b)=>a+b,0)/14; const al = l.slice(-14).reduce((a,b)=>a+b,0)/14; return al === 0 ? 100 : Math.round(100-(100/(1+ag/al))); })();
+      const stop  = ma50 > 0 && ma50 < price ? round2(ma50 * 0.97) : round2(price * 0.97);
+      const t1    = round2(price * 1.08);
+      const t2    = round2(price * 1.15);
+      const rr    = round2((t1 - price) / (price - stop));
+      const bullBOS = bos?.type === "BULL_BOS";
+      const bestOB  = obs.filter(o => o.type === "BULL_OB").sort((a,b) => b.bot - a.bot)[0];
+      const regime  = price > ma200 && price > ma50 ? "BULL" : price < ma200 ? "BEAR" : "MIXED";
+      const signal  = bullBOS && rsi < 70 && price > ma50 ? "BUY" : rsi > 70 ? "AVOID (overbought)" : !bullBOS ? "WAIT (no Bull BOS)" : "WATCH";
+      const lines = [
+        `📋 TRADE PLAN — ${sym}`,
+        `━━━━━━━━━━━━━━━━━━━━`,
+        `Signal: ${signal}`,
+        `Regime: ${regime}`,
+        ``,
+        `💰 LEVELS`,
+        `Entry:  $${round2(price)}  (current)`,
+        bestOB ? `Better: $${bestOB.bot}-$${bestOB.top}  (order block)` : "",
+        `Stop:   $${stop}  (-${round2((price-stop)/price*100)}%)`,
+        `T1:     $${t1}   (+8%)`,
+        `T2:     $${t2}   (+15%)`,
+        `R:R     ${rr}:1`,
+        ``,
+        `📊 TECHNICAL`,
+        `RSI: ${rsi}  |  ${rsi < 30 ? "🔥 Oversold" : rsi > 70 ? "⚠ Overbought" : "Neutral"}`,
+        `EMA: ${price > ma50 ? "Above 50MA ✅" : "Below 50MA ❌"}`,
+        bos ? `BOS: ${bos.label} @ $${bos.level}` : "BOS: None yet",
+        fvgs.length ? `FVG: $${fvgs[0]?.bot}-$${fvgs[0]?.top}` : "",
+        ``,
+        `━━━━━━━━━━━━━━━━━━━━`,
+        signal === "BUY"
+          ? `✅ ACTIONABLE: Enter near $${round2(price)}, stop $${stop}, target $${t1}`
+          : `👁 ${signal}: Wait for better conditions`,
+        `\n⚠️ Not financial advice. Manage risk.`,
+      ].filter(Boolean).join("\n");
+      await reply(lines);
+    } catch (e) { await reply(`Plan error: ${e.message}`); }
+  },
+
+  // ── /best — top 3 actionable setups RIGHT NOW ─────────────────────────────
+  best: async () => {
+    await reply("🔍 Finding best setups right now…");
+    try {
+      const status = getScannerStatus();
+      const hits   = (status.results || status.lastHits || [])
+        .filter(r => r.signal === "STRONG BUY" || r.signal === "BUY" || r.score >= 70)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3);
+      if (!hits.length) return reply("No confirmed setups right now.\nRun /scan to refresh, or try /wl for watchlist.");
+      const lines = ["⚡ TOP 3 SETUPS NOW", "━━━━━━━━━━━━━━━━━━━━"];
+      for (const h of hits) {
+        const price = round2(Number(h.quote?.price || 0));
+        const chg   = round2(Number(h.quote?.changePercent || 0));
+        const t1    = round2(price * 1.08);
+        const stop  = round2(price * 0.97);
+        lines.push(`\n${h.signal === "STRONG BUY" ? "🔥" : "✅"} ${h.ticker}  $${price}  ${chg >= 0 ? "+" : ""}${chg}%`);
+        lines.push(`Score: ${h.score}/100  |  Signal: ${h.signal}`);
+        lines.push(`Entry: $${price}  Stop: $${stop}  T1: $${t1}`);
+        lines.push(`Type /plan ${h.ticker} for full analysis`);
+      }
+      lines.push("\n━━━━━━━━━━━━━━━━━━━━");
+      lines.push("⚠️ Not financial advice. Do not chase.");
+      await reply(lines.join("\n"));
+    } catch (e) { await reply(`Error: ${e.message}`); }
+  },
+
+  // ── /risk — quick portfolio risk check ────────────────────────────────────
+  risk: async () => {
+    try {
+      const { loadSettings } = require("./settings-store");
+      const s  = loadSettings() || {};
+      const wl = Array.isArray(s.watchlistSymbols) ? s.watchlistSymbols : [];
+      const { fetchYahooQuoteBatch } = require("./providers/yahoo");
+      const quotes = wl.length ? await fetchYahooQuoteBatch(wl.slice(0, 15)).catch(() => []) : [];
+      const movers = quotes
+        .map(q => ({ sym: q.symbol, chg: round2(Number(q.regularMarketChangePercent || 0)), price: round2(Number(q.regularMarketPrice || 0)) }))
+        .sort((a, b) => a.chg - b.chg);
+      const losers  = movers.filter(m => m.chg <= -3);
+      const gainers = movers.filter(m => m.chg >= 3);
+      const vixQ    = await fetchYahooQuoteBatch(["^VIX"]).catch(() => []);
+      const vix     = round2(Number(vixQ[0]?.regularMarketPrice || 0));
+      const lines   = [
+        "⚠️ RISK CHECK",
+        "━━━━━━━━━━━━━━━━━━━━",
+        `VIX: ${vix} ${vix > 25 ? "🔴 FEAR — reduce size" : vix > 18 ? "🟡 Caution" : "🟢 Calm"}`,
+        "",
+        losers.length  ? `🔴 Down 3%+: ${losers.map(m  => `${m.sym} ${m.chg}%`).join("  ")}` : "🟢 No big losers",
+        gainers.length ? `🟢 Up 3%+:   ${gainers.map(m => `${m.sym} +${m.chg}%`).join("  ")}` : "",
+        "",
+        vix > 25 ? "⚡ ACTION: High fear — cut size 50%, tighten stops" :
+        vix > 18 ? "👁 CAUTION: Elevated VIX — normal size, tight stops" :
+                   "✅ NORMAL: Market calm — trade your plan",
+        "",
+        "Use /plan TICKER for specific levels",
+      ].filter(Boolean).join("\n");
+      await reply(lines);
+    } catch (e) { await reply(`Risk check error: ${e.message}`); }
+  },
+
+  // ── /morning — full morning brief with action items ───────────────────────
+  morning: async () => {
+    await reply("🌅 Generating morning brief…");
+    try {
+      const { sendMacroReport } = require("./market-scanner");
+      await sendMacroReport();
+      // Also show compression + best setups
+      const status = getScannerStatus();
+      const buys = (status.results || []).filter(r => r.score >= 70).slice(0, 3);
+      if (buys.length) {
+        const lines = ["\n⚡ MORNING WATCHLIST", "━━━━━━━━━━━━━━━━━━━━"];
+        buys.forEach(h => {
+          const p = round2(Number(h.quote?.price || 0));
+          lines.push(`${h.ticker} $${p} — Score ${h.score} — ${h.signal}`);
+          lines.push(`Stop: $${round2(p*0.97)}  T1: $${round2(p*1.08)}`);
+          lines.push("");
+        });
+        lines.push("Type /plan TICKER for full trade plan");
+        await reply(lines.join("\n"));
+      }
+    } catch (e) { await reply(`Morning brief error: ${e.message}`); }
+  },
+
+  // ── /squeeze — top squeeze candidates ────────────────────────────────────
+  squeeze: async () => {
+    await reply("🔥 Finding squeeze setups…");
+    try {
+      const r = await withTimeout(
+        fetch(`${process.env.RENDER_EXTERNAL_URL || "http://localhost:3000"}/api/scanner/squeeze`).then(r => r.json()),
+        15000, null
+      ).catch(() => null);
+      if (!r?.results?.length) return reply("No squeeze data. Run platform scan first.");
+      const top = r.results.filter(s => s.score >= 45).slice(0, 5);
+      const lines = ["🔥 TOP SQUEEZE SETUPS", "━━━━━━━━━━━━━━━━━━━━"];
+      top.forEach(s => {
+        lines.push(`\n${s.grade} ${s.sym}  $${s.price}  ${s.chg1d >= 0 ? "+" : ""}${s.chg1d}%`);
+        lines.push(`SI: ${s.siPct > 0 ? s.siPct+"%" : "—"}  Days Cover: ${s.siDays > 0 ? s.siDays+"d" : "—"}  Score: ${s.score}`);
+      });
+      lines.push("\n/plan TICKER for full trade plan");
+      await reply(lines.join("\n"));
+    } catch (e) { await reply(`Error: ${e.message}`); }
+  },
+
+  // ── /close — end of day checklist ────────────────────────────────────────
+  close: async () => {
+    const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const h  = et.getHours(), m = et.getMinutes();
+    const minsToClose = Math.max(0, (16 * 60) - (h * 60 + m));
+    const lines = [
+      `⏰ END OF DAY CHECKLIST`,
+      `━━━━━━━━━━━━━━━━━━━━`,
+      `${minsToClose > 0 ? `${minsToClose} minutes until close` : "Market is closed"}`,
+      ``,
+      `✅ Before close:`,
+      `□ Review open positions — are stops in place?`,
+      `□ Cut any position that broke its stop`,
+      `□ Take partial profits on +8% positions`,
+      `□ No new entries after 3:30 PM`,
+      `□ Journal every trade you took today`,
+      ``,
+      `📊 After close:`,
+      `□ Log P&L in your 30-day challenge`,
+      `□ Note what went well / what went wrong`,
+      `□ Set tomorrow's watchlist (/wl)`,
+      ``,
+      `⚠️ Do not chase. Wait for confirmation. Manage risk.`,
+    ].join("\n");
+    await reply(lines);
+  },
+
+  // ── /Help ─────────────────────────────────────────────────────────────────────
   // (override the default help to be cleaner)
   help: async () => reply([
-    "⚡ AXIOM BOT — COMMANDS",
+    "⚡ AXIOM TRADING BOT",
     "━━━━━━━━━━━━━━━━━━━━",
-    "ANALYSIS:",
+    "🎯 TRADE WITHOUT OPENING THE PLATFORM:",
+    "",
+    "/plan NVDA     — full trade plan: entry/stop/target/R:R",
+    "/best          — top 3 actionable setups right now",
+    "/risk          — risk check: VIX + big movers + action",
+    "/squeeze       — top squeeze/5X candidates",
+    "/morning       — full morning brief + setups",
+    "/close         — end of day checklist",
+    "",
+    "📊 ANALYSIS:",
     "/score NVDA    — SMC analysis + signals",
-    "/smc NVDA      — alias for /score",
-    "/price AAPL    — live quote (or just type AAPL)",
+    "NVDA           — type any ticker for instant deep dive",
+    "/price AAPL    — live quote",
     "",
-    "SCANNER:",
-    "/scan          — run full market scan now",
+    "🔍 SCANNER:",
+    "/scan          — run full market scan",
     "/top5          — top 5 buy setups",
-    "/top / /worst  — top buy/sell from last scan",
-    "/market        — macro snapshot",
+    "/today         — today's summary",
+    "/regime        — market regime",
     "",
-    "ALERTS:",
-    "/mute          — show/set alert level",
-    "/pause 4h      — pause alerts for 4 hours",
+    "🔔 ALERTS:",
+    "/mute          — set alert level",
+    "/pause 4h      — pause for 4 hours",
     "/resume        — resume alerts",
-    "/status        — current bot settings",
+    "/status        — bot settings",
     "",
-    "WATCHLIST:",
-    "/wl            — show watchlist with prices",
-    "/wl add NVDA   — add to watchlist",
+    "📋 WATCHLIST:",
+    "/wl            — watchlist prices",
+    "/wl add NVDA   — add ticker",
     "/wl remove NVDA",
     "/alert AAPL above 200",
-    "/alerts        — list your price alerts",
     "",
-    "OTHER:",
-    "/brief         — generate morning briefing",
-    "/watchlist     — full watchlist quotes",
-    "",
-    "💡 Just type a ticker (NVDA) for instant analysis",
+    "⚠️ Not financial advice. Manage risk.",
   ].join("\n")),
 };
 
@@ -1066,17 +1257,21 @@ async function registerCommands() {
       { command: "alert",     description: "Set price alert — /alert AAPL above 200" },
       { command: "alerts",    description: "List active price alerts" },
       { command: "cancel",    description: "Cancel alert — /cancel <id>" },
+      { command: "plan",      description: "Full trade plan — /plan NVDA (entry/stop/target)" },
+      { command: "best",      description: "Top 3 actionable setups right now" },
+      { command: "risk",      description: "Risk check — VIX + movers + action" },
+      { command: "squeeze",   description: "Top squeeze/5X candidates" },
+      { command: "morning",   description: "Morning brief + today's setups" },
+      { command: "close",     description: "End of day checklist" },
       { command: "score",     description: "SMC analysis — /score NVDA" },
       { command: "top5",      description: "Top 5 setups from last scan" },
-      { command: "brief",     description: "Generate morning briefing" },
       { command: "today",     description: "Today's top setups + regime summary" },
       { command: "regime",    description: "Current market regime + money flow" },
-      { command: "status",    description: "Bot settings + scanner status" },
       { command: "wl",        description: "Watchlist — /wl | /wl add NVDA | /wl remove NVDA" },
       { command: "mute",      description: "Alert level — /mute quiet|on|all|off" },
       { command: "pause",     description: "Pause alerts — /pause 4h" },
-      { command: "resume",    description: "Resume alerts after pause" },
-      { command: "scanner",   description: "Scanner — on / off / interval 5" },
+      { command: "resume",    description: "Resume alerts" },
+      { command: "status",    description: "Bot settings + scanner status" },
       { command: "help",      description: "All commands" },
     ];
     const res  = await fetch(`${API}/setMyCommands`, {
