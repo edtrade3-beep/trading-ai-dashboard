@@ -23917,7 +23917,24 @@ export default function App() {
 
       {/* ── CUSTOM SCREENER ──────────────────────────────────────────────── */}
       {activeTab === "under10" && <Under10Tab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} watchlistSymbols={watchlistSymbols}
-        onDeepDive={sym => { setScanResults(prev => prev.some(r=>r.ticker===sym)?prev:[{ticker:sym,score:50,signal:"WATCH",scannerScore:50,signals:[],sColor:"#f59e0b",quote:{price:0,changePercent:0},candles:null},...prev]); setSfSig("ALL"); setSfMinScore(0); setActiveTab("smartscan"); setTimeout(()=>{setScanExpanded(sym);loadDeepDive(sym);loadDeepSocial(sym);},100); setTimeout(()=>fetchTradeSetup(sym,{ticker:sym,score:50,signal:"WATCH",signals:[],quote:{price:0}}),1400); }} />}
+        onDeepDive={(sym) => {
+          setScanResults(prev => prev.some(r => r.ticker === sym) ? prev : [
+            { ticker: sym, score: 50, signal: "WATCH", scannerScore: 50, signals: [],
+              sColor: "#f59e0b", quote: { price: 0, changePercent: 0 }, candles: null },
+            ...prev
+          ]);
+          setSfSig("ALL");
+          setSfMinScore(0);
+          setActiveTab("smartscan");
+          setTimeout(() => {
+            setScanExpanded(sym);
+            loadDeepDive(sym);
+            loadDeepSocial(sym);
+          }, 100);
+          setTimeout(() => fetchTradeSetup(sym, {
+            ticker: sym, score: 50, signal: "WATCH", signals: [], quote: { price: 0 }
+          }), 1400);
+        }} />}
       {activeTab === "combined"     && <CombinedTab     C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols}
         onDeepDive={(sym, row) => {
           // Step 1: clear filters + add row + switch tab
