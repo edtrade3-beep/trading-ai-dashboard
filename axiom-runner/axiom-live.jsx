@@ -15718,12 +15718,29 @@ export default function App() {
 
                                       const vBg = `${vColor}0e`;
 
-                                      // Alignment bars
-                                      const alignPills = [
-                                        { k: "Tech",  v: techScore,  c: techScore  >= 65 ? C.green : techScore  < 45 ? C.red : C.amber },
-                                        { k: "Trend", v: trendScore, c: trendScore >= 65 ? C.green : trendScore < 45 ? C.red : C.amber },
-                                        { k: "SMC",   v: smcScore,   c: smcScore   >= 65 ? C.green : smcScore   < 45 ? C.red : C.amber },
-                                        { k: "MACD",  v: macdScore,  c: macdScore  >= 65 ? C.green : macdScore  < 45 ? C.red : C.amber },
+                                      // Signal boxes — same language as Compression Scanner
+                                      const sigBoxes = [
+                                        {
+                                          label: "TECHNICALS",
+                                          score: Math.round((techScore + macdScore) / 2),
+                                          icon: (techScore + macdScore) / 2 >= 65 ? "🔥" : (techScore + macdScore) / 2 >= 45 ? "✅" : "⬜",
+                                          status: (techScore + macdScore) / 2 >= 65 ? "STRONG" : (techScore + macdScore) / 2 >= 45 ? "OK" : "WEAK",
+                                          color: (techScore + macdScore) / 2 >= 65 ? C.green : (techScore + macdScore) / 2 >= 45 ? C.amber : C.red,
+                                        },
+                                        {
+                                          label: "TREND",
+                                          score: trendScore,
+                                          icon: trendScore >= 65 ? "🔥" : trendScore >= 45 ? "✅" : "⬜",
+                                          status: trendScore >= 65 ? "WITH TREND" : trendScore >= 45 ? "MIXED" : "AGAINST",
+                                          color: trendScore >= 65 ? C.green : trendScore >= 45 ? C.amber : C.red,
+                                        },
+                                        {
+                                          label: "STRUCTURE",
+                                          score: smcScore,
+                                          icon: smcScore >= 65 ? "🔥" : smcScore >= 45 ? "✅" : "⬜",
+                                          status: smcScore >= 65 ? "BULLISH" : smcScore >= 45 ? "NEUTRAL" : "BEARISH",
+                                          color: smcScore >= 65 ? C.green : smcScore >= 45 ? C.amber : C.red,
+                                        },
                                       ];
 
                                       return (
@@ -15754,12 +15771,16 @@ export default function App() {
                                                 <div style={{ width: `${composite}%`, height: "100%", background: vColor, borderRadius: 5, transition: "width 0.5s" }} />
                                               </div>
                                             </div>
-                                            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                                              {alignPills.map(p => (
-                                                <div key={p.k} style={{ textAlign: "center", padding: "3px 8px",
-                                                  background: `${p.c}18`, border: `1px solid ${p.c}33`, borderRadius: 5 }}>
-                                                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{p.k}</div>
-                                                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: p.c }}>{p.v}</div>
+                                            {/* 3 Signal boxes — same as Compression Scanner */}
+                                            <div style={{ display: "flex", gap: 8 }}>
+                                              {sigBoxes.map(s => (
+                                                <div key={s.label} style={{ textAlign: "center", padding: "8px 10px",
+                                                  background: C.surface, borderRadius: 8,
+                                                  border: `1px solid ${s.score >= 65 ? s.color + "66" : C.border}`,
+                                                  minWidth: 72 }}>
+                                                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 3 }}>{s.label}</div>
+                                                  <div style={{ fontSize: 18, lineHeight: 1 }}>{s.icon}</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 9, color: s.color, marginTop: 3, fontWeight: 700 }}>{s.status}</div>
                                                 </div>
                                               ))}
                                             </div>
