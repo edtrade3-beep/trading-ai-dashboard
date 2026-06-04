@@ -4802,7 +4802,7 @@ function CryptoTab({ C, MONO, SANS }) {
 }
 
 // ── Compression Scanner ──────────────────────────────────────────────────────
-function CompressionTab({ C, MONO, SANS, setActiveTab }) {
+function CompressionTab({ C, MONO, SANS, setActiveTab, onDeepDive }) {
   const [data,       setData]       = React.useState(null);
   const [loading,    setLoading]    = React.useState(false);
   const [error,      setError]      = React.useState(null);
@@ -5004,7 +5004,7 @@ function CompressionTab({ C, MONO, SANS, setActiveTab }) {
                       {r.trending === "UP" ? "↑ UP" : r.trending === "DOWN" ? "↓ DOWN" : "→ FLAT"}
                     </div>
                   </div>
-                  <button onClick={() => { navigator.clipboard?.writeText(r.sym).catch(()=>{}); setActiveTab("smartscan"); }}
+                  <button onClick={() => onDeepDive ? onDeepDive(r.sym) : setActiveTab("smartscan")}
                     style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "7px 16px",
                       borderRadius: 7, border: "none", cursor: "pointer",
                       background: scanScores[r.sym]?.signal?.includes("BUY") ? C.green : isPrime ? C.accent : C.surface,
@@ -22080,7 +22080,22 @@ export default function App() {
 
       {/* ── CUSTOM SCREENER ──────────────────────────────────────────────── */}
       {activeTab === "squeeze"      && <SqueezeTab      C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
-      {activeTab === "compression"  && <CompressionTab  C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
+      {activeTab === "compression"  && <CompressionTab  C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab}
+        onDeepDive={sym => {
+          // Add synthetic row if ticker not already in scan results
+          setScanResults(prev => {
+            if (prev.some(r => r.ticker === sym)) return prev;
+            const synth = { ticker: sym, score: 50, signal: "WATCH", scannerScore: 50,
+              signals: [], sColor: C.amber, rsiVal: null, macdBull: null, ema9v: null, ema21v: null,
+              quote: { price: 0, changePercent: 0 }, candles: null };
+            return [synth, ...prev];
+          });
+          setActiveTab("smartscan");
+          setScanExpanded(sym);
+          loadDeepDive(sym);
+          loadDeepSocial(sym);
+          setTimeout(() => fetchTradeSetup(sym, { ticker: sym }), 1200);
+        }} />}
       {activeTab === "insider"      && <InsiderTab      C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
       {activeTab === "gapfill"      && <GapFillTab      C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
 
