@@ -333,13 +333,24 @@ async function runMarketRecap() {
       console.log("[Recap] Audio saved to data/latest-recap.mp3");
     }
 
-    // Step 6: Save full JSON
+    // Step 6: Generate video with Shotstack (if API key set)
+    let videoUrl = null;
+    if (process.env.SHOTSTACK_API_KEY) {
+      try {
+        videoUrl = await generateAndSendVideo(script, data);
+        console.log("[Recap] Video pipeline complete ✓");
+      } catch (e) {
+        console.warn("[Recap] Video generation failed:", e.message);
+      }
+    }
+
+    // Step 7: Save full JSON
     const fs   = require("fs");
     const path = require("path");
     const dir  = path.join(__dirname, "../data");
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, "latest-recap.json"), JSON.stringify({
-      script, data, voiceGenerated: !!audioBuffer, generatedAt: new Date().toISOString()
+      script, data, voiceGenerated: !!audioBuffer, videoUrl, generatedAt: new Date().toISOString()
     }, null, 2));
     console.log("[Recap] Complete pipeline done ✓");
 
@@ -363,6 +374,18 @@ async function handleRecapApi(req, res, requestUrl) {
     } catch (e) { return writeJson(res, 500, { ok: false, error: e.message }); }
   }
 
+  if (requestUrl.pathname === "/api/recap/video") {
+    try {
+      const fs   = require("fs");
+      const path = require("path");
+      const file = path.join(__dirname, "../data/latest-recap.mp4");
+      if (!fs.existsSync(file)) return writeJson(res, 404, { ok: false, error: "No video yet — trigger /api/recap/generate first" });
+      const buf = fs.readFileSync(file);
+      res.writeHead(200, { "Content-Type": "video/mp4", "Content-Length": buf.length, "Content-Disposition": "attachment; filename=market-recap.mp4" });
+      return res.end(buf);
+    } catch (e) { return writeJson(res, 500, { ok: false, error: e.message }); }
+  }
+
   if (requestUrl.pathname === "/api/recap/audio") {
     try {
       const fs   = require("fs");
@@ -383,4 +406,272 @@ async function handleRecapApi(req, res, requestUrl) {
   return null;
 }
 
-module.exports = { runMarketRecap, handleRecapApi };
+// ── Shotstack Video Renderer ──────────────────────────────────────────────────
+// Free tier: 200 renders/month at https://shotstack.io
+// Requires: SHOTSTACK_API_KEY env var
+// No npm packages needed — pure HTTPS API calls
+
+function shotstackPost(path2, body) {
+  const key = process.env.SHOTSTACK_API_KEY;
+  if (!key) return Promise.reject(new Error("SHOTSTACK_API_KEY not set"));
+  const https = require("https");
+  const payload = JSON.stringify(body);
+  return new Promise((resolve, reject) => {
+    const opts = {
+      hostname: "api.shotstack.io",
+      path: `/stage${path2}`,   // /stage = sandbox (free), /v1 = production
+      method: "POST",
+      headers: {
+        "x-api-key":    key,
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(payload),
+      },
+    };
+    const req = https.request(opts, res => {
+      let d = ""; res.on("data", c => d += c);
+      res.on("end", () => { try { resolve(JSON.parse(d)); } catch { resolve({ raw: d }); } });
+    });
+    req.on("error", reject);
+    req.setTimeout(15000, () => { req.destroy(); reject(new Error("Shotstack timeout")); });
+    req.write(payload);
+    req.end();
+  });
+}
+
+function shotstackGet(path2) {
+  const key = process.env.SHOTSTACK_API_KEY;
+  if (!key) return Promise.reject(new Error("SHOTSTACK_API_KEY not set"));
+  const https = require("https");
+  return new Promise((resolve, reject) => {
+    const opts = { hostname: "api.shotstack.io", path: `/stage${path2}`, method: "GET", headers: { "x-api-key": key } };
+    const req = https.request(opts, res => {
+      let d = ""; res.on("data", c => d += c);
+      res.on("end", () => { try { resolve(JSON.parse(d)); } catch { resolve({ raw: d }); } });
+    });
+    req.on("error", reject);
+    req.setTimeout(10000, () => { req.destroy(); reject(new Error("timeout")); });
+    req.end();
+  });
+}
+
+function buildShotstackSpec(script, data, audioUrl) {
+  // Parse scenes from script
+  const sceneLines = script.split("\n").filter(l => l.match(/^SCENE \d+/));
+  const scenes = sceneLines.map(l => l.replace(/^SCENE \d+ \[[A-Z ]+\]:\s*/, "").trim());
+
+  // Scene timings (seconds)
+  const timings = [
+    { start: 0,  len: 8  },   // Open
+    { start: 8,  len: 12 },   // Indexes
+    { start: 20, len: 12 },   // Macro
+    { start: 32, len: 12 },   // Sectors
+    { start: 44, len: 14 },   // Setups
+    { start: 58, len: 17 },   // Close
+  ];
+  const totalLen = 75;
+
+  // Caption clips
+  const captionClips = scenes.map((text, i) => {
+    const t = timings[i] || { start: 0, len: 10 };
+    return {
+      asset: {
+        type: "html",
+        html: `<p style="font-family:Arial,sans-serif;font-size:28px;color:#ffffff;text-align:center;max-width:900px;margin:0 auto;line-height:1.4;text-shadow:0 2px 8px rgba(0,0,0,0.8)">${text}</p>`,
+        width: 960,
+        height: 200,
+      },
+      start: t.start + 0.5,
+      length: t.len - 0.5,
+      position: "bottom",
+      offset: { y: 0.15 },
+      transition: { in: "fadeIn", out: "fadeOut" },
+    };
+  });
+
+  // Title/watermark clip
+  const titleClip = {
+    asset: {
+      type: "html",
+      html: `<p style="font-family:Arial,sans-serif;font-size:18px;color:#f59e0b;letter-spacing:2px">AXIOM LIVE • 3:45 PM ET • ${data.date?.split(",")[0] || ""}</p>`,
+      width: 800,
+      height: 50,
+    },
+    start: 0,
+    length: totalLen,
+    position: "top",
+    offset: { y: -0.42 },
+  };
+
+  // Stats bar clip (shows at start)
+  const statsClip = {
+    asset: {
+      type: "html",
+      html: `<div style="font-family:monospace;font-size:20px;color:#ffffff;display:flex;gap:24px;justify-content:center">
+        <span style="color:${data.spy.chg >= 0 ? "#4ade80" : "#f87171"}">SPY ${data.spy.price} (${data.spy.chg >= 0 ? "+" : ""}${data.spy.chg}%)</span>
+        <span style="color:${data.qqq.chg >= 0 ? "#4ade80" : "#f87171"}">QQQ ${data.qqq.price} (${data.qqq.chg >= 0 ? "+" : ""}${data.qqq.chg}%)</span>
+        <span style="color:${data.vix.price > 20 ? "#f87171" : "#4ade80"}">VIX ${data.vix.price.toFixed(1)}</span>
+      </div>`,
+      width: 1000,
+      height: 60,
+    },
+    start: 8,
+    length: 12,
+    position: "top",
+    offset: { y: -0.30 },
+    transition: { in: "fadeIn", out: "fadeOut" },
+  };
+
+  return {
+    timeline: {
+      soundtrack: audioUrl ? { src: audioUrl, effect: "fadeOut" } : undefined,
+      background: "#0a0f1e",  // Dark navy Bloomberg-style
+      tracks: [
+        // Background gradient overlay track
+        {
+          clips: [{
+            asset: {
+              type: "html",
+              html: `<div style="width:1920px;height:1080px;background:linear-gradient(135deg,#0a0f1e 0%,#0d1629 50%,#0a0f1e 100%)"></div>`,
+              width: 1920,
+              height: 1080,
+            },
+            start: 0,
+            length: totalLen,
+          }],
+        },
+        // Caption track
+        { clips: captionClips },
+        // Stats bar track
+        { clips: [statsClip] },
+        // Title track
+        { clips: [titleClip] },
+        // Closing message track
+        {
+          clips: [{
+            asset: {
+              type: "html",
+              html: `<p style="font-family:Arial,sans-serif;font-size:22px;color:#f59e0b;text-align:center;letter-spacing:1px">Do not chase. Wait for confirmation. Manage risk.</p>`,
+              width: 800,
+              height: 60,
+            },
+            start: 58,
+            length: 16,
+            position: "bottom",
+            offset: { y: 0.05 },
+            transition: { in: "fadeIn", out: "fadeOut" },
+          }],
+        },
+      ],
+    },
+    output: {
+      format: "mp4",
+      resolution: "hd",          // 1280x720
+      aspectRatio: "16:9",
+      fps: 25,
+    },
+  };
+}
+
+async function pollShotstackRender(renderId, maxWaitMs = 120_000) {
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    await new Promise(r => setTimeout(r, 5000)); // poll every 5s
+    try {
+      const res = await shotstackGet(`/render/${renderId}`);
+      const status = res?.response?.status;
+      const url    = res?.response?.url;
+      console.log(`[Video] Shotstack status: ${status}`);
+      if (status === "done" && url) return url;
+      if (status === "failed") throw new Error("Shotstack render failed");
+    } catch (e) { console.warn("[Video] Poll error:", e.message); }
+  }
+  throw new Error("Shotstack render timeout");
+}
+
+async function downloadMp4(url) {
+  const https = require("https");
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    https.get(url, { headers: { "User-Agent": "Mozilla/5.0" } }, res => {
+      res.on("data", c => chunks.push(c));
+      res.on("end", () => resolve(Buffer.concat(chunks)));
+      res.on("error", reject);
+    }).on("error", reject).setTimeout(60000, function() { this.destroy(); reject(new Error("Download timeout")); });
+  });
+}
+
+async function sendVideoToTelegram(videoBuffer, caption) {
+  const token  = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) return false;
+  const https = require("https");
+  const boundary = "----RecapVideoBoundary" + Date.now();
+  const parts = [
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n${chatId}\r\n`),
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="caption"\r\n\r\n${caption}\r\n`),
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="video"; filename="market-recap.mp4"\r\nContent-Type: video/mp4\r\n\r\n`),
+    videoBuffer,
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  ];
+  const body = Buffer.concat(parts);
+  return new Promise(resolve => {
+    const opts = {
+      hostname: "api.telegram.org",
+      path: `/bot${token}/sendVideo`,
+      method: "POST",
+      headers: { "Content-Type": `multipart/form-data; boundary=${boundary}`, "Content-Length": body.length },
+    };
+    const req = https.request(opts, res => {
+      let d = ""; res.on("data", c => d += c);
+      res.on("end", () => { try { resolve(JSON.parse(d).ok); } catch { resolve(false); } });
+    });
+    req.on("error", () => resolve(false));
+    req.setTimeout(60000, () => { req.destroy(); resolve(false); });
+    req.write(body);
+    req.end();
+  });
+}
+
+async function generateAndSendVideo(script, data) {
+  if (!process.env.SHOTSTACK_API_KEY) {
+    console.log("[Video] SHOTSTACK_API_KEY not set — skipping video render");
+    return null;
+  }
+
+  const renderUrl = process.env.RENDER_EXTERNAL_URL;
+  const audioUrl  = renderUrl ? `${renderUrl}/api/recap/audio` : null;
+
+  console.log("[Video] Building Shotstack spec…");
+  const spec = buildShotstackSpec(script, data, audioUrl);
+
+  console.log("[Video] Submitting render job…");
+  const submitRes = await shotstackPost("/render", spec);
+  const renderId  = submitRes?.response?.id;
+  if (!renderId) throw new Error(`Shotstack submit failed: ${JSON.stringify(submitRes).slice(0, 200)}`);
+  console.log(`[Video] Render job submitted: ${renderId}`);
+
+  console.log("[Video] Waiting for render (up to 2 min)…");
+  const mp4Url = await pollShotstackRender(renderId);
+  console.log(`[Video] Render done: ${mp4Url}`);
+
+  console.log("[Video] Downloading MP4…");
+  const videoBuffer = await downloadMp4(mp4Url);
+  console.log(`[Video] Downloaded: ${(videoBuffer.length / (1024 * 1024)).toFixed(1)} MB`);
+
+  // Save locally
+  const fs   = require("fs");
+  const path = require("path");
+  const dir  = path.join(__dirname, "../data");
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, "latest-recap.mp4"), videoBuffer);
+  console.log("[Video] Saved to data/latest-recap.mp4");
+
+  // Send to Telegram
+  const caption = `🎬 3:45 PM Market Recap — ${data.date}\nSPY ${data.spy.price} · QQQ ${data.qqq.price} · VIX ${data.vix.price.toFixed(1)}\n\n⚠️ Not financial advice.`;
+  const sent = await sendVideoToTelegram(videoBuffer, caption);
+  console.log(sent ? "[Video] Sent to Telegram ✓" : "[Video] Telegram send failed");
+
+  return mp4Url;
+}
+
+module.exports = { runMarketRecap, handleRecapApi, generateAndSendVideo };
