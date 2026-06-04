@@ -92,6 +92,7 @@ const QURAN_RECITERS = [
   { id: "basfar",   path: "abdullaah_basfar",                 label: "عبد الله بصفر — Abdullah Basfar",         full: true },
   { id: "ayyoub",   path: "muhammad_ayyoob_hq",               label: "محمد أيوب — Muhammad Ayyoub",             full: true },
   { id: "akhdar",   path: "ibrahim_al_akhdar",                label: "إبراهيم الأخضر — Ibrahim Al-Akhdar",     full: true },
+  { id: "baleela",  path: "bandar_baleela",                  label: "بندر بليلة — Bandar Baleela",             full: true },
 ];
 // ── 5X Thematic Watchlist — shared by 5X PLAYS tab + Smart Scanner ─────────
 const FIVEX_DATA = [
