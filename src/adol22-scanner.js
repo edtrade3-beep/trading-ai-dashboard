@@ -485,4 +485,4 @@ async function handleAdol22Api(req, res, requestUrl) {
   return null;
 }
 
-module.exports = { runAdol22, handleAdol22Api, saveHistory };
+module.exports = { runAdol22, handleAdol22Api, saveHistory, loadHistory };
