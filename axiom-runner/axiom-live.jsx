@@ -14260,271 +14260,26 @@ export default function App() {
               </div>
             </div>
 
-            {/* 2: INTELLIGENCE ROW */}
-            <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 10 }}>
-              {/* Radar */}
-              <div style={{ background: C.card, border: `1px solid ${radarColor}44`,
-                borderLeft: `4px solid ${radarColor}`, borderRadius: 8, overflow: "hidden" }}>
-                <div onClick={() => setDistExpanded(p => !p)}
-                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px",
-                    background: C.surface, borderBottom: `1px solid ${C.border}`, cursor: "pointer" }}>
-                  <span style={{ fontSize: 15 }}>{distLoading ? "⏳" : radarIcon}</span>
-                  <div style={{ flex: 1 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: radarColor }}>INSTITUTIONAL RADAR</span>
-                    {distData && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: 8 }}>{radarScore}/100 · {radarAlert}</span>}
-                  </div>
-                  {highW.length > 0 && (
-                    <span style={{ background: C.red, color: "#fff", fontFamily: MONO, fontSize: 12, fontWeight: 900,
-                      borderRadius: 999, padding: "1px 6px" }}>{highW.length} ALERT{highW.length > 1 ? "S" : ""}</span>
-                  )}
-                  {distData && (distData.indexSnapshot||[]).map(idx => (
-                    <span key={idx.sym} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "2px 5px",
-                      borderRadius: 5, background: (idx.chg >= 0 ? C.green : C.red) + "18",
+            {/* ── MARKET SUMMARY (replaces Intelligence Row) ── */}
+            {distData && (
+              <div style={{ padding: '10px 16px', marginBottom: 10, background: C.card,
+                border: '1px solid ' + radarColor + '44', borderLeft: '4px solid ' + radarColor,
+                borderRadius: 8, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                <span style={{ fontFamily: MONO, fontSize: 16 }}>{radarIcon}</span>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: radarColor }}>{radarAlert}</span>
+                  {(distData.indexSnapshot||[]).map(idx => (
+                    <span key={idx.sym} style={{ fontFamily: MONO, fontSize: 11, marginLeft: 12,
                       color: idx.chg >= 0 ? C.green : C.red }}>
-                      {idx.sym} {idx.chg >= 0 ? "+" : ""}{idx.chg}%
+                      {idx.sym} {idx.chg >= 0 ? '+' : ''}{idx.chg}%
                     </span>
                   ))}
-                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{distExpanded ? "▲" : "▼"}</span>
                 </div>
-                {/* ── WHY HEADLINE — always visible, no expand needed ── */}
-                {distData && (() => {
-                  // Build plain-English explanation of WHY the regime is what it is
-                  const checks  = distData.checkStatus || [];
-                  const high    = checks.filter(c => c.status === "HIGH");
-                  const med     = checks.filter(c => c.status === "MED");
-                  const spyChg  = (distData.indexSnapshot||[]).find(i => i.sym === "SPY")?.chg || 0;
-                  const vix     = distData.vix || 0;
-                  const rot     = distData.rotationDiff || 0;
-                  // Show sector + top stock for each
-                  const inflows = (distData.topInflows||[]).slice(0,2).map(s => {
-                    const topSt = (s.topStocks||[])[0];
-                    return topSt ? `${s.name} (${topSt.sym} ${topSt.chg >= 0 ? "+" : ""}${topSt.chg.toFixed(1)}%)` : s.name;
-                  }).join(", ");
-                  const outflows= (distData.topOutflows||[]).slice(0,2).map(s => {
-                    const topSt = (s.topStocks||[])[0];
-                    return topSt ? `${s.name} (${topSt.sym} ${topSt.chg.toFixed(1)}%)` : s.name;
-                  }).join(", ");
-
-                  // Generate headline sentence
-                  let headline = "";
-                  if (radarAlert === "DANGER") {
-                    headline = `⚠️ Market is under pressure — ${high.map(w => w.label).join(", ")} signaling institutional de-risking.`;
-                  } else if (radarAlert === "CAUTION") {
-                    const reasons = [];
-                    if (med.some(c => c.tag === "DIST" || c.label?.includes("Dist"))) reasons.push("distribution days building");
-                    if (rot > 0.3) reasons.push("money rotating to defensives");
-                    if (distData.vixChg > 8) reasons.push(`VIX spiking +${distData.vixChg?.toFixed(0)}%`);
-                    if (med.some(c => c.tag === "CREDIT")) reasons.push("credit spreads widening");
-                    headline = `Market is CAUTIOUS — ${reasons.length ? reasons.join(", ") : "mixed signals, no clear edge"}.`;
-                  } else if (radarAlert === "NORMAL" || radarAlert === "WATCH") {
-                    const bull = [];
-                    if (spyChg > 0) bull.push(`SPY ${spyChg > 0 ? "+" : ""}${spyChg.toFixed(2)}%`);
-                    if (rot < -0.2) bull.push("growth sectors leading");
-                    if (vix < 16) bull.push(`VIX low at ${vix.toFixed(1)}`);
-                    if (inflows) bull.push(`money flowing into ${inflows}`);
-                    headline = bull.length
-                      ? `Market is healthy — ${bull.join(", ")}.`
-                      : "No major warnings — conditions normal.";
-                  }
-
-                  // Add what's moving the market
-                  const mktMove = spyChg !== 0
-                    ? `SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}% today — ${
-                        spyChg >= 1 ? "strong buying, risk-on day" :
-                        spyChg >= 0.2 ? "mild positive, watch for follow-through" :
-                        spyChg <= -1 ? "heavy selling, institutions reducing risk" :
-                        spyChg <= -0.3 ? "mild selling, cautious day" :
-                        "flat, no conviction either way"
-                      }.`
-                    : "";
-
-                  // Money flow summary
-                  const flowSummary = (inflows || outflows)
-                    ? `Institutions buying ${inflows || "—"} and selling ${outflows || "—"}.`
-                    : "";
-
-                  return (
-                    <div style={{ padding: "10px 14px 6px",
-                      borderBottom: distExpanded ? `1px solid ${C.border}22` : "none",
-                      background: `${radarColor}06` }}>
-                      {headline && (
-                        <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>
-                          {headline}
-                        </div>
-                      )}
-                      {mktMove && (
-                        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginBottom: 3 }}>
-                          📈 {mktMove}
-                        </div>
-                      )}
-                      {flowSummary && (
-                        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec }}>
-                          💰 {flowSummary}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {distExpanded && distData && (
-                  <div style={{ padding: "10px 14px" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 5, marginBottom: 8 }}>
-                      {(distData.checkStatus||[]).map((c, i) => {
-                        const sc = c.status === "HIGH" ? C.red : c.status === "MED" ? C.amber : C.green;
-                        return (
-                          <div key={i} style={{ padding: "5px 7px", borderRadius: 6,
-                            background: c.status === "OK" ? C.surface : (c.status === "HIGH" ? C.red + "12" : C.amber + "0d"),
-                            border: "1px solid " + sc + "33" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between" }}>
-                              <span style={{ fontFamily: SANS, fontSize: 12, color: sc, fontWeight: 700 }}>{c.icon}</span>
-                              <span style={{ fontSize: 12 }}>{c.status === "HIGH" ? "🔴" : c.status === "MED" ? "🟡" : "✅"}</span>
-                            </div>
-                            <div style={{ fontFamily: SANS, fontSize: 12, color: sc, fontWeight: 700, marginTop: 1 }}>{c.label.split(" ")[0]}</div>
-                            <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, lineHeight: 1.3 }}>{(c.detail||"").slice(0,40)}{(c.detail||"").length > 40 ? "…" : ""}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {(distData.topInflows||[]).length > 0 && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                        {/* Inflows with constituent stocks */}
-                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
-                          <span style={{ fontFamily: SANS, fontSize: 12, color: C.green, fontWeight: 700 }}>⬆ IN:</span>
-                          {(distData.topInflows||[]).slice(0,3).map(s => (
-                            <div key={s.sym} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                              <span style={{ fontFamily: MONO, fontSize: 12, color: C.green, background: C.green + "14", borderRadius: 5, padding: "2px 6px", fontWeight: 700 }}>
-                                {s.icon} {s.name} ({s.sym}) +{s.chg.toFixed(1)}%
-                              </span>
-                              {(s.topStocks||[]).length > 0 && (
-                                <div style={{ display: "flex", gap: 3, flexWrap: "wrap", paddingLeft: 4 }}>
-                                  {(s.topStocks||[]).map(st => (
-                                    <span key={st.sym} style={{ fontFamily: MONO, fontSize: 11, color: st.chg >= 0 ? C.green : C.red,
-                                      background: (st.chg >= 0 ? C.green : C.red) + "12", borderRadius: 3, padding: "1px 5px" }}>
-                                      {st.sym} {st.chg >= 0 ? "+" : ""}{st.chg.toFixed(1)}%
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                        {/* Outflows with constituent stocks */}
-                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
-                          <span style={{ fontFamily: SANS, fontSize: 12, color: C.red, fontWeight: 700 }}>⬇ OUT:</span>
-                          {(distData.topOutflows||[]).slice(0,3).map(s => (
-                            <div key={s.sym} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                              <span style={{ fontFamily: MONO, fontSize: 12, color: C.red, background: C.red + "12", borderRadius: 5, padding: "2px 6px", fontWeight: 700 }}>
-                                {s.icon} {s.name} ({s.sym}) {s.chg.toFixed(1)}%
-                              </span>
-                              {(s.topStocks||[]).length > 0 && (
-                                <div style={{ display: "flex", gap: 3, flexWrap: "wrap", paddingLeft: 4 }}>
-                                  {(s.topStocks||[]).map(st => (
-                                    <span key={st.sym} style={{ fontFamily: MONO, fontSize: 11, color: st.chg >= 0 ? C.green : C.red,
-                                      background: (st.chg >= 0 ? C.green : C.red) + "12", borderRadius: 3, padding: "1px 5px" }}>
-                                      {st.sym} {st.chg >= 0 ? "+" : ""}{st.chg.toFixed(1)}%
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                  VIX {distData.vix?.toFixed(1)} · Score {radarScore}/100
+                </span>
               </div>
-              {/* Fear & Greed */}
-              <div style={{ background: C.card, border: `1px solid ${C.borderLit}`, borderRadius: 8, overflow: "hidden" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px",
-                  background: C.surface, borderBottom: `1px solid ${C.border}` }}>
-                  <span style={{ fontSize: 14 }}>😨</span>
-                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text }}>FEAR & GREED</span>
-                  {fg && !fg.error && (
-                    <><span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: fgColor, marginLeft: 4 }}>{fgScore}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: fgColor }}>{fgLabel}</span></>
-                  )}
-                  <button onClick={fetchFearGreed} disabled={fearGreedLoading}
-                    style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, border: `1px solid ${C.border}`,
-                      background: "transparent", color: fearGreedLoading ? C.textDim : C.accent,
-                      borderRadius: 6, padding: "3px 8px", cursor: "pointer" }}>
-                    {fearGreedLoading ? "⌛" : "↺"}
-                  </button>
-                </div>
-                {fg && !fearGreedLoading && !fg.error ? (
-                  <div style={{ padding: "10px 14px" }}>
-                    <div style={{ position: "relative", marginBottom: 6 }}>
-                      <div style={{ height: 10, borderRadius: 5, background: "linear-gradient(to right,#ef4444,#f97316,#eab308,#22c55e,#16a34a)" }} />
-                      <div style={{ position: "absolute", top: -4, left: fgScore + "%", transform: "translateX(-50%)",
-                        width: 18, height: 18, borderRadius: "50%", background: fgColor, border: "2px solid " + C.bg, boxShadow: "0 0 6px " + fgColor }} />
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 8 }}>
-                      <span>FEAR</span><span>NEUTRAL</span><span>GREED</span>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 4 }}>
-                      {(fg.components||[]).map((c, ci) => {
-                        const cc = c.score <= 25 ? C.red : c.score <= 45 ? C.amber : c.score <= 75 ? "#22c55e" : C.green;
-                        return (
-                          <div key={ci} style={{ padding: "5px 6px", borderRadius: 6, background: C.surface, border: `1px solid ${C.border}22` }}>
-                            <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{c.name}</div>
-                            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: cc }}>{c.score}</div>
-                            <div style={{ height: 2, borderRadius: 1, background: C.border, marginTop: 2 }}>
-                              <div style={{ width: c.score + "%", height: "100%", background: cc, borderRadius: 1 }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : !fearGreedLoading ? (
-                  <div style={{ padding: "14px", fontFamily: SANS, fontSize: 12, color: C.textDim, textAlign: "center" }}>Click ↺ to load</div>
-                ) : null}
-              </div>
-            </div>
-
-            {/* TOP SETUP HIGHLIGHT — best A+ signal today */}
-            {sigData && (() => {
-              const topSetup = (sigData.signals || []).find(s => s.action === "LONG" && s.confidence === "HIGH");
-              if (!topSetup) return null;
-              return (
-                <div style={{ background: `${C.green}0a`, border: `1px solid ${C.green}44`,
-                  borderLeft: `5px solid ${C.green}`, borderRadius: 8, padding: "10px 16px",
-                  marginBottom: 10, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 18 }}>🚀</span>
-                  <div style={{ flex: 1 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>TODAY'S BEST SETUP  </span>
-                    <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.green }}>{topSetup.sym}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: 8 }}>A+ LONG · {topSetup.score}/100</span>
-                  </div>
-                  <div style={{ display: "flex", gap: 14 }}>
-                    {[["Entry", `$${topSetup.entry}`, C.text], ["Stop", `$${topSetup.stop}`, C.red], ["T1", `$${topSetup.target1}`, C.green]].map(([l,v,c]) => (
-                      <div key={l} style={{ textAlign: "center" }}>
-                        <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{l}</div>
-                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: c }}>{v}</div>
-                      </div>
-                    ))}
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>R:R</div>
-                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: topSetup.rr >= 2 ? C.green : C.amber }}>{topSetup.rr}:1</div>
-                    </div>
-                  </div>
-                  <button onClick={() => { setTerminalSymbol(topSetup.sym); setActiveTab("smartscan");
-                    const row2 = { ticker: topSetup.sym, score: topSetup.score||80, signal: "BUY",
-                      signals: (topSetup.rationale||[]).map(r => ({txt:r,bull:true})), sColor: C.green,
-                      rsiVal: null, macdBull: null, ema9v: null, ema21v: null,
-                      quote: {price: topSetup.entry, changePercent: topSetup.chgPct, yearHigh: topSetup.hi52,
-                        priceAvg50: topSetup.ma50, priceAvg200: topSetup.ma200, volume: 0, avgVolume: 0}, candles: null };
-                    setScanResults(prev => prev.some(r => r.ticker === topSetup.sym) ? prev : [row2,...prev]);
-                    setScanExpanded(topSetup.sym); loadDeepDive(topSetup.sym); loadDeepSocial(topSetup.sym);
-                  }}
-                    style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, border: `1px solid ${C.green}`,
-                      background: `${C.green}18`, color: C.green, borderRadius: 6, padding: "6px 14px", cursor: "pointer", whiteSpace: "nowrap" }}>
-                    ANALYZE →
-                  </button>
-                </div>
-              );
-            })()}
-
+            )}
             {/* 3: LIVE SIGNALS TABLE */}
             <div style={{ background: C.card, border: `1px solid ${C.borderLit}`, borderRadius: 8, overflow: "hidden", marginBottom: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px",
@@ -17059,8 +16814,8 @@ export default function App() {
                     <thead>
                       <tr style={{ background: C.surface }}>
                         {(isTablet
-                          ? ["#","SCORE","SIGNAL","TICKER","LIVE $","RSI","EMA","ZONE","VOL PACE","PATTERN"]
-                          : ["#","SCORE","SIGNAL","TICKER","SECTOR","LIVE $","RSI","MACD","EMA","ZONE","VOL PACE","PATTERN","SHORT%","UPSIDE","THESIS"]
+                          ? ["#","SCORE","SIGNAL","TICKER","PRICE","ZONE",""]
+                          : ["#","SCORE","SIGNAL","TICKER","PRICE","RSI","ZONE","UPSIDE","THESIS",""]
                         ).map(h => (
                           <th key={h} style={{ fontFamily: MONO, fontSize: isTablet ? 11 : 10, fontWeight: 700,
                             color: C.textDim, padding: isTablet ? "10px 10px" : "8px 10px",
@@ -17334,37 +17089,15 @@ export default function App() {
                                 )}
                               </td>
 
-                              {/* RSI */}
+                              {/* RSI — shown inline in Quick Read, hidden as separate column */}
+                              {!isTablet && (
                               <td style={{ fontFamily: MONO, fontSize: 12, textAlign: "center",
                                 padding: "12px 10px", borderBottom: `1px solid ${C.border}22`,
-                                color: row.rsiVal === null ? C.textDim
-                                  : row.rsiVal < 30 ? C.green
-                                  : row.rsiVal > 70 ? C.red
-                                  : C.text,
+                                color: row.rsiVal === null ? C.textDim : row.rsiVal < 30 ? C.green : row.rsiVal > 70 ? C.red : C.text,
                                 fontWeight: row.rsiVal !== null ? 700 : 400 }}>
                                 {row.rsiVal !== null ? row.rsiVal.toFixed(0) : "—"}
                               </td>
-
-                              {/* MACD — hidden on tablet */}
-                              {!isTablet && (
-                              <td style={{ textAlign: "center", padding: "12px 10px",
-                                borderBottom: `1px solid ${C.border}22` }}>
-                                {row.macdBull === null ? (
-                                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>—</span>
-                                ) : row.macdBull ? (
-                                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.green }}>▲ BULL</span>
-                                ) : (
-                                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.red }}>▼ BEAR</span>
-                                )}
-                              </td>
                               )}
-
-                              {/* EMA cross */}
-                              <td style={{ fontFamily: MONO, fontSize: 12, textAlign: "center",
-                                padding: "12px 10px", borderBottom: `1px solid ${C.border}22`,
-                                color: emaCol, fontWeight: 700 }}>
-                                {emaLabel}
-                              </td>
 
                               {/* Zone */}
                               <td style={{ fontFamily: MONO, fontSize: 12, textAlign: "center",
@@ -17373,8 +17106,8 @@ export default function App() {
                                 {zoneLbl}
                               </td>
 
-                              {/* Vol Pace */}
-                              {(() => {
+                              {/* Vol Pace — hidden, shown in Quick Read */}
+                              {false && (() => {
                                 const vol    = Number(row.quote?.volume || 0);
                                 const avgVol = Number(row.quote?.avgVolume || 0);
                                 if (!vol || !avgVol) return <td style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "12px 10px", borderBottom: `1px solid ${C.border}22`, textAlign: "center" }}>—</td>;
