@@ -7710,7 +7710,7 @@ export default function App() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [providerKeys, setProviderKeys] = useState(DEFAULT_SETTINGS.providerKeys);
   const [flowFilters, setFlowFilters] = useState(DEFAULT_SETTINGS.flowFilters);
-  const [riskAccount, setRiskAccount] = useState("100000");
+  const [riskAccount, setRiskAccount] = useState(() => { try { return localStorage.getItem("risk_account") || "10000"; } catch { return "10000"; } });
   const [riskPct, setRiskPct] = useState("1");
   // Daily Max Loss Lock
   const [dailyMaxLoss, setDailyMaxLoss] = useState(() => { try { return localStorage.getItem("daily_max_loss") || "200"; } catch { return "200"; } });
@@ -9509,7 +9509,7 @@ export default function App() {
         }
       }
       if (saved.riskSettings && typeof saved.riskSettings === "object") {
-        setRiskAccount(String(saved.riskSettings.riskAccount || "100000"));
+        setRiskAccount(String(saved.riskSettings.riskAccount || "10000"));
         setRiskPct(String(saved.riskSettings.riskPct || "1"));
         setRiskEntry(String(saved.riskSettings.riskEntry || "100"));
         setRiskStop(String(saved.riskSettings.riskStop || "95"));
