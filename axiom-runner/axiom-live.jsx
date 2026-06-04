@@ -22350,21 +22350,25 @@ export default function App() {
       {/* ── CUSTOM SCREENER ──────────────────────────────────────────────── */}
       {activeTab === "combined"     && <CombinedTab     C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols}
         onDeepDive={(sym, row) => {
-          // Clear filters so synthetic row is always visible
+          // Step 1: clear filters + add row + switch tab
           setSfSig("ALL");
           setSfMinScore(0);
-          // Add to scan results if not already there
           setScanResults(prev => {
             if (prev.some(r => r.ticker === sym)) return prev;
             return [{ ticker: sym, score: row?.score || 50, signal: row?.scanSignal || "WATCH",
-              scannerScore: row?.score || 50, signals: [], sColor: C.amber,
+              scannerScore: row?.score || 50, signals: [], sColor: "#f59e0b",
               quote: { price: row?.price || 0, changePercent: 0 }, candles: null }, ...prev];
           });
           setActiveTab("smartscan");
-          setScanExpanded(sym);
-          loadDeepDive(sym);
-          loadDeepSocial(sym);
-          setTimeout(() => fetchTradeSetup(sym, { ticker: sym, score: row?.score || 50, signal: row?.scanSignal || "WATCH", signals: [], quote: { price: row?.price || 0 } }), 1200);
+          // Step 2: expand after React has rendered the new row
+          setTimeout(() => {
+            setScanExpanded(sym);
+            loadDeepDive(sym);
+            loadDeepSocial(sym);
+          }, 100);
+          setTimeout(() => fetchTradeSetup(sym, { ticker: sym, score: row?.score || 50,
+            signal: row?.scanSignal || "WATCH", signals: [],
+            quote: { price: row?.price || 0 } }), 1400);
         }} />}
       {activeTab === "squeeze"      && <SqueezeTab      C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
       {activeTab === "compression"  && <CompressionTab  C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} watchlistSymbols={watchlistSymbols}
