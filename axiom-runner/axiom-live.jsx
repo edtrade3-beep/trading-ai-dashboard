@@ -15120,12 +15120,9 @@ export default function App() {
 
             {/* Right Sidebar */}
             <div style={{ display: "flex", flexDirection: "column", gap: 12, alignSelf: "start" }}>
-              {/* Tablet: show a divider label */}
-              {isTablet && (
-                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim, padding: "8px 0", borderTop: `2px solid ${C.border}`, letterSpacing: "0.08em" }}>
-                  ▼ BRIEF & ALERTS
-                </div>
-              )}
+              {/* Alert Feed */}
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
                     ALERT FEED
                   </div>
@@ -15182,39 +15179,6 @@ export default function App() {
                   );
                 })}
               </div>
-
-
-              {/* Weather */}
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <button
-                    onClick={fetchWeather}
-                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
-                  >
-                    {weatherLoading ? "..." : "REFRESH"}
-                  </button>
-                </div>
-                {weatherError && <div style={{ fontSize: 12, color: C.red }}>{weatherError}</div>}
-                {!weatherError && weatherData && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface }}>
-                      <div style={{ fontSize: 12, color: C.textDim }}>{weatherData.location}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 800, color: C.text }}>{weatherData.temp.toFixed(0)}°F</div>
-                      <div style={{ fontSize: 12, color: C.textSec }}>{weatherCodeLabel(weatherData.code)}</div>
-                    </div>
-                    <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface }}>
-                      <div style={{ fontSize: 12, color: C.textDim }}>High / Low</div>
-                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700 }}>{weatherData.high.toFixed(0)}° / {weatherData.low.toFixed(0)}°</div>
-                      <div style={{ fontSize: 12, color: C.textDim }}>Wind {weatherData.wind.toFixed(0)} mph</div>
-                    </div>
-                  </div>
-                )}
-                {!weatherError && !weatherData && <div style={{ fontSize: 12, color: C.textDim }}>Loading weather...</div>}
-              </div>
-
-                <SectorHeatmap data={sectorData} />
-              </div>
-
               {/* Top Movers */}
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
                 {(() => {
