@@ -25000,16 +25000,32 @@ export default function App() {
         </div>
       )}
 
-      {selectedStock && (
-        <DeepDive
-          stock={selectedStock}
-          fundamentals={selectedFundamentals}
-          fundamentalsLoading={selectedFundamentalsLoading}
-          onClose={() => setSelectedStock(null)}
-          onExit={() => { setSelectedStock(null); setActiveTab("dashboard"); }}
-          onOpenTradingView={openTradingView}
-        />
-      )}
+      {/* Old DeepDive replaced by Smart Scanner deep dive */}
+      {selectedStock && (() => {
+        const sym = selectedStock.symbol || selectedStock.ticker;
+        if (sym) {
+          // Redirect to Smart Scanner deep dive
+          setScanResults(prev => prev.some(r => r.ticker === sym) ? prev : [{
+            ticker: sym, score: computeScores(selectedStock).composite || 50,
+            signal: "WATCH", scannerScore: 50, signals: [], sColor: "#f59e0b",
+            quote: { price: selectedStock.price || 0, changePercent: selectedStock.changesPercentage || 0,
+              yearHigh: selectedStock.yearHigh, yearLow: selectedStock.yearLow,
+              priceAvg50: selectedStock.priceAvg50, priceAvg200: selectedStock.priceAvg200,
+              volume: selectedStock.volume, avgVolume: selectedStock.avgVolume },
+            candles: null, rsiVal: null, macdBull: null, ema9v: null, ema21v: null,
+          }, ...prev]);
+          setSfSig("ALL"); setSfMinScore(0);
+          setActiveTab("smartscan");
+          setTimeout(() => {
+            setScanExpanded(sym);
+            loadDeepDive(sym);
+            loadDeepSocial(sym);
+          }, 80);
+          setTimeout(() => fetchTradeSetup(sym, { ticker: sym, score: 50, signal: "WATCH", signals: [], quote: { price: selectedStock.price || 0 } }), 1300);
+          setSelectedStock(null);
+        }
+        return null;
+      })()}
 
       {shortcutHelpOpen && (
         <div onClick={() => setShortcutHelpOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(8,18,34,0.55)", zIndex: 1300, display: "grid", placeItems: "center" }}>
