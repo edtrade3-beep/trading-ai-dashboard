@@ -4855,9 +4855,10 @@ function Under10Tab({ C, MONO, SANS, setActiveTab, watchlistSymbols }) {
   const [filter,  setFilter]  = React.useState("ALL"); // ALL | CHEAP | TECHNICAL | FUNDAMENTAL
   const [maxPrice, setMaxPrice] = React.useState(50);
 
-  const load = React.useCallback(() => {
+  const load = React.useCallback((forceRefresh = false) => {
     setLoading(true);
-    const wlParam = watchlistSymbols?.length ? `?symbols=${watchlistSymbols.slice(0,30).join(",")}` : "";
+    const sep = watchlistSymbols?.length ? "?" : "?";
+    const wlParam = watchlistSymbols?.length ? `?symbols=${watchlistSymbols.slice(0,30).join(",")}&refresh=${forceRefresh?1:0}` : `?refresh=${forceRefresh?1:0}`;
     fetch(`/api/scanner/under10${wlParam}`)
       .then(r => r.json())
       .then(d => { if (d.ok) setData(d); })
@@ -4905,9 +4906,9 @@ function Under10Tab({ C, MONO, SANS, setActiveTab, watchlistSymbols }) {
               background: filter===k ? `${C.accent}18` : "transparent",
               color: filter===k ? C.accent : C.textDim }}>{l}</button>
           ))}
-          <button onClick={load} style={{ fontFamily: MONO, fontSize: 11, padding: "5px 12px",
-            borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent",
-            color: C.textDim, cursor: "pointer" }}>{loading ? "⏳" : "↻"}</button>
+          <button onClick={() => load(true)} style={{ fontFamily: MONO, fontSize: 11, padding: "5px 14px",
+            borderRadius: 6, border: `1px solid ${C.accent+"55"}`, background: `${C.accent}15`,
+            color: C.textDim, cursor: "pointer", fontWeight: 700 }}>{loading ? "⏳" : "↻"}</button>
         </div>
       </div>
 

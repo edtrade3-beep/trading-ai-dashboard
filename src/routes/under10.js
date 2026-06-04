@@ -9,34 +9,28 @@ const https  = require("https");
 const { writeJson } = require("../utils");
 
 let _cache = null, _cacheTs = 0;
-const TTL = 20 * 60 * 1000; // 20 min
+const TTL = 5 * 60 * 1000; // 5 min — shorter so results stay fresh
 
-// Universe — quality sub-$10 candidates across growth sectors
+// Universe — verified sub-$50 stocks with real opportunity (updated June 2026)
 const UNIVERSE = [
-  // Nuclear / Energy
-  "SMR","NNE","OKLO","CEG","VST","STEM","ARRY",
+  // Crypto mining
+  "MARA","RIOT","CLSK","BTBT","CIFR","HUT","IREN",
   // AI / Tech small cap
-  "BBAI","SOUN","IONQ","RGTI","QUBT","QBTS","ARQQ",
-  // Space / Defense
-  "ACHR","ASTS","RKLB","LUNR","SPCE","RDW","KTOS",
-  // Biotech / Healthcare
-  "RXRX","NVAX","SAVA","CLOV","HIMS","GKOS","CPRX",
-  // Fintech / Crypto adjacent
-  "HOOD","SOFI","DAVE","CURO","OPEN","UWMC",
-  // EV / Clean tech
-  "RIVN","LCID","GOEV","NKLA","WKHS","SOLO",
-  // Robotics / Automation
-  "IROQ","LIDR","OUST","VLDR","INVZ",
+  "BBAI","SOUN","RGTI","QUBT","QBTS","OUST","LIDR",
+  // Nuclear / Clean Energy
+  "SMR","NNE","STEM","ARRY",
+  // Space / Mobility
+  "ACHR","SPCE","RIVN","LCID","GOEV",
+  // Biotech / Genomics
+  "RXRX","NVAX","CLOV","NTLA","EDIT","BEAM","VERV",
+  // Fintech
+  "SOFI","OPEN","UPST","AFRM",
   // Mining / Resources
-  "MP","GATO","MAG","GPL","AG","CDE","HL",
-  // Genomics / CRISPR
-  "CRSP","BEAM","NTLA","EDIT","VERV",
-  // Cannabis (high risk/reward)
+  "AG","CDE","HL","GATO",
+  // Cannabis
   "TLRY","ACB","CGC","SNDL","GRWG",
-  // Other high-beta small caps
-  "MARA","RIOT","CLSK","IREN","HUT","BTBT",
-  "CLOV","WKHS","HYLN","NKLA","BLNK",
-  "ARVL","PTRA","RIDE","FSR","GOEV",
+  // Other momentum
+  "QUBT","QBTS","RGTI","NNE","SMR",
 ];
 
 function fetchQuote(sym) {
@@ -204,9 +198,11 @@ async function runUnder10Scan(watchlistSyms) {
 }
 
 async function handleUnder10(req, res, requestUrl) {
-  if (_cache && Date.now() - _cacheTs < TTL) {
+  const forceRefresh = requestUrl.searchParams.get("refresh") === "1";
+  if (!forceRefresh && _cache && Date.now() - _cacheTs < TTL) {
     return writeJson(res, 200, { ok: true, results: _cache, updatedAt: new Date(_cacheTs).toISOString() });
   }
+  _cache = null; // clear before fresh run
   try {
     const wl = requestUrl.searchParams.get("symbols");
     const watchlistSyms = wl ? wl.split(",").map(s => s.trim().toUpperCase()) : [];
