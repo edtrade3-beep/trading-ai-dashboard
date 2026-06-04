@@ -27,6 +27,7 @@ const { handleMonitorExtras } = require("./routes/monitor-extras");
 const { handleSqueeze }       = require("./routes/squeeze");
 const { handleCompression }   = require("./routes/compression");
 const { handleInsider }       = require("./routes/insider");
+const { handleGapFill }       = require("./routes/gapfill");
 const { sendTelegramAlert, sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
 
 async function handleRequest(req, res) {
@@ -61,6 +62,7 @@ async function handleRequest(req, res) {
     if (pathname === "/api/scanner/squeeze")      return handleSqueeze(req, res);
     if (pathname === "/api/scanner/compression")  return handleCompression(req, res, requestUrl);
     if (pathname === "/api/scanner/insider")      return handleInsider(req, res);
+    if (pathname === "/api/scanner/gapfill")      return handleGapFill(req, res, requestUrl);
 
     if (pathname.startsWith("/api/scanner/")) {
       return handleScanner(req, res, requestUrl);
