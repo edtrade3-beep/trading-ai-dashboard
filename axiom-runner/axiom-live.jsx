@@ -4806,7 +4806,10 @@ function CompressionTab({ C, MONO, SANS, setActiveTab, onDeepDive, watchlistSymb
   const [data,       setData]       = React.useState(null);
   const [loading,    setLoading]    = React.useState(false);
   const [error,      setError]      = React.useState(null);
-  const [scanScores, setScanScores] = React.useState({}); // sym → { signal, score }
+  const [scanScores, setScanScores] = React.useState({});
+  const [gradeF,     setGradeF]     = React.useState("ALL");   // ALL | PRIME | BUILDING | WATCH
+  const [trendF,     setTrendF]     = React.useState("ALL");   // ALL | UP | FLAT
+  const [signalF,    setSignalF]    = React.useState("ALL");   // ALL | READY (2+ GO signals)
 
   const load = React.useCallback(() => {
     setLoading(true);
@@ -4854,19 +4857,38 @@ function CompressionTab({ C, MONO, SANS, setActiveTab, onDeepDive, watchlistSymb
     );
   }
 
-  const rows = (data?.results || []);
+  const allRows = (data?.results || []);
+  const rows = allRows.filter(r => {
+    const goCount = [r.atrRatio < 0.80, r.volRatio < 0.85, r.nearHigh < 8].filter(Boolean).length;
+    if (gradeF === "PRIME"    && r.score < 70)  return false;
+    if (gradeF === "BUILDING" && (r.score < 50 || r.score >= 70)) return false;
+    if (gradeF === "WATCH"    && (r.score < 20 || r.score >= 50)) return false;
+    if (trendF === "UP"   && r.trending !== "UP")   return false;
+    if (trendF === "FLAT" && r.trending !== "FLAT") return false;
+    if (signalF === "READY" && goCount < 2) return false;
+    if (signalF === "ALL3"  && goCount < 3) return false;
+    return true;
+  });
+
+  const btnStyle = (active) => ({
+    fontFamily: MONO, fontSize: 10, fontWeight: active ? 800 : 500,
+    padding: "4px 10px", borderRadius: 5, cursor: "pointer",
+    border: `1px solid ${active ? C.accent : C.border}`,
+    background: active ? `${C.accent}18` : "transparent",
+    color: active ? C.accent : C.textDim,
+  });
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <div>
           <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>
             🌀 COMPRESSION SCANNER
           </div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-            Stocks coiling before a big move — includes your watchlist + 80 momentum stocks
+            Stocks coiling before a big move · {rows.length} of {allRows.length} shown
             {data?.total ? ` · ${data.total} scanned` : ""}
             {data?.updatedAt ? ` · ${new Date(data.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
           </div>
@@ -4874,6 +4896,31 @@ function CompressionTab({ C, MONO, SANS, setActiveTab, onDeepDive, watchlistSymb
         <button onClick={load} style={{ fontFamily: MONO, fontSize: 11, padding: "6px 14px",
           borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent",
           color: C.textDim, cursor: "pointer" }}>{loading ? "⏳ Scanning…" : "↻ Refresh"}</button>
+      </div>
+
+      {/* Filter bar */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "10px 12px",
+        background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, alignItems: "center" }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginRight: 4 }}>GRADE</span>
+        {[["ALL","All"],["PRIME","🔥 Prime"],["BUILDING","⚡ Building"],["WATCH","👀 Watch"]].map(([k,l]) => (
+          <button key={k} onClick={() => setGradeF(k)} style={btnStyle(gradeF===k)}>{l}</button>
+        ))}
+        <div style={{ width: 1, height: 16, background: C.border, margin: "0 4px" }} />
+        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginRight: 4 }}>TREND</span>
+        {[["ALL","All"],["UP","↑ Up"],["FLAT","→ Flat"]].map(([k,l]) => (
+          <button key={k} onClick={() => setTrendF(k)} style={btnStyle(trendF===k)}>{l}</button>
+        ))}
+        <div style={{ width: 1, height: 16, background: C.border, margin: "0 4px" }} />
+        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginRight: 4 }}>SIGNALS</span>
+        {[["ALL","Any"],["READY","2+ GO"],["ALL3","All 3 GO 🔥"]].map(([k,l]) => (
+          <button key={k} onClick={() => setSignalF(k)} style={btnStyle(signalF===k)}>{l}</button>
+        ))}
+        {(gradeF !== "ALL" || trendF !== "ALL" || signalF !== "ALL") && (
+          <button onClick={() => { setGradeF("ALL"); setTrendF("ALL"); setSignalF("ALL"); }}
+            style={{ ...btnStyle(false), color: C.red, borderColor: `${C.red}44`, marginLeft: 4 }}>
+            ✕ Clear
+          </button>
+        )}
       </div>
 
       {error && <div style={{ padding: 12, background: `${C.red}15`, border: `1px solid ${C.red}44`,
