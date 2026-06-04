@@ -11878,15 +11878,17 @@ export default function App() {
 
             {/* ── MARKET REGIME DASHBOARD ── */}
             {(() => {
-              const spy   = macroData.find(m => m.symbol === "SPY");
-              const qqq   = macroData.find(m => m.symbol === "QQQ");
-              const vix   = distData?.vix || 0;
+              const spy    = macroData.find(m => m.symbol === "SPY");
+              const qqq    = macroData.find(m => m.symbol === "QQQ");
+              const vix    = distData?.vix || 0;
               const spyChg = Number(spy?.changesPercentage || 0);
               const qqqChg = Number(qqq?.changesPercentage || 0);
-              const spyAbove200 = spy && spy.price && spy.price > (spy.price * 0.97); // rough proxy
-              // Determine regime
+              const loaded = !!spy;
               let regLabel, regColor, regIcon, regBg, regConf, playbook;
-              if (vix > 30 || spyChg < -1.5) {
+              if (!loaded) {
+                regLabel = "LOADING…"; regIcon = "⏳"; regColor = C.textDim; regBg = C.card; regConf = 0;
+                playbook = ["Waiting for market data…", "This card updates automatically", "Check back in a few seconds", "Data loads from Yahoo Finance"];
+              } else if (vix > 30 || spyChg < -1.5) {
                 regLabel = "BEAR / RISK-OFF"; regIcon = "🐻"; regColor = C.red; regBg = `${C.red}10`; regConf = vix > 35 ? 92 : 78;
                 playbook = ["Reduce position size 50%", "Only take short setups or cash", "Tighten stops — volatility is high", "No longs unless SPY reclaims key level"];
               } else if (vix < 16 && spyChg > 0.3 && qqqChg > 0.3) {
@@ -11894,54 +11896,56 @@ export default function App() {
                 playbook = ["Full size on A+ long setups", "Let winners run — trend is your friend", "Buy pullbacks to EMA21", "Avoid shorting into strength"];
               } else if (Math.abs(spyChg) < 0.3 && vix < 22) {
                 regLabel = "CHOP / NEUTRAL"; regIcon = "〰️"; regColor = C.amber; regBg = `${C.amber}10`; regConf = 65;
-                playbook = ["Reduce size to 50-75%", "Take profits faster — don't hold overnight", "Avoid breakout trades — they fail in chop", "Wait for regime to resolve before adding risk"];
+                playbook = ["Reduce size to 50–75%", "Take profits faster — don't hold overnight", "Avoid breakout trades — they fail in chop", "Wait for regime to resolve before adding risk"];
               } else if (spyChg > 0.5) {
                 regLabel = "CAUTIOUS BULL"; regIcon = "📈"; regColor = "#22c55e"; regBg = "#22c55e10"; regConf = 68;
                 playbook = ["Normal size on confirmed setups", "Watch for VIX spike that could reverse", "Focus on sector leaders, not laggards", "Keep stops tight"];
               } else {
-                regLabel = "DEFENSIVE"; regIcon = "🛡"; regColor = C.amber; regBg = `${C.amber}10`; regConf = 60;
-                playbook = ["Smaller size — uncertainty is elevated", "Favor defensive sectors (XLU, XLV, XLP)", "No momentum plays until market stabilizes", "Keep 30-40% cash"];
+                regLabel = "DEFENSIVE"; regIcon = "🛡️"; regColor = C.amber; regBg = `${C.amber}10`; regConf = 60;
+                playbook = ["Smaller size — uncertainty is elevated", "Favor defensive sectors (XLU, XLV, XLP)", "No momentum plays until market stabilizes", "Keep 30–40% cash"];
               }
               const signals = [
-                { label: "SPY",  val: `${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}%`, color: spyChg > 0 ? C.green : C.red },
-                { label: "QQQ",  val: `${qqqChg >= 0 ? "+" : ""}${qqqChg.toFixed(2)}%`, color: qqqChg > 0 ? C.green : C.red },
-                { label: "VIX",  val: vix > 0 ? vix.toFixed(1) : "—",  color: vix > 25 ? C.red : vix > 18 ? C.amber : C.green },
-                { label: "FLOW", val: flowBias || "—", color: (flowBias || "").includes("Bull") ? C.green : (flowBias || "").includes("Bear") ? C.red : C.amber },
+                { label: "SPY",  val: loaded ? `${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}%` : "—", color: spyChg > 0 ? C.green : C.red },
+                { label: "QQQ",  val: loaded ? `${qqqChg >= 0 ? "+" : ""}${qqqChg.toFixed(2)}%` : "—", color: qqqChg > 0 ? C.green : C.red },
+                { label: "VIX",  val: vix > 0 ? vix.toFixed(1) : "—", color: vix > 25 ? C.red : vix > 18 ? C.amber : C.green },
+                { label: "FLOW", val: flowBias || "—", color: (flowBias||"").includes("CALL") ? C.green : (flowBias||"").includes("PUT") ? C.red : C.amber },
               ];
               return (
-                <div style={{ padding: "12px 16px", marginBottom: 10, background: regBg,
-                  border: `1px solid ${regColor}44`, borderRadius: 10,
-                  display: "flex", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
-                  {/* Regime badge */}
-                  <div style={{ flexShrink: 0 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 3 }}>MARKET REGIME</div>
-                    <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: regColor }}>
-                      {regIcon} {regLabel}
-                    </div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 2 }}>
-                      {regConf}% confidence
-                    </div>
+                <div style={{ marginBottom: 10, background: regBg, border: `2px solid ${regColor}55`,
+                  borderRadius: 12, overflow: "hidden" }}>
+                  {/* Title bar */}
+                  <div style={{ padding: "8px 16px", background: `${regColor}22`, borderBottom: `1px solid ${regColor}33`,
+                    display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: regColor, letterSpacing: "0.1em" }}>
+                      📊 MARKET REGIME DASHBOARD
+                    </span>
+                    {regConf > 0 && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{regConf}% confidence</span>}
                   </div>
-                  {/* Divider */}
-                  <div style={{ width: 1, background: `${regColor}33`, alignSelf: "stretch", flexShrink: 0 }} />
-                  {/* Signals row */}
-                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
-                    {signals.map(s => (
-                      <div key={s.label} style={{ textAlign: "center" }}>
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{s.label}</div>
-                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: s.color }}>{s.val}</div>
+                  <div style={{ padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+                    {/* Big regime label */}
+                    <div style={{ flexShrink: 0, minWidth: 160 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: regColor, lineHeight: 1.1 }}>
+                        {regIcon} {regLabel}
                       </div>
-                    ))}
-                  </div>
-                  {/* Divider */}
-                  <div style={{ width: 1, background: `${regColor}33`, alignSelf: "stretch", flexShrink: 0 }} />
-                  {/* Playbook */}
-                  <div style={{ flex: 1, minWidth: 200 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 5 }}>TODAY'S PLAYBOOK</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    </div>
+                    {/* Signals */}
+                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+                      {signals.map(s => (
+                        <div key={s.label} style={{ textAlign: "center", padding: "4px 10px",
+                          background: `${regColor}15`, borderRadius: 6 }}>
+                          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{s.label}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: s.color }}>{s.val}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Playbook */}
+                    <div style={{ flex: 1, minWidth: 220 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim,
+                        letterSpacing: "0.08em", marginBottom: 6 }}>TODAY'S PLAYBOOK</div>
                       {playbook.map((p, i) => (
-                        <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: regColor, display: "flex", gap: 6 }}>
-                          <span style={{ flexShrink: 0, opacity: 0.7 }}>{i + 1}.</span>{p}
+                        <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: regColor,
+                          display: "flex", gap: 6, marginBottom: 3 }}>
+                          <span style={{ flexShrink: 0, opacity: 0.6 }}>{i + 1}.</span>{p}
                         </div>
                       ))}
                     </div>
@@ -11949,6 +11953,52 @@ export default function App() {
                 </div>
               );
             })()}
+
+            {/* ── TILT DETECTOR CARD ── */}
+            {tiltEnabled && (
+              <div style={{ marginBottom: 10, padding: "12px 16px", borderRadius: 12,
+                background: tiltLocked ? `${C.red}15` : tiltStreak >= 2 ? `${C.amber}12` : `${C.green}10`,
+                border: `2px solid ${tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green}44`,
+                display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim,
+                    letterSpacing: "0.1em", marginBottom: 4 }}>🧠 TILT DETECTOR</div>
+                  <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900,
+                    color: tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green }}>
+                    {tiltLocked ? "🔒 LOCKED — Step Away" : tiltStreak === 0 ? "✅ Clear — 0 losses" : `⚠️ Warning — ${tiltStreak}/3 losses`}
+                  </div>
+                  {tiltLocked && tiltUnlockAt && (
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 3 }}>
+                      Auto-unlocks at {tiltUnlockAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </div>
+                  )}
+                  {!tiltLocked && tiltStreak === 0 && (
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
+                      3 consecutive losses → platform locks 30 min to prevent revenge trading
+                    </div>
+                  )}
+                  {tiltStreak >= 2 && !tiltLocked && (
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.amber, marginTop: 2 }}>
+                      One more loss triggers a 30-minute forced cooldown. Consider stopping now.
+                    </div>
+                  )}
+                </div>
+                <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                  {tiltLocked && (
+                    <button onClick={() => { setTiltLocked(false); setTiltUnlockAt(null); }}
+                      style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 16px",
+                        borderRadius: 8, border: "none", background: C.amber, color: "#fff", cursor: "pointer" }}>
+                      Override Unlock
+                    </button>
+                  )}
+                  <button onClick={() => { const n = !tiltEnabled; setTiltEnabled(n); try { localStorage.setItem("tilt_enabled", String(n)); } catch {} }}
+                    style={{ fontFamily: MONO, fontSize: 11, padding: "6px 12px", borderRadius: 7, cursor: "pointer",
+                      border: `1px solid ${C.border}`, background: "transparent", color: C.textDim }}>
+                    {tiltEnabled ? "Disable" : "Enable"}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* 2: INTELLIGENCE ROW */}
             <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 10 }}>
@@ -19000,7 +19050,7 @@ export default function App() {
             })()}
 
             {/* ── Performance by Time of Day ── */}
-            {journalEntries.filter(e => e.status === "closed" && e.pnl != null && e.closedAt).length >= 3 && (() => {
+            {(() => {
               const closed = journalEntries.filter(e => e.status === "closed" && e.pnl != null && e.closedAt);
               const byHour = {};
               closed.forEach(e => {
@@ -19013,7 +19063,14 @@ export default function App() {
               const hours = Object.entries(byHour)
                 .map(([h, d]) => ({ h: Number(h), ...d, wr: Math.round(d.wins / d.trades * 100) }))
                 .sort((a, b) => a.h - b.h);
-              if (hours.length < 2) return null;
+              if (hours.length < 2) return (
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 20, marginBottom: 14 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text, marginBottom: 6 }}>⏱ PERFORMANCE BY TIME OF DAY</div>
+                  <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, lineHeight: 1.6 }}>
+                    No trade data yet. Log closed trades in your <strong style={{ color: C.accent, cursor: "pointer" }} onClick={() => setActiveTab("journal")}>Journal</strong> tab and this chart will show your best and worst trading hours automatically.
+                  </div>
+                </div>
+              );
               const maxAbs = Math.max(...hours.map(h => Math.abs(h.pnl)), 1);
               const bestHour  = [...hours].sort((a, b) => b.pnl - a.pnl)[0];
               const worstHour = [...hours].sort((a, b) => a.pnl - b.pnl)[0];
@@ -24107,6 +24164,32 @@ export default function App() {
         );
       })()}
 
+
+      {/* ── Floating Checklist Button ── */}
+      {(() => {
+        const done  = checklistItems.filter(c => c.done).length;
+        const total = checklistItems.length;
+        const allDone = done === total;
+        return (
+          <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 8000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+            <button
+              onClick={() => setActiveTab("tools")}
+              title={`Trade Checklist: ${done}/${total} complete`}
+              style={{ width: 56, height: 56, borderRadius: "50%", border: "none", cursor: "pointer",
+                background: allDone ? C.green : done > 0 ? C.amber : C.red,
+                boxShadow: `0 4px 20px ${allDone ? C.green : done > 0 ? C.amber : C.red}66`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 22, transition: "all 0.2s" }}>
+              ✅
+            </button>
+            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: allDone ? C.green : done > 0 ? C.amber : C.red,
+              background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6,
+              padding: "2px 8px", whiteSpace: "nowrap" }}>
+              {done}/{total} CHECKLIST
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── DAILY MAX LOSS LOCK OVERLAY ── */}
       {/* ── Tilt Detector Banner ── */}
