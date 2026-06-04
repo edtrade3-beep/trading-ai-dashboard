@@ -5033,7 +5033,7 @@ function Under10Tab({ C, MONO, SANS, setActiveTab, watchlistSymbols }) {
 
 // ── Pro Dashboard ─────────────────────────────────────────────────────────────
 function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
-  combinedAlerts, eventCountdowns, scanResults, journalEntries,
+  combinedAlerts, eventCountdowns, scanResults, watchlistData, journalEntries,
   tiltStreak, tiltLocked, setActiveTab, isTablet, regime, regimeColor, regimeLabel }) {
 
   const CARD=C.card, BORDER=C.border, TEXT=C.text, DIM=C.textDim;
@@ -5081,6 +5081,34 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
     : ['Smaller size — uncertainty elevated','Favor defensive sectors (XLU, XLV)','No momentum plays until market stabilizes'];
 
   const topBuys = (scanResults||[]).filter(r=>r.score>=65).slice(0,4);
+
+  // Screener rows: scanner results if available, else top watchlist movers
+  const screenerRows = scanResults?.length > 0
+    ? scanResults.slice(0, 7).map(r => ({
+        ticker: r.ticker, price: r.quote?.price||0, chg: r.quote?.changePercent||0,
+        rvol: r.quote?.volume&&r.quote?.avgVolume ? r.quote.volume/r.quote.avgVolume : 0,
+        ma50: r.quote?.priceAvg50||0, score: r.score, signal: r.signal,
+        name: r.quote?.name||'',
+      }))
+    : (watchlistData||[])
+        .filter(q => q.price > 0)
+        .sort((a,b) => Math.abs(b.changesPercentage||0) - Math.abs(a.changesPercentage||0))
+        .slice(0, 7)
+        .map(q => {
+          const chg = q.changesPercentage || 0;
+          const score = chg > 3 ? 72 : chg > 1 ? 62 : chg < -3 ? 30 : 50;
+          const signal = score >= 72 ? 'BUY' : score >= 62 ? 'WATCH' : score <= 35 ? 'AVOID' : 'WATCH';
+          return { ticker: q.symbol, price: q.price||0, chg, rvol: q.avgVolume>0?q.volume/q.avgVolume:0,
+            ma50: q.priceAvg50||0, score, signal, name: q.name||'' };
+        });
+
+  // Live signals: scanner or top watchlist gainers
+  const liveSignals = topBuys.length > 0 ? topBuys
+    : (watchlistData||[])
+        .filter(q => (q.changesPercentage||0) > 1 && q.price > 0)
+        .sort((a,b) => (b.changesPercentage||0) - (a.changesPercentage||0))
+        .slice(0, 4)
+        .map(q => ({ ticker: q.symbol, quote: { price: q.price||0 }, score: 60, signal: 'WATCH' }));
   const today   = new Date().toISOString().slice(0,10);
   const todayTrades = (journalEntries||[]).filter(e =>
     e.status==='closed' && e.pnl!=null && String(e.closedAt||'').startsWith(today));
@@ -5164,12 +5192,9 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
                 </tr>
               </thead>
               <tbody>
-                {(scanResults||[]).slice(0,7).map((r,i) => {
-                  const price=r.quote?.price||0, chg=r.quote?.changePercent||0;
-                  const rvol=r.quote?.volume&&r.quote?.avgVolume?r.quote.volume/r.quote.avgVolume:0;
-                  const ma50=r.quote?.priceAvg50||0;
-                  const trend=ma50>0?(price>ma50?'▲ UP':'▼ DN'):'—';
-                  const trendC=ma50>0?(price>ma50?GREEN:RED):DIM;
+                {screenerRows.map((r,i) => {
+                  const trend=r.ma50>0?(r.price>r.ma50?'▲ UP':'▼ DN'):'—';
+                  const trendC=r.ma50>0?(r.price>r.ma50?GREEN:RED):DIM;
                   const sigC=r.score>=75?GREEN:r.score>=62?'#22c55e':r.score>=50?AMBER:r.score>=38?RED:DIM;
                   const sig=r.score>=75?'STRONG BUY':r.score>=62?'BUY':r.score>=50?'WATCH':'AVOID';
                   return (
@@ -5178,11 +5203,12 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
                         background:i%2===0?'transparent':`${C.surface}88` }}>
                       <td style={{ padding:'8px 10px' }}>
                         <div style={{ fontFamily:MONO, fontSize:13, fontWeight:900, color:ACCENT }}>{r.ticker}</div>
+                        {r.name && <div style={{ fontFamily:SANS, fontSize:9, color:DIM }}>{r.name.slice(0,16)}</div>}
                       </td>
-                      <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:MONO, fontSize:12, fontWeight:700, color:TEXT }}>${price.toFixed(2)}</td>
-                      <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:MONO, fontSize:11, fontWeight:700, color:chg>=0?GREEN:RED }}>{chg>=0?'+':''}{chg.toFixed(2)}%</td>
+                      <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:MONO, fontSize:12, fontWeight:700, color:TEXT }}>${r.price.toFixed(2)}</td>
+                      <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:MONO, fontSize:11, fontWeight:700, color:r.chg>=0?GREEN:RED }}>{r.chg>=0?'+':''}{r.chg.toFixed(2)}%</td>
                       <td style={{ padding:'8px 10px', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:trendC }}>{trend}</td>
-                      <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:MONO, fontSize:11, color:rvol>=2?AMBER:DIM }}>{rvol>0?rvol.toFixed(1)+'x':'—'}</td>
+                      <td style={{ padding:'8px 10px', textAlign:'right', fontFamily:MONO, fontSize:11, color:r.rvol>=2?AMBER:DIM }}>{r.rvol>0?r.rvol.toFixed(1)+'x':'—'}</td>
                       <td style={{ padding:'8px 10px', textAlign:'right' }}>
                         <div style={{ display:'flex', alignItems:'center', gap:4, justifyContent:'flex-end' }}>
                           <div style={{ width:28, height:3, background:BORDER, borderRadius:2, overflow:'hidden' }}>
@@ -5195,9 +5221,9 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
                     </tr>
                   );
                 })}
-                {(scanResults||[]).length===0 && (
+                {screenerRows.length===0 && (
                   <tr><td colSpan={7} style={{ padding:'24px', textAlign:'center', fontFamily:SANS, fontSize:12, color:DIM }}>
-                    No scan data — run scanner first
+                    Loading market data…
                   </td></tr>
                 )}
               </tbody>
@@ -5338,8 +5364,8 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
                   padding:'2px 8px', borderRadius:4, border:`1px solid ${ACCENT}44`,
                   background:`${ACCENT}15`, color:ACCENT, cursor:'pointer' }}>All →</button>
               } />
-            {topBuys.length===0
-              ? <div style={{ padding:'16px 14px', fontFamily:SANS, fontSize:12, color:DIM }}>Run scanner to generate signals</div>
+            {liveSignals.length===0
+              ? <div style={{ padding:'16px 14px', fontFamily:SANS, fontSize:12, color:DIM }}>Loading signals…</div>
               : (
                 <div>
                   <div style={{ display:'grid', gridTemplateColumns:'1.5fr 1fr 1fr 1fr',
@@ -5349,7 +5375,7 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
                         letterSpacing:'0.08em', textAlign:h==='TICKER'?'left':'right' }}>{h}</span>
                     ))}
                   </div>
-                  {topBuys.map(r => {
+                  {liveSignals.map(r => {
                     const price=r.quote?.price||0;
                     const t1=(price*1.08).toFixed(2), stop=(price*0.97).toFixed(2);
                     const sigC=r.score>=75?GREEN:ACCENT;
@@ -5360,7 +5386,7 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
                           cursor:'pointer', alignItems:'center' }}>
                         <div>
                           <div style={{ fontFamily:MONO, fontSize:14, fontWeight:900, color:ACCENT }}>{r.ticker}</div>
-                          <Pill label={r.score>=75?'▲ STRONG BUY':'▲ BUY'} color={sigC} />
+                          <Pill label={r.score>=75?'▲ STRONG BUY':r.signal==='WATCH'?'👀 WATCH':'▲ BUY'} color={sigC} />
                         </div>
                         <div style={{ fontFamily:MONO, fontSize:11, textAlign:'right', color:GREEN, fontWeight:700 }}>${price.toFixed(2)}</div>
                         <div style={{ fontFamily:MONO, fontSize:11, textAlign:'right', color:RED }}>${stop}</div>
@@ -14340,6 +14366,7 @@ export default function App() {
               futuresData={futuresData} preMktMovers={preMktMovers}
               eventCountdowns={eventCountdowns}
               scanResults={scanResults}
+              watchlistData={watchlistData}
               journalEntries={journalEntries}
               tiltStreak={tiltStreak} tiltLocked={tiltLocked} tiltEnabled={tiltEnabled}
               setActiveTab={setActiveTab}
