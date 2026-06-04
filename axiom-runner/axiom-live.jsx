@@ -4801,6 +4801,204 @@ function CryptoTab({ C, MONO, SANS }) {
   );
 }
 
+// ── Compression Scanner ──────────────────────────────────────────────────────
+function CompressionTab({ C, MONO, SANS, setActiveTab }) {
+  const [data,    setData]    = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error,   setError]   = React.useState(null);
+  const [filter,  setFilter]  = React.useState("ALL");
+
+  const load = React.useCallback(() => {
+    setLoading(true);
+    fetch("/api/scanner/compression")
+      .then(r => r.json())
+      .then(d => { if (d.ok) setData(d); else setError(d.error); })
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  React.useEffect(() => { load(); }, [load]);
+
+  const rows = (data?.results || []).filter(r =>
+    filter === "ALL"     ? true :
+    filter === "PRIME"   ? r.score >= 70 :
+    filter === "BUILDING"? r.score >= 50 && r.score < 70 :
+    filter === "WATCH"   ? r.score >= 30 && r.score < 50 : true
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>🌀 COMPRESSION SCANNER</div>
+          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
+            Volume drying up + ATR shrinking + near key level = spring loaded before breakout
+            {data?.updatedAt ? ` · ${new Date(data.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+          </div>
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {[["ALL","ALL"],["PRIME","🔥 PRIME"],["BUILDING","⚡ BUILDING"],["WATCH","👀 WATCH"]].map(([k, lbl]) => (
+            <button key={k} onClick={() => setFilter(k)}
+              style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px",
+                borderRadius: 6, border: `1px solid ${filter === k ? C.accent : C.border}`,
+                background: filter === k ? `${C.accent}18` : "transparent",
+                color: filter === k ? C.accent : C.textDim, cursor: "pointer" }}>{lbl}</button>
+          ))}
+          <button onClick={load} style={{ fontFamily: MONO, fontSize: 11, padding: "5px 12px",
+            borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent",
+            color: C.textDim, cursor: "pointer" }}>{loading ? "…" : "↻"}</button>
+        </div>
+      </div>
+
+      {error && <div style={{ padding: 12, background: `${C.red}15`, border: `1px solid ${C.red}44`, borderRadius: 8, fontFamily: MONO, fontSize: 12, color: C.red }}>⚠ {error}</div>}
+      {loading && !data && <div style={{ padding: 40, textAlign: "center", fontFamily: MONO, fontSize: 13, color: C.textDim }}>🌀 Analyzing {45}+ stocks for compression setups…</div>}
+
+      {rows.length > 0 && (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12 }}>
+            <thead>
+              <tr style={{ borderBottom: `2px solid ${C.border}` }}>
+                {["TICKER","GRADE","SCORE","PRICE","TREND","ATR RATIO","VOL RATIO","FROM HIGH","BREAKOUT LEVEL"].map(h => (
+                  <th key={h} style={{ padding: "8px 10px", textAlign: h === "TICKER" || h === "GRADE" || h === "TREND" ? "left" : "right",
+                    color: C.textDim, fontWeight: 800, fontSize: 11, letterSpacing: "0.06em", whiteSpace: "nowrap" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => {
+                const sc = r.score >= 70 ? C.green : r.score >= 50 ? C.amber : C.textDim;
+                const trendColor = r.trending === "UP" ? C.green : r.trending === "DOWN" ? C.red : C.textDim;
+                return (
+                  <tr key={r.sym} onClick={() => setActiveTab("scanner")}
+                    style={{ borderBottom: `1px solid ${C.border}33`, cursor: "pointer",
+                      background: i % 2 === 0 ? "transparent" : `${C.surface}66` }}>
+                    <td style={{ padding: "8px 10px", color: C.accent, fontWeight: 900 }}>{r.sym}</td>
+                    <td style={{ padding: "8px 10px" }}>{r.grade}</td>
+                    <td style={{ padding: "8px 10px", textAlign: "right" }}>
+                      <span style={{ background: `${sc}20`, color: sc, borderRadius: 4, padding: "2px 8px", fontWeight: 900 }}>{r.score}</span>
+                    </td>
+                    <td style={{ padding: "8px 10px", textAlign: "right", color: C.text }}>${r.price}</td>
+                    <td style={{ padding: "8px 10px", color: trendColor, fontWeight: 700 }}>{r.trending}</td>
+                    <td style={{ padding: "8px 10px", textAlign: "right", color: r.atrRatio < 0.65 ? C.green : C.text }}>
+                      {r.atrRatio}x {r.atrRatio < 0.65 ? "🔥" : ""}
+                    </td>
+                    <td style={{ padding: "8px 10px", textAlign: "right", color: r.volRatio < 0.65 ? C.green : C.text }}>
+                      {r.volRatio}x {r.volRatio < 0.65 ? "🔥" : ""}
+                    </td>
+                    <td style={{ padding: "8px 10px", textAlign: "right", color: r.nearHigh < 5 ? C.amber : C.textDim }}>
+                      -{r.nearHigh}%
+                    </td>
+                    <td style={{ padding: "8px 10px", textAlign: "right", color: C.accent, fontWeight: 700 }}>
+                      ${r.high20}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div style={{ padding: "10px 14px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
+        display: "flex", gap: 20, flexWrap: "wrap" }}>
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>
+          <strong style={{ color: C.green }}>🔥 PRIME (70+)</strong> — Volume dry + ATR crushed + near breakout level. Enter NOW before the move.
+        </div>
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>
+          <strong>ATR Ratio</strong> = recent volatility vs historical. Below 0.65 = very compressed.&nbsp;
+          <strong>Vol Ratio</strong> = recent volume vs avg. Below 0.65 = institutions quietly loading.&nbsp;
+          <strong>Breakout Level</strong> = the price that triggers the move.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Insider Buy Screener ──────────────────────────────────────────────────────
+function InsiderTab({ C, MONO, SANS, setActiveTab }) {
+  const [data,    setData]    = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error,   setError]   = React.useState(null);
+
+  const load = React.useCallback(() => {
+    setLoading(true);
+    fetch("/api/scanner/insider")
+      .then(r => r.json())
+      .then(d => { if (d.ok) setData(d); else setError(d.error); })
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  React.useEffect(() => { load(); }, [load]);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>🏦 INSIDER BUY SCREENER</div>
+          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
+            SEC Form 4 purchases — CEO/CFO/Director buying their own stock with real money · Last 14 days
+            {data?.updatedAt ? ` · ${new Date(data.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+          </div>
+        </div>
+        <button onClick={load} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, padding: "5px 14px",
+          borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent",
+          color: C.textDim, cursor: "pointer" }}>{loading ? "…" : "↻ Refresh"}</button>
+      </div>
+
+      <div style={{ padding: "10px 14px", background: `${C.green}10`, border: `1px solid ${C.green}33`,
+        borderRadius: 8, fontFamily: SANS, fontSize: 12, color: C.green, fontWeight: 600 }}>
+        💡 When a CEO buys their own stock, they know something you don't. This is the strongest signal in the market — legal insider information.
+      </div>
+
+      {error && <div style={{ padding: 12, background: `${C.red}15`, border: `1px solid ${C.red}44`, borderRadius: 8, fontFamily: MONO, fontSize: 12, color: C.red }}>⚠ {error}</div>}
+      {loading && !data && <div style={{ padding: 40, textAlign: "center", fontFamily: MONO, fontSize: 13, color: C.textDim }}>🏦 Loading SEC Form 4 filings…</div>}
+
+      {(data?.results || []).length > 0 && (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12 }}>
+            <thead>
+              <tr style={{ borderBottom: `2px solid ${C.border}` }}>
+                {["TICKER","COMPANY","FILED","PRICE","1D CHG","ACTION"].map(h => (
+                  <th key={h} style={{ padding: "8px 10px", textAlign: h === "COMPANY" ? "left" : h === "TICKER" ? "left" : "right",
+                    color: C.textDim, fontWeight: 800, fontSize: 11, letterSpacing: "0.06em" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.results.map((r, i) => (
+                <tr key={`${r.ticker}-${i}`} onClick={() => setActiveTab("scanner")}
+                  style={{ borderBottom: `1px solid ${C.border}33`, cursor: "pointer",
+                    background: i % 2 === 0 ? "transparent" : `${C.surface}66` }}>
+                  <td style={{ padding: "8px 10px", color: C.accent, fontWeight: 900 }}>{r.ticker}</td>
+                  <td style={{ padding: "8px 10px", color: C.text, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {r.company || "—"}
+                  </td>
+                  <td style={{ padding: "8px 10px", textAlign: "right", color: C.textDim }}>{r.date || "—"}</td>
+                  <td style={{ padding: "8px 10px", textAlign: "right", color: C.text }}>{r.price > 0 ? `$${r.price}` : "—"}</td>
+                  <td style={{ padding: "8px 10px", textAlign: "right", color: r.chg >= 0 ? C.green : C.red, fontWeight: 700 }}>
+                    {r.chg !== undefined && r.price > 0 ? `${r.chg >= 0 ? "+" : ""}${r.chg}%` : "—"}
+                  </td>
+                  <td style={{ padding: "8px 10px", textAlign: "right" }}>
+                    <span style={{ background: `${C.green}20`, color: C.green, borderRadius: 4,
+                      padding: "2px 8px", fontWeight: 800, fontSize: 10 }}>PURCHASE</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {!loading && data && data.results?.length === 0 && (
+        <div style={{ padding: 30, textAlign: "center", fontFamily: SANS, fontSize: 13, color: C.textDim }}>
+          No insider purchases found in the last 14 days. Check back daily — this is the most valuable signal.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Squeeze Screener ─────────────────────────────────────────────────────────
 function SqueezeTab({ C, MONO, SANS, setActiveTab }) {
   const [sqData,    setSqData]    = React.useState(null);
@@ -11268,7 +11466,7 @@ export default function App() {
               { id: "terminal",  label: "📈 CHARTS",
                 tabs: ["terminal", "tv", "fibonacci"] },
               { id: "scanner",   label: "🔍 SCANNER",
-                tabs: ["scanner", "smartscan", "gap", "early", "screener", "squeeze", "flow", "fivex", "autoexec"] },
+                tabs: ["scanner", "smartscan", "gap", "early", "screener", "squeeze", "compression", "insider", "flow", "fivex", "autoexec"] },
               { id: "markets",   label: "🌍 MARKETS",
                 tabs: ["news", "macro", "earn-cal", "econ-cal", "calendar", "sectors", "crypto", "feargreed"] },
               { id: "research",  label: "🔬 RESEARCH", tabs: ["cot"] },
@@ -11638,9 +11836,11 @@ export default function App() {
             { id: "smartscan", label: "🧠 SMART SCAN" },
             { id: "gap",       label: "📈 GAP SCAN" },
             { id: "early",     label: "🎯 EARLY ENTRY" },
-            { id: "screener",  label: "🔍 SCREENER" },
-            { id: "squeeze",   label: "🔥 SQUEEZE" },
-            { id: "flow",      label: "⚡ INST. FLOW" },
+            { id: "screener",    label: "🔍 SCREENER" },
+            { id: "squeeze",     label: "🔥 SQUEEZE" },
+            { id: "compression", label: "🌀 COMPRESS" },
+            { id: "insider",     label: "🏦 INSIDER BUYS" },
+            { id: "flow",        label: "⚡ INST. FLOW" },
             { id: "fivex",     label: "🚀 5X PLAYS" },
             { id: "autoexec",  label: "⚙ AUTO-EXEC" },
           ],
@@ -21521,7 +21721,9 @@ export default function App() {
       })()}
 
       {/* ── CUSTOM SCREENER ──────────────────────────────────────────────── */}
-      {activeTab === "squeeze" && <SqueezeTab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
+      {activeTab === "squeeze"      && <SqueezeTab      C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
+      {activeTab === "compression"  && <CompressionTab  C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
+      {activeTab === "insider"      && <InsiderTab      C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
 
       {activeTab === "screener" && (() => {
         const FIELDS = [

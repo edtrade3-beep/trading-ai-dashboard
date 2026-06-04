@@ -57,12 +57,69 @@ async function checkPriceAlerts() {
   if (changed) savePriceAlerts(alerts);
 }
 
+// ── T1 / Target Hit alerts from open journal trades ──────────────────────────
+const T1_COOLDOWN = new Map(); // ticker → last alert timestamp
+
+async function checkT1Alerts() {
+  if (!isConfigured()) return;
+  try {
+    const fs   = require("fs");
+    const path = require("path");
+    const file = path.join(__dirname, "../data/journal.json");
+    if (!fs.existsSync(file)) return;
+    const entries = JSON.parse(fs.readFileSync(file, "utf8") || "[]");
+    const open    = entries.filter(e => e.status === "open" && e.target && e.ticker);
+    if (!open.length) return;
+
+    const symbols = [...new Set(open.map(e => e.ticker))];
+    const prices  = {};
+    for (const sym of symbols) prices[sym] = await fetchLivePrice(sym);
+
+    const now = Date.now();
+    for (const trade of open) {
+      const price  = prices[trade.ticker];
+      if (!price) continue;
+      const target = Number(trade.target);
+      const entry  = Number(trade.entry || 0);
+      const side   = (trade.side || "BUY").toUpperCase();
+      if (!target || !entry) continue;
+
+      const hit = side === "BUY"  ? price >= target :
+                  side === "SELL" ? price <= target : false;
+      if (!hit) continue;
+
+      const cooldownKey = `${trade.id || trade.ticker}_t1`;
+      const last        = T1_COOLDOWN.get(cooldownKey) || 0;
+      if (now - last < 4 * 60 * 60 * 1000) continue; // 4h cooldown per trade
+
+      T1_COOLDOWN.set(cooldownKey, now);
+      const rr = entry > 0 ? Math.abs((target - entry) / (entry - Number(trade.stopLoss || entry))).toFixed(1) : "—";
+      const pnl = trade.size ? Math.round(Math.abs(price - entry) * Number(trade.size)) : null;
+
+      sendTelegramAlert({
+        symbol: trade.ticker,
+        side,
+        price,
+        score: 90,
+        message: [
+          `🎯 TARGET HIT — ${trade.ticker}`,
+          `Entry: $${entry} → Now: $${price.toFixed(2)}`,
+          pnl ? `P&L: +$${pnl}` : "",
+          `R:R ${rr}R · GET OUT EARLY`,
+          `Move stop to breakeven. Take 50-100% off.`,
+        ].filter(Boolean).join("\n"),
+        at: new Date().toISOString(),
+      });
+    }
+  } catch {}
+}
+
 function startPriceAlertMonitor() {
   const interval = setInterval(() => {
     checkPriceAlerts().catch(() => {});
+    checkT1Alerts().catch(() => {});
   }, CHECK_INTERVAL_MS);
 
-  // Unref so the monitor doesn't prevent clean shutdown
   if (interval.unref) interval.unref();
 }
 
