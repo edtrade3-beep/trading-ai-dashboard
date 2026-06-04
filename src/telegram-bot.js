@@ -323,18 +323,54 @@ async function cmdDeep(args) {
       }
     }
 
+    // ── 15-Minute Entry / Exit / Stop ────────────────────────────────────────
+    const r2 = n => Math.round(n * 100) / 100;
+    const isBull = t ? t.composite >= 62 : false;
+    const isBear = t ? t.composite <= 38 : false;
+    const atr    = price * 0.025; // ~2.5% of price as ATR proxy
+
+    const entry  = isBull ? r2(price)            : isBear ? r2(price)            : null;
+    const stop   = isBull ? r2(price - atr*1.5)  : isBear ? r2(price + atr*1.5)  : null;
+    const t1     = isBull ? r2(price + atr*2)    : isBear ? r2(price - atr*2)    : null;
+    const t2     = isBull ? r2(price + atr*3.5)  : isBear ? r2(price - atr*3.5)  : null;
+    const rr     = stop && entry ? r2(Math.abs((t1-entry)/(entry-stop))) : null;
+
+    const direction = isBull ? "BULLISH 🟢" : isBear ? "BEARISH 🔴" : "NEUTRAL 〰️";
+
+    const tradeBlock = (entry && stop) ? [
+      ``,
+      `━━━━━━━━━━━━━━━━━━━━`,
+      `🎯 15-MIN TRADE SETUP`,
+      `Direction: ${direction}`,
+      ``,
+      `Entry:  $${entry}  (current price)`,
+      `Stop:   $${stop}  (${isBull ? "-" : "+"}${Math.abs(r2((stop-entry)/entry*100))}%)`,
+      `T1:     $${t1}`,
+      `T2:     $${t2}`,
+      `R:R:    ${rr}:1`,
+      ``,
+      isBull
+        ? `✅ BUY if price holds above $${stop} with volume`
+        : isBear
+        ? `🔴 SHORT/AVOID — price likely falls to $${t1}`
+        : `〰️ WAIT — no clear directional edge right now`,
+      `━━━━━━━━━━━━━━━━━━━━`,
+      `⚠️ Not financial advice. Use stops. Manage risk.`,
+    ] : [];
+
     const msg = [
-      `DEEP DIVE: ${name} (${symbol})`,
-      "═".repeat(32),
-      "",
-      "TECHNICALS",
+      `📊 ${name} (${symbol})`,
+      `━━━━━━━━━━━━━━━━━━━━`,
+      ``,
+      `⚡ TECHNICAL ANALYSIS`,
       techLines,
-      "",
-      "FUNDAMENTALS",
+      ``,
+      `📋 FUNDAMENTAL ANALYSIS`,
       fundLines,
-      "",
-      "PROJECTION",
+      ``,
+      `🧠 VERDICT`,
       projLines.join(" ") || "Insufficient data for projection.",
+      ...tradeBlock,
     ].join("\n");
 
     return reply(msg);

@@ -5402,10 +5402,11 @@ function InsiderTab({ C, MONO, SANS, setActiveTab }) {
 }
 
 // ── Combined Scanner (Compress + Smart Scan merged) ──────────────────────────
-function CombinedTab({ C, MONO, SANS, onDeepDive, watchlistSymbols }) {
-  const [rows,    setRows]    = React.useState([]);
-  const [loading, setLoading] = React.useState(false);
-  const [filter,  setFilter]  = React.useState("ALL"); // ALL | ENTER | WATCH
+function CombinedTab({ C, MONO, SANS, watchlistSymbols, loadDeepDive, scanDeepData, scanDeepLoad, fetchTradeSetup, tradeSetups, tradeSetupLoad }) {
+  const [rows,     setRows]     = React.useState([]);
+  const [loading,  setLoading]  = React.useState(false);
+  const [filter,   setFilter]   = React.useState("ALL"); // ALL | ENTER | WATCH
+  const [expanded, setExpanded] = React.useState(null);  // sym of expanded deep dive
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -5578,17 +5579,100 @@ function CombinedTab({ C, MONO, SANS, onDeepDive, watchlistSymbols }) {
                     <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>entry level</div>
                   </td>
 
-                  {/* Deep Dive button */}
+                  {/* Deep Dive button — inline expand */}
                   <td style={{ padding: "10px 8px", textAlign: "right" }}>
-                    <button onClick={() => onDeepDive ? onDeepDive(r.sym, r) : null}
-                      style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "5px 12px",
+                    <button onClick={() => {
+                      const sym = r.sym;
+                      if (expanded === sym) { setExpanded(null); return; }
+                      setExpanded(sym);
+                      if (loadDeepDive) loadDeepDive(sym);
+                      if (fetchTradeSetup) setTimeout(() => fetchTradeSetup(sym, { ticker: sym, score: r.score || 50, signal: r.scanSignal || "WATCH", signals: [], quote: { price: r.price || 0 } }), 800);
+                    }} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "5px 12px",
                         borderRadius: 6, border: "none", cursor: "pointer", whiteSpace: "nowrap",
-                        background: r.decision === "ENTER" ? C.green : `${C.accent}20`,
-                        color: r.decision === "ENTER" ? "#fff" : C.accent }}>
-                      Deep Dive →
+                        background: expanded === r.sym ? C.accent : r.decision === "ENTER" ? C.green : `${C.accent}20`,
+                        color: expanded === r.sym || r.decision === "ENTER" ? "#fff" : C.accent }}>
+                      {expanded === r.sym ? "▲ Close" : "▼ Deep Dive"}
                     </button>
                   </td>
                 </tr>
+
+                {/* ── Inline Deep Dive Panel ── */}
+                {expanded === r.sym && (
+                  <tr>
+                    <td colSpan={9} style={{ padding: 0, borderBottom: `2px solid ${C.accent}55` }}>
+                      <div style={{ background: `${C.accent}08`, padding: "16px 20px" }}>
+                        {/* Header */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                          <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.text }}>{r.sym}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 14, color: r.chg1d >= 0 ? C.green : C.red, fontWeight: 700 }}>
+                            ${r.price} {r.chg1d >= 0 ? "+" : ""}{r.chg1d}%
+                          </div>
+                          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "3px 10px",
+                            borderRadius: 6, background: `${r.decColor}18`, color: r.decColor, border: `1px solid ${r.decColor}44` }}>
+                            {r.decIcon} {r.decision}
+                          </div>
+                        </div>
+
+                        {/* Key signals */}
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 8, marginBottom: 14 }}>
+                          {[
+                            { label: "VOLATILITY",  icon: r.atrRatio < 0.80 ? "🔥" : "⬜", status: r.atrRatio < 0.80 ? "GO" : "NO",   color: r.atrRatio < 0.80 ? C.green : C.textDim },
+                            { label: "VOLUME",      icon: r.volRatio < 0.85 ? "🔥" : "⬜", status: r.volRatio < 0.85 ? "GO" : "NO",   color: r.volRatio < 0.85 ? C.green : C.textDim },
+                            { label: "PROXIMITY",   icon: r.nearHigh < 8    ? "🔥" : "⬜", status: r.nearHigh < 8    ? "GO" : "NO",   color: r.nearHigh < 8    ? C.green : C.textDim },
+                            { label: "SMART SCAN",  icon: r.isBuy ? "🔥" : r.isAvoid ? "⬜" : "✅",
+                              status: r.scanSignal || "—", color: r.isBuy ? C.green : r.isAvoid ? C.red : C.amber },
+                          ].map(s => (
+                            <div key={s.label} style={{ textAlign: "center", padding: "10px 8px",
+                              background: C.surface, borderRadius: 8,
+                              border: `1px solid ${s.status === "GO" || s.isBuy ? s.color + "55" : C.border}` }}>
+                              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 3 }}>{s.label}</div>
+                              <div style={{ fontSize: 18 }}>{s.icon}</div>
+                              <div style={{ fontFamily: MONO, fontSize: 10, color: s.color, fontWeight: 800, marginTop: 2 }}>{s.status}</div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Trade levels */}
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+                          <div style={{ background: C.surface, borderRadius: 8, padding: "10px 14px" }}>
+                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>BREAK ABOVE (ENTRY)</div>
+                            <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.accent }}>${r.high20}</div>
+                            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>
+                              Stop: ${(r.price * 0.97).toFixed(2)} · T1: ${(r.high20 * 1.08).toFixed(2)}
+                            </div>
+                          </div>
+                          <div style={{ background: C.surface, borderRadius: 8, padding: "10px 14px" }}>
+                            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>TREND</div>
+                            <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900,
+                              color: r.trending === "UP" ? C.green : r.trending === "DOWN" ? C.red : C.textDim }}>
+                              {r.trending === "UP" ? "↑ UP" : r.trending === "DOWN" ? "↓ DOWN" : "→ FLAT"}
+                            </div>
+                            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>
+                              Score: {r.score}/100
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* AI Trade Plan */}
+                        {tradeSetups?.[r.sym]?.plan ? (
+                          <div style={{ padding: "12px 14px", background: `${C.purple}10`,
+                            border: `1px solid ${C.purple}33`, borderRadius: 8,
+                            fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.8,
+                            whiteSpace: "pre-wrap", maxHeight: 200, overflowY: "auto" }}>
+                            {tradeSetups[r.sym].plan}
+                          </div>
+                        ) : tradeSetupLoad?.[r.sym] ? (
+                          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, padding: "10px 14px",
+                            background: `${C.purple}08`, borderRadius: 8, border: `1px dashed ${C.purple}44` }}>
+                            🤖 Generating AI trade plan…
+                          </div>
+                        ) : scanDeepLoad?.[r.sym] ? (
+                          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>⏳ Loading analysis…</div>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                )}
               ))}
             </tbody>
           </table>
@@ -23530,8 +23614,10 @@ export default function App() {
       {/* ── CUSTOM SCREENER ──────────────────────────────────────────────── */}
       {activeTab === "under10" && <Under10Tab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "combined"     && <CombinedTab     C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols}
+        loadDeepDive={loadDeepDive} scanDeepData={scanDeepData} scanDeepLoad={scanDeepLoad}
+        fetchTradeSetup={fetchTradeSetup} tradeSetups={tradeSetups} tradeSetupLoad={tradeSetupLoad}
         onDeepDive={(sym, row) => {
-          // Step 1: clear filters + add row + switch tab
+          // Fallback: navigate to smartscan (used by other callers)
           setSfSig("ALL");
           setSfMinScore(0);
           setScanResults(prev => {
