@@ -15984,16 +15984,80 @@ export default function App() {
                                 })()}
                               </td>
 
-                              {/* Ticker */}
-                              <td style={{ padding: "12px 12px", borderBottom: `1px solid ${C.border}22` }}>
+                              {/* Ticker + Quick Read */}
+                              <td style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}22`, minWidth: 180 }}>
                                 <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>
                                   {row.ticker}
+                                  {ref?.company && <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, fontWeight: 400, marginLeft: 6 }}>{ref.company}</span>}
                                 </div>
-                                {ref && (
-                                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 1 }}>
-                                    {ref.company}
-                                  </div>
-                                )}
+                                {/* ── QUICK READ: key signals in one line ── */}
+                                {(() => {
+                                  const chips = [];
+                                  const rsi = row.rsiVal;
+                                  const ema9 = row.ema9v, ema21 = row.ema21v;
+                                  const px = livePrice;
+                                  const hi52 = Number(row.quote?.yearHigh || 0);
+                                  const lo52 = Number(row.quote?.yearLow  || 0);
+                                  const ma50 = Number(row.quote?.priceAvg50 || 0);
+                                  const rvol = row.quote?.volume && row.quote?.avgVolume ? row.quote.volume / row.quote.avgVolume : 0;
+                                  const chg1w = Number(row.quote?.delta1w || 0);
+
+                                  // RSI signal
+                                  if (rsi != null) {
+                                    if (rsi < 30)      chips.push({ txt: `RSI ${rsi.toFixed(0)} 🔥`, col: C.green, title: "Oversold — bounce candidate" });
+                                    else if (rsi > 70) chips.push({ txt: `RSI ${rsi.toFixed(0)} ⚠`, col: C.red,   title: "Overbought — watch for pullback" });
+                                    else               chips.push({ txt: `RSI ${rsi.toFixed(0)}`,   col: C.textDim });
+                                  }
+                                  // EMA alignment
+                                  if (ema9 && ema21) {
+                                    chips.push({ txt: ema9 > ema21 ? "EMA ▲" : "EMA ▼", col: ema9 > ema21 ? C.green : C.red, title: ema9 > ema21 ? "EMA 9 above 21 — bullish" : "EMA 9 below 21 — bearish" });
+                                  }
+                                  // Near 52w extremes
+                                  if (hi52 > 0 && lo52 > 0 && px > 0) {
+                                    const distLo = (px - lo52) / lo52 * 100;
+                                    const distHi = (hi52 - px) / hi52 * 100;
+                                    if (distLo < 10)  chips.push({ txt: "Near 52wLo", col: C.green, title: "Within 10% of 52-week low — potential bottom" });
+                                    if (distHi < 5)   chips.push({ txt: "Near 52wHi", col: C.amber, title: "Within 5% of 52-week high — watch for top" });
+                                  }
+                                  // Volume spike
+                                  if (rvol > 2.5) chips.push({ txt: `Vol ${rvol.toFixed(1)}x 🔥`, col: C.amber, title: "Volume spike — unusual activity" });
+                                  else if (rvol > 1.5) chips.push({ txt: `Vol ${rvol.toFixed(1)}x`, col: C.textDim });
+                                  // Sharp move
+                                  if (chg1w < -15) chips.push({ txt: `${chg1w.toFixed(0)}% 1w ↘`, col: C.green, title: "Sharp weekly drop — oversold bounce?" });
+                                  if (chg1w > 20)  chips.push({ txt: `+${chg1w.toFixed(0)}% 1w ↗`, col: C.red,   title: "Parabolic weekly move — top forming?" });
+                                  // MA50 distance
+                                  if (ma50 > 0 && px > 0) {
+                                    const d50 = (px - ma50) / ma50 * 100;
+                                    if (d50 < -15) chips.push({ txt: `${d50.toFixed(0)}% vs MA50`, col: C.green, title: "Far below 50MA — stretched low" });
+                                    if (d50 > 20)  chips.push({ txt: `+${d50.toFixed(0)}% vs MA50`, col: C.red,   title: "Far above 50MA — extended high" });
+                                  }
+                                  // Zone
+                                  if (zoneLbl && zoneLbl !== "—" && zoneLbl !== "WAIT") {
+                                    chips.push({ txt: zoneLbl, col: zoneCol, title: "Current entry zone" });
+                                  }
+                                  // Thesis
+                                  if (ref?.thesis) chips.push({ txt: ref.thesis.slice(0, 35) + (ref.thesis.length > 35 ? "…" : ""), col: C.textDim, italic: true });
+
+                                  if (!chips.length) return null;
+                                  return (
+                                    <div style={{ display: "flex", gap: 5, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
+                                      {chips.map((ch, ci) => (
+                                        <span key={ci} title={ch.title || ""}
+                                          style={{ fontFamily: ch.italic ? SANS : MONO, fontSize: 10,
+                                            color: ch.col, fontStyle: ch.italic ? "italic" : "normal",
+                                            fontWeight: ch.col === C.textDim ? 400 : 700,
+                                            ...(ch.col !== C.textDim && !ch.italic ? {
+                                              background: `${ch.col}18`, borderRadius: 3,
+                                              padding: "1px 5px", border: `1px solid ${ch.col}33`
+                                            } : {}),
+                                          }}>
+                                          {ci > 0 && ch.col === C.textDim && !ch.italic && <span style={{ opacity: 0.3, marginRight: 5 }}>·</span>}
+                                          {ch.txt}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  );
+                                })()}
                               </td>
 
                               {/* Sector — hidden on tablet */}
