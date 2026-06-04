@@ -24,65 +24,57 @@ const FUTURES_SYMBOLS = [
 
 async function fetchFutures() {
   return cached("futures", TTL, async () => {
-    const syms = FUTURES_SYMBOLS.map(f => f.yahoo).join(",");
-    const url  = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${syms}&fields=regularMarketPrice,regularMarketChangePercent,regularMarketChange`;
-    const data = await withTimeout(fetchJsonSafe(url), 8000, null);
-    const quotes = data?.quoteResponse?.result || [];
-    return FUTURES_SYMBOLS.map(f => {
-      const q   = quotes.find(r => r.symbol === f.yahoo) || {};
-      const price = Number(q.regularMarketPrice || 0);
-      const chg   = Number(q.regularMarketChangePercent || 0);
-      return { sym: f.sym, label: f.label, price, chg };
-    }).filter(f => f.price > 0);
+    const results = await Promise.all(FUTURES_SYMBOLS.map(f =>
+      fetchChartQuote(f.yahoo).then(q => ({ sym: f.sym, label: f.label, price: q.price, chg: q.chg }))
+    ));
+    return results.filter(f => f.price > 0);
   });
 }
 
-// ── Pre-Market Movers ─────────────────────────────────────────────────────────
+// ── Pre-Market Movers — uses v8 chart API (reliable on server) ───────────────
 const PM_UNIVERSE = [
   "NVDA","TSLA","AAPL","META","AMZN","GOOGL","MSFT","AMD","NFLX","COIN",
   "SMCI","PLTR","MSTR","RIVN","SOFI","MARA","RIOT","HOOD","RBLX","UPST",
-  "AFRM","DKNG","SNOW","CRWD","NET","BBAI","SOUN","RGTI","IONQ","ACHR",
-  "IBIT","SPY","QQQ","IWM","UVXY","ASTS","RKLB","OKLO","SMR",
+  "AFRM","DKNG","CRWD","NET","BBAI","SOUN","RGTI","IONQ","ACHR",
+  "IBIT","SPY","QQQ","IWM","ASTS","RKLB","OKLO","SMR","HIMS","SNAP",
 ];
+
+function fetchChartQuote(sym) {
+  const https = require("https");
+  return new Promise(resolve => {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=2d`;
+    const req = https.get(url, { headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" } }, res => {
+      let d = ""; res.on("data", c => d += c);
+      res.on("end", () => {
+        try {
+          const j = JSON.parse(d);
+          const meta   = j?.chart?.result?.[0]?.meta || {};
+          const closes = j?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [];
+          const prev   = closes[0] || 0;
+          const price  = meta.regularMarketPrice || 0;
+          const chg    = prev > 0 ? (price - prev) / prev * 100 : 0;
+          resolve({ sym, price: Math.round(price * 100) / 100, chg: Math.round(chg * 100) / 100 });
+        } catch { resolve({ sym, price: 0, chg: 0 }); }
+      });
+    });
+    req.on("error", () => resolve({ sym, price: 0, chg: 0 }));
+    req.setTimeout(6000, () => { req.destroy(); resolve({ sym, price: 0, chg: 0 }); });
+  });
+}
 
 async function fetchPreMarketMovers() {
   return cached("preMktMovers", TTL, async () => {
-    const CHUNK = 20;
-    const chunks = [];
-    for (let i = 0; i < PM_UNIVERSE.length; i += CHUNK)
-      chunks.push(PM_UNIVERSE.slice(i, i + CHUNK));
-
-    const results = await Promise.allSettled(chunks.map(c => {
-      const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${c.join(",")}&fields=regularMarketPrice,regularMarketChangePercent,preMarketPrice,preMarketChangePercent,regularMarketPreviousClose`;
-      return withTimeout(fetchJsonSafe(url), 8000, null);
-    }));
-
-    const quotes = results.flatMap(r =>
-      r.status === "fulfilled" ? (r.value?.quoteResponse?.result || []) : []
-    );
-
-    const now = new Date();
-    const etHour = Number(new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" })).getHours());
-    const isPreMkt = etHour < 9 || (etHour === 9 && new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" })).getMinutes() < 30);
-
-    const movers = quotes
-      .map(q => {
-        const sym   = String(q.symbol || "").toUpperCase();
-        const prev  = Number(q.regularMarketPreviousClose || 0);
-        let chg = 0;
-        if (isPreMkt && q.preMarketPrice && prev > 0) {
-          chg = (Number(q.preMarketPrice) - prev) / prev * 100;
-        } else {
-          chg = Number(q.regularMarketChangePercent || 0);
-        }
-        const price = isPreMkt && q.preMarketPrice ? Number(q.preMarketPrice) : Number(q.regularMarketPrice || 0);
-        return { sym, chg: Math.round(chg * 100) / 100, price: Math.round(price * 100) / 100 };
-      })
-      .filter(m => Math.abs(m.chg) >= 1 && m.price > 0)
+    // Fetch in batches of 8 concurrently to avoid rate limits
+    const BATCH = 8;
+    const results = [];
+    for (let i = 0; i < PM_UNIVERSE.length; i += BATCH) {
+      const batch = await Promise.all(PM_UNIVERSE.slice(i, i + BATCH).map(fetchChartQuote));
+      results.push(...batch);
+    }
+    return results
+      .filter(r => Math.abs(r.chg) >= 0.5 && r.price > 0)
       .sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg))
       .slice(0, 10);
-
-    return movers;
   });
 }
 
