@@ -17355,11 +17355,12 @@ export default function App() {
                                             </button>
                                             {/* Send to Telegram — no state, use DOM directly */}
                                             {(() => {
+                                              const r2   = n => Math.round(n * 100) / 100;
                                               const px   = Number(livePrice || row.quote?.price || 0);
-                                              const stop = round2(px * 0.97);
-                                              const t1   = round2(px * 1.08);
-                                              const t2   = round2(px * 1.15);
-                                              const rr   = round2((t1 - px) / Math.max(px - stop, 0.01));
+                                              const stop = r2(px * 0.97);
+                                              const t1   = r2(px * 1.08);
+                                              const t2   = r2(px * 1.15);
+                                              const rr   = r2((t1 - px) / Math.max(px - stop, 0.01));
                                               const chg  = Number(row.quote?.changePercent || 0);
                                               const msg  = [
                                                 `📊 ${row.ticker} SETUP — $${px} (${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%)`,
