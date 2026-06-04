@@ -5179,14 +5179,14 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
       {/* ── Stats Strip ── */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))', gap:8 }}>
         {[
-          { label:'SPY', val:spySym?`$${spySym.price?.toFixed(2)}`:'—', sub:fmtP(spyChg), col:spyChg>=0?GREEN:RED },
-          { label:'QQQ', val:qqqSym?`$${qqqSym.price?.toFixed(2)}`:'—', sub:fmtP(qqqChg), col:qqqChg>=0?GREEN:RED },
-          { label:'VIX', val:vix>0?vix.toFixed(1):'—', sub:vix>25?'FEAR':vix>18?'CAUTION':'CALM', col:vix>25?RED:vix>18?AMBER:GREEN },
+          { label:'REGIME', val:(regimeLabel||'—').split('/')[0].trim(), sub:`${regConf}% confidence`, col:regimeColor||ACCENT },
           portfolioSummary?.totalCost>0
             ? { label:'TODAY P&L', val:fmtD(portfolioSummary.dayPnlTotal||0), sub:fmtP(portfolioSummary.dayPnlPct||0), col:(portfolioSummary.dayPnlTotal||0)>=0?GREEN:RED }
-            : { label:'REGIME', val:(regimeLabel||'—').split(' ')[0], sub:`${regConf}% conf`, col:regimeColor||ACCENT },
-          { label:'SIGNALS', val:String((scanResults||[]).filter(r=>r.score>=70).length), sub:'A+ setups', col:ACCENT },
-          { label:'ALERTS', val:String(combinedAlerts.length), sub:combinedAlerts.length>0?'ACTIVE':'CLEAR', col:combinedAlerts.length>0?AMBER:GREEN },
+            : { label:'TILT', val:tiltLocked?'LOCKED':tiltStreak===0?'CLEAR':`${tiltStreak}/3`, sub:tiltLocked?'Platform locked':tiltStreak===0?'No losses':'Warning', col:tiltLocked?RED:tiltStreak>=2?AMBER:GREEN },
+          { label:'A+ SIGNALS', val:String((scanResults||[]).filter(r=>r.score>=70).length), sub:'from scanner', col:ACCENT },
+          { label:'ALERTS', val:String(combinedAlerts.length), sub:combinedAlerts.length>0?'ACTIVE':'ALL CLEAR', col:combinedAlerts.length>0?AMBER:GREEN },
+          { label:'NEXT EVENT', val:eventCountdowns[0]?.name||'None', sub:eventCountdowns[0]?`in ${eventCountdowns[0].days}d`:'No events', col:eventCountdowns[0]?.days<=2?RED:eventCountdowns[0]?.days<=5?AMBER:C.textDim },
+          { label:'FLOW BIAS', val:combinedAlerts.filter(a=>a.type==='flow').length>0?'ACTIVE':'NEUTRAL', sub:`${combinedAlerts.filter(a=>a.type==='flow').length} flow alerts`, col:combinedAlerts.filter(a=>a.type==='flow').length>0?AMBER:C.textDim },
         ].map((s,i) => (
           <div key={i} style={{ background:CARD, border:`1px solid ${BORDER}`,
             borderTop:`2px solid ${s.col}`, borderRadius:8, padding:'10px 12px',
