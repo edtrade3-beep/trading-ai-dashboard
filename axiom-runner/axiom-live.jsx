@@ -14377,7 +14377,7 @@ export default function App() {
         })()}
 
 
-        {activeTab === "dashboard" && watchlistData.length > 0 && (
+        {activeTab === "watchlist-view-disabled" && watchlistData.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : `minmax(0, 1fr) minmax(260px, ${LAYOUT.sidebarWidth}px)`, gap: LAYOUT.gridGap, alignItems: "start", width: "100%", overflow: "hidden" }}>
             {/* Watchlist Table */}
             <div>
