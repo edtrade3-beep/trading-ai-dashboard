@@ -15367,6 +15367,8 @@ export default function App() {
                                   setScanExpanded(row.ticker);
                                   loadDeepDive(row.ticker);
                                   loadDeepSocial(row.ticker);
+                                  // Auto-generate AI trade plan
+                                  setTimeout(() => fetchTradeSetup(row.ticker, row), 1200);
                                 }
                               }}
                               style={{
@@ -15782,7 +15784,7 @@ export default function App() {
                                           {(() => {
                                             const px5   = Number(livePrice || row.quote?.price || 0);
                                             const ma505 = Number(row.quote?.priceAvg50 || 0);
-                                            const stop5 = ma505 > 0 ? ma505 * 0.97 : px5 * 0.92;
+                                            const stop5 = ma505 > 0 ? ma505 * 0.97 : px5 * 0.97;
                                             const acct  = Number(riskAccount || 10000);
                                             const pct   = Number(riskPct || 1) / 100;
                                             const riskAmt = acct * pct;
@@ -15792,31 +15794,39 @@ export default function App() {
                                             const t1     = px5 * 1.08;
                                             const t2     = px5 * 1.15;
                                             const profitT1 = shares * (t1 - px5);
+                                            const stopPct  = px5 > 0 ? ((px5 - stop5) / px5 * 100).toFixed(1) : 0;
                                             if (!px5 || shares <= 0) return null;
                                             return (
-                                              <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8,
+                                              <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 10,
                                                 background: `${C.accent}08`, border: `1px solid ${C.accent}22` }}>
-                                                <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.textDim, marginBottom: 8, letterSpacing: "0.06em" }}>
-                                                  💰 POSITION CALCULATOR
-                                                  <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 400, marginLeft: 8, color: C.textDim }}>
-                                                    ${acct.toLocaleString()} account · {(pct*100).toFixed(1)}% risk = ${riskAmt.toFixed(0)}
-                                                  </span>
+                                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                                                  <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em" }}>
+                                                    💰 POSITION SIZING
+                                                  </div>
+                                                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>
+                                                    ${acct.toLocaleString()} acct · {(pct*100).toFixed(1)}% risk = <strong style={{ color: C.red }}>${riskAmt.toFixed(0)} max loss</strong>
+                                                  </div>
                                                 </div>
-                                                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6 }}>
-                                                  {[
-                                                    ["SHARES", shares, C.text],
-                                                    ["COST",  `$${cost.toFixed(0)}`, C.text],
-                                                    ["RISK",  `$${riskAmt.toFixed(0)}`, C.red],
-                                                    ["T1 PROFIT", `+$${profitT1.toFixed(0)}`, C.green],
-                                                  ].map(([l,v,c]) => (
-                                                    <div key={l} style={{ background: C.surface, borderRadius: 5, padding: "6px 8px", textAlign: "center" }}>
-                                                      <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim, marginBottom: 2 }}>{l}</div>
-                                                      <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: c }}>{v}</div>
-                                                    </div>
-                                                  ))}
+                                                {/* Main numbers — big and clear */}
+                                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                                                  <div style={{ background: C.surface, borderRadius: 8, padding: "10px 12px" }}>
+                                                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 3 }}>BUY</div>
+                                                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>{shares} shares</div>
+                                                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>@ ${px5.toFixed(2)} = ${cost >= 1000 ? (cost/1000).toFixed(1)+"k" : cost.toFixed(0)}</div>
+                                                  </div>
+                                                  <div style={{ background: C.surface, borderRadius: 8, padding: "10px 12px" }}>
+                                                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 3 }}>IF TARGET HIT (+8%)</div>
+                                                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.green }}>+${profitT1.toFixed(0)}</div>
+                                                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>@ ${t1.toFixed(2)} · T2 ${t2.toFixed(2)}</div>
+                                                  </div>
                                                 </div>
-                                                <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 6 }}>
-                                                  Stop: ${stop5.toFixed(2)} · T1: ${t1.toFixed(2)} · T2: ${t2.toFixed(2)} · Uses risk sizer settings
+                                                {/* Stop loss — clear */}
+                                                <div style={{ display: "flex", gap: 6, fontSize: 11 }}>
+                                                  <span style={{ fontFamily: MONO, color: C.red, fontWeight: 700 }}>🛑 Stop ${stop5.toFixed(2)} (-{stopPct}%)</span>
+                                                  <span style={{ color: C.textDim }}>·</span>
+                                                  <span style={{ fontFamily: MONO, color: C.textDim }}>Max loss ${riskAmt.toFixed(0)}</span>
+                                                  <span style={{ color: C.textDim }}>·</span>
+                                                  <span style={{ fontFamily: MONO, color: C.green }}>T1 +8% · T2 +15%</span>
                                                 </div>
                                               </div>
                                             );
@@ -15842,6 +15852,49 @@ export default function App() {
                                               cursor: "pointer", marginTop: 8 }}>
                                             📋 COPY TRADE PLAN
                                           </button>
+
+                                          {/* ── QUICK ACTIONS ── */}
+                                          <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                                            {/* Set Price Alert */}
+                                            <button onClick={() => {
+                                              const px = Number(livePrice || row.quote?.price || 0);
+                                              const t1 = (px * 1.08).toFixed(2);
+                                              setActiveTab("alerts");
+                                            }} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                              border: `1px solid ${C.amber}55`, background: `${C.amber}12`,
+                                              color: C.amber, borderRadius: 6, padding: "5px 12px", cursor: "pointer" }}>
+                                              🔔 Set T1 Alert
+                                            </button>
+                                            {/* Log Trade */}
+                                            <button onClick={() => {
+                                              const px = Number(livePrice || row.quote?.price || 0);
+                                              setQuickLogModal({
+                                                symbol: row.ticker, price: px,
+                                                entry: px.toFixed(2),
+                                                stopLoss: (px * 0.97).toFixed(2),
+                                                target: (px * 1.08).toFixed(2),
+                                                side: "BUY", timeframe: "1D",
+                                                style: "Breakout", notes: `Smart Scan · Score ${row.score}`,
+                                                score: row.score, chg: row.quote?.changePercent || 0, rvol: 0
+                                              });
+                                            }} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                              border: `1px solid ${C.green}55`, background: `${C.green}12`,
+                                              color: C.green, borderRadius: 6, padding: "5px 12px", cursor: "pointer" }}>
+                                              📓 Log Trade
+                                            </button>
+                                            {/* Add to watchlist */}
+                                            <button onClick={() => {
+                                              const sym = row.ticker;
+                                              fetch("/api/watchlist", { method: "POST",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify({ symbol: sym, action: "add" })
+                                              }).then(() => {}).catch(() => {});
+                                            }} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                              border: `1px solid ${C.accent}55`, background: `${C.accent}12`,
+                                              color: C.accent, borderRadius: 6, padding: "5px 12px", cursor: "pointer" }}>
+                                              ⭐ Watch
+                                            </button>
+                                          </div>
                                         </div>
                                       );
                                     })()}
@@ -16086,117 +16139,6 @@ export default function App() {
                                           </div>
                                         );
                                       })()}
-
-                                      {/* ── Col 4: SOCIAL SENTIMENT + INSIDER BUYS ── */}
-                                      <div style={{ width: 215, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
-                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
-                                          💬 SENTIMENT
-                                        </div>
-                                        {deepSocialLoad[row.ticker] ? (
-                                          <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>Loading…</div>
-                                        ) : (() => {
-                                          const sd = deepSocialData[row.ticker];
-                                          if (!sd || (!sd.stocktwits && !sd.redditMentions)) {
-                                            return <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>No data</div>;
-                                          }
-                                          const stwits  = sd.stocktwits || {};
-                                          const bullPct = stwits.bullPct ?? 50;
-                                          const bearPct = 100 - bullPct;
-                                          const total   = stwits.total ?? 0;
-                                          const msgs    = stwits.messages ?? [];
-                                          return (
-                                            <div>
-                                              {/* Bull / Bear numbers */}
-                                              <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                                                <div style={{ flex: 1, padding: "8px 4px", borderRadius: 6, overflow: "hidden",
-                                                  background: `${C.green}18`, border: `1px solid ${C.green}44`,
-                                                  textAlign: "center" }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.green }}>{bullPct.toFixed(0)}%</div>
-                                                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>BULL</div>
-                                                </div>
-                                                <div style={{ flex: 1, padding: "8px 4px", borderRadius: 6, overflow: "hidden",
-                                                  background: `${C.red}18`, border: `1px solid ${C.red}44`,
-                                                  textAlign: "center" }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.red }}>{bearPct.toFixed(0)}%</div>
-                                                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>BEAR</div>
-                                                </div>
-                                              </div>
-                                              {/* Sentiment bar */}
-                                              <div style={{ height: 8, borderRadius: 6, overflow: "hidden",
-                                                display: "flex", marginBottom: 8 }}>
-                                                <div style={{ width: `${bullPct}%`, background: C.green, minWidth: bullPct > 0 ? 2 : 0 }} />
-                                                <div style={{ flex: 1, background: C.red }} />
-                                              </div>
-                                              {/* Stats */}
-                                              {[
-                                                ["Posts", total],
-                                                ["WSB", sd.redditMentions ?? "—"],
-                                              ].map(([k, v]) => (
-                                                <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                                  fontFamily: MONO, fontSize: 13, padding: "6px 0",
-                                                  borderBottom: `1px solid ${C.border}22` }}>
-                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>{k}</span>
-                                                  <span style={{ color: C.text, fontWeight: 700 }}>{v}</span>
-                                                </div>
-                                              ))}
-                                              {/* Top 3 recent posts */}
-                                              {msgs.length > 0 && (
-                                                <div style={{ marginTop: 10 }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 12, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6, marginTop: 8, textTransform: "uppercase" }}>RECENT</div>
-                                                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                                                    {msgs.slice(0, 3).map((m, mi) => (
-                                                      <div key={mi} style={{ padding: "6px 8px", borderRadius: 6,
-                                                        background: C.surface,
-                                                        borderLeft: `2px solid ${m.sentiment === "Bullish" ? C.green : m.sentiment === "Bearish" ? C.red : C.border}` }}>
-                                                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 2 }}>
-                                                          {m.sentiment === "Bullish" ? "🟢" : m.sentiment === "Bearish" ? "🔴" : "⚪"} {m.user}
-                                                        </div>
-                                                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, lineHeight: 1.4 }}>
-                                                          {(m.body || "").slice(0, 90)}{m.body?.length > 90 ? "…" : ""}
-                                                        </div>
-                                                      </div>
-                                                    ))}
-                                                  </div>
-                                                </div>
-                                              )}
-                                            </div>
-                                          );
-                                        })()}
-
-                                        {/* Insider transactions */}
-                                        {(() => {
-                                          const ins = deepData?.insider;
-                                          if (!ins) return null;
-                                          const buys  = (ins.transactions || []).filter(t => t.type === "BUY").slice(0, 3);
-                                          const sells = (ins.transactions || []).filter(t => t.type === "SELL").slice(0, 2);
-                                          const all   = [...buys, ...sells];
-                                          if (!all.length) return null;
-                                          const fmtVal = v => v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v}`;
-                                          return (
-                                            <div style={{ marginTop: 12 }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 12, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6, marginTop: 8, textTransform: "uppercase" }}>🏦 INSIDER TRANSACTIONS</div>
-                                              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                                                {all.map((t, ti) => (
-                                                  <div key={ti} style={{ padding: "6px 8px", borderRadius: 6,
-                                                    background: C.surface,
-                                                    borderLeft: `2px solid ${t.type === "BUY" ? C.green : C.red}` }}>
-                                                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                                      <span style={{ fontFamily: MONO, fontSize: 12,
-                                                        color: t.type === "BUY" ? C.green : C.red, fontWeight: 700 }}>
-                                                        {t.type === "BUY" ? "▲ BUY" : "▼ SELL"}
-                                                      </span>
-                                                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{t.date}</span>
-                                                    </div>
-                                                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, marginTop: 2 }}>
-                                                      {(t.name || "").split(" ").slice(0,2).join(" ")} · {t.value > 0 ? fmtVal(t.value) : `${(t.shares||0).toLocaleString()} sh`}
-                                                    </div>
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          );
-                                        })()}
-                                      </div>
 
                                       {/* ── Col 5: RECENT NEWS ── */}
                                       <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
@@ -16518,15 +16460,15 @@ export default function App() {
                                         })()}
 
                                         {!tradeSetups[row.ticker] && !tradeSetupLoad[row.ticker] && !tradeSetupError[row.ticker] && (
-                                          <div style={{ flex: 1, fontFamily: MONO, fontSize: 13, color: C.textDim,
-                                            background: themeMode === "dark" ? "#0a1628" : "#f5f9ff",
-                                            border: `1px dashed ${C.border}`, borderRadius: 6,
-                                            padding: "20px 14px", textAlign: "center", lineHeight: 1.7,
-                                            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                                            Click <span style={{ color: C.purple, fontWeight: 700 }}>▶ GENERATE</span> for a complete AI trade plan:<br/>
-                                            <span style={{ color: C.textDim, fontSize: 12 }}>
-                                              entry · stop · targets · R:R · catalysts · risks · verdict
-                                            </span>
+                                          <div style={{ flex: 1, fontFamily: SANS, fontSize: 13, color: C.textDim,
+                                            background: `${C.purple}08`, border: `1px dashed ${C.purple}44`,
+                                            borderRadius: 8, padding: "16px 14px", textAlign: "center",
+                                            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                                            <div style={{ fontSize: 20 }}>🤖</div>
+                                            <div style={{ color: C.textDim, fontSize: 12, lineHeight: 1.6 }}>
+                                              Auto-generating trade plan…<br/>
+                                              <span style={{ color: C.purple }}>entry · stop · targets · R:R · risks</span>
+                                            </div>
                                           </div>
                                         )}
 
