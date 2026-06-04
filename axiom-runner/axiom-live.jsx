@@ -17392,6 +17392,141 @@ export default function App() {
                                             })()}
                                           </div>
                                         </div>
+
+                                        {/* ── OPTIONS RECOMMENDATION ── */}
+                                        {(() => {
+                                          const px      = Number(livePrice || row.quote?.price || 0);
+                                          if (!px) return null;
+                                          const rsi     = Number(row.rsiVal || 50);
+                                          const macd    = row.macdBull;
+                                          const ema9    = row.ema9v, ema21 = row.ema21v;
+                                          const score   = row.score || 50;
+                                          const smc     = scanDeepData[row.ticker]?.smc;
+                                          const bosType = smc?.bos?.type || null;
+                                          const fd2     = scanDeepData[row.ticker]?.fundamentals || {};
+                                          const earnDate= fd2.earningsDate;
+                                          const ma50    = Number(row.quote?.priceAvg50 || 0);
+                                          const ma200   = Number(row.quote?.priceAvg200 || 0);
+
+                                          // Days to earnings
+                                          let daysToEarn = null;
+                                          if (earnDate) {
+                                            const d = new Date(typeof earnDate === "number" ? earnDate * 1000 : earnDate);
+                                            daysToEarn = Math.round((d - Date.now()) / 86400000);
+                                          }
+                                          const earningsRisk = daysToEarn != null && daysToEarn >= 0 && daysToEarn <= 7;
+
+                                          // CALL signals (bullish)
+                                          const callSigs = [];
+                                          if (bosType === "BULL_BOS")              callSigs.push("✅ Bull BOS confirmed");
+                                          if (ema9 && ema21 && ema9 > ema21)       callSigs.push("✅ EMA 9 above 21 (bullish)");
+                                          if (rsi >= 45 && rsi <= 65)              callSigs.push("✅ RSI in sweet spot (" + rsi.toFixed(0) + ")");
+                                          if (macd === true)                        callSigs.push("✅ MACD bullish crossover");
+                                          if (ma50 > 0 && px > ma50)               callSigs.push("✅ Above 50-day MA");
+                                          if (score >= 70)                         callSigs.push("✅ Strong score (" + score + "/100)");
+
+                                          // PUT signals (bearish)
+                                          const putSigs = [];
+                                          if (bosType === "BEAR_BOS")              putSigs.push("✅ Bear BOS confirmed");
+                                          if (ema9 && ema21 && ema9 < ema21)       putSigs.push("✅ EMA 9 below 21 (bearish)");
+                                          if (rsi > 70)                            putSigs.push("✅ RSI overbought (" + rsi.toFixed(0) + ") — fade");
+                                          if (macd === false)                       putSigs.push("✅ MACD bearish crossover");
+                                          if (ma50 > 0 && px < ma50 * 0.97)        putSigs.push("✅ Below 50-day MA");
+                                          if (score <= 35)                         putSigs.push("✅ Weak score (" + score + "/100)");
+
+                                          // Decide direction
+                                          const callScore = callSigs.length;
+                                          const putScore  = putSigs.length;
+                                          const neutral   = callScore < 2 && putScore < 2;
+
+                                          let direction, dirColor, dirBg, dirIcon, strikeNote, expNote, sigs, exitNote;
+
+                                          // Strike + expiry logic
+                                          const itmStrike  = px > 100 ? Math.round(px / 5) * 5 : Math.round(px);
+                                          const otmStrike1 = px > 100 ? itmStrike + 5   : itmStrike + 1;
+                                          const otmStrike2 = px > 100 ? itmStrike - 5   : itmStrike - 1;
+
+                                          if (neutral || earningsRisk) {
+                                            direction = earningsRisk
+                                              ? "⚠️ EARNINGS RISK — AVOID"
+                                              : "〰️ NO CLEAR SIGNAL";
+                                            dirColor  = C.textDim;
+                                            dirBg     = C.card;
+                                            dirIcon   = earningsRisk ? "⚠️" : "〰️";
+                                            sigs      = earningsRisk
+                                              ? [`⚠️ Earnings in ${daysToEarn} days — IV will spike then crush`, "❌ Buying options before earnings = high risk", "Wait until after earnings report"]
+                                              : ["Mixed signals — no clear direction", "Risk:reward not favorable right now", "Wait for Bull BOS or Bear BOS confirmation"];
+                                            expNote   = "—";
+                                            strikeNote= "—";
+                                            exitNote  = "Do not trade options on this setup.";
+                                          } else if (callScore >= putScore) {
+                                            direction = callScore >= 4 ? "🟢 BUY CALLS" : "🔵 CONSIDER CALLS";
+                                            dirColor  = C.green;
+                                            dirBg     = `${C.green}10`;
+                                            dirIcon   = callScore >= 4 ? "🟢" : "🔵";
+                                            sigs      = callSigs;
+                                            strikeNote= `$${otmStrike1} strike (1 OTM) or $${itmStrike} (ATM)`;
+                                            expNote   = "21-35 days out (not weekly — avoid theta decay)";
+                                            exitNote  = `Sell at +50-80% profit OR if price breaks below $${(px * 0.97).toFixed(2)}`;
+                                          } else {
+                                            direction = putScore >= 4 ? "🔴 BUY PUTS" : "🟡 CONSIDER PUTS";
+                                            dirColor  = C.red;
+                                            dirBg     = `${C.red}10`;
+                                            dirIcon   = putScore >= 4 ? "🔴" : "🟡";
+                                            sigs      = putSigs;
+                                            strikeNote= `$${otmStrike2} strike (1 OTM) or $${itmStrike} (ATM)`;
+                                            expNote   = "21-35 days out (not weekly — avoid theta decay)";
+                                            exitNote  = `Sell at +50-80% profit OR if price breaks above $${(px * 1.03).toFixed(2)}`;
+                                          }
+
+                                          return (
+                                            <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 10,
+                                              background: dirBg, border: `1px solid ${dirColor}44` }}>
+                                              {/* Header */}
+                                              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                                                <span style={{ fontSize: 20 }}>{dirIcon}</span>
+                                                <div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: dirColor }}>
+                                                    OPTIONS: {direction}
+                                                  </div>
+                                                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 1 }}>
+                                                    Based on current technicals · Not financial advice
+                                                  </div>
+                                                </div>
+                                              </div>
+
+                                              {/* Signals */}
+                                              <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 10 }}>
+                                                {sigs.map((s, si) => (
+                                                  <div key={si} style={{ fontFamily: SANS, fontSize: 12, color: dirColor }}>{s}</div>
+                                                ))}
+                                              </div>
+
+                                              {/* Trade details */}
+                                              {!neutral && !earningsRisk && (
+                                                <div style={{ display: "flex", flexDirection: "column", gap: 5,
+                                                  padding: "8px 10px", background: C.surface, borderRadius: 7 }}>
+                                                  {[
+                                                    ["Strike", strikeNote],
+                                                    ["Expiration", expNote],
+                                                    ["Exit", exitNote],
+                                                    ["Max loss", "100% of premium paid — size small"],
+                                                  ].map(([k, v]) => (
+                                                    <div key={k} style={{ display: "flex", gap: 8 }}>
+                                                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, flexShrink: 0, minWidth: 70 }}>{k}:</span>
+                                                      <span style={{ fontFamily: SANS, fontSize: 11, color: C.text }}>{v}</span>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+
+                                              <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 8, fontStyle: "italic" }}>
+                                                ⚠️ Options carry significant risk. Never risk more than 1-2% of account per options trade.
+                                              </div>
+                                            </div>
+                                          );
+                                        })()}
+                                      </div>
                                       );
                                     })()}
 
