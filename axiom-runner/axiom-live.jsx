@@ -5031,6 +5031,342 @@ function Under10Tab({ C, MONO, SANS, setActiveTab, watchlistSymbols }) {
   );
 }
 
+// ── Pro Dashboard Component ──────────────────────────────────────────────────
+function ProDashboard({
+  C, MONO, SANS, macroData, distData, vixPrice, spyChg, qqqChg, regime, flowBias,
+  portfolioSummary, combinedAlerts, futuresData, preMktMovers, eventCountdowns,
+  scanResults, journalEntries, tiltStreak, tiltLocked, tiltEnabled, setActiveTab,
+  isTablet, scanDeepData, regimeColor, regimeLabel
+}) {
+  const card = {
+    background: C.card, border: `1px solid ${C.border}`,
+    borderRadius: 10, padding: 16, boxShadow: "0 1px 6px rgba(0,0,0,0.06)"
+  };
+  const cardHdr = {
+    fontFamily: MONO, fontSize: 11, fontWeight: 900, letterSpacing: "0.1em",
+    color: C.textDim, marginBottom: 12, display: "flex", alignItems: "center",
+    justifyContent: "space-between"
+  };
+  const fmt$ = n => n >= 1000 ? `$${(n/1000).toFixed(1)}k` : `$${Math.round(n)}`;
+  const fmtPct = n => `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
+
+  // Regime data
+  const vix = distData?.vix || vixPrice || 0;
+  const regimeConf = vix > 30 ? 85 : vix > 20 ? 65 : 78;
+  const playbook = regime === "BULL TREND" ? [
+    "Full size on A+ long setups",
+    "Buy pullbacks to EMA21",
+    "Let winners run — trend is your friend",
+    "Avoid shorting into strength",
+  ] : regime === "BEAR / RISK-OFF" ? [
+    "Reduce position size 50%",
+    "Only short setups or cash",
+    "Tighten stops — volatility is high",
+    "No longs unless SPY reclaims key level",
+  ] : regime === "CHOP / NEUTRAL" ? [
+    "Reduce size to 50–75%",
+    "Take profits faster — no overnight holds",
+    "Avoid breakout trades — they fail in chop",
+    "Wait for regime to resolve",
+  ] : [
+    "Smaller size — uncertainty is elevated",
+    "Favor defensive sectors (XLU, XLV, XLP)",
+    "No momentum plays until market stabilizes",
+    "Keep 30–40% cash",
+  ];
+
+  // Top signals
+  const topSignals = (scanResults || [])
+    .filter(r => r.signal === "STRONG BUY" || r.signal === "BUY" || r.score >= 70)
+    .slice(0, 3);
+
+  // Today's journal trades
+  const today = new Date().toISOString().slice(0, 10);
+  const todayTrades = (journalEntries || []).filter(e => e.status === "closed" && e.pnl != null && String(e.closedAt || "").startsWith(today));
+  const todayPnl = todayTrades.reduce((s, e) => s + e.pnl, 0);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+      {/* ── Row 1: 3 equal cards ── */}
+      <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "1fr 1fr 1fr", gap: 12 }}>
+
+        {/* Card 1: Intelligence & Regime */}
+        <div style={{ ...card, borderLeft: `4px solid ${regimeColor || C.accent}` }}>
+          <div style={cardHdr}>
+            <span>🧠 INTELLIGENCE & REGIME</span>
+            <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{regimeConf}% Confidence</span>
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: regimeColor || C.accent, marginBottom: 4 }}>
+            {regimeLabel || regime || "LOADING…"}
+          </div>
+          <div style={{ height: 6, background: C.border, borderRadius: 3, overflow: "hidden", marginBottom: 12 }}>
+            <div style={{ width: `${regimeConf}%`, height: "100%", background: regimeColor || C.accent, borderRadius: 3 }} />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            {playbook.map((p, i) => (
+              <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.text, display: "flex", gap: 6 }}>
+                <span style={{ color: regimeColor || C.accent, flexShrink: 0 }}>{i + 1}.</span>{p}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Card 2: Calendar & Events */}
+        <div style={card}>
+          <div style={cardHdr}><span>📅 CALENDAR & EVENTS</span></div>
+          {eventCountdowns.length === 0 ? (
+            <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No major events soon</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {eventCountdowns.slice(0, 4).map((ev, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12,
+                  padding: "8px 10px", borderRadius: 8,
+                  background: ev.days === 0 ? `${C.red}15` : ev.days <= 2 ? `${C.amber}10` : C.surface,
+                  border: `1px solid ${ev.days === 0 ? C.red+"44" : ev.days <= 2 ? C.amber+"33" : C.border}` }}>
+                  <div style={{ textAlign: "center", minWidth: 44, padding: "4px 8px", borderRadius: 6,
+                    background: ev.days === 0 ? C.red : ev.days <= 2 ? C.amber : C.accent, color: "#fff" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900 }}>{ev.days}d</div>
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>{ev.name}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{ev.date}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Card 3: Alert & Flow Feed */}
+        <div style={card}>
+          <div style={cardHdr}>
+            <span>⚡ ALERT & FLOW FEED</span>
+            {combinedAlerts.length > 0 && (
+              <span style={{ background: C.amber, color: "#fff", fontFamily: MONO, fontSize: 10,
+                borderRadius: 999, padding: "1px 7px", fontWeight: 800 }}>{combinedAlerts.length}</span>
+            )}
+          </div>
+          {combinedAlerts.length === 0 ? (
+            <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No active alerts</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {combinedAlerts.slice(0, 4).map((a, i) => {
+                const col = a.type === "risk" ? C.red : a.type === "flow" ? C.amber : C.green;
+                return (
+                  <div key={i} style={{ display: "flex", gap: 10, padding: "8px 10px", borderRadius: 8,
+                    background: C.surface, borderLeft: `3px solid ${col}` }}>
+                    <div style={{ flexShrink: 0 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>{a.symbol}</div>
+                      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: col,
+                        background: `${col}18`, borderRadius: 3, padding: "1px 5px" }}>
+                        {(a.type || "").toUpperCase()}
+                      </span>
+                    </div>
+                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.4 }}>
+                      {a.text?.slice(0, 70)}{a.text?.length > 70 ? "…" : ""}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Row 2: Quotes Screener (wide) + Right column ── */}
+      <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "1.6fr 1fr", gap: 12, alignItems: "start" }}>
+
+        {/* Left: Real-time Quotes Screener */}
+        <div style={card}>
+          <div style={cardHdr}>
+            <span>📊 REAL-TIME QUOTES SCREENER</span>
+            <button onClick={() => setActiveTab("smartscan")}
+              style={{ fontFamily: MONO, fontSize: 9, padding: "2px 8px", borderRadius: 4,
+                border: `1px solid ${C.accent}44`, background: `${C.accent}15`, color: C.accent, cursor: "pointer" }}>
+              Full Scan →
+            </button>
+          </div>
+          {/* Filters */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+            {["ALL","BUY","STRONG BUY","WATCH"].map(f => (
+              <span key={f} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "2px 8px",
+                borderRadius: 4, background: f === "ALL" ? C.accent : C.surface,
+                color: f === "ALL" ? "#fff" : C.textDim, border: `1px solid ${f === "ALL" ? C.accent : C.border}`,
+                cursor: "pointer" }}>{f}</span>
+            ))}
+          </div>
+          {/* Table */}
+          <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12 }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                {["SYMBOL","PRICE","CHG%","TREND","RVOL","SCORE","SIGNAL"].map(h => (
+                  <th key={h} style={{ padding: "4px 8px", textAlign: h === "SYMBOL" ? "left" : "right",
+                    color: C.textDim, fontWeight: 700, fontSize: 10, letterSpacing: "0.06em" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(scanResults || []).slice(0, 8).map((r, i) => {
+                const price = r.quote?.price || 0;
+                const chg   = r.quote?.changePercent || 0;
+                const rvol  = r.quote?.volume && r.quote?.avgVolume ? r.quote.volume / r.quote.avgVolume : 0;
+                const sigColor = r.signal === "STRONG BUY" ? C.green : r.signal === "BUY" ? "#22c55e" :
+                                 r.signal === "WATCH" ? C.amber : r.signal === "AVOID" ? C.red : C.textDim;
+                return (
+                  <tr key={r.ticker} onClick={() => setActiveTab("smartscan")}
+                    style={{ borderBottom: `1px solid ${C.border}22`, cursor: "pointer",
+                      background: i % 2 === 0 ? "transparent" : `${C.surface}66` }}>
+                    <td style={{ padding: "7px 8px", fontWeight: 900, color: C.accent }}>{r.ticker}</td>
+                    <td style={{ padding: "7px 8px", textAlign: "right", color: C.text }}>${price.toFixed(2)}</td>
+                    <td style={{ padding: "7px 8px", textAlign: "right", color: chg >= 0 ? C.green : C.red, fontWeight: 700 }}>
+                      {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
+                    </td>
+                    <td style={{ padding: "7px 8px", textAlign: "right", color: C.textDim, fontSize: 10 }}>
+                      {r.quote?.priceAvg50 && price > r.quote.priceAvg50 ? "▲ UP" : "▼ DOWN"}
+                    </td>
+                    <td style={{ padding: "7px 8px", textAlign: "right", color: rvol >= 1.5 ? C.amber : C.textDim }}>
+                      {rvol > 0 ? rvol.toFixed(1) + "x" : "—"}
+                    </td>
+                    <td style={{ padding: "7px 8px", textAlign: "right" }}>
+                      <div style={{ height: 4, width: 40, background: C.border, borderRadius: 2, overflow: "hidden", display: "inline-block" }}>
+                        <div style={{ width: `${r.score}%`, height: "100%", background: sigColor, borderRadius: 2 }} />
+                      </div>
+                      <span style={{ marginLeft: 4, color: sigColor }}>{r.score}</span>
+                    </td>
+                    <td style={{ padding: "7px 8px", textAlign: "right" }}>
+                      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: sigColor,
+                        background: `${sigColor}18`, borderRadius: 3, padding: "2px 6px" }}>{r.signal || "—"}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+              {(scanResults || []).length === 0 && (
+                <tr><td colSpan={7} style={{ padding: 16, textAlign: "center", color: C.textDim, fontSize: 12 }}>
+                  Run scan to see setups
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Right column: 3 stacked cards */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+          {/* Risk Management */}
+          <div style={card}>
+            <div style={cardHdr}><span>🛡 RISK MANAGEMENT</span></div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {/* Tilt Detector */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "8px 10px", borderRadius: 7,
+                background: tiltLocked ? `${C.red}12` : tiltStreak >= 2 ? `${C.amber}10` : `${C.green}08`,
+                border: `1px solid ${tiltLocked ? C.red+"44" : tiltStreak >= 2 ? C.amber+"33" : C.green+"33"}` }}>
+                <span style={{ fontFamily: SANS, fontSize: 12, color: C.text }}>🧠 Tilt Detector</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800,
+                  color: tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green }}>
+                  {tiltLocked ? "🔒 LOCKED" : tiltStreak === 0 ? "✅ Clear" : `⚠️ ${tiltStreak}/3`}
+                </span>
+              </div>
+              {/* P&L */}
+              {portfolioSummary && portfolioSummary.totalCost > 0 && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "8px 10px", borderRadius: 7, background: C.surface }}>
+                  <span style={{ fontFamily: SANS, fontSize: 12, color: C.text }}>TODAY P&L</span>
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900,
+                    color: (portfolioSummary.dayPnlTotal || 0) >= 0 ? C.green : C.red }}>
+                    {fmtPct(portfolioSummary.dayPnlPct || 0)} · {fmt$(Math.abs(portfolioSummary.dayPnlTotal || 0))}
+                  </span>
+                </div>
+              )}
+              {/* VIX */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "8px 10px", borderRadius: 7, background: C.surface }}>
+                <span style={{ fontFamily: SANS, fontSize: 12, color: C.text }}>VIX</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900,
+                  color: vix > 25 ? C.red : vix > 18 ? C.amber : C.green }}>
+                  {vix.toFixed(1)} {vix > 25 ? "⚠️ FEAR" : vix > 18 ? "🟡 CAUTION" : "🟢 CALM"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Market Snapshot */}
+          <div style={card}>
+            <div style={cardHdr}><span>📈 MARKET SNAPSHOT</span></div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {(macroData || []).filter(q => ["SPY","QQQ","IWM","DIA"].includes(q.symbol)).map(q => {
+                const chg = q.changesPercentage || 0;
+                return (
+                  <div key={q.symbol} style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
+                    <div>
+                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{q.symbol}</span>
+                      <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginLeft: 6 }}>{q._label}</span>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>${(q.price||0).toFixed(2)}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: chg >= 0 ? C.green : C.red }}>
+                        {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Live Signals */}
+          <div style={card}>
+            <div style={cardHdr}>
+              <span>⚡ LIVE SIGNALS</span>
+              <button onClick={() => setActiveTab("smartscan")}
+                style={{ fontFamily: MONO, fontSize: 9, padding: "2px 8px", borderRadius: 4,
+                  border: `1px solid ${C.accent}44`, background: `${C.accent}15`, color: C.accent, cursor: "pointer" }}>
+                View All →
+              </button>
+            </div>
+            {topSignals.length === 0 ? (
+              <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Run scanner for live signals</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
+                  fontFamily: MONO, fontSize: 10, color: C.textDim, fontWeight: 700,
+                  paddingBottom: 4, borderBottom: `1px solid ${C.border}` }}>
+                  <span>TICKER</span><span style={{ textAlign: "right" }}>ACTION</span>
+                  <span style={{ textAlign: "right" }}>PRICE</span>
+                  <span style={{ textAlign: "right" }}>ENTRY</span>
+                  <span style={{ textAlign: "right" }}>T1</span>
+                </div>
+                {topSignals.map((r) => {
+                  const price = r.quote?.price || 0;
+                  const t1 = (price * 1.08).toFixed(2);
+                  const sigC = r.signal === "STRONG BUY" ? C.green : C.amber;
+                  return (
+                    <div key={r.ticker} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
+                      alignItems: "center", padding: "4px 0" }}>
+                      <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent }}>{r.ticker}</span>
+                      <span style={{ textAlign: "right" }}>
+                        <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: sigC,
+                          background: `${sigC}18`, borderRadius: 3, padding: "2px 5px" }}>
+                          {r.signal === "STRONG BUY" ? "▲ LONG" : "▲ BUY"}
+                        </span>
+                      </span>
+                      <span style={{ fontFamily: MONO, fontSize: 11, textAlign: "right", color: C.text }}>${price.toFixed(2)}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 11, textAlign: "right", color: C.green }}>${price.toFixed(2)}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 11, textAlign: "right", color: C.accent }}>${t1}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Compression Scanner ──────────────────────────────────────────────────────
 function CompressionTab({ C, MONO, SANS, setActiveTab, onDeepDive, watchlistSymbols }) {
   const [data,       setData]       = React.useState(null);
@@ -13970,469 +14306,35 @@ export default function App() {
 
         {/* ══ COMMAND CENTER — Market Pulse + Radar + Fear&Greed + Signals ══ */}
         {activeTab === "dashboard" && (() => {
-          const pulse = ["SPY","QQQ","IWM","BTC-USD"].map(sym => {
-            const q = watchlistData.find(w => w.symbol === sym) || (macroData||[]).find(m => m.symbol === sym);
-            if (!q) return null;
-            const chg = Number(q.changesPercentage || q.delta1d || 0);
-            return { sym, chg, price: Number(q.price || 0) };
-          }).filter(Boolean);
-          const radarAlert = distData?.alert || "NORMAL";
-          const radarScore = distData?.riskScore || 0;
-          const radarColor = radarAlert === "DANGER" ? C.red : radarAlert === "CAUTION" ? C.amber : radarAlert === "WATCH" ? "#4caf50" : C.green;
-          const radarIcon  = radarAlert === "DANGER" ? "🚨" : radarAlert === "CAUTION" ? "⚠️" : radarAlert === "WATCH" ? "👁" : "✅";
-          const highW = (distData?.warnings || []).filter(w => w.level === "HIGH");
-          const fg = fearGreedData;
-          const fgScore = fg?.score || 0;
-          const fgColor = fgScore <= 25 ? C.red : fgScore <= 45 ? C.amber : fgScore <= 55 ? C.textSec : fgScore <= 75 ? "#22c55e" : C.green;
-          const fgLabel = fgScore <= 25 ? "EXTREME FEAR" : fgScore <= 45 ? "FEAR" : fgScore <= 55 ? "NEUTRAL" : fgScore <= 75 ? "GREED" : "EXTREME GREED";
-          const ACT_COL = { "LONG": C.green, "SHORT / AVOID": C.red, "WATCH SHORT": "#ff6b6b", "WATCH": C.amber };
-          const filtered2 = (sigData?.signals || []).filter(s => {
-            if (sigFilter === "LONG")    return s.action === "LONG" || s.action === "WATCH";
-            if (sigFilter === "SHORT")   return s.action === "SHORT / AVOID" || s.action === "WATCH SHORT";
-            
-            return true;
-          });
-          const handleSigClick = (s) => {
-            const ticker = s.sym;
-            setTerminalSymbol(ticker);
-            const row2 = { ticker, score: s.score||50, signal: s.action === "LONG" ? "BUY" : s.action === "SHORT / AVOID" ? "SELL" : "WATCH",
-              signals: (s.rationale||[]).map(r => ({ txt: r, bull: s.action === "LONG" })),
-              sColor: ACT_COL[s.action] || C.amber, rsiVal: null, macdBull: null, ema9v: null, ema21v: null,
-              quote: { price: s.entry, changePercent: s.chgPct, yearHigh: s.hi52, priceAvg50: s.ma50, priceAvg200: s.ma200, volume: 0, avgVolume: 0 }, candles: null };
-            setScanResults(prev => prev.some(r => r.ticker === ticker) ? prev : [row2, ...prev]);
-            setActiveTab("smartscan"); setScanExpanded(ticker);
-            loadDeepDive(ticker); loadDeepSocial(ticker);
-          };
+          // ── Compute regime for ProDashboard ──
+          const pd_spy = macroData.find(m => m.symbol === "SPY");
+          const pd_qqq = macroData.find(m => m.symbol === "QQQ");
+          const pd_vix = distData?.vix || 0;
+          const pd_spyChg = Number(pd_spy?.changesPercentage || 0);
+          const pd_qqqChg = Number(pd_qqq?.changesPercentage || 0);
+          let pdRegime, pdRegColor;
+          if (pd_vix > 30 || pd_spyChg < -1.5) { pdRegime = "BEAR / RISK-OFF"; pdRegColor = C.red; }
+          else if (pd_vix < 16 && pd_spyChg > 0.3) { pdRegime = "BULL TREND"; pdRegColor = C.green; }
+          else if (Math.abs(pd_spyChg) < 0.3 && pd_vix < 22) { pdRegime = "CHOP / NEUTRAL"; pdRegColor = C.amber; }
+          else if (pd_spyChg > 0.5) { pdRegime = "CAUTIOUS BULL"; pdRegColor = "#22c55e"; }
+          else { pdRegime = "DEFENSIVE"; pdRegColor = C.amber; }
           return (
-            <>
-            {/* 1: MARKET PULSE STRIP */}
-            <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 10, padding: "8px 16px",
-              background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
-              overflowX: "auto", scrollbarWidth: "none" }}>
-              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, marginRight: 14, flexShrink: 0, letterSpacing: "0.08em" }}>
-                MARKET
-              </span>
-              {pulse.map((p, i) => (
-                <div key={p.sym} style={{ display: "flex", alignItems: "center" }}>
-                  {i > 0 && <span style={{ width: 1, height: 16, background: C.border, margin: "0 12px", flexShrink: 0 }} />}
-                  <div style={{ textAlign: "center", flexShrink: 0 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>{p.sym}</div>
-                    {p.price > 0 && (
-                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>
-                        ${p.price < 1 ? p.price.toFixed(4) : p.price < 100 ? p.price.toFixed(2) : p.price.toFixed(2)}
-                      </div>
-                    )}
-                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: p.chg >= 0 ? C.green : C.red }}>
-                      {p.chg >= 0 ? "+" : ""}{p.chg.toFixed(2)}%
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <span style={{ width: 1, height: 16, background: C.border, margin: "0 12px", flexShrink: 0 }} />
-              <div style={{ display: "flex", gap: 16, alignItems: "center", flexShrink: 0 }}>
-                {distData && (
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>REGIME</div>
-                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: radarColor }}>{radarIcon} {radarAlert}</div>
-                  </div>
-                )}
-                {(distData?.vix || 0) > 0 && (
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>VIX</div>
-                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800,
-                      color: distData.vix > 25 ? C.red : distData.vix > 18 ? C.amber : C.green }}>
-                      {distData.vix.toFixed(1)}
-                    </div>
-                  </div>
-                )}
-                {fg && (
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>F&G</div>
-                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: fgColor }}>{fgScore} · {fgLabel}</div>
-                  </div>
-                )}
-                {tiltEnabled && (
-                  <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => tiltLocked && setTiltLocked(false)} title={tiltLocked ? "Click to override tilt lock" : `${tiltStreak} consecutive losses today`}>
-                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>TILT</div>
-                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800,
-                      color: tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green }}>
-                      {tiltLocked ? "🔒 LOCKED" : tiltStreak === 0 ? "✅ 0" : `⚠ ${tiltStreak}/3`}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <button onClick={() => {
-                setSigLoading(true);
-                fetch("/api/market/trade-signals").then(r=>r.json()).then(d=>{if(d.ok)setSigData(d);}).catch(()=>{}).finally(()=>setSigLoading(false));
-                if (!fearGreedData) fetchFearGreed();
-                fetch("/api/market/distribution?refresh=1").then(r=>r.json()).then(d=>{if(d.ok)setDistData(d);}).catch(()=>{});
-                fetch("/api/market/futures").then(r=>r.ok?r.json():null).then(d=>{if(d?.ok)setFuturesData(d.futures||[]);}).catch(()=>{});
-                fetch("/api/market/premarket-movers").then(r=>r.ok?r.json():null).then(d=>{if(d?.ok)setPreMktMovers(d.movers||[]);}).catch(()=>{});
-              }} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, border: `1px solid ${C.border}`,
-                background: "transparent", color: C.textDim, borderRadius: 6, padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}>
-                ↺ REFRESH ALL
-              </button>
-            </div>
-
-            {/* ── FUTURES STRIP ── */}
-            {futuresData.length > 0 && (
-              <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 10, padding: "8px 16px",
-                background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
-                overflowX: "auto", scrollbarWidth: "none" }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim,
-                  marginRight: 14, flexShrink: 0, letterSpacing: "0.08em" }}>FUTURES</span>
-                {futuresData.map((f, i) => (
-                  <div key={f.sym} style={{ display: "flex", alignItems: "center" }}>
-                    {i > 0 && <span style={{ width: 1, height: 16, background: C.border, margin: "0 14px", flexShrink: 0 }} />}
-                    <div style={{ textAlign: "center", flexShrink: 0 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>{f.sym}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>
-                        {f.price > 1000 ? f.price.toLocaleString("en-US", { maximumFractionDigits: 0 }) : f.price.toFixed(2)}
-                      </div>
-                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: f.chg >= 0 ? C.green : C.red }}>
-                        {f.chg >= 0 ? "+" : ""}{f.chg.toFixed(2)}%
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.textDim, flexShrink: 0 }}>
-                  {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "America/New_York" })} ET
-                </span>
-              </div>
-            )}
-
-            {/* ── EVENT COUNTDOWN + PRE-MARKET MOVERS ── */}
-            <div style={{ display: "grid", gridTemplateColumns: eventCountdowns.length > 0 && preMktMovers.length > 0 ? "1fr 1fr" : "1fr",
-              gap: 10, marginBottom: 10 }}>
-
-              {/* Event Countdown */}
-              {eventCountdowns.length > 0 && (
-                <div style={{ padding: "10px 14px", background: C.surface, border: `1px solid ${C.border}`,
-                  borderRadius: 8, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em", flexShrink: 0 }}>
-                    ⏰ EVENTS
-                  </span>
-                  {eventCountdowns.slice(0, 4).map((ev, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                      {i > 0 && <span style={{ width: 1, height: 14, background: C.border }} />}
-                      <div style={{ textAlign: "center" }}>
-                        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
-                          color: ev.days <= 1 ? C.red : ev.days <= 3 ? C.amber : C.textDim }}>
-                          {ev.days === 0 ? "TODAY" : ev.days === 1 ? "TOMORROW" : `${ev.days}d`}
-                        </div>
-                        <div style={{ fontFamily: SANS, fontSize: 11, color: C.text, fontWeight: 600 }}>{ev.name}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Pre-Market Movers */}
-              {preMktMovers.length > 0 && (
-                <div style={{ padding: "10px 14px", background: C.surface, border: `1px solid ${C.border}`,
-                  borderRadius: 8, overflowX: "auto", scrollbarWidth: "none" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em", flexShrink: 0 }}>
-                      ⚡ PRE-MKT
-                    </span>
-                    {preMktMovers.slice(0, 6).map((m, i) => (
-                      <div key={m.sym} style={{ display: "flex", alignItems: "center", gap: 0 }}>
-                        {i > 0 && <span style={{ width: 1, height: 14, background: C.border, marginRight: 12 }} />}
-                        <div style={{ textAlign: "center", flexShrink: 0 }}>
-                          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>{m.sym}</div>
-                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: m.chg >= 0 ? C.green : C.red }}>
-                            {m.chg >= 0 ? "+" : ""}{m.chg.toFixed(1)}%
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* ── MARKET REGIME DASHBOARD ── */}
-            {(() => {
-              const spy    = macroData.find(m => m.symbol === "SPY");
-              const qqq    = macroData.find(m => m.symbol === "QQQ");
-              const vix    = distData?.vix || 0;
-              const spyChg = Number(spy?.changesPercentage || 0);
-              const qqqChg = Number(qqq?.changesPercentage || 0);
-              const loaded = !!spy;
-              let regLabel, regColor, regIcon, regBg, regConf, playbook;
-              if (!loaded) {
-                regLabel = "LOADING…"; regIcon = "⏳"; regColor = C.textDim; regBg = C.card; regConf = 0;
-                playbook = ["Waiting for market data…", "This card updates automatically", "Check back in a few seconds", "Data loads from Yahoo Finance"];
-              } else if (vix > 30 || spyChg < -1.5) {
-                regLabel = "BEAR / RISK-OFF"; regIcon = "🐻"; regColor = C.red; regBg = `${C.red}10`; regConf = vix > 35 ? 92 : 78;
-                playbook = ["Reduce position size 50%", "Only take short setups or cash", "Tighten stops — volatility is high", "No longs unless SPY reclaims key level"];
-              } else if (vix < 16 && spyChg > 0.3 && qqqChg > 0.3) {
-                regLabel = "BULL TREND"; regIcon = "🐂"; regColor = C.green; regBg = `${C.green}10`; regConf = vix < 13 ? 90 : 75;
-                playbook = ["Full size on A+ long setups", "Let winners run — trend is your friend", "Buy pullbacks to EMA21", "Avoid shorting into strength"];
-              } else if (Math.abs(spyChg) < 0.3 && vix < 22) {
-                regLabel = "CHOP / NEUTRAL"; regIcon = "〰️"; regColor = C.amber; regBg = `${C.amber}10`; regConf = 65;
-                playbook = ["Reduce size to 50–75%", "Take profits faster — don't hold overnight", "Avoid breakout trades — they fail in chop", "Wait for regime to resolve before adding risk"];
-              } else if (spyChg > 0.5) {
-                regLabel = "CAUTIOUS BULL"; regIcon = "📈"; regColor = "#22c55e"; regBg = "#22c55e10"; regConf = 68;
-                playbook = ["Normal size on confirmed setups", "Watch for VIX spike that could reverse", "Focus on sector leaders, not laggards", "Keep stops tight"];
-              } else {
-                regLabel = "DEFENSIVE"; regIcon = "🛡️"; regColor = C.amber; regBg = `${C.amber}10`; regConf = 60;
-                playbook = ["Smaller size — uncertainty is elevated", "Favor defensive sectors (XLU, XLV, XLP)", "No momentum plays until market stabilizes", "Keep 30–40% cash"];
-              }
-              const signals = [
-                { label: "SPY",  val: loaded ? `${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}%` : "—", color: spyChg > 0 ? C.green : C.red },
-                { label: "QQQ",  val: loaded ? `${qqqChg >= 0 ? "+" : ""}${qqqChg.toFixed(2)}%` : "—", color: qqqChg > 0 ? C.green : C.red },
-                { label: "VIX",  val: vix > 0 ? vix.toFixed(1) : "—", color: vix > 25 ? C.red : vix > 18 ? C.amber : C.green },
-                { label: "FLOW", val: flowBias || "—", color: (flowBias||"").includes("CALL") ? C.green : (flowBias||"").includes("PUT") ? C.red : C.amber },
-              ];
-              return (
-                <div style={{ marginBottom: 10, background: regBg, border: `2px solid ${regColor}55`,
-                  borderRadius: 12, overflow: "hidden" }}>
-                  {/* Title bar */}
-                  <div style={{ padding: "8px 16px", background: `${regColor}22`, borderBottom: `1px solid ${regColor}33`,
-                    display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: regColor, letterSpacing: "0.1em" }}>
-                      📊 MARKET REGIME DASHBOARD
-                    </span>
-                    {regConf > 0 && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{regConf}% confidence</span>}
-                  </div>
-                  <div style={{ padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
-                    {/* Big regime label */}
-                    <div style={{ flexShrink: 0, minWidth: 160 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: regColor, lineHeight: 1.1 }}>
-                        {regIcon} {regLabel}
-                      </div>
-                    </div>
-                    {/* Signals */}
-                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
-                      {signals.map(s => (
-                        <div key={s.label} style={{ textAlign: "center", padding: "4px 10px",
-                          background: `${regColor}15`, borderRadius: 6 }}>
-                          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{s.label}</div>
-                          <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: s.color }}>{s.val}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {/* Playbook */}
-                    <div style={{ flex: 1, minWidth: 220 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim,
-                        letterSpacing: "0.08em", marginBottom: 6 }}>TODAY'S PLAYBOOK</div>
-                      {playbook.map((p, i) => (
-                        <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: regColor,
-                          display: "flex", gap: 6, marginBottom: 3 }}>
-                          <span style={{ flexShrink: 0, opacity: 0.6 }}>{i + 1}.</span>{p}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* ── DAILY P&L STRIP ── */}
-            {portfolioSummary && portfolioSummary.totalCost > 0 && (() => {
-              const dayPnl    = portfolioSummary.dayPnlTotal || 0;
-              const dayPct    = portfolioSummary.dayPnlPct   || 0;
-              const totalPnl  = portfolioSummary.totalPnl    || 0;
-              const totalPct  = portfolioSummary.totalPnlPct || 0;
-              const dayColor  = dayPnl >= 0 ? C.green : C.red;
-              const totColor  = totalPnl >= 0 ? C.green : C.red;
-              const fmt = n => `${n >= 0 ? "+" : ""}$${Math.abs(n).toFixed(0)}`;
-              return (
-                <div style={{ marginBottom: 10, padding: "12px 18px",
-                  background: dayPnl >= 0 ? `${C.green}0c` : `${C.red}0c`,
-                  border: `1px solid ${dayColor}33`, borderRadius: 10,
-                  display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
-                  {/* TODAY */}
-                  <div>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.1em", marginBottom: 2 }}>TODAY</div>
-                    <div style={{ fontFamily: MONO, fontSize: 26, fontWeight: 900, color: dayColor, lineHeight: 1 }}>
-                      {fmt(dayPnl)}
-                    </div>
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: dayColor, marginTop: 2 }}>
-                      {dayPct >= 0 ? "+" : ""}{dayPct.toFixed(2)}%
-                    </div>
-                  </div>
-                  <div style={{ width: 1, height: 40, background: `${dayColor}33` }} />
-                  {/* TOTAL */}
-                  <div>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.1em", marginBottom: 2 }}>TOTAL P&L</div>
-                    <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 800, color: totColor }}>
-                      {fmt(totalPnl)}
-                    </div>
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: totColor, marginTop: 2 }}>
-                      {totalPct >= 0 ? "+" : ""}{totalPct.toFixed(2)}%
-                    </div>
-                  </div>
-                  <div style={{ width: 1, height: 40, background: `${dayColor}33` }} />
-                  {/* Positions */}
-                  <div>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.1em", marginBottom: 2 }}>POSITIONS</div>
-                    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                      <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.green }}>
-                        {portfolioSummary.winners}W
-                      </span>
-                      <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.red }}>
-                        {portfolioSummary.losers}L
-                      </span>
-                    </div>
-                  </div>
-                  <div style={{ marginLeft: "auto", fontFamily: SANS, fontSize: 11, color: C.textDim, textAlign: "right" }}>
-                    {dayPnl >= 0 ? "✅ Green day" : "📉 Red day"}<br/>
-                    <span style={{ cursor: "pointer", color: C.accent }} onClick={() => setActiveTab("portfolio")}>
-                      View positions →
-                    </span>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* ── TILT DETECTOR CARD ── always visible ── */}
-            <div style={{ marginBottom: 10, padding: "12px 16px", borderRadius: 12,
-              background: !tiltEnabled ? C.card : tiltLocked ? `${C.red}15` : tiltStreak >= 2 ? `${C.amber}12` : `${C.green}10`,
-              border: `2px solid ${!tiltEnabled ? C.border : tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green}55`,
-              display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim,
-                  letterSpacing: "0.1em", marginBottom: 4 }}>🧠 TILT DETECTOR</div>
-                {!tiltEnabled ? (
-                  <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 700, color: C.textDim }}>
-                    ⭕ Disabled — click Enable to turn on
-                  </div>
-                ) : (
-                  <>
-                    <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900,
-                      color: tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green }}>
-                      {tiltLocked ? "🔒 LOCKED — Step Away" : tiltStreak === 0 ? "✅ Clear — 0 losses in a row" : `⚠️ Warning — ${tiltStreak}/3 losses`}
-                    </div>
-                    {tiltLocked && tiltUnlockAt && (
-                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 3 }}>
-                        Auto-unlocks at {tiltUnlockAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </div>
-                    )}
-                    {!tiltLocked && tiltStreak === 0 && (
-                      <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-                        3 consecutive losses → platform locks 30 min to prevent revenge trading
-                      </div>
-                    )}
-                    {tiltStreak >= 2 && !tiltLocked && (
-                      <div style={{ fontFamily: SANS, fontSize: 12, color: C.amber, marginTop: 2, fontWeight: 600 }}>
-                        ⚠ One more loss triggers a 30-minute cooldown. Consider stopping now.
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-                {tiltEnabled && tiltLocked && (
-                  <button onClick={() => { setTiltLocked(false); setTiltUnlockAt(null); }}
-                    style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 16px",
-                      borderRadius: 8, border: "none", background: C.amber, color: "#fff", cursor: "pointer" }}>
-                    Override Unlock
-                  </button>
-                )}
-                <button onClick={() => { const n = !tiltEnabled; setTiltEnabled(n); try { localStorage.setItem("tilt_enabled", String(n)); } catch {} }}
-                  style={{ fontFamily: MONO, fontSize: 11, padding: "7px 14px", borderRadius: 7, cursor: "pointer",
-                    border: `1px solid ${tiltEnabled ? C.border : C.green}`,
-                    background: tiltEnabled ? "transparent" : `${C.green}18`,
-                    color: tiltEnabled ? C.textDim : C.green, fontWeight: tiltEnabled ? 400 : 700 }}>
-                  {tiltEnabled ? "Disable" : "Enable"}
-                </button>
-              </div>
-            </div>
-
-            {/* ── MARKET SUMMARY (replaces Intelligence Row) ── */}
-            {distData && (
-              <div style={{ padding: '10px 16px', marginBottom: 10, background: C.card,
-                border: '1px solid ' + radarColor + '44', borderLeft: '4px solid ' + radarColor,
-                borderRadius: 8, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                <span style={{ fontFamily: MONO, fontSize: 16 }}>{radarIcon}</span>
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: radarColor }}>{radarAlert}</span>
-                  {(distData.indexSnapshot||[]).map(idx => (
-                    <span key={idx.sym} style={{ fontFamily: MONO, fontSize: 11, marginLeft: 12,
-                      color: idx.chg >= 0 ? C.green : C.red }}>
-                      {idx.sym} {idx.chg >= 0 ? '+' : ''}{idx.chg}%
-                    </span>
-                  ))}
-                </div>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
-                  VIX {distData.vix?.toFixed(1)} · Score {radarScore}/100
-                </span>
-              </div>
-            )}
-            {/* 3: LIVE SIGNALS TABLE */}
-            <div style={{ background: C.card, border: `1px solid ${C.borderLit}`, borderRadius: 8, overflow: "hidden", marginBottom: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px",
-                background: C.surface, borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ fontSize: 14 }}>{sigLoading ? "⏳" : "⚡"}</span>
-                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text }}>LIVE SIGNALS</span>
-                <span style={{ fontFamily: SANS, fontSize: 12, color: C.green, background: C.green + "18",
-                  border: `1px solid ${C.green}33`, borderRadius: 10, padding: "1px 6px" }}>AUTO ↺ 1MIN</span>
-                <div style={{ display: "flex", gap: 3 }}>
-                  {["ALL","LONG","SHORT"].map(f => (
-                    <button key={f} onClick={() => setSigFilter(f)}
-                      style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, border: "none",
-                        background: sigFilter === f ? C.accent : C.surface,
-                        color: sigFilter === f ? "#fff" : C.textDim,
-                        borderRadius: 5, padding: "3px 8px", cursor: "pointer" }}>{f}</button>
-                  ))}
-                </div>
-                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, color: C.textDim }}>
-                  {sigData ? `${sigData.mktEnv} · VIX ${sigData.vix} · ${new Date(sigData.scannedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}` : "Scanning…"}
-                </span>
-              </div>
-              {sigLoading && !sigData ? (
-                <div style={{ padding: "14px", fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>⌛ Scanning 50 symbols…</div>
-              ) : !filtered2.length ? (
-                <div style={{ padding: "12px", fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>
-                  No {sigFilter !== "ALL" ? sigFilter + " " : ""}signals
-                  {sigFilter !== "ALL" && <span style={{ color: C.accent, cursor: "pointer", marginLeft: 6 }} onClick={() => setSigFilter("ALL")}>Show ALL</span>}
-                </div>
-              ) : (
-                <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead><tr style={{ background: C.surface }}>
-                      {["TICKER","ACTION","SCORE","ENTRY","STOP","T1","R:R","RVOL"].map(h => (
-                        <th key={h} style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, fontWeight: 700,
-                          padding: "6px 10px", textAlign: "left", borderBottom: `1px solid ${C.border}`,
-                          whiteSpace: "nowrap", letterSpacing: "0.05em" }}>{h}</th>
-                      ))}</tr></thead>
-                    <tbody>
-                      {filtered2.slice(0,12).map((s, i) => {
-                        const ac2 = ACT_COL[s.action] || C.amber;
-                        return (
-                          <tr key={s.sym + i} onClick={() => handleSigClick(s)}
-                            style={{ borderBottom: `1px solid ${C.border}22`, cursor: "pointer",
-                              background: i % 2 === 0 ? "transparent" : C.surface }}
-                            onMouseEnter={e => e.currentTarget.style.background = C.cardHover}
-                            onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : C.surface}>
-                            <td style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent, padding: "8px 10px" }}>{s.sym}</td>
-                            <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
-                              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: ac2,
-                                background: ac2 + "18", borderRadius: 5, padding: "3px 7px" }}>
-                                {s.action === "LONG" ? "▲ LONG" : s.action === "SHORT / AVOID" ? "▼ SHORT" : "👁 WATCH"}
-                              </span>
-                            </td>
-                            <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: ac2, padding: "8px 10px" }}>{s.score}</td>
-                            <td style={{ fontFamily: MONO, fontSize: 12, color: C.text, padding: "8px 10px" }}>${s.entry}</td>
-                            <td style={{ fontFamily: MONO, fontSize: 12, color: C.red, padding: "8px 10px" }}>${s.stop}</td>
-                            <td style={{ fontFamily: MONO, fontSize: 12, color: C.green, padding: "8px 10px" }}>${s.target1}</td>
-                            <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 10px",
-                              color: s.rr >= 2 ? C.green : s.rr >= 1.5 ? C.amber : C.textDim }}>{s.rr}:1</td>
-                            <td style={{ fontFamily: MONO, fontSize: 12, color: C.purple, padding: "8px 10px", whiteSpace: "nowrap" }}>
-                              {s.optionType && !s.optionType.includes("WAIT") ? s.optionType : "—"}
-                            </td>
-                            <td style={{ fontFamily: MONO, fontSize: 12, color: s.rvol >= 2 ? C.accent : C.textDim, padding: "8px 10px" }}>{s.rvol}×</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-            </>
+            <ProDashboard
+              C={C} MONO={MONO} SANS={SANS}
+              macroData={macroData} distData={distData}
+              vixPrice={pd_vix} spyChg={pd_spyChg} qqqChg={pd_qqqChg}
+              regime={pdRegime} regimeColor={pdRegColor} regimeLabel={pdRegime}
+              portfolioSummary={portfolioSummary}
+              combinedAlerts={combinedAlerts}
+              futuresData={futuresData} preMktMovers={preMktMovers}
+              eventCountdowns={eventCountdowns}
+              scanResults={scanResults}
+              journalEntries={journalEntries}
+              tiltStreak={tiltStreak} tiltLocked={tiltLocked} tiltEnabled={tiltEnabled}
+              setActiveTab={setActiveTab}
+              isTablet={isTablet}
+              scanDeepData={scanDeepData}
+            />
           );
         })()}
 
