@@ -4806,7 +4806,6 @@ function CompressionTab({ C, MONO, SANS, setActiveTab }) {
   const [data,    setData]    = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [error,   setError]   = React.useState(null);
-  const [filter,  setFilter]  = React.useState("ALL");
 
   const load = React.useCallback(() => {
     setLoading(true);
@@ -4819,104 +4818,164 @@ function CompressionTab({ C, MONO, SANS, setActiveTab }) {
 
   React.useEffect(() => { load(); }, [load]);
 
-  const rows = (data?.results || []).filter(r =>
-    filter === "ALL"     ? true :
-    filter === "PRIME"   ? r.score >= 70 :
-    filter === "BUILDING"? r.score >= 50 && r.score < 70 :
-    filter === "WATCH"   ? r.score >= 30 && r.score < 50 : true
-  );
+  // Signal bar: shows compression level visually (0–100%)
+  function SignalBar({ ratio, goodBelow, label }) {
+    const pct    = Math.min(100, Math.round(ratio * 100));
+    const hot    = ratio < goodBelow;
+    const color  = hot ? C.green : ratio < goodBelow + 0.2 ? C.amber : C.textDim;
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ width: 60, height: 6, background: `${C.border}`, borderRadius: 3, overflow: "hidden" }}>
+          <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 3, transition: "width 0.3s" }} />
+        </div>
+        <span style={{ fontFamily: MONO, fontSize: 10, color, fontWeight: hot ? 800 : 400 }}>
+          {hot ? "🔥" : ratio.toFixed(2)}
+        </span>
+      </div>
+    );
+  }
+
+  const rows = (data?.results || []);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <div>
-          <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>🌀 COMPRESSION SCANNER</div>
+          <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>
+            🌀 COMPRESSION SCANNER
+          </div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-            Volume drying up + ATR shrinking + near key level = spring loaded before breakout
+            Stocks coiling before a big move — buy the quiet before the explosion
             {data?.updatedAt ? ` · ${new Date(data.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
           </div>
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {[["ALL","ALL"],["PRIME","🔥 PRIME"],["BUILDING","⚡ BUILDING"],["WATCH","👀 WATCH"]].map(([k, lbl]) => (
-            <button key={k} onClick={() => setFilter(k)}
-              style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px",
-                borderRadius: 6, border: `1px solid ${filter === k ? C.accent : C.border}`,
-                background: filter === k ? `${C.accent}18` : "transparent",
-                color: filter === k ? C.accent : C.textDim, cursor: "pointer" }}>{lbl}</button>
-          ))}
-          <button onClick={load} style={{ fontFamily: MONO, fontSize: 11, padding: "5px 12px",
-            borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent",
-            color: C.textDim, cursor: "pointer" }}>{loading ? "…" : "↻"}</button>
-        </div>
+        <button onClick={load} style={{ fontFamily: MONO, fontSize: 11, padding: "6px 14px",
+          borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent",
+          color: C.textDim, cursor: "pointer" }}>{loading ? "⏳ Scanning…" : "↻ Refresh"}</button>
       </div>
 
-      {error && <div style={{ padding: 12, background: `${C.red}15`, border: `1px solid ${C.red}44`, borderRadius: 8, fontFamily: MONO, fontSize: 12, color: C.red }}>⚠ {error}</div>}
-      {loading && !data && <div style={{ padding: 40, textAlign: "center", fontFamily: MONO, fontSize: 13, color: C.textDim }}>🌀 Analyzing {45}+ stocks for compression setups…</div>}
+      {error && <div style={{ padding: 12, background: `${C.red}15`, border: `1px solid ${C.red}44`,
+        borderRadius: 8, fontFamily: MONO, fontSize: 12, color: C.red }}>⚠ {error}</div>}
 
-      {rows.length > 0 && (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12 }}>
-            <thead>
-              <tr style={{ borderBottom: `2px solid ${C.border}` }}>
-                {["TICKER","GRADE","SCORE","PRICE","TREND","ATR RATIO","VOL RATIO","FROM HIGH","BREAKOUT LEVEL"].map(h => (
-                  <th key={h} style={{ padding: "8px 10px", textAlign: h === "TICKER" || h === "GRADE" || h === "TREND" ? "left" : "right",
-                    color: C.textDim, fontWeight: 800, fontSize: 11, letterSpacing: "0.06em", whiteSpace: "nowrap" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => {
-                const sc = r.score >= 70 ? C.green : r.score >= 50 ? C.amber : C.textDim;
-                const trendColor = r.trending === "UP" ? C.green : r.trending === "DOWN" ? C.red : C.textDim;
-                return (
-                  <tr key={r.sym} style={{ borderBottom: `1px solid ${C.border}33`,
-                      background: i % 2 === 0 ? "transparent" : `${C.surface}66` }}>
-                    <td style={{ padding: "8px 10px", color: C.accent, fontWeight: 900 }}>{r.sym}</td>
-                    <td style={{ padding: "8px 10px" }}>{r.grade}</td>
-                    <td style={{ padding: "8px 10px", textAlign: "right" }}>
-                      <span style={{ background: `${sc}20`, color: sc, borderRadius: 4, padding: "2px 8px", fontWeight: 900 }}>{r.score}</span>
-                    </td>
-                    <td style={{ padding: "8px 10px", textAlign: "right", color: C.text }}>${r.price}</td>
-                    <td style={{ padding: "8px 10px", color: trendColor, fontWeight: 700 }}>{r.trending}</td>
-                    <td style={{ padding: "8px 10px", textAlign: "right", color: r.atrRatio < 0.65 ? C.green : C.text }}>
-                      {r.atrRatio}x {r.atrRatio < 0.65 ? "🔥" : ""}
-                    </td>
-                    <td style={{ padding: "8px 10px", textAlign: "right", color: r.volRatio < 0.65 ? C.green : C.text }}>
-                      {r.volRatio}x {r.volRatio < 0.65 ? "🔥" : ""}
-                    </td>
-                    <td style={{ padding: "8px 10px", textAlign: "right", color: r.nearHigh < 5 ? C.amber : C.textDim }}>
-                      -{r.nearHigh}%
-                    </td>
-                    <td style={{ padding: "8px 10px", textAlign: "right", color: C.accent, fontWeight: 700 }}>
-                      ${r.high20}
-                    </td>
-                    <td style={{ padding: "8px 6px", textAlign: "right" }}>
-                      <button onClick={() => { navigator.clipboard?.writeText(r.sym).catch(()=>{}); setActiveTab("smartscan"); }}
-                        style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "3px 10px",
-                          borderRadius: 5, border: `1px solid ${C.accent}55`, background: `${C.accent}15`,
-                          color: C.accent, cursor: "pointer", whiteSpace: "nowrap" }}>
-                        Scan →
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {loading && !data && (
+        <div style={{ padding: 50, textAlign: "center", fontFamily: MONO, fontSize: 13, color: C.textDim }}>
+          🌀 Analyzing stocks…
         </div>
       )}
 
-      <div style={{ padding: "10px 14px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
-        display: "flex", gap: 20, flexWrap: "wrap" }}>
-        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>
-          <strong style={{ color: C.green }}>🔥 PRIME (70+)</strong> — Volume dry + ATR crushed + near breakout level. Enter NOW before the move.
+      {/* Cards grid */}
+      {rows.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+          {rows.map(r => {
+            const isPrime    = r.score >= 70;
+            const isBuilding = r.score >= 50 && r.score < 70;
+            const borderColor = isPrime ? C.green : isBuilding ? C.amber : C.border;
+            const bgColor     = isPrime ? `${C.green}0c` : isBuilding ? `${C.amber}0a` : C.card;
+
+            // Action status
+            const action = isPrime && r.trending !== "DOWN"
+              ? { label: "READY — WATCH BREAKOUT", color: C.green }
+              : isBuilding && r.trending !== "DOWN"
+              ? { label: "BUILDING — WAIT", color: C.amber }
+              : r.trending === "DOWN"
+              ? { label: "AVOID — TRENDING DOWN", color: C.red }
+              : { label: "EARLY — MONITOR", color: C.textDim };
+
+            return (
+              <div key={r.sym} style={{ background: bgColor, border: `1.5px solid ${borderColor}44`,
+                borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+
+                {/* Top row: ticker + score + action */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.accent }}>{r.sym}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text }}>${r.price}</span>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: action.color }}>
+                      {action.label}
+                    </div>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+                      Score {r.score}/100
+                    </div>
+                  </div>
+                </div>
+
+                {/* Score bar */}
+                <div>
+                  <div style={{ height: 6, background: `${C.border}`, borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{ width: `${r.score}%`, height: "100%", borderRadius: 3,
+                      background: isPrime ? C.green : isBuilding ? C.amber : C.textDim,
+                      transition: "width 0.4s" }} />
+                  </div>
+                </div>
+
+                {/* 3 signals */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  {/* Volatility */}
+                  <div style={{ textAlign: "center", padding: "8px 4px", background: C.surface,
+                    borderRadius: 8, border: `1px solid ${r.atrRatio < 0.65 ? C.green + "66" : C.border}` }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>VOLATILITY</div>
+                    <div style={{ fontSize: 16 }}>{r.atrRatio < 0.65 ? "🔥" : r.atrRatio < 0.80 ? "✅" : "⬜"}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: r.atrRatio < 0.65 ? C.green : C.textDim, marginTop: 2 }}>
+                      {r.atrRatio < 0.65 ? "CRUSHED" : r.atrRatio < 0.80 ? "LOW" : "NORMAL"}
+                    </div>
+                  </div>
+
+                  {/* Volume */}
+                  <div style={{ textAlign: "center", padding: "8px 4px", background: C.surface,
+                    borderRadius: 8, border: `1px solid ${r.volRatio < 0.65 ? C.green + "66" : C.border}` }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>VOLUME</div>
+                    <div style={{ fontSize: 16 }}>{r.volRatio < 0.65 ? "🔥" : r.volRatio < 0.85 ? "✅" : "⬜"}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: r.volRatio < 0.65 ? C.green : C.textDim, marginTop: 2 }}>
+                      {r.volRatio < 0.65 ? "DRY" : r.volRatio < 0.85 ? "QUIET" : "NORMAL"}
+                    </div>
+                  </div>
+
+                  {/* Proximity to breakout */}
+                  <div style={{ textAlign: "center", padding: "8px 4px", background: C.surface,
+                    borderRadius: 8, border: `1px solid ${r.nearHigh < 3 ? C.amber + "66" : C.border}` }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>PROXIMITY</div>
+                    <div style={{ fontSize: 16 }}>{r.nearHigh < 3 ? "🎯" : r.nearHigh < 8 ? "✅" : "⬜"}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: r.nearHigh < 5 ? C.amber : C.textDim, marginTop: 2 }}>
+                      -{r.nearHigh}% TO HI
+                    </div>
+                  </div>
+                </div>
+
+                {/* Breakout level + trend + action button */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>BREAK ABOVE</div>
+                    <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>${r.high20}</div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>TREND</div>
+                    <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800,
+                      color: r.trending === "UP" ? C.green : r.trending === "DOWN" ? C.red : C.textDim }}>
+                      {r.trending === "UP" ? "↑ UP" : r.trending === "DOWN" ? "↓ DOWN" : "→ FLAT"}
+                    </div>
+                  </div>
+                  <button onClick={() => { navigator.clipboard?.writeText(r.sym).catch(()=>{}); setActiveTab("smartscan"); }}
+                    style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "7px 16px",
+                      borderRadius: 7, border: "none", cursor: "pointer",
+                      background: isPrime ? C.green : C.accent, color: "#fff" }}>
+                    Scan →
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
-        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>
-          <strong>ATR Ratio</strong> = recent volatility vs historical. Below 0.65 = very compressed.&nbsp;
-          <strong>Vol Ratio</strong> = recent volume vs avg. Below 0.65 = institutions quietly loading.&nbsp;
-          <strong>Breakout Level</strong> = the price that triggers the move.
+      )}
+
+      {!loading && data && rows.length === 0 && (
+        <div style={{ padding: 40, textAlign: "center", fontFamily: SANS, fontSize: 13, color: C.textDim }}>
+          No compression setups found right now. Check back later or click Refresh.
         </div>
-      </div>
+      )}
     </div>
   );
 }
