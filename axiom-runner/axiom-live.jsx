@@ -4869,8 +4869,7 @@ function CompressionTab({ C, MONO, SANS, setActiveTab }) {
                 const sc = r.score >= 70 ? C.green : r.score >= 50 ? C.amber : C.textDim;
                 const trendColor = r.trending === "UP" ? C.green : r.trending === "DOWN" ? C.red : C.textDim;
                 return (
-                  <tr key={r.sym} onClick={() => setActiveTab("scanner")}
-                    style={{ borderBottom: `1px solid ${C.border}33`, cursor: "pointer",
+                  <tr key={r.sym} style={{ borderBottom: `1px solid ${C.border}33`,
                       background: i % 2 === 0 ? "transparent" : `${C.surface}66` }}>
                     <td style={{ padding: "8px 10px", color: C.accent, fontWeight: 900 }}>{r.sym}</td>
                     <td style={{ padding: "8px 10px" }}>{r.grade}</td>
@@ -4890,6 +4889,14 @@ function CompressionTab({ C, MONO, SANS, setActiveTab }) {
                     </td>
                     <td style={{ padding: "8px 10px", textAlign: "right", color: C.accent, fontWeight: 700 }}>
                       ${r.high20}
+                    </td>
+                    <td style={{ padding: "8px 6px", textAlign: "right" }}>
+                      <button onClick={() => { navigator.clipboard?.writeText(r.sym).catch(()=>{}); setActiveTab("smartscan"); }}
+                        style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "3px 10px",
+                          borderRadius: 5, border: `1px solid ${C.accent}55`, background: `${C.accent}15`,
+                          color: C.accent, cursor: "pointer", whiteSpace: "nowrap" }}>
+                        Scan →
+                      </button>
                     </td>
                   </tr>
                 );
@@ -4967,8 +4974,8 @@ function InsiderTab({ C, MONO, SANS, setActiveTab }) {
             </thead>
             <tbody>
               {data.results.map((r, i) => (
-                <tr key={`${r.ticker}-${i}`} onClick={() => setActiveTab("scanner")}
-                  style={{ borderBottom: `1px solid ${C.border}33`, cursor: "pointer",
+                <tr key={`${r.ticker}-${i}`}
+                  style={{ borderBottom: `1px solid ${C.border}33`,
                     background: i % 2 === 0 ? "transparent" : `${C.surface}66` }}>
                   <td style={{ padding: "8px 10px", color: C.accent, fontWeight: 900 }}>{r.ticker}</td>
                   <td style={{ padding: "8px 10px", color: C.text, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -4982,6 +4989,14 @@ function InsiderTab({ C, MONO, SANS, setActiveTab }) {
                   <td style={{ padding: "8px 10px", textAlign: "right" }}>
                     <span style={{ background: `${C.green}20`, color: C.green, borderRadius: 4,
                       padding: "2px 8px", fontWeight: 800, fontSize: 10 }}>PURCHASE</span>
+                  </td>
+                  <td style={{ padding: "8px 6px", textAlign: "right" }}>
+                    <button onClick={() => { navigator.clipboard?.writeText(r.ticker).catch(()=>{}); setActiveTab("smartscan"); }}
+                      style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "3px 10px",
+                        borderRadius: 5, border: `1px solid ${C.accent}55`, background: `${C.accent}15`,
+                        color: C.accent, cursor: "pointer", whiteSpace: "nowrap" }}>
+                      Scan →
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -5076,8 +5091,7 @@ function SqueezeTab({ C, MONO, SANS, setActiveTab }) {
                 const sc = r.score >= 70 ? C.red : r.score >= 45 ? C.amber : C.textDim;
                 return (
                   <tr key={r.sym}
-                    onClick={() => setActiveTab("scanner")}
-                    style={{ borderBottom: `1px solid ${C.border}33`, cursor: "pointer",
+                    style={{ borderBottom: `1px solid ${C.border}33`,
                       background: i % 2 === 0 ? "transparent" : `${C.surface}66` }}>
                     <td style={{ padding: "8px 10px", color: C.accent, fontWeight: 900 }}>{r.sym}</td>
                     <td style={{ padding: "8px 10px" }}>{r.grade}</td>
@@ -5099,6 +5113,14 @@ function SqueezeTab({ C, MONO, SANS, setActiveTab }) {
                     </td>
                     <td style={{ padding: "8px 10px", textAlign: "right", color: C.textDim }}>{r.floatM ? r.floatM + "M" : "—"}</td>
                     <td style={{ padding: "8px 10px", textAlign: "right", color: C.textDim }}>{r.mktCapB ? "$" + r.mktCapB + "B" : "—"}</td>
+                    <td style={{ padding: "8px 6px", textAlign: "right" }}>
+                      <button onClick={() => { navigator.clipboard?.writeText(r.sym).catch(()=>{}); setActiveTab("smartscan"); }}
+                        style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "3px 10px",
+                          borderRadius: 5, border: `1px solid ${C.accent}55`, background: `${C.accent}15`,
+                          color: C.accent, cursor: "pointer", whiteSpace: "nowrap" }}>
+                        Scan →
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
