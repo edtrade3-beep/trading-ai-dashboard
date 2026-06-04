@@ -11,7 +11,7 @@
     {
       "symbol":   "NDX",
       "name":     "Nasdaq 100",
-      "pattern":  "NASDAQ-100 MINI",
+      "pattern":  "NASDAQ-100 Consolidated",
       "category": "equity",
       "biasKey":  "nasdaq",
       "yfSymbol": "QQQ"
@@ -19,7 +19,7 @@
     {
       "symbol":   "DJI",
       "name":     "Dow Jones",
-      "pattern":  "MINI DOW JONES INDU",
+      "pattern":  "MICRO E-MINI DJIA",
       "category": "equity",
       "biasKey":  "dow",
       "yfSymbol": "DIA"
@@ -35,7 +35,7 @@
     {
       "symbol":   "VX",
       "name":     "VIX Futures",
-      "pattern":  "S&P 500 VIX",
+      "pattern":  "VIX FUTURES",
       "category": "volatility",
       "biasKey":  "vix",
       "yfSymbol": "^VIX"
@@ -43,7 +43,7 @@
     {
       "symbol":   "ZN",
       "name":     "10Y T-Note",
-      "pattern":  "10-YEAR U.S. TREASURY NOTES",
+      "pattern":  "UST 10Y NOTE",
       "category": "bonds",
       "biasKey":  "10y",
       "yfSymbol": "TLT"
@@ -51,7 +51,7 @@
     {
       "symbol":   "ZT",
       "name":     "2Y T-Note",
-      "pattern":  "2-YEAR U.S. TREASURY NOTES",
+      "pattern":  "UST 2Y NOTE",
       "category": "bonds",
       "biasKey":  "2y",
       "yfSymbol": "SHY"
@@ -83,7 +83,7 @@
     {
       "symbol":   "DX",
       "name":     "Dollar Index",
-      "pattern":  "U.S. DOLLAR INDEX",
+      "pattern":  "USD INDEX",
       "category": "fx",
       "biasKey":  "dxy",
       "yfSymbol": "DX-Y.NYB"
@@ -117,7 +117,7 @@
     {
       "symbol":   "NG",
       "name":     "Natural Gas",
-      "pattern":  "NATURAL GAS (NYMEX)",
+      "pattern":  "NATURAL GAS",
       "category": "energy",
       "biasKey":  "natgas",
       "yfSymbol": "UNG"

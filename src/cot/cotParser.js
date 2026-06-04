@@ -62,55 +62,51 @@ function parseCSV(text) {
 
 function num(v) { return parseInt(String(v || "0").replace(/,/g, ""), 10) || 0; }
 
+// Handle both old (spaces) and new (underscores) CFTC column naming
+function col(row, ...names) {
+  for (const n of names) {
+    if (row[n] !== undefined && row[n] !== "") return row[n];
+  }
+  return "";
+}
+
 // ── Report-specific parsers ───────────────────────────────────────────────────
 
 function parseTFFRow(row) {
+  const dL  = num(col(row, "Dealer Positions-Long (All)",    "Dealer_Positions_Long_All"));
+  const dS  = num(col(row, "Dealer Positions-Short (All)",   "Dealer_Positions_Short_All"));
+  const amL = num(col(row, "Asset Mgr. Positions-Long (All)","Asset_Mgr_Positions_Long_All"));
+  const amS = num(col(row, "Asset Mgr. Positions-Short (All)","Asset_Mgr_Positions_Short_All"));
+  const lmL = num(col(row, "Lev Money Positions-Long (All)", "Lev_Money_Positions_Long_All"));
+  const lmS = num(col(row, "Lev Money Positions-Short (All)","Lev_Money_Positions_Short_All"));
   return {
-    marketName:        row["Market and Exchange Names"] || "",
-    reportDate:        row["As of Date in Form YYYY-MM-DD"] || row["Report Date as YYYY-MM-DD"] || "",
-    openInterest:      num(row["Open Interest (All)"]),
-
-    dealerLong:        num(row["Dealer Positions-Long (All)"]),
-    dealerShort:       num(row["Dealer Positions-Short (All)"]),
-    dealerNet:         num(row["Dealer Positions-Long (All)"]) - num(row["Dealer Positions-Short (All)"]),
-
-    assetMgrLong:      num(row["Asset Mgr. Positions-Long (All)"]),
-    assetMgrShort:     num(row["Asset Mgr. Positions-Short (All)"]),
-    assetMgrNet:       num(row["Asset Mgr. Positions-Long (All)"]) - num(row["Asset Mgr. Positions-Short (All)"]),
-
-    levMoneyLong:      num(row["Lev Money Positions-Long (All)"]),
-    levMoneyShort:     num(row["Lev Money Positions-Short (All)"]),
-    levMoneyNet:       num(row["Lev Money Positions-Long (All)"]) - num(row["Lev Money Positions-Short (All)"]),
-
-    // Map to common fields so engine can work generically
-    commercialLong:    num(row["Dealer Positions-Long (All)"]),
-    commercialShort:   num(row["Dealer Positions-Short (All)"]),
-    commercialNet:     num(row["Dealer Positions-Long (All)"]) - num(row["Dealer Positions-Short (All)"]),
-
-    noncommercialLong:  num(row["Lev Money Positions-Long (All)"]),
-    noncommercialShort: num(row["Lev Money Positions-Short (All)"]),
-    noncommercialNet:   num(row["Lev Money Positions-Long (All)"]) - num(row["Lev Money Positions-Short (All)"]),
-
+    marketName:         col(row, "Market and Exchange Names", "Market_and_Exchange_Names"),
+    reportDate:         col(row, "As of Date in Form YYYY-MM-DD", "Report_Date_as_YYYY-MM-DD"),
+    openInterest:       num(col(row, "Open Interest (All)", "Open_Interest_All")),
+    dealerLong: dL, dealerShort: dS, dealerNet: dL - dS,
+    assetMgrLong: amL, assetMgrShort: amS, assetMgrNet: amL - amS,
+    levMoneyLong: lmL, levMoneyShort: lmS, levMoneyNet: lmL - lmS,
+    commercialLong: dL, commercialShort: dS, commercialNet: dL - dS,
+    noncommercialLong: lmL, noncommercialShort: lmS, noncommercialNet: lmL - lmS,
     mmLong: 0, mmShort: 0, mmNet: 0,
     swapLong: 0, swapShort: 0, swapNet: 0,
     producerLong: 0, producerShort: 0, producerNet: 0,
-
     reportType: "TFF",
   };
 }
 
 function parseDisaggRow(row) {
-  const mmL  = num(row["M Money Positions-Long (All)"]);
-  const mmS  = num(row["M Money Positions-Short (All)"]);
-  const swL  = num(row["Swap Positions-Long (All)"] || row["Swap Dealer Positions-Long (All)"]);
-  const swS  = num(row["Swap Positions-Short (All)"] || row["Swap Dealer Positions-Short (All)"]);
-  const prL  = num(row["Prod/Merc/Proc/User Positions-Long (All)"]);
-  const prS  = num(row["Prod/Merc/Proc/User Positions-Short (All)"]);
+  const mmL  = num(col(row, "M Money Positions-Long (All)",  "M_Money_Positions_Long_All"));
+  const mmS  = num(col(row, "M Money Positions-Short (All)", "M_Money_Positions_Short_All"));
+  const swL  = num(col(row, "Swap Positions-Long (All)", "Swap Dealer Positions-Long (All)", "Swap_Positions_Long_All"));
+  const swS  = num(col(row, "Swap Positions-Short (All)", "Swap Dealer Positions-Short (All)", "Swap__Positions_Short_All"));
+  const prL  = num(col(row, "Prod/Merc/Proc/User Positions-Long (All)",  "Prod_Merc_Positions_Long_All"));
+  const prS  = num(col(row, "Prod/Merc/Proc/User Positions-Short (All)", "Prod_Merc_Positions_Short_All"));
 
   return {
-    marketName:        row["Market and Exchange Names"] || "",
-    reportDate:        row["As of Date in Form YYYY-MM-DD"] || "",
-    openInterest:      num(row["Open Interest (All)"]),
+    marketName:        col(row, "Market and Exchange Names", "Market_and_Exchange_Names"),
+    reportDate:        col(row, "As of Date in Form YYYY-MM-DD", "Report_Date_as_YYYY-MM-DD"),
+    openInterest:      num(col(row, "Open Interest (All)", "Open_Interest_All")),
 
     // Managed money = primary signal for commodities
     mmLong: mmL, mmShort: mmS, mmNet: mmL - mmS,
@@ -130,15 +126,15 @@ function parseDisaggRow(row) {
 }
 
 function parseLegacyRow(row) {
-  const ncL = num(row["Noncommercial Positions-Long (All)"]);
-  const ncS = num(row["Noncommercial Positions-Short (All)"]);
-  const cL  = num(row["Commercial Positions-Long (All)"]);
-  const cS  = num(row["Commercial Positions-Short (All)"]);
+  const ncL = num(col(row, "Noncommercial Positions-Long (All)",  "NonComm_Positions_Long_All"));
+  const ncS = num(col(row, "Noncommercial Positions-Short (All)", "NonComm_Positions_Short_All"));
+  const cL  = num(col(row, "Commercial Positions-Long (All)",     "Comm_Positions_Long_All"));
+  const cS  = num(col(row, "Commercial Positions-Short (All)",    "Comm_Positions_Short_All"));
 
   return {
-    marketName:        row["Market and Exchange Names"] || "",
-    reportDate:        row["As of Date in Form YYYY-MM-DD"] || row["Report Date as YYYY-MM-DD"] || "",
-    openInterest:      num(row["Open Interest (All)"]),
+    marketName:        col(row, "Market and Exchange Names", "Market_and_Exchange_Names"),
+    reportDate:        col(row, "As of Date in Form YYYY-MM-DD", "As of Date in Form YYYY-MM-DD", "Report_Date_as_YYYY-MM-DD"),
+    openInterest:      num(col(row, "Open Interest (All)", "Open_Interest_All")),
 
     commercialLong: cL, commercialShort: cS, commercialNet: cL - cS,
     noncommercialLong: ncL, noncommercialShort: ncS, noncommercialNet: ncL - ncS,

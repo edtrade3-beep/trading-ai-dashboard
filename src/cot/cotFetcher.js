@@ -87,20 +87,22 @@ function extractFirstFileFromZip(buffer) {
 
 // ── URL builders ──────────────────────────────────────────────────────────────
 
-// Current-week URLs (small files, always the latest weekly report)
+// CFTC moved files to sites/default/files path in 2025 — current-week ZIPs removed
+// Annual archive is the only reliable source now
+// TFF filename changed: fin_fut_txt_YYYY → fut_fin_txt_YYYY
+// LEGACY filename changed: deacot_YYYY → deacotYYYY
 const CURRENT_WEEK = {
-  TFF:    "https://www.cftc.gov/dea/newcot/FinFutTxt.zip",
-  DISAGG: "https://www.cftc.gov/dea/newcot/FuturesOnlyConsolidated.zip",
-  LEGACY: "https://www.cftc.gov/dea/newcot/deacot.zip",
+  TFF:    null,   // no working current-week URL
+  DISAGG: null,
+  LEGACY: null,
 };
 
-// Annual archive URLs (full year history)
 function annualUrl(reportType, year) {
-  const BASE = "https://www.cftc.gov/files/dea/history";
+  const BASE = "https://www.cftc.gov/sites/default/files/files/dea/history";
   switch (reportType) {
-    case "TFF":    return `${BASE}/fin_fut_txt_${year}.zip`;
+    case "TFF":    return `${BASE}/fut_fin_txt_${year}.zip`;
     case "DISAGG": return `${BASE}/fut_disagg_txt_${year}.zip`;
-    case "LEGACY": return `${BASE}/deacot_${year}.zip`;
+    case "LEGACY": return `${BASE}/deacot${year}.zip`;
     default: throw new Error(`Unknown report type: ${reportType}`);
   }
 }
@@ -139,6 +141,7 @@ async function fetchCOTCsv(reportType) {
 
   let lastErr;
   for (const { url, label, stale } of urls) {
+    if (!url) continue; // skip null current-week entries
     try {
       console.log(`[COT] Trying ${reportType} ${label}: ${url}`);
       const buffer = await downloadBuffer(url);
