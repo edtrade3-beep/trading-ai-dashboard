@@ -5289,8 +5289,8 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
           </Card>
         </div>
 
-        {/* Col 2: Calendar + Alerts + Snapshot */}
-        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        {/* Col 2: Calendar + Alerts + News — sticky column */}
+        <div style={{ display:'flex', flexDirection:'column', gap:10, position:'sticky', top:8, alignSelf:'start' }}>
 
           <Card accent="#6366f1">
             <CardHead icon="📅" title="CALENDAR & EVENTS" />
@@ -5344,19 +5344,17 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
             </div>
           </Card>
 
-          <div style={{ position:'sticky', top:8 }}>
-            <Card accent="#0ea5e9">
-              <CardHead icon="📰" title="MARKET NEWS"
-                action={<button onClick={() => setActiveTab('news')} style={{ fontFamily:MONO, fontSize:9,
-                  padding:'2px 8px', borderRadius:4, border:`1px solid #0ea5e944`,
-                  background:'#0ea5e915', color:'#0ea5e9', cursor:'pointer' }}>All News →</button>} />
-              <NewsWidget C={C} MONO={MONO} SANS={SANS} />
-            </Card>
-          </div>
+          <Card accent="#0ea5e9">
+            <CardHead icon="📰" title="MARKET NEWS"
+              action={<button onClick={() => setActiveTab('news')} style={{ fontFamily:MONO, fontSize:9,
+                padding:'2px 8px', borderRadius:4, border:`1px solid #0ea5e944`,
+                background:'#0ea5e915', color:'#0ea5e9', cursor:'pointer' }}>All News →</button>} />
+            <NewsWidget C={C} MONO={MONO} SANS={SANS} />
+          </Card>
         </div>
 
-        {/* Col 3: Risk + Live Signals */}
-        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        {/* Col 3: Risk + Live Signals — sticky column */}
+        <div style={{ display:'flex', flexDirection:'column', gap:10, position:'sticky', top:8, alignSelf:'start' }}>
 
           <Card accent={tiltLocked?RED:tiltStreak>=2?AMBER:GREEN}>
             <CardHead icon="🛡" title="RISK MANAGEMENT" />
