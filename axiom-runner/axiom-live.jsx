@@ -14777,8 +14777,8 @@ export default function App() {
 
                     {/* ── LIVE NEWS inside regime card ── */}
                     <RegimeNewsPanel C={C} MONO={MONO} SANS={SANS} />
-                  </div>{/* end flex row */}
-                </div>{/* end regime card */}
+                  </div>
+                </div>
               );
             })()}
 
