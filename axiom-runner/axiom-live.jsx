@@ -5038,11 +5038,21 @@ function NewsWidget({ C, MONO, SANS }) {
 
   React.useEffect(() => {
     setLoading(true);
-    fetch("/api/market/news?tickers=SPY,NVDA,TSLA,AAPL,META,AMD&limit=6")
+    fetch("/api/market/news?tickers=SPY,NVDA,TSLA,AAPL,META,AMD,QQQ&limit=8")
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        const articles = Array.isArray(d) ? d : (d?.articles || d?.news || []);
-        setNews(articles.slice(0, 6));
+        // Handle multiple possible response shapes
+        let articles = [];
+        if (Array.isArray(d)) articles = d;
+        else if (Array.isArray(d?.news)) articles = d.news;
+        else if (Array.isArray(d?.articles)) articles = d.articles;
+        else if (Array.isArray(d?.data)) articles = d.data;
+        else if (d && typeof d === 'object') {
+          // Try to find any array in the response
+          const arr = Object.values(d).find(v => Array.isArray(v));
+          if (arr) articles = arr;
+        }
+        setNews(articles.filter(a => a.title || a.headline || a.text).slice(0, 6));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -5144,24 +5154,37 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
 
   const topBuys = (scanResults||[]).filter(r=>r.score>=65).slice(0,4);
 
-  // Screener rows: scanner results if available, else top watchlist movers
-  const allScreenerRows = scanResults?.length > 0
-    ? scanResults.slice(0, 7).map(r => ({
+  // Screener uses scanner results if available — watchlist as live fallback
+  const scannerHasData = (scanResults||[]).length > 0;
+  const allScreenerRows = scannerHasData
+    ? scanResults.slice(0, 10).map(r => ({
         ticker: r.ticker, price: r.quote?.price||0, chg: r.quote?.changePercent||0,
         rvol: r.quote?.volume&&r.quote?.avgVolume ? r.quote.volume/r.quote.avgVolume : 0,
         ma50: r.quote?.priceAvg50||0, score: r.score, signal: r.signal,
-        name: r.quote?.name||'',
+        name: r.quote?.name||'', fromScanner: true,
       }))
     : (watchlistData||[])
         .filter(q => q.price > 0)
-        .sort((a,b) => Math.abs(b.changesPercentage||0) - Math.abs(a.changesPercentage||0))
-        .slice(0, 7)
+        .sort((a,b) => (b.changesPercentage||0) - (a.changesPercentage||0)) // top gainers first
+        .slice(0, 10)
         .map(q => {
-          const chg = q.changesPercentage || 0;
-          const score = chg > 3 ? 72 : chg > 1 ? 62 : chg < -3 ? 30 : 50;
-          const signal = score >= 72 ? 'BUY' : score >= 62 ? 'WATCH' : score <= 35 ? 'AVOID' : 'WATCH';
-          return { ticker: q.symbol, price: q.price||0, chg, rvol: q.avgVolume>0?q.volume/q.avgVolume:0,
-            ma50: q.priceAvg50||0, score, signal, name: q.name||'' };
+          const chg    = q.changesPercentage || 0;
+          const price  = q.price || 0;
+          const ma50   = q.priceAvg50 || 0;
+          const ma200  = q.priceAvg200 || 0;
+          const rvol   = q.avgVolume > 0 ? q.volume / q.avgVolume : 0;
+          // Better score: use price vs MAs, not just daily change
+          let score = 50;
+          if (ma50 > 0 && price > ma50) score += 10;
+          if (ma200 > 0 && price > ma200) score += 10;
+          if (ma50 > 0 && ma200 > 0 && ma50 > ma200) score += 8;
+          if (chg > 2) score += 10; else if (chg > 0) score += 5;
+          else if (chg < -3) score -= 10; else if (chg < -1) score -= 5;
+          if (rvol > 2) score += 8; else if (rvol > 1.5) score += 4;
+          score = Math.max(20, Math.min(90, score));
+          const signal = score >= 72 ? 'BUY' : score >= 60 ? 'WATCH' : score <= 35 ? 'AVOID' : 'NEUTRAL';
+          return { ticker: q.symbol, price, chg, rvol: Math.round(rvol*10)/10,
+            ma50, score, signal, name: q.name||'', fromScanner: false };
         });
 
   // Live signals: scanner or top watchlist gainers
@@ -5239,14 +5262,23 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
           </Card>
 
           <Card accent={ACCENT}>
-            <CardHead icon="📊" title="REAL-TIME QUOTES SCREENER"
+            <CardHead icon="📊" title={scannerHasData ? "REAL-TIME QUOTES SCREENER" : "WATCHLIST — LIVE PRICES"}
+              badge={!scannerHasData ? <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:AMBER,
+                background:`${AMBER}18`, borderRadius:4, padding:'2px 7px' }}>NO SCAN YET</span> : null}
               action={
                 <button onClick={() => setActiveTab('smartscan')} style={{ fontFamily:MONO, fontSize:9,
                   padding:'3px 10px', borderRadius:4, border:`1px solid ${ACCENT}44`,
                   background:`${ACCENT}15`, color:ACCENT, cursor:'pointer', fontWeight:700 }}>
-                  Full Scan →
+                  {scannerHasData ? 'Full Scan →' : '▶ Run Scanner'}
                 </button>
               } />
+            {!scannerHasData && (
+              <div style={{ padding:'6px 14px', background:`${AMBER}08`, borderBottom:`1px solid ${AMBER}22`,
+                fontFamily:SANS, fontSize:11, color:AMBER, display:'flex', alignItems:'center', gap:8 }}>
+                <span>⚡</span>
+                <span>Showing live watchlist prices — click <strong>▶ Run Scanner</strong> for scored setups with signals</span>
+              </div>
+            )}
             <div style={{ display:'flex', gap:6, padding:'8px 14px', borderBottom:`1px solid ${BORDER}` }}>
               {['ALL','A+ BUY','BUY','WATCH'].map(f => (
                 <span key={f} onClick={() => setScreenerFilter(f)}
