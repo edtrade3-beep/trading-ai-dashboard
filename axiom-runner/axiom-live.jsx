@@ -8541,6 +8541,43 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
           ))}
         </div>
 
+        {/* ── LIVE CHART ── TradingView Advanced Chart, full-width ── */}
+        {(() => {
+          const [ddTf, setDdTf] = React.useState("D");
+          const tvThemeDD = typeof themeMode !== "undefined" ? (themeMode === "dark" ? "dark" : "light") : "dark";
+          const tfMap = { "1": "1", "5": "5", "15": "15", "60": "60", "D": "D", "W": "W" };
+          const interval = tfMap[ddTf] || "D";
+          const chartSrc = `/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(stock.symbol)}&t=${tvThemeDD}&h=480&iv=${interval}`;
+          return (
+            <div style={{ margin: "10px 20px 0", borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", background: C.card, borderBottom: `1px solid ${C.border}` }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginRight: 6, letterSpacing: "0.08em" }}>CHART</span>
+                {["1","5","15","60","D","W"].map(tf => (
+                  <button key={tf} onClick={() => setDdTf(tf)}
+                    style={{ background: ddTf === tf ? C.accent : "none", color: ddTf === tf ? "#fff" : C.textSec,
+                      border: `1px solid ${ddTf === tf ? C.accent : C.border}`, borderRadius: 4,
+                      fontFamily: MONO, fontSize: 11, fontWeight: ddTf === tf ? 700 : 400,
+                      padding: "2px 8px", cursor: "pointer" }}>
+                    {tf === "60" ? "1H" : tf}
+                  </button>
+                ))}
+                <a href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(stock.symbol)}`}
+                  target="_blank" rel="noreferrer"
+                  style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.textDim, textDecoration: "none" }}>
+                  Open full ↗
+                </a>
+              </div>
+              <iframe
+                key={`dd-chart-${stock.symbol}-${ddTf}`}
+                src={chartSrc}
+                width="100%" height="480"
+                style={{ display: "block", border: "none" }}
+                title={`${stock.symbol} chart`}
+              />
+            </div>
+          );
+        })()}
+
         {/* Data Grid */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, padding: "14px 20px 0" }}>
           <div style={{ ...panelCard, padding: 20 }}>
