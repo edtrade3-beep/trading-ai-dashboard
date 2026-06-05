@@ -2105,6 +2105,86 @@ function CanvasChart({ candleData, drawTools, loading }) {
   );
 }
 
+// ─── Scrolling news ticker strip (Monitor top area) ─────────────────────────
+function NewsTicker({ C, MONO }) {
+  const [items, setItems] = React.useState([]);
+  const [paused, setPaused] = React.useState(false);
+
+  React.useEffect(() => {
+    let alive = true;
+    const load = () => {
+      fetch("/api/finviz/news?limit=40")
+        .then(r => r.json())
+        .then(d => { if (alive) setItems(d.items || []); })
+        .catch(() => {});
+    };
+    load();
+    const t = setInterval(load, 120000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+
+  if (!items.length) return null;
+
+  // Build ticker text: "TICKER  Headline  ·  ..."
+  const tickerText = items.map(n => {
+    const sym = n.tickers && n.tickers.length > 0 ? n.tickers[0] + "  " : "";
+    return sym + n.title;
+  }).join("   ·   ");
+
+  return (
+    <div
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      style={{
+        marginBottom: 8, background: C.surface,
+        border: `1px solid ${C.border}`, borderRadius: 8,
+        overflow: "hidden", position: "relative",
+        display: "flex", alignItems: "center",
+        height: 34,
+      }}
+    >
+      {/* Label */}
+      <div style={{
+        flexShrink: 0, padding: "0 10px",
+        fontFamily: MONO, fontSize: 10, fontWeight: 900,
+        color: C.accent, letterSpacing: "0.08em",
+        borderRight: `1px solid ${C.border}`,
+        height: "100%", display: "flex", alignItems: "center",
+        background: C.card, zIndex: 2,
+      }}>📰 NEWS</div>
+
+      {/* Scrolling area */}
+      <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+        <div style={{
+          display: "inline-block",
+          whiteSpace: "nowrap",
+          fontFamily: MONO, fontSize: 11, color: C.textSec,
+          animation: paused ? "none" : "tickerScroll 90s linear infinite",
+          paddingLeft: "100%",
+        }}>
+          {tickerText}
+        </div>
+      </div>
+
+      {/* Pause indicator */}
+      {paused && (
+        <div style={{
+          position: "absolute", right: 8,
+          fontFamily: MONO, fontSize: 9, color: C.textDim,
+          background: C.surface, padding: "0 4px",
+        }}>⏸ hover</div>
+      )}
+
+      <style>{`
+        @keyframes tickerScroll {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-100%); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 // ─── Finviz News Card — live market news scraped from finviz.com/news.ashx ───
 function FinvizNewsCard({ C, MONO }) {
   const [items, setItems] = useState([]);
@@ -14446,6 +14526,9 @@ export default function App() {
                 </div>
               );
             })()}
+
+            {/* ── FINVIZ NEWS TICKER STRIP ── */}
+            <NewsTicker C={C} MONO={MONO} />
 
             {/* ── DAILY P&L STRIP ── */}
             {portfolioSummary && portfolioSummary.totalCost > 0 && (() => {
