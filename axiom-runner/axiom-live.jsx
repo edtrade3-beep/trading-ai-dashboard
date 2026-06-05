@@ -11105,7 +11105,7 @@ export default function App() {
     try {
       const t = localStorage.getItem("last_tab");
       // Restore only safe tabs (don't restore modals/dialogs)
-      const safeTabs = ["dashboard","briefing","terminal","tv","multitf","fibonacci","scanner","smartscan","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","portfolio","performance","journal","journal-stats","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","quran","athan","athkar","tasbih","halal","soccer"];
+      const safeTabs = ["dashboard","briefing","terminal","tv","multitf","fibonacci","scanner","smartscan","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","portfolio","performance","journal","journal-stats","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","morning-routine","challenge","recap","dipbuy","tradeplanner","under10","compression","quran","athan","athkar","tasbih","halal","soccer"];
       return (t && safeTabs.includes(t)) ? t : "dashboard";
     } catch { return "dashboard"; }
   });
@@ -14898,7 +14898,7 @@ export default function App() {
               { id: "scanner",   label: "🔍 SCAN",       tabs: ["combined", "smartscan", "tradeplanner", "adol22", "compression", "under10"] },
               { id: "markets",   label: "🌍 MARKETS",    tabs: ["news", "macro", "econ-cal", "crypto"] },
               { id: "portfolio", label: "💼 PORTFOLIO",  tabs: ["portfolio", "journal", "performance"] },
-              { id: "tools",     label: "🛠 TOOLS",      tabs: ["morning-routine", "challenge", "recap", "tools"] },
+              { id: "tools",     label: "🛠 TOOLS",      tabs: ["notes", "education", "morning-routine", "challenge", "recap", "tools"] },
               { id: "islamic",   label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih", "halal", "soccer"] },
             ];
             const scannerBadge = scannerRows.filter(r => r.scannerScore >= 70).length || null;
