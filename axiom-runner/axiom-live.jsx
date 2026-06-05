@@ -5006,6 +5006,82 @@ function TradePlannerTab({ C, MONO, SANS }) {
               ⚠️ Not financial advice. Always use stop losses. Never risk more than you can afford to lose.
             </div>
           </div>
+
+          {/* ── OPTIONS RECOMMENDATION ── */}
+          {(() => {
+            const isBull = result.trend.includes('BULL') && result.ema9 > result.ema21 && result.rsi < 70;
+            const isBear = result.trend === 'BEAR' && result.ema9 < result.ema21 && result.rsi > 30;
+            const isNeutral = !isBull && !isBear;
+            const direction = isNeutral ? 'NO CLEAR SIGNAL' : isBull ? 'BUY CALLS 🟢' : 'BUY PUTS 🔴';
+            const dirColor  = isNeutral ? C.textDim : isBull ? C.green : C.red;
+            const dirBg     = isNeutral ? C.card : isBull ? `${C.green}10` : `${C.red}10`;
+
+            // Strike calculation
+            const price   = result.price;
+            const itmStrike  = price >= 100 ? Math.round(price/5)*5   : Math.round(price);
+            const otmCall    = price >= 100 ? itmStrike + 5  : itmStrike + Math.ceil(price*0.03);
+            const otmPut     = price >= 100 ? itmStrike - 5  : itmStrike - Math.ceil(price*0.03);
+
+            // Confidence signals
+            const signals = [];
+            if (isBull) {
+              if (result.ema9 > result.ema21)       signals.push("✅ EMA 9 above 21 — bullish trend");
+              if (result.rsi >= 45 && result.rsi <= 65) signals.push(`✅ RSI ${result.rsi.toFixed(0)} — sweet spot`);
+              if (result.trend === 'STRONG BULL')    signals.push("✅ Strong uptrend confirmed");
+            } else if (isBear) {
+              if (result.ema9 < result.ema21)        signals.push("✅ EMA 9 below 21 — bearish trend");
+              if (result.rsi > 65)                   signals.push(`✅ RSI ${result.rsi.toFixed(0)} — overbought`);
+              if (result.trend === 'BEAR')           signals.push("✅ Downtrend confirmed");
+            } else {
+              signals.push("Mixed signals — no clear direction");
+              signals.push("Wait for EMA alignment or RSI extreme");
+            }
+
+            return (
+              <div style={{...card, borderTop:`3px solid ${dirColor}`, background:dirBg}}>
+                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+                  <div>
+                    <div style={{fontFamily:MONO,fontSize:11,fontWeight:900,color:C.textDim,letterSpacing:"0.1em",marginBottom:4}}>
+                      📈 OPTIONS RECOMMENDATION
+                    </div>
+                    <div style={{fontFamily:MONO,fontSize:20,fontWeight:900,color:dirColor}}>{direction}</div>
+                  </div>
+                </div>
+
+                {/* Evidence */}
+                <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:12}}>
+                  {signals.map((s,i)=>(<div key={i} style={{fontFamily:SANS,fontSize:12,color:dirColor}}>{s}</div>))}
+                </div>
+
+                {!isNeutral && (
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10,marginBottom:12}}>
+                    {[
+                      ["DIRECTION",   isBull?"CALL OPTIONS":"PUT OPTIONS",  "",                                dirColor],
+                      ["STRIKE",      isBull?`$${otmCall} (1 OTM)`:
+                                             `$${otmPut} (1 OTM)`,         `or $${itmStrike} ATM`,            dirColor],
+                      ["EXPIRATION",  "21–35 days out",                     "Never buy weeklies",              C.textDim],
+                      ["MAX LOSS",    "100% of premium",                    "Size: 1–2% of account max",       C.red],
+                      ["EXIT PROFIT", "+50% to +80%",                       "Don't get greedy",                C.green],
+                      ["EXIT LOSS",   "If stock breaks stop",               `Below $${result.stopLoss}`,       C.red],
+                    ].map(([l,v,s,col])=>(
+                      <div key={l} style={{background:C.surface,borderRadius:8,padding:"10px 12px",border:`1px solid ${C.border}`}}>
+                        <div style={{fontFamily:MONO,fontSize:9,color:C.textDim,marginBottom:4}}>{l}</div>
+                        <div style={{fontFamily:MONO,fontSize:13,fontWeight:800,color:col}}>{v}</div>
+                        {s&&<div style={{fontFamily:SANS,fontSize:10,color:C.textDim,marginTop:2}}>{s}</div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Earnings warning */}
+                <div style={{padding:"8px 12px",background:`${C.amber}10`,border:`1px solid ${C.amber}33`,
+                  borderRadius:8,fontFamily:SANS,fontSize:11,color:C.amber,fontWeight:600}}>
+                  ⚠️ Never buy options within 7 days of earnings — IV crush will destroy value even if you're right.
+                  {isNeutral && " Wait for a clear Bull BOS or Bear BOS before buying options."}
+                </div>
+              </div>
+            );
+          })()}
         </>
       )}
       {!result&&!loading&&!error&&(
