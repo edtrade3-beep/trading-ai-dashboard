@@ -5093,7 +5093,7 @@ function NewsWidget({ C, MONO, SANS }) {
 // ── Pro Dashboard ─────────────────────────────────────────────────────────────
 function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
   combinedAlerts, eventCountdowns, scanResults, watchlistData, journalEntries,
-  tiltStreak, tiltLocked, setActiveTab, isTablet, regime, regimeColor, regimeLabel }) {
+  tiltStreak, tiltLocked, setActiveTab, isTablet, regime, regimeColor, regimeLabel, openDeepDive }) {
 
   const CARD=C.card, BORDER=C.border, TEXT=C.text, DIM=C.textDim;
   const GREEN=C.green, RED=C.red, AMBER=C.amber, ACCENT=C.accent;
@@ -5256,7 +5256,7 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
                   const sigC=r.score>=75?GREEN:r.score>=62?'#22c55e':r.score>=50?AMBER:r.score>=38?RED:DIM;
                   const sig=r.score>=75?'STRONG BUY':r.score>=62?'BUY':r.score>=50?'WATCH':'AVOID';
                   return (
-                    <tr key={r.ticker} onClick={() => setActiveTab('smartscan')}
+                    <tr key={r.ticker} onClick={() => openDeepDive ? openDeepDive(r.ticker, r.price) : setActiveTab('smartscan')}
                       style={{ cursor:'pointer', borderBottom:`1px solid ${BORDER}22`,
                         background:i%2===0?'transparent':`${C.surface}88` }}>
                       <td style={{ padding:'8px 10px' }}>
@@ -5406,7 +5406,7 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
                     const t1=(price*1.08).toFixed(2), stop=(price*0.97).toFixed(2);
                     const sigC=r.score>=75?GREEN:ACCENT;
                     return (
-                      <div key={r.ticker} onClick={() => setActiveTab('smartscan')}
+                      <div key={r.ticker} onClick={() => openDeepDive ? openDeepDive(r.ticker, price) : setActiveTab('smartscan')}
                         style={{ display:'grid', gridTemplateColumns:'1.5fr 1fr 1fr 1fr',
                           padding:'9px 12px', borderBottom:`1px solid ${BORDER}22`,
                           cursor:'pointer', alignItems:'center' }}>
@@ -14682,6 +14682,16 @@ export default function App() {
               setActiveTab={setActiveTab}
               isTablet={isTablet}
               scanDeepData={scanDeepData}
+              openDeepDive={(sym, price) => {
+                setSfSig("ALL"); setSfMinScore(0);
+                setScanResults(prev => prev.some(r=>r.ticker===sym)?prev:[{
+                  ticker:sym, score:60, signal:"WATCH", scannerScore:60, signals:[],
+                  sColor:"#f59e0b", quote:{price:price||0, changePercent:0}, candles:null
+                },...prev]);
+                setActiveTab("smartscan");
+                setTimeout(()=>{ setScanExpanded(sym); loadDeepDive(sym); loadDeepSocial(sym); }, 100);
+                setTimeout(()=>fetchTradeSetup(sym,{ticker:sym,score:60,signal:"WATCH",signals:[],quote:{price:price||0}}), 1400);
+              }}
             />
           );
         })()}
