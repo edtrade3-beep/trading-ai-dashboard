@@ -10205,6 +10205,29 @@ export default function App() {
   const [sfZone,     setSfZone]     = useState("ALL");
   const [scanProgress, setScanProgress] = useState({ done: 0, total: 30 });
   const [scanExpanded, setScanExpanded] = useState(null);
+
+  // ── Auto-refresh live quote while deep dive is open (every 30s) ──
+  useEffect(() => {
+    if (!scanExpanded) return;
+    const ticker = scanExpanded;
+    const refresh = async () => {
+      try {
+        const r = await fetch(`/api/market/quote?symbol=${encodeURIComponent(ticker)}`);
+        const d = await r.json();
+        const q = d?.quote || d;
+        if (!q || !q.price) return;
+        setScanResults(prev => prev.map(row =>
+          row.ticker === ticker
+            ? { ...row, quote: { ...row.quote, price: q.price, changePercent: q.changesPercentage ?? q.changePercent ?? row.quote?.changePercent, volume: q.volume ?? row.quote?.volume } }
+            : row
+        ));
+      } catch {}
+    };
+    refresh(); // immediate on open
+    const t = setInterval(refresh, 30000);
+    return () => clearInterval(t);
+  }, [scanExpanded]);
+
   const [scanFavorites, setScanFavorites] = useState(() => { try { return new Set(JSON.parse(localStorage.getItem("scan_favorites") || "[]")); } catch { return new Set(); } });
   const toggleFavorite = (ticker) => setScanFavorites(prev => {
     const next = new Set(prev);
@@ -17833,6 +17856,21 @@ export default function App() {
                                     borderBottom: `2px solid ${row.sColor}44`,
                                     padding: isTablet ? "10px 4px" : "14px 8px",
                                     overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+
+                                  {/* ── AUTO-REFRESH BADGE ── */}
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px 6px", marginBottom: 4 }}>
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4,
+                                      fontFamily: MONO, fontSize: 10, color: C.green,
+                                      background: `${C.green}15`, border: `1px solid ${C.green}33`,
+                                      borderRadius: 4, padding: "2px 7px" }}>
+                                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.green,
+                                        display: "inline-block", animation: "pulse 2s infinite" }} />
+                                      LIVE · refreshes every 30s
+                                    </span>
+                                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: liveChg >= 0 ? C.green : C.red }}>
+                                      {row.ticker} ${livePrice > 0 ? livePrice.toFixed(2) : "—"} {liveChg >= 0 ? "+" : ""}{liveChg.toFixed(2)}%
+                                    </span>
+                                  </div>
 
                                   {isLoading ? (
                                     <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim,
