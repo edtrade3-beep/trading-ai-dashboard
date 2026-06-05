@@ -32,17 +32,17 @@ const { withTimeout, round2 }                    = require("./utils");
 const API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 
 // ── Pro Bot State ──────────────────────────────────────────────────────────────
-// Alert level: "quiet" (≥85+BOS only) | "normal" (≥75, default) | "all"
+// Alert level: "quiet" (≥90+BOS only) | "normal" (≥88+BOS, default) | "all"
 let alertLevel   = "normal";
 // Batch queue: holds pending scan alerts to group into one message
 let batchQueue    = [];       // { symbol, signal, score, chgPct, rvol, trend }
 let batchTimer    = null;
-const BATCH_WAIT  = 180_000; // 3 minutes — collect signals then send ONE message
-const BATCH_LIMIT = 3;       // max 3 signals per batch (was 5)
+const BATCH_WAIT  = 300_000; // 5 minutes — collect signals then send ONE message
+const BATCH_LIMIT = 2;       // max 2 signals per batch
 // Daily alert budget — reset at midnight ET
 let dailyAlertCount = 0;
 let dailyAlertDate  = "";
-const MAX_DAILY_ALERTS = 4;  // hard cap: max 4 alerts per day (was 8)
+const MAX_DAILY_ALERTS = 2;  // hard cap: max 2 alerts per day
 
 function checkDailyBudget() {
   const today = new Date().toLocaleDateString("en-US", { timeZone: "America/New_York" });
@@ -51,23 +51,23 @@ function checkDailyBudget() {
 }
 function incrementDailyCount() { dailyAlertCount++; }
 
-// Quiet hours: no alerts outside 9:00am–3:30pm ET + no weekends
+// Quiet hours: alerts only 10:00am–2:30pm ET (prime window only) + no weekends
 function isQuietHours() {
   const etStr  = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
   const et     = new Date(etStr);
   const h      = et.getHours(), m = et.getMinutes(), day = et.getDay();
   if (day === 0 || day === 6) return true;                      // weekend
-  if (h > 15 || (h === 15 && m >= 30)) return true;            // after 3:30 PM (tightened from 4:30)
-  if (h < 9) return true;                                       // before 9:00 AM (tightened from 7:00)
+  if (h > 14 || (h === 14 && m >= 30)) return true;            // after 2:30 PM
+  if (h < 10) return true;                                      // before 10:00 AM (skip open volatility)
   return false;
 }
 
 // Check if alert passes the current level filter
 function passesAlertLevel(score, hasBOS) {
   if (alertLevel === "off")    return false;
-  if (alertLevel === "quiet")  return score >= 90 && hasBOS;  // extreme only
-  if (alertLevel === "normal") return score >= 85 && hasBOS;  // require BOS + high score
-  return score >= 80 && hasBOS; // "all" mode still needs BOS + 80+
+  if (alertLevel === "quiet")  return score >= 93 && hasBOS;  // extreme A+ only
+  if (alertLevel === "normal") return score >= 90 && hasBOS;  // require BOS + 90+
+  return score >= 85 && hasBOS; // "all" mode still needs BOS + 85+
 }
 
 // Add to batch queue and schedule a grouped send
