@@ -1522,35 +1522,16 @@ function startMarketScanner() {
     console.log(`[Scanner] Scheduled: ${label} — ${time} ET`);
 
     // Dispatch to specialized report or standard entry/exit scan
-    if (time === "06:45") {
-      // 6:45 AM — Macro Pre-Market: futures, VIX, bonds, gold, BTC
-      sendMacroPreMarket().catch(() => {});
-
-    } else if (time === "07:30") {
-      // 7:30 AM — Pre-Market Watchlist: gappers, volume, key levels
+    if (time === "07:30") {
+      // 7:30 AM — Pre-Market scan ✅ KEEP
       sendPreMarketWatchlist().catch(() => {});
 
-    } else if (time === "09:20") {
-      // 9:20 AM — Opening Plan: final bias, top 5, no-trade zones
-      sendOpeningPlan().catch(() => {});
-
-    } else if (time === "12:00") {
-      // 12:00 PM — Midday Reset: trend, sector rotation, reversal risk
-      sendMiddayReset().catch(() => {});
-
-    } else if (time === "15:45") {
-      // 3:45 PM — Power Hour + Next-Day Watchlist
-      sendPowerHourWatchlist().catch(() => {});
-
     } else if (time === "16:15") {
-      // 4:15 PM — After-Close Report: full recap + tomorrow levels
+      // 4:15 PM — After-Market scan ✅ KEEP
       sendAfterCloseReport().catch(() => {});
 
     } else {
-      // 9:45, 10:30, 13:30, 14:45 — Full entry/exit signal scan
-      if (telegramConfigured()) {
-        sendTelegramMessage(`⏰ ${label} Scan — ${time} ET`).catch(() => {});
-      }
+      // All other times — BUY/SELL scan only (no timestamp spam)
       runScan({ scheduledLabel: label }).catch(() => {});
     }
   }, 30_000); // check every 30s so we never miss a minute

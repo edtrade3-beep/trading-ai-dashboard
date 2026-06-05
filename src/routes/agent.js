@@ -829,9 +829,7 @@ async function handleAgent(req, res, requestUrl) {
     let body;
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON" }); }
     const result = buildTradeSetup(body);
-    if (telegramConfigured() && result.bias !== "NEUTRAL") {
-      sendTelegramMessage(`🎯 Trade Setup: ${result.ticker} ${result.bias}\n${result.plan.slice(0, 600)}`).catch(() => {});
-    }
+    // Auto-send disabled — too noisy. User can manually push from platform.
     return writeJson(res, 200, result);
   }
 
@@ -840,7 +838,6 @@ async function handleAgent(req, res, requestUrl) {
     let body;
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON" }); }
     const briefing = generateBriefing(body);
-    if (telegramConfigured()) sendTelegramMessage(`🌅 Pre-Market Briefing\n\n${briefing.slice(0, 1400)}`).catch(() => {});
     return writeJson(res, 200, { ok: true, briefing, generatedAt: now() });
   }
 
@@ -921,7 +918,6 @@ async function handleAgent(req, res, requestUrl) {
     let body;
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON" }); }
     const result = generateSessionRecap(body.trades, body.macroRegime);
-    if (telegramConfigured()) sendTelegramMessage(`📋 Session Recap\n\n${result.recap.slice(0, 1200)}`).catch(() => {});
     return writeJson(res, 200, result);
   }
 
