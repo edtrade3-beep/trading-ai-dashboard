@@ -8479,12 +8479,6 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
               <span style={{ fontSize: 24, fontFamily: MONO, fontWeight: 800, color: C.text }}>{stock.symbol}</span>
               <span style={{ fontSize: 12, fontFamily: SANS, color: C.textSec }}>{stock.name}</span>
               <Badge color={C.textSec}>{stock.exchange}</Badge>
-              <button
-                onClick={() => onOpenTradingView?.(stock.symbol)}
-                style={{ border: `1px solid ${C.borderLit}`, background: C.surface, color: C.accent, borderRadius: 6, padding: "3px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
-              >
-                TRADINGVIEW
-              </button>
             </div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginTop: 6 }}>
               <span style={{ fontSize: 30, fontFamily: MONO, fontWeight: 700, color: C.text }}>
@@ -8561,11 +8555,7 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
                     {tf === "60" ? "1H" : tf}
                   </button>
                 ))}
-                <a href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(stock.symbol)}`}
-                  target="_blank" rel="noreferrer"
-                  style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.textDim, textDecoration: "none" }}>
-                  Open full ↗
-                </a>
+                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.textDim }}>{stock.symbol}</span>
               </div>
               <iframe
                 key={`dd-chart-${stock.symbol}-${ddTf}`}
