@@ -8535,38 +8535,191 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
           ))}
         </div>
 
-        {/* ── LIVE CHART ── TradingView Advanced Chart, full-width ── */}
+        {/* ── LIVE CHART (collapsible, compact) ── */}
         {(() => {
           const [ddTf, setDdTf] = React.useState("D");
+          const [chartOpen, setChartOpen] = React.useState(true);
           const tvThemeDD = typeof themeMode !== "undefined" ? (themeMode === "dark" ? "dark" : "light") : "dark";
-          const tfMap = { "1": "1", "5": "5", "15": "15", "60": "60", "D": "D", "W": "W" };
-          const interval = tfMap[ddTf] || "D";
-          const chartSrc = `/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(stock.symbol)}&t=${tvThemeDD}&h=480&iv=${interval}`;
+          const interval = {"1":"1","5":"5","15":"15","60":"60","D":"D","W":"W"}[ddTf] || "D";
+          const chartSrc = `/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(stock.symbol)}&t=${tvThemeDD}&h=300&iv=${interval}`;
           return (
             <div style={{ margin: "10px 20px 0", borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", background: C.card, borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginRight: 6, letterSpacing: "0.08em" }}>CHART</span>
-                {["1","5","15","60","D","W"].map(tf => (
-                  <button key={tf} onClick={() => setDdTf(tf)}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: C.card, borderBottom: chartOpen ? `1px solid ${C.border}` : "none", cursor: "pointer" }}
+                onClick={() => setChartOpen(o => !o)}>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginRight: 6, letterSpacing: "0.08em" }}>📊 CHART</span>
+                {chartOpen && ["1","5","15","60","D","W"].map(tf => (
+                  <button key={tf} onClick={e => { e.stopPropagation(); setDdTf(tf); }}
                     style={{ background: ddTf === tf ? C.accent : "none", color: ddTf === tf ? "#fff" : C.textSec,
                       border: `1px solid ${ddTf === tf ? C.accent : C.border}`, borderRadius: 4,
-                      fontFamily: MONO, fontSize: 11, fontWeight: ddTf === tf ? 700 : 400,
-                      padding: "2px 8px", cursor: "pointer" }}>
+                      fontFamily: MONO, fontSize: 11, padding: "1px 7px", cursor: "pointer" }}>
                     {tf === "60" ? "1H" : tf}
                   </button>
                 ))}
-                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.textDim }}>{stock.symbol}</span>
+                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.textDim }}>{chartOpen ? "▲ hide" : "▼ show chart"}</span>
               </div>
-              <iframe
-                key={`dd-chart-${stock.symbol}-${ddTf}`}
-                src={chartSrc}
-                width="100%" height="480"
-                style={{ display: "block", border: "none" }}
-                title={`${stock.symbol} chart`}
-              />
+              {chartOpen && (
+                <iframe key={`dd-chart-${stock.symbol}-${ddTf}`} src={chartSrc}
+                  width="100%" height="300" style={{ display: "block", border: "none" }}
+                  title={`${stock.symbol} chart`} />
+              )}
             </div>
           );
         })()}
+
+        {/* ── KEY LEVELS + SHORT INTEREST + ANALYST + OPTIONS ROW ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, padding: "12px 20px 0" }}>
+
+          {/* KEY LEVELS */}
+          {(() => {
+            const px   = stock.price || 0;
+            const hi52 = stock.yearHigh || 0;
+            const lo52 = stock.yearLow  || 0;
+            const ma50 = stock.priceAvg50  || 0;
+            const ma200= stock.priceAvg200 || 0;
+            const pivot= hi52 > 0 && lo52 > 0 ? ((hi52 + lo52 + px) / 3) : 0;
+            const r1   = pivot > 0 ? (2 * pivot - lo52) : 0;
+            const s1   = pivot > 0 ? (2 * pivot - hi52) : 0;
+            const distHi = hi52 > 0 ? ((px / hi52 - 1) * 100).toFixed(1) : null;
+            const distLo = lo52 > 0 ? ((px / lo52 - 1) * 100).toFixed(1) : null;
+            return (
+              <div style={{ ...panelCard, padding: 14 }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.cyan, letterSpacing: "0.08em", marginBottom: 10 }}>🎯 KEY LEVELS</div>
+                {[
+                  ["52W High",  hi52 > 0 ? `$${hi52.toFixed(2)}` : "—",  distHi ? `${distHi}%` : "", C.red],
+                  ["R1",        r1   > 0 ? `$${r1.toFixed(2)}`   : "—",  "resist",                   C.red],
+                  ["Pivot",     pivot> 0 ? `$${pivot.toFixed(2)}`: "—",  "daily",                    C.amber],
+                  ["MA 50",     ma50 > 0 ? `$${ma50.toFixed(2)}` : "—",  px > ma50 ? "above ✅" : "below ⚠️", px > ma50 ? C.green : C.red],
+                  ["MA 200",    ma200> 0 ? `$${ma200.toFixed(2)}`: "—",  px > ma200? "above ✅" : "below ⚠️", px > ma200? C.green : C.red],
+                  ["S1",        s1   > 0 ? `$${s1.toFixed(2)}`   : "—",  "support",                  C.green],
+                  ["52W Low",   lo52 > 0 ? `$${lo52.toFixed(2)}` : "—",  distLo ? `+${distLo}%` : "", C.green],
+                ].map(([l,v,sub,col]) => (
+                  <div key={l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: `1px solid ${C.border}` }}>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{l}</div>
+                      {sub && <div style={{ fontSize: 9, color: C.textDim }}>{sub}</div>}
+                    </div>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{v}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* SHORT INTEREST */}
+          {(() => {
+            const si   = Number(fundamentals?.shortRatio      || stock.shortRatio      || 0);
+            const sf   = Number(fundamentals?.shortFloat      || stock.shortFloat      || 0);
+            const inst = Number(fundamentals?.institutionalOwnership || 0);
+            const ins  = Number(fundamentals?.insiderOwnership       || 0);
+            const beta = Number(fundamentals?.beta || stock.beta || 0);
+            const siColor = sf > 20 ? C.red : sf > 10 ? C.amber : C.green;
+            return (
+              <div style={{ ...panelCard, padding: 14 }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.amber, letterSpacing: "0.08em", marginBottom: 10 }}>📊 OWNERSHIP & RISK</div>
+                {[
+                  ["Short Float",    sf   > 0 ? `${sf.toFixed(1)}%`   : "—", sf   > 20 ? "HIGH squeeze risk" : sf > 10 ? "elevated" : "low",        siColor],
+                  ["Short Ratio",    si   > 0 ? `${si.toFixed(1)}d`   : "—", "days to cover",                                                         si > 5 ? C.red : C.textSec],
+                  ["Inst. Own",      inst > 0 ? `${(inst*100).toFixed(1)}%` : "—", inst > 0.7 ? "institutional heavy" : "retail mix",               C.text],
+                  ["Insider Own",    ins  > 0 ? `${(ins *100).toFixed(1)}%` : "—", ins  > 0.1 ? "skin in game ✅" : "low insider",                  ins > 0.1 ? C.green : C.textDim],
+                  ["Beta",           beta > 0 ? beta.toFixed(2)        : "—", beta > 1.5 ? "high volatility" : beta < 0.8 ? "defensive" : "moderate", beta > 1.5 ? C.red : C.green],
+                  ["Float Risk",     sf > 0 && si > 0 ? (sf > 20 && si > 5 ? "🔥 SQUEEZE SETUP" : sf > 15 ? "⚡ Elevated" : "✅ Normal") : "—", "", sf > 20 ? C.green : C.textSec],
+                ].map(([l,v,sub,col]) => (
+                  <div key={l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: `1px solid ${C.border}` }}>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{l}</div>
+                      {sub && <div style={{ fontSize: 9, color: C.textDim }}>{sub}</div>}
+                    </div>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{v}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* ANALYST CONSENSUS */}
+          {(() => {
+            const target  = Number(fundamentals?.analystTarget || stock.analystTarget || 0);
+            const upside  = target > 0 && stock.price > 0 ? ((target / stock.price - 1) * 100) : null;
+            const rating  = fundamentals?.analystRating || stock.analystRating || "";
+            const ratingColor = /buy|outperform|strong/i.test(rating) ? C.green : /sell|under/i.test(rating) ? C.red : C.amber;
+            const numAna  = Number(fundamentals?.numberOfAnalysts || stock.numberOfAnalysts || 0);
+            const pe      = resolvedPe;
+            const fwdPe   = Number(fundamentals?.forwardPE || 0);
+            const peg     = Number(fundamentals?.pegRatio  || 0);
+            const pb      = Number(fundamentals?.priceToBook || 0);
+            return (
+              <div style={{ ...panelCard, padding: 14 }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.purple, letterSpacing: "0.08em", marginBottom: 10 }}>🏦 ANALYST VIEW</div>
+                <div style={{ textAlign: "center", padding: "8px 0", marginBottom: 8, borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: ratingColor }}>{rating || "—"}</div>
+                  {numAna > 0 && <div style={{ fontSize: 10, color: C.textDim }}>{numAna} analysts</div>}
+                </div>
+                {[
+                  ["Price Target",  target > 0 ? `$${target.toFixed(2)}` : "—", upside !== null ? `${upside >= 0 ? "+" : ""}${upside.toFixed(1)}% upside` : "", upside >= 0 ? C.green : C.red],
+                  ["Trailing P/E",  pe    > 0 ? pe.toFixed(1)            : "—", pe > 0 ? (pe < 20 ? "cheap" : pe < 40 ? "fair" : "rich") : "",                  pe > 0 && pe < 25 ? C.green : pe > 40 ? C.red : C.amber],
+                  ["Forward P/E",   fwdPe > 0 ? fwdPe.toFixed(1)        : "—", fwdPe > 0 && pe > 0 ? (fwdPe < pe ? "expanding ✅" : "contracting") : "",        fwdPe > 0 && fwdPe < pe ? C.green : C.amber],
+                  ["PEG",           peg   > 0 ? peg.toFixed(2)           : "—", peg > 0 ? (peg < 1 ? "undervalued" : peg < 2 ? "fair" : "overvalued") : "",      peg > 0 && peg < 1 ? C.green : peg > 2 ? C.red : C.amber],
+                  ["P/B",           pb    > 0 ? pb.toFixed(2)            : "—", pb > 0 ? (pb < 1 ? "below book" : pb < 3 ? "reasonable" : "premium") : "",       pb > 0 && pb < 1 ? C.green : pb > 5 ? C.red : C.text],
+                ].map(([l,v,sub,col]) => (
+                  <div key={l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: `1px solid ${C.border}` }}>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{l}</div>
+                      {sub && <div style={{ fontSize: 9, color: col || C.textDim }}>{sub}</div>}
+                    </div>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{v}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* OPTIONS SENTIMENT */}
+          {(() => {
+            const isBull = stock.price > (stock.priceAvg50 || 0) && (stock.priceAvg50 || 0) > (stock.priceAvg200 || 0);
+            const isBear = stock.price < (stock.priceAvg50 || 0) && (stock.priceAvg50 || 0) < (stock.priceAvg200 || 0);
+            const rsiVal = (() => {
+              const changes = [];
+              if (stock.change && stock.previousClose) changes.push(stock.change);
+              return changes.length ? Math.min(100, Math.max(0, 50 + (stock.changesPercentage || 0) * 3)) : 50;
+            })();
+            const callBias = isBull && rsiVal < 70;
+            const putBias  = isBear  && rsiVal > 30;
+            const neutral  = !callBias && !putBias;
+            const dirColor = neutral ? C.textDim : callBias ? C.green : C.red;
+            const px       = stock.price || 0;
+            const atmStrike = px >= 100 ? Math.round(px / 5) * 5 : Math.round(px);
+            const otmCall  = px >= 100 ? atmStrike + 5 : atmStrike + Math.ceil(px * 0.03);
+            const otmPut   = px >= 100 ? atmStrike - 5 : atmStrike - Math.ceil(px * 0.03);
+            const expNote  = "21–35 DTE";
+            return (
+              <div style={{ ...panelCard, padding: 14 }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.green, letterSpacing: "0.08em", marginBottom: 10 }}>⚡ OPTIONS SIGNAL</div>
+                <div style={{ textAlign: "center", padding: "8px 0", marginBottom: 8, borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: dirColor }}>
+                    {neutral ? "WAIT" : callBias ? "BUY CALLS" : "BUY PUTS"}
+                  </div>
+                  <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>based on trend + momentum</div>
+                </div>
+                {[
+                  ["Direction",  neutral ? "NEUTRAL" : callBias ? "BULLISH" : "BEARISH",  "",                neutral ? C.textDim : callBias ? C.green : C.red],
+                  ["Strike",     !neutral ? `$${callBias ? otmCall : otmPut} (1 OTM)`:"—", `ATM: $${atmStrike}`, dirColor],
+                  ["Expiry",     expNote,                                                   "never weeklies",  C.textDim],
+                  ["Exit +",     "+50% to +80%",                                            "take profit",     C.green],
+                  ["Exit −",     `Below $${(px * 0.97).toFixed(2)}`,                        "stop level",      C.red],
+                  ["IV Warning", "Avoid earnings week",                                     "IV crush risk",   C.amber],
+                ].map(([l,v,sub,col]) => (
+                  <div key={l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: `1px solid ${C.border}` }}>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{l}</div>
+                      {sub && <div style={{ fontSize: 9, color: C.textDim }}>{sub}</div>}
+                    </div>
+                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: col }}>{v}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </div>
 
         {/* Data Grid */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, padding: "14px 20px 0" }}>
