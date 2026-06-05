@@ -16209,6 +16209,7 @@ export default function App() {
           />
         )}
 
+
         {activeTab === "sec-filings" && (
           <SecFilingsTab C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />
         )}
