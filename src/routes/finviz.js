@@ -13,49 +13,53 @@ const HEADERS = {
 let _newsCache = null, _newsCacheTs = 0;
 const NEWS_TTL = 2 * 60 * 1000;
 
-function fetchHtml(url) {
+function fetchHtml(url, redirects = 0) {
   return new Promise((resolve, reject) => {
+    if (redirects > 3) return reject(new Error("too many redirects"));
     const req = https.get(url, { headers: HEADERS }, res => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        const next = res.headers.location.startsWith("http") ? res.headers.location : "https://finviz.com" + res.headers.location;
+        return resolve(fetchHtml(next, redirects + 1));
+      }
       let d = ""; res.on("data", c => d += c); res.on("end", () => resolve(d));
     });
     req.on("error", reject);
-    req.setTimeout(10000, () => { req.destroy(); reject(new Error("timeout")); });
+    req.setTimeout(12000, () => { req.destroy(); reject(new Error("timeout")); });
   });
 }
 
 function parseFinvizNews(html) {
   const items = [];
-  // Finviz news rows: <tr class="nn"> or <tr class="nw"> with <td class="nn-date"> and <td class="nn-tab-link">
-  // Pattern: find all news table rows
-  const rowRe = /class="nn[^"]*"[^>]*>([\s\S]*?)<\/tr>/gi;
+
+  // Current Finviz structure (2025-2026):
+  // <tr class="styled-row is-hoverable ...">
+  //   <td class="news_date-cell color-text is-muted">12:51PM</td>
+  //   <td class="news_link-cell" ...><a href="https://..." class="nn-tab-link" ...>TITLE</a></td>
+  // </tr>
+  const rowRe = /<tr[^>]*class="[^"]*styled-row[^"]*"[^>]*>([\s\S]*?)<\/tr>/gi;
   let m;
   while ((m = rowRe.exec(html)) !== null) {
     const row = m[1];
-    // Time
-    const timeM = row.match(/class="nn-date"[^>]*>([\s\S]*?)<\/td>/i);
+    // Time from news_date-cell
+    const timeM = row.match(/class="[^"]*news_date-cell[^"]*"[^>]*>([\s\S]*?)<\/td>/i);
     const time  = timeM ? timeM[1].replace(/<[^>]+>/g,"").trim() : "";
-    // Link + title
-    const linkM = row.match(/href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+    // Link + title from nn-tab-link anchor
+    const linkM = row.match(/class="nn-tab-link"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>|href="([^"]+)"[^>]*class="nn-tab-link"[^>]*>([\s\S]*?)<\/a>/i);
     if (!linkM) continue;
-    const url   = linkM[1];
-    const title = linkM[2].replace(/<[^>]+>/g,"").trim();
-    if (!title || title.length < 10) continue;
-    // Ticker (optional, in a separate <a> tag with nn-tab-link class)
-    const tickM = row.match(/class="nn-tab-link"[^>]*>([\s\S]*?)<\/a>/gi);
-    const tickers = tickM ? tickM.map(t => t.replace(/<[^>]+>/g,"").trim()).filter(Boolean) : [];
-    // Source — often in a <span> or bold
-    const srcM  = row.match(/<span[^>]*>([\s\S]*?)<\/span>/i);
-    const src   = srcM ? srcM[1].replace(/<[^>]+>/g,"").trim() : "Finviz";
-    items.push({ time, title, url, tickers, source: src || "Finviz" });
+    const url   = linkM[1] || linkM[3] || "";
+    const title = (linkM[2] || linkM[4] || "").replace(/<[^>]+>/g,"").trim();
+    if (!url || !title || title.length < 10) continue;
+    items.push({ time, title, url, tickers: [], source: "Finviz" });
   }
 
-  // Fallback: try <a> links with news pattern if above yields nothing
+  // Fallback: grab all nn-tab-link anchors directly
   if (items.length === 0) {
-    const re2 = /href="(https?:\/\/[^"]+)"[^>]*class="[^"]*news[^"]*"[^>]*>([\s\S]*?)<\/a>/gi;
+    const re2 = /href="(https?:\/\/[^"]+)"[^>]*class="nn-tab-link"[^>]*>([\s\S]*?)<\/a>|class="nn-tab-link"[^>]*href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
     let m2;
     while ((m2 = re2.exec(html)) !== null) {
-      const title = m2[2].replace(/<[^>]+>/g,"").trim();
-      if (title.length > 15) items.push({ time: "", title, url: m2[1], tickers: [], source: "Finviz" });
+      const url   = m2[1] || m2[3] || "";
+      const title = (m2[2] || m2[4] || "").replace(/<[^>]+>/g,"").trim();
+      if (title.length > 15) items.push({ time: "", title, url, tickers: [], source: "Finviz" });
     }
   }
   return items;
