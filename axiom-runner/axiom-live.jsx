@@ -6628,6 +6628,346 @@ VWAP: $163.40  EMA9: $163.80  EMA21: $162.50
 }
 
 // ── Market Recap Tab ─────────────────────────────────────────────────────────
+// ─── EDUCATION & PSYCHOLOGY TAB ──────────────────────────────────────────────
+const EDU_MISTAKES_KEY  = "axiom_mistakes_v1";
+const EDU_RULES_KEY     = "axiom_rules_v1";
+const EDU_JOURNAL_KEY   = "axiom_psych_v1";
+
+const DEFAULT_RULES = [
+  "Never risk more than 1% of account per trade",
+  "No trades in the first 15 minutes (9:30–9:45 AM)",
+  "Always set stop loss BEFORE entering",
+  "Take 50% profit at T1, let rest run to T2",
+  "No revenge trading — 2 losses in a row = stop for the day",
+  "Only trade A+ setups — if in doubt, sit out",
+  "Never add to a losing position",
+  "Check market regime before every trade",
+];
+
+const LESSONS = [
+  { id:"l1", category:"MINDSET", title:"Why 90% of traders lose money", icon:"🧠",
+    points:["They trade on emotion not rules","They risk too much per trade (10%+ instead of 1%)","They have no written trading plan","They revenge trade after losses","They overtrade — waiting is a skill"] },
+  { id:"l2", category:"RISK", title:"The 1% rule — how professionals stay alive", icon:"🛡",
+    points:["Risk only 1% of account per trade","$10,000 account = max $100 risk per trade","This means you can lose 100 times in a row and still be in the game","Most traders risk 5-20% and blow up in weeks","Small consistent gains beat big risky wins"] },
+  { id:"l3", category:"ENTRY", title:"How to find the perfect entry", icon:"🎯",
+    points:["Wait for pullback to EMA21 or MA50 — not breakout","RSI between 35-55 = sweet spot for entries","Volume must confirm — no volume = no conviction","Let the setup come to you, never chase","The best entry is often when it looks scary"] },
+  { id:"l4", category:"EXIT", title:"When to sell — the hardest skill in trading", icon:"🚪",
+    points:["Take 50% off at T1 (+5-8%) — lock in gains","Move stop to breakeven once T1 is hit","Let remaining 50% run to T2 (+15-20%)","Never hold through earnings without a hedge","Sell 1/3 at T1, 1/3 at T2, let 1/3 run free"] },
+  { id:"l5", category:"PSYCHOLOGY", title:"How to stop revenge trading", icon:"😤",
+    points:["After 2 losses in a row → close platform, go for a walk","Your brain is in fight-or-flight mode after losses","Revenge trades feel different — they feel urgent, angry","Write down WHY you want to enter before clicking buy","If the reason starts with 'I need to make back' → don't trade"] },
+  { id:"l6", category:"PSYCHOLOGY", title:"FOMO — the trader killer", icon:"😰",
+    points:["FOMO = Fear Of Missing Out = buying tops","If you missed the move, it's gone — there's always a next one","Ask: would I buy this if it was -10% today? If no, don't buy it +10%","The stock you're watching now is not the last opportunity ever","FOMO trades almost always lose — the setup is already over"] },
+  { id:"l7", category:"SETUP", title:"The 3 setups that work 70%+ of the time", icon:"📊",
+    points:["1. Pullback to EMA21 in an uptrend (buy the dip)","2. Breakout above 52W high with volume 2x+ average","3. Oversold bounce — RSI < 30, price at major support","All 3 require: trend alignment + volume confirmation + stop loss","Master these 3 before learning anything else"] },
+  { id:"l8", category:"MINDSET", title:"Process over profits — the pro mindset", icon:"🏆",
+    points:["A good trade can lose money. A bad trade can make money.","Judge yourself on process: did I follow my rules?","Keep a trade journal — review every Friday","Track win rate AND average win vs average loss size","Your edge compounds over 100s of trades, not 1"] },
+  { id:"l9", category:"RISK", title:"Position sizing — size matters more than entry", icon:"📐",
+    points:["Entry price matters less than how much you risk","$10K account, 1% risk, $5 stop = 200 shares max","Most traders lose because position too big — panic sells","Scale in: buy 50% at entry, add 50% if confirmed","Never go all-in — always leave room to be wrong"] },
+  { id:"l10", category:"SETUP", title:"Reading the tape — what price action tells you", icon:"📈",
+    points:["Big green candle on high volume = buyers in control","Small candles on low volume = no conviction either way","Long upper wick = sellers rejecting higher prices (bearish)","Long lower wick = buyers rejecting lower prices (bullish)","Candle closing near the high = strength, near the low = weakness"] },
+];
+
+const MISTAKE_TYPES = ["FOMO Entry","Revenge Trade","No Stop Loss","Too Big Size","Held Through Earnings",
+  "Chased Breakout","Averaged Down","Broke My Rules","Overtrade","Panic Sell","Early Exit","Late Entry"];
+
+function EducationTab({ C, MONO, SANS }) {
+  const [section, setSection] = useState("lessons"); // lessons | rules | mistakes | journal
+  const [openLesson, setOpenLesson] = useState(null);
+  const [lessonFilter, setLessonFilter] = useState("ALL");
+  const [rules, setRules] = useState(() => { try { return JSON.parse(localStorage.getItem(EDU_RULES_KEY)) || DEFAULT_RULES; } catch { return DEFAULT_RULES; } });
+  const [newRule, setNewRule] = useState("");
+  const [mistakes, setMistakes] = useState(() => { try { return JSON.parse(localStorage.getItem(EDU_MISTAKES_KEY)) || []; } catch { return []; } });
+  const [mistakeForm, setMistakeForm] = useState({ type:"FOMO Entry", ticker:"", note:"", lesson:"" });
+  const [journalEntries, setJournalEntries] = useState(() => { try { return JSON.parse(localStorage.getItem(EDU_JOURNAL_KEY)) || []; } catch { return []; } });
+  const [journalForm, setJournalForm] = useState({ mood:"😊", focus:"5", discipline:"5", note:"" });
+  const [checkedRules, setCheckedRules] = useState({});
+
+  const saveRules   = r => { setRules(r); localStorage.setItem(EDU_RULES_KEY, JSON.stringify(r)); };
+  const saveMistakes= m => { setMistakes(m); localStorage.setItem(EDU_MISTAKES_KEY, JSON.stringify(m)); };
+  const saveJournal = j => { setJournalEntries(j); localStorage.setItem(EDU_JOURNAL_KEY, JSON.stringify(j)); };
+
+  const categories = ["ALL", ...new Set(LESSONS.map(l => l.category))];
+  const filtered = lessonFilter === "ALL" ? LESSONS : LESSONS.filter(l => l.category === lessonFilter);
+  const mistakeCount = MISTAKE_TYPES.map(t => ({ type: t, count: mistakes.filter(m => m.type === t).length })).sort((a,b) => b.count - a.count);
+
+  const catColor = c => ({ MINDSET:"#7c3aed", RISK:"#dc2626", ENTRY:"#16a34a", EXIT:"#f59e0b", PSYCHOLOGY:"#0891b2", SETUP:"#2563eb" })[c] || C.accent;
+
+  const MOODS = ["😤","😰","😔","😐","🙂","😊","🔥"];
+
+  const card = { background: C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:16 };
+
+  return (
+    <div style={{ padding:"16px 20px", maxWidth:1000, margin:"0 auto" }}>
+      {/* Header */}
+      <div style={{ marginBottom:16 }}>
+        <div style={{ fontFamily:MONO, fontSize:20, fontWeight:900, color:C.text }}>🎓 EDUCATION & PSYCHOLOGY</div>
+        <div style={{ fontFamily:SANS, fontSize:12, color:C.textDim, marginTop:3 }}>Master the mental game — the edge most traders ignore</div>
+      </div>
+
+      {/* Section tabs */}
+      <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
+        {[["lessons","📚 LESSONS"],["rules","📋 MY RULES"],["mistakes","⚠️ MISTAKES"],["journal","🧘 PSYCH LOG"]].map(([id,label]) => (
+          <button key={id} onClick={() => setSection(id)}
+            style={{ background: section===id ? C.accent : C.surface,
+              color: section===id ? "#fff" : C.textSec,
+              border: `1px solid ${section===id ? C.accent : C.border}`,
+              borderRadius:8, fontFamily:MONO, fontSize:12, fontWeight:700,
+              padding:"8px 16px", cursor:"pointer" }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── LESSONS ── */}
+      {section === "lessons" && (
+        <div>
+          <div style={{ display:"flex", gap:6, marginBottom:14, flexWrap:"wrap" }}>
+            {categories.map(c => (
+              <button key={c} onClick={() => setLessonFilter(c)}
+                style={{ background: lessonFilter===c ? (c==="ALL"?C.accent:catColor(c)) : C.surface,
+                  color: lessonFilter===c ? "#fff" : C.textSec,
+                  border:`1px solid ${lessonFilter===c ? (c==="ALL"?C.accent:catColor(c)) : C.border}`,
+                  borderRadius:6, fontFamily:MONO, fontSize:11, fontWeight:700, padding:"4px 12px", cursor:"pointer" }}>
+                {c}
+              </button>
+            ))}
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {filtered.map(lesson => (
+              <div key={lesson.id} style={{ ...card, borderLeft:`4px solid ${catColor(lesson.category)}`, cursor:"pointer" }}
+                onClick={() => setOpenLesson(openLesson===lesson.id ? null : lesson.id)}>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <span style={{ fontSize:20 }}>{lesson.icon}</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                      <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:catColor(lesson.category),
+                        background:`${catColor(lesson.category)}18`, borderRadius:3, padding:"1px 6px" }}>
+                        {lesson.category}
+                      </span>
+                    </div>
+                    <div style={{ fontFamily:MONO, fontSize:14, fontWeight:800, color:C.text, marginTop:3 }}>{lesson.title}</div>
+                  </div>
+                  <span style={{ fontFamily:MONO, fontSize:12, color:C.textDim }}>{openLesson===lesson.id ? "▲" : "▼"}</span>
+                </div>
+                {openLesson === lesson.id && (
+                  <div style={{ marginTop:12, paddingTop:12, borderTop:`1px solid ${C.border}` }}>
+                    {lesson.points.map((p,i) => (
+                      <div key={i} style={{ display:"flex", gap:10, padding:"6px 0", borderBottom:`1px solid ${C.border}22` }}>
+                        <span style={{ fontFamily:MONO, fontSize:13, color:catColor(lesson.category), fontWeight:700, minWidth:20 }}>{i+1}.</span>
+                        <span style={{ fontFamily:SANS, fontSize:13, color:C.text, lineHeight:1.5 }}>{p}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── MY RULES ── */}
+      {section === "rules" && (
+        <div>
+          <div style={{ fontFamily:SANS, fontSize:13, color:C.textDim, marginBottom:14 }}>
+            Check off rules before every trade. Your pre-trade checklist.
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:16 }}>
+            {rules.map((r,i) => (
+              <div key={i} style={{ ...card, display:"flex", alignItems:"center", gap:12,
+                background: checkedRules[i] ? `${C.green}10` : C.card,
+                border:`1px solid ${checkedRules[i] ? C.green+"44" : C.border}` }}>
+                <input type="checkbox" checked={!!checkedRules[i]}
+                  onChange={e => setCheckedRules(prev => ({ ...prev, [i]: e.target.checked }))}
+                  style={{ width:18, height:18, accentColor:C.green, cursor:"pointer", flexShrink:0 }} />
+                <span style={{ fontFamily:SANS, fontSize:13, color:checkedRules[i] ? C.green : C.text,
+                  flex:1, textDecoration:checkedRules[i]?"line-through":"none" }}>{r}</span>
+                <button onClick={() => saveRules(rules.filter((_,j)=>j!==i))}
+                  style={{ background:"none", border:"none", color:C.textDim, cursor:"pointer", fontSize:14, padding:"0 4px" }}>✕</button>
+              </div>
+            ))}
+          </div>
+          <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+            <input value={newRule} onChange={e => setNewRule(e.target.value)}
+              onKeyDown={e => { if(e.key==="Enter" && newRule.trim()) { saveRules([...rules, newRule.trim()]); setNewRule(""); } }}
+              placeholder="Add your own rule… (Enter to save)"
+              style={{ flex:1, background:C.surface, border:`1px solid ${C.border}`, borderRadius:8,
+                fontFamily:SANS, fontSize:13, color:C.text, padding:"10px 14px", outline:"none" }} />
+            <button onClick={() => { if(newRule.trim()) { saveRules([...rules, newRule.trim()]); setNewRule(""); } }}
+              style={{ background:C.accent, color:"#fff", border:"none", borderRadius:8,
+                fontFamily:MONO, fontSize:12, fontWeight:700, padding:"10px 16px", cursor:"pointer" }}>+ ADD</button>
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={() => setCheckedRules({})}
+              style={{ background:C.surface, color:C.textSec, border:`1px solid ${C.border}`, borderRadius:6,
+                fontFamily:MONO, fontSize:11, padding:"6px 12px", cursor:"pointer" }}>↺ RESET</button>
+            <button onClick={() => { if(window.confirm("Reset to default rules?")) saveRules(DEFAULT_RULES); }}
+              style={{ background:C.surface, color:C.red, border:`1px solid ${C.red}44`, borderRadius:6,
+                fontFamily:MONO, fontSize:11, padding:"6px 12px", cursor:"pointer" }}>RESET DEFAULT</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── MISTAKE TRACKER ── */}
+      {section === "mistakes" && (
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+          {/* Log form */}
+          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+            <div style={{ ...card }}>
+              <div style={{ fontFamily:MONO, fontSize:12, fontWeight:900, color:C.red, marginBottom:12 }}>⚠️ LOG A MISTAKE</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                <select value={mistakeForm.type} onChange={e => setMistakeForm(p=>({...p,type:e.target.value}))}
+                  style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
+                    fontFamily:SANS, fontSize:13, color:C.text, padding:"8px 10px" }}>
+                  {MISTAKE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <input value={mistakeForm.ticker} onChange={e => setMistakeForm(p=>({...p,ticker:e.target.value.toUpperCase()}))}
+                  placeholder="Ticker (optional)"
+                  style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
+                    fontFamily:MONO, fontSize:13, color:C.text, padding:"8px 10px" }} />
+                <textarea value={mistakeForm.note} onChange={e => setMistakeForm(p=>({...p,note:e.target.value}))}
+                  placeholder="What happened? Why did you break your rules?"
+                  rows={3}
+                  style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
+                    fontFamily:SANS, fontSize:13, color:C.text, padding:"8px 10px", resize:"vertical" }} />
+                <textarea value={mistakeForm.lesson} onChange={e => setMistakeForm(p=>({...p,lesson:e.target.value}))}
+                  placeholder="What will you do differently next time?"
+                  rows={2}
+                  style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
+                    fontFamily:SANS, fontSize:13, color:C.text, padding:"8px 10px", resize:"vertical" }} />
+                <button onClick={() => {
+                  saveMistakes([{ id:Date.now(), ...mistakeForm, ts:new Date().toISOString() }, ...mistakes].slice(0,100));
+                  setMistakeForm({ type:"FOMO Entry", ticker:"", note:"", lesson:"" });
+                }} style={{ background:C.red, color:"#fff", border:"none", borderRadius:8,
+                  fontFamily:MONO, fontSize:12, fontWeight:700, padding:"10px", cursor:"pointer" }}>
+                  LOG MISTAKE
+                </button>
+              </div>
+            </div>
+
+            {/* Top patterns */}
+            <div style={{ ...card }}>
+              <div style={{ fontFamily:MONO, fontSize:12, fontWeight:900, color:C.amber, marginBottom:10 }}>📊 YOUR TOP MISTAKES</div>
+              {mistakeCount.filter(m=>m.count>0).slice(0,6).map(m => (
+                <div key={m.type} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"5px 0", borderBottom:`1px solid ${C.border}` }}>
+                  <span style={{ fontFamily:SANS, fontSize:12, color:C.text }}>{m.type}</span>
+                  <span style={{ fontFamily:MONO, fontSize:12, fontWeight:700, color: m.count >= 3 ? C.red : C.amber }}>{m.count}×</span>
+                </div>
+              ))}
+              {!mistakes.length && <div style={{ fontFamily:SANS, fontSize:12, color:C.textDim }}>No mistakes logged yet</div>}
+            </div>
+          </div>
+
+          {/* History */}
+          <div style={{ display:"flex", flexDirection:"column", gap:8, maxHeight:600, overflowY:"auto" }}>
+            <div style={{ fontFamily:MONO, fontSize:12, fontWeight:900, color:C.textDim, marginBottom:4 }}>HISTORY ({mistakes.length})</div>
+            {mistakes.map(m => (
+              <div key={m.id} style={{ ...card, borderLeft:`3px solid ${C.red}` }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                  <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:C.red }}>{m.type}</span>
+                  <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                    {m.ticker && <span style={{ fontFamily:MONO, fontSize:11, color:C.accent }}>{m.ticker}</span>}
+                    <span style={{ fontFamily:MONO, fontSize:10, color:C.textDim }}>{new Date(m.ts).toLocaleDateString()}</span>
+                    <button onClick={() => saveMistakes(mistakes.filter(x=>x.id!==m.id))}
+                      style={{ background:"none", border:"none", color:C.textDim, cursor:"pointer", fontSize:12 }}>✕</button>
+                  </div>
+                </div>
+                {m.note && <div style={{ fontFamily:SANS, fontSize:12, color:C.textSec, marginBottom:4 }}>{m.note}</div>}
+                {m.lesson && <div style={{ fontFamily:SANS, fontSize:12, color:C.green }}><strong>Lesson:</strong> {m.lesson}</div>}
+              </div>
+            ))}
+            {!mistakes.length && <div style={{ fontFamily:SANS, fontSize:13, color:C.textDim, textAlign:"center", padding:"40px 0" }}>No mistakes logged yet<br/><span style={{fontSize:12}}>Logging mistakes = fastest way to improve</span></div>}
+          </div>
+        </div>
+      )}
+
+      {/* ── PSYCHOLOGY LOG ── */}
+      {section === "journal" && (
+        <div style={{ display:"grid", gridTemplateColumns:"360px 1fr", gap:14 }}>
+          {/* Entry form */}
+          <div style={{ ...card }}>
+            <div style={{ fontFamily:MONO, fontSize:12, fontWeight:900, color:C.cyan, marginBottom:12 }}>🧘 TODAY'S CHECK-IN</div>
+            <div style={{ marginBottom:12 }}>
+              <div style={{ fontFamily:MONO, fontSize:10, color:C.textDim, marginBottom:6 }}>MOOD</div>
+              <div style={{ display:"flex", gap:8 }}>
+                {MOODS.map(m => (
+                  <button key={m} onClick={() => setJournalForm(p=>({...p,mood:m}))}
+                    style={{ fontSize:22, background: journalForm.mood===m ? `${C.accent}22` : "none",
+                      border:`1px solid ${journalForm.mood===m ? C.accent : C.border}`,
+                      borderRadius:6, padding:"4px 6px", cursor:"pointer" }}>{m}</button>
+                ))}
+              </div>
+            </div>
+            {[["focus","FOCUS LEVEL",C.green],["discipline","DISCIPLINE",C.accent]].map(([k,l,col]) => (
+              <div key={k} style={{ marginBottom:12 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                  <span style={{ fontFamily:MONO, fontSize:10, color:C.textDim }}>{l}</span>
+                  <span style={{ fontFamily:MONO, fontSize:12, fontWeight:700, color:col }}>{journalForm[k]}/10</span>
+                </div>
+                <input type="range" min="1" max="10" value={journalForm[k]}
+                  onChange={e => setJournalForm(p=>({...p,[k]:e.target.value}))}
+                  style={{ width:"100%", accentColor:col }} />
+              </div>
+            ))}
+            <textarea value={journalForm.note} onChange={e => setJournalForm(p=>({...p,note:e.target.value}))}
+              placeholder="How are you feeling? Any bias or emotion affecting trading today?"
+              rows={4}
+              style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
+                fontFamily:SANS, fontSize:13, color:C.text, padding:"8px 10px", resize:"vertical", boxSizing:"border-box" }} />
+            <button onClick={() => {
+              saveJournal([{ id:Date.now(), ...journalForm, ts:new Date().toISOString() }, ...journalEntries].slice(0,90));
+              setJournalForm({ mood:"😊", focus:"5", discipline:"5", note:"" });
+            }} style={{ width:"100%", marginTop:10, background:C.cyan||C.accent, color:"#fff", border:"none", borderRadius:8,
+              fontFamily:MONO, fontSize:12, fontWeight:700, padding:"10px", cursor:"pointer" }}>
+              SAVE CHECK-IN
+            </button>
+            {/* Psychology tips */}
+            <div style={{ marginTop:14, padding:12, background:`${C.amber}10`, border:`1px solid ${C.amber}33`, borderRadius:8 }}>
+              <div style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:C.amber, marginBottom:6 }}>💡 TODAY'S RULE</div>
+              {[
+                "If mood < 😊, reduce position size by 50%",
+                "If discipline < 7, only take A+ setups",
+                "Feeling fearful? The setup you skip = the one that works",
+                "Feeling greedy? Take profits earlier than planned",
+              ][new Date().getDay() % 4] && (
+                <div style={{ fontFamily:SANS, fontSize:12, color:C.amber }}>
+                  {["If mood < 😊, reduce position size by 50%","If discipline < 7, only take A+ setups","Feeling fearful? The setup you skip = the one that works","Feeling greedy? Take profits earlier than planned"][new Date().getDay() % 4]}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* History */}
+          <div style={{ display:"flex", flexDirection:"column", gap:8, maxHeight:600, overflowY:"auto" }}>
+            <div style={{ fontFamily:MONO, fontSize:12, fontWeight:900, color:C.textDim, marginBottom:4 }}>HISTORY ({journalEntries.length} entries)</div>
+            {journalEntries.map(e => (
+              <div key={e.id} style={{ ...card, display:"flex", gap:10, alignItems:"flex-start" }}>
+                <span style={{ fontSize:22, flexShrink:0 }}>{e.mood}</span>
+                <div style={{ flex:1 }}>
+                  <div style={{ display:"flex", gap:12, marginBottom:4, flexWrap:"wrap" }}>
+                    <span style={{ fontFamily:MONO, fontSize:10, color:C.textDim }}>{new Date(e.ts).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</span>
+                    <span style={{ fontFamily:MONO, fontSize:10, color:C.green }}>Focus {e.focus}/10</span>
+                    <span style={{ fontFamily:MONO, fontSize:10, color:C.accent }}>Discipline {e.discipline}/10</span>
+                  </div>
+                  {e.note && <div style={{ fontFamily:SANS, fontSize:12, color:C.textSec }}>{e.note}</div>}
+                </div>
+                <button onClick={() => saveJournal(journalEntries.filter(x=>x.id!==e.id))}
+                  style={{ background:"none", border:"none", color:C.textDim, cursor:"pointer", fontSize:14, flexShrink:0 }}>✕</button>
+              </div>
+            ))}
+            {!journalEntries.length && (
+              <div style={{ textAlign:"center", padding:"40px 0" }}>
+                <div style={{ fontSize:36, marginBottom:10 }}>🧘</div>
+                <div style={{ fontFamily:MONO, fontSize:14, color:C.text, marginBottom:6 }}>Start your daily check-in</div>
+                <div style={{ fontFamily:SANS, fontSize:12, color:C.textDim }}>Traders who track their psychology improve 3× faster</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── NOTES TAB ───────────────────────────────────────────────────────────────
 // Auto-populated every morning with BUY + SELL signals. Manual notes supported.
 const NOTES_KEY = "axiom_notes_v1";
@@ -14867,6 +15207,7 @@ export default function App() {
           ],
           tools: [
             { id: "notes",           label: "📝 NOTES" },
+            { id: "education",       label: "🎓 EDUCATION" },
             { id: "morning-routine", label: "☀️ MORNING" },
             { id: "challenge",       label: "🏆 30-DAY" },
             { id: "recap",           label: "🎬 RECAP" },
@@ -27648,6 +27989,7 @@ export default function App() {
 
       {activeTab === "adol22"          && <Adol22Tab          C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "notes"           && <NotesTab           C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "education"       && <EducationTab        C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "recap"           && <RecapTab           C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "morning-routine" && <MorningRoutineTab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} macroData={macroData} distData={distData} fearGreedData={fearGreedData} />}
       {activeTab === "challenge" && <ChallengeTab C={C} MONO={MONO} SANS={SANS} />}
