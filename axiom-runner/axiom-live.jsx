@@ -6733,6 +6733,384 @@ const LESSONS = [
 const MISTAKE_TYPES = ["FOMO Entry","Revenge Trade","No Stop Loss","Too Big Size","Held Through Earnings",
   "Chased Breakout","Averaged Down","Broke My Rules","Overtrade","Panic Sell","Early Exit","Late Entry"];
 
+// ── SVG Chart Pattern drawings ───────────────────────────────────────────────
+function ChartSVG({ type, w = 280, h = 140 }) {
+  const s = { overflow: "visible" };
+  const bg = "#0a0e1a", grid = "#1e2d42", bull = "#22d47e", bear = "#ef4444", line = "#3b82f6", ma = "#f59e0b";
+
+  const Candle = ({ x, open, close, high, low, isBull, barW = 10 }) => {
+    const top = Math.min(open, close), bot = Math.max(open, close);
+    return (
+      <g>
+        <line x1={x} y1={high} x2={x} y2={low} stroke={isBull ? bull : bear} strokeWidth={1.5} />
+        <rect x={x - barW/2} y={top} width={barW} height={Math.max(1, bot - top)} fill={isBull ? bull : bear} />
+      </g>
+    );
+  };
+
+  const Line = ({ pts, color = line, width = 2 }) => (
+    <polyline points={pts.map(([x,y]) => `${x},${y}`).join(" ")} fill="none" stroke={color} strokeWidth={width} strokeLinejoin="round" />
+  );
+
+  const Area = ({ pts, color }) => {
+    const path = pts.map(([x,y], i) => `${i===0?"M":"L"}${x},${y}`).join(" ") + ` L${pts.at(-1)[0]},${h} L${pts[0][0]},${h} Z`;
+    return <path d={path} fill={`${color}22`} />;
+  };
+
+  const GridLines = () => (
+    <g>
+      {[0.25, 0.5, 0.75].map(p => (
+        <line key={p} x1={0} y1={h * p} x2={w} y2={h * p} stroke={grid} strokeWidth={1} strokeDasharray="3,3" />
+      ))}
+    </g>
+  );
+
+  if (type === "uptrend") {
+    const candles = [
+      [20,110,90,105,115,true],[40,90,72,88,95,true],[60,105,88,102,110,false],
+      [80,88,68,85,92,true],[100,72,52,70,78,true],[120,52,38,50,58,true],
+      [140,60,42,58,65,false],[160,42,22,40,48,true],[180,22,5,20,28,true],
+      [200,28,12,24,32,false],[220,12,3,10,18,true],[240,3,18,-5,8,true],
+    ];
+    const maLine = [[25,108],[45,95],[65,88],[85,78],[105,65],[125,55],[145,48],[165,38],[185,28],[205,20],[225,12],[245,5]];
+    return (
+      <svg width={w} height={h} style={s}>
+        <rect width={w} height={h} fill={bg} rx={4} />
+        <GridLines />
+        <Line pts={maLine} color={ma} />
+        {candles.map(([x,o,c,hi,lo,ib]) => <Candle key={x} x={x} open={o} close={c} high={hi} low={lo} isBull={ib} />)}
+        <text x={6} y={14} fill={bull} fontSize={10} fontWeight="bold">UPTREND — Higher Highs, Higher Lows</text>
+        <text x={w-50} y={h-6} fill={ma} fontSize={9}>MA50 →</text>
+      </svg>
+    );
+  }
+
+  if (type === "support") {
+    const pts = [[10,60],[40,40],[70,80],[100,35],[130,70],[160,30],[190,65],[220,28],[250,60],[270,35]];
+    const supY = 90;
+    return (
+      <svg width={w} height={h} style={s}>
+        <rect width={w} height={h} fill={bg} rx={4} />
+        <GridLines />
+        <line x1={0} y1={supY} x2={w} y2={supY} stroke={bull} strokeWidth={2} strokeDasharray="6,3" />
+        <text x={6} y={supY - 6} fill={bull} fontSize={9}>SUPPORT LEVEL</text>
+        <line x1={0} y1={20} x2={w} y2={20} stroke={bear} strokeWidth={2} strokeDasharray="6,3" />
+        <text x={6} y={16} fill={bear} fontSize={9}>RESISTANCE LEVEL</text>
+        <Line pts={pts} color={line} width={2} />
+        {pts.map(([x,y], i) => y > 75 && <circle key={i} cx={x} cy={y} r={4} fill={bull} />)}
+        {pts.map(([x,y], i) => y < 30 && <circle key={i} cx={x} cy={y} r={4} fill={bear} />)}
+        <text x={6} y={h-6} fill="#666" fontSize={9}>Price bounces off support ✅ rejects resistance ❌</text>
+      </svg>
+    );
+  }
+
+  if (type === "ema_cross") {
+    const fast = [[10,120],[40,105],[70,85],[100,65],[130,50],[160,38],[190,28],[220,22],[250,18],[270,15]];
+    const slow = [[10,115],[40,108],[70,98],[100,88],[130,75],[160,62],[190,52],[220,44],[250,38],[270,34]];
+    const crossX = 115;
+    return (
+      <svg width={w} height={h} style={s}>
+        <rect width={w} height={h} fill={bg} rx={4} />
+        <GridLines />
+        <Area pts={fast} color={bull} />
+        <Line pts={slow} color={ma} width={2} />
+        <Line pts={fast} color={bull} width={2.5} />
+        <line x1={crossX} y1={10} x2={crossX} y2={h-10} stroke="#fff" strokeWidth={1} strokeDasharray="4,2" opacity={0.4} />
+        <circle cx={crossX} cy={73} r={6} fill={bull} opacity={0.9} />
+        <text x={crossX+8} y={70} fill={bull} fontSize={9} fontWeight="bold">BUY SIGNAL</text>
+        <text x={12} y={h-6} fill={bull} fontSize={9}>EMA9 (fast)</text>
+        <text x={90} y={h-6} fill={ma} fontSize={9}>EMA21 (slow)</text>
+        <text x={6} y={14} fill="#ccc" fontSize={10}>EMA 9 crosses above EMA 21 = Bullish ✅</text>
+      </svg>
+    );
+  }
+
+  if (type === "rsi") {
+    const pricePts = [[10,90],[35,75],[60,55],[85,40],[110,30],[135,45],[160,35],[185,25],[210,38],[235,28],[260,20]];
+    const rsiPts   = [[10,60],[35,55],[60,52],[85,48],[110,35],[135,42],[160,38],[185,32],[210,42],[235,48],[260,55]];
+    const rsiH = 50, rsiY = h - rsiH - 10;
+    return (
+      <svg width={w} height={h + rsiH} style={s}>
+        <rect width={w} height={h + rsiH} fill={bg} rx={4} />
+        <GridLines />
+        <Line pts={pricePts} color={line} width={2} />
+        <text x={6} y={14} fill="#ccc" fontSize={10}>RSI DIVERGENCE — Price lower, RSI higher = bullish</text>
+        {/* arrows showing divergence */}
+        <line x1={110} y1={30} x2={185} y2={25} stroke={bear} strokeWidth={1.5} markerEnd="url(#arr)" />
+        <line x1={110} y1={rsiY+35} x2={185} y2={rsiY+32} stroke={bull} strokeWidth={1.5} />
+        {/* RSI panel */}
+        <rect y={rsiY} width={w} height={rsiH} fill="#050b14" />
+        <line x1={0} y1={rsiY} x2={w} y2={rsiY} stroke={grid} strokeWidth={1} />
+        <line x1={0} y1={rsiY+rsiH*0.3} x2={w} y2={rsiY+rsiH*0.3} stroke={bear} strokeWidth={1} strokeDasharray="3,2" opacity={0.5} />
+        <line x1={0} y1={rsiY+rsiH*0.7} x2={w} y2={rsiY+rsiH*0.7} stroke={bull} strokeWidth={1} strokeDasharray="3,2" opacity={0.5} />
+        <text x={4} y={rsiY+13} fill={bear} fontSize={8}>70</text>
+        <text x={4} y={rsiY+rsiH*0.7+4} fill={bull} fontSize={8}>30</text>
+        <Line pts={rsiPts.map(([x,y]) => [x, rsiY + y * rsiH / 65])} color="#a78bfa" width={2} />
+        <text x={6} y={rsiY + rsiH - 4} fill="#a78bfa" fontSize={9}>RSI(14)</text>
+        <text x={140} y={rsiY + 12} fill={bull} fontSize={9}>RSI rising while price drops = BULLISH divergence</text>
+      </svg>
+    );
+  }
+
+  if (type === "cup_handle") {
+    const cup = [[15,30],[35,55],[60,78],[90,95],[120,100],[150,95],[175,75],[195,50],[210,30]];
+    const handle = [[210,30],[225,45],[235,40],[245,38],[255,35],[265,32],[275,28]];
+    const breakout = [[275,28],[285,15],[290,8]];
+    return (
+      <svg width={w} height={h} style={s}>
+        <rect width={w} height={h} fill={bg} rx={4} />
+        <GridLines />
+        <line x1={15} y1={30} x2={w-10} y2={30} stroke={bear} strokeWidth={1.5} strokeDasharray="5,3" opacity={0.6} />
+        <text x={w-80} y={26} fill={bear} fontSize={9}>RESISTANCE</text>
+        <Line pts={cup} color={line} width={2.5} />
+        <Line pts={handle} color={line} width={2.5} />
+        <Line pts={breakout} color={bull} width={3} />
+        <circle cx={275} cy={28} r={5} fill={bull} />
+        <text x={240} y={14} fill={bull} fontSize={9} fontWeight="bold">BREAKOUT ↑</text>
+        <text x={90} y={h-6} fill="#666" fontSize={9}>Cup</text>
+        <text x={220} y={h-6} fill="#666" fontSize={9}>Handle</text>
+        <text x={6} y={14} fill="#ccc" fontSize={10}>Cup & Handle — Bullish continuation pattern</text>
+        <path d="M 80,100 Q 120,115 160,100" fill="none" stroke="#666" strokeWidth={1} strokeDasharray="3,2" />
+      </svg>
+    );
+  }
+
+  if (type === "head_shoulders") {
+    const pts = [
+      [15,90],[35,70],[55,55],[75,70],[90,45],[105,70],[125,52],[140,70],[155,55],[170,70],[190,90],[210,110]
+    ];
+    return (
+      <svg width={w} height={h} style={s}>
+        <rect width={w} height={h} fill={bg} rx={4} />
+        <GridLines />
+        <line x1={35} y1={95} x2={185} y2={95} stroke={bear} strokeWidth={2} strokeDasharray="5,3" />
+        <text x={6} y={92} fill={bear} fontSize={9}>NECKLINE</text>
+        <Line pts={pts} color={line} width={2.5} />
+        {/* Label L, H, R shoulders */}
+        <text x={48} y={50} fill={ma} fontSize={9}>L</text>
+        <text x={83} y={40} fill={ma} fontSize={9}>HEAD</text>
+        <text x={148} y={50} fill={ma} fontSize={9}>R</text>
+        <text x={6} y={14} fill="#ccc" fontSize={10}>Head & Shoulders — Bearish reversal pattern</text>
+        <text x={6} y={h-6} fill={bear} fontSize={9}>Break neckline = SELL signal ↓</text>
+        <line x1={185} y1={95} x2={210} y2={115} stroke={bear} strokeWidth={2.5} />
+        <text x={195} y={128} fill={bear} fontSize={9} fontWeight="bold">↓ SELL</text>
+      </svg>
+    );
+  }
+
+  if (type === "flag") {
+    const pole = [[20,120],[40,60]];
+    const flag = [[40,60],[60,68],[80,62],[100,70],[120,63],[140,72]];
+    const breakout2 = [[140,72],[160,50],[175,30]];
+    return (
+      <svg width={w} height={h} style={s}>
+        <rect width={w} height={h} fill={bg} rx={4} />
+        <GridLines />
+        <Line pts={pole} color={bull} width={3} />
+        <Line pts={flag} color={line} width={2} />
+        <line x1={40} y1={60} x2={140} y2={60} stroke="#666" strokeWidth={1} strokeDasharray="3,2" />
+        <line x1={40} y1={75} x2={140} y2={75} stroke="#666" strokeWidth={1} strokeDasharray="3,2" />
+        <Line pts={breakout2} color={bull} width={3} />
+        <circle cx={140} cy={72} r={5} fill={bull} />
+        <text x={145} y={50} fill={bull} fontSize={9} fontWeight="bold">BREAKOUT ↑</text>
+        <text x={22} y={h-6} fill="#666" fontSize={9}>Pole</text>
+        <text x={70} y={h-6} fill="#666" fontSize={9}>Flag (consolidation)</text>
+        <text x={6} y={14} fill="#ccc" fontSize={10}>Bull Flag — Buy the breakout above flag</text>
+      </svg>
+    );
+  }
+
+  if (type === "doji") {
+    return (
+      <svg width={w} height={h} style={s}>
+        <rect width={w} height={h} fill={bg} rx={4} />
+        <GridLines />
+        <text x={6} y={14} fill="#ccc" fontSize={10}>Candlestick Patterns</text>
+        {/* Bullish engulfing */}
+        <Candle x={30} open={70} close={90} high={65} low={95} isBull={false} barW={12} />
+        <Candle x={50} open={95} close={55} high={100} low={50} isBull={true} barW={14} />
+        <text x={20} y={h-18} fill={bull} fontSize={8}>Bullish</text>
+        <text x={15} y={h-8} fill={bull} fontSize={8}>Engulf</text>
+        {/* Doji */}
+        <Candle x={100} open={72} close={72} high={55} low={90} isBull={true} barW={12} />
+        <text x={88} y={h-8} fill={ma} fontSize={8}>Doji</text>
+        {/* Hammer */}
+        <Candle x={150} open={60} close={55} high={52} low={90} isBull={true} barW={12} />
+        <text x={136} y={h-8} fill={bull} fontSize={8}>Hammer</text>
+        {/* Shooting Star */}
+        <Candle x={200} open={80} close={85} high={50} low={88} isBull={false} barW={12} />
+        <text x={183} y={h-8} fill={bear} fontSize={8}>Shooting</text>
+        <text x={188} y={h-18+10} fill={bear} fontSize={8}>Star</text>
+        {/* Marubozu */}
+        <Candle x={248} open={90} close={40} high={90} low={40} isBull={true} barW={14} />
+        <text x={235} y={h-8} fill={bull} fontSize={8}>Marub.</text>
+        {/* Labels */}
+        <text x={6} y={h-30} fill="#555" fontSize={8}>← bearish   bull →</text>
+      </svg>
+    );
+  }
+
+  if (type === "macd") {
+    const macdLine = [[10,60],[40,55],[70,42],[100,35],[130,28],[160,35],[190,48],[220,55],[250,60],[270,65]];
+    const signalLine = [[10,62],[40,58],[70,50],[100,42],[130,35],[160,38],[190,45],[220,52],[250,58],[270,62]];
+    const midY = h * 0.6;
+    const bars = [[10,0],[40,-3],[70,-8],[100,-5],[130,8],[160,12],[190,8],[220,3],[250,-2],[270,-5]];
+    return (
+      <svg width={w} height={h} style={s}>
+        <rect width={w} height={h} fill={bg} rx={4} />
+        <GridLines />
+        <Line pts={[[10,30],[40,22],[70,18],[100,15],[130,12],[160,18],[190,28],[220,38],[250,45],[270,50]]} color={line} width={2} />
+        <text x={6} y={14} fill="#ccc" fontSize={10}>MACD — Momentum indicator</text>
+        <rect y={midY-2} width={w} height={3} fill={grid} />
+        {bars.map(([x, bh]) => (
+          <rect key={x} x={x-8} y={bh < 0 ? midY : midY - bh*2} width={16} height={Math.abs(bh)*2 || 1}
+            fill={bh >= 0 ? `${bull}88` : `${bear}88`} />
+        ))}
+        <Line pts={macdLine.map(([x,y]) => [x, midY + (y-50)*1.2])} color={line} width={1.5} />
+        <Line pts={signalLine.map(([x,y]) => [x, midY + (y-52)*1.2])} color={bear} width={1.5} />
+        <text x={6} y={h-4} fill={line} fontSize={8}>MACD</text>
+        <text x={50} y={h-4} fill={bear} fontSize={8}>Signal</text>
+        <text x={110} y={h-4} fill={bull} fontSize={8}>Histogram (green=bull)</text>
+      </svg>
+    );
+  }
+
+  if (type === "vwap") {
+    const price2 = [[10,80],[40,65],[70,55],[100,70],[130,45],[160,38],[190,50],[220,35],[250,28],[270,22]];
+    const vwap = [[10,75],[40,68],[70,62],[100,60],[130,55],[160,50],[190,48],[220,44],[250,40],[270,37]];
+    return (
+      <svg width={w} height={h} style={s}>
+        <rect width={w} height={h} fill={bg} rx={4} />
+        <GridLines />
+        <Line pts={vwap} color={ma} width={2.5} />
+        <Area pts={price2} color={bull} />
+        <Line pts={price2} color={line} width={2} />
+        {/* Mark crossovers */}
+        <circle cx={100} cy={65} r={5} fill={bear} />
+        <circle cx={190} cy={49} r={5} fill={bull} />
+        <text x={105} y={62} fill={bear} fontSize={8}>Price below VWAP = weak</text>
+        <text x={195} y={46} fill={bull} fontSize={8}>Price above = strong</text>
+        <text x={6} y={14} fill="#ccc" fontSize={10}>VWAP — Volume Weighted Avg Price</text>
+        <text x={w-70} y={h-6} fill={ma} fontSize={9}>VWAP →</text>
+      </svg>
+    );
+  }
+
+  return <svg width={w} height={h}><rect width={w} height={h} fill="#0a0e1a" rx={4} /><text x={10} y={20} fill="#666" fontSize={12}>{type}</text></svg>;
+}
+
+const DEEP_LESSONS = [
+  { id:"dl1", cat:"TREND", icon:"📈", title:"How to read an Uptrend", chart:"uptrend", color:"#22d47e",
+    summary:"An uptrend = series of higher highs and higher lows. Price stays above the rising MA50.",
+    points:[
+      "Higher High (HH) + Higher Low (HL) = confirmed uptrend — look for this sequence",
+      "MA50 acts as a moving support line — price bounces off it during healthy pullbacks",
+      "Each pullback to MA50 in an uptrend is a BUY opportunity — not a reason to sell",
+      "Uptrend breaks when price closes BELOW MA50 on high volume — that's your warning",
+      "Volume should increase on up candles and decrease on pullback candles (healthy pattern)",
+    ],
+    rule:"Only buy pullbacks in uptrends, never chase breakouts without pullback confirmation" },
+
+  { id:"dl2", cat:"LEVELS", icon:"🎯", title:"Support & Resistance — The Foundation", chart:"support", color:"#3b82f6",
+    summary:"Support = price floor where buyers step in. Resistance = price ceiling where sellers dominate.",
+    points:[
+      "Support = a price level where price has bounced UP multiple times — buyers defend it",
+      "Resistance = a level where price has been rejected DOWN multiple times — sellers defend it",
+      "Once resistance is BROKEN, it becomes new support (role reversal) — very powerful",
+      "The more times a level has been tested, the stronger it is — and the bigger the move when it breaks",
+      "Round numbers ($50, $100, $200) act as psychological support/resistance — always mark them",
+    ],
+    rule:"Never enter without identifying nearby support. Your stop loss goes just below support." },
+
+  { id:"dl3", cat:"INDICATORS", icon:"⚡", title:"EMA Crossover — The Most Used Signal", chart:"ema_cross", color:"#22d47e",
+    summary:"EMA9 crossing above EMA21 = short-term momentum turning bullish. Classic entry trigger.",
+    points:[
+      "EMA9 = 9-day Exponential Moving Average — reacts fast to price changes",
+      "EMA21 = 21-day EMA — slower, shows medium-term trend direction",
+      "EMA9 crosses ABOVE EMA21 = Golden Cross (bullish) — price gaining upward momentum",
+      "EMA9 crosses BELOW EMA21 = Death Cross (bearish) — momentum turning down",
+      "Best when combined with RSI < 60 (not overbought) and volume confirming the move",
+    ],
+    rule:"Enter when EMA9 crosses above EMA21 AND price is above MA50 AND RSI < 65" },
+
+  { id:"dl4", cat:"INDICATORS", icon:"📊", title:"RSI — Read Overbought & Oversold", chart:"rsi", color:"#a78bfa",
+    summary:"RSI measures momentum 0-100. Below 30 = oversold (bounce). Above 70 = overbought (caution).",
+    points:[
+      "RSI below 30 = stock is oversold — sellers exhausted — bounce likely (BUY zone)",
+      "RSI above 70 = stock is overbought — buyers exhausted — pullback likely (SELL zone)",
+      "RSI DIVERGENCE = most powerful signal: price makes new low but RSI makes higher low = BULLISH",
+      "RSI 40-60 = neutral zone — price can go either way — wait for extreme",
+      "RSI alone is NOT enough — always combine with price levels and trend direction",
+    ],
+    rule:"RSI < 35 near support = high probability bounce setup. RSI > 70 near resistance = consider selling." },
+
+  { id:"dl5", cat:"PATTERNS", icon:"☕", title:"Cup & Handle — Bullish Continuation", chart:"cup_handle", color:"#f59e0b",
+    summary:"One of the most reliable bullish patterns. Forms over weeks/months. Breakout = strong buy.",
+    points:[
+      "Cup = U-shaped base that forms after a downtrend (takes 4-20 weeks to form)",
+      "Handle = small pullback on the right side of the cup (5-15% consolidation)",
+      "Breakout above the handle resistance = confirmed BUY signal — strong conviction",
+      "Volume should DROP during the cup formation, then SURGE on the breakout",
+      "Price target = measure the depth of the cup and add it to the breakout level",
+    ],
+    rule:"Buy when price breaks above handle resistance on volume 2x+ average. Stop below handle low." },
+
+  { id:"dl6", cat:"PATTERNS", icon:"🏔", title:"Head & Shoulders — Bearish Reversal", chart:"head_shoulders", color:"#ef4444",
+    summary:"Classic reversal pattern. Left shoulder, head, right shoulder. Break neckline = sell signal.",
+    points:[
+      "Left Shoulder = first peak after an uptrend, followed by a pullback",
+      "Head = a higher peak (new high) — looks bullish but is a trap",
+      "Right Shoulder = lower peak, similar height to left shoulder — trend weakening",
+      "Neckline = line connecting the two lows between shoulders — KEY level",
+      "When price breaks BELOW neckline on volume = strong SELL signal. Price targets the depth of head.",
+    ],
+    rule:"Short/exit longs when price closes below neckline. Target = neckline minus head-to-neckline distance." },
+
+  { id:"dl7", cat:"PATTERNS", icon:"🚩", title:"Bull Flag — Best Momentum Entry", chart:"flag", color:"#22d47e",
+    summary:"Strong move up (pole) followed by tight consolidation (flag). Breakout = continuation.",
+    points:[
+      "Pole = sharp vertical move up on high volume — shows conviction and momentum",
+      "Flag = small, tight pullback that consolidates the gains (usually 5-10% retracement)",
+      "Flag channel should be slightly downward sloping — if it goes sideways, it's weaker",
+      "Volume should DRY UP during the flag — sellers are not motivated to push it lower",
+      "Breakout above flag's upper trendline on high volume = BUY. Target = pole length added to breakout.",
+    ],
+    rule:"Buy breakout above flag on 1.5x+ volume. Stop below flag low. Target = pole height from breakout." },
+
+  { id:"dl8", cat:"INDICATORS", icon:"🔢", title:"MACD — Trend & Momentum Combined", chart:"macd", color:"#3b82f6",
+    summary:"MACD = Moving Average Convergence Divergence. Shows trend direction AND momentum strength.",
+    points:[
+      "MACD Line = difference between 12-day EMA and 26-day EMA (fast minus slow)",
+      "Signal Line = 9-day EMA of the MACD line — when MACD crosses above signal = BUY",
+      "Histogram = MACD minus Signal. Growing histogram = momentum building",
+      "MACD above zero line = bullish momentum. Below zero = bearish momentum.",
+      "MACD divergence: price makes new high but MACD doesn't = momentum weakening = SELL",
+    ],
+    rule:"Buy when MACD crosses above signal line AND both are above zero. Sell when crosses below." },
+
+  { id:"dl9", cat:"INDICATORS", icon:"💧", title:"VWAP — Institutional Price Level", chart:"vwap", color:"#f59e0b",
+    summary:"VWAP = the average price weighted by volume. Institutions use it as a benchmark.",
+    points:[
+      "VWAP = Volume Weighted Average Price — the 'fair value' price for the day",
+      "Price above VWAP = bulls in control, institutions are comfortable buying",
+      "Price below VWAP = bears in control, institutions selling into any rally",
+      "First VWAP reclaim of the day (price crosses above) = strong intraday BUY signal",
+      "End of day price vs VWAP = tells you if institutional activity was net bullish or bearish",
+    ],
+    rule:"Intraday: only go long when price is above VWAP. Short only below VWAP. Never fight the tape." },
+
+  { id:"dl10", cat:"CANDLES", icon:"🕯", title:"Read Candlesticks in 5 Minutes", chart:"doji", color:"#f59e0b",
+    summary:"Every candle tells a story. Learn to read them and you'll understand market psychology.",
+    points:[
+      "Bullish Engulfing = big green candle swallows previous red candle — buyers took control",
+      "Doji = open and close almost equal — market indecision, trend may be changing",
+      "Hammer = long lower wick, small body — sellers tried to push lower but buyers rejected it (BULLISH)",
+      "Shooting Star = long upper wick, small body — buyers tried to push higher but sellers rejected (BEARISH)",
+      "Marubozu = candle with no wicks — pure momentum in one direction, very strong signal",
+    ],
+    rule:"Single candles are clues, not signals. Always confirm with the next 1-2 candles and volume." },
+];
+
 function EducationTab({ C, MONO, SANS }) {
   const [section, setSection] = useState("lessons"); // lessons | rules | mistakes | journal
   const [openLesson, setOpenLesson] = useState(null);
@@ -6781,45 +7159,82 @@ function EducationTab({ C, MONO, SANS }) {
         ))}
       </div>
 
-      {/* ── LESSONS ── */}
+      {/* ── DEEP LESSONS WITH CHARTS ── */}
       {section === "lessons" && (
         <div>
-          <div style={{ display:"flex", gap:6, marginBottom:14, flexWrap:"wrap" }}>
-            {categories.map(c => (
+          {/* Category filter */}
+          <div style={{ display:"flex", gap:6, marginBottom:16, flexWrap:"wrap" }}>
+            {["ALL","TREND","LEVELS","INDICATORS","PATTERNS","CANDLES"].map(c => (
               <button key={c} onClick={() => setLessonFilter(c)}
-                style={{ background: lessonFilter===c ? (c==="ALL"?C.accent:catColor(c)) : C.surface,
+                style={{ background: lessonFilter===c ? C.accent : C.surface,
                   color: lessonFilter===c ? "#fff" : C.textSec,
-                  border:`1px solid ${lessonFilter===c ? (c==="ALL"?C.accent:catColor(c)) : C.border}`,
+                  border:`1px solid ${lessonFilter===c ? C.accent : C.border}`,
                   borderRadius:6, fontFamily:MONO, fontSize:11, fontWeight:700, padding:"4px 12px", cursor:"pointer" }}>
                 {c}
               </button>
             ))}
+            <span style={{ fontFamily:SANS, fontSize:12, color:C.textDim, alignSelf:"center", marginLeft:8 }}>
+              {DEEP_LESSONS.filter(l => lessonFilter==="ALL" || l.cat===lessonFilter).length} lessons
+            </span>
           </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {filtered.map(lesson => (
-              <div key={lesson.id} style={{ ...card, borderLeft:`4px solid ${catColor(lesson.category)}`, cursor:"pointer" }}
-                onClick={() => setOpenLesson(openLesson===lesson.id ? null : lesson.id)}>
-                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                  <span style={{ fontSize:20 }}>{lesson.icon}</span>
+
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {DEEP_LESSONS.filter(l => lessonFilter==="ALL" || l.cat===lessonFilter).map(lesson => (
+              <div key={lesson.id}
+                style={{ background:C.card, border:`1px solid ${openLesson===lesson.id ? lesson.color+"88" : C.border}`,
+                  borderLeft:`4px solid ${lesson.color}`, borderRadius:12, overflow:"hidden" }}>
+
+                {/* Collapsed header */}
+                <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 16px", cursor:"pointer" }}
+                  onClick={() => setOpenLesson(openLesson===lesson.id ? null : lesson.id)}>
+                  <span style={{ fontSize:22, flexShrink:0 }}>{lesson.icon}</span>
                   <div style={{ flex:1 }}>
-                    <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                      <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:catColor(lesson.category),
-                        background:`${catColor(lesson.category)}18`, borderRadius:3, padding:"1px 6px" }}>
-                        {lesson.category}
+                    <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:3 }}>
+                      <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:lesson.color,
+                        background:`${lesson.color}18`, borderRadius:3, padding:"1px 6px", letterSpacing:"0.06em" }}>
+                        {lesson.cat}
                       </span>
                     </div>
-                    <div style={{ fontFamily:MONO, fontSize:14, fontWeight:800, color:C.text, marginTop:3 }}>{lesson.title}</div>
+                    <div style={{ fontFamily:MONO, fontSize:15, fontWeight:900, color:C.text }}>{lesson.title}</div>
+                    <div style={{ fontFamily:SANS, fontSize:12, color:C.textDim, marginTop:3 }}>{lesson.summary}</div>
                   </div>
-                  <span style={{ fontFamily:MONO, fontSize:12, color:C.textDim }}>{openLesson===lesson.id ? "▲" : "▼"}</span>
+                  <span style={{ fontFamily:MONO, fontSize:12, color:C.textDim, flexShrink:0 }}>
+                    {openLesson===lesson.id ? "▲ close" : "▼ open"}
+                  </span>
                 </div>
+
+                {/* Expanded — chart + content */}
                 {openLesson === lesson.id && (
-                  <div style={{ marginTop:12, paddingTop:12, borderTop:`1px solid ${C.border}` }}>
-                    {lesson.points.map((p,i) => (
-                      <div key={i} style={{ display:"flex", gap:10, padding:"6px 0", borderBottom:`1px solid ${C.border}22` }}>
-                        <span style={{ fontFamily:MONO, fontSize:13, color:catColor(lesson.category), fontWeight:700, minWidth:20 }}>{i+1}.</span>
-                        <span style={{ fontFamily:SANS, fontSize:13, color:C.text, lineHeight:1.5 }}>{p}</span>
+                  <div style={{ borderTop:`1px solid ${C.border}` }}>
+                    <div style={{ display:"grid", gridTemplateColumns:"auto 1fr", gap:0 }}>
+                      {/* Chart */}
+                      <div style={{ background:"#050b14", padding:12, borderRight:`1px solid ${C.border}` }}>
+                        <ChartSVG type={lesson.chart} />
                       </div>
-                    ))}
+                      {/* Content */}
+                      <div style={{ padding:"14px 16px" }}>
+                        <div style={{ fontFamily:MONO, fontSize:11, fontWeight:900, color:C.textDim,
+                          letterSpacing:"0.08em", marginBottom:10 }}>KEY CONCEPTS</div>
+                        {lesson.points.map((p,i) => (
+                          <div key={i} style={{ display:"flex", gap:10, padding:"7px 0",
+                            borderBottom:`1px solid ${C.border}33` }}>
+                            <span style={{ fontFamily:MONO, fontSize:12, color:lesson.color,
+                              fontWeight:700, minWidth:22, flexShrink:0 }}>{i+1}.</span>
+                            <span style={{ fontFamily:SANS, fontSize:13, color:C.text, lineHeight:1.55 }}>{p}</span>
+                          </div>
+                        ))}
+                        {/* Golden rule */}
+                        <div style={{ marginTop:14, padding:"10px 14px",
+                          background:`${lesson.color}12`, border:`1px solid ${lesson.color}44`,
+                          borderRadius:8 }}>
+                          <div style={{ fontFamily:MONO, fontSize:10, fontWeight:900, color:lesson.color,
+                            letterSpacing:"0.08em", marginBottom:4 }}>⭐ THE RULE</div>
+                          <div style={{ fontFamily:SANS, fontSize:13, color:C.text, lineHeight:1.5 }}>
+                            {lesson.rule}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
