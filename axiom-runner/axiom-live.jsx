@@ -3048,42 +3048,50 @@ function TerminalWorkspace({
       {showRight && (
         <div style={{ display: "grid", gridTemplateRows: "auto auto auto auto auto 1fr", gap: 10, marginLeft: 4, overflowY: "auto" }}>
 
-          {/* ── AI INSIGHT card ──────────────────────────────────────── */}
-          <div style={{ background: C.card, border: `1px solid ${insightLoading ? C.accent + "66" : C.border}`, borderRadius: 8, overflow: "hidden", transition: "border-color 0.3s" }}>
-            {/* Header */}
-            <div style={{ padding: "8px 12px", background: C.surface, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ width: 20, height: 20, borderRadius: "50%", background: `linear-gradient(135deg, ${C.accent}, ${C.purple})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#fff" }}>AI</span>
-              </div>
-              <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", flex: 1 }}>AI INSIGHT</span>
-              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{insightSymbol || selected.symbol}</span>
-              <button
-                onClick={() => runInsight(selected.symbol, Number(selected.price || 0), Number(selected.changesPercentage || 0), scores)}
-                disabled={insightLoading}
-                style={{ border: `1px solid ${C.border}`, borderRadius: 5, background: "transparent", color: insightLoading ? C.textDim : C.accent, fontFamily: MONO, fontSize: 12, cursor: insightLoading ? "default" : "pointer", padding: "3px 8px", letterSpacing: "0.04em" }}
-              >{insightLoading ? "…" : "↻"}</button>
-            </div>
-            {/* Body */}
-            <div style={{ padding: "10px 12px", minHeight: 64 }}>
-              {insightLoading ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: "50%", border: `2px solid ${C.accent}`, borderTopColor: "transparent", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
-                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Analyzing {selected.symbol}…</span>
+          {/* ── MINI CHART for selected symbol ─────────────────────── */}
+          {selected?.symbol && (() => {
+            const sym = selected.symbol;
+            const chg = Number(selected.changesPercentage || 0);
+            const px  = Number(selected.price || 0);
+            const tvTheme = typeof themeMode !== "undefined" ? (themeMode === "dark" ? "dark" : "light") : "dark";
+            return (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+                {/* Header */}
+                <div style={{ padding: "8px 12px", background: C.surface, borderBottom: `1px solid ${C.border}`,
+                  display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent }}>{sym}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text }}>${px.toFixed(2)}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: chg >= 0 ? C.green : C.red }}>
+                    {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
+                  </span>
+                  <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+                    {chg >= 0 ? "▲" : "▼"} {new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}
+                  </span>
                 </div>
-              ) : insightText ? (
-                <>
-                  <div style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.6, marginBottom: 6 }}>
-                    {insightText}
-                  </div>
-                  {insightAt && (
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Updated {insightAt}</div>
-                  )}
-                </>
-              ) : (
-                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Select a symbol to generate insight.</div>
-              )}
-            </div>
-          </div>
+                {/* TradingView mini chart */}
+                <iframe
+                  key={`monitor-chart-${sym}`}
+                  src={`/client/tv-widget.html?w=mini-symbol-overview&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=160`}
+                  width="100%" height="160"
+                  style={{ display: "block", border: "none" }}
+                  title={`${sym} mini chart`}
+                />
+                {/* Quick stats row */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 1, borderTop: `1px solid ${C.border}` }}>
+                  {[
+                    ["52W H", selected.yearHigh ? `$${Number(selected.yearHigh).toFixed(0)}` : "—"],
+                    ["52W L", selected.yearLow  ? `$${Number(selected.yearLow).toFixed(0)}`  : "—"],
+                    ["VOL",   selected.volume   ? (Number(selected.volume)/1e6).toFixed(1)+"M" : "—"],
+                  ].map(([l,v]) => (
+                    <div key={l} style={{ padding: "6px 8px", background: C.surface, textAlign: "center" }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{l}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
             <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
