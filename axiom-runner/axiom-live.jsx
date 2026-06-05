@@ -8382,7 +8382,7 @@ function CryptoNews({ C, MONO, SANS }) {
   );
 }
 
-function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, onOpenTradingView }) {
+function DeepDive({ stock, fundamentals, fundamentalsLoading, shortData, onClose, onExit, onOpenTradingView }) {
   const [learnOpen, setLearnOpen] = React.useState({});
   const toggleLearn = (key) => setLearnOpen(prev => ({ ...prev, [key]: !prev[key] }));
 
@@ -8615,10 +8615,11 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
 
           {/* SHORT INTEREST */}
           {(() => {
-            const si   = Number(fundamentals?.shortRatio      || stock.shortRatio      || 0);
-            const sf   = Number(fundamentals?.shortFloat      || stock.shortFloat      || 0);
-            const inst = Number(fundamentals?.institutionalOwnership || 0);
-            const ins  = Number(fundamentals?.insiderOwnership       || 0);
+            // shortData from /api/yahoo/short-interest (passed as prop)
+            const si   = Number(shortData?.shortRatio  || stock.shortRatio  || 0);
+            const sf   = Number(shortData?.shortFloat  || stock.shortFloat  || 0);
+            const inst = Number(shortData?.institutionalPct || 0);
+            const ins  = Number(shortData?.insiderPct       || 0);
             const beta = Number(fundamentals?.beta || stock.beta || 0);
             const siColor = sf > 20 ? C.red : sf > 10 ? C.amber : C.green;
             return (
@@ -8646,28 +8647,29 @@ function DeepDive({ stock, fundamentals, fundamentalsLoading, onClose, onExit, o
 
           {/* ANALYST CONSENSUS */}
           {(() => {
-            const target  = Number(fundamentals?.analystTarget || stock.analystTarget || 0);
+            const target  = Number(fundamentals?.analystTarget || fundamentals?.targetMeanPrice || stock.analystTarget || 0);
+            const targetHi= Number(fundamentals?.targetHighPrice || 0);
+            const targetLo= Number(fundamentals?.targetLowPrice  || 0);
             const upside  = target > 0 && stock.price > 0 ? ((target / stock.price - 1) * 100) : null;
-            const rating  = fundamentals?.analystRating || stock.analystRating || "";
+            // recommendationKey: "buy" | "strong_buy" | "hold" | "sell" | "underperform"
+            const rawRating = fundamentals?.recommendationKey || fundamentals?.analystRating || stock.analystRating || "";
+            const rating  = rawRating.replace(/_/g," ").toUpperCase();
             const ratingColor = /buy|outperform|strong/i.test(rating) ? C.green : /sell|under/i.test(rating) ? C.red : C.amber;
-            const numAna  = Number(fundamentals?.numberOfAnalysts || stock.numberOfAnalysts || 0);
+            const numAna  = Number(fundamentals?.numberOfAnalystOpinions || fundamentals?.numberOfAnalysts || stock.numberOfAnalysts || 0);
             const pe      = resolvedPe;
-            const fwdPe   = Number(fundamentals?.forwardPE || 0);
             const peg     = Number(fundamentals?.pegRatio  || 0);
             const pb      = Number(fundamentals?.priceToBook || 0);
             return (
               <div style={{ ...panelCard, padding: 14 }}>
                 <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.purple, letterSpacing: "0.08em", marginBottom: 10 }}>🏦 ANALYST VIEW</div>
-                <div style={{ textAlign: "center", padding: "8px 0", marginBottom: 8, borderBottom: `1px solid ${C.border}` }}>
-                  <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: ratingColor }}>{rating || "—"}</div>
-                  {numAna > 0 && <div style={{ fontSize: 10, color: C.textDim }}>{numAna} analysts</div>}
-                </div>
                 {[
-                  ["Price Target",  target > 0 ? `$${target.toFixed(2)}` : "—", upside !== null ? `${upside >= 0 ? "+" : ""}${upside.toFixed(1)}% upside` : "", upside >= 0 ? C.green : C.red],
-                  ["Trailing P/E",  pe    > 0 ? pe.toFixed(1)            : "—", pe > 0 ? (pe < 20 ? "cheap" : pe < 40 ? "fair" : "rich") : "",                  pe > 0 && pe < 25 ? C.green : pe > 40 ? C.red : C.amber],
-                  ["Forward P/E",   fwdPe > 0 ? fwdPe.toFixed(1)        : "—", fwdPe > 0 && pe > 0 ? (fwdPe < pe ? "expanding ✅" : "contracting") : "",        fwdPe > 0 && fwdPe < pe ? C.green : C.amber],
-                  ["PEG",           peg   > 0 ? peg.toFixed(2)           : "—", peg > 0 ? (peg < 1 ? "undervalued" : peg < 2 ? "fair" : "overvalued") : "",      peg > 0 && peg < 1 ? C.green : peg > 2 ? C.red : C.amber],
-                  ["P/B",           pb    > 0 ? pb.toFixed(2)            : "—", pb > 0 ? (pb < 1 ? "below book" : pb < 3 ? "reasonable" : "premium") : "",       pb > 0 && pb < 1 ? C.green : pb > 5 ? C.red : C.text],
+                  ["Consensus",     rating || "—",                                 numAna > 0 ? `${numAna} analysts` : "",                                         ratingColor],
+                  ["Price Target",  target > 0 ? `$${target.toFixed(2)}` : "—",   upside !== null ? `${upside >= 0 ? "+" : ""}${upside.toFixed(1)}% upside` : "", upside !== null ? (upside >= 0 ? C.green : C.red) : C.textDim],
+                  ["High Target",   targetHi > 0 ? `$${targetHi.toFixed(2)}` : "—", "bull case",                                                                    C.green],
+                  ["Low Target",    targetLo > 0 ? `$${targetLo.toFixed(2)}` : "—", "bear case",                                                                    C.red],
+                  ["P/E (TTM)",     pe    > 0 ? pe.toFixed(1)  : "—",             pe > 0 ? (pe < 20 ? "cheap" : pe < 40 ? "fair" : "rich") : "",                  pe > 0 && pe < 25 ? C.green : pe > 40 ? C.red : C.amber],
+                  ["PEG",           peg   > 0 ? peg.toFixed(2) : "—",             peg > 0 ? (peg < 1 ? "undervalued" : peg < 2 ? "fair" : "overvalued") : "",     peg > 0 && peg < 1 ? C.green : peg > 2 ? C.red : C.amber],
+                  ["P/B",           pb    > 0 ? pb.toFixed(2)  : "—",             pb > 0 ? (pb < 1 ? "below book" : pb < 3 ? "reasonable" : "premium") : "",      pb > 0 && pb < 1 ? C.green : pb > 5 ? C.red : C.text],
                 ].map(([l,v,sub,col]) => (
                   <div key={l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: `1px solid ${C.border}` }}>
                     <div>
@@ -11143,14 +11145,37 @@ export default function App() {
     if (scanDeepData[ticker]) return;
     setScanDeepLoad(prev => ({ ...prev, [ticker]: true }));
     try {
-      const [fundR, newsR, shortR, insiderR, optionsR, smcR] = await Promise.allSettled([
+      const [fundR, newsR, shortR, insiderR, optionsR, smcR, fvR] = await Promise.allSettled([
         fetch(`/api/yahoo/fundamentals?symbol=${ticker}`).then(r => r.json()),
         fetch(`/api/yahoo/news?tickers=${ticker}&limit=6`).then(r => r.json()),
         fetch(`/api/yahoo/short-interest?symbol=${ticker}`).then(r => r.json()),
         fetch(`/api/yahoo/insider?symbol=${ticker}`).then(r => r.json()),
         fetch(`/api/yahoo/options?symbol=${ticker}`).then(r => r.json()),
         fetch(`/api/market/smc?symbol=${ticker}`).then(r => r.json()),
+        // Finviz stats — primary source for analyst data (Yahoo v10 returns 401)
+        fetch(`/api/finviz/quote?symbol=${ticker}`).then(r => r.json()),
       ]);
+      const fv = fvR.status === "fulfilled" ? fvR.value : null;
+      const raw = fv?.raw || {};
+      // Parse Finviz raw fields into normalized analyst/ownership data
+      const fvData = fv ? {
+        targetPrice:      parseFloat((raw["Target Price"] || "0").replace(/[^0-9.]/g,"")) || null,
+        recom:            parseFloat(raw["Recom"] || "0") || null,  // 1=StrongBuy 5=StrongSell
+        shortFloat:       parseFloat((raw["Short Float"] || "0").replace(/[^0-9.]/g,"")) || null,
+        shortRatio:       parseFloat(raw["Short Ratio"] || "0") || null,
+        beta:             parseFloat(raw["Beta"] || "0") || null,
+        pe:               parseFloat(raw["P/E"] || "0") || null,
+        forwardPE:        parseFloat(raw["Forward P/E"] || "0") || null,
+        peg:              parseFloat(raw["PEG"] || "0") || null,
+        pb:               parseFloat(raw["P/B"] || "0") || null,
+        institutionalPct: parseFloat((raw["Inst Own"] || "0").replace(/[^0-9.]/g,"")) || null,
+        insiderPct:       parseFloat((raw["Insider Own"] || "0").replace(/[^0-9.]/g,"")) || null,
+        insiderTrans:     raw["Insider Trans"] || null,
+        rsi14:            fv.rsi14 || null,
+        roe:              parseFloat((raw["ROE"] || "0").replace(/[^0-9.-]/g,"")) || null,
+        profitMargin:     parseFloat((raw["Profit Margin"] || "0").replace(/[^0-9.-]/g,"")) || null,
+        grossMargin:      parseFloat((raw["Gross Margin"] || "0").replace(/[^0-9.-]/g,"")) || null,
+      } : null;
       setScanDeepData(prev => ({
         ...prev,
         [ticker]: {
@@ -11160,6 +11185,7 @@ export default function App() {
           insider:      insiderR.status === "fulfilled" ? insiderR.value : null,
           options:      optionsR.status === "fulfilled" ? optionsR.value : null,
           smc:          smcR.status     === "fulfilled" && smcR.value?.ok ? smcR.value : null,
+          fv:           fvData,
         },
       }));
     } catch {}
@@ -17444,6 +17470,7 @@ export default function App() {
                         const deepData = scanDeepData[row.ticker];
                         const isLoading = scanDeepLoad[row.ticker];
                         const fd = deepData?.fundamentals;
+                        const fv = deepData?.fv; // Finviz stats — primary for analyst/ownership data
 
                         const $ = v => (v == null || isNaN(v)) ? "—" : `$${Number(v).toFixed(2)}`;
                         const fmt = (v, decimals = 2) => (v == null || isNaN(v)) ? "—" : Number(v).toFixed(decimals);
@@ -18666,16 +18693,18 @@ export default function App() {
                                           🎯 ANALYST & EARNINGS
                                         </div>
 
-                                        {/* Analyst Ratings */}
+                                        {/* Analyst Ratings — Finviz is primary source (Yahoo v10 = 401) */}
                                         {(() => {
-                                          const recKey  = fd?.recommendationKey;
-                                          const target  = Number(fd?.analystTarget || fd?.targetMeanPrice || 0);
+                                          // fv.recom: 1=Strong Buy, 2=Buy, 3=Hold, 4=Sell, 5=Strong Sell
+                                          const recomScore = fv?.recom || 0;
+                                          const recKey  = fd?.recommendationKey || null;
+                                          const target  = fv?.targetPrice || Number(fd?.analystTarget || fd?.targetMeanPrice || 0);
                                           const tHigh   = Number(fd?.targetHighPrice || 0);
                                           const tLow    = Number(fd?.targetLowPrice  || 0);
                                           const price   = Number(livePrice || row.quote?.price || 0);
                                           const upside  = (target > 0 && price > 0) ? ((target - price) / price * 100) : null;
                                           const numAnal = Number(fd?.numberOfAnalystOpinions || 0);
-                                          const ratingScore = Number(fd?.recommendationMean || 0);
+                                          const ratingScore = Number(fd?.recommendationMean || recomScore || 0);
 
                                           // Breakdown counts from recommendationTrend
                                           const sb = Number(fd?.analystStrongBuy  || 0);
@@ -18685,14 +18714,16 @@ export default function App() {
                                           const ss = Number(fd?.analystStrongSell || 0);
                                           const totalRec = sb + b + h + s + ss;
 
+                                          // Convert Finviz recom score to label
+                                          const fvRecLabel = recomScore > 0
+                                            ? (recomScore <= 1.5 ? "STRONG BUY" : recomScore <= 2.5 ? "BUY" : recomScore <= 3.5 ? "HOLD" : recomScore <= 4.5 ? "SELL" : "STRONG SELL")
+                                            : null;
                                           const recLabel = recKey
                                             ? recKey.replace(/_/g, " ").toUpperCase()
-                                            : (numAnal > 0 ? "COVERAGE" : "—");
-                                          const recColor = recKey
-                                            ? (recKey.includes("buy") || recKey.includes("outperform") ? C.green
-                                              : recKey.includes("sell") || recKey.includes("underperform") ? C.red
-                                              : C.amber)
-                                            : C.textDim;
+                                            : fvRecLabel || (numAnal > 0 ? "COVERAGE" : "—");
+                                          const recColor = (recLabel.includes("BUY") || recLabel.includes("OUTPERFORM")) ? C.green
+                                            : (recLabel.includes("SELL") || recLabel.includes("UNDERPERFORM")) ? C.red
+                                            : recLabel === "HOLD" ? C.amber : C.textDim;
 
                                           return (
                                             <div style={{ marginBottom: 12 }}>
@@ -18749,7 +18780,7 @@ export default function App() {
                                           );
                                         })()}
 
-                                        {/* Earnings */}
+                                        {/* Earnings — Finviz as primary data source */}
                                         {(() => {
                                           const earnDate  = fd?.earningsDate;
                                           const epsEst    = Number(fd?.epsForward || fd?.epsCurrentYear || 0);
@@ -18797,6 +18828,16 @@ export default function App() {
                                                   revGrowth > 0 ? C.green : revGrowth < 0 ? C.red : C.textDim],
                                                 ["Earn Grw", earnGrowth ? `${(earnGrowth*100).toFixed(1)}%`  : "—",
                                                   earnGrowth > 0 ? C.green : earnGrowth < 0 ? C.red : C.textDim],
+                                                // Finviz ownership + short data
+                                                ...(fv ? [
+                                                  ["Short Float", fv.shortFloat ? `${fv.shortFloat.toFixed(1)}%` : "—", fv.shortFloat > 20 ? C.red : fv.shortFloat > 10 ? C.amber : C.green],
+                                                  ["Days to Cover", fv.shortRatio ? `${fv.shortRatio.toFixed(1)}d` : "—", fv.shortRatio > 5 ? C.amber : C.text],
+                                                  ["Inst Own", fv.institutionalPct ? `${fv.institutionalPct.toFixed(1)}%` : "—", C.text],
+                                                  ["Insider Own", fv.insiderPct ? `${fv.insiderPct.toFixed(1)}%` : "—", fv.insiderPct > 10 ? C.green : C.text],
+                                                  ["Beta", fv.beta ? fv.beta.toFixed(2) : "—", fv.beta > 1.5 ? C.red : fv.beta < 0.8 ? C.green : C.text],
+                                                  ["P/B", fv.pb ? fv.pb.toFixed(2) : "—", fv.pb > 0 && fv.pb < 1 ? C.green : fv.pb > 5 ? C.red : C.text],
+                                                  ["ROE", fv.roe ? `${fv.roe.toFixed(1)}%` : "—", fv.roe > 15 ? C.green : fv.roe < 0 ? C.red : C.text],
+                                                ] : []),
                                               ].map(([k, v, col]) => (
                                                 <div key={k} style={{ display: "flex", justifyContent: "space-between",
                                                   fontFamily: MONO, fontSize: 13, padding: "6px 0",
