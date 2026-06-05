@@ -4092,18 +4092,8 @@ function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlistSymbols, onOpe
   }, []);
 
   // Auto-alert: when a new conviction 7+ setup appears, send to Telegram once
-  useEffect(() => {
-    if (!autoAlert) return;
-    const highConv = (watchlistData || [])
-      .map(generateSetup)
-      .filter(s => s && s.conviction >= 7 && !alertedSet.has(s.symbol));
-    if (!highConv.length) return;
-    highConv.forEach(s => {
-      const msg = `🚨 *HIGH CONVICTION SETUP*\n${s.side === "LONG" ? "🟢" : "🔴"} *${s.symbol}* — ${s.setupType} ${s.side}\n💰 Entry: $${s.entry} | Stop: $${s.stop} | T1: $${s.target1}\n📊 Conviction: ${s.conviction}/10 | Score: ${s.composite}/100\n${s.reasons[0] || ""}`;
-      fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
-    });
-    setAlertedSet(prev => new Set([...prev, ...highConv.map(s => s.symbol)]));
-  }, [watchlistData, autoAlert]); // eslint-disable-line
+  // Auto-alert from watchlist disabled — too noisy. Use server-side scan alerts only.
+  // useEffect(() => { if (!autoAlert) ... }, [watchlistData, autoAlert]);
 
   const setups = useMemo(() => {
     if (!watchlistData?.length) return [];
@@ -12325,10 +12315,8 @@ export default function App() {
           const scores = computeScores(q);
           const newScore = scores.composite;
           const oldScore = prevScoresRef.current[sym];
-          if (oldScore !== undefined && oldScore < 70 && newScore >= 70) {
-            const msg = `🚀 *SCORE ALERT*: ${sym} just crossed above 70 (now ${Math.round(newScore)}/100)\n$${(q.price||0).toFixed(2)} · ${(q.changesPercentage||0) >= 0 ? "+" : ""}${(q.changesPercentage||0).toFixed(2)}%`;
-            fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
-          }
+          // Score alert disabled — too noisy. Only server-side scan alerts allowed.
+          // if (oldScore !== undefined && oldScore < 90 && newScore >= 90) { ... }
           prevScoresRef.current[sym] = newScore;
         });
       }
