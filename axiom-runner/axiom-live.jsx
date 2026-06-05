@@ -17536,21 +17536,6 @@ export default function App() {
                                   loadDeepDive(row.ticker);
                                   loadDeepSocial(row.ticker);
                                   setTimeout(() => fetchTradeSetup(row.ticker, row), 1200);
-                                  // ── Send Telegram alert ──
-                                  const px  = Number(row.quote?.price || 0);
-                                  const chg = Number(row.quote?.changePercent || row.chgPct || 0);
-                                  const sc  = row.score || row.scannerScore || 0;
-                                  const sig = row.signal || "SCAN";
-                                  const rv  = Number(row.rvol || 0);
-                                  const sigs = (row.signals || []).slice(0,3).map(s => s?.txt || s).filter(Boolean).join(", ");
-                                  const msg = [
-                                    `🔍 *DEEP DIVE — ${row.ticker}*`,
-                                    `Signal: ${sig}  |  Score: ${sc}/100`,
-                                    `Price: $${px.toFixed(2)}  (${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%)`,
-                                    rv > 0 ? `RVOL: ${rv.toFixed(2)}x` : "",
-                                    sigs ? `Signals: ${sigs}` : "",
-                                  ].filter(Boolean).join("\n");
-                                  fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
                                 }
                               }}
                               style={{
