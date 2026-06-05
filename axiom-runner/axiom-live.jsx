@@ -2191,25 +2191,36 @@ function FinvizNewsCard({ C, MONO }) {
   const [loading, setLoading] = useState(true);
   const [ts, setTs] = useState(null);
 
+  const [meta, setMeta] = useState({ source: "", ageMin: null });
+
   const load = (force) => {
-    setLoading(true);
-    fetch(`/api/finviz/news?limit=30${force ? "&refresh=1" : ""}`)
+    if (!force) setLoading(true);
+    fetch(`/api/finviz/news?limit=40${force ? "&refresh=1" : ""}`)
       .then(r => r.json())
-      .then(d => { setItems(d.items || []); setTs(new Date()); setLoading(false); })
+      .then(d => {
+        setItems(d.items || []);
+        setMeta({ source: d.source || "", ageMin: d.ageMin });
+        setTs(new Date());
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   };
 
   useEffect(() => {
     load(false);
-    const t = setInterval(() => load(false), 120000);
+    const t = setInterval(() => load(false), 5 * 60 * 1000); // poll every 5 min
     return () => clearInterval(t);
   }, []);
 
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, overflowY: "auto", maxHeight: 440 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>📰 MARKET NEWS</div>
+        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>
+          📰 MARKET NEWS
+          {meta.source && <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginLeft: 6 }}>via {meta.source}</span>}
+        </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {meta.ageMin !== null && <span style={{ fontFamily: MONO, fontSize: 9, color: meta.ageMin <= 5 ? C.green : C.textDim }}>{meta.ageMin}m ago</span>}
           {ts && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{ts.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span>}
           <button onClick={() => load(true)}
             style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 4, color: C.accent, fontFamily: MONO, fontSize: 10, cursor: "pointer", padding: "2px 6px" }}>↻</button>
@@ -2217,10 +2228,7 @@ function FinvizNewsCard({ C, MONO }) {
       </div>
       {loading && <div style={{ fontSize: 12, color: C.textDim }}>Loading…</div>}
       {!loading && items.length === 0 && (
-        <div style={{ fontSize: 12, color: C.textDim }}>
-          No headlines.{" "}
-          <a href="https://finviz.com/news.ashx" target="_blank" rel="noreferrer" style={{ color: C.accent }}>Finviz ↗</a>
-        </div>
+        <div style={{ fontSize: 12, color: C.textDim }}>Fetching headlines — check back in 30 seconds…</div>
       )}
       {items.map((n, i) => (
         <a key={i} href={n.url} target="_blank" rel="noreferrer"
