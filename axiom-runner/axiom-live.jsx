@@ -7077,6 +7077,290 @@ function ChallengeTab({ C, MONO, SANS, fetchTradeSetup: _ft }) {
       
 }
 
+// ── Trade Planner Tab ────────────────────────────────────────────────────────
+function TradePlannerTab({ C, MONO, SANS }) {
+  const [ticker,  setTicker]  = React.useState("");
+  const [input,   setInput]   = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [result,  setResult]  = React.useState(null);
+  const [error,   setError]   = React.useState("");
+  const [account, setAccount] = React.useState(10000);
+  const [riskPct, setRiskPct] = React.useState(1);
+
+  const r2 = n => Math.round(n * 100) / 100;
+  const pct = (a, b) => r2((a - b) / b * 100);
+  const fmtPct = n => `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
+
+  const analyze = async () => {
+    const sym = input.trim().toUpperCase().replace(/[^A-Z0-9.^-]/g, "").slice(0, 10);
+    if (!sym) return;
+    setLoading(true); setError(""); setResult(null);
+    try {
+      // Fetch 90-day daily candles
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=90d`;
+      const resp = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+      const json = await resp.json();
+      const r    = json?.chart?.result?.[0];
+      if (!r) throw new Error("No data for " + sym);
+      const meta  = r.meta || {};
+      const ts    = r.timestamp || [];
+      const q     = r.indicators?.quote?.[0] || {};
+      const bars  = ts.map((t, i) => ({
+        t, c: q.close?.[i]||0, h: q.high?.[i]||0, l: q.low?.[i]||0,
+        o: q.open?.[i]||0, v: q.volume?.[i]||0,
+      })).filter(b => b.c > 0);
+
+      if (bars.length < 14) throw new Error("Not enough data");
+
+      const price  = meta.regularMarketPrice || bars.at(-1).c;
+      const chg    = meta.regularMarketChangePercent || 0;
+      const hi52   = meta.fiftyTwoWeekHigh || Math.max(...bars.map(b=>b.h));
+      const lo52   = meta.fiftyTwoWeekLow  || Math.min(...bars.map(b=>b.l));
+      const avgVol = bars.slice(-20).reduce((s,b)=>s+b.v,0)/20;
+      const rvol   = bars.at(-1).v > 0 && avgVol > 0 ? r2(bars.at(-1).v/avgVol) : 0;
+
+      // EMA calculations
+      const ema = (n, arr) => {
+        const k = 2/(n+1);
+        let e = arr.slice(0,n).reduce((s,v)=>s+v,0)/n;
+        for(let i=n;i<arr.length;i++) e = arr[i]*k + e*(1-k);
+        return r2(e);
+      };
+      const closes = bars.map(b=>b.c);
+      const ema9   = ema(9, closes);
+      const ema21  = ema(21, closes);
+      const ema50  = ema(Math.min(50,closes.length), closes);
+      const ema200 = ema(Math.min(200,closes.length), closes);
+
+      // ATR (14 period)
+      let atrSum = 0;
+      for(let i=bars.length-14; i<bars.length; i++){
+        const prev = bars[i-1]?.c || bars[i].c;
+        atrSum += Math.max(bars[i].h-bars[i].l, Math.abs(bars[i].h-prev), Math.abs(bars[i].l-prev));
+      }
+      const atr = r2(atrSum/14);
+
+      // RSI
+      let gains=0, losses=0;
+      for(let i=bars.length-14; i<bars.length; i++){
+        const d=bars[i].c-bars[i-1]?.c||0;
+        d>0?gains+=d:losses+=Math.abs(d);
+      }
+      const rsi = r2(losses===0?100:100-100/(1+gains/14/(losses/14)));
+
+      // Trend
+      const trend = price>ema50&&ema50>ema200?'STRONG BULL':price>ema21?'BULL':price<ema21?'BEAR':'NEUTRAL';
+      const trendCol = trend.includes('BULL') ? C.green : trend==='BEAR' ? C.red : C.amber;
+
+      // Support/Resistance from recent swing points
+      const swingHighs = bars.slice(-20).filter((b,i,a)=>i>0&&i<a.length-1&&b.h>a[i-1].h&&b.h>a[i+1].h).map(b=>b.h);
+      const swingLows  = bars.slice(-20).filter((b,i,a)=>i>0&&i<a.length-1&&b.l<a[i-1].l&&b.l<a[i+1].l).map(b=>b.l);
+      const nearSupport = swingLows.filter(l=>l<price).sort((a,b)=>b-a)[0] || r2(price*0.95);
+      const nearRes1    = swingHighs.filter(h=>h>price).sort((a,b)=>a-b)[0] || r2(price*1.06);
+
+      // Stop loss: below nearest support OR 1.5x ATR below price OR below EMA21
+      const stopCandidates = [
+        r2(price - atr*1.5),                                          // ATR-based
+        r2(nearSupport * 0.995),                                       // Below support
+        ema21 < price ? r2(ema21 * 0.99) : r2(price * 0.97),         // Below EMA21
+        r2(price * 0.97),                                              // 3% hard stop
+      ].filter(s => s < price && s > price*0.85);
+      const stopLoss = r2(Math.max(...stopCandidates));
+      const riskPerShare = r2(price - stopLoss);
+      const riskAmt = account * (riskPct/100);
+      const shares = riskPerShare > 0 ? Math.floor(riskAmt/riskPerShare) : 0;
+      const cost = r2(shares * price);
+
+      // Targets based on ATR and R:R
+      const t1 = r2(price + riskPerShare * 1.5);   // 1.5R
+      const t2 = r2(price + riskPerShare * 2.5);   // 2.5R
+      const t3 = r2(price + riskPerShare * 4.0);   // 4R (or near 52w high)
+
+      // Stop reason
+      const stopReason = price-stopLoss < atr*1.3
+        ? `ATR-based (${atr.toFixed(2)} daily range)`
+        : ema21 < price && Math.abs(price-ema21*0.99-price+stopLoss) < 0.5
+        ? "Below EMA21 support"
+        : "Below nearest swing low";
+
+      setTicker(sym);
+      setResult({ sym, price, chg, hi52, lo52, rvol, avgVol,
+        ema9, ema21, ema50, ema200, atr, rsi, trend, trendCol,
+        stopLoss, riskPerShare, riskAmt, shares, cost,
+        t1, t2, t3, stopReason, nearSupport, nearRes1 });
+    } catch(e) {
+      setError(e.message || "Failed to fetch data");
+    }
+    setLoading(false);
+  };
+
+  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 };
+  const numCard = (label, val, sub, col, big=false) => (
+    <div style={{ ...card, textAlign: "center", borderTop: `3px solid ${col}` }}>
+      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, fontWeight: 800, letterSpacing: "0.1em", marginBottom: 6 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: big ? 26 : 20, fontWeight: 900, color: col, lineHeight: 1 }}>{val}</div>
+      {sub && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 5 }}>{sub}</div>}
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>🎯 TRADE PLANNER</div>
+          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
+            Enter any ticker — get stop loss, exit strategy, and 3 price targets instantly
+          </div>
+        </div>
+      </div>
+
+      {/* Input */}
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <input value={input} onChange={e => setInput(e.target.value.toUpperCase())}
+          onKeyDown={e => e.key === "Enter" && analyze()}
+          placeholder="Enter ticker — e.g. NVDA, TSLA, AMD"
+          style={{ flex: 1, minWidth: 200, padding: "12px 16px", fontFamily: MONO, fontSize: 15,
+            fontWeight: 700, background: C.surface, border: `2px solid ${C.accent}`,
+            color: C.text, borderRadius: 10, outline: "none" }} />
+        <button onClick={analyze} disabled={loading}
+          style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, padding: "12px 28px",
+            borderRadius: 10, border: "none", background: loading ? C.surface : C.accent,
+            color: loading ? C.textDim : "#fff", cursor: loading ? "default" : "pointer" }}>
+          {loading ? "⏳ Analyzing…" : "📊 ANALYZE"}
+        </button>
+        {/* Account settings */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Account $</span>
+          <input type="number" value={account} onChange={e => setAccount(Number(e.target.value))}
+            style={{ width: 80, padding: "8px", fontFamily: MONO, fontSize: 12, background: C.surface,
+              border: `1px solid ${C.border}`, color: C.text, borderRadius: 7, textAlign: "right" }} />
+          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Risk %</span>
+          <input type="number" value={riskPct} onChange={e => setRiskPct(Number(e.target.value))} min="0.5" max="5" step="0.5"
+            style={{ width: 50, padding: "8px", fontFamily: MONO, fontSize: 12, background: C.surface,
+              border: `1px solid ${C.border}`, color: C.text, borderRadius: 7, textAlign: "right" }} />
+        </div>
+      </div>
+
+      {error && <div style={{ padding: 14, background: `${C.red}12`, border: `1px solid ${C.red}33`,
+        borderRadius: 8, fontFamily: MONO, fontSize: 13, color: C.red }}>⚠ {error}</div>}
+
+      {result && (
+        <>
+          {/* Ticker summary */}
+          <div style={{ ...card, borderLeft: `4px solid ${result.trendCol}`,
+            display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.text }}>{result.sym}</div>
+              <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, marginTop: 2,
+                color: result.chg >= 0 ? C.green : C.red }}>
+                ${result.price.toFixed(2)} {result.chg >= 0 ? "+" : ""}{result.chg.toFixed(2)}%
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+              {[
+                ["TREND",   result.trend,    result.trendCol],
+                ["RSI",     result.rsi.toFixed(0), result.rsi<30?C.green:result.rsi>70?C.red:C.textDim],
+                ["EMA 9/21",result.ema9>result.ema21?"▲ BULLISH":"▼ BEARISH", result.ema9>result.ema21?C.green:C.red],
+                ["RVOL",    result.rvol>0?result.rvol+"x":"—", result.rvol>=2?C.amber:C.textDim],
+                ["ATR",     `$${result.atr}`, C.textDim],
+              ].map(([k,v,col]) => (
+                <div key={k} style={{ textAlign: "center" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 2 }}>{k}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: col }}>{v}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Main trade levels — 5 big cards */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10 }}>
+            {numCard("ENTRY PRICE", `$${result.price.toFixed(2)}`, "Current price — buy here", C.accent, true)}
+            {numCard("STOP LOSS 🛑", `$${result.stopLoss}`,
+              `${fmtPct(pct(result.stopLoss,result.price))} · ${result.stopReason}`, C.red, true)}
+            {numCard("TARGET 1 🎯", `$${result.t1}`,
+              `${fmtPct(pct(result.t1,result.price))} · 1.5R · Take 50% profit`, C.green, true)}
+            {numCard("TARGET 2 🚀", `$${result.t2}`,
+              `${fmtPct(pct(result.t2,result.price))} · 2.5R · Take 25% more`, "#22c55e", true)}
+            {numCard("TARGET 3 💎", `$${result.t3}`,
+              `${fmtPct(pct(result.t3,result.price))} · 4R · Let 25% run`, C.accent, true)}
+          </div>
+
+          {/* Position sizing */}
+          <div style={{ ...card, borderTop: `3px solid ${C.accent}` }}>
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, letterSpacing: "0.1em", marginBottom: 12 }}>
+              💰 POSITION SIZING — ${account.toLocaleString()} account · {riskPct}% risk = ${result.riskAmt.toFixed(0)} max loss
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(110px,1fr))", gap: 10 }}>
+              {[
+                ["SHARES TO BUY",  result.shares,                  `x $${result.price.toFixed(2)}`,           C.text],
+                ["TOTAL COST",     `$${result.cost.toLocaleString()}`, "of your account",                     C.text],
+                ["MAX LOSS",       `$${result.riskAmt.toFixed(0)}`, `${riskPct}% of account`,                 C.red],
+                ["RISK/SHARE",     `$${result.riskPerShare}`,        "entry minus stop",                      C.amber],
+                ["PROFIT at T1",   `$${r2(result.shares*(result.t1-result.price))}`, `${result.shares} shares × gain`, C.green],
+                ["PROFIT at T2",   `$${r2(result.shares*(result.t2-result.price))}`, "full position",         "#22c55e"],
+              ].map(([label,val,sub,col]) => (
+                <div key={label} style={{ background: C.surface, borderRadius: 8, padding: "10px 12px",
+                  border: `1px solid ${C.border}` }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: col }}>{val}</div>
+                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 2 }}>{sub}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Exit strategy */}
+          <div style={{ ...card, borderTop: `3px solid ${C.green}` }}>
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, letterSpacing: "0.1em", marginBottom: 12 }}>
+              🗺 EXIT STRATEGY — STEP BY STEP
+            </div>
+            {[
+              { step: "1", action: "ENTER", price: `$${result.price.toFixed(2)}`, detail: `Buy ${result.shares} shares — risk $${result.riskAmt.toFixed(0)} max`, col: C.accent },
+              { step: "2", action: "STOP LOSS", price: `$${result.stopLoss}`, detail: `If price drops here → sell ALL immediately. No exceptions.`, col: C.red },
+              { step: "3", action: "TARGET 1", price: `$${result.t1}`, detail: `Sell 50% (${Math.floor(result.shares/2)} shares) → lock in profit. Move stop to breakeven.`, col: C.green },
+              { step: "4", action: "TARGET 2", price: `$${result.t2}`, detail: `Sell 25% more (${Math.floor(result.shares/4)} shares) → protect gains. Trail stop up.`, col: "#22c55e" },
+              { step: "5", action: "TARGET 3", price: `$${result.t3}`, detail: `Let remaining 25% run to final target or trail stop. Do not chase.`, col: C.accent },
+            ].map(s => (
+              <div key={s.step} style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 0",
+                borderBottom: `1px solid ${C.border}22` }}>
+                <div style={{ width: 28, height: 28, borderRadius: "50%", background: `${s.col}20`,
+                  border: `2px solid ${s.col}`, display: "flex", alignItems: "center", justifyContent: "center",
+                  fontFamily: MONO, fontSize: 12, fontWeight: 900, color: s.col, flexShrink: 0 }}>{s.step}</div>
+                <div style={{ minWidth: 90, flexShrink: 0 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: s.col, fontWeight: 900 }}>{s.action}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text }}>{s.price}</div>
+                </div>
+                <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.5 }}>{s.detail}</div>
+              </div>
+            ))}
+            <div style={{ marginTop: 12, padding: "10px 12px", background: `${C.amber}10`,
+              border: `1px solid ${C.amber}33`, borderRadius: 8,
+              fontFamily: SANS, fontSize: 12, color: C.amber, fontWeight: 600 }}>
+              ⚠️ Not financial advice. Always use stop losses. Never risk more than you can afford to lose.
+            </div>
+          </div>
+        </>
+      )}
+
+      {!result && !loading && !error && (
+        <div style={{ ...card, textAlign: "center", padding: "40px 20px" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🎯</div>
+          <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text, marginBottom: 8 }}>
+            Enter a ticker above
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, maxWidth: 400, margin: "0 auto", lineHeight: 1.7 }}>
+            Type any stock symbol and press ANALYZE.<br/>
+            You'll get stop loss, 3 price targets, position sizing,<br/>
+            and a step-by-step exit strategy.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Gap Fill Tracker ─────────────────────────────────────────────────────────
 function GapFillTab({ C, MONO, SANS, setActiveTab }) {
   const [data,    setData]    = React.useState(null);
@@ -13754,7 +14038,7 @@ export default function App() {
             const NAV_GROUPS = [
               { id: "dashboard", label: "📊 MONITOR",    tabs: ["dashboard", "briefing"] },
               { id: "terminal",  label: "📈 CHART",      tabs: ["terminal", "tv"] },
-              { id: "scanner",   label: "🔍 SCAN",       tabs: ["combined", "smartscan", "adol22", "compression", "under10"] },
+              { id: "scanner",   label: "🔍 SCAN",       tabs: ["combined", "smartscan", "tradeplanner", "adol22", "compression", "under10"] },
               { id: "markets",   label: "🌍 MARKETS",    tabs: ["news", "macro", "econ-cal", "crypto"] },
               { id: "portfolio", label: "💼 PORTFOLIO",  tabs: ["portfolio", "journal", "performance"] },
               { id: "tools",     label: "🛠 TOOLS",      tabs: ["morning-routine", "challenge", "recap", "tools"] },
@@ -14107,6 +14391,7 @@ export default function App() {
           scanner: [
             { id: "combined",     label: "⚡ BEST SETUPS" },
             { id: "smartscan",    label: "🧠 SMART SCAN" },
+            { id: "tradeplanner", label: "🎯 TRADE PLAN" },
             { id: "adol22",       label: "🔴 ADOL22" },
             { id: "compression",  label: "🌀 COMPRESS" },
             { id: "under10",      label: "💎 UNDER $50" },
@@ -23542,6 +23827,7 @@ export default function App() {
       })()}
 
       {/* ── CUSTOM SCREENER ──────────────────────────────────────────────── */}
+      {activeTab === "tradeplanner" && <TradePlannerTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "under10" && <Under10Tab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "combined"     && <CombinedTab     C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols}
         loadDeepDive={loadDeepDive} scanDeepData={scanDeepData} scanDeepLoad={scanDeepLoad}
