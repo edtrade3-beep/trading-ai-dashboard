@@ -7096,11 +7096,10 @@ function TradePlannerTab({ C, MONO, SANS }) {
     if (!sym) return;
     setLoading(true); setError(""); setResult(null);
     try {
-      // Fetch 90-day daily candles
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=90d`;
-      const resp = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+      // Fetch via backend proxy to avoid CORS
+      const resp = await fetch(`/api/market/candles?symbol=${encodeURIComponent(sym)}&interval=1d&range=90d`);
       const json = await resp.json();
-      const r    = json?.chart?.result?.[0];
+      const r    = json?.chart?.result?.[0] || json?.result?.[0];
       if (!r) throw new Error("No data for " + sym);
       const meta  = r.meta || {};
       const ts    = r.timestamp || [];

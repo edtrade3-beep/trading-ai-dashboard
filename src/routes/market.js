@@ -1952,7 +1952,35 @@ async function handleMarket(req, res, requestUrl) {
     return writeJson(res, 200, { ok: true, events });
   }
 
-  return writeJson(res, 404, { error: "Unknown market endpoint." });
+  // GET /api/market/candles?symbol=AMD&interval=1d&range=90d
+  if (pathname === '/api/market/candles') {
+    const sym = (requestUrl.searchParams.get('symbol')||'').toUpperCase().replace(/[^A-Z0-9.^-]/g,'').slice(0,10);
+    const interval = requestUrl.searchParams.get('interval')||'1d';
+    const range = requestUrl.searchParams.get('range')||'90d';
+    if(!sym) return writeJson(res,400,{error:'symbol required'});
+    try {
+      const https = require('https');
+      const data = await new Promise((resolve,reject)=>{
+        const req = https.request({
+          hostname:'query1.finance.yahoo.com',
+          path:'/v8/finance/chart/'+encodeURIComponent(sym)+'?interval='+interval+'&range='+range,
+          method:'GET',
+          headers:{'User-Agent':'Mozilla/5.0','Accept':'application/json'},
+        }, response=>{
+          let d='';
+          response.on('data',c=>d+=c);
+          response.on('end',()=>{try{resolve(JSON.parse(d));}catch{reject(new Error('Bad JSON'));}});
+        });
+        req.on('error',reject);
+        req.setTimeout(8000,()=>{req.destroy();reject(new Error('Yahoo timeout'));});
+        req.end();
+      });
+      res.writeHead(200,{'Content-Type':'application/json'});
+      return res.end(JSON.stringify(data));
+    } catch(e) { return writeJson(res,502,{error:e.message}); }
+  }
+
+  return writeJson(res, 404, { error: 'Unknown market endpoint.' });
 }
 
 module.exports = handleMarket;
