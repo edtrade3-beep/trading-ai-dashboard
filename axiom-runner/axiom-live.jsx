@@ -5174,7 +5174,8 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
   const dayWins = todayTrades.filter(e=>e.pnl>0).length;
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:10,
+      height:'calc(100vh - 130px)', overflow:'hidden' }}>
 
       {/* ── Stats Strip ── */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))', gap:8 }}>
@@ -5198,11 +5199,12 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
         ))}
       </div>
 
-      {/* ── Main 3-Col Grid ── */}
-      <div style={{ display:'grid', gridTemplateColumns:isTablet?'1fr':'1fr 1fr 340px', gap:10, alignItems:'start' }}>
+      {/* ── Main 3-Col Grid — fills remaining height, each col scrolls independently ── */}
+      <div style={{ display:'grid', gridTemplateColumns:isTablet?'1fr':'1fr 1fr 340px', gap:10,
+        flex:1, minHeight:0, alignItems:'stretch' }}>
 
-        {/* Col 1: Intelligence + Screener */}
-        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        {/* Col 1: Intelligence + Screener — scrollable */}
+        <div style={{ display:'flex', flexDirection:'column', gap:10, overflowY:'auto', scrollbarWidth:'thin' }}>
 
           <Card accent={regimeColor||ACCENT}>
             <CardHead icon="🧠" title="INTELLIGENCE & REGIME"
@@ -5289,8 +5291,8 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
           </Card>
         </div>
 
-        {/* Col 2: Calendar + Alerts + News — sticky column */}
-        <div style={{ display:'flex', flexDirection:'column', gap:10, position:'sticky', top:8, alignSelf:'start' }}>
+        {/* Col 2: Calendar + Alerts + News — scrollable */}
+        <div style={{ display:'flex', flexDirection:'column', gap:10, overflowY:'auto', scrollbarWidth:'thin' }}>
 
           <Card accent="#6366f1">
             <CardHead icon="📅" title="CALENDAR & EVENTS" />
@@ -5353,8 +5355,8 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
           </Card>
         </div>
 
-        {/* Col 3: Risk + Live Signals — sticky column */}
-        <div style={{ display:'flex', flexDirection:'column', gap:10, position:'sticky', top:8, alignSelf:'start' }}>
+        {/* Col 3: Risk + Live Signals — scrollable */}
+        <div style={{ display:'flex', flexDirection:'column', gap:10, overflowY:'auto', scrollbarWidth:'thin' }}>
 
           <Card accent={tiltLocked?RED:tiltStreak>=2?AMBER:GREEN}>
             <CardHead icon="🛡" title="RISK MANAGEMENT" />
