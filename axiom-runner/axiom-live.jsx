@@ -5123,6 +5123,9 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
       letterSpacing:'0.04em', whiteSpace:'nowrap' }}>{label}</span>
   );
 
+  // Local filter state for screener
+  const [screenerFilter, setScreenerFilter] = React.useState('ALL');
+
   const vix     = distData?.vix || 0;
   const spySym  = (macroData||[]).find(m => m.symbol==='SPY');
   const qqqSym  = (macroData||[]).find(m => m.symbol==='QQQ');
@@ -5142,7 +5145,7 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
   const topBuys = (scanResults||[]).filter(r=>r.score>=65).slice(0,4);
 
   // Screener rows: scanner results if available, else top watchlist movers
-  const screenerRows = scanResults?.length > 0
+  const allScreenerRows = scanResults?.length > 0
     ? scanResults.slice(0, 7).map(r => ({
         ticker: r.ticker, price: r.quote?.price||0, chg: r.quote?.changePercent||0,
         rvol: r.quote?.volume&&r.quote?.avgVolume ? r.quote.volume/r.quote.avgVolume : 0,
@@ -5162,6 +5165,15 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
         });
 
   // Live signals: scanner or top watchlist gainers
+  // Apply filter to screener rows
+  const screenerRows = (allScreenerRows||[]).filter(r => {
+    if (screenerFilter === 'ALL') return true;
+    if (screenerFilter === 'A+ BUY') return r.score >= 75;
+    if (screenerFilter === 'BUY') return r.score >= 62 && r.score < 75;
+    if (screenerFilter === 'WATCH') return r.score >= 50 && r.score < 62;
+    return true;
+  });
+
   const liveSignals = topBuys.length > 0 ? topBuys
     : (watchlistData||[])
         .filter(q => (q.changesPercentage||0) > 1 && q.price > 0)
@@ -5236,10 +5248,14 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
                 </button>
               } />
             <div style={{ display:'flex', gap:6, padding:'8px 14px', borderBottom:`1px solid ${BORDER}` }}>
-              {['ALL','A+ BUY','BUY','WATCH'].map((f,fi) => (
-                <span key={f} style={{ fontFamily:MONO, fontSize:9, fontWeight:800, padding:'3px 10px',
-                  borderRadius:12, background:fi===0?ACCENT:C.surface, color:fi===0?'#fff':DIM,
-                  border:`1px solid ${fi===0?ACCENT:BORDER}`, cursor:'pointer', letterSpacing:'0.04em' }}>{f}</span>
+              {['ALL','A+ BUY','BUY','WATCH'].map(f => (
+                <span key={f} onClick={() => setScreenerFilter(f)}
+                  style={{ fontFamily:MONO, fontSize:9, fontWeight:800, padding:'3px 10px',
+                    borderRadius:12, cursor:'pointer', letterSpacing:'0.04em',
+                    background: screenerFilter===f ? ACCENT : C.surface,
+                    color: screenerFilter===f ? '#fff' : DIM,
+                    border:`1px solid ${screenerFilter===f ? ACCENT : BORDER}`,
+                    transition:'all 0.15s' }}>{f}</span>
               ))}
             </div>
             <table style={{ width:'100%', borderCollapse:'collapse' }}>
@@ -14685,14 +14701,24 @@ export default function App() {
               isTablet={isTablet}
               scanDeepData={scanDeepData}
               openDeepDive={(sym, price) => {
-                setSfSig("ALL"); setSfMinScore(0);
-                setScanResults(prev => prev.some(r=>r.ticker===sym)?prev:[{
-                  ticker:sym, score:60, signal:"WATCH", scannerScore:60, signals:[],
-                  sColor:"#f59e0b", quote:{price:price||0, changePercent:0}, candles:null
-                },...prev]);
-                setActiveTab("smartscan");
-                setTimeout(()=>{ setScanExpanded(sym); loadDeepDive(sym); loadDeepSocial(sym); }, 100);
-                setTimeout(()=>fetchTradeSetup(sym,{ticker:sym,score:60,signal:"WATCH",signals:[],quote:{price:price||0}}), 1400);
+                // Step 1: set up scan state
+                setSfSig("ALL");
+                setSfMinScore(0);
+                setScanResults(prev => {
+                  if (prev.some(r => r.ticker === sym)) return prev;
+                  return [{ ticker:sym, score:60, signal:"WATCH", scannerScore:60,
+                    signals:[], sColor:"#f59e0b",
+                    quote:{price:price||0, changePercent:0}, candles:null }, ...prev];
+                });
+                // Step 2: navigate after a tick so state is settled
+                setTimeout(() => {
+                  setActiveTab("smartscan");
+                  setTimeout(() => {
+                    setScanExpanded(sym);
+                    loadDeepDive(sym);
+                    loadDeepSocial(sym);
+                  }, 150);
+                }, 0);
               }}
             />
           );
