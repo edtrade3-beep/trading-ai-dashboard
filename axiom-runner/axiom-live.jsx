@@ -1200,51 +1200,106 @@ async function fetchGainersLosers(apiKey) {
 // ── Score Computation (heuristic from quote data) ──
 function computeScores(q) {
   if (!q) return { tech: 0, fund: 0, macro: 0, composite: 0 };
-  
-  // Technical score from price action signals
-  let tech = 50;
-  const chgPct = q.changesPercentage || 0;
-  if (chgPct > 2) tech += 20;
-  else if (chgPct > 0.5) tech += 12;
-  else if (chgPct > 0) tech += 5;
-  else if (chgPct > -1) tech -= 5;
-  else tech -= 15;
-  
-  // Volume signal
-  if (q.volume && q.avgVolume) {
-    const rvol = q.volume / q.avgVolume;
-    if (rvol > 1.5 && chgPct > 0) tech += 15;
-    else if (rvol > 1.2 && chgPct > 0) tech += 8;
-    else if (rvol > 1.5 && chgPct < 0) tech -= 10;
+
+  const price  = Number(q.price  || q.regularMarketPrice || 0);
+  const chgPct = Number(q.changesPercentage || q.regularMarketChangePercent || 0);
+  const ma50   = Number(q.priceAvg50  || q.fiftyDayAverage   || 0);
+  const ma200  = Number(q.priceAvg200 || q.twoHundredDayAverage || 0);
+  const hi52   = Number(q.yearHigh    || q.fiftyTwoWeekHigh  || 0);
+  const lo52   = Number(q.yearLow     || q.fiftyTwoWeekLow   || 0);
+  const vol    = Number(q.volume      || q.regularMarketVolume || 0);
+  const avgVol = Number(q.avgVolume   || q.averageDailyVolume10Day || 0);
+  const pe     = Number(q.pe          || q.trailingPE         || 0);
+  const mcap   = Number(q.marketCap   || 0);
+  const beta   = Number(q.beta        || 0);
+
+  // ── TECHNICAL SCORE (0-100) ────────────────────────────────────────────────
+  let tech = 40; // neutral base
+
+  // MA alignment — most important signal (doesn't depend on today's change)
+  if (price > 0 && ma50 > 0 && ma200 > 0) {
+    if (price > ma50 && ma50 > ma200)      tech += 20; // perfect uptrend
+    else if (price > ma50 && price > ma200) tech += 12; // above both, mixed
+    else if (price > ma200)                 tech += 6;  // above 200 only
+    else if (price < ma50 && ma50 < ma200) tech -= 15; // perfect downtrend
+    else                                    tech -= 6;  // mixed bearish
   }
-  
-  // Distance from year high/low
-  if (q.yearHigh && q.yearLow && q.price) {
-    const range = q.yearHigh - q.yearLow;
-    if (range > 0) {
-      const pos = (q.price - q.yearLow) / range;
-      if (pos > 0.85) tech += 10;
-      else if (pos > 0.6) tech += 5;
-      else if (pos < 0.2) tech -= 10;
-    }
+
+  // Distance from MA50 — stretched or at support
+  if (price > 0 && ma50 > 0) {
+    const d50 = (price - ma50) / ma50 * 100;
+    if (d50 > -2 && d50 < 5)   tech += 8;  // testing / just above MA50
+    else if (d50 > 5 && d50 < 15) tech += 5; // healthy above
+    else if (d50 > 20)          tech -= 5;  // stretched too high
+    else if (d50 < -15)         tech -= 8;  // far below
   }
-  
-  // Fundamental placeholder (would need income statement API)
-  let fund = 50;
-  if (q.pe && q.pe > 0 && q.pe < 25) fund += 12;
-  else if (q.pe && q.pe > 40) fund -= 8;
-  if (q.marketCap > 200e9) fund += 8;
-  else if (q.marketCap > 50e9) fund += 4;
-  
-  // Macro alignment (simplified)
-  let macro = 55;
-  if (chgPct > 0) macro += 8;
-  
-  tech = Math.max(0, Math.min(100, tech));
-  fund = Math.max(0, Math.min(100, fund));
-  macro = Math.max(0, Math.min(100, macro));
+
+  // 52W range position
+  if (hi52 > lo52 && price > 0) {
+    const pos = (price - lo52) / (hi52 - lo52);
+    if (pos > 0.80)      tech += 10; // near highs — strength
+    else if (pos > 0.55) tech += 5;
+    else if (pos < 0.20) tech -= 8;  // near lows — weakness
+    else if (pos < 0.35) tech -= 3;
+  }
+
+  // Volume confirmation
+  if (vol > 0 && avgVol > 0) {
+    const rvol = vol / avgVol;
+    if (rvol > 2 && chgPct > 0)   tech += 10;
+    else if (rvol > 1.5 && chgPct > 0) tech += 6;
+    else if (rvol > 1.5 && chgPct < 0) tech -= 8;
+    else if (rvol < 0.5)           tech -= 3;
+  }
+
+  // Daily momentum (bonus, not the main signal)
+  if (chgPct > 3)       tech += 8;
+  else if (chgPct > 1)  tech += 4;
+  else if (chgPct < -3) tech -= 8;
+  else if (chgPct < -1) tech -= 4;
+
+  // ── FUNDAMENTAL SCORE (0-100) ─────────────────────────────────────────────
+  let fund = 45;
+
+  if (pe > 0 && pe < 15)       fund += 18; // value
+  else if (pe > 0 && pe < 25)  fund += 12;
+  else if (pe > 0 && pe < 40)  fund += 4;
+  else if (pe > 50)            fund -= 8;
+
+  if (mcap > 500e9)     fund += 12; // mega cap quality
+  else if (mcap > 100e9) fund += 8;
+  else if (mcap > 10e9)  fund += 4;
+  else if (mcap > 0 && mcap < 500e6) fund -= 5;
+
+  if (beta > 0 && beta < 1)   fund += 5; // lower volatility
+  else if (beta > 2.5)        fund -= 5;
+
+  // EPS proxy from PE + price
+  if (pe > 0 && price > 0) {
+    const eps = price / pe;
+    if (eps > 5)  fund += 6;
+    else if (eps > 1) fund += 3;
+  }
+
+  // ── MACRO SCORE (0-100) ───────────────────────────────────────────────────
+  let macro = 50;
+
+  // Stock above 200D MA = macro aligned
+  if (price > 0 && ma200 > 0) {
+    if (price > ma200) macro += 15;
+    else               macro -= 10;
+  }
+
+  // Trend strength from weekly + monthly signals
+  if (chgPct > 0 && price > ma50) macro += 8;
+  if (hi52 > 0 && price > hi52 * 0.85) macro += 7; // near highs = market likes it
+
+  // Clamp all
+  tech  = Math.max(0, Math.min(100, Math.round(tech)));
+  fund  = Math.max(0, Math.min(100, Math.round(fund)));
+  macro = Math.max(0, Math.min(100, Math.round(macro)));
   const composite = Math.round(tech * 0.45 + fund * 0.35 + macro * 0.2);
-  
+
   return { tech, fund, macro, composite };
 }
 
