@@ -6836,7 +6836,7 @@ function ChartSVG({ type, w = 280, h = 140 }) {
         <Line pts={pricePts} color={line} width={2} />
         <text x={6} y={14} fill="#ccc" fontSize={10}>RSI DIVERGENCE — Price lower, RSI higher = bullish</text>
         {/* arrows showing divergence */}
-        <line x1={110} y1={30} x2={185} y2={25} stroke={bear} strokeWidth={1.5} markerEnd="url(#arr)" />
+        <line x1={110} y1={30} x2={185} y2={25} stroke={bear} strokeWidth={1.5} />
         <line x1={110} y1={rsiY+35} x2={185} y2={rsiY+32} stroke={bull} strokeWidth={1.5} />
         {/* RSI panel */}
         <rect y={rsiY} width={w} height={rsiH} fill="#050b14" />
@@ -7127,8 +7127,8 @@ function EducationTab({ C, MONO, SANS }) {
   const saveMistakes= m => { setMistakes(m); localStorage.setItem(EDU_MISTAKES_KEY, JSON.stringify(m)); };
   const saveJournal = j => { setJournalEntries(j); localStorage.setItem(EDU_JOURNAL_KEY, JSON.stringify(j)); };
 
-  const categories = ["ALL", ...new Set(LESSONS.map(l => l.category))];
-  const filtered = lessonFilter === "ALL" ? LESSONS : LESSONS.filter(l => l.category === lessonFilter);
+  // Deep lessons filter (DEEP_LESSONS replaces old LESSONS in UI)
+  const deepFiltered = lessonFilter === "ALL" ? DEEP_LESSONS : DEEP_LESSONS.filter(l => l.cat === lessonFilter);
   const mistakeCount = MISTAKE_TYPES.map(t => ({ type: t, count: mistakes.filter(m => m.type === t).length })).sort((a,b) => b.count - a.count);
 
   const catColor = c => ({ MINDSET:"#7c3aed", RISK:"#dc2626", ENTRY:"#16a34a", EXIT:"#f59e0b", PSYCHOLOGY:"#0891b2", SETUP:"#2563eb" })[c] || C.accent;
@@ -7174,12 +7174,12 @@ function EducationTab({ C, MONO, SANS }) {
               </button>
             ))}
             <span style={{ fontFamily:SANS, fontSize:12, color:C.textDim, alignSelf:"center", marginLeft:8 }}>
-              {DEEP_LESSONS.filter(l => lessonFilter==="ALL" || l.cat===lessonFilter).length} lessons
+              {deepFiltered.length} lessons
             </span>
           </div>
 
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            {DEEP_LESSONS.filter(l => lessonFilter==="ALL" || l.cat===lessonFilter).map(lesson => (
+            {deepFiltered.map(lesson => (
               <div key={lesson.id}
                 style={{ background:C.card, border:`1px solid ${openLesson===lesson.id ? lesson.color+"88" : C.border}`,
                   borderLeft:`4px solid ${lesson.color}`, borderRadius:12, overflow:"hidden" }}>
