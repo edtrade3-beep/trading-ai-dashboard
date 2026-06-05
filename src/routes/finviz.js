@@ -2,17 +2,73 @@ const https   = require("https");
 const { writeJson } = require("../utils");
 const { fetchFinvizStats, fetchFinvizChartBuffer } = require("../providers/finviz");
 
+// ── News cache (3-min TTL) ───────────────────────────────────────────────────
+let _newsCache = null, _newsCacheTs = 0;
+const NEWS_TTL = 3 * 60 * 1000;
+
+// Multiple RSS feeds — tried in order until one works
+const NEWS_FEEDS = [
+  { url: "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC,^NDX,^DJI&region=US&lang=en-US", source: "Yahoo Finance" },
+  { url: "https://feeds.finance.yahoo.com/rss/2.0/headline?s=SPY,QQQ,AAPL,NVDA,TSLA,MSFT,META,AMZN&region=US&lang=en-US", source: "Yahoo Finance" },
+  { url: "https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best", source: "Reuters" },
+  { url: "https://feeds.marketwatch.com/marketwatch/topstories/", source: "MarketWatch" },
+];
+
+function fetchRss(url) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, {
+      headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/rss+xml,text/xml,*/*" }
+    }, res => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return resolve(fetchRss(res.headers.location));
+      }
+      let d = ""; res.on("data", c => d += c); res.on("end", () => resolve(d));
+    });
+    req.on("error", reject);
+    req.setTimeout(8000, () => { req.destroy(); reject(new Error("timeout")); });
+  });
+}
+
+function parseRss(xml, source) {
+  const items = [];
+  const itemRe = /<item>([\s\S]*?)<\/item>/gi;
+  let m;
+  while ((m = itemRe.exec(xml)) !== null) {
+    const block = m[1];
+    const title = (block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) ||
+                   block.match(/<title>([\s\S]*?)<\/title>/))?.[1]?.trim() || "";
+    const link  = (block.match(/<link>([\s\S]*?)<\/link>/) ||
+                   block.match(/<link\s[^>]*href="([^"]+)"/))?.[1]?.trim() || "";
+    const pubDate = (block.match(/<pubDate>([\s\S]*?)<\/pubDate>/))?.[1]?.trim() || "";
+    if (!title || title.length < 8) continue;
+    // Format time as HH:MM AM/PM
+    let time = "";
+    try {
+      const d = new Date(pubDate);
+      if (!isNaN(d)) time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "America/New_York" });
+    } catch {}
+    items.push({ time, title: title.replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&#39;/g,"'").replace(/&quot;/g,'"'), url: link, tickers: [], source });
+  }
+  return items;
+}
+
+async function fetchMarketNews() {
+  for (const feed of NEWS_FEEDS) {
+    try {
+      const xml   = await fetchRss(feed.url);
+      const items = parseRss(xml, feed.source);
+      if (items.length >= 3) return items;
+    } catch {}
+  }
+  return [];
+}
+
+// Keep Finviz fetchHtml for quote/chart endpoints
 const HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-  "Accept-Language": "en-US,en;q=0.9",
   "Referer": "https://finviz.com/",
 };
-
-// ── News cache (2-min TTL) ───────────────────────────────────────────────────
-let _newsCache = null, _newsCacheTs = 0;
-const NEWS_TTL = 2 * 60 * 1000;
-
 function fetchHtml(url, redirects = 0) {
   return new Promise((resolve, reject) => {
     if (redirects > 3) return reject(new Error("too many redirects"));
@@ -68,21 +124,20 @@ function parseFinvizNews(html) {
 async function handleFinviz(req, res, requestUrl) {
   const { pathname, searchParams } = requestUrl;
 
-  // GET /api/finviz/news?limit=30  — scrape finviz.com/news.ashx
+  // GET /api/finviz/news?limit=30  — market news via RSS feeds (Yahoo Finance, MarketWatch)
   if (pathname === "/api/finviz/news") {
     const limit = Math.min(parseInt(searchParams.get("limit") || "30", 10), 60);
     const force = searchParams.get("refresh") === "1";
-    if (!force && _newsCache && Date.now() - _newsCacheTs < NEWS_TTL) {
+    if (!force && _newsCache && _newsCache.length > 0 && Date.now() - _newsCacheTs < NEWS_TTL) {
       return writeJson(res, 200, { ok: true, items: _newsCache.slice(0, limit), cached: true });
     }
     try {
-      const html  = await fetchHtml("https://finviz.com/news.ashx");
-      const items = parseFinvizNews(html);
+      const items = await fetchMarketNews();
       if (items.length > 0) { _newsCache = items; _newsCacheTs = Date.now(); }
-      return writeJson(res, 200, { ok: true, items: (items.length ? items : (_newsCache || [])).slice(0, limit), cached: false });
+      const out = (items.length > 0 ? items : (_newsCache || [])).slice(0, limit);
+      return writeJson(res, 200, { ok: true, items: out, count: out.length, cached: false });
     } catch (err) {
-      // Return stale cache if available
-      if (_newsCache) return writeJson(res, 200, { ok: true, items: _newsCache.slice(0, limit), cached: true, stale: true });
+      if (_newsCache && _newsCache.length > 0) return writeJson(res, 200, { ok: true, items: _newsCache.slice(0, limit), cached: true, stale: true });
       return writeJson(res, 502, { ok: false, error: err.message });
     }
   }

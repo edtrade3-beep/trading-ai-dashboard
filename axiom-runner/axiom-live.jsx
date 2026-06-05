@@ -2208,7 +2208,7 @@ function FinvizNewsCard({ C, MONO }) {
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, overflowY: "auto", maxHeight: 440 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>📰 FINVIZ NEWS</div>
+        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>📰 MARKET NEWS</div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           {ts && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{ts.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span>}
           <button onClick={() => load(true)}
