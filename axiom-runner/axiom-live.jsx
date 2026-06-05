@@ -2105,6 +2105,62 @@ function CanvasChart({ candleData, drawTools, loading }) {
   );
 }
 
+// ─── Finviz News Card — live market news scraped from finviz.com/news.ashx ───
+function FinvizNewsCard({ C, MONO }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [ts, setTs] = useState(null);
+
+  const load = (force) => {
+    setLoading(true);
+    fetch(`/api/finviz/news?limit=30${force ? "&refresh=1" : ""}`)
+      .then(r => r.json())
+      .then(d => { setItems(d.items || []); setTs(new Date()); setLoading(false); })
+      .catch(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load(false);
+    const t = setInterval(() => load(false), 120000);
+    return () => clearInterval(t);
+  }, []);
+
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, overflowY: "auto", maxHeight: 440 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>📰 FINVIZ NEWS</div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {ts && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{ts.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span>}
+          <button onClick={() => load(true)}
+            style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 4, color: C.accent, fontFamily: MONO, fontSize: 10, cursor: "pointer", padding: "2px 6px" }}>↻</button>
+        </div>
+      </div>
+      {loading && <div style={{ fontSize: 12, color: C.textDim }}>Loading…</div>}
+      {!loading && items.length === 0 && (
+        <div style={{ fontSize: 12, color: C.textDim }}>
+          No headlines.{" "}
+          <a href="https://finviz.com/news.ashx" target="_blank" rel="noreferrer" style={{ color: C.accent }}>Finviz ↗</a>
+        </div>
+      )}
+      {items.map((n, i) => (
+        <a key={i} href={n.url} target="_blank" rel="noreferrer"
+          style={{ display: "block", textDecoration: "none", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+            <span style={{ fontFamily: MONO, fontSize: 10, color: C.accent, fontWeight: 700 }}>
+              {n.tickers && n.tickers.length > 0 ? n.tickers.slice(0, 3).join(" · ") : n.source || "MKT"}
+            </span>
+            {n.time && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{n.time}</span>}
+          </div>
+          <div style={{ fontSize: 12, color: C.textSec, lineHeight: 1.4 }}>{n.title}</div>
+          {n.source && n.tickers && n.tickers.length > 0 && (
+            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 1 }}>{n.source}</div>
+          )}
+        </a>
+      ))}
+    </div>
+  );
+}
+
 function TerminalWorkspace({
   watchlistData, macroData, sectorData, newsData, alerts,
   selectedSymbol, onSelectSymbol, timeframe, onTimeframeChange,
@@ -3142,15 +3198,7 @@ function TerminalWorkspace({
             ))}
             {alerts.length === 0 && <div style={{ fontSize: 12, color: C.textDim }}>No active alerts.</div>}
           </div>
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, overflowY: "auto" }}>
-            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>NEWS INTELLIGENCE</div>
-            {(topNews.length ? topNews : newsData.slice(0, 6)).map((n, i) => (
-              <a key={`${n.ticker}-${i}`} href={n.link} target="_blank" rel="noreferrer" style={{ display: "block", textDecoration: "none", padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
-                <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, marginBottom: 3 }}>{n.ticker} · {n.publisher}</div>
-                <div style={{ fontSize: 12, color: C.textSec, lineHeight: 1.35 }}>{n.title}</div>
-              </a>
-            ))}
-          </div>
+          <FinvizNewsCard C={C} MONO={MONO} SANS={SANS} />
         </div>
       )}
     </div>
