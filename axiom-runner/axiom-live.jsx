@@ -2159,7 +2159,7 @@ function NewsTicker({ C, MONO }) {
           display: "inline-block",
           whiteSpace: "nowrap",
           fontFamily: MONO, fontSize: 11, color: C.textSec,
-          animation: paused ? "none" : "tickerScroll 90s linear infinite",
+          animation: paused ? "none" : "tickerScroll 240s linear infinite",
           paddingLeft: "100%",
         }}>
           {tickerText}
