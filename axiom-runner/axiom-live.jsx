@@ -17451,8 +17451,28 @@ export default function App() {
                                   setScanExpanded(row.ticker);
                                   loadDeepDive(row.ticker);
                                   loadDeepSocial(row.ticker);
-                                  // Auto-generate AI trade plan
                                   setTimeout(() => fetchTradeSetup(row.ticker, row), 1200);
+                                  // ── Send Telegram alert when ticker clicked ──
+                                  const chg = Number(row.quote?.changePercent || row.chgPct || 0);
+                                  const px  = Number(row.quote?.price || 0);
+                                  const sig = row.signal || "SCAN";
+                                  const sc  = row.score || row.scannerScore || 0;
+                                  const rv  = Number(row.rvol || 0);
+                                  const trendTxt = row.trend || "";
+                                  const sigList  = (row.signals || []).slice(0, 3).join(", ");
+                                  const txt = [
+                                    `🔍 DEEP DIVE — ${row.ticker}`,
+                                    `━━━━━━━━━━━━━━━━━━`,
+                                    `Signal:  ${sig}`,
+                                    `Score:   ${sc}/100`,
+                                    `Price:   $${px.toFixed(2)}  (${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%)`,
+                                    rv > 0 ? `RVOL:    ${rv.toFixed(2)}x` : "",
+                                    trendTxt ? `Trend:   ${trendTxt}` : "",
+                                    sigList  ? `Signals: ${sigList}` : "",
+                                    `━━━━━━━━━━━━━━━━━━`,
+                                    `📲 You opened this in Deep Dive`,
+                                  ].filter(Boolean).join("\n");
+                                  fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: txt }) }).catch(() => {});
                                 }
                               }}
                               style={{
