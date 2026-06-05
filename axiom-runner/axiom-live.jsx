@@ -5073,64 +5073,76 @@ function DipBuyTab({ C, MONO, SANS, watchlistData, macroData, setActiveTab, setS
           const vols   = bars.volume || [];
           if (closes.length < 10) continue;
 
-          const px      = Number(meta.regularMarketPrice || closes.at(-1));
-          const prevClose = Number(meta.chartPreviousClose || closes.at(-2) || px);
-          const todayChg  = prevClose > 0 ? ((px - prevClose) / prevClose * 100) : 0;
-          const hi52  = Number(meta.fiftyTwoWeekHigh || Math.max(...closes));
-          const lo52  = Number(meta.fiftyTwoWeekLow  || Math.min(...closes));
-          const vol   = Number(meta.regularMarketVolume || vols.at(-1) || 0);
-          const avgVol = vols.slice(-20).filter(v => v > 0).reduce((a, b) => a + b, 0) / 20 || 1;
-          const rvol  = vol / avgVol;
+          // Use last 2 closes for today's change (more reliable than meta fields)
+          const px       = Number(meta.regularMarketPrice || closes.at(-1));
+          const prev1    = closes.at(-2) || px;
+          const prev2    = Number(meta.chartPreviousClose) || prev1;
+          // Use whichever gives a bigger move (chart prev close often more accurate)
+          const prevClose = Math.abs(px - prev2) > Math.abs(px - prev1) ? prev2 : prev1;
+          const todayChg  = prevClose > 0 && prevClose !== px ? ((px - prevClose) / prevClose * 100) : 0;
+          const hi52  = Number(meta.fiftyTwoWeekHigh  || 0) || Math.max(...closes.slice(-252));
+          const lo52  = Number(meta.fiftyTwoWeekLow   || 0) || Math.min(...closes.slice(-252));
+          const vol   = Number(meta.regularMarketVolume || vols.filter(v=>v>0).at(-1) || 0);
+          const avgVol = vols.slice(-20).filter(v => v > 0).reduce((a, b) => a + b, 0) / (vols.slice(-20).filter(v=>v>0).length || 1);
+          const rvol  = avgVol > 0 ? vol / avgVol : 1;
 
-          // EMA calculations
+          // EMAs
           const ema9  = (() => { const k=2/10; let e=closes[0]; for(let i=1;i<closes.length;i++) e=closes[i]*k+e*(1-k); return e; })();
           const ema21 = (() => { const k=2/22; let e=closes[0]; for(let i=1;i<closes.length;i++) e=closes[i]*k+e*(1-k); return e; })();
-          const ma50  = closes.slice(-50).reduce((a,b)=>a+b,0)/Math.min(50,closes.length);
-          const ma200 = closes.slice(-200).reduce((a,b)=>a+b,0)/Math.min(200,closes.length);
+          const ma50  = closes.length >= 10 ? closes.slice(-Math.min(50, closes.length)).reduce((a,b)=>a+b,0)/Math.min(50,closes.length) : px;
+          const ma200 = closes.length >= 10 ? closes.slice(-Math.min(200,closes.length)).reduce((a,b)=>a+b,0)/Math.min(200,closes.length) : px;
 
-          // RSI
+          // RSI 14
           let gains=0,losses=0;
-          for(let i=closes.length-14;i<closes.length;i++){const d=closes[i]-closes[i-1];d>0?gains+=d:losses+=Math.abs(d);}
-          const rsi = losses===0?100:Math.round(100-100/(1+(gains/14)/(losses/14)));
+          const rsiLen = Math.min(14, closes.length-1);
+          for(let i=closes.length-rsiLen;i<closes.length;i++){const d=closes[i]-closes[i-1];d>0?gains+=d:losses+=Math.abs(d);}
+          const rsi = losses===0?100:Math.round(100-100/(1+(gains/rsiLen)/(losses/rsiLen)));
 
-          // Dip quality scoring
+          // Score
           let score = 0;
           const signals = [];
 
-          // Must be down today (dip)
-          if (todayChg < -1)  { score += 15; signals.push(`Down ${Math.abs(todayChg).toFixed(1)}% today`); }
-          else if (todayChg < -0.5) { score += 8; }
-          else continue; // not a dip
+          // Down today — still award points even if todayChg is 0 on a blood day
+          if (todayChg < -2)       { score += 20; signals.push(`Down ${Math.abs(todayChg).toFixed(1)}% — deep dip`); }
+          else if (todayChg < -1)  { score += 15; signals.push(`Down ${Math.abs(todayChg).toFixed(1)}% today`); }
+          else if (todayChg < -0.3){ score += 8;  signals.push(`Down ${Math.abs(todayChg).toFixed(1)}% today`); }
+          // On a blood day (SPY < -1%) all stocks get base points even if data is stale
+          else if (spyChg < -1)    { score += 5;  signals.push(`Market sell-off day`); }
+          else continue;
 
-          // RSI oversold = bounce potential
+          // RSI
           if (rsi < 30)      { score += 25; signals.push(`RSI ${rsi} 🔥 oversold`); }
-          else if (rsi < 40) { score += 18; signals.push(`RSI ${rsi} oversold`); }
-          else if (rsi < 50) { score += 10; signals.push(`RSI ${rsi} cooling`); }
+          else if (rsi < 40) { score += 18; signals.push(`RSI ${rsi} — oversold`); }
+          else if (rsi < 50) { score += 12; signals.push(`RSI ${rsi} — cooling off`); }
+          else if (rsi < 60) { score += 5;  signals.push(`RSI ${rsi}`); }
 
-          // Near support levels
-          const fromLo52 = lo52 > 0 ? ((px - lo52) / lo52 * 100) : 100;
-          if (fromLo52 < 5)  { score += 20; signals.push(`Near 52W low — major support`); }
-          else if (fromLo52 < 15) { score += 12; signals.push(`Near 52W support zone`); }
+          // Near 52W support
+          const fromLo52 = lo52 > 0 ? ((px - lo52) / lo52 * 100) : 50;
+          if (fromLo52 < 5)        { score += 20; signals.push(`Near 52W low — major support`); }
+          else if (fromLo52 < 15)  { score += 12; signals.push(`Near 52W support zone`); }
+          else if (fromLo52 < 30)  { score += 6;  signals.push(`Support zone`); }
 
-          // Near key MAs (bounce zones)
-          const distMa50  = ma50 > 0  ? ((px - ma50) / ma50 * 100)  : 100;
-          const distMa200 = ma200 > 0 ? ((px - ma200) / ma200 * 100) : 100;
-          if (Math.abs(distMa50) < 2)  { score += 15; signals.push(`Testing 50D MA — key bounce`); }
-          else if (Math.abs(distMa50) < 5 && px > ma50) { score += 8; signals.push(`Above 50D MA ✅`); }
-          if (px > ma200) { score += 10; signals.push(`Above 200D MA — uptrend intact`); }
+          // MA bounce zones
+          const distMa50 = ma50 > 0 ? ((px - ma50) / ma50 * 100) : 50;
+          if (Math.abs(distMa50) < 2)          { score += 15; signals.push(`Testing 50D MA — key bounce zone`); }
+          else if (distMa50 > -5 && distMa50 < 5) { score += 8; signals.push(`Near 50D MA`); }
+          if (px > ma200)                       { score += 10; signals.push(`Above 200D MA — uptrend intact ✅`); }
+          else                                  { score += 3;  signals.push(`Below 200D — higher risk`); }
 
-          // Volume surge on dip = institutional buying
-          if (rvol > 2)    { score += 15; signals.push(`Volume ${rvol.toFixed(1)}x — buyers stepping in`); }
-          else if (rvol > 1.5) { score += 8; signals.push(`Above avg volume`); }
+          // Volume
+          if (rvol > 2)       { score += 15; signals.push(`Volume ${rvol.toFixed(1)}x — buyers stepping in`); }
+          else if (rvol > 1.3){ score += 8;  signals.push(`Above avg volume`); }
 
-          // Trend still intact (not broken)
-          if (ema9 > ema21 && px > ma50) { score += 10; signals.push(`Trend intact — pullback only`); }
+          // Trend
+          if (ema9 > ema21 && px > ma50)  { score += 10; signals.push(`Trend intact — pullback only`); }
+          else if (ema9 > ema21)           { score += 5;  signals.push(`EMA bullish`); }
 
-          // From high (upside potential)
+          // Upside potential
           const fromHi52 = hi52 > 0 ? ((hi52 - px) / hi52 * 100) : 0;
-          if (fromHi52 > 30) { score += 5; signals.push(`${fromHi52.toFixed(0)}% below 52W high`); }
+          if (fromHi52 > 40)  { score += 8; signals.push(`${fromHi52.toFixed(0)}% below 52W high — big upside`); }
+          else if (fromHi52 > 20) { score += 4; signals.push(`${fromHi52.toFixed(0)}% below 52W high`); }
 
-          if (score < 25) continue;
+          if (score < 12) continue; // very low bar — show everything with any signal
 
           // Stop and targets
           const stop    = Math.min(px * 0.97, ma50 * 0.98);
