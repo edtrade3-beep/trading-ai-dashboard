@@ -5344,13 +5344,15 @@ function ProDashboard({ C, MONO, SANS, macroData, distData, portfolioSummary,
             </div>
           </Card>
 
-          <Card accent="#0ea5e9">
-            <CardHead icon="📰" title="MARKET NEWS"
-              action={<button onClick={() => setActiveTab('news')} style={{ fontFamily:MONO, fontSize:9,
-                padding:'2px 8px', borderRadius:4, border:`1px solid #0ea5e944`,
-                background:'#0ea5e915', color:'#0ea5e9', cursor:'pointer' }}>All News →</button>} />
-            <NewsWidget C={C} MONO={MONO} SANS={SANS} />
-          </Card>
+          <div style={{ position:'sticky', top:8 }}>
+            <Card accent="#0ea5e9">
+              <CardHead icon="📰" title="MARKET NEWS"
+                action={<button onClick={() => setActiveTab('news')} style={{ fontFamily:MONO, fontSize:9,
+                  padding:'2px 8px', borderRadius:4, border:`1px solid #0ea5e944`,
+                  background:'#0ea5e915', color:'#0ea5e9', cursor:'pointer' }}>All News →</button>} />
+              <NewsWidget C={C} MONO={MONO} SANS={SANS} />
+            </Card>
+          </div>
         </div>
 
         {/* Col 3: Risk + Live Signals */}
