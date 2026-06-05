@@ -7115,7 +7115,7 @@ function TradePlannerTab({ C, MONO, SANS }) {
     setLoading(true); setError(""); setResult(null);
     try {
       // Fetch via backend proxy to avoid CORS
-      const resp = await fetch(`/api/market/candles?symbol=${encodeURIComponent(sym)}&interval=1d&range=90d`);
+      const resp = await fetch(`/api/market/chart?symbol=${encodeURIComponent(sym)}&interval=1d&range=90d`);
       const json = await resp.json();
       const r    = json?.chart?.result?.[0] || json?.result?.[0];
       if (!r) throw new Error("No data for " + sym);

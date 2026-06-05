@@ -1952,8 +1952,8 @@ async function handleMarket(req, res, requestUrl) {
     return writeJson(res, 200, { ok: true, events });
   }
 
-  // GET /api/market/candles?symbol=AMD&interval=1d&range=90d
-  if (pathname === '/api/market/candles') {
+  // GET /api/market/chart?symbol=AMD&interval=1d&range=90d (trade planner)
+  if (pathname === '/api/market/chart') {
     const sym = (requestUrl.searchParams.get('symbol')||'').toUpperCase().replace(/[^A-Z0-9.^-]/g,'').slice(0,10);
     const interval = requestUrl.searchParams.get('interval')||'1d';
     const range = requestUrl.searchParams.get('range')||'90d';
