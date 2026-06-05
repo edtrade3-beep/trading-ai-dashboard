@@ -18034,6 +18034,60 @@ export default function App() {
                                     if (d50 < -15) chips.push({ txt: `${d50.toFixed(0)}% vs MA50`, col: C.green, title: "Far below 50MA — stretched low" });
                                     if (d50 > 20)  chips.push({ txt: `+${d50.toFixed(0)}% vs MA50`, col: C.red,   title: "Far above 50MA — extended high" });
                                   }
+                                  // ── ADVANCED PATTERN SIGNALS ─────────────────────────────
+                                  const chg1d = Number(row.quote?.changePercent || row.chgPct || 0);
+                                  const ma200 = Number(row.quote?.priceAvg200 || 0);
+
+                                  // POSSIBLE BOTTOM — oversold + near low + volume
+                                  if (rsi != null && rsi < 35 && hi52 > 0 && lo52 > 0) {
+                                    const distLo2 = (px - lo52) / lo52 * 100;
+                                    if (distLo2 < 20 && rvol > 1.2)
+                                      chips.push({ txt: "🟢 POSSIBLE BOTTOM", col: C.green, title: "RSI oversold + near 52W low + volume — bottom forming?" });
+                                  }
+
+                                  // POSSIBLE TOP — overbought + near high + weakening
+                                  if (rsi != null && rsi > 68 && hi52 > 0) {
+                                    const distHi2 = (hi52 - px) / hi52 * 100;
+                                    if (distHi2 < 8)
+                                      chips.push({ txt: "🔴 POSSIBLE TOP", col: C.red, title: "RSI overbought + near 52W high — top forming?" });
+                                  }
+
+                                  // REBOUND SETUP — was down hard, now recovering
+                                  if (chg1w < -10 && chg1d > 0 && rsi != null && rsi < 50)
+                                    chips.push({ txt: "↩ REBOUND", col: C.cyan, title: "Down hard last week, bouncing today — rebound setup" });
+
+                                  // OVERSOLD BOUNCE — RSI < 30 + price up today
+                                  if (rsi != null && rsi < 32 && chg1d > 0)
+                                    chips.push({ txt: "⚡ OVERSOLD BOUNCE", col: C.green, title: "RSI oversold + green today — bounce in progress" });
+
+                                  // CAPITULATION — massive drop + huge volume
+                                  if (chg1d < -5 && rvol > 3)
+                                    chips.push({ txt: "🩸 CAPITULATION", col: "#ff6b6b", title: "Massive drop on huge volume — potential exhaustion bottom" });
+
+                                  // BREAKOUT WATCH — near 52W high + volume
+                                  if (hi52 > 0 && px > 0 && (hi52 - px) / hi52 * 100 < 3 && rvol > 1.5 && rsi > 55)
+                                    chips.push({ txt: "🚀 BREAKOUT WATCH", col: C.amber, title: "Near 52W high with volume — potential breakout" });
+
+                                  // DEAD CAT — big bounce after big drop, still bearish trend
+                                  if (chg1d > 5 && chg1w < -15 && ema9 && ema21 && ema9 < ema21)
+                                    chips.push({ txt: "☠ DEAD CAT?", col: C.red, title: "Big bounce but trend still bearish — dead cat bounce warning" });
+
+                                  // TREND REVERSAL — EMA crossover + volume
+                                  if (ema9 && ema21 && Math.abs(ema9 - ema21) / ema21 * 100 < 1 && rvol > 1.5)
+                                    chips.push({ txt: "🔀 EMA CROSS", col: C.purple || "#9c27b0", title: "EMA 9 and 21 crossing — trend change forming" });
+
+                                  // DEEP VALUE — RSI < 40 + far below MA50 + above MA200
+                                  if (rsi != null && rsi < 40 && ma50 > 0 && (px - ma50) / ma50 * 100 < -10 && ma200 > 0 && px > ma200)
+                                    chips.push({ txt: "💎 DEEP VALUE", col: C.cyan, title: "Oversold, below 50MA, but above 200MA — quality dip" });
+
+                                  // PULLBACK TO MA — price just touched MA50
+                                  if (ma50 > 0 && Math.abs((px - ma50) / ma50 * 100) < 1.5 && ema9 && ema21 && ema9 > ema21)
+                                    chips.push({ txt: "📍 MA50 PULLBACK", col: C.green, title: "Pulling back to 50D MA in uptrend — high probability bounce" });
+
+                                  // SQUEEZE BUILD — low RSI + low volume = coiling
+                                  if (rsi != null && rsi > 40 && rsi < 55 && rvol < 0.7)
+                                    chips.push({ txt: "🌀 SQUEEZE BUILD", col: C.amber, title: "Low volatility coiling — big move coming soon" });
+
                                   // Zone
                                   if (zoneLbl && zoneLbl !== "—" && zoneLbl !== "WAIT") {
                                     chips.push({ txt: zoneLbl, col: zoneCol, title: "Current entry zone" });
