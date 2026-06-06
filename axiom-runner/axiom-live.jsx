@@ -26144,44 +26144,10 @@ export default function App() {
       {activeTab === "greenlight" && <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} />}
       {activeTab === "under10" && <Under10Tab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "combined"     && <CombinedTab     C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols}
-        onDeepDive={(sym, row) => {
-          // Step 1: clear filters + add row + switch tab
-          setSfSig("ALL");
-          setSfMinScore(0);
-          setScanResults(prev => {
-            if (prev.some(r => r.ticker === sym)) return prev;
-            return [{ ticker: sym, score: row?.score || 50, signal: row?.scanSignal || "WATCH",
-              scannerScore: row?.score || 50, signals: [], sColor: "#f59e0b",
-              quote: { price: row?.price || 0, changePercent: 0 }, candles: null }, ...prev];
-          });
-          setActiveTab("smartscan");
-          // Step 2: expand after React has rendered the new row
-          setTimeout(() => {
-            setScanExpanded(sym);
-            loadDeepDive(sym);
-            loadDeepSocial(sym);
-          }, 100);
-          setTimeout(() => fetchTradeSetup(sym, { ticker: sym, score: row?.score || 50,
-            signal: row?.scanSignal || "WATCH", signals: [],
-            quote: { price: row?.price || 0 } }), 1400);
-        }} />}
+        onDeepDive={(sym, row) => openDeepDiveFor(sym, { price: row?.price || 0, changePercent: 0 })} />}
       {activeTab === "squeeze"      && <SqueezeTab      C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
       {activeTab === "compression"  && <CompressionTab  C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} watchlistSymbols={watchlistSymbols}
-        onDeepDive={sym => {
-          // Add synthetic row if ticker not already in scan results
-          setScanResults(prev => {
-            if (prev.some(r => r.ticker === sym)) return prev;
-            const synth = { ticker: sym, score: 50, signal: "WATCH", scannerScore: 50,
-              signals: [], sColor: C.amber, rsiVal: null, macdBull: null, ema9v: null, ema21v: null,
-              quote: { price: 0, changePercent: 0 }, candles: null };
-            return [synth, ...prev];
-          });
-          setActiveTab("smartscan");
-          setScanExpanded(sym);
-          loadDeepDive(sym);
-          loadDeepSocial(sym);
-          setTimeout(() => fetchTradeSetup(sym, { ticker: sym }), 1200);
-        }} />}
+        onDeepDive={sym => openDeepDiveFor(sym, null)} />}
       {activeTab === "insider"      && <InsiderTab      C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
       {activeTab === "gapfill"      && <GapFillTab      C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
 
