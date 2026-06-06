@@ -2348,9 +2348,25 @@ function TerminalWorkspace({
   candleData, loadingCandles, terminalLayout, onLayoutChange,
   hotkeyProfile, onHotkeyProfileChange, drawTools, onDrawToolsChange,
   panelSymbols, onPanelSymbolChange, panelCandleMap, fundamentals, marketSession,
-  onQuickLog,
+  onQuickLog, watchlistSymbols, onWatchlistChange,
 }) {
   const selected = watchlistData.find((q) => q.symbol === selectedSymbol) || watchlistData[0] || null;
+
+  // ── Watchlist add/remove ─────────────────────────────────────────────────
+  const [wlAddInput, setWlAddInput] = useState("");
+  const wlAddTicker = () => {
+    const sym = wlAddInput.trim().toUpperCase().replace(/[^A-Z0-9.\-^]/g, "");
+    if (!sym || !onWatchlistChange) return;
+    const cur = watchlistSymbols || watchlistData.map(q => q.symbol);
+    if (!cur.includes(sym)) onWatchlistChange([...cur, sym]);
+    setWlAddInput("");
+  };
+  const wlRemoveTicker = (sym) => {
+    if (!onWatchlistChange) return;
+    const cur = watchlistSymbols || watchlistData.map(q => q.symbol);
+    onWatchlistChange(cur.filter(s => s !== sym));
+  };
+
   const [leftW, setLeftW] = useState(220);
   const [rightW, setRightW] = useState(340);
   const [showLeft, setShowLeft] = useState(true);
@@ -2622,7 +2638,18 @@ function TerminalWorkspace({
       {/* ── LEFT: Watchlist ── */}
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, background: C.surface }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.1em" }}>WATCHLIST</span>
+            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.1em", marginBottom: 6 }}>WATCHLIST</div>
+            <div style={{ display: "flex", gap: 4 }}>
+              <input
+                value={wlAddInput} onChange={e => setWlAddInput(e.target.value.toUpperCase())}
+                onKeyDown={e => e.key === "Enter" && wlAddTicker()}
+                placeholder="+ ADD TICKER"
+                style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 5,
+                  fontFamily: MONO, fontSize: 11, color: C.accent, padding: "4px 7px", outline: "none" }} />
+              <button onClick={wlAddTicker}
+                style={{ background: C.accent, color: "#fff", border: "none", borderRadius: 5,
+                  fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 8px", cursor: "pointer" }}>+</button>
+            </div>
           </div>
           <div style={{ overflowY: "auto", flex: 1 }}>
             {watchlistData.slice(0, 20).map((q) => {
@@ -2674,11 +2701,13 @@ function TerminalWorkspace({
                       <div style={{ width: `${scores.composite}%`, height: "100%", background: sigColor, borderRadius: 2, transition: "width 0.4s" }} />
                     </div>
                   </div>
-                  {onQuickLog && active && (
-                    <div style={{ borderTop: `1px solid ${C.border}22`, padding: "4px 10px", display: "flex", gap: 6 }}>
-                      <button onClick={e => { e.stopPropagation(); onQuickLog({ symbol: q.symbol, price: q.price || 0, entry: (q.price||0).toFixed(2), stopLoss: "", target: "", size: "", side: "BUY", timeframe: "1D", style: "Breakout", notes: `WL · ${chgPct >= 0 ? "+" : ""}${chgPct.toFixed(2)}%`, score: scores.composite||0, chg: chgPct, rvol }); }}
-                        style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, border: `1px solid ${C.green}44`, background: `${C.green}15`, color: C.green, borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>
-                        LOG
+                  {/* Remove button — shown on hover via active check */}
+                  {active && (
+                    <div style={{ borderTop: `1px solid ${C.border}22`, padding: "3px 8px", display: "flex", gap: 6 }}>
+                      <button onClick={e => { e.stopPropagation(); wlRemoveTicker(q.symbol); }}
+                        style={{ fontFamily: MONO, fontSize: 9, border: `1px solid ${C.red}44`, background: `${C.red}12`,
+                          color: C.red, borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>
+                        ✕ REMOVE
                       </button>
                     </div>
                   )}
@@ -16249,6 +16278,8 @@ export default function App() {
             fundamentals={terminalFundamentals}
             marketSession={marketSession}
             onQuickLog={setQuickLogModal}
+            watchlistSymbols={watchlistSymbols}
+            onWatchlistChange={(next) => { setWatchlistSymbols(next); setWatchlistInput(next.join(",")); }}
           />
         )}
 
