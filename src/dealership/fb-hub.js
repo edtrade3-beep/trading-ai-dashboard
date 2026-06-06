@@ -197,18 +197,39 @@ async function draftDealerReply(customerMsg, history) {
     : "No inventory loaded.";
   const hist = (history || []).slice(-6).map(m => `${m.from === "customer" ? "Customer" : "Me"}: ${m.text}`).join("\n");
 
-  // Fallback templates if no API key
+  // Smart rule-based replies — NO AI KEY NEEDED. Language-aware, follows all rules.
   if (!apiKey) {
-    const templates = {
-      FINANCING:    "We finance with approved credit (W.A.C.). What monthly payment works for your budget, and how much were you thinking for a down payment?",
-      DOWN_PAYMENT: "Great question! What down payment amount were you planning on? That helps me find the right vehicle for you.",
-      TRADE_IN:     "We take trade-ins! What's the year, make, model, and mileage of your current vehicle?",
-      APPOINTMENT:  "I'd love to set up a time for you. What day and time works best to come see it?",
-      PRICE:        "Thanks for your interest! Which vehicle are you asking about? I'll get you the price right away.",
-      AVAILABILITY: "Let me check on that for you — which vehicle are you interested in?",
-      GENERAL:      "Thanks for reaching out to Dixie Motors! How can I help you today?",
+    const T = {
+      English: {
+        FINANCING:    "We finance with approved credit (W.A.C.)! What monthly payment works best for your budget?",
+        DOWN_PAYMENT: "Great question — how much were you planning to put down? That helps me find the right fit for you.",
+        TRADE_IN:     "We take trade-ins! What's the year, make, model, and mileage of your current vehicle?",
+        APPOINTMENT:  "I'd love to set up a time for you to come see it. What day works best?",
+        PRICE:        "Thanks for your interest! Which vehicle are you asking about? I'll get you the price.",
+        AVAILABILITY: "Let me check on that for you — which vehicle did you have your eye on?",
+        GENERAL:      "Thanks for reaching out to Dixie Motors! How can I help you today?",
+      },
+      Spanish: {
+        FINANCING:    "¡Financiamos con crédito aprobado (W.A.C.)! ¿Qué pago mensual le funciona mejor para su presupuesto?",
+        DOWN_PAYMENT: "¡Buena pregunta! ¿Cuánto estaba pensando dar de enganche? Así le busco la mejor opción.",
+        TRADE_IN:     "¡Aceptamos su carro a cuenta! ¿Cuál es el año, marca, modelo y millaje de su vehículo actual?",
+        APPOINTMENT:  "Me encantaría agendar una cita para que lo vea. ¿Qué día le conviene mejor?",
+        PRICE:        "¡Gracias por su interés! ¿De cuál vehículo me pregunta? Le consigo el precio.",
+        AVAILABILITY: "Déjeme verificar — ¿cuál vehículo le interesa?",
+        GENERAL:      "¡Gracias por contactar a Dixie Motors! ¿Cómo le puedo ayudar hoy?",
+      },
+      Arabic: {
+        FINANCING:    "نوفّر تمويل بحسب الموافقة الائتمانية (W.A.C.)! كم القسط الشهري المناسب لميزانيتك؟",
+        DOWN_PAYMENT: "سؤال ممتاز — كم تنوي أن تدفع كدفعة أولى؟ هذا يساعدني أجد لك الأنسب.",
+        TRADE_IN:     "نقبل سيارتك كجزء من الدفع! ما هي سنة وماركة وموديل وعدد أميال سيارتك الحالية؟",
+        APPOINTMENT:  "يسعدني أن أحجز لك موعد لمعاينة السيارة. أي يوم يناسبك؟",
+        PRICE:        "شكراً لاهتمامك! عن أي سيارة تسأل؟ سأحضر لك السعر.",
+        AVAILABILITY: "دعني أتحقق لك — ما السيارة التي تهمك؟",
+        GENERAL:      "شكراً لتواصلك مع Dixie Motors! كيف أقدر أساعدك اليوم؟",
+      },
     };
-    return { ok: true, intent, language: lang, humanTakeover: false, reply: templates[intent] || templates.GENERAL, source: "template" };
+    const set = T[lang] || T.English;
+    return { ok: true, intent, language: lang, humanTakeover: false, reply: set[intent] || set.GENERAL, source: "template" };
   }
 
   const langRule = lang === "Arabic" ? "The customer wrote in Arabic — reply ONLY in Arabic."
