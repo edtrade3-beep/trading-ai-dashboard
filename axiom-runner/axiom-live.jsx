@@ -4592,6 +4592,18 @@ const GL_TRADES_KEY = "axiom_gl_trades_v1";
 function TradeTracker({ C, MONO, SANS, watchlistData }) {
   const [trades, setTrades] = useState(() => { try { return JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []; } catch { return []; } });
   const [form, setForm] = useState({ ticker: "", entry: "", shares: "" });
+  const [acct, setAcct] = useState(() => Number(localStorage.getItem("axiom_acct_size")) || 10000);
+  const [riskPct, setRiskPct] = useState(() => Number(localStorage.getItem("axiom_risk_pct")) || 1);
+  const saveAcct = v => { setAcct(v); localStorage.setItem("axiom_acct_size", v); };
+  const saveRisk = v => { setRiskPct(v); localStorage.setItem("axiom_risk_pct", v); };
+  // Suggested shares = (account × risk%) / (entry − stop)
+  const suggestedShares = (() => {
+    const e = Number(form.entry); if (!e) return 0;
+    const stop = e * 0.97;
+    const riskPerShare = e - stop;
+    const dollarRisk = acct * (riskPct / 100);
+    return riskPerShare > 0 ? Math.floor(dollarRisk / riskPerShare) : 0;
+  })();
   const [showForm, setShowForm] = useState(false);
   const save = t => { setTrades(t); localStorage.setItem(GL_TRADES_KEY, JSON.stringify(t)); };
 
@@ -4667,23 +4679,53 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
 
       {/* Add form */}
       {showForm && (
-        <div style={{ background: C.card, border: `1px solid ${C.green}44`, borderRadius: 8, padding: 12, marginBottom: 10,
-          display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <input value={form.ticker} onChange={e => { const v = e.target.value.toUpperCase(); setForm(f => ({ ...f, ticker: v, entry: f.entry || (priceOf(v) ? String(priceOf(v)) : "") })); }}
-            placeholder="TICKER" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.accent, padding: "7px 10px", width: 90, outline: "none" }} />
-          <input value={form.entry} onChange={e => setForm(f => ({ ...f, entry: e.target.value }))} placeholder="ENTRY $" type="number"
-            style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: MONO, fontSize: 13, color: C.text, padding: "7px 10px", width: 100, outline: "none" }} />
-          <input value={form.shares} onChange={e => setForm(f => ({ ...f, shares: e.target.value }))} placeholder="SHARES" type="number"
-            style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: MONO, fontSize: 13, color: C.text, padding: "7px 10px", width: 90, outline: "none" }} />
-          {form.entry && Number(form.entry) > 0 && (
-            <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
-              🛑 ${(Number(form.entry)*0.97).toFixed(2)} · 🎯 ${(Number(form.entry)*1.05).toFixed(2)} · ${(Number(form.entry)*1.10).toFixed(2)}
+        <div style={{ background: C.card, border: `1px solid ${C.green}44`, borderRadius: 8, padding: 12, marginBottom: 10 }}>
+          {/* Account + risk settings */}
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap",
+            paddingBottom: 10, borderBottom: `1px solid ${C.border}` }}>
+            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>💰 ACCOUNT</span>
+            <input value={acct} onChange={e => saveAcct(Number(e.target.value) || 0)} type="number"
+              style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: MONO, fontSize: 12, color: C.text, padding: "5px 9px", width: 100, outline: "none" }} />
+            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>RISK %</span>
+            <div style={{ display: "flex", gap: 4 }}>
+              {[0.5, 1, 2].map(r => (
+                <button key={r} onClick={() => saveRisk(r)}
+                  style={{ background: riskPct === r ? C.accent : C.surface, color: riskPct === r ? "#fff" : C.textSec,
+                    border: `1px solid ${riskPct === r ? C.accent : C.border}`, borderRadius: 5,
+                    fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>{r}%</button>
+              ))}
+            </div>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: C.amber }}>
+              Max risk per trade: ${(acct * riskPct / 100).toFixed(0)}
             </span>
+          </div>
+          {/* Trade entry */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <input value={form.ticker} onChange={e => { const v = e.target.value.toUpperCase(); setForm(f => ({ ...f, ticker: v, entry: f.entry || (priceOf(v) ? String(priceOf(v)) : "") })); }}
+              placeholder="TICKER" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.accent, padding: "7px 10px", width: 90, outline: "none" }} />
+            <input value={form.entry} onChange={e => setForm(f => ({ ...f, entry: e.target.value }))} placeholder="ENTRY $" type="number"
+              style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: MONO, fontSize: 13, color: C.text, padding: "7px 10px", width: 100, outline: "none" }} />
+            <input value={form.shares} onChange={e => setForm(f => ({ ...f, shares: e.target.value }))} placeholder="SHARES" type="number"
+              style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: MONO, fontSize: 13, color: C.text, padding: "7px 10px", width: 90, outline: "none" }} />
+            {/* Suggested size */}
+            {suggestedShares > 0 && (
+              <button onClick={() => setForm(f => ({ ...f, shares: String(suggestedShares) }))}
+                title="Click to use this share count — risks exactly your max"
+                style={{ background: `${C.green}18`, border: `1px solid ${C.green}55`, borderRadius: 5,
+                  fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.green, padding: "6px 10px", cursor: "pointer" }}>
+                📐 BUY {suggestedShares} sh (${(suggestedShares * Number(form.entry)).toFixed(0)})
+              </button>
+            )}
+            <button onClick={addTrade}
+              style={{ background: C.green, color: "#fff", border: "none", borderRadius: 5, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "7px 16px", cursor: "pointer" }}>
+              ADD
+            </button>
+          </div>
+          {form.entry && Number(form.entry) > 0 && (
+            <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 8 }}>
+              🛑 Stop ${(Number(form.entry)*0.97).toFixed(2)} (−3%) · 🎯 T1 ${(Number(form.entry)*1.05).toFixed(2)} (+5%) · T2 ${(Number(form.entry)*1.10).toFixed(2)} (+10%)
+            </div>
           )}
-          <button onClick={addTrade}
-            style={{ background: C.green, color: "#fff", border: "none", borderRadius: 5, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "7px 16px", cursor: "pointer" }}>
-            ADD
-          </button>
         </div>
       )}
 
@@ -11576,6 +11618,7 @@ export default function App() {
   const [riskSetupQuality, setRiskSetupQuality] = useState("A");
   const [watchlistData, setWatchlistData] = useState([]);
   const prevScoresRef = useRef({});  // symbol → last composite score, for crossing-70 detection
+  const prevGreenRef = useRef({});   // symbol → was green light, for green-light transition alerts
   const [marketUniverseData, setMarketUniverseData] = useState([]);
   const [marketUniverseLoading, setMarketUniverseLoading] = useState(false);
   const [newsData, setNewsData] = useState([]);
@@ -13865,15 +13908,37 @@ export default function App() {
       wl = await withClientTimeout(fetchQuotes(watchlistSymbols, providerKeys), 25000, []);
       if (Array.isArray(wl) && wl.length > 0) {
         setWatchlistData(wl);
-        // ── Score-crossing alert: fire Telegram when composite crosses above 70 ──
+        // ── 🟢 GREEN LIGHT alert: Telegram when a stock turns 5/5 ──
+        const spyChgGL = Number(wl.find(q => q.symbol === "SPY")?.changesPercentage ||
+                                (macroData || []).find(m => m.symbol === "SPY")?.changesPercentage || 0);
         wl.forEach(q => {
           const sym = q.symbol;
-          const scores = computeScores(q);
-          const newScore = scores.composite;
-          const oldScore = prevScoresRef.current[sym];
-          // Score alert disabled — too noisy. Only server-side scan alerts allowed.
-          // if (oldScore !== undefined && oldScore < 90 && newScore >= 90) { ... }
-          prevScoresRef.current[sym] = newScore;
+          const px = Number(q.price || 0);
+          const ma50 = Number(q.priceAvg50 || 0);
+          const rsiV = Number(q.rsi || 50);
+          const rvol = q.avgVolume > 0 ? q.volume / q.avgVolume : 0;
+          // 5-check green light (server-side approximation using quote fields)
+          const checks = [
+            spyChgGL > -1,
+            ma50 > 0 && px > ma50,
+            rsiV >= 35 && rsiV <= 65,
+            rvol >= 1.2 || rvol === 0,
+            ma50 > 0 && px <= ma50 * 1.05 && px >= ma50 * 0.95,
+          ];
+          const isGreen = checks.filter(Boolean).length >= 4;
+          const wasGreen = prevGreenRef.current[sym];
+          // Fire only on transition into green (not every refresh)
+          if (isGreen && wasGreen === false) {
+            const msg = [
+              `🟢 *GREEN LIGHT* — ${sym}`,
+              `Price: $${px.toFixed(2)} (${(q.changesPercentage||0) >= 0 ? "+" : ""}${(q.changesPercentage||0).toFixed(2)}%)`,
+              `Stop: $${(px*0.97).toFixed(2)} · T1: $${(px*1.05).toFixed(2)} · T2: $${(px*1.10).toFixed(2)}`,
+              `All 5 checks passed — BUY zone ✅`,
+            ].join("\n");
+            fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+          }
+          prevGreenRef.current[sym] = isGreen;
+          prevScoresRef.current[sym] = computeScores(q).composite;
         });
       }
       else wl = [];
