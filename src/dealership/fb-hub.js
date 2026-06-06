@@ -306,30 +306,35 @@ async function processMessagingEvent(event) {
 
   saveJson(MSG_FILE, messages.slice(0, 200)); // keep last 200 threads
 
-  // ── Auto-reply: keyword rule first, then AI smart reply ──
+  // ── Auto-reply: keyword rule first, then smart rule-based reply (no AI key needed) ──
   const rules = readJson(RULES_FILE, []);
-  let replyText = matchAutoReply(msgText, rules);
-  let isAi = false;
-
-  // AI config — check if AI auto-reply is enabled (default ON if API key present)
   const aiCfg = readJson(AI_CFG_FILE, {});
-  const aiEnabled = aiCfg.enabled !== false;
+  const autoEnabled = aiCfg.enabled !== false;
 
-  if (!replyText && aiEnabled) {
+  let replyText = matchAutoReply(msgText, rules);
+  let humanTakeover = false;
+
+  if (!replyText && autoEnabled) {
     const thread = messages.find(m => m.senderId === senderId);
-    replyText = await generateAiReply(msgText, thread?.messages || []);
-    isAi = true;
+    // draftDealerReply works WITHOUT an Anthropic key (rule-based templates, all languages)
+    const draft = await draftDealerReply(msgText, thread?.messages || []);
+    if (draft.humanTakeover) {
+      humanTakeover = true;
+      // Don't auto-reply to legal/refund/title issues — alert the owner instead
+      notifyLead(entry.senderName, msgText, "⚠️ NEEDS YOU — legal/refund/title/contract. Bot did NOT reply. Handle personally.");
+    } else if (draft.ok && draft.reply) {
+      replyText = draft.reply;
+    }
   }
 
-  if (replyText && process.env.FB_PAGE_ACCESS_TOKEN) {
+  if (replyText && !humanTakeover && process.env.FB_PAGE_ACCESS_TOKEN) {
     try {
       await sendReply(senderId, replyText);
       const thread = messages.find(m => m.senderId === senderId);
       if (thread) {
-        thread.messages.push({ from: "page", text: replyText, ts: Date.now(), auto: true, ai: isAi });
+        thread.messages.push({ from: "page", text: replyText, ts: Date.now(), auto: true });
         saveJson(MSG_FILE, messages.slice(0, 200));
       }
-      // Notify owner on Telegram about the lead
       notifyLead(entry.senderName, msgText, replyText);
     } catch (e) {
       console.error("[FB Hub] Auto-reply failed:", e.message);
