@@ -103,8 +103,10 @@ $("genBtn").addEventListener("click", async () => {
       flashIntent("⚠️ HUMAN TAKEOVER — legal/refund/title/contract. Handle personally.", "takeover");
       $("replyOut").value = "";
     } else if (data.ok && data.reply) {
-      flashIntent(`Intent: ${data.intent} · ${data.language}${data.source === "template" ? " · template (no AI key)" : ""}`, "normal");
+      flashIntent(`Intent: ${data.intent} · ${data.language}${data.source === "template" ? " · template" : ""}`, "normal");
       $("replyOut").value = data.reply;
+      // ── AUTO-CREATE LEAD: extract details from the message ──
+      autoFillLead(msg, data.intent);
     } else {
       flashIntent("Could not generate. Check Server URL in Settings.", "takeover");
     }
@@ -120,6 +122,51 @@ function flashIntent(text, kind) {
   el.style.display = "block";
   el.className = "intent " + (kind === "takeover" ? "takeover" : "normal");
   el.textContent = text;
+}
+
+// ── Auto-extract lead details from the customer message ──
+function autoFillLead(msg, intent) {
+  let filled = 0;
+  const set = (id, val) => { if (val && !$(id).value) { $(id).value = val; filled++; } };
+
+  // Phone — US formats
+  const phone = msg.match(/(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+  if (phone) set("ldPhone", phone[0].trim());
+
+  // Down payment — "$2000 down", "2k down", "put down 1500"
+  const down = msg.match(/(?:put\s*down|down\s*(?:payment)?|deposit)[^\d$]*\$?\s?([\d,]+)k?/i)
+            || msg.match(/\$?\s?([\d,]+)k?\s*(?:down|deposit)/i);
+  if (down) set("ldDown", "$" + down[1].replace(/,/g, ""));
+
+  // Monthly budget — "$400 a month", "400/mo", "monthly 350"
+  const budget = msg.match(/\$?\s?([\d,]+)\s*(?:\/\s*(?:mo|month)|a\s*month|per\s*month|monthly)/i)
+              || msg.match(/(?:budget|afford|monthly)[^\d$]*\$?\s?([\d,]+)/i);
+  if (budget) set("ldBudget", "$" + budget[1].replace(/,/g, ""));
+
+  // Vehicle — "2018 Honda Accord", "Toyota Camry"
+  const makes = "Honda|Toyota|Ford|Chevy|Chevrolet|Nissan|Hyundai|Kia|Jeep|Dodge|GMC|BMW|Mercedes|Audi|Lexus|Mazda|Subaru|Volkswagen|VW|Ram|Tesla|Acura|Infiniti|Buick|Cadillac|Chrysler|Mitsubishi|Volvo";
+  const veh = msg.match(new RegExp(`((?:19|20)\\d{2}\\s+)?(${makes})\\s+[A-Za-z0-9-]+`, "i"))
+           || msg.match(new RegExp(`(${makes})`, "i"));
+  if (veh) set("ldVehicle", veh[0].trim());
+
+  // Appointment hint — day/time
+  const appt = msg.match(/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?\s*(?:at\s*)?(\d{1,2})(?::\d{2})?\s*(am|pm)?\b/i)
+            || msg.match(/\b(today|tomorrow)\b.*?(\d{1,2})\s*(am|pm)\b/i)
+            || msg.match(/\b(\d{1,2})\s*(am|pm)\b/i);
+  if (appt) set("ldAppt", appt[0].trim());
+
+  // Notes — always seed with the original message + intent
+  if (!$("ldNotes").value) { $("ldNotes").value = `[${intent}] "${msg.slice(0, 140)}"`; filled++; }
+
+  // Mark hot if buying signals present
+  if (/buy|today|cash|ready|approved|come in|test drive|finance/i.test(msg) && !$("ldHot").checked) {
+    $("ldHot").checked = true;
+  }
+
+  if (filled > 0) {
+    // Badge to tell the user a lead was auto-built
+    flashIntent($("intentBar").textContent + ` · 📋 Lead auto-filled (${filled} fields) — check Lead tab`, "normal");
+  }
 }
 
 // ── Copy reply ──
