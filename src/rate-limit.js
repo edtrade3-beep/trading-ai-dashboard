@@ -4,7 +4,7 @@
 const buckets = new Map();
 
 const WINDOW_MS = 60 * 1000;   // 1 minute window
-const MAX_REQUESTS = 60;        // 60 requests per IP per minute on market routes
+const MAX_REQUESTS = 400;       // 400/min — scanners (Dip Buy, Green Light) fire 60+ chart calls at once
 
 setInterval(() => {
   const now = Date.now();

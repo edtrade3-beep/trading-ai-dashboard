@@ -105,7 +105,8 @@ async function handleRequest(req, res) {
     }
 
     if (pathname.startsWith("/api/market/") || pathname === "/api/live") {
-      if (!checkRateLimit(req)) {
+      // Chart endpoint is exempt — scanners (Dip Buy, Green Light) batch 60+ calls at once
+      if (pathname !== "/api/market/chart" && !checkRateLimit(req)) {
         return writeJson(res, 429, { error: "Too many requests. Please slow down." });
       }
       return handleMarket(req, res, requestUrl);
