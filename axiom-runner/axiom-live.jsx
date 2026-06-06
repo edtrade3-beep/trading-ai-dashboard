@@ -4858,7 +4858,7 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   );
 }
 
-function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, setActiveTab, setScanExpanded, loadDeepDive, scanResults }) {
+function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, setActiveTab, setScanExpanded, loadDeepDive, loadDeepSocial, setScanResults, scanResults }) {
   const spyQ   = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
   const spyChg = Number(spyQ?.changesPercentage || 0);
 
@@ -4878,8 +4878,19 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, setActiveTab, 
   const sigIcon= s => s === "GREEN" ? "🟢" : s === "YELLOW" ? "🟡" : "🔴";
 
   const openDive = (sym) => {
+    const q = (watchlistData || []).find(w => w.symbol === sym);
+    // Add the ticker to scan results so the deep dive panel has a row to expand
+    if (setScanResults) {
+      setScanResults(prev => prev.some(r => r.ticker === sym) ? prev : [{
+        ticker: sym, score: 50, signal: "WATCH", scannerScore: 50, signals: [], sColor: "#f59e0b",
+        quote: { price: q?.price || 0, changePercent: q?.changesPercentage || 0,
+          yearHigh: q?.yearHigh, yearLow: q?.yearLow, priceAvg50: q?.priceAvg50, priceAvg200: q?.priceAvg200,
+          volume: q?.volume, avgVolume: q?.avgVolume },
+        candles: null, rsiVal: null, macdBull: null, ema9v: null, ema21v: null,
+      }, ...prev]);
+    }
     setActiveTab("smartscan");
-    setTimeout(() => { setScanExpanded(sym); loadDeepDive(sym); }, 100);
+    setTimeout(() => { setScanExpanded(sym); loadDeepDive(sym); loadDeepSocial && loadDeepSocial(sym); }, 120);
   };
 
   const Row = ({ r }) => (
@@ -5032,7 +5043,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, setActiveTab, 
   );
 }
 
-function DipBuyTab({ C, MONO, SANS, watchlistData, macroData, setActiveTab, setScanExpanded, loadDeepDive }) {
+function DipBuyTab({ C, MONO, SANS, watchlistData, macroData, setActiveTab, setScanExpanded, loadDeepDive, loadDeepSocial, setScanResults }) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [lastScan, setLastScan] = useState(null);
@@ -5297,8 +5308,13 @@ function DipBuyTab({ C, MONO, SANS, watchlistData, macroData, setActiveTab, setS
                 <div style={{ marginLeft:"auto", display:"flex", gap:8, alignItems:"center" }}>
                   <button onClick={e => {
                     e.stopPropagation();
+                    if (setScanResults) setScanResults(prev => prev.some(x => x.ticker === r.sym) ? prev : [{
+                      ticker: r.sym, score: r.score || 50, signal: "WATCH", scannerScore: r.score || 50, signals: [], sColor: "#f59e0b",
+                      quote: { price: r.px || 0, changePercent: r.todayChg || 0, yearHigh: r.hi52, yearLow: r.lo52, priceAvg50: r.ma50, priceAvg200: r.ma200 },
+                      candles: null, rsiVal: r.rsi || null, macdBull: null, ema9v: null, ema21v: null,
+                    }, ...prev]);
                     setActiveTab("smartscan");
-                    setTimeout(() => { setScanExpanded(r.sym); loadDeepDive(r.sym); }, 100);
+                    setTimeout(() => { setScanExpanded(r.sym); loadDeepDive(r.sym); loadDeepSocial && loadDeepSocial(r.sym); }, 120);
                   }} style={{ background:`${C.accent}15`, border:`1px solid ${C.accent}44`,
                     color:C.accent, borderRadius:6, padding:"4px 10px",
                     fontFamily:MONO, fontSize:11, fontWeight:700, cursor:"pointer" }}>
@@ -26120,8 +26136,8 @@ export default function App() {
 
       {/* ── CUSTOM SCREENER ──────────────────────────────────────────────── */}
       {activeTab === "tradeplanner" && <TradePlannerTab C={C} MONO={MONO} SANS={SANS} />}
-      {activeTab === "dipbuy" && <DipBuyTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} setActiveTab={setActiveTab} setScanExpanded={setScanExpanded} loadDeepDive={loadDeepDive} />}
-      {activeTab === "greenlight" && <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} setActiveTab={setActiveTab} setScanExpanded={setScanExpanded} loadDeepDive={loadDeepDive} scanResults={scanResults} />}
+      {activeTab === "dipbuy" && <DipBuyTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} setActiveTab={setActiveTab} setScanExpanded={setScanExpanded} loadDeepDive={loadDeepDive} loadDeepSocial={loadDeepSocial} setScanResults={setScanResults} />}
+      {activeTab === "greenlight" && <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} setActiveTab={setActiveTab} setScanExpanded={setScanExpanded} loadDeepDive={loadDeepDive} loadDeepSocial={loadDeepSocial} setScanResults={setScanResults} scanResults={scanResults} />}
       {activeTab === "under10" && <Under10Tab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "combined"     && <CombinedTab     C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols}
         onDeepDive={(sym, row) => {
