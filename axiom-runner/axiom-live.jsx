@@ -4778,6 +4778,59 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
         );
       })}
 
+      {/* Equity curve */}
+      {closed.length >= 2 && (() => {
+        // Build cumulative P&L oldest → newest
+        const ordered = [...closed].sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt));
+        let cum = 0;
+        const points = [{ x: 0, pnl: 0 }];
+        ordered.forEach((t, i) => { cum += (t.exit - t.entry) * t.shares; points.push({ x: i + 1, pnl: cum }); });
+        const w = 600, h = 140, pad = 4;
+        const minP = Math.min(0, ...points.map(p => p.pnl));
+        const maxP = Math.max(0, ...points.map(p => p.pnl));
+        const range = maxP - minP || 1;
+        const toX = i => pad + (i / (points.length - 1)) * (w - pad * 2);
+        const toY = v => h - pad - ((v - minP) / range) * (h - pad * 2);
+        const zeroY = toY(0);
+        const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${toX(i).toFixed(1)},${toY(p.pnl).toFixed(1)}`).join(" ");
+        const areaPath = path + ` L${toX(points.length-1)},${zeroY} L${toX(0)},${zeroY} Z`;
+        const finalPnl = cum;
+        const curveCol = finalPnl >= 0 ? C.green : C.red;
+        const peak = Math.max(...points.map(p => p.pnl));
+        const maxDD = Math.min(...points.map((p, i) => p.pnl - Math.max(...points.slice(0, i + 1).map(x => x.pnl))));
+        return (
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", marginTop: 4, marginBottom: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em" }}>📈 EQUITY CURVE</span>
+              <div style={{ display: "flex", gap: 14 }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: curveCol, fontWeight: 800 }}>
+                  {finalPnl >= 0 ? "+" : ""}${finalPnl.toFixed(0)}
+                </span>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                  Peak ${peak.toFixed(0)}
+                </span>
+                {maxDD < 0 && <span style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>Max DD ${maxDD.toFixed(0)}</span>}
+              </div>
+            </div>
+            <svg width="100%" viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
+              {/* Zero line */}
+              <line x1={0} y1={zeroY} x2={w} y2={zeroY} stroke={C.border} strokeWidth={1} strokeDasharray="4,3" />
+              {/* Area fill */}
+              <path d={areaPath} fill={`${curveCol}1a`} />
+              {/* Curve */}
+              <path d={path} fill="none" stroke={curveCol} strokeWidth={2.5} strokeLinejoin="round" />
+              {/* Dots */}
+              {points.map((p, i) => i > 0 && (
+                <circle key={i} cx={toX(i)} cy={toY(p.pnl)} r={2.5} fill={p.pnl >= 0 ? C.green : C.red} />
+              ))}
+            </svg>
+            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, textAlign: "center", marginTop: 4 }}>
+              {ordered.length} trades · {finalPnl >= 0 ? "📈 account growing" : "📉 review your losses in Education tab"}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Closed history (compact) */}
       {closed.length > 0 && (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginTop: 4 }}>
