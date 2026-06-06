@@ -6996,6 +6996,208 @@ function ChartSVG({ type, w = 280, h = 140 }) {
     );
   }
 
+  if (type === "orderflow") {
+    // Accumulation → breakout pattern
+    const accPts = [[10,80],[30,82],[50,78],[70,83],[90,79],[110,81],[130,77],[150,82],[170,78]];
+    const breakPts = [[170,78],[190,60],[210,40],[230,20],[250,10]];
+    return (
+      <svg width={w} height={h} style={s}>
+        <rect width={w} height={h} fill={bg} rx={4}/>
+        <GridLines/>
+        {/* Accumulation zone shading */}
+        <rect x={5} y={70} width={170} height={20} fill={`${bull}12`} stroke={`${bull}33`} strokeDasharray="4,2" rx={2}/>
+        <text x={60} y={98} fill={bull} fontSize={8}>ACCUMULATION ZONE</text>
+        {/* Volume bars */}
+        {[15,35,55,75,95,115,135,155].map((x,i) => (
+          <rect key={x} x={x-6} y={h-18-(i%2===0?12:6)} width={12} height={i%2===0?12:6} fill={`${bull}44`}/>
+        ))}
+        <Line pts={accPts} color={line} width={2}/>
+        <Line pts={breakPts} color={bull} width={3}/>
+        <circle cx={170} cy={78} r={6} fill={bull}/>
+        <text x={175} y={72} fill={bull} fontSize={9} fontWeight="bold">BREAKOUT ↑</text>
+        <text x={6} y={14} fill="#ccc" fontSize={10}>Institutional Accumulation → Price Explosion</text>
+        <text x={6} y={h-4} fill="#555" fontSize={8}>Low vol consolidation = institutions absorbing supply</text>
+      </svg>
+    );
+  }
+
+  if (type === "volprofile") {
+    const bars = [[130,20],[110,15],[90,25],[70,40],[50,60],[30,90],[20,120],[15,80],[20,50],[30,35],[50,20],[70,15]];
+    const pocY = 75;
+    return (
+      <svg width={w} height={h} style={s}>
+        <rect width={w} height={h} fill={bg} rx={4}/>
+        {/* Horizontal volume bars */}
+        {bars.map(([barW, y], i) => (
+          <rect key={i} x={w-barW-2} y={y-5} width={barW} height={9}
+            fill={y===pocY?`${bull}99`:`${bull}33`} stroke={y===pocY?bull:"none"} rx={1}/>
+        ))}
+        {/* Price line */}
+        <line x1={0} y1={45} x2={w-130} y2={45} stroke={line} strokeWidth={2}/>
+        {/* POC line */}
+        <line x1={0} y1={pocY} x2={w} y2={pocY} stroke={bull} strokeWidth={1.5} strokeDasharray="5,3"/>
+        <text x={4} y={pocY-4} fill={bull} fontSize={8} fontWeight="bold">POC — Point of Control</text>
+        {/* VAH / VAL */}
+        <line x1={0} y1={50} x2={w-100} y2={50} stroke={ma} strokeWidth={1} strokeDasharray="3,2"/>
+        <line x1={0} y1={100} x2={w-100} y2={100} stroke={ma} strokeWidth={1} strokeDasharray="3,2"/>
+        <text x={4} y={46} fill={ma} fontSize={8}>VAH</text>
+        <text x={4} y={114} fill={ma} fontSize={8}>VAL</text>
+        <rect x={0} y={50} width={8} height={50} fill={`${ma}22`}/>
+        <text x={14} y={78} fill={ma} fontSize={8}>Value Area (70%)</text>
+        <text x={6} y={14} fill="#ccc" fontSize={10}>Volume Profile — Institutional Battlegrounds</text>
+      </svg>
+    );
+  }
+
+  if (type === "smc") {
+    return (
+      <svg width={w} height={h} style={s}>
+        <rect width={w} height={h} fill={bg} rx={4}/>
+        <GridLines/>
+        <text x={6} y={14} fill="#ccc" fontSize={10}>Smart Money Concepts</text>
+        {/* Downtrend */}
+        <Line pts={[[10,25],[50,50],[90,35],[110,60]]} color={bear} width={2}/>
+        {/* Order Block */}
+        <rect x={85} y={25} width={30} height={30} fill={`${bull}25`} stroke={bull} strokeDasharray="3,2" rx={2}/>
+        <text x={87} y={23} fill={bull} fontSize={8} fontWeight="bold">OB</text>
+        {/* FVG */}
+        <rect x={50} y={30} width={40} height={20} fill={`${ma}20`} stroke={ma} strokeDasharray="3,2" rx={2}/>
+        <text x={55} y={28} fill={ma} fontSize={8}>FVG</text>
+        {/* Liquidity sweep */}
+        <Line pts={[[110,60],[130,75],[145,55],[165,30],[200,10],[240,5]]} color={bull} width={2.5}/>
+        <circle cx={130} cy={75} r={5} fill={bear}/>
+        <text x={100} y={90} fill={bear} fontSize={8}>Liquidity Sweep</text>
+        <text x={100} y={100} fill={bear} fontSize={8}>(Stop Hunt)</text>
+        {/* Return to OB */}
+        <Line pts={[[145,55],[120,42]]} color={ma} width={1.5} strokeDasharray="3,2"/>
+        <text x={130} y={38} fill={ma} fontSize={8}>Return to OB</text>
+        <text x={6} y={h-4} fill="#555" fontSize={8}>OB = Order Block · FVG = Fair Value Gap</text>
+      </svg>
+    );
+  }
+
+  if (type === "rotation") {
+    const sectors = [["XLK Tech","#3b82f6",30],["XLF Fin","#22d47e",70],["XLE Energy","#f59e0b",110],["XLU Util","#7c3aed",150],["XLV Health","#0891b2",190],["XLP Staples","#ef4444",230]];
+    const perf = [15,-5,8,-12,-3,2];
+    return (
+      <svg width={w} height={h} style={s}>
+        <rect width={w} height={h} fill={bg} rx={4}/>
+        <text x={6} y={14} fill="#ccc" fontSize={10}>Sector Rotation — Where Money Flows</text>
+        {/* Cycle circle */}
+        <circle cx={140} cy={90} r={60} fill="none" stroke="#1e2d42" strokeWidth={1.5}/>
+        {[["Recovery","#22d47e",0],["Expansion","#3b82f6",90],["Slowdown","#f59e0b",180],["Recession","#ef4444",270]].map(([l,c,deg]) => {
+          const rad = (deg-90)*Math.PI/180;
+          const x = 140 + 72*Math.cos(rad), y = 90 + 72*Math.sin(rad);
+          return <text key={l} x={x-18} y={y+4} fill={c} fontSize={8} fontWeight="bold">{l}</text>;
+        })}
+        {/* Arrow */}
+        <path d="M 140 30 A 60 60 0 0 1 200 90" fill="none" stroke={bull} strokeWidth={2} strokeDasharray="4,2"/>
+        <text x={6} y={h-4} fill="#555" fontSize={8}>Buy the sector BEFORE it's obvious</text>
+      </svg>
+    );
+  }
+
+  if (type === "marketprofile") {
+    const tpos = [[2,8],[4,9],[8,10],[12,9],[8,8],[4,7],[2,6]]; // TPO count per price
+    const prices = [55,60,65,70,75,80,85];
+    return (
+      <svg width={w} height={h} style={s}>
+        <rect width={w} height={h} fill={bg} rx={4}/>
+        <text x={6} y={14} fill="#ccc" fontSize={10}>Market Profile — TPO Distribution</text>
+        {tpos.map(([cnt,_],i) => {
+          const y = 25 + i*16, barW = tpos[i][0]*14, pocW = Math.max(...tpos.map(t=>t[0]))*14;
+          const isPOC = tpos[i][0] === Math.max(...tpos.map(t=>t[0]));
+          return (
+            <g key={i}>
+              <rect x={50} y={y} width={barW} height={13} fill={isPOC?`${bull}60`:`${bull}25`} rx={2}/>
+              {isPOC && <rect x={50} y={y} width={barW} height={13} fill="none" stroke={bull} rx={2}/>}
+              <text x={44} y={y+10} fill={C.textDim||"#888"} fontSize={9} textAnchor="end">{prices[i]}</text>
+              {isPOC && <text x={50+barW+4} y={y+10} fill={bull} fontSize={8} fontWeight="bold">POC</text>}
+            </g>
+          );
+        })}
+        <text x={6} y={h-4} fill="#555" fontSize={8}>Wider = more time spent = institutional acceptance</text>
+      </svg>
+    );
+  }
+
+  if (type === "optflow") {
+    return (
+      <svg width={w} height={h} style={s}>
+        <rect width={w} height={h} fill={bg} rx={4}/>
+        <GridLines/>
+        <text x={6} y={14} fill="#ccc" fontSize={10}>Options Flow — Smart Money Positioning</text>
+        {/* Put/Call ratio gauge */}
+        <text x={6} y={32} fill={C.textDim||"#888"} fontSize={9}>PUT/CALL RATIO</text>
+        <rect x={6} y={38} width={200} height={14} fill="#1e2d42" rx={7}/>
+        <rect x={6} y={38} width={80} height={14} fill={`${bull}88`} rx={7}/>
+        <text x={90} y={50} fill={bull} fontSize={9} fontWeight="bold">0.6 BULLISH</text>
+        {/* Flow table */}
+        {[
+          ["NVDA","50 CALL","10,000x","🔥 SWEEP",bull],
+          ["AAPL","200 PUT","2,000x","hedge",bear],
+          ["SPY","450 CALL","50,000x","🔥 BLOCK",bull],
+          ["TSLA","250 PUT","5,000x","hedge",bear],
+        ].map(([sym,strike,vol,type2,col],i) => (
+          <g key={i}>
+            <rect x={6} y={62+i*18} width={264} height={16} fill={`${col}10`} rx={2}/>
+            <text x={10} y={74+i*18} fill={col} fontSize={9} fontWeight="bold">{sym}</text>
+            <text x={60} y={74+i*18} fill={col} fontSize={9}>{strike}</text>
+            <text x={120} y={74+i*18} fill={col} fontSize={9}>{vol}</text>
+            <text x={190} y={74+i*18} fill={col} fontSize={9} fontWeight="bold">{type2}</text>
+          </g>
+        ))}
+        <text x={6} y={h-4} fill="#555" fontSize={8}>Sweep = aggressive buy, filled across multiple exchanges</text>
+      </svg>
+    );
+  }
+
+  if (type === "kelly") {
+    const w2 = w, h2 = h;
+    const pts25 = [[0,130],[30,115],[60,100],[90,88],[120,78],[150,68],[180,60],[210,52],[240,46],[270,40]];
+    const pts50 = [[0,130],[30,108],[60,88],[90,72],[120,58],[150,46],[180,36],[210,28],[240,22],[270,16]];
+    const pts100= [[0,130],[30,120],[60,125],[90,130],[120,118],[150,108],[180,98],[210,88],[240,78],[270,68]];
+    return (
+      <svg width={w2} height={h2} style={s}>
+        <rect width={w2} height={h2} fill={bg} rx={4}/>
+        <GridLines/>
+        <text x={6} y={14} fill="#ccc" fontSize={10}>Kelly Criterion — Account Growth Simulation</text>
+        <Line pts={pts25} color={bull} width={2.5}/>
+        <Line pts={pts50} color={ma} width={2}/>
+        <Line pts={pts100} color={bear} width={1.5}/>
+        <text x={245} y={38} fill={bull} fontSize={9} fontWeight="bold">25% Kelly</text>
+        <text x={245} y={14} fill={ma} fontSize={9}>50% Kelly</text>
+        <text x={245} y={66} fill={bear} fontSize={9}>Full Kelly</text>
+        <text x={6} y={h2-4} fill="#555" fontSize={8}>100 trades · 55% win rate · 2:1 R:R</text>
+      </svg>
+    );
+  }
+
+  if (type === "intermarket") {
+    return (
+      <svg width={w} height={h} style={s}>
+        <rect width={w} height={h} fill={bg} rx={4}/>
+        <text x={6} y={14} fill="#ccc" fontSize={10}>Intermarket Relationships</text>
+        {[
+          ["10Y YIELD ↑","TECH ↓","#ef4444",20,40],
+          ["DXY ↑","GOLD ↓","#f59e0b",20,62],
+          ["OIL ↑","ENERGY ↑","#22d47e",20,84],
+          ["GOLD ↑","RISK OFF","#a78bfa",20,106],
+          ["COPPER ↑","GROWTH ↑","#22d47e",20,128],
+        ].map(([left,right,col,x,y]) => (
+          <g key={left}>
+            <rect x={x} y={y-11} width={90} height={14} fill={`${col}20`} stroke={`${col}44`} rx={3}/>
+            <text x={x+4} y={y} fill={col} fontSize={10} fontWeight="bold">{left}</text>
+            <text x={x+96} y={y} fill="#666" fontSize={12}>→</text>
+            <rect x={x+110} y={y-11} width={90} height={14} fill={`${col}15`} stroke={`${col}33`} rx={3}/>
+            <text x={x+114} y={y} fill={col} fontSize={10}>{right}</text>
+          </g>
+        ))}
+        <text x={6} y={h-4} fill="#555" fontSize={8}>Check these BEFORE every trade session</text>
+      </svg>
+    );
+  }
+
   return <svg width={w} height={h}><rect width={w} height={h} fill="#0a0e1a" rx={4} /><text x={10} y={20} fill="#666" fontSize={12}>{type}</text></svg>;
 }
 
@@ -7109,6 +7311,103 @@ const DEEP_LESSONS = [
       "Marubozu = candle with no wicks — pure momentum in one direction, very strong signal",
     ],
     rule:"Single candles are clues, not signals. Always confirm with the next 1-2 candles and volume." },
+
+  // ── INSTITUTIONAL LEVEL ───────────────────────────────────────────────────
+  { id:"pro1", cat:"INSTITUTIONAL", icon:"🏛", title:"Order Flow — How Institutions Move Price", chart:"orderflow", color:"#7c3aed",
+    summary:"Institutions can't buy all at once without moving price against themselves. Understanding this gives you the edge.",
+    points:[
+      "A $500M fund buying NVDA cannot hit the ask — they'd push price 10% against themselves",
+      "Instead they ACCUMULATE over days/weeks at key levels, absorbing sell orders quietly",
+      "Signs of institutional accumulation: price holds a level + volume dries up + no breakdowns",
+      "When they finish buying → price explodes because all sell orders are absorbed",
+      "Dark pools (off-exchange trades) hide 35-40% of ALL US volume — institutions use them to hide orders",
+      "Large block prints on Level 2 (10,000+ share orders) = institutional activity — follow it",
+    ],
+    rule:"Find areas where price consolidates on LOW volume near support — that's accumulation. Enter before the explosion." },
+
+  { id:"pro2", cat:"INSTITUTIONAL", icon:"📦", title:"Volume Profile — Where Institutions Traded", chart:"volprofile", color:"#7c3aed",
+    summary:"Volume Profile shows the exact price levels where the most volume occurred. These are institutional battlegrounds.",
+    points:[
+      "Point of Control (POC) = the price level with the MOST volume traded — strongest magnet level",
+      "Value Area (VA) = range where 70% of all volume occurred — price returns here after extremes",
+      "Low Volume Nodes (LVN) = price levels with almost no volume — price moves FAST through these",
+      "High Volume Nodes (HVN) = heavy volume = strong support/resistance — hard to break through",
+      "If price is above POC = bullish bias. Below POC = bearish bias. Simple and powerful.",
+      "Price gaps through LVNs and stalls at HVNs — trade accordingly",
+    ],
+    rule:"Buy when price pulls back to POC or Value Area Low (VAL) in an uptrend. These are institutional re-entry zones." },
+
+  { id:"pro3", cat:"INSTITUTIONAL", icon:"⚡", title:"Smart Money Concepts — Order Blocks & FVGs", chart:"smc", color:"#0891b2",
+    summary:"ICT/SMC concepts used by institutional traders: order blocks, fair value gaps, liquidity sweeps.",
+    points:[
+      "Order Block (OB) = last bearish candle before a strong bullish move — institutions left orders here",
+      "When price returns to an OB = high probability BUY — institutions defend their position",
+      "Fair Value Gap (FVG) = price moved so fast it left a 'gap' in market efficiency — price fills these",
+      "Liquidity Sweep = price dips below obvious lows to hit retail stop losses, then REVERSES — trap",
+      "Inducement = when price makes a fake breakout above resistance to grab retail longs, then dumps",
+      "Smart money ALWAYS takes liquidity before reversing — don't place stops at obvious levels",
+    ],
+    rule:"Don't place stops at round numbers or obvious recent lows — smart money knows where they are. Use less obvious levels." },
+
+  { id:"pro4", cat:"INSTITUTIONAL", icon:"🔄", title:"Sector Rotation — Follow the Money", chart:"rotation", color:"#16a34a",
+    summary:"Institutions move $billions between sectors based on economic cycle. Being in the right sector = 3x easier trading.",
+    points:[
+      "Early Cycle (recovery): Financials, Consumer Discretionary, Tech lead — economy starting to grow",
+      "Mid Cycle (expansion): Industrials, Materials, Energy outperform — everything is growing",
+      "Late Cycle (slowdown): Energy, Utilities, Healthcare — defensive sectors take leadership",
+      "Recession: Utilities, Consumer Staples, Healthcare hold up — people still need food and medicine",
+      "Watch relative strength: if XLF (Financials ETF) is leading SPY = early cycle = buy growth stocks",
+      "The sector leading the market today tells you where we are in the cycle — follow it",
+    ],
+    rule:"Always trade in the LEADING sector. A mediocre stock in a hot sector beats a great stock in a cold sector every time." },
+
+  { id:"pro5", cat:"INSTITUTIONAL", icon:"📊", title:"Market Profile — TPO & Auction Theory", chart:"marketprofile", color:"#f59e0b",
+    summary:"Used by professional futures traders. Market is an auction — price moves to find acceptance or rejection.",
+    points:[
+      "Market Profile breaks each day into 30-min periods called TPOs (Time Price Opportunities)",
+      "Initial Balance (IB) = first hour of trading — sets the day's context. Narrow IB = trending day likely",
+      "Value Area = where 70% of day's trading occurred — price returns here when it overshoots",
+      "Price ABOVE value = bullish. Price BELOW value = bearish. Simple framework.",
+      "Trending day: price opens, never looks back, closes near extremes — ride with size",
+      "Range day: price opens in value, oscillates — fade the extremes (sell highs, buy lows of range)",
+    ],
+    rule:"If price opens ABOVE yesterday's Value Area High and holds = bullish trend day. Buy and hold. Don't scalp." },
+
+  { id:"pro6", cat:"INSTITUTIONAL", icon:"🎯", title:"Options Flow — Read What Whales Are Buying", chart:"optflow", color:"#ef4444",
+    summary:"Unusual options activity is the best leading indicator available. Big money bets millions on direction weeks ahead.",
+    points:[
+      "Unusual Call Sweep = institution bought massive calls, often BEFORE a bullish move — follow it",
+      "Put/Call Ratio below 0.7 = excessive bullishness → contrarian SELL signal (everyone is long)",
+      "Put/Call Ratio above 1.3 = excessive fear → contrarian BUY signal (everyone hedging = bottom near)",
+      "Gamma Squeeze: stock rises → market makers must buy shares to hedge calls → price rockets",
+      "When calls with 30+ DTE trade at 10x+ average volume = smart money knows something",
+      "Never trade options into earnings — IV always crashes after the event even if you're right",
+    ],
+    rule:"Find stocks with unusual call sweeps (3x+ normal volume, 30+ DTE, out-of-the-money) — smart money is positioning." },
+
+  { id:"pro7", cat:"RISK", title:"Kelly Criterion — Optimal Position Sizing", icon:"📐", chart:"kelly", color:"#22d47e",
+    summary:"Professional fund managers use Kelly to mathematically calculate the perfect bet size. Never under or over-bet.",
+    points:[
+      "Kelly Formula: f* = (Win% × WinSize − Loss% × LossSize) / WinSize",
+      "Example: 55% win rate, 2:1 R:R → Kelly = (0.55×2 − 0.45×1)/2 = 33% of capital",
+      "Full Kelly is too aggressive — most pros use 25-50% Kelly (fractional Kelly) to reduce volatility",
+      "At 1% risk per trade with 55% win rate and 2:1 R:R = account grows +47% per 100 trades",
+      "Over-betting (too large) = higher volatility, more emotional decisions, lower geometric return",
+      "Under-betting (too small) = safe but slow. Kelly finds the mathematically optimal middle ground.",
+    ],
+    rule:"Use 25% Kelly (quarter-Kelly). If math says risk 20%, risk 5%. Consistency and survival beat optimization." },
+
+  { id:"pro8", cat:"INSTITUTIONAL", icon:"🌍", title:"Intermarket Analysis — Macro Signals", chart:"intermarket", color:"#3b82f6",
+    summary:"Stocks don't trade in isolation. Bond yields, dollar, oil, and gold send signals before price moves.",
+    points:[
+      "Rising 10Y Treasury yield → tech stocks sell off (higher discount rate = lower valuations)",
+      "Rising USD (DXY) → commodities fall, emerging markets fall, multinational earnings hurt",
+      "Oil rising → energy sector leads, consumer stocks hurt (higher costs), inflation up",
+      "Gold rising → risk-off signal, dollar weakening, inflation fears, uncertainty rising",
+      "When bonds AND stocks fall together = liquidity crisis (2008, 2020 March) — sell everything",
+      "Copper leads the economy by 3-6 months — rising copper = global growth = buy cyclicals",
+    ],
+    rule:"Check 10Y yield, DXY, and VIX before every trade. These tell you what institutions are doing RIGHT NOW." },
 ];
 
 function EducationTab({ C, MONO, SANS }) {
@@ -7164,7 +7463,7 @@ function EducationTab({ C, MONO, SANS }) {
         <div>
           {/* Category filter */}
           <div style={{ display:"flex", gap:6, marginBottom:16, flexWrap:"wrap" }}>
-            {["ALL","TREND","LEVELS","INDICATORS","PATTERNS","CANDLES"].map(c => (
+            {["ALL","INSTITUTIONAL","TREND","LEVELS","INDICATORS","PATTERNS","CANDLES","RISK"].map(c => (
               <button key={c} onClick={() => setLessonFilter(c)}
                 style={{ background: lessonFilter===c ? C.accent : C.surface,
                   color: lessonFilter===c ? "#fff" : C.textSec,
