@@ -11729,6 +11729,7 @@ export default function App() {
   const [watchlistData, setWatchlistData] = useState([]);
   const prevScoresRef = useRef({});  // symbol → last composite score, for crossing-70 detection
   const prevGreenRef = useRef({});   // symbol → was green light, for green-light transition alerts
+  const morningSentRef = useRef("");  // date string of last 7am green-light summary sent
   const [marketUniverseData, setMarketUniverseData] = useState([]);
   const [marketUniverseLoading, setMarketUniverseLoading] = useState(false);
   const [newsData, setNewsData] = useState([]);
@@ -12581,6 +12582,53 @@ export default function App() {
     return () => clearInterval(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, scanLoading]);
+
+  // ── 7AM ET: Telegram the Green Light list for the day ──────────────────────
+  useEffect(() => {
+    const check = () => {
+      const etStr = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
+      const et = new Date(etStr);
+      const h = et.getHours(), m = et.getMinutes(), wd = et.getDay();
+      if (wd === 0 || wd === 6) return;            // weekend
+      if (h !== 7 || m > 10) return;               // only 7:00–7:10 AM ET
+      const today = et.toLocaleDateString("en-US");
+      if (morningSentRef.current === today) return; // already sent today
+      if (!watchlistData || watchlistData.length === 0) return;
+
+      morningSentRef.current = today;
+      const spyChgGL = Number((watchlistData.find(q => q.symbol === "SPY") ||
+                               (macroData||[]).find(m2 => m2.symbol === "SPY"))?.changesPercentage || 0);
+      const greens = [], yellows = [];
+      watchlistData.forEach(q => {
+        const px = Number(q.price || 0); if (!px) return;
+        const ma50 = Number(q.priceAvg50 || 0);
+        const rsiV = Number(q.rsi || 50);
+        const rvol = q.avgVolume > 0 ? q.volume / q.avgVolume : 0;
+        const passed = [
+          spyChgGL > -1, ma50 > 0 && px > ma50, rsiV >= 35 && rsiV <= 65,
+          rvol >= 1.2 || rvol === 0, ma50 > 0 && px <= ma50 * 1.05 && px >= ma50 * 0.95,
+        ].filter(Boolean).length;
+        const line = `${q.symbol} $${px.toFixed(2)} (${(q.changesPercentage||0)>=0?"+":""}${(q.changesPercentage||0).toFixed(1)}%) — ${passed}/5`;
+        if (passed >= 4) greens.push(line);
+        else if (passed === 3) yellows.push(line);
+      });
+      const msg = [
+        `☀️ *GREEN LIGHT — MORNING SCAN*`,
+        `${new Date().toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}`,
+        `Market: SPY ${spyChgGL>=0?"+":""}${spyChgGL.toFixed(2)}% ${spyChgGL > -1 ? "✅ safe" : "🚨 danger — sit out"}`,
+        ``,
+        greens.length ? `🟢 *READY TO BUY (${greens.length})*\n${greens.join("\n")}` : `🟢 No green lights yet — wait for setups`,
+        yellows.length ? `\n🟡 *WATCH (${yellows.length})*\n${yellows.slice(0,5).join("\n")}` : "",
+        ``,
+        `Remember: only buy GREEN. Risk 1%. Set your stop.`,
+      ].filter(Boolean).join("\n");
+      fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+    };
+    check();
+    const t = setInterval(check, 60_000);
+    return () => clearInterval(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchlistData]);
 
   // ── TICK/TRIN on startup ─────────────────────────────────────────────────────
   useEffect(() => {
