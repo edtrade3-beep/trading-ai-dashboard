@@ -2598,14 +2598,31 @@ function TerminalWorkspace({
     return { riskAlerts, avgRR, concentration, mode };
   }, [alerts, executionRows]);
 
+  const [chartTf, setChartTf] = useState("D");
+  const tvTheme = typeof themeMode !== "undefined" ? (themeMode === "dark" ? "dark" : "light") : "dark";
+
+  if (!selected) return null;
+
+  const scores2 = computeScores(selected);
+  const sig2 = scores2.composite >= 72 ? "BUY" : scores2.composite >= 55 ? "WATCH" : scores2.composite >= 40 ? "HOLD" : "AVOID";
+  const sigCol2 = sig2 === "BUY" ? C.green : sig2 === "WATCH" ? C.amber : sig2 === "HOLD" ? C.textDim : C.red;
+  const chg2 = Number(selected.changesPercentage || 0);
+  const px2  = Number(selected.price || 0);
+  const ma50v = Number(selected.priceAvg50 || 0);
+  const ma200v= Number(selected.priceAvg200 || 0);
+  const hi52v = Number(selected.yearHigh || 0);
+  const lo52v = Number(selected.yearLow  || 0);
+  const rvolV = selected.avgVolume > 0 ? (selected.volume / selected.avgVolume) : 0;
+  const stopV = px2 > 0 ? (Math.min(px2 * 0.97, ma50v > 0 && ma50v < px2 ? ma50v * 0.98 : px2 * 0.97)) : 0;
+  const t1V   = px2 > 0 ? px2 + (px2 - stopV) * 1.5 : 0;
+  const t2V   = px2 > 0 ? px2 + (px2 - stopV) * 3   : 0;
+
   return (
-    <div style={{ display: "grid", gridTemplateColumns: `${showLeft ? `${leftW}px` : "0px"} ${showLeft ? "6px" : "0px"} 1fr ${showRight ? "6px" : "0px"} ${showRight ? `${rightW}px` : "0px"}`, gap: 0, minHeight: "calc(100vh - 164px)" }}>
-      {showLeft && (
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", display: "flex", flexDirection: "column", marginRight: 4 }}>
-          {/* Watchlist header */}
-          <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface }}>
-            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.1em" }}>WATCHLIST</span>
-            <button onClick={() => setShowLeft(false)} style={{ border: "none", background: "transparent", cursor: "pointer", color: C.textDim, fontSize: 16, lineHeight: 1 }}>‹</button>
+    <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 280px", gap: 6, minHeight: "calc(100vh - 130px)", padding: "6px 8px" }}>
+      {/* ── LEFT: Watchlist ── */}
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, background: C.surface }}>
+            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.1em" }}>WATCHLIST</span>
           </div>
           <div style={{ overflowY: "auto", flex: 1 }}>
             {watchlistData.slice(0, 20).map((q) => {
@@ -2670,726 +2687,126 @@ function TerminalWorkspace({
             })}
           </div>
         </div>
-      )}
-      {showLeft && (
-        <div
-          onMouseDown={() => setDrag("left")}
-          onTouchStart={() => setDrag("left")}
-          style={{ cursor: "col-resize", background: drag === "left" ? C.accent : C.border, borderRadius: 6, width: 6, transition: "background 0.15s",
-            display: "flex", alignItems: "center", justifyContent: "center", userSelect: "none" }}
-          title="Drag to resize"
-        >
-          <div style={{ width: 2, height: 32, borderRadius: 2, background: drag === "left" ? "#fff" : C.textDim, opacity: 0.5 }} />
-        </div>
-      )}
 
-      <div style={{ display: "grid", gridTemplateRows: "1fr auto", gap: 10, margin: "0 4px" }}>
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr auto" }}>
-          <div style={{ display: "flex", flexDirection: termIsTablet ? "column" : "row", justifyContent: "space-between", alignItems: termIsTablet ? "flex-start" : "center", padding: "8px 14px", gap: termIsTablet ? 6 : 0, borderBottom: `1px solid ${C.border}`, background: C.surface }}>
-            {/* Ticker info */}
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>{selected.symbol}</span>
-              <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: chg >= 0 ? C.green : C.red }}>
-                ${selected.price?.toFixed(2)} <span style={{ fontSize: 12 }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span>
-              </span>
-              {(() => {
-                const sc = computeScores(selected).composite;
-                const scColor = sc >= 72 ? C.green : sc >= 55 ? C.amber : sc >= 40 ? C.textDim : C.red;
-                const scLabel = sc >= 72 ? "BUY" : sc >= 55 ? "WATCH" : sc >= 40 ? "HOLD" : "AVOID";
-                return <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: scColor, background: `${scColor}18`, borderRadius: 4, padding: "2px 7px", border: `1px solid ${scColor}33` }}>{scLabel} {sc}</span>;
-              })()}
-            </div>
-            <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
-              {!showLeft && <button onClick={() => setShowLeft(true)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 8px", borderRadius: 6, cursor: "pointer" }}>WL</button>}
-              {!showRight && <button onClick={() => setShowRight(true)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 8px", borderRadius: 6, cursor: "pointer" }}>AI</button>}
-              {!termIsTablet && ["1", "2", "4"].map((l) => (
-                <button key={`layout-${l}`} onClick={() => onLayoutChange(l)} style={{ border: `1px solid ${terminalLayout === l ? C.accent : C.border}`, background: terminalLayout === l ? `${C.accent}12` : C.surface, color: terminalLayout === l ? C.accent : C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 8px", borderRadius: 6, cursor: "pointer" }}>
-                  {l}x
-                </button>
-              ))}
-              {!termIsTablet && <select value={hotkeyProfile} onChange={(e) => onHotkeyProfileChange(e.target.value)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 6px", borderRadius: 6 }}>
-                <option value="classic">HK Classic</option>
-                <option value="scalper">HK Scalper</option>
-              </select>}
-              {(termIsTablet ? ["5M", "15M", "1H", "1D"] : ["5M", "15M", "1H", "1D", "1W"]).map((tf) => (
-                <button key={tf} onClick={() => onTimeframeChange(tf)} style={{ border: `1px solid ${timeframe === tf && chartMode === "canvas" ? C.accent : C.border}`, background: timeframe === tf && chartMode === "canvas" ? `${C.accent}12` : C.surface, color: timeframe === tf && chartMode === "canvas" ? C.accent : C.textDim, fontFamily: MONO, fontSize: termIsTablet ? 11 : 10, padding: "5px 9px", borderRadius: 6, cursor: "pointer" }}>
-                  {tf}
-                </button>
-              ))}
-              {/* Chart source toggle */}
-              <div style={{ display: "flex", gap: 2, marginLeft: 4, borderLeft: `1px solid ${C.border}`, paddingLeft: 6 }}>
-                <button onClick={() => setChartMode("canvas")} style={{ border: `1px solid ${chartMode === "canvas" ? C.accent : C.border}`, background: chartMode === "canvas" ? `${C.accent}18` : C.surface, color: chartMode === "canvas" ? C.accent : C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 7px", borderRadius: 6, cursor: "pointer", fontWeight: chartMode === "canvas" ? 800 : 400 }}>
-                  CHART
-                </button>
-                <button onClick={() => setChartMode("finviz")} style={{ border: `1px solid ${chartMode === "finviz" ? C.purple : C.border}`, background: chartMode === "finviz" ? `${C.purple}18` : C.surface, color: chartMode === "finviz" ? C.purple : C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 7px", borderRadius: 6, cursor: "pointer", fontWeight: chartMode === "finviz" ? 800 : 400 }}>
-                  FV
-                </button>
-              </div>
-              {chartMode === "finviz" && (
-                <div style={{ display: "flex", gap: 2 }}>
-                  {[["d","D"],["w","W"],["m","M"]].map(([val, lbl]) => (
-                    <button key={val} onClick={() => setFvPeriod(val)} style={{ border: `1px solid ${fvPeriod === val ? C.purple : C.border}`, background: fvPeriod === val ? `${C.purple}18` : C.surface, color: fvPeriod === val ? C.purple : C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 6px", borderRadius: 6, cursor: "pointer" }}>
-                      {lbl}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <button onClick={() => { setAlertFormOpen(v => !v); setAlertTarget(selected.price ? selected.price.toFixed(2) : ""); }} style={{ border: `1px solid ${alertFormOpen ? C.amber : C.border}`, background: alertFormOpen ? `${C.amber}14` : C.surface, color: alertFormOpen ? C.amber : C.textDim, fontFamily: MONO, fontSize: 12, padding: "4px 8px", borderRadius: 6, cursor: "pointer" }}>
-                + ALERT
+      {/* ── CENTER: TradingView Full Chart ── */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.accent }}>{selected.symbol}</span>
+          <span style={{ fontFamily: MONO, fontSize: 15, color: C.text }}>${px2.toFixed(2)}</span>
+          <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: chg2 >= 0 ? C.green : C.red }}>{chg2 >= 0 ? "+" : ""}{chg2.toFixed(2)}%</span>
+          {rvolV > 1.5 && <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber, background: `${C.amber}18`, borderRadius: 4, padding: "1px 6px", fontWeight: 700 }}>RVOL {rvolV.toFixed(1)}x</span>}
+          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: sigCol2, background: `${sigCol2}18`, borderRadius: 4, padding: "1px 8px" }}>{sig2}</span>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+            {["1","5","15","60","D","W"].map(tf => (
+              <button key={tf} onClick={() => setChartTf(tf)}
+                style={{ background: chartTf === tf ? C.accent : "transparent", color: chartTf === tf ? "#fff" : C.textSec,
+                  border: `1px solid ${chartTf === tf ? C.accent : C.border}`, borderRadius: 5,
+                  fontFamily: MONO, fontSize: 11, padding: "3px 9px", cursor: "pointer", fontWeight: chartTf === tf ? 700 : 400 }}>
+                {tf === "60" ? "1H" : tf}
               </button>
-            </div>
+            ))}
           </div>
-          {alertFormOpen && (
-            <div style={{ padding: "8px 14px", borderBottom: `1px solid ${C.border}`, background: `${C.amber}08`, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{selected.symbol}</span>
-              <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Price alert</span>
-              <select value={alertDir} onChange={e => setAlertDir(e.target.value)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontFamily: MONO, fontSize: 12, padding: "5px 8px" }}>
-                <option value="above">ABOVE</option>
-                <option value="below">BELOW</option>
-              </select>
-              <input type="number" step="0.01" value={alertTarget} onChange={e => setAlertTarget(e.target.value)} placeholder="Target price" style={{ width: 110, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontFamily: MONO, fontSize: 12, padding: "5px 8px" }} />
-              <button disabled={alertSaving} onClick={async () => {
-                if (!alertTarget || Number(alertTarget) <= 0) return;
-                setAlertSaving(true);
-                try {
-                  await fetch("/api/price-alerts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol: selected.symbol, targetPrice: Number(alertTarget), direction: alertDir }) });
-                  setAlertFormOpen(false);
-                  setAlertTarget("");
-                } finally { setAlertSaving(false); }
-              }} style={{ border: `1px solid ${C.amber}55`, background: `${C.amber}18`, color: C.amber, borderRadius: 6, padding: "5px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>
-                {alertSaving ? "SAVING…" : "SET ALERT"}
-              </button>
-              <button onClick={() => setAlertFormOpen(false)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "5px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>✕</button>
-            </div>
-          )}
-          <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
-          <div style={{ height: 340, flexShrink: 0, borderBottom: `1px solid ${C.border}`, position: "relative" }}>
-            {chartMode === "finviz" ? (
-              <div style={{ width: "100%", height: "100%", background: "#111418", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                <img
-                  key={`fv-${selected.symbol}-${fvPeriod}`}
-                  src={`/api/finviz/chart?symbol=${encodeURIComponent(selected.symbol)}&period=${fvPeriod}`}
-                  alt={`${selected.symbol} Finviz chart`}
-                  style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }}
-                  onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.nextElementSibling.style.display = "flex"; }}
-                />
-                <div style={{ display: "none", position: "absolute", inset: 0, alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 6 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>Finviz chart unavailable</span>
-                  <button onClick={() => setChartMode("canvas")} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>Switch to Canvas</button>
-                </div>
-              </div>
-            ) : (
-              <CanvasChart candleData={candleData} drawTools={drawTools} loading={loadingCandles} />
-            )}
+        </div>
+        <iframe
+          key={`chart-${selected.symbol}-${chartTf}`}
+          src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(selected.symbol)}&t=${tvTheme}&h=620&iv=${chartTf}`}
+          width="100%" height="620"
+          style={{ display: "block", border: "none" }}
+          title={`${selected.symbol} chart`}
+        />
+      </div>
+
+      {/* ── RIGHT: Clean sidebar ── */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto", maxHeight: "calc(100vh - 130px)" }}>
+
+        {/* Scores */}
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em" }}>COMPOSITE SCORE</span>
+            <span style={{ fontFamily: MONO, fontSize: 24, fontWeight: 900, color: sigCol2 }}>{scores2.composite}</span>
           </div>
-          {chartMode === "finviz" && (
-            <div style={{ flexShrink: 0, borderBottom: `1px solid ${C.border}`, background: C.surface, padding: "8px 12px" }}>
-              {fvLoading ? (
-                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading Finviz stats…</span>
-              ) : fvStats ? (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px" }}>
-                  {[
-                    ["RSI(14)",  fvStats.rsi14   != null ? fvStats.rsi14.toFixed(1)                             : "—"],
-                    ["ATR",      fvStats.atr      != null ? fvStats.atr.toFixed(2)                              : "—"],
-                    ["Beta",     fvStats.beta     != null ? fvStats.beta.toFixed(2)                             : "—"],
-                    ["SMA20",    fvStats.sma20    != null ? `${fvStats.sma20 >= 0 ? "+" : ""}${fvStats.sma20.toFixed(2)}%` : "—"],
-                    ["SMA50",    fvStats.sma50    != null ? `${fvStats.sma50 >= 0 ? "+" : ""}${fvStats.sma50.toFixed(2)}%` : "—"],
-                    ["SMA200",   fvStats.sma200   != null ? `${fvStats.sma200 >= 0 ? "+" : ""}${fvStats.sma200.toFixed(2)}%` : "—"],
-                    ["Short%",   fvStats.shortFloat != null ? `${fvStats.shortFloat.toFixed(1)}%`               : "—"],
-                    ["Target",   fvStats.targetPrice != null ? `$${fvStats.targetPrice.toFixed(2)}`             : "—"],
-                    ["Recom",    fvStats.recom    || "—"],
-                    ["Earnings", fvStats.earnings || "—"],
-                    ["P/E",      fvStats.pe       != null ? fvStats.pe.toFixed(1)                               : "—"],
-                    ["EPS",      fvStats.eps      != null ? fvStats.eps.toFixed(2)                              : "—"],
-                  ].map(([label, val]) => (
-                    <div key={label} style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
-                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{label}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{val}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>No Finviz data</span>
-              )}
-            </div>
-          )}
-          <div style={{ overflow: "auto" }}>
-          <div style={{ padding: 10, background: C.surface, display: "grid", gap: 10, gridTemplateColumns: termIsTablet ? "1fr" : "1.15fr 1fr" }}>
-            <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, background: C.card, overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr" }}>
-              <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.1em" }}>⭐ TOP SETUPS</span>
-                <Badge color={C.green}>LIVE</Badge>
-              </div>
-              <div style={{ overflowY: "auto", maxHeight: terminalLayout === "1" ? 380 : 200 }}>
-                {terminalRankRows.slice(0, 12).map((q, idx) => {
-                  const chg = q.changesPercentage || 0;
-                  const sc = q.s?.composite || 0;
-                  const scColor = sc >= 72 ? C.green : sc >= 55 ? C.amber : C.textDim;
-                  const isActive = selected.symbol === q.symbol;
-                  return (
-                    <button key={`rank-${q.symbol}`} onClick={() => onSelectSymbol(q.symbol)}
-                      style={{ width: "100%", border: "none", borderBottom: `1px solid ${C.border}22`,
-                        background: isActive ? `${C.accent}10` : "transparent",
-                        borderLeft: `3px solid ${isActive ? C.accent : scColor + "60"}`,
-                        padding: "8px 12px", textAlign: "left", cursor: "pointer" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, minWidth: 18 }}>#{idx+1}</span>
-                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: isActive ? C.accent : C.text, minWidth: 44 }}>{q.symbol}</span>
-                        {!termIsTablet && <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.name}</span>}
-                        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: chg >= 0 ? C.green : C.red, minWidth: 52, textAlign: "right" }}>
-                          {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
-                        </span>
-                        <span style={{ fontFamily: MONO, fontSize: 10, color: q.r >= 1.2 ? C.amber : C.textDim, minWidth: 36, textAlign: "right" }}>
-                          {q.r.toFixed(1)}x
-                        </span>
-                        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: scColor,
-                          background: `${scColor}18`, borderRadius: 4, padding: "1px 6px", minWidth: 28, textAlign: "center" }}>
-                          {sc}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-              <div style={{ borderTop: `1px solid ${C.border}`, background: C.surface, padding: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
-                  MACRO RELATION MATRIX
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                  {terminalMacroMatrix.rows.map((m) => (
-                    <div key={`mx-${m.key}`} style={{ border: `1px solid ${C.border}`, borderRadius: 6, background: C.surface, padding: "7px 8px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{m.key}</span>
-                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{m.symbol}</span>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.text, fontWeight: 700 }}>
-                          {m.price > 10000 ? m.price.toLocaleString(undefined, { maximumFractionDigits: 0 }) : m.price.toFixed(2)}
-                        </span>
-                        <span style={{ fontFamily: MONO, fontSize: 12, color: m.chg >= 0 ? C.green : C.red }}>
-                          {m.chg >= 0 ? "+" : ""}{m.chg.toFixed(2)}%
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, background: C.surface, padding: 8 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
-                    <div>
-                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Stocks (SPY/QQQ)</div>
-                      <div style={{ fontFamily: MONO, fontSize: 12, color: terminalMacroMatrix.stockMove >= 0 ? C.green : C.red, fontWeight: 700 }}>
-                        {terminalMacroMatrix.stockMove >= 0 ? "+" : ""}{terminalMacroMatrix.stockMove.toFixed(2)}%
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Crypto (BTC/ETH)</div>
-                      <div style={{ fontFamily: MONO, fontSize: 12, color: terminalMacroMatrix.cryptoMove >= 0 ? C.green : C.red, fontWeight: 700 }}>
-                        {terminalMacroMatrix.cryptoMove >= 0 ? "+" : ""}{terminalMacroMatrix.cryptoMove.toFixed(2)}%
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Curve (10Y-2Y proxy)</div>
-                      <div style={{ fontFamily: MONO, fontSize: 12, color: terminalMacroMatrix.curveProxy >= 0 ? C.green : C.red, fontWeight: 700 }}>
-                        {terminalMacroMatrix.curveProxy >= 0 ? "+" : ""}{terminalMacroMatrix.curveProxy.toFixed(2)}%
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: "grid", gap: 4 }}>
-                    {terminalMacroMatrix.rel.map((line, i) => (
-                      <div key={`mrel-${i}`} style={{ fontSize: 12, color: C.textSec, lineHeight: 1.4 }}>{line}</div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div style={{ display: "grid", gap: 10, gridTemplateRows: "1fr auto" }}>
-              <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, background: C.surface, overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr" }}>
-                <div style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>EXECUTION BLOTTER</span>
-                  <Badge color={C.green}>A+ FILTER</Badge>
-                </div>
-                <div style={{ display: "grid", gridTemplateRows: "auto auto 1fr", minHeight: terminalLayout === "1" ? 390 : 180 }}>
-                  <div>
-                    {executionRows.map((r) => (
-                      <div key={`ex-${r.symbol}`} style={{ borderBottom: `1px solid ${C.border}`, padding: "8px 10px" }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "54px 70px 70px 70px 52px 1fr auto", gap: 8, alignItems: "center" }}>
-                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{r.symbol}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>E ${r.entry.toFixed(2)}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>S ${r.stop.toFixed(2)}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>T ${r.target.toFixed(2)}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>{r.rr.toFixed(2)}R</span>
-                          <span style={{ justifySelf: "end" }}>
-                            <Badge color={r.status === "TRIGGERED" ? C.green : r.status === "STALK" ? C.amber : C.textDim}>{r.status}</Badge>
-                          </span>
-                          <button onClick={async () => {
-                            try {
-                              await fetch("/api/journal", { method: "POST", headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ ticker: r.symbol, side: "BUY", score: r.score, entry: r.entry, stopLoss: r.stop, target: r.target, timeframe: "1D", style: "Terminal", notes: `Blotter ${r.status} · RR ${r.rr.toFixed(2)} · RVOL ${r.rvol.toFixed(2)}x` }) });
-                            } catch {}
-                          }} style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>LOG</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ padding: "10px", background: "#fbfdff", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
-                      ACTION QUEUE
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                      <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface }}>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 6 }}>NEXT NAMES</div>
-                        {(executionRows.slice(0, 3)).map((r) => (
-                          <div key={`aq-${r.symbol}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, padding: "3px 0" }}>
-                            <button onClick={() => onSelectSymbol(r.symbol)} style={{ background: "none", border: "none", fontFamily: MONO, fontSize: 12, color: C.accent, cursor: "pointer", padding: 0, fontWeight: 700 }}>{r.symbol}</button>
-                            <span style={{ fontFamily: MONO, color: r.status === "TRIGGERED" ? C.green : r.status === "STALK" ? C.amber : C.textDim }}>
-                              {r.status}
-                            </span>
-                          </div>
-                        ))}
-                        {!executionRows.length && <div style={{ fontSize: 12, color: C.textDim }}>No live setups yet.</div>}
-                      </div>
-                      <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface }}>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 6 }}>CATALYST CHECK</div>
-                        {(topNews.length ? topNews : newsData.slice(0, 3)).slice(0, 3).map((n, i) => (
-                          <div key={`aqn-${i}`} style={{ fontSize: 12, color: C.textSec, lineHeight: 1.35, padding: "3px 0", borderBottom: `1px solid ${C.border}` }}>
-                            <span style={{ fontFamily: MONO, color: C.accent }}>{n.ticker || "MKT"}</span> {n.title}
-                          </div>
-                        ))}
-                        {!newsData.length && <div style={{ fontSize: 12, color: C.textDim }}>No catalyst headlines loaded.</div>}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ padding: 10, background: C.surface }}>
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
-                      MARKET PULSE
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                      <div onClick={() => { const s = terminalRankRows[0]?.symbol; if (s) onSelectSymbol(s); }} style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface, cursor: "pointer" }}>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Top Gainer</div>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, fontWeight: 700 }}>{terminalRankRows[0]?.symbol || "N/A"}</div>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>{(terminalRankRows[0]?.changesPercentage || 0) >= 0 ? "+" : ""}{Number(terminalRankRows[0]?.changesPercentage || 0).toFixed(2)}%</div>
-                      </div>
-                      <div onClick={() => { const s = terminalRankRows[terminalRankRows.length - 1]?.symbol; if (s) onSelectSymbol(s); }} style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface, cursor: "pointer" }}>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Weakest Name</div>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, fontWeight: 700 }}>{terminalRankRows[terminalRankRows.length - 1]?.symbol || "N/A"}</div>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>{(terminalRankRows[terminalRankRows.length - 1]?.changesPercentage || 0) >= 0 ? "+" : ""}{Number(terminalRankRows[terminalRankRows.length - 1]?.changesPercentage || 0).toFixed(2)}%</div>
-                      </div>
-                      <div onClick={() => { const s = [...terminalRankRows].sort((a, b) => (b.rel || 0) - (a.rel || 0))[0]?.symbol; if (s) onSelectSymbol(s); }} style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface, cursor: "pointer" }}>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Best RS vs SPY</div>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700 }}>
-                          {[...terminalRankRows].sort((a, b) => (b.rel || 0) - (a.rel || 0))[0]?.symbol || "N/A"}
-                        </div>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>
-                          {(([...terminalRankRows].sort((a, b) => (b.rel || 0) - (a.rel || 0))[0]?.rel || 0) >= 0 ? "+" : "")}
-                          {Number(([...terminalRankRows].sort((a, b) => (b.rel || 0) - (a.rel || 0))[0]?.rel || 0)).toFixed(2)}%
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ marginTop: 8, border: `1px solid ${C.border}`, borderRadius: 6, background: C.surface, padding: 8 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>
-                        INSTITUTIONAL RADAR
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
-                        <div style={{ border: `1px solid ${institutionalRadar.breadthPct >= 60 ? `${C.green}66` : institutionalRadar.breadthPct >= 45 ? `${C.amber}66` : `${C.red}66`}`, borderRadius: 5, padding: 7, background: institutionalRadar.breadthPct >= 60 ? C.greenBg : institutionalRadar.breadthPct >= 45 ? C.amberBg : C.redBg }}>
-                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Breadth</div>
-                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>
-                            {institutionalRadar.advancers}/{institutionalRadar.total}
-                          </div>
-                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>
-                            {institutionalRadar.total ? `${Math.round(institutionalRadar.breadthPct)}% advancers` : "No data"}
-                          </div>
-                        </div>
-                        <div style={{ border: `1px solid ${institutionalRadar.macroPressureLabel === "HIGH" ? `${C.red}66` : institutionalRadar.macroPressureLabel === "ELEVATED" ? `${C.amber}66` : `${C.green}66`}`, borderRadius: 5, padding: 7, background: institutionalRadar.macroPressureLabel === "HIGH" ? C.redBg : institutionalRadar.macroPressureLabel === "ELEVATED" ? C.amberBg : C.greenBg }}>
-                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Macro Pressure</div>
-                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>
-                            <span style={{ color: institutionalRadar.macroPressureLabel === "HIGH" ? C.red : institutionalRadar.macroPressureLabel === "ELEVATED" ? C.amber : C.green }}>
-                              {institutionalRadar.macroPressureLabel}
-                            </span>
-                          </div>
-                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>VIX + USD + Oil</div>
-                        </div>
-                        <div style={{ border: `1px solid ${institutionalRadar.focusTone === "green" ? `${C.green}66` : institutionalRadar.focusTone === "amber" ? `${C.amber}66` : `${C.red}66`}`, borderRadius: 5, padding: 7, background: institutionalRadar.focusTone === "green" ? C.greenBg : institutionalRadar.focusTone === "amber" ? C.amberBg : C.redBg }}>
-                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Session Focus</div>
-                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent }}>
-                            {institutionalRadar.focus}
-                          </div>
-                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>
-                            {institutionalRadar.focusStatus}
-                          </div>
-                        </div>
-                      </div>
-                      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 6 }}>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 4 }}>Signal Queue</div>
-                        {(alerts || []).slice(0, 3).map((a, i) => (
-                          <div key={`radar-sig-${i}`} style={{ display: "grid", gridTemplateColumns: "60px 1fr 52px", gap: 8, alignItems: "center", padding: "4px 6px", fontSize: 12, border: `1px solid ${Number(a.score || 0) >= 85 ? `${C.green}66` : Number(a.score || 0) >= 70 ? `${C.amber}66` : `${C.border}`}`, borderRadius: 6, marginBottom: 4, background: Number(a.score || 0) >= 85 ? C.greenBg : Number(a.score || 0) >= 70 ? C.amberBg : C.surface }}>
-                            <span style={{ fontFamily: MONO, color: C.accent, fontWeight: 700 }}>{a.symbol || "MKT"}</span>
-                            <span style={{ color: C.textSec, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.text || "Signal update"}</span>
-                            <span style={{ fontFamily: MONO, color: Number(a.score || 0) >= 85 ? C.green : Number(a.score || 0) >= 70 ? C.amber : C.textDim, justifySelf: "end", fontWeight: 700 }}>S {Number(a.score || 0)}</span>
-                          </div>
-                        ))}
-                        {!(alerts || []).length && (
-                          <div style={{ fontSize: 12, color: C.textDim }}>No high-priority signals queued.</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, background: C.surface, padding: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>RISK COMMAND PANEL</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
-                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Mode</div>
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: riskSnapshot.mode === "DEFENSIVE" ? C.red : riskSnapshot.mode === "AGGRESSIVE" ? C.green : C.amber, fontWeight: 700 }}>{riskSnapshot.mode}</div>
-                  </div>
-                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Risk Alerts</div>
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: riskSnapshot.riskAlerts > 2 ? C.red : C.text }}>{riskSnapshot.riskAlerts}</div>
-                  </div>
-                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Avg R:R</div>
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: riskSnapshot.avgRR >= 1.5 ? C.green : C.amber }}>{riskSnapshot.avgRR.toFixed(2)}</div>
-                  </div>
-                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Sector Concentration</div>
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: riskSnapshot.concentration >= 4 ? C.red : C.text }}>{riskSnapshot.concentration}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div style={{ height: 5, background: C.surface, borderRadius: 3, overflow: "hidden", marginBottom: 10 }}>
+            <div style={{ width: `${scores2.composite}%`, height: "100%", background: sigCol2, borderRadius: 3 }} />
           </div>
-          </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 1, background: C.border }}>
-            {[["Composite", scores.composite, C.accent], ["Technical", scores.tech, C.cyan], ["Fundamental", scores.fund, C.purple], ["Macro Fit", scores.macro, C.amber], ["RVOL", `${rvol.toFixed(2)}x`, rvol > 1.2 ? C.green : C.textDim]].map(([k, v, col]) => (
-              <div key={k} style={{ background: C.surface, padding: "8px 10px" }}>
-                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{k}</div>
-                <div style={{ fontFamily: MONO, fontSize: 14, color: col, fontWeight: 700 }}>{v}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+            {[["TECH", scores2.tech, C.cyan], ["FUND", scores2.fund, C.purple], ["MACRO", scores2.macro, C.amber]].map(([l,v,col]) => (
+              <div key={l} style={{ textAlign: "center", background: C.surface, borderRadius: 6, padding: "6px 0" }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{l}</div>
+                <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: col }}>{v}</div>
               </div>
             ))}
           </div>
         </div>
 
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 8, marginBottom: 10 }}>
-            <input value={drawTools.trendStart} onChange={(e) => onDrawToolsChange((d) => ({ ...d, trendStart: e.target.value }))} placeholder="Trend start" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
-            <input value={drawTools.trendEnd} onChange={(e) => onDrawToolsChange((d) => ({ ...d, trendEnd: e.target.value }))} placeholder="Trend end" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
-            <input value={drawTools.fibLow} onChange={(e) => onDrawToolsChange((d) => ({ ...d, fibLow: e.target.value }))} placeholder="Fib low" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
-            <input value={drawTools.fibHigh} onChange={(e) => onDrawToolsChange((d) => ({ ...d, fibHigh: e.target.value }))} placeholder="Fib high" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
-          </div>
-          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>SECTOR ROTATION TAPE</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 6 }}>
-            {[...sectorData].sort((a, b) => (b.changesPercentage || 0) - (a.changesPercentage || 0)).slice(0, 8).map((s) => (
-              <div key={s.symbol} style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", background: C.surface }}>
-                <div style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{s.symbol}</div>
-                <div style={{ fontFamily: MONO, fontSize: 12, color: (s.changesPercentage || 0) >= 0 ? C.green : C.red }}>{(s.changesPercentage || 0) >= 0 ? "+" : ""}{(s.changesPercentage || 0).toFixed(2)}%</div>
+        {/* Key Levels */}
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px" }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>KEY LEVELS</div>
+          {[
+            ["52W High", hi52v > 0 ? `$${hi52v.toFixed(2)}` : "—", px2 >= hi52v * 0.95 ? C.amber : C.text],
+            ["MA 50",   ma50v > 0  ? `$${ma50v.toFixed(2)}`  : "—", px2 > ma50v  ? C.green : C.red],
+            ["Price",   `$${px2.toFixed(2)}`,                        C.accent],
+            ["MA 200",  ma200v > 0 ? `$${ma200v.toFixed(2)}` : "—", px2 > ma200v ? C.green : C.red],
+            ["52W Low", lo52v > 0  ? `$${lo52v.toFixed(2)}`  : "—", px2 <= lo52v * 1.08 ? C.amber : C.text],
+          ].map(([l,v,col]) => (
+            <div key={l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
+              <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{v}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Trade Setup */}
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px" }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>TRADE SETUP</div>
+          {[
+            ["Entry",    `$${px2.toFixed(2)}`,             C.text],
+            ["Stop",     stopV > 0 ? `$${stopV.toFixed(2)}` : "—", C.red],
+            ["Target 1", t1V > 0   ? `$${t1V.toFixed(2)}`   : "—", C.green],
+            ["Target 2", t2V > 0   ? `$${t2V.toFixed(2)}`   : "—", C.green],
+          ].map(([l,v,col]) => (
+            <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
+              <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{v}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Market Strip */}
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px" }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>MARKET</div>
+          {leaderTape.slice(0, 6).map(q => {
+            const qc = Number(q.changesPercentage || 0);
+            return (
+              <div key={q.symbol} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: `1px solid ${C.border}22` }}>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>{q.symbol}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: qc >= 0 ? C.green : C.red }}>{qc >= 0 ? "+" : ""}{qc.toFixed(2)}%</span>
               </div>
-            ))}
-          </div>
+            );
+          })}
+        </div>
+
+        {/* Top setups */}
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px" }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>TOP SETUPS</div>
+          {terminalRankRows.slice(0, 5).map(q => {
+            const qc = Number(q.changesPercentage || 0);
+            const qs = q.s?.composite >= 72 ? "BUY" : q.s?.composite >= 55 ? "WATCH" : "HOLD";
+            const qcol = qs === "BUY" ? C.green : qs === "WATCH" ? C.amber : C.textDim;
+            return (
+              <div key={q.symbol} onClick={() => onSelectSymbol(q.symbol)}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "5px 0", borderBottom: `1px solid ${C.border}22`, cursor: "pointer" }}>
+                <div>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: q.symbol === selected.symbol ? C.accent : C.text }}>{q.symbol}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 9, color: qcol, background: `${qcol}18`, borderRadius: 3, padding: "1px 4px", marginLeft: 5 }}>{qs}</span>
+                </div>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: qc >= 0 ? C.green : C.red }}>{qc >= 0 ? "+" : ""}{qc.toFixed(1)}%</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {showRight && (
-        <div
-          onMouseDown={() => setDrag("right")}
-          onTouchStart={() => setDrag("right")}
-          style={{ cursor: "col-resize", background: drag === "right" ? C.accent : C.border, borderRadius: 6, width: 6, transition: "background 0.15s",
-            display: "flex", alignItems: "center", justifyContent: "center", userSelect: "none" }}
-          title="Drag to resize"
-        >
-          <div style={{ width: 2, height: 32, borderRadius: 2, background: drag === "right" ? "#fff" : C.textDim, opacity: 0.5 }} />
-        </div>
-      )}
-      {showRight && (
-        <div style={{ display: "grid", gridTemplateRows: "auto auto auto auto auto 1fr", gap: 10, marginLeft: 4, overflowY: "auto" }}>
-
-          {/* ── MINI CHART for selected symbol ─────────────────────── */}
-          {selected?.symbol && (() => {
-            const sym = selected.symbol;
-            const chg = Number(selected.changesPercentage || 0);
-            const px  = Number(selected.price || 0);
-            const tvTheme = typeof themeMode !== "undefined" ? (themeMode === "dark" ? "dark" : "light") : "dark";
-            return (
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-                {/* Header */}
-                <div style={{ padding: "8px 12px", background: C.surface, borderBottom: `1px solid ${C.border}`,
-                  display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent }}>{sym}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text }}>${px.toFixed(2)}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: chg >= 0 ? C.green : C.red }}>
-                    {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
-                  </span>
-                  <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.textDim }}>
-                    {chg >= 0 ? "▲" : "▼"} {new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}
-                  </span>
-                </div>
-                {/* TradingView mini chart */}
-                <iframe
-                  key={`monitor-chart-${sym}`}
-                  src={`/client/tv-widget.html?w=mini-symbol-overview&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=160`}
-                  width="100%" height="160"
-                  style={{ display: "block", border: "none" }}
-                  title={`${sym} mini chart`}
-                />
-                {/* Quick stats row */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 1, borderTop: `1px solid ${C.border}` }}>
-                  {[
-                    ["52W H", selected.yearHigh ? `$${Number(selected.yearHigh).toFixed(0)}` : "—"],
-                    ["52W L", selected.yearLow  ? `$${Number(selected.yearLow).toFixed(0)}`  : "—"],
-                    ["VOL",   selected.volume   ? (Number(selected.volume)/1e6).toFixed(1)+"M" : "—"],
-                  ].map(([l,v]) => (
-                    <div key={l} style={{ padding: "6px 8px", background: C.surface, textAlign: "center" }}>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{l}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{v}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
-              <span>MACRO / REGIME</span>
-              <button onClick={() => setShowRight(false)} style={{ border: "none", background: "transparent", cursor: "pointer", color: C.textDim, fontFamily: MONO, fontSize: 12 }}>HIDE</button>
-            </div>
-            {leaderTape.slice(0, 6).map((q) => (
-              <div key={q.symbol} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{q.symbol}</span>
-                <span style={{ fontFamily: MONO, fontSize: 12, color: (q.changesPercentage || 0) >= 0 ? C.green : C.red }}>{(q.changesPercentage || 0) >= 0 ? "+" : ""}{(q.changesPercentage || 0).toFixed(2)}%</span>
-              </div>
-            ))}
-          </div>
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>
-              FUNDAMENTALS — {selected.symbol}
-            </div>
-            <div style={{ display: "grid", gap: 6 }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 12, color: C.textDim }}>Market Cap</span><span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{formatNum(fundamentals?.marketCap || selected.marketCap || 0)}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 12, color: C.textDim }}>P/E</span><span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{Number.isFinite(Number(fundamentals?.pe)) ? Number(fundamentals.pe).toFixed(2) : "—"}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 12, color: C.textDim }}>EPS</span><span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{Number.isFinite(Number(fundamentals?.eps)) ? Number(fundamentals.eps).toFixed(2) : "—"}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 12, color: C.textDim }}>Shares Out</span><span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{fundamentals?.sharesOutstanding ? `${(Number(fundamentals.sharesOutstanding) / 1e9).toFixed(2)}B` : "—"}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 12, color: C.textDim }}>Earnings</span><span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{fundamentals?.earningsDate ? new Date(fundamentals.earningsDate).toLocaleDateString() : "TBD"}</span></div>
-            </div>
-          </div>
-          {/* ── ORDER ENTRY PANEL ── */}
-          {(() => {
-            const price = Number(selected?.price || 0);
-            const spread = Math.max(0.01, price * 0.0003);
-            const bid = price > 0 ? (price - spread / 2).toFixed(2) : "—";
-            const ask = price > 0 ? (price + spread / 2).toFixed(2) : "—";
-            const entryPrice = orderType === "market" ? price : (Number(orderPrice) || price);
-            const tpNum = Number(orderTp) || 0;
-            const slNum = Number(orderSl) || 0;
-            const rr = tpNum > 0 && slNum > 0 && entryPrice > 0 && orderSide === "buy"
-              ? ((tpNum - entryPrice) / Math.max(0.01, entryPrice - slNum)).toFixed(2)
-              : tpNum > 0 && slNum > 0 && entryPrice > 0 && orderSide === "sell"
-              ? ((entryPrice - tpNum) / Math.max(0.01, slNum - entryPrice)).toFixed(2)
-              : null;
-            const posValue = (Number(orderQty) || 0) * entryPrice;
-            const riskAmt = slNum > 0 && entryPrice > 0 && Number(orderQty) > 0
-              ? Math.abs(entryPrice - slNum) * Number(orderQty)
-              : 0;
-
-            // Simulated order book — 5 levels each side
-            const levels = Array.from({ length: 5 }, (_, i) => {
-              const bidPx = price > 0 ? (price - spread / 2 - i * spread * 1.2).toFixed(2) : 0;
-              const askPx = price > 0 ? (price + spread / 2 + i * spread * 1.2).toFixed(2) : 0;
-              const bidSz = Math.floor(200 + Math.random() * 800 + (4 - i) * 200);
-              const askSz = Math.floor(200 + Math.random() * 800 + (4 - i) * 200);
-              return { bidPx, askPx, bidSz, askSz };
-            });
-            const maxSz = Math.max(...levels.map(l => Math.max(l.bidSz, l.askSz)));
-
-            const handlePlaceOrder = async () => {
-              if (!Number(orderQty) || Number(orderQty) <= 0) return;
-              setOrderSubmitting(true);
-              try {
-                const notes = [
-                  `${orderType.toUpperCase()} order`,
-                  orderType !== "market" && orderPrice ? `@ $${orderPrice}` : `@ market $${price.toFixed(2)}`,
-                  orderTrailPct && orderType === "trailing" ? `trail ${orderTrailPct}%` : "",
-                  rr ? `R:R ${rr}` : "",
-                ].filter(Boolean).join(" · ");
-                await fetch("/api/journal", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    ticker: selected.symbol,
-                    side: orderSide === "buy" ? "BUY" : "SELL",
-                    entry: entryPrice,
-                    stopLoss: slNum || undefined,
-                    target: tpNum || undefined,
-                    size: Number(orderQty),
-                    timeframe: "1D",
-                    style: "Order Entry",
-                    score: scores.composite,
-                    notes,
-                  }),
-                });
-                setOrderConfirmed({ side: orderSide, qty: orderQty, price: entryPrice.toFixed(2), symbol: selected.symbol });
-                setTimeout(() => setOrderConfirmed(null), 4000);
-              } finally {
-                setOrderSubmitting(false);
-              }
-            };
-
-            return (
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-                {/* Header */}
-                <div style={{ padding: "9px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface }}>
-                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>ORDER ENTRY</span>
-                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{selected.symbol}</span>
-                </div>
-
-                {/* Bid/Ask strip */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1px 1fr", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
-                  <div style={{ padding: "8px 12px" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 2 }}>BID</div>
-                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.green }}>{bid}</div>
-                  </div>
-                  <div style={{ background: C.border }} />
-                  <div style={{ padding: "8px 12px" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 2 }}>ASK</div>
-                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.red }}>{ask}</div>
-                  </div>
-                </div>
-
-                {/* Order book depth */}
-                <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}`, background: C.surface }}>
-                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>ORDER BOOK DEPTH</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto 1fr", gap: "2px 6px", alignItems: "center" }}>
-                    {levels.map((l, i) => (
-                      <React.Fragment key={`ob-${i}`}>
-                        {/* Bid bar */}
-                        <div style={{ position: "relative", height: 14, background: `${C.green}18`, borderRadius: 2, overflow: "hidden" }}>
-                          <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: `${(l.bidSz / maxSz) * 100}%`, background: `${C.green}44`, borderRadius: 2 }} />
-                          <span style={{ position: "absolute", right: 4, top: 0, bottom: 0, display: "flex", alignItems: "center", fontFamily: MONO, fontSize: 12, color: C.green }}>{l.bidSz}</span>
-                        </div>
-                        {/* Bid price */}
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, textAlign: "right", whiteSpace: "nowrap" }}>${l.bidPx}</div>
-                        {/* Ask price */}
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, textAlign: "left", whiteSpace: "nowrap" }}>${l.askPx}</div>
-                        {/* Ask bar */}
-                        <div style={{ position: "relative", height: 14, background: `${C.red}18`, borderRadius: 2, overflow: "hidden" }}>
-                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${(l.askSz / maxSz) * 100}%`, background: `${C.red}44`, borderRadius: 2 }} />
-                          <span style={{ position: "absolute", left: 4, top: 0, bottom: 0, display: "flex", alignItems: "center", fontFamily: MONO, fontSize: 12, color: C.red }}>{l.askSz}</span>
-                        </div>
-                      </React.Fragment>
-                    ))}
-                  </div>
-                </div>
-
-                <div style={{ padding: "10px 12px" }}>
-                  {/* Order type tabs */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 3, marginBottom: 10 }}>
-                    {[["market", "Market"], ["limit", "Limit"], ["stop", "Stop"], ["trailing", "Trail"]].map(([v, lbl]) => (
-                      <button key={v} onClick={() => setOrderType(v)} style={{ padding: "5px 0", border: `1px solid ${orderType === v ? C.accent : C.border}`, borderRadius: 6, background: orderType === v ? `${C.accent}18` : C.surface, color: orderType === v ? C.accent : C.textDim, fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: orderType === v ? 800 : 400, letterSpacing: "0.04em" }}>
-                        {lbl}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* BUY / SELL */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 10 }}>
-                    <button onClick={() => setOrderSide("buy")} style={{ padding: "9px 0", border: `2px solid ${orderSide === "buy" ? C.green : C.border}`, borderRadius: 5, background: orderSide === "buy" ? `${C.green}22` : C.surface, color: orderSide === "buy" ? C.green : C.textDim, fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", letterSpacing: "0.06em" }}>
-                      BUY
-                    </button>
-                    <button onClick={() => setOrderSide("sell")} style={{ padding: "9px 0", border: `2px solid ${orderSide === "sell" ? C.red : C.border}`, borderRadius: 5, background: orderSide === "sell" ? `${C.red}22` : C.surface, color: orderSide === "sell" ? C.red : C.textDim, fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", letterSpacing: "0.06em" }}>
-                      SELL
-                    </button>
-                  </div>
-
-                  {/* Quantity */}
-                  <div style={{ marginBottom: 8 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 4 }}>QUANTITY (SHARES)</div>
-                    <input type="number" min="1" step="1" value={orderQty} onChange={e => setOrderQty(e.target.value)}
-                      style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 6 }} />
-                  </div>
-
-                  {/* Limit/Stop price */}
-                  {(orderType === "limit" || orderType === "stop") && (
-                    <div style={{ marginBottom: 8 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 4 }}>{orderType === "limit" ? "LIMIT PRICE" : "STOP TRIGGER"}</div>
-                      <input type="number" step="0.01" value={orderPrice} onChange={e => setOrderPrice(e.target.value)} placeholder={price.toFixed(2)}
-                        style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 6 }} />
-                    </div>
-                  )}
-
-                  {/* Trailing % */}
-                  {orderType === "trailing" && (
-                    <div style={{ marginBottom: 8 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 4 }}>TRAIL DISTANCE (%)</div>
-                      <input type="number" step="0.1" min="0.1" value={orderTrailPct} onChange={e => setOrderTrailPct(e.target.value)}
-                        style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 6 }} />
-                    </div>
-                  )}
-
-                  {/* TP / SL row */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
-                    <div>
-                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, marginBottom: 4 }}>TAKE PROFIT</div>
-                      <input type="number" step="0.01" value={orderTp} onChange={e => setOrderTp(e.target.value)} placeholder="Price"
-                        style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.green}44`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "6px 8px", borderRadius: 6 }} />
-                    </div>
-                    <div>
-                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, marginBottom: 4 }}>STOP LOSS</div>
-                      <input type="number" step="0.01" value={orderSl} onChange={e => setOrderSl(e.target.value)} placeholder="Price"
-                        style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.red}44`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "6px 8px", borderRadius: 6 }} />
-                    </div>
-                  </div>
-
-                  {/* Position summary */}
-                  {(posValue > 0 || rr) && (
-                    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: "7px 10px", marginBottom: 10, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
-                      <div>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>VALUE</div>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.text, fontWeight: 700 }}>${posValue > 0 ? posValue.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "—"}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>RISK $</div>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: riskAmt > 0 ? C.red : C.textDim, fontWeight: 700 }}>{riskAmt > 0 ? `$${riskAmt.toFixed(0)}` : "—"}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>R:R</div>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: rr && Number(rr) >= 2 ? C.green : rr && Number(rr) >= 1 ? C.amber : C.red, fontWeight: 700 }}>{rr ? `${rr}R` : "—"}</div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Confirmed banner */}
-                  {orderConfirmed && (
-                    <div style={{ background: `${C.green}18`, border: `1px solid ${C.green}55`, borderRadius: 6, padding: "7px 10px", marginBottom: 8, fontFamily: MONO, fontSize: 12, color: C.green, textAlign: "center" }}>
-                      ✓ {orderConfirmed.side.toUpperCase()} {orderConfirmed.qty}×{orderConfirmed.symbol} @ ${orderConfirmed.price} — Logged to Journal
-                    </div>
-                  )}
-
-                  {/* Place Order button */}
-                  <button onClick={handlePlaceOrder} disabled={orderSubmitting || !Number(orderQty)}
-                    style={{ width: "100%", padding: "10px 0", border: "none", borderRadius: 5, background: orderSide === "buy" ? C.green : C.red, color: "#fff", fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: orderSubmitting || !Number(orderQty) ? "default" : "pointer", opacity: orderSubmitting || !Number(orderQty) ? 0.5 : 1, letterSpacing: "0.06em" }}>
-                    {orderSubmitting ? "PLACING…" : `PLACE ${orderSide.toUpperCase()} ORDER`}
-                  </button>
-                </div>
-              </div>
-            );
-          })()}
-
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>ALERT PRIORITY</div>
-            {alerts.slice(0, 4).map((a, i) => (
-              <div key={`${a.symbol}-${i}`} style={{ padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700 }}>{a.symbol}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 12, color: a.type === "risk" ? C.red : C.green }}>{a.score}</span>
-                </div>
-                <div style={{ fontSize: 12, color: C.textSec, lineHeight: 1.35 }}>{a.text}</div>
-              </div>
-            ))}
-            {alerts.length === 0 && <div style={{ fontSize: 12, color: C.textDim }}>No active alerts.</div>}
-          </div>
-          <FinvizNewsCard C={C} MONO={MONO} SANS={SANS} />
-        </div>
-      )}
     </div>
   );
 }
