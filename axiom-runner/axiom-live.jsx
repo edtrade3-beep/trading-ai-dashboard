@@ -4986,14 +4986,69 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
         </div>
       </div>
 
-      {/* Rules reminder */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8, marginBottom: 16 }}>
+      {/* 5-check grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8, marginBottom: 12 }}>
         {["Market safe","Above 50D MA","RSI 35–65","Volume active","Near EMA21"].map((r,i) => (
           <div key={r} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
             <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.accent }}>#{i+1}</div>
             <div style={{ fontFamily: SANS, fontSize: 11, color: C.text, marginTop: 2 }}>{r}</div>
           </div>
         ))}
+      </div>
+
+      {/* ── MY TRADING RULES — always visible reminder ── */}
+      <div style={{ background: `${C.amber}10`, border: `2px solid ${C.amber}44`, borderRadius: 10, padding: "14px 18px", marginBottom: 16 }}>
+        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.amber, marginBottom: 12, letterSpacing: "0.06em" }}>
+          📜 MY RULES — FOLLOW THESE OR DON'T TRADE
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+          {/* Entry */}
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, marginBottom: 6 }}>🟢 BEFORE BUYING</div>
+            {[
+              "Only buy 🟢 GREEN (4-5/5)",
+              "Skip yellow. Skip red.",
+              "No trading on red market days",
+              "Never chase — no FOMO",
+            ].map(r => (
+              <div key={r} style={{ fontFamily: SANS, fontSize: 12, color: C.text, padding: "3px 0", display: "flex", gap: 6 }}>
+                <span style={{ color: C.green }}>✓</span>{r}
+              </div>
+            ))}
+          </div>
+          {/* Size */}
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 6 }}>💰 SIZE</div>
+            {[
+              "Risk only 1% per trade",
+              "Use 📐 suggested shares",
+              "Never go all-in",
+              "Never 'bet big this once'",
+            ].map(r => (
+              <div key={r} style={{ fontFamily: SANS, fontSize: 12, color: C.text, padding: "3px 0", display: "flex", gap: 6 }}>
+                <span style={{ color: C.accent }}>✓</span>{r}
+              </div>
+            ))}
+          </div>
+          {/* Exit */}
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.red, marginBottom: 6 }}>🚪 EXIT</div>
+            {[
+              "Stop −3% — ALWAYS set it",
+              "T1 +5% → sell HALF",
+              "T2 +10% → sell the rest",
+              "2 losses = STOP for the day",
+            ].map(r => (
+              <div key={r} style={{ fontFamily: SANS, fontSize: 12, color: C.text, padding: "3px 0", display: "flex", gap: 6 }}>
+                <span style={{ color: C.red }}>✓</span>{r}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.amber}33`,
+          fontFamily: SANS, fontSize: 12, color: C.amber, fontWeight: 700, textAlign: "center" }}>
+          ⭐ Small losses + letting winners run = you get rich. You profit even being wrong 45% of the time — IF you follow the exits.
+        </div>
       </div>
 
       {/* GREEN results */}
