@@ -12497,8 +12497,9 @@ export default function App() {
     if (activeTab === "fivex" && Object.keys(fivexPrices).length === 0 && !fivexLoading) {
       fetchLivePrices();
     }
-    // Auto-run smart scan when tab opens if no results OR results are stale (> 20 min old)
-    if ((activeTab === "smartscan" || activeTab === "scanner") && !scanLoading) {
+    // Auto-run smart scan when tab opens — but NEVER if a deep dive was just opened
+    // (openDeepDiveFor adds a row + expands it; a re-scan would wipe it)
+    if ((activeTab === "smartscan" || activeTab === "scanner") && !scanLoading && !scanExpanded) {
       const stale = !scanLastRun || (Date.now() - scanLastRun.getTime() > 20 * 60 * 1000);
       if (scanResults.length === 0 || stale) {
         runSmartScan();
@@ -12517,7 +12518,8 @@ export default function App() {
   useEffect(() => {
     if (activeTab !== "smartscan" && activeTab !== "combined") return;
     const t = setInterval(() => {
-      if (!scanLoading && scanResults.length > 0) {
+      // Don't refresh while a deep dive is open — it would wipe the expanded row
+      if (!scanLoading && scanResults.length > 0 && !scanExpanded) {
         runSmartScan();
       }
     }, 60_000);
@@ -12859,6 +12861,8 @@ export default function App() {
       quote: quote || { price: 0, changePercent: 0 }, candles: null,
       rsiVal: null, macdBull: null, ema9v: null, ema21v: null,
     }, ...prev]);
+    // Set expanded IMMEDIATELY (before tab switch) so the auto-scan guard sees it
+    setScanExpanded(sym);
     setActiveTab("smartscan");
     setTimeout(() => { setScanExpanded(sym); loadDeepDive(sym); loadDeepSocial(sym); }, 150);
     setTimeout(() => { try { fetchTradeSetup(sym, { ticker: sym, score: 50, signal: "WATCH", signals: [], quote: quote || { price: 0 } }); } catch {} }, 1400);
