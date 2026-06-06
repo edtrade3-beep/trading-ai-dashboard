@@ -15088,7 +15088,7 @@ export default function App() {
           {(() => {
             const NAV_GROUPS = [
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard", "briefing"] },
-              { id: "terminal",   label: "📈 CHART",      tabs: ["terminal", "tv"] },
+              { id: "terminal",   label: "📈 CHART",      tabs: ["terminal", "tv", "multitf"] },
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["combined", "smartscan", "tradeplanner", "dipbuy", "adol22", "compression", "under10"] },
               { id: "markets",    label: "🌍 MARKETS",    tabs: ["news", "macro", "econ-cal", "crypto"] },
               { id: "portfolio",  label: "💼 PORTFOLIO",  tabs: ["portfolio", "journal", "performance"] },
@@ -15441,7 +15441,8 @@ export default function App() {
           ],
           terminal: [
             { id: "terminal",   label: "📈 CHART" },
-            { id: "tv",         label: "📺 TV LIVE" },
+            { id: "multitf",    label: "⏱ MULTI TF" },
+            { id: "tv",         label: "📺 TV LIVE" },
           ],
           scanner: [
             { id: "combined",     label: "⚡ BEST SETUPS" },
@@ -25516,48 +25517,85 @@ export default function App() {
       {/* ── MULTI-TIMEFRAME DASHBOARD ────────────────────────────────────── */}
       {activeTab === "multitf" && (() => {
         const tvTheme = themeMode === "dark" ? "dark" : "light";
+        // Use the currently selected terminal symbol as default
+        const sym = (multitfSymbol || terminalSymbol || "SPY").toUpperCase();
         const TFS = [
-          { key: "5m",  label: "5 MIN",  interval: "5"  },
-          { key: "1H",  label: "1 HOUR", interval: "60" },
-          { key: "4H",  label: "4 HOUR", interval: "240" },
-          { key: "1D",  label: "DAILY",  interval: "D"  },
+          { key: "5",   label: "5M",    interval: "5",   desc: "Intraday — entries & exits" },
+          { key: "15",  label: "15M",   interval: "15",  desc: "Short-term — trend confirmation" },
+          { key: "60",  label: "1H",    interval: "60",  desc: "Medium-term — structure" },
+          { key: "D",   label: "DAILY", interval: "D",   desc: "Big picture — direction" },
         ];
-        const sym = multitfSymbol.toUpperCase();
-        const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", ...extra });
+        const align = (() => {
+          const wl = watchlistData.find(q => q.symbol === sym);
+          if (!wl) return null;
+          const scores = computeScores(wl);
+          return scores.composite >= 65 ? { txt: "✅ BULLISH ALIGNMENT", col: C.green }
+               : scores.composite <= 40 ? { txt: "🔴 BEARISH ALIGNMENT", col: C.red }
+               : { txt: "⚠️ MIXED — WAIT FOR CLARITY", col: C.amber };
+        })();
         return (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {/* Ticker bar */}
-            <div style={{ ...card({ overflow: "visible" }), padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>⏱ MULTI-TIMEFRAME</span>
-              <input value={multitfInput} onChange={e => setMultitfInput(e.target.value.toUpperCase())}
-                onKeyDown={e => { if (e.key === "Enter") setMultitfSymbol(multitfInput.trim() || "SPY"); }}
-                placeholder="Ticker…"
-                style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface, border: `1px solid ${C.accent}`,
-                  color: C.text, borderRadius: 6, padding: "6px 12px", width: 120, outline: "none" }} />
-              <button onClick={() => setMultitfSymbol(multitfInput.trim() || "SPY")}
-                style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: C.accent, border: "none", color: "#fff", borderRadius: 6, padding: "7px 16px", cursor: "pointer" }}>GO</button>
-              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
-                Align trend across all 4 timeframes before entering a position
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 4px" }}>
+            {/* Header bar */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
+              background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, flexWrap: "wrap" }}>
+              <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text }}>⏱ MULTI-TIMEFRAME</span>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input value={multitfInput} onChange={e => setMultitfInput(e.target.value.toUpperCase())}
+                  onKeyDown={e => e.key === "Enter" && setMultitfSymbol(multitfInput.trim() || sym)}
+                  placeholder={sym}
+                  style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface,
+                    border: `1px solid ${C.accent}`, color: C.accent, borderRadius: 6,
+                    padding: "5px 10px", width: 100, outline: "none" }} />
+                <button onClick={() => setMultitfSymbol(multitfInput.trim() || sym)}
+                  style={{ background: C.accent, color: "#fff", border: "none", borderRadius: 6,
+                    fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "5px 14px", cursor: "pointer" }}>
+                  LOAD
+                </button>
               </div>
-              <a href={`https://www.tradingview.com/chart/?symbol=${sym}`} target="_blank" rel="noopener noreferrer"
-                style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, color: C.textDim, textDecoration: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "5px 10px" }}>
-                Full Chart ↗
-              </a>
+              {/* Quick watchlist chips */}
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {watchlistData.slice(0, 8).map(q => (
+                  <button key={q.symbol} onClick={() => { setMultitfSymbol(q.symbol); setMultitfInput(q.symbol); }}
+                    style={{ background: q.symbol === sym ? C.accent : C.surface,
+                      color: q.symbol === sym ? "#fff" : C.textSec,
+                      border: `1px solid ${q.symbol === sym ? C.accent : C.border}`,
+                      borderRadius: 5, fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                      padding: "3px 8px", cursor: "pointer" }}>
+                    {q.symbol}
+                  </button>
+                ))}
+              </div>
+              {align && (
+                <div style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, fontWeight: 800,
+                  color: align.col, background: `${align.col}15`, borderRadius: 6, padding: "5px 12px" }}>
+                  {align.txt}
+                </div>
+              )}
             </div>
-            {/* 4 charts grid */}
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+
+            {/* Rule */}
+            <div style={{ padding: "6px 14px", background: `${C.amber}10`, border: `1px solid ${C.amber}22`,
+              borderRadius: 8, fontFamily: SANS, fontSize: 12, color: C.amber }}>
+              ⭐ <strong>Pro Rule:</strong> Only trade when Daily + 1H + 15M all agree on direction. Use 5M for entry timing only.
+            </div>
+
+            {/* 2×2 Chart Grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 8, height: "calc(100vh - 220px)" }}>
               {TFS.map(tf => (
-                <div key={tf.key} style={card()}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px",
-                    borderBottom: `1px solid ${C.border}`, background: C.surface }}>
-                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent }}>{sym}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: C.textDim }}>{tf.label}</span>
+                <div key={tf.key} style={{ background: C.card, border: `1px solid ${C.border}`,
+                  borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  {/* Chart label */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px",
+                    background: C.surface, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent }}>{sym}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{tf.label}</span>
+                    <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{tf.desc}</span>
                   </div>
                   <iframe
                     key={`mtf-${sym}-${tf.key}-${tvTheme}`}
-                    src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=320&iv=${tf.interval}`}
-                    style={{ width: "100%", height: 320, border: "none", display: "block" }}
-                    scrolling="no" title={`${sym}-${tf.key}`}
+                    src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=400&iv=${tf.interval}&st=RSI,MACD`}
+                    style={{ width: "100%", flex: 1, border: "none", display: "block", minHeight: 0 }}
+                    title={`${sym} ${tf.label}`}
                   />
                 </div>
               ))}
