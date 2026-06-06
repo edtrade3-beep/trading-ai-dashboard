@@ -2615,11 +2615,15 @@ function TerminalWorkspace({
   }, [alerts, executionRows]);
 
   const [chartTf, setChartTf] = useState("D");
+  const [chartInds, setChartInds] = useState({ RSI: true, MACD: true, BB: false, EMA: false, VWAP: false, STOCH: false, VOL: false, ATR: false });
+  const toggleInd = (k) => setChartInds(p => ({ ...p, [k]: !p[k] }));
+  const studiesStr = Object.entries(chartInds).filter(([,v]) => v).map(([k]) => k).join(",");
   const tvTheme = typeof themeMode !== "undefined" ? (themeMode === "dark" ? "dark" : "light") : "dark";
 
   if (!selected) return null;
 
   const scores2 = computeScores(selected);
+  // ── Chart indicators state ────────────────────────────────────────────────
   const sig2 = scores2.composite >= 72 ? "BUY" : scores2.composite >= 55 ? "WATCH" : scores2.composite >= 40 ? "HOLD" : "AVOID";
   const sigCol2 = sig2 === "BUY" ? C.green : sig2 === "WATCH" ? C.amber : sig2 === "HOLD" ? C.textDim : C.red;
   const chg2 = Number(selected.changesPercentage || 0);
@@ -2719,6 +2723,7 @@ function TerminalWorkspace({
 
       {/* ── CENTER: TradingView Full Chart ── */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        {/* Row 1: symbol info + timeframe */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface, flexWrap: "wrap" }}>
           <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.accent }}>{selected.symbol}</span>
           <span style={{ fontFamily: MONO, fontSize: 15, color: C.text }}>${px2.toFixed(2)}</span>
@@ -2736,10 +2741,34 @@ function TerminalWorkspace({
             ))}
           </div>
         </div>
+        {/* Row 2: indicator toggles */}
+        <div style={{ display: "flex", gap: 4, padding: "6px 14px", background: C.bg || C.surface, borderBottom: `1px solid ${C.border}`, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, alignSelf: "center", marginRight: 4 }}>INDICATORS:</span>
+          {[
+            ["RSI",   "RSI 14",   "#a78bfa"],
+            ["MACD",  "MACD",     "#3b82f6"],
+            ["BB",    "Bollinger","#7c3aed"],
+            ["EMA",   "EMA",      "#22d47e"],
+            ["VWAP",  "VWAP",     "#f59e0b"],
+            ["STOCH", "Stoch",    "#0891b2"],
+            ["VOL",   "Volume",   "#6b7280"],
+            ["ATR",   "ATR",      "#ef4444"],
+          ].map(([k, label, col]) => (
+            <button key={k} onClick={() => toggleInd(k)}
+              style={{ background: chartInds[k] ? col : "transparent",
+                color: chartInds[k] ? "#fff" : C.textDim,
+                border: `1px solid ${chartInds[k] ? col : C.border}`,
+                borderRadius: 5, fontFamily: MONO, fontSize: 10,
+                fontWeight: chartInds[k] ? 700 : 400,
+                padding: "2px 8px", cursor: "pointer", transition: "all 0.15s" }}>
+              {label}
+            </button>
+          ))}
+        </div>
         <iframe
-          key={`chart-${selected.symbol}-${chartTf}`}
-          src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(selected.symbol)}&t=${tvTheme}&h=620&iv=${chartTf}`}
-          width="100%" height="620"
+          key={`chart-${selected.symbol}-${chartTf}-${studiesStr}`}
+          src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(selected.symbol)}&t=${tvTheme}&h=580&iv=${chartTf}&st=${encodeURIComponent(studiesStr)}`}
+          width="100%" height="580"
           style={{ display: "block", border: "none" }}
           title={`${selected.symbol} chart`}
         />

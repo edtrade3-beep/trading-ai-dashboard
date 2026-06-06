@@ -20,6 +20,21 @@
   var h   = Math.min(900, Math.max(60, parseInt(p.get("h") || "500", 10)));
   var iv  = p.get("iv") || "D";
   var bg  = t === "dark" ? "#0a0e1a" : "#f0f4f9";
+  // Parse studies from URL: ?st=RSI,MACD,BB,EMA,VWAP
+  var stParam = p.get("st") || "";
+  var studiesMap = {
+    RSI:  "STD;RSI",
+    MACD: "STD;MACD",
+    BB:   "STD;Bollinger_Bands",
+    EMA:  "STD;EMA",
+    VWAP: "STD;VWAP",
+    ATR:  "STD;Average_True_Range",
+    VOL:  "STD;Volume",
+    STOCH:"STD;Stochastic",
+    ADX:  "STD;ADX",
+    CCI:  "STD;CCI",
+  };
+  var studies = stParam ? stParam.split(",").map(function(k){ return studiesMap[k.trim()] || k.trim(); }).filter(Boolean) : ["STD;MACD","STD;RSI"];
 
   document.documentElement.style.background = bg;
   document.body.style.background = bg;
@@ -44,7 +59,7 @@
         enable_publishing:   false,
         allow_symbol_change: false,
         save_image:          false,
-        studies:             ["STD;MACD", "STD;RSI"],
+        studies:             studies,
         height:              h,
         width:               "100%",
         hide_side_toolbar:   false,
