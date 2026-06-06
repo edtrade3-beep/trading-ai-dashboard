@@ -4587,6 +4587,182 @@ function computeGreenLight(q, spyChg, scanRow) {
   return { checks, passed, signal, px, chg, stop, t1, t2, rvol, rsi };
 }
 
+// ── Trade Tracker — logs Green Light trades, manages exits, tracks stats ──────
+const GL_TRADES_KEY = "axiom_gl_trades_v1";
+function TradeTracker({ C, MONO, SANS, watchlistData }) {
+  const [trades, setTrades] = useState(() => { try { return JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []; } catch { return []; } });
+  const [form, setForm] = useState({ ticker: "", entry: "", shares: "" });
+  const [showForm, setShowForm] = useState(false);
+  const save = t => { setTrades(t); localStorage.setItem(GL_TRADES_KEY, JSON.stringify(t)); };
+
+  // Live price map from watchlist
+  const priceOf = sym => Number((watchlistData || []).find(q => q.symbol === sym)?.price || 0);
+
+  const addTrade = () => {
+    const sym = form.ticker.trim().toUpperCase();
+    const entry = Number(form.entry) || priceOf(sym);
+    const shares = Number(form.shares) || 0;
+    if (!sym || entry <= 0 || shares <= 0) return;
+    const t = {
+      id: Date.now(), ticker: sym, entry, shares,
+      stop: +(entry * 0.97).toFixed(2),
+      t1: +(entry * 1.05).toFixed(2),
+      t2: +(entry * 1.10).toFixed(2),
+      status: "OPEN", t1Hit: false, openedAt: new Date().toISOString(),
+    };
+    save([t, ...trades]);
+    setForm({ ticker: "", entry: "", shares: "" });
+    setShowForm(false);
+  };
+
+  const closeTrade = (id, exitPx) => {
+    save(trades.map(t => t.id === id ? { ...t, status: "CLOSED", exit: exitPx, closedAt: new Date().toISOString() } : t));
+  };
+  const markT1 = id => save(trades.map(t => t.id === id ? { ...t, t1Hit: true } : t));
+  const deleteTrade = id => save(trades.filter(t => t.id !== id));
+
+  const open   = trades.filter(t => t.status === "OPEN");
+  const closed = trades.filter(t => t.status === "CLOSED");
+
+  // Stats
+  const wins   = closed.filter(t => (t.exit - t.entry) > 0);
+  const losses = closed.filter(t => (t.exit - t.entry) <= 0);
+  const winRate = closed.length ? Math.round(wins.length / closed.length * 100) : 0;
+  const totalPnl = closed.reduce((s, t) => s + (t.exit - t.entry) * t.shares, 0);
+  const avgWin = wins.length ? wins.reduce((s,t) => s + (t.exit-t.entry)*t.shares, 0) / wins.length : 0;
+  const avgLoss = losses.length ? Math.abs(losses.reduce((s,t) => s + (t.exit-t.entry)*t.shares, 0) / losses.length) : 0;
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      {/* Stats bar */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
+        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>📋 MY TRADES</span>
+        {closed.length > 0 && (
+          <>
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px" }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>WIN RATE </span>
+              <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: winRate >= 50 ? C.green : C.red }}>{winRate}%</span>
+            </div>
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px" }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>P&L </span>
+              <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: totalPnl >= 0 ? C.green : C.red }}>{totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(0)}</span>
+            </div>
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px" }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{wins.length}W / {losses.length}L</span>
+            </div>
+            {avgWin > 0 && avgLoss > 0 && (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px" }}>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>AVG W:L </span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: avgWin >= avgLoss ? C.green : C.amber }}>{(avgWin/avgLoss).toFixed(1)}:1</span>
+              </div>
+            )}
+          </>
+        )}
+        <button onClick={() => setShowForm(s => !s)}
+          style={{ marginLeft: "auto", background: C.green, color: "#fff", border: "none", borderRadius: 6,
+            fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 14px", cursor: "pointer" }}>
+          {showForm ? "✕ CANCEL" : "+ LOG TRADE"}
+        </button>
+      </div>
+
+      {/* Add form */}
+      {showForm && (
+        <div style={{ background: C.card, border: `1px solid ${C.green}44`, borderRadius: 8, padding: 12, marginBottom: 10,
+          display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input value={form.ticker} onChange={e => { const v = e.target.value.toUpperCase(); setForm(f => ({ ...f, ticker: v, entry: f.entry || (priceOf(v) ? String(priceOf(v)) : "") })); }}
+            placeholder="TICKER" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.accent, padding: "7px 10px", width: 90, outline: "none" }} />
+          <input value={form.entry} onChange={e => setForm(f => ({ ...f, entry: e.target.value }))} placeholder="ENTRY $" type="number"
+            style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: MONO, fontSize: 13, color: C.text, padding: "7px 10px", width: 100, outline: "none" }} />
+          <input value={form.shares} onChange={e => setForm(f => ({ ...f, shares: e.target.value }))} placeholder="SHARES" type="number"
+            style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: MONO, fontSize: 13, color: C.text, padding: "7px 10px", width: 90, outline: "none" }} />
+          {form.entry && Number(form.entry) > 0 && (
+            <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+              🛑 ${(Number(form.entry)*0.97).toFixed(2)} · 🎯 ${(Number(form.entry)*1.05).toFixed(2)} · ${(Number(form.entry)*1.10).toFixed(2)}
+            </span>
+          )}
+          <button onClick={addTrade}
+            style={{ background: C.green, color: "#fff", border: "none", borderRadius: 5, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "7px 16px", cursor: "pointer" }}>
+            ADD
+          </button>
+        </div>
+      )}
+
+      {/* Open positions */}
+      {open.map(t => {
+        const live = priceOf(t.ticker) || t.entry;
+        const pnl = (live - t.entry) * t.shares;
+        const pnlPct = ((live - t.entry) / t.entry) * 100;
+        const atStop = live <= t.stop;
+        const atT1 = live >= t.t1 && !t.t1Hit;
+        const atT2 = live >= t.t2;
+        let alert = null, alertCol = C.textDim;
+        if (atStop)      { alert = "🚨 STOP HIT — SELL ALL NOW"; alertCol = C.red; }
+        else if (atT2)   { alert = "🎯 T2 HIT — SELL REMAINING"; alertCol = C.green; }
+        else if (atT1)   { alert = "🎯 T1 HIT — SELL HALF + MOVE STOP TO BREAKEVEN"; alertCol = C.green; }
+        return (
+          <div key={t.id} style={{ background: C.card, border: `1px solid ${alert ? alertCol : C.border}`,
+            borderLeft: `4px solid ${pnl >= 0 ? C.green : C.red}`, borderRadius: 10, padding: "12px 16px", marginBottom: 8 }}>
+            {alert && (
+              <div style={{ background: `${alertCol}18`, border: `1px solid ${alertCol}55`, borderRadius: 6,
+                padding: "6px 12px", marginBottom: 10, fontFamily: MONO, fontSize: 13, fontWeight: 900, color: alertCol,
+                animation: "pulse 1.5s infinite" }}>{alert}</div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <div>
+                <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.accent }}>{t.ticker}</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: 6 }}>{t.shares} sh @ ${t.entry}</span>
+              </div>
+              <div>
+                <span style={{ fontFamily: MONO, fontSize: 15, color: C.text }}>${live.toFixed(2)}</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: pnl >= 0 ? C.green : C.red, marginLeft: 8 }}>
+                  {pnl >= 0 ? "+" : ""}${pnl.toFixed(0)} ({pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(1)}%)
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                {[["STOP", t.stop, C.red], ["T1", t.t1, t.t1Hit ? C.textDim : C.green], ["T2", t.t2, C.green]].map(([l,v,col]) => (
+                  <div key={l} style={{ textAlign: "center" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{l}{l==="T1"&&t.t1Hit?" ✓":""}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: col }}>${v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                {atT1 && <button onClick={() => markT1(t.id)} style={{ background: `${C.green}18`, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 5, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "5px 10px", cursor: "pointer" }}>✓ SOLD HALF</button>}
+                <button onClick={() => closeTrade(t.id, live)} style={{ background: C.red, color: "#fff", border: "none", borderRadius: 5, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "5px 12px", cursor: "pointer" }}>CLOSE @ ${live.toFixed(2)}</button>
+                <button onClick={() => deleteTrade(t.id)} style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", fontSize: 13 }}>✕</button>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Closed history (compact) */}
+      {closed.length > 0 && (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginTop: 4 }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 6, letterSpacing: "0.08em" }}>CLOSED ({closed.length})</div>
+          {closed.slice(0, 10).map(t => {
+            const pnl = (t.exit - t.entry) * t.shares;
+            const win = pnl > 0;
+            return (
+              <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: `1px solid ${C.border}22` }}>
+                <span style={{ fontFamily: MONO, fontSize: 12 }}>
+                  <span style={{ color: win ? C.green : C.red }}>{win ? "✓" : "✗"}</span>
+                  <span style={{ fontWeight: 800, color: C.text, marginLeft: 6 }}>{t.ticker}</span>
+                  <span style={{ color: C.textDim, marginLeft: 6 }}>${t.entry} → ${t.exit}</span>
+                </span>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: win ? C.green : C.red }}>{pnl >= 0 ? "+" : ""}${pnl.toFixed(0)}</span>
+                  <button onClick={() => deleteTrade(t.id)} style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", fontSize: 11 }}>✕</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, setActiveTab, setScanExpanded, loadDeepDive, scanResults }) {
   const spyQ   = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
   const spyChg = Number(spyQ?.changesPercentage || 0);
@@ -4693,6 +4869,9 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, setActiveTab, 
           ))}
         </div>
       </div>
+
+      {/* Trade Tracker — your open positions + exit alerts */}
+      <TradeTracker C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} />
 
       {/* Market check */}
       <div style={{ padding: "10px 16px", marginBottom: 16, borderRadius: 8,
