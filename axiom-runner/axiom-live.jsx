@@ -2716,94 +2716,99 @@ function TerminalWorkspace({
         />
       </div>
 
-      {/* ── RIGHT: Clean sidebar ── */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto", maxHeight: "calc(100vh - 130px)" }}>
+      {/* ── RIGHT: One clean card — no empty sections ── */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflowY: "auto", maxHeight: "calc(100vh - 130px)" }}>
 
-        {/* Scores */}
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em" }}>COMPOSITE SCORE</span>
-            <span style={{ fontFamily: MONO, fontSize: 24, fontWeight: 900, color: sigCol2 }}>{scores2.composite}</span>
+        {/* Score header */}
+        <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em" }}>SCORE</div>
+            <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: sigCol2, lineHeight: 1 }}>{scores2.composite}<span style={{ fontSize: 11, color: C.textDim }}>/100</span></div>
           </div>
-          <div style={{ height: 5, background: C.surface, borderRadius: 3, overflow: "hidden", marginBottom: 10 }}>
-            <div style={{ width: `${scores2.composite}%`, height: "100%", background: sigCol2, borderRadius: 3 }} />
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
-            {[["TECH", scores2.tech, C.cyan], ["FUND", scores2.fund, C.purple], ["MACRO", scores2.macro, C.amber]].map(([l,v,col]) => (
-              <div key={l} style={{ textAlign: "center", background: C.surface, borderRadius: 6, padding: "6px 0" }}>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{l}</div>
-                <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: col }}>{v}</div>
-              </div>
-            ))}
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: sigCol2, background: `${sigCol2}18`, borderRadius: 5, padding: "3px 10px" }}>{sig2}</div>
+            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>T:{scores2.tech} F:{scores2.fund} M:{scores2.macro}</div>
           </div>
         </div>
+        <div style={{ height: 4, background: C.surface }}><div style={{ width: `${scores2.composite}%`, height: "100%", background: sigCol2, transition: "width 0.4s" }} /></div>
 
-        {/* Key Levels */}
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px" }}>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>KEY LEVELS</div>
-          {[
-            ["52W High", hi52v > 0 ? `$${hi52v.toFixed(2)}` : "—", px2 >= hi52v * 0.95 ? C.amber : C.text],
-            ["MA 50",   ma50v > 0  ? `$${ma50v.toFixed(2)}`  : "—", px2 > ma50v  ? C.green : C.red],
-            ["Price",   `$${px2.toFixed(2)}`,                        C.accent],
-            ["MA 200",  ma200v > 0 ? `$${ma200v.toFixed(2)}` : "—", px2 > ma200v ? C.green : C.red],
-            ["52W Low", lo52v > 0  ? `$${lo52v.toFixed(2)}`  : "—", px2 <= lo52v * 1.08 ? C.amber : C.text],
-          ].map(([l,v,col]) => (
-            <div key={l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
-              <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
-              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{v}</span>
-            </div>
-          ))}
-        </div>
+        {/* All rows in one table — no section headers for empty data */}
+        <div style={{ padding: "0 14px" }}>
 
-        {/* Trade Setup */}
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px" }}>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>TRADE SETUP</div>
-          {[
-            ["Entry",    `$${px2.toFixed(2)}`,             C.text],
-            ["Stop",     stopV > 0 ? `$${stopV.toFixed(2)}` : "—", C.red],
-            ["Target 1", t1V > 0   ? `$${t1V.toFixed(2)}`   : "—", C.green],
-            ["Target 2", t2V > 0   ? `$${t2V.toFixed(2)}`   : "—", C.green],
-          ].map(([l,v,col]) => (
-            <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
-              <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
-              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{v}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Market Strip */}
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px" }}>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>MARKET</div>
-          {leaderTape.slice(0, 6).map(q => {
-            const qc = Number(q.changesPercentage || 0);
-            return (
-              <div key={q.symbol} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: `1px solid ${C.border}22` }}>
-                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>{q.symbol}</span>
-                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: qc >= 0 ? C.green : C.red }}>{qc >= 0 ? "+" : ""}{qc.toFixed(2)}%</span>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Top setups */}
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px" }}>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>TOP SETUPS</div>
-          {terminalRankRows.slice(0, 5).map(q => {
-            const qc = Number(q.changesPercentage || 0);
-            const qs = q.s?.composite >= 72 ? "BUY" : q.s?.composite >= 55 ? "WATCH" : "HOLD";
-            const qcol = qs === "BUY" ? C.green : qs === "WATCH" ? C.amber : C.textDim;
-            return (
-              <div key={q.symbol} onClick={() => onSelectSymbol(q.symbol)}
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
-                  padding: "5px 0", borderBottom: `1px solid ${C.border}22`, cursor: "pointer" }}>
-                <div>
-                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: q.symbol === selected.symbol ? C.accent : C.text }}>{q.symbol}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 9, color: qcol, background: `${qcol}18`, borderRadius: 3, padding: "1px 4px", marginLeft: 5 }}>{qs}</span>
+          {/* Key levels — only show rows with real data */}
+          {px2 > 0 && (
+            <>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", padding: "10px 0 4px" }}>KEY LEVELS</div>
+              {[
+                hi52v > 0 && ["52W High", `$${hi52v.toFixed(2)}`, px2 >= hi52v*0.95 ? C.amber : C.text],
+                ma50v > 0 && ["MA 50",   `$${ma50v.toFixed(2)}`,  px2 > ma50v ? C.green : C.red],
+                            ["Price",    `$${px2.toFixed(2)}`,    C.accent],
+                ma200v > 0 && ["MA 200", `$${ma200v.toFixed(2)}`, px2 > ma200v ? C.green : C.red],
+                lo52v > 0 && ["52W Low", `$${lo52v.toFixed(2)}`,  px2 <= lo52v*1.08 ? C.amber : C.text],
+              ].filter(Boolean).map(([l,v,col]) => (
+                <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
+                  <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{v}</span>
                 </div>
-                <span style={{ fontFamily: MONO, fontSize: 12, color: qc >= 0 ? C.green : C.red }}>{qc >= 0 ? "+" : ""}{qc.toFixed(1)}%</span>
-              </div>
-            );
-          })}
+              ))}
+            </>
+          )}
+
+          {/* Trade setup — only show if we have a price */}
+          {px2 > 0 && stopV > 0 && (
+            <>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", padding: "10px 0 4px" }}>TRADE SETUP</div>
+              {[
+                ["Entry",    `$${px2.toFixed(2)}`,     C.text],
+                ["Stop",     `$${stopV.toFixed(2)}`,   C.red],
+                ["Target 1", `$${t1V.toFixed(2)}`,     C.green],
+                ["Target 2", `$${t2V.toFixed(2)}`,     C.green],
+              ].map(([l,v,col]) => (
+                <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
+                  <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{v}</span>
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* Market — only show if we have data */}
+          {leaderTape.length > 0 && (
+            <>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", padding: "10px 0 4px" }}>MARKET</div>
+              {leaderTape.slice(0, 5).map(q => {
+                const qc = Number(q.changesPercentage || 0);
+                return (
+                  <div key={q.symbol} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: `1px solid ${C.border}22` }}>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>{q.symbol}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: qc >= 0 ? C.green : C.red }}>{qc >= 0 ? "+" : ""}{qc.toFixed(2)}%</span>
+                  </div>
+                );
+              })}
+            </>
+          )}
+
+          {/* Watchlist top setups — only if loaded */}
+          {terminalRankRows.length > 0 && (
+            <>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", padding: "10px 0 4px" }}>TOP SETUPS</div>
+              {terminalRankRows.slice(0, 6).map(q => {
+                const qc = Number(q.changesPercentage || 0);
+                const qs = q.s?.composite >= 72 ? "BUY" : q.s?.composite >= 55 ? "WATCH" : "HOLD";
+                const qcol = qs === "BUY" ? C.green : qs === "WATCH" ? C.amber : C.textDim;
+                return (
+                  <div key={q.symbol} onClick={() => onSelectSymbol(q.symbol)}
+                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: `1px solid ${C.border}22`, cursor: "pointer" }}>
+                    <div>
+                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: q.symbol === selected.symbol ? C.accent : C.text }}>{q.symbol}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 9, color: qcol, background: `${qcol}18`, borderRadius: 3, padding: "1px 4px", marginLeft: 5 }}>{qs}</span>
+                    </div>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: qc >= 0 ? C.green : C.red }}>{qc >= 0 ? "+" : ""}{qc.toFixed(1)}%</span>
+                  </div>
+                );
+              })}
+            </>
+          )}
         </div>
       </div>
 
