@@ -157,6 +157,94 @@ Write ONLY the reply text, nothing else.`;
   }
 }
 
+// ── Draft reply for Chrome extension (Dixie Motors rules) ─────────────────────
+function detectIntent(text) {
+  const t = text.toLowerCase();
+  if (/refund|lawyer|legal|sue|title problem|contract|scam|complaint|attorney|dispute/.test(t)) return "HUMAN_TAKEOVER";
+  if (/finance|financing|credit|loan|approv|monthly|payment|apr|interest/.test(t)) return "FINANCING";
+  if (/trade|trade-in|trade in|my car|worth/.test(t)) return "TRADE_IN";
+  if (/down ?payment|how much down|deposit/.test(t)) return "DOWN_PAYMENT";
+  if (/appointment|test drive|come in|visit|see the car|schedule|when can/.test(t)) return "APPOINTMENT";
+  if (/price|cost|how much|asking/.test(t)) return "PRICE";
+  if (/available|still have|in stock|sold/.test(t)) return "AVAILABILITY";
+  return "GENERAL";
+}
+
+function detectLanguage(text) {
+  if (/[؀-ۿ]/.test(text)) return "Arabic";
+  // crude Spanish heuristic
+  if (/\b(hola|gracias|cu[aá]nto|cuesta|precio|tienes|carro|coche|enganche|pago|cita|disponible|s[ií]|por favor)\b/i.test(text)) return "Spanish";
+  return "English";
+}
+
+async function draftDealerReply(customerMsg, history) {
+  const intent = detectIntent(customerMsg);
+  const lang   = detectLanguage(customerMsg);
+
+  // Human takeover — don't draft, tell the owner
+  if (intent === "HUMAN_TAKEOVER") {
+    return {
+      ok: true, intent, language: lang, humanTakeover: true,
+      reply: "⚠️ HUMAN TAKEOVER REQUIRED — this message involves a refund / legal / title / contract issue. Handle this one personally, do not use an auto-draft.",
+    };
+  }
+
+  const apiKey = (process.env.ANTHROPIC_API_KEY || "").trim();
+  const cfg = readJsonFile(AI_CFG_FILE, {});
+  const inv = readJsonFile(INV_FILE, []);
+  const invSummary = Array.isArray(inv) && inv.length
+    ? inv.slice(0, 30).map(v => `${v.year||""} ${v.make||""} ${v.model||""} — $${v.price||v.askingPrice||"?"}${v.mileage?` · ${v.mileage}mi`:""}`).join("\n")
+    : "No inventory loaded.";
+  const hist = (history || []).slice(-6).map(m => `${m.from === "customer" ? "Customer" : "Me"}: ${m.text}`).join("\n");
+
+  // Fallback templates if no API key
+  if (!apiKey) {
+    const templates = {
+      FINANCING:    "We finance with approved credit (W.A.C.). What monthly payment works for your budget, and how much were you thinking for a down payment?",
+      DOWN_PAYMENT: "Great question! What down payment amount were you planning on? That helps me find the right vehicle for you.",
+      TRADE_IN:     "We take trade-ins! What's the year, make, model, and mileage of your current vehicle?",
+      APPOINTMENT:  "I'd love to set up a time for you. What day and time works best to come see it?",
+      PRICE:        "Thanks for your interest! Which vehicle are you asking about? I'll get you the price right away.",
+      AVAILABILITY: "Let me check on that for you — which vehicle are you interested in?",
+      GENERAL:      "Thanks for reaching out to Dixie Motors! How can I help you today?",
+    };
+    return { ok: true, intent, language: lang, humanTakeover: false, reply: templates[intent] || templates.GENERAL, source: "template" };
+  }
+
+  const langRule = lang === "Arabic" ? "The customer wrote in Arabic — reply ONLY in Arabic."
+                 : lang === "Spanish" ? "The customer wrote in Spanish — reply ONLY in Spanish."
+                 : "Reply in English.";
+
+  const prompt = `You are helping the owner of Dixie Motors (used car dealership, Fairfield, Ohio) reply to a Facebook customer message. Write a reply the owner will review and send manually.
+
+INVENTORY:
+${invSummary}
+${cfg.customInstructions ? `\nOWNER NOTES:\n${cfg.customInstructions}\n` : ""}
+CONVERSATION:
+${hist || "(first message)"}
+
+CUSTOMER MESSAGE: "${customerMsg}"
+DETECTED INTENT: ${intent}
+
+STRICT RULES:
+- ${langRule}
+- NEVER say "guaranteed approval" or promise approval. For financing always say "with approved credit (W.A.C.)".
+- For financing/buying: ask for DOWN PAYMENT amount and MONTHLY BUDGET.
+- Ask only ONE question at a time.
+- Keep the reply SHORT — 1-2 sentences max. Friendly, like a real person texting.
+- Never invent cars or prices not in inventory.
+- Sound human and warm, not corporate.
+
+Write ONLY the reply text.`;
+
+  try {
+    const reply = await callAnthropicApi(prompt, apiKey, { model: "claude-sonnet-4-6", maxTokens: 300 });
+    return { ok: true, intent, language: lang, humanTakeover: false, reply: (reply || "").trim(), source: "ai" };
+  } catch (e) {
+    return { ok: false, intent, language: lang, humanTakeover: false, reply: "", error: e.message };
+  }
+}
+
 // ── Incoming webhook event processing ────────────────────────────────────────
 
 async function processMessagingEvent(event) {
@@ -232,6 +320,16 @@ async function processMessagingEvent(event) {
 
 async function handleFbHub(req, res, pathname, searchParams, body) {
 
+  // ── CORS preflight for Chrome extension ──
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    });
+    return res.end();
+  }
+
   // ── Webhook verification (Facebook calls this once during setup) ──
   if (pathname === "/api/dealer/fb/webhook" && req.method === "GET") {
     const mode      = searchParams.get("hub.mode");
@@ -290,6 +388,16 @@ async function handleFbHub(req, res, pathname, searchParams, body) {
     if (!message) return writeJson(res, 400, { error: "message required" });
     const reply = await generateAiReply(message, []);
     return writeJson(res, 200, { ok: Boolean(reply), reply: reply || "AI not configured — set ANTHROPIC_API_KEY" });
+  }
+
+  // ── DRAFT reply for Chrome extension (manual review, never auto-sends) ──
+  if (pathname === "/api/dealer/fb/draft" && req.method === "POST") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    const { message, history } = typeof body === "string" ? JSON.parse(body || "{}") : body;
+    if (!message) return writeJson(res, 400, { error: "message required" });
+    const result = await draftDealerReply(message, history || []);
+    return writeJson(res, 200, result);
   }
 
   // ── Mark thread as read ──

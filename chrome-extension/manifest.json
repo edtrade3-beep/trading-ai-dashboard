@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Dixie Motors — Messenger Reply Helper",
+  "version": "1.0.0",
+  "description": "Draft fast, professional replies to Facebook customer messages. You review and send manually. Captures leads + appointments.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "https://trading-ai-dashboard-i6pf.onrender.com/*"
+  ],
+  "action": {
+    "default_title": "Dixie Motors Helper",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.facebook.com/*", "https://*.messenger.com/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
