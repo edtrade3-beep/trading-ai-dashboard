@@ -4558,6 +4558,206 @@ function CryptoTab({ C, MONO, SANS }) {
 // ── Trade Planner Tab ────────────────────────────────────────────────────────
 // ─── DIP BUY TAB ─────────────────────────────────────────────────────────────
 // Shows best stocks to buy during market sell-offs / red days
+// ── Green Light scoring (used in both tab and smart scan) ─────────────────────
+function computeGreenLight(q, spyChg, scanRow) {
+  const px     = Number(q?.price || q?.regularMarketPrice || 0);
+  const ma50   = Number(q?.priceAvg50 || q?.fiftyDayAverage || 0);
+  const ma200  = Number(q?.priceAvg200 || q?.twoHundredDayAverage || 0);
+  const ema21  = Number(scanRow?.ema21v || 0);
+  const rsi    = Number(scanRow?.rsiVal || 0) || 50;
+  const vol    = Number(q?.volume || 0);
+  const avgVol = Number(q?.avgVolume || 0);
+  const rvol   = avgVol > 0 ? vol / avgVol : 0;
+  const chg    = Number(q?.changesPercentage || 0);
+
+  const checks = [
+    { label: "Market safe",        pass: spyChg > -1,                               tip: `SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}%` },
+    { label: "Above 50D MA",       pass: ma50 > 0 && px > ma50,                     tip: ma50 > 0 ? `Price $${px.toFixed(2)} vs MA50 $${ma50.toFixed(2)}` : "No MA50 data" },
+    { label: "RSI 35–65",          pass: rsi >= 35 && rsi <= 65,                    tip: `RSI ${rsi.toFixed(0)}` },
+    { label: "Volume active",      pass: rvol >= 1.2 || vol === 0,                  tip: rvol > 0 ? `RVOL ${rvol.toFixed(1)}x` : "No volume data" },
+    { label: "Near EMA21/MA50",    pass: ema21 > 0 ? (px <= ema21 * 1.03 && px >= ema21 * 0.97) : (ma50 > 0 && px <= ma50 * 1.05 && px >= ma50 * 0.95), tip: ema21 > 0 ? `EMA21 $${ema21.toFixed(2)}` : `MA50 $${ma50.toFixed(2)}` },
+  ];
+
+  const passed = checks.filter(c => c.pass).length;
+  const signal = passed >= 4 ? "GREEN" : passed >= 3 ? "YELLOW" : "RED";
+  const stop   = px > 0 ? (px * 0.97).toFixed(2) : 0;
+  const t1     = px > 0 ? (px * 1.05).toFixed(2) : 0;
+  const t2     = px > 0 ? (px * 1.10).toFixed(2) : 0;
+
+  return { checks, passed, signal, px, chg, stop, t1, t2, rvol, rsi };
+}
+
+function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, setActiveTab, setScanExpanded, loadDeepDive, scanResults }) {
+  const spyQ   = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
+  const spyChg = Number(spyQ?.changesPercentage || 0);
+
+  // Build results from watchlist + scan data
+  const results = (watchlistData || []).map(q => {
+    const scanRow = (scanResults || []).find(r => r.ticker === q.symbol);
+    const gl = computeGreenLight(q, spyChg, scanRow);
+    return { ...gl, symbol: q.symbol, name: q.name, q };
+  }).filter(r => r.px > 0).sort((a, b) => b.passed - a.passed || b.chg - a.chg);
+
+  const green  = results.filter(r => r.signal === "GREEN");
+  const yellow = results.filter(r => r.signal === "YELLOW");
+  const red    = results.filter(r => r.signal === "RED");
+
+  const sigBg  = s => s === "GREEN" ? `${C.green}18` : s === "YELLOW" ? `${C.amber}18` : `${C.red}10`;
+  const sigCol = s => s === "GREEN" ? C.green : s === "YELLOW" ? C.amber : C.red;
+  const sigIcon= s => s === "GREEN" ? "🟢" : s === "YELLOW" ? "🟡" : "🔴";
+
+  const openDive = (sym) => {
+    setActiveTab("smartscan");
+    setTimeout(() => { setScanExpanded(sym); loadDeepDive(sym); }, 100);
+  };
+
+  const Row = ({ r }) => (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${sigCol(r.signal)}`,
+      borderRadius: 10, padding: "12px 16px", marginBottom: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        {/* Signal badge */}
+        <div style={{ background: sigBg(r.signal), border: `1px solid ${sigCol(r.signal)}44`,
+          borderRadius: 8, padding: "6px 12px", textAlign: "center", minWidth: 80 }}>
+          <div style={{ fontSize: 18 }}>{sigIcon(r.signal)}</div>
+          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: sigCol(r.signal) }}>
+            {r.signal === "GREEN" ? "GO" : r.signal === "YELLOW" ? "WAIT" : "SKIP"}
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{r.passed}/5</div>
+        </div>
+
+        {/* Ticker info */}
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 6 }}>
+            <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.accent }}>{r.symbol}</span>
+            <span style={{ fontFamily: MONO, fontSize: 14, color: C.text }}>${r.px.toFixed(2)}</span>
+            <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: r.chg >= 0 ? C.green : C.red }}>
+              {r.chg >= 0 ? "+" : ""}{r.chg.toFixed(2)}%
+            </span>
+            {r.rvol > 1.5 && <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber, background: `${C.amber}18`, borderRadius: 4, padding: "1px 6px" }}>VOL {r.rvol.toFixed(1)}x</span>}
+          </div>
+          {/* Checklist */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {r.checks.map((c, i) => (
+              <span key={i} title={c.tip}
+                style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                  color: c.pass ? C.green : C.red,
+                  background: c.pass ? `${C.green}15` : `${C.red}10`,
+                  border: `1px solid ${c.pass ? C.green : C.red}33`,
+                  borderRadius: 4, padding: "2px 7px" }}>
+                {c.pass ? "✓" : "✗"} {c.label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Trade levels */}
+        {r.signal === "GREEN" && (
+          <div style={{ textAlign: "right", borderLeft: `1px solid ${C.border}`, paddingLeft: 12 }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 4 }}>IF YOU BUY NOW</div>
+            {[["STOP", r.stop, C.red], ["T1 +5%", r.t1, C.green], ["T2 +10%", r.t2, C.green]].map(([l,v,col]) => (
+              <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{l}</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: col }}>${v}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button onClick={() => openDive(r.symbol)}
+          style={{ background: `${C.accent}15`, border: `1px solid ${C.accent}44`, color: C.accent,
+            borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700,
+            padding: "6px 12px", cursor: "pointer" }}>
+          DEEP DIVE
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ padding: "16px 20px", maxWidth: 1000, margin: "0 auto" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.text }}>🟢 GREEN LIGHT SYSTEM</div>
+          <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 3 }}>
+            Your personal 5-check trading system — only trade GREEN LIGHT stocks
+          </div>
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
+          {[["🟢", green.length, "READY TO BUY", C.green], ["🟡", yellow.length, "WATCH", C.amber], ["🔴", red.length, "SKIP", C.red]].map(([icon,n,l,col]) => (
+            <div key={l} style={{ background: `${col}12`, border: `1px solid ${col}33`, borderRadius: 8, padding: "8px 14px", textAlign: "center" }}>
+              <div style={{ fontSize: 18 }}>{icon}</div>
+              <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: col }}>{n}</div>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Market check */}
+      <div style={{ padding: "10px 16px", marginBottom: 16, borderRadius: 8,
+        background: spyChg > -1 ? `${C.green}12` : `${C.red}12`,
+        border: `1px solid ${spyChg > -1 ? C.green : C.red}44`,
+        display: "flex", alignItems: "center", gap: 12 }}>
+        <span style={{ fontSize: 20 }}>{spyChg > -1 ? "✅" : "🚨"}</span>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: spyChg > -1 ? C.green : C.red }}>
+            {spyChg > -1 ? "MARKET SAFE — GREEN LIGHT TRADES ALLOWED" : "MARKET DANGER — AVOID ALL TRADES TODAY"}
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+            SPY {spyChg >= 0 ? "+" : ""}{spyChg.toFixed(2)}% — {spyChg > -1 ? "Rule #1 passed ✓" : "Rule #1 FAILED — sit out regardless of other signals"}
+          </div>
+        </div>
+      </div>
+
+      {/* Rules reminder */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8, marginBottom: 16 }}>
+        {["Market safe","Above 50D MA","RSI 35–65","Volume active","Near EMA21"].map((r,i) => (
+          <div key={r} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+            <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.accent }}>#{i+1}</div>
+            <div style={{ fontFamily: SANS, fontSize: 11, color: C.text, marginTop: 2 }}>{r}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* GREEN results */}
+      {green.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.green, marginBottom: 10, letterSpacing: "0.06em" }}>
+            🟢 READY TO TRADE ({green.length})
+          </div>
+          {green.map(r => <Row key={r.symbol} r={r} />)}
+        </div>
+      )}
+
+      {/* YELLOW results */}
+      {yellow.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.amber, marginBottom: 10, letterSpacing: "0.06em" }}>
+            🟡 WATCH LIST — ALMOST READY ({yellow.length})
+          </div>
+          {yellow.map(r => <Row key={r.symbol} r={r} />)}
+        </div>
+      )}
+
+      {/* RED — collapsed */}
+      {red.length > 0 && (
+        <div style={{ padding: "10px 14px", background: `${C.red}08`, border: `1px solid ${C.red}22`, borderRadius: 8 }}>
+          <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>
+            🔴 SKIP TODAY ({red.length}): {red.map(r => r.symbol).join(" · ")}
+          </div>
+        </div>
+      )}
+
+      {results.length === 0 && (
+        <div style={{ textAlign: "center", padding: "48px 0", fontFamily: MONO, fontSize: 14, color: C.textDim }}>
+          Add stocks to your watchlist to see Green Light scores
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DipBuyTab({ C, MONO, SANS, watchlistData, macroData, setActiveTab, setScanExpanded, loadDeepDive }) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -11299,7 +11499,7 @@ export default function App() {
     try {
       const t = localStorage.getItem("last_tab");
       // Restore only safe tabs (don't restore modals/dialogs)
-      const safeTabs = ["dashboard","briefing","terminal","tv","multitf","fibonacci","scanner","smartscan","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","portfolio","performance","journal","journal-stats","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","morning-routine","challenge","recap","dipbuy","tradeplanner","under10","compression","quran","athan","athkar","tasbih","halal","soccer"];
+      const safeTabs = ["dashboard","briefing","terminal","tv","multitf","fibonacci","scanner","smartscan","greenlight","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","portfolio","performance","journal","journal-stats","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","morning-routine","challenge","recap","dipbuy","tradeplanner","under10","compression","quran","athan","athkar","tasbih","halal","soccer"];
       return (t && safeTabs.includes(t)) ? t : "dashboard";
     } catch { return "dashboard"; }
   });
@@ -15089,7 +15289,7 @@ export default function App() {
             const NAV_GROUPS = [
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard", "briefing"] },
               { id: "terminal",   label: "📈 CHART",      tabs: ["terminal", "tv", "multitf"] },
-              { id: "scanner",    label: "🔍 SCAN",       tabs: ["combined", "smartscan", "tradeplanner", "dipbuy", "adol22", "compression", "under10"] },
+              { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "combined", "smartscan", "tradeplanner", "dipbuy", "adol22", "compression", "under10"] },
               { id: "markets",    label: "🌍 MARKETS",    tabs: ["news", "macro", "econ-cal", "crypto"] },
               { id: "portfolio",  label: "💼 PORTFOLIO",  tabs: ["portfolio", "journal", "performance"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["education", "notes"] },
@@ -15445,6 +15645,7 @@ export default function App() {
             { id: "tv",         label: "📺 TV LIVE" },
           ],
           scanner: [
+            { id: "greenlight",   label: "🟢 GREEN LIGHT" },
             { id: "combined",     label: "⚡ BEST SETUPS" },
             { id: "smartscan",    label: "🧠 SMART SCAN" },
             { id: "tradeplanner", label: "🎯 TRADE PLAN" },
@@ -18833,6 +19034,22 @@ export default function App() {
                                   const ma50 = Number(row.quote?.priceAvg50 || 0);
                                   const rvol = row.quote?.volume && row.quote?.avgVolume ? row.quote.volume / row.quote.avgVolume : 0;
                                   const chg1w = Number(row.quote?.delta1w || 0);
+
+                                  // ── 🟢 GREEN LIGHT SYSTEM — 5 checks ──
+                                  (() => {
+                                    const spyChgGL = Number((macroData || []).find(m => m.symbol === "SPY")?.changesPercentage || 0);
+                                    const rsiGL = rsi != null ? rsi : 50;
+                                    const glChecks = [
+                                      spyChgGL > -1,                                                       // market safe
+                                      ma50 > 0 && px > ma50,                                               // above 50D
+                                      rsiGL >= 35 && rsiGL <= 65,                                          // RSI sweet spot
+                                      rvol >= 1.2 || rvol === 0,                                           // volume active
+                                      ema21 > 0 ? (px <= ema21 * 1.03 && px >= ema21 * 0.97) : (ma50 > 0 && px <= ma50 * 1.05 && px >= ma50 * 0.95), // near entry zone
+                                    ];
+                                    const passed = glChecks.filter(Boolean).length;
+                                    if (passed >= 4)      chips.push({ txt: `🟢 GREEN LIGHT ${passed}/5`, col: C.green, title: "Green Light System: 4+ checks passed — BUY zone" });
+                                    else if (passed === 3) chips.push({ txt: `🟡 ALMOST ${passed}/5`,     col: C.amber, title: "Green Light System: 3/5 — watch, almost ready" });
+                                  })();
 
                                   // RSI signal
                                   if (rsi != null) {
@@ -25607,6 +25824,7 @@ export default function App() {
       {/* ── CUSTOM SCREENER ──────────────────────────────────────────────── */}
       {activeTab === "tradeplanner" && <TradePlannerTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "dipbuy" && <DipBuyTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} setActiveTab={setActiveTab} setScanExpanded={setScanExpanded} loadDeepDive={loadDeepDive} />}
+      {activeTab === "greenlight" && <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} setActiveTab={setActiveTab} setScanExpanded={setScanExpanded} loadDeepDive={loadDeepDive} scanResults={scanResults} />}
       {activeTab === "under10" && <Under10Tab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "combined"     && <CombinedTab     C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols}
         onDeepDive={(sym, row) => {
