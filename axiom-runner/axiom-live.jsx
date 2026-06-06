@@ -15607,13 +15607,14 @@ export default function App() {
           {/* Nav tabs — grouped */}
           {(() => {
             const NAV_GROUPS = [
-              { id: "dashboard", label: "📊 MONITOR",    tabs: ["dashboard", "briefing"] },
-              { id: "terminal",  label: "📈 CHART",      tabs: ["terminal", "tv"] },
-              { id: "scanner",   label: "🔍 SCAN",       tabs: ["combined", "smartscan", "tradeplanner", "adol22", "compression", "under10"] },
-              { id: "markets",   label: "🌍 MARKETS",    tabs: ["news", "macro", "econ-cal", "crypto"] },
-              { id: "portfolio", label: "💼 PORTFOLIO",  tabs: ["portfolio", "journal", "performance"] },
-              { id: "tools",     label: "🛠 TOOLS",      tabs: ["notes", "education", "morning-routine", "challenge", "recap", "tools"] },
-              { id: "islamic",   label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih", "halal", "soccer"] },
+              { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard", "briefing"] },
+              { id: "terminal",   label: "📈 CHART",      tabs: ["terminal", "tv"] },
+              { id: "scanner",    label: "🔍 SCAN",       tabs: ["combined", "smartscan", "tradeplanner", "dipbuy", "adol22", "compression", "under10"] },
+              { id: "markets",    label: "🌍 MARKETS",    tabs: ["news", "macro", "econ-cal", "crypto"] },
+              { id: "portfolio",  label: "💼 PORTFOLIO",  tabs: ["portfolio", "journal", "performance"] },
+              { id: "education",  label: "🎓 LEARN",      tabs: ["education", "notes"] },
+              { id: "tools",      label: "🛠 TOOLS",      tabs: ["morning-routine", "challenge", "recap", "tools"] },
+              { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih", "halal", "soccer"] },
             ];
             const scannerBadge = scannerRows.filter(r => r.scannerScore >= 70).length || null;
             return (
@@ -15982,9 +15983,11 @@ export default function App() {
             { id: "journal",      label: "📓 JOURNAL" },
             { id: "performance",  label: "📊 STATS" },
           ],
-          tools: [
-            { id: "notes",           label: "📝 NOTES" },
+          education: [
             { id: "education",       label: "🎓 EDUCATION" },
+            { id: "notes",           label: "📝 NOTES" },
+          ],
+          tools: [
             { id: "morning-routine", label: "☀️ MORNING" },
             { id: "challenge",       label: "🏆 30-DAY" },
             { id: "recap",           label: "🎬 RECAP" },
