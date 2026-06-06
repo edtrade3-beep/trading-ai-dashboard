@@ -2816,6 +2816,604 @@ function TerminalWorkspace({
   );
 }
 
+// ─── PINE SCRIPT TAB ─────────────────────────────────────────────────────────
+const PINE_STORAGE_KEY = "axiom_pine_scripts_v1";
+
+const PINE_TEMPLATES = [
+  { name: "EMA Cross Strategy", cat: "TREND", code: `//@version=5
+strategy("EMA Cross", overlay=true)
+
+// Settings
+fast = input.int(9, "Fast EMA")
+slow = input.int(21, "Slow EMA")
+rsiLen = input.int(14, "RSI Period")
+rsiFilter = input.int(50, "RSI Min for Buy")
+
+// Indicators
+emaFast = ta.ema(close, fast)
+emaSlow = ta.ema(close, slow)
+rsi = ta.rsi(close, rsiLen)
+
+// Signals
+bullCross = ta.crossover(emaFast, emaSlow)
+bearCross = ta.crossunder(emaFast, emaSlow)
+
+// Entry conditions
+longCond  = bullCross and rsi > rsiFilter
+shortCond = bearCross and rsi < (100 - rsiFilter)
+
+// Execute
+if longCond
+    strategy.entry("Long", strategy.long)
+if shortCond
+    strategy.close("Long")
+
+// Plot
+plot(emaFast, "EMA Fast", color=color.green, linewidth=2)
+plot(emaSlow, "EMA Slow", color=color.orange, linewidth=2)
+plotshape(longCond, "Buy", shape.triangleup, location.belowbar, color.green, size=size.small)
+plotshape(shortCond, "Sell", shape.triangledown, location.abovebar, color.red, size=size.small)` },
+
+  { name: "RSI Divergence Alert", cat: "OSCILLATOR", code: `//@version=5
+indicator("RSI Divergence", overlay=false)
+
+rsiLen = input.int(14, "RSI Length")
+oversold  = input.int(30, "Oversold Level")
+overbought= input.int(70, "Overbought Level")
+
+rsi = ta.rsi(close, rsiLen)
+
+// Divergence detection (simplified)
+priceLow  = ta.lowest(close, 5)
+rsiLow    = ta.lowest(rsi, 5)
+
+bullDiv = close == priceLow and rsi > rsiLow and rsi < oversold + 10
+bearDiv = close == ta.highest(close, 5) and rsi < ta.highest(rsi, 5) and rsi > overbought - 10
+
+plot(rsi, "RSI", color=color.purple, linewidth=2)
+hline(oversold,   "Oversold",   color.green, linestyle=hline.style_dashed)
+hline(overbought, "Overbought", color.red,   linestyle=hline.style_dashed)
+hline(50, "Mid", color.gray, linestyle=hline.style_dotted)
+
+bgcolor(bullDiv ? color.new(color.green, 80) : na, title="Bull Div")
+bgcolor(bearDiv ? color.new(color.red,   80) : na, title="Bear Div")
+plotshape(bullDiv, "Bull Div", shape.labelup,   location.bottom, color.green, text="DIV↑")
+plotshape(bearDiv, "Bear Div", shape.labeldown, location.top,    color.red,   text="DIV↓")` },
+
+  { name: "Bollinger Band Squeeze", cat: "VOLATILITY", code: `//@version=5
+indicator("BB Squeeze", overlay=true)
+
+length = input.int(20, "BB Length")
+mult   = input.float(2.0, "BB Multiplier")
+kc_mult= input.float(1.5, "KC Multiplier")
+
+// Bollinger Bands
+basis = ta.sma(close, length)
+dev   = mult * ta.stdev(close, length)
+upper_bb = basis + dev
+lower_bb = basis - dev
+
+// Keltner Channel
+tr    = ta.tr
+kc_basis = ta.ema(close, length)
+kc_range = ta.ema(tr, length)
+upper_kc = kc_basis + kc_mult * kc_range
+lower_kc = kc_basis - kc_mult * kc_range
+
+// Squeeze: BB inside KC
+squeeze = lower_bb > lower_kc and upper_bb < upper_kc
+momentum = ta.linreg(close - math.avg(ta.highest(high, length), ta.lowest(low, length)), length, 0)
+
+plot(basis, "Mid", color.gray)
+p1 = plot(upper_bb, "Upper BB", color.blue)
+p2 = plot(lower_bb, "Lower BB", color.blue)
+fill(p1, p2, color=color.new(color.blue, 90))
+
+// Squeeze dots on price chart
+plotshape(squeeze, "Squeeze", shape.circle, location.bottom,
+    color=squeeze ? color.red : color.green, size=size.tiny)` },
+
+  { name: "VWAP + MA Strategy", cat: "INSTITUTIONAL", code: `//@version=5
+indicator("VWAP + MA", overlay=true)
+
+maLen  = input.int(50, "MA Length")
+showMA200 = input.bool(true, "Show MA200")
+
+// VWAP
+vwap_val = ta.vwap(hlc3)
+
+// MAs
+ma50  = ta.sma(close, maLen)
+ma200 = ta.sma(close, 200)
+
+// Signals
+aboveVwap = close > vwap_val
+aboveMa50 = close > ma50
+bullish = aboveVwap and aboveMa50
+
+plot(vwap_val, "VWAP", color=color.yellow, linewidth=2)
+plot(ma50, "MA50", color=color.orange, linewidth=2)
+plot(showMA200 ? ma200 : na, "MA200", color=color.red, linewidth=1)
+
+// Background color
+bgcolor(bullish ? color.new(color.green, 95) : color.new(color.red, 95))
+
+// Labels
+if ta.crossover(close, vwap_val)
+    label.new(bar_index, low, "VWAP↑", color=color.green, style=label.style_label_up, size=size.small)
+if ta.crossunder(close, vwap_val)
+    label.new(bar_index, high, "VWAP↓", color=color.red, style=label.style_label_down, size=size.small)` },
+
+  { name: "Smart Money — Order Block Finder", cat: "SMC", code: `//@version=5
+indicator("Order Block Finder", overlay=true)
+
+lookback = input.int(10, "Lookback Bars")
+showBullOB = input.bool(true, "Show Bullish OBs")
+showBearOB = input.bool(true, "Show Bearish OBs")
+
+// Bullish Order Block: last bearish candle before strong bullish move
+// Bearish Order Block: last bullish candle before strong bearish move
+strongMove = input.float(0.5, "Min Move % for OB", step=0.1) / 100
+
+bullMove = close > open * (1 + strongMove)
+bearMove = close < open * (1 - strongMove)
+
+// Find OB
+var box bullOB = na
+var box bearOB = na
+
+if bullMove and showBullOB
+    // Last bearish candle = order block
+    ob_top = high[1]
+    ob_bot = low[1]
+    bullOB := box.new(bar_index - 1, ob_top, bar_index + 20, ob_bot,
+        border_color=color.green, bgcolor=color.new(color.green, 85), border_width=1)
+
+if bearMove and showBearOB
+    ob_top = high[1]
+    ob_bot = low[1]
+    bearOB := box.new(bar_index - 1, ob_top, bar_index + 20, ob_bot,
+        border_color=color.red, bgcolor=color.new(color.red, 85), border_width=1)` },
+
+  { name: "Dip Buy Scanner Alert", cat: "SETUP", code: `//@version=5
+indicator("Dip Buy Alert", overlay=true)
+
+// Settings
+rsiLen  = input.int(14, "RSI Length")
+rsiOversold = input.int(35, "RSI Oversold")
+maCross = input.int(50, "MA Length")
+volMult = input.float(1.5, "Min Volume Multiplier")
+
+// Calculations
+rsi    = ta.rsi(close, rsiLen)
+ma50   = ta.sma(close, maCross)
+ma200  = ta.sma(close, 200)
+avgVol = ta.sma(volume, 20)
+
+// Dip Buy Conditions
+aboveMa200  = close > ma200
+oversold    = rsi < rsiOversold
+nearMa50    = math.abs(close - ma50) / ma50 < 0.02  // within 2% of MA50
+highVolume  = volume > avgVol * volMult
+
+dipBuy = aboveMa200 and oversold and highVolume
+
+// Plot
+plot(ma50,  "MA50",  color.orange, linewidth=2)
+plot(ma200, "MA200", color.red,    linewidth=1)
+
+plotshape(dipBuy, "DIP BUY", shape.triangleup, location.belowbar,
+    color.lime, size=size.normal, text="DIP BUY")
+
+alertcondition(dipBuy, "Dip Buy Signal",
+    "Dip Buy: RSI oversold + above 200MA + volume spike")` },
+];
+
+// Native JS indicators computed from price data
+function computeNativeIndicators(bars) {
+  if (!bars || bars.length < 20) return null;
+  const closes  = bars.map(b => b.c).filter(v => v > 0);
+  const highs   = bars.map(b => b.h);
+  const lows    = bars.map(b => b.l);
+  const volumes = bars.map(b => b.v || 0);
+  const n = closes.length;
+
+  // EMA
+  const ema = (arr, period) => {
+    const k = 2 / (period + 1);
+    let e = arr.slice(0, period).reduce((a, b) => a + b, 0) / period;
+    const out = new Array(period - 1).fill(null);
+    out.push(e);
+    for (let i = period; i < arr.length; i++) { e = arr[i] * k + e * (1 - k); out.push(e); }
+    return out;
+  };
+
+  // RSI
+  const rsiArr = (arr, period = 14) => {
+    const out = new Array(period).fill(null);
+    let gain = 0, loss = 0;
+    for (let i = 1; i <= period; i++) { const d = arr[i] - arr[i-1]; d > 0 ? gain += d : loss -= d; }
+    let ag = gain / period, al = loss / period;
+    out.push(al === 0 ? 100 : Math.round(100 - 100 / (1 + ag / al)));
+    for (let i = period + 1; i < arr.length; i++) {
+      const d = arr[i] - arr[i-1];
+      ag = (ag * (period - 1) + Math.max(0, d)) / period;
+      al = (al * (period - 1) + Math.max(0, -d)) / period;
+      out.push(al === 0 ? 100 : Math.round(100 - 100 / (1 + ag / al)));
+    }
+    return out;
+  };
+
+  // MACD
+  const macdFn = (arr, fast = 12, slow = 26, sig = 9) => {
+    const ef = ema(arr, fast), es = ema(arr, slow);
+    const macdLine = arr.map((_, i) => ef[i] != null && es[i] != null ? ef[i] - es[i] : null);
+    const validMacd = macdLine.filter(v => v != null);
+    const sigLine = ema(validMacd, sig);
+    const sigPadded = new Array(macdLine.length - sigLine.length).fill(null).concat(sigLine);
+    const hist = macdLine.map((v, i) => v != null && sigPadded[i] != null ? v - sigPadded[i] : null);
+    return { macd: macdLine, signal: sigPadded, hist };
+  };
+
+  // Bollinger Bands
+  const bbFn = (arr, period = 20, mult = 2) => {
+    const mid = arr.map((_, i) => {
+      if (i < period - 1) return null;
+      const sl = arr.slice(i - period + 1, i + 1);
+      return sl.reduce((a, b) => a + b, 0) / period;
+    });
+    const upper = mid.map((m, i) => {
+      if (m == null) return null;
+      const sl = arr.slice(i - period + 1, i + 1);
+      const sd = Math.sqrt(sl.reduce((s, v) => s + (v - m) ** 2, 0) / period);
+      return m + mult * sd;
+    });
+    const lower = mid.map((m, i) => {
+      if (m == null) return null;
+      const sl = arr.slice(i - period + 1, i + 1);
+      const sd = Math.sqrt(sl.reduce((s, v) => s + (v - m) ** 2, 0) / period);
+      return m - mult * sd;
+    });
+    return { mid, upper, lower };
+  };
+
+  // VWAP (approximate daily)
+  const vwapArr = closes.map((c, i) => {
+    const slice = closes.slice(0, i + 1);
+    const vSlice = volumes.slice(0, i + 1);
+    const totalVol = vSlice.reduce((a, b) => a + b, 0);
+    if (totalVol === 0) return c;
+    return slice.reduce((s, v, j) => s + v * vSlice[j], 0) / totalVol;
+  });
+
+  const ema9  = ema(closes, 9);
+  const ema21 = ema(closes, 21);
+  const ma50  = ema(closes, Math.min(50, n));
+  const ma200 = ema(closes, Math.min(200, n));
+  const rsi   = rsiArr(closes);
+  const macd  = macdFn(closes);
+  const bb    = bbFn(closes);
+
+  const last = n - 1;
+  return {
+    bars, closes, n,
+    ema9: ema9[last], ema21: ema21[last], ma50: ma50[last], ma200: ma200[last],
+    rsi: rsi[last], vwap: vwapArr[last],
+    macd: macd.macd[last], macdSig: macd.signal[last], macdHist: macd.hist[last],
+    bbUpper: bb.upper[last], bbMid: bb.mid[last], bbLower: bb.lower[last],
+    // Series for charting
+    ema9Arr: ema9, ema21Arr: ema21, ma50Arr: ma50, ma200Arr: ma200,
+    rsiArr: rsi, macdArr: macd.macd, macdSigArr: macd.signal, macdHistArr: macd.hist,
+    bbUpperArr: bb.upper, bbMidArr: bb.mid, bbLowerArr: bb.lower,
+    vwapArr,
+  };
+}
+
+function PineScriptTab({ C, MONO, SANS, terminalSymbol }) {
+  const [scripts, setScripts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(PINE_STORAGE_KEY) || "[]"); } catch { return []; }
+  });
+  const [activeScript, setActiveScript] = useState(null);
+  const [code, setCode] = useState(PINE_TEMPLATES[0].code);
+  const [scriptName, setScriptName] = useState("My Strategy");
+  const [view, setView] = useState("editor"); // editor | indicators | templates
+  const [copied, setCopied] = useState(false);
+  const [symbol, setSymbol] = useState(terminalSymbol || "NVDA");
+  const [symInput, setSymInput] = useState(terminalSymbol || "NVDA");
+  const [indData, setIndData] = useState(null);
+  const [indLoading, setIndLoading] = useState(false);
+  const [activeInds, setActiveInds] = useState({ ema9: true, ema21: true, ma50: true, ma200: false, rsi: true, macd: false, bb: false, vwap: false });
+
+  const saveScripts = s => { setScripts(s); localStorage.setItem(PINE_STORAGE_KEY, JSON.stringify(s)); };
+
+  const saveScript = () => {
+    const n = { id: Date.now(), name: scriptName, code, cat: "CUSTOM", ts: new Date().toISOString() };
+    saveScripts([n, ...scripts.filter(s => s.id !== (activeScript?.id))].slice(0, 50));
+    setActiveScript(n);
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard?.writeText(code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  };
+
+  const loadIndicators = async (sym) => {
+    setIndLoading(true); setIndData(null);
+    try {
+      const r = await fetch(`/api/market/chart?symbol=${encodeURIComponent(sym)}&interval=1d&range=180d`);
+      const d = await r.json();
+      const result = d?.chart?.result?.[0];
+      if (!result) throw new Error("no data");
+      const q = result.indicators?.quote?.[0] || {};
+      const ts = result.timestamp || [];
+      const bars = ts.map((t, i) => ({
+        t, c: q.close?.[i] || 0, h: q.high?.[i] || 0,
+        l: q.low?.[i] || 0, o: q.open?.[i] || 0, v: q.volume?.[i] || 0,
+      })).filter(b => b.c > 0).slice(-90);
+      setIndData(computeNativeIndicators(bars));
+    } catch(e) { setIndData(null); }
+    setIndLoading(false);
+  };
+
+  useEffect(() => { if (view === "indicators") loadIndicators(symbol); }, [view, symbol]);
+
+  const allSources = [...PINE_TEMPLATES, ...scripts];
+  const lastBars = indData?.bars?.slice(-60) || [];
+
+  // Mini SVG chart of closes + indicators
+  const chartW = 580, chartH = 180, rsiH = 60;
+  const bars60 = lastBars;
+  const minP = bars60.length ? Math.min(...bars60.map(b => b.l)) * 0.995 : 0;
+  const maxP = bars60.length ? Math.max(...bars60.map(b => b.h)) * 1.005 : 1;
+  const toY  = v => chartH - ((v - minP) / (maxP - minP)) * chartH;
+  const toX  = i => (i / (bars60.length - 1)) * chartW;
+  const lineStr = (arr, offset = 0) => {
+    const valid = arr?.slice(offset > 0 ? -(bars60.length) : arr.length - bars60.length);
+    if (!valid?.length) return "";
+    return valid.map((v, i) => v != null ? `${i === 0 ? "M" : "L"}${toX(i)},${toY(v)}` : "").filter(Boolean).join(" ");
+  };
+
+  const indLabels = [
+    { key: "ema9",  label: "EMA 9",   color: "#22d47e", val: indData?.ema9 },
+    { key: "ema21", label: "EMA 21",  color: "#f59e0b", val: indData?.ema21 },
+    { key: "ma50",  label: "MA 50",   color: "#3b82f6", val: indData?.ma50 },
+    { key: "ma200", label: "MA 200",  color: "#ef4444", val: indData?.ma200 },
+    { key: "bb",    label: "BB 20",   color: "#7c3aed", val: indData?.bbMid },
+    { key: "vwap",  label: "VWAP",    color: "#fbbf24", val: indData?.vwap },
+    { key: "rsi",   label: "RSI 14",  color: "#a78bfa", val: indData?.rsi },
+    { key: "macd",  label: "MACD",    color: "#0891b2", val: indData?.macd },
+  ];
+
+  return (
+    <div style={{ padding: "16px 20px", maxWidth: 1100, margin: "0 auto" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>🌲 PINE SCRIPT</div>
+          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 3 }}>Script library + native indicators — no TradingView login needed</div>
+        </div>
+      </div>
+
+      {/* View switcher */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {[["editor","✏️ EDITOR"],["templates","📋 TEMPLATES"],["indicators","📊 NATIVE INDICATORS"]].map(([v,l]) => (
+          <button key={v} onClick={() => setView(v)}
+            style={{ background: view===v ? C.accent : C.surface, color: view===v ? "#fff" : C.textSec,
+              border:`1px solid ${view===v ? C.accent : C.border}`, borderRadius:8,
+              fontFamily:MONO, fontSize:12, fontWeight:700, padding:"8px 16px", cursor:"pointer" }}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* ── EDITOR ── */}
+      {view === "editor" && (
+        <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: 14 }}>
+          {/* Saved scripts sidebar */}
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+            <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, background: C.surface, fontFamily: MONO, fontSize: 11, color: C.textDim }}>MY SCRIPTS ({scripts.length})</div>
+            <div style={{ overflowY: "auto", maxHeight: 500 }}>
+              {scripts.length === 0 && <div style={{ padding: 16, fontFamily: SANS, fontSize: 12, color: C.textDim }}>No saved scripts yet.<br/>Write code and click SAVE.</div>}
+              {scripts.map(s => (
+                <div key={s.id} onClick={() => { setActiveScript(s); setCode(s.code); setScriptName(s.name); }}
+                  style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}22`, cursor: "pointer",
+                    background: activeScript?.id === s.id ? `${C.accent}15` : "transparent",
+                    borderLeft: `3px solid ${activeScript?.id === s.id ? C.accent : "transparent"}` }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{s.name}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>{new Date(s.ts).toLocaleDateString()}</div>
+                  <button onClick={e => { e.stopPropagation(); saveScripts(scripts.filter(x => x.id !== s.id)); if (activeScript?.id === s.id) setActiveScript(null); }}
+                    style={{ marginTop: 4, background: "none", border: "none", color: C.red, fontFamily: MONO, fontSize: 10, cursor: "pointer", padding: 0 }}>DELETE</button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Editor */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input value={scriptName} onChange={e => setScriptName(e.target.value)}
+                style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6,
+                  fontFamily: MONO, fontSize: 13, color: C.text, padding: "7px 10px", outline: "none" }}
+                placeholder="Script name…" />
+              <button onClick={saveScript}
+                style={{ background: C.green, color: "#fff", border: "none", borderRadius: 8,
+                  fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 16px", cursor: "pointer" }}>
+                💾 SAVE
+              </button>
+              <button onClick={copyToClipboard}
+                style={{ background: copied ? C.green : C.accent, color: "#fff", border: "none", borderRadius: 8,
+                  fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 16px", cursor: "pointer" }}>
+                {copied ? "✓ COPIED!" : "📋 COPY → TV"}
+              </button>
+            </div>
+
+            <textarea value={code} onChange={e => setCode(e.target.value)}
+              spellCheck={false}
+              style={{ fontFamily: "'Fira Code', 'Courier New', monospace", fontSize: 12,
+                background: "#0d1117", color: "#e6edf3", border: `1px solid ${C.border}`,
+                borderRadius: 8, padding: 16, lineHeight: 1.6, resize: "vertical",
+                minHeight: 460, outline: "none", tabSize: 4 }} />
+
+            <div style={{ padding: "10px 14px", background: `${C.accent}10`, border: `1px solid ${C.accent}33`, borderRadius: 8 }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent, marginBottom: 6 }}>📺 HOW TO USE IN TRADINGVIEW</div>
+              <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.7 }}>
+                1. Click <strong>COPY → TV</strong> above<br/>
+                2. Open <strong>TradingView → Pine Editor</strong> (bottom panel)<br/>
+                3. Paste code → click <strong>Add to chart</strong><br/>
+                4. Your script runs live on any chart instantly ✅
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TEMPLATES ── */}
+      {view === "templates" && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12 }}>
+          {PINE_TEMPLATES.map(t => (
+            <div key={t.name} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+              <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.accent, background: `${C.accent}18`, borderRadius: 3, padding: "1px 6px", marginBottom: 4, display: "inline-block" }}>{t.cat}</span>
+                  <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, marginTop: 3 }}>{t.name}</div>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={() => { setCode(t.code); setScriptName(t.name); setView("editor"); }}
+                    style={{ background: C.accent, color: "#fff", border: "none", borderRadius: 6,
+                      fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "5px 10px", cursor: "pointer" }}>EDIT</button>
+                  <button onClick={() => { navigator.clipboard?.writeText(t.code); }}
+                    style={{ background: C.surface, color: C.textSec, border: `1px solid ${C.border}`, borderRadius: 6,
+                      fontFamily: MONO, fontSize: 10, padding: "5px 10px", cursor: "pointer" }}>COPY</button>
+                </div>
+              </div>
+              <pre style={{ fontFamily: "'Courier New', monospace", fontSize: 10, color: "#7dd3fc",
+                background: "#0d1117", margin: 0, padding: "10px 14px", overflowX: "auto",
+                maxHeight: 160, overflowY: "hidden", borderBottom: `1px solid ${C.border}` }}>
+                {t.code.slice(0, 400)}{t.code.length > 400 ? "\n..." : ""}
+              </pre>
+              <div style={{ padding: "8px 14px", fontFamily: SANS, fontSize: 11, color: C.textDim }}>
+                {t.cat === "TREND" && "EMA 9/21 crossover with RSI filter — classic trend following"}
+                {t.cat === "OSCILLATOR" && "Detects bullish/bearish divergence between price and RSI"}
+                {t.cat === "VOLATILITY" && "Identifies squeeze setups before big moves"}
+                {t.cat === "INSTITUTIONAL" && "VWAP + MA50 for institutional level trading"}
+                {t.cat === "SMC" && "Smart Money Concepts — finds institutional order blocks"}
+                {t.cat === "SETUP" && "Dip buy scanner with RSI, MA200, and volume conditions"}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── NATIVE INDICATORS ── */}
+      {view === "indicators" && (
+        <div>
+          {/* Symbol + indicator toggles */}
+          <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input value={symInput} onChange={e => setSymInput(e.target.value.toUpperCase())}
+                onKeyDown={e => e.key === "Enter" && (setSymbol(symInput), loadIndicators(symInput))}
+                style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6,
+                  fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.accent, padding: "6px 10px", width: 100, outline: "none" }} />
+              <button onClick={() => { setSymbol(symInput); loadIndicators(symInput); }}
+                style={{ background: C.accent, color: "#fff", border: "none", borderRadius: 6,
+                  fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "6px 14px", cursor: "pointer" }}>
+                {indLoading ? "⏳" : "LOAD"}
+              </button>
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {indLabels.map(ind => (
+                <button key={ind.key} onClick={() => setActiveInds(p => ({ ...p, [ind.key]: !p[ind.key] }))}
+                  style={{ background: activeInds[ind.key] ? ind.color : C.surface,
+                    color: activeInds[ind.key] ? "#fff" : C.textSec,
+                    border: `1px solid ${activeInds[ind.key] ? ind.color : C.border}`,
+                    borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                    padding: "4px 10px", cursor: "pointer" }}>
+                  {ind.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Current values row */}
+          {indData && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+              {indLabels.filter(i => activeInds[i.key] && i.val != null).map(ind => (
+                <div key={ind.key} style={{ background: C.card, border: `1px solid ${ind.color}44`, borderRadius: 8, padding: "8px 12px" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{ind.label}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: ind.color }}>
+                    {ind.key === "rsi" ? Math.round(ind.val) : ind.val?.toFixed(2)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* SVG Price Chart */}
+          {indData && bars60.length > 0 && (
+            <div style={{ background: "#0d1117", borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 12 }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: "#7dd3fc", marginBottom: 8 }}>{symbol} — Last {bars60.length} Days</div>
+              <svg width="100%" viewBox={`0 0 ${chartW} ${chartH + (activeInds.rsi||activeInds.macd ? rsiH + 20 : 0)}`} style={{ display: "block" }}>
+                {/* Grid */}
+                {[0.25,0.5,0.75].map(p => (
+                  <line key={p} x1={0} y1={chartH*p} x2={chartW} y2={chartH*p} stroke="#1e2d42" strokeWidth={1} strokeDasharray="3,3"/>
+                ))}
+
+                {/* Candles */}
+                {bars60.map((b, i) => {
+                  const x = toX(i), bw = Math.max(2, chartW / bars60.length * 0.7);
+                  const isBull = b.c >= b.o;
+                  const top = toY(Math.max(b.o, b.c)), bot = toY(Math.min(b.o, b.c));
+                  const col = isBull ? "#22d47e" : "#ef4444";
+                  return (
+                    <g key={i}>
+                      <line x1={x} y1={toY(b.h)} x2={x} y2={toY(b.l)} stroke={col} strokeWidth={1}/>
+                      <rect x={x - bw/2} y={top} width={bw} height={Math.max(1, bot-top)} fill={col}/>
+                    </g>
+                  );
+                })}
+
+                {/* Indicator lines */}
+                {activeInds.ema9  && indData.ema9Arr  && <path d={lineStr(indData.ema9Arr)}  fill="none" stroke="#22d47e" strokeWidth={1.5}/>}
+                {activeInds.ema21 && indData.ema21Arr && <path d={lineStr(indData.ema21Arr)} fill="none" stroke="#f59e0b" strokeWidth={1.5}/>}
+                {activeInds.ma50  && indData.ma50Arr  && <path d={lineStr(indData.ma50Arr)}  fill="none" stroke="#3b82f6" strokeWidth={1.5}/>}
+                {activeInds.ma200 && indData.ma200Arr && <path d={lineStr(indData.ma200Arr)} fill="none" stroke="#ef4444" strokeWidth={1}/>}
+                {activeInds.vwap  && <path d={lineStr(indData.vwapArr)} fill="none" stroke="#fbbf24" strokeWidth={1.5} strokeDasharray="5,3"/>}
+                {activeInds.bb && indData.bbUpperArr && (
+                  <>
+                    <path d={lineStr(indData.bbUpperArr)} fill="none" stroke="#7c3aed" strokeWidth={1} strokeDasharray="3,2"/>
+                    <path d={lineStr(indData.bbMidArr)}   fill="none" stroke="#7c3aed" strokeWidth={1}/>
+                    <path d={lineStr(indData.bbLowerArr)} fill="none" stroke="#7c3aed" strokeWidth={1} strokeDasharray="3,2"/>
+                  </>
+                )}
+
+                {/* RSI sub-panel */}
+                {activeInds.rsi && indData.rsiArr && (() => {
+                  const rsiY0 = chartH + 20;
+                  const rsiScale = v => v != null ? rsiY0 + rsiH - (v / 100) * rsiH : null;
+                  const rsiPath = indData.rsiArr.slice(-bars60.length).map((v, i) => v != null ? `${i===0?"M":"L"}${toX(i)},${rsiScale(v)}` : "").filter(Boolean).join(" ");
+                  return (
+                    <g>
+                      <line x1={0} y1={rsiY0} x2={chartW} y2={rsiY0} stroke="#1e2d42" strokeWidth={1}/>
+                      <text x={4} y={rsiY0+12} fill="#888" fontSize={9}>RSI</text>
+                      <line x1={0} y1={rsiY0 + rsiH*0.3} x2={chartW} y2={rsiY0 + rsiH*0.3} stroke="#ef444444" strokeWidth={1} strokeDasharray="3,2"/>
+                      <line x1={0} y1={rsiY0 + rsiH*0.7} x2={chartW} y2={rsiY0 + rsiH*0.7} stroke="#22d47e44" strokeWidth={1} strokeDasharray="3,2"/>
+                      <text x={chartW-20} y={rsiY0 + rsiH*0.3 - 2} fill="#ef4444" fontSize={8}>70</text>
+                      <text x={chartW-20} y={rsiY0 + rsiH*0.7 + 8} fill="#22d47e" fontSize={8}>30</text>
+                      <path d={rsiPath} fill="none" stroke="#a78bfa" strokeWidth={2}/>
+                    </g>
+                  );
+                })()}
+              </svg>
+            </div>
+          )}
+
+          {indLoading && <div style={{ textAlign: "center", padding: "40px 0", fontFamily: MONO, fontSize: 14, color: C.textDim }}>⏳ Computing indicators for {symbol}…</div>}
+          {!indLoading && !indData && <div style={{ textAlign: "center", padding: "40px 0", fontFamily: MONO, fontSize: 14, color: C.textDim }}>Enter a symbol and click LOAD</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── OptionsChainTab ────────────────────────────────────────────────────────
 function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTerminal }) {
   const [symbol, setSymbol] = useState(defaultSymbol || "AAPL");
@@ -11241,7 +11839,7 @@ export default function App() {
     try {
       const t = localStorage.getItem("last_tab");
       // Restore only safe tabs (don't restore modals/dialogs)
-      const safeTabs = ["dashboard","briefing","terminal","tv","multitf","fibonacci","scanner","smartscan","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","portfolio","performance","journal","journal-stats","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","morning-routine","challenge","recap","dipbuy","tradeplanner","under10","compression","quran","athan","athkar","tasbih","halal","soccer"];
+      const safeTabs = ["dashboard","briefing","terminal","tv","pine","multitf","fibonacci","scanner","smartscan","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","portfolio","performance","journal","journal-stats","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","morning-routine","challenge","recap","dipbuy","tradeplanner","under10","compression","quran","athan","athkar","tasbih","halal","soccer"];
       return (t && safeTabs.includes(t)) ? t : "dashboard";
     } catch { return "dashboard"; }
   });
@@ -15030,7 +15628,7 @@ export default function App() {
           {(() => {
             const NAV_GROUPS = [
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard", "briefing"] },
-              { id: "terminal",   label: "📈 CHART",      tabs: ["terminal", "tv"] },
+              { id: "terminal",   label: "📈 CHART",      tabs: ["terminal", "tv", "pine"] },
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["combined", "smartscan", "tradeplanner", "dipbuy", "adol22", "compression", "under10"] },
               { id: "markets",    label: "🌍 MARKETS",    tabs: ["news", "macro", "econ-cal", "crypto"] },
               { id: "portfolio",  label: "💼 PORTFOLIO",  tabs: ["portfolio", "journal", "performance"] },
@@ -15384,6 +15982,7 @@ export default function App() {
           terminal: [
             { id: "terminal",   label: "📈 CHART" },
             { id: "tv",         label: "📺 TV LIVE" },
+            { id: "pine",       label: "🌲 PINE SCRIPT" },
           ],
           scanner: [
             { id: "combined",     label: "⚡ BEST SETUPS" },
@@ -25450,6 +26049,8 @@ export default function App() {
           </div>
         );
       })()}
+
+      {activeTab === "pine" && <PineScriptTab C={C} MONO={MONO} SANS={SANS} terminalSymbol={terminalSymbol} />}
 
       {/* ── MULTI-TIMEFRAME DASHBOARD ────────────────────────────────────── */}
       {activeTab === "multitf" && (() => {
