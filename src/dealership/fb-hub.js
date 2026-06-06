@@ -16,6 +16,7 @@ const APPT_FILE  = path.join(DATA_DIR, "fb-appointments.json");
 const RULES_FILE = path.join(DATA_DIR, "fb-auto-rules.json");
 const INV_FILE   = path.join(DATA_DIR, "inventory.json");
 const AI_CFG_FILE = path.join(DATA_DIR, "fb-ai-config.json");
+const CRM_FILE   = path.join(DATA_DIR, "crm-leads.json");
 
 // Telegram lead alert
 function notifyLead(senderName, customerMsg, aiReply) {
@@ -336,6 +337,21 @@ async function processMessagingEvent(event) {
         saveJson(MSG_FILE, messages.slice(0, 200));
       }
       notifyLead(entry.senderName, msgText, replyText);
+      // Auto-create CRM lead from the conversation
+      try {
+        const crm = readJsonFile(CRM_FILE, []);
+        if (!crm.some(l => l.senderId === senderId)) {
+          const phoneM = msgText.match(/(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+          crm.unshift({
+            id: uid(), senderId, name: entry.senderName,
+            phone: phoneM ? phoneM[0] : "", vehicle: "", budget: "", down: "",
+            appt: "", notes: `[FB Marketplace] "${msgText.slice(0,120)}"`,
+            hot: /buy|today|finance|approved|come|test drive/i.test(msgText),
+            stage: "NEW", source: "facebook-bot", createdAt: Date.now(), updatedAt: Date.now(),
+          });
+          saveJson(CRM_FILE, crm.slice(0, 500));
+        }
+      } catch {}
     } catch (e) {
       console.error("[FB Hub] Auto-reply failed:", e.message);
     }
@@ -384,6 +400,50 @@ async function handleFbHub(req, res, pathname, searchParams, body) {
   // ── GET messages ──
   if (pathname === "/api/dealer/fb/messages" && req.method === "GET") {
     return writeJson(res, 200, readJson(MSG_FILE, []));
+  }
+
+  // ════════════ CRM ENDPOINTS ════════════
+  // GET all leads
+  if (pathname === "/api/dealer/crm/leads" && req.method === "GET") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    return writeJson(res, 200, { leads: readJson(CRM_FILE, []) });
+  }
+  // SAVE / UPDATE a lead (upsert by id)
+  if (pathname === "/api/dealer/crm/leads" && req.method === "POST") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    const lead = typeof body === "string" ? JSON.parse(body || "{}") : body;
+    if (!lead || (!lead.name && !lead.phone)) return writeJson(res, 400, { error: "name or phone required" });
+    const leads = readJson(CRM_FILE, []);
+    if (lead.id) {
+      const i = leads.findIndex(l => l.id === lead.id);
+      if (i >= 0) { leads[i] = { ...leads[i], ...lead, updatedAt: Date.now() }; }
+      else { leads.unshift({ ...lead, createdAt: Date.now(), updatedAt: Date.now() }); }
+    } else {
+      lead.id = uid(); lead.stage = lead.stage || "NEW";
+      lead.createdAt = Date.now(); lead.updatedAt = Date.now();
+      leads.unshift(lead);
+      // Telegram alert on new lead
+      if (lead.hot) notifyLead(lead.name || "?", `${lead.vehicle || ""} · budget ${lead.budget || "?"} · down ${lead.down || "?"}`, "🔥 New hot lead saved to CRM");
+    }
+    saveJson(CRM_FILE, leads.slice(0, 500));
+    return writeJson(res, 200, { ok: true, id: lead.id });
+  }
+  // UPDATE lead stage (pipeline drag)
+  if (pathname === "/api/dealer/crm/stage" && req.method === "POST") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    const { id, stage } = typeof body === "string" ? JSON.parse(body || "{}") : body;
+    const leads = readJson(CRM_FILE, []);
+    const l = leads.find(x => x.id === id);
+    if (l) { l.stage = stage; l.updatedAt = Date.now(); saveJson(CRM_FILE, leads); }
+    return writeJson(res, 200, { ok: true });
+  }
+  // DELETE a lead
+  if (pathname === "/api/dealer/crm/delete" && req.method === "POST") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    const { id } = typeof body === "string" ? JSON.parse(body || "{}") : body;
+    saveJson(CRM_FILE, readJson(CRM_FILE, []).filter(l => l.id !== id));
+    return writeJson(res, 200, { ok: true });
   }
 
   // ── AI config: GET current settings ──

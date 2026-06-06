@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dixie Motors — CRM</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: #0f1623; color: #e6edf3; padding: 16px; }
+  .top { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
+  .title { font-size: 22px; font-weight: 900; color: #4da3ff; letter-spacing: 0.04em; }
+  .sub { font-size: 12px; color: #7a8aa0; }
+  .stats { display: flex; gap: 10px; margin-left: auto; flex-wrap: wrap; }
+  .stat { background: #1a2336; border: 1px solid #2c3a52; border-radius: 8px; padding: 8px 14px; text-align: center; }
+  .stat .n { font-size: 20px; font-weight: 900; }
+  .stat .l { font-size: 9px; color: #7a8aa0; letter-spacing: 0.08em; }
+  .board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .col { background: #131c2e; border: 1px solid #233149; border-radius: 10px; padding: 10px; min-height: 400px; }
+  .col-h { font-size: 12px; font-weight: 800; letter-spacing: 0.06em; padding: 6px 8px; border-radius: 6px; margin-bottom: 10px; text-align: center; }
+  .card { background: #1a2336; border: 1px solid #2c3a52; border-radius: 8px; padding: 10px; margin-bottom: 8px; cursor: grab; }
+  .card.hot { border-left: 3px solid #ff6b6b; }
+  .card .nm { font-size: 13px; font-weight: 800; }
+  .card .meta { font-size: 11px; color: #9fb0c8; margin-top: 4px; line-height: 1.5; }
+  .card .acts { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+  .mv { background: #243049; border: none; color: #8fa3c0; border-radius: 4px; font-size: 9px; padding: 2px 6px; cursor: pointer; }
+  .mv:hover { background: #2563eb; color: #fff; }
+  .del { background: none; border: none; color: #5f6f86; cursor: pointer; font-size: 12px; margin-left: auto; }
+  .empty { color: #4a5a72; font-size: 11px; text-align: center; padding: 20px 0; }
+  .bar { display: flex; gap: 8px; margin-bottom: 14px; }
+  .btn { background: #2563eb; color: #fff; border: none; border-radius: 7px; padding: 8px 16px; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .btn.ghost { background: #1a2336; border: 1px solid #2c3a52; color: #9fb0c8; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div>
+      <div class="title">🚗 DIXIE MOTORS CRM</div>
+      <div class="sub">Every lead from your Marketplace replies — auto-organized</div>
+    </div>
+    <div class="stats" id="stats"></div>
+  </div>
+  <div class="bar">
+    <button class="btn" onclick="load()">↻ Refresh</button>
+    <button class="btn ghost" onclick="exportCsv()">⬇ Export CSV</button>
+  </div>
+  <div class="board" id="board"></div>
+
+<script>
+const SERVER = location.origin;
+const STAGES = [
+  ["NEW",        "🆕 NEW",         "#2563eb"],
+  ["CONTACTED",  "💬 CONTACTED",   "#7c3aed"],
+  ["APPOINTMENT","📅 APPOINTMENT", "#f59e0b"],
+  ["NEGOTIATING","🤝 NEGOTIATING", "#0891b2"],
+  ["SOLD",       "✅ SOLD",        "#1f9d55"],
+];
+let LEADS = [];
+
+async function load() {
+  try {
+    const r = await fetch(SERVER + "/api/dealer/crm/leads");
+    const d = await r.json();
+    LEADS = d.leads || [];
+  } catch { LEADS = []; }
+  render();
+}
+
+function render() {
+  // Stats
+  const sold = LEADS.filter(l => l.stage === "SOLD").length;
+  const hot = LEADS.filter(l => l.hot && l.stage !== "SOLD").length;
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><div class="n" style="color:#4da3ff">${LEADS.length}</div><div class="l">TOTAL</div></div>
+    <div class="stat"><div class="n" style="color:#ff6b6b">${hot}</div><div class="l">HOT</div></div>
+    <div class="stat"><div class="n" style="color:#1f9d55">${sold}</div><div class="l">SOLD</div></div>`;
+  // Board
+  const board = document.getElementById("board");
+  board.innerHTML = "";
+  STAGES.forEach(([key, label, color]) => {
+    const col = document.createElement("div");
+    col.className = "col";
+    const inStage = LEADS.filter(l => (l.stage || "NEW") === key);
+    col.innerHTML = `<div class="col-h" style="background:${color}22;color:${color}">${label} (${inStage.length})</div>`;
+    if (!inStage.length) col.innerHTML += '<div class="empty">—</div>';
+    inStage.forEach(l => col.appendChild(card(l, key)));
+    board.appendChild(col);
+  });
+}
+
+function card(l, stage) {
+  const div = document.createElement("div");
+  div.className = "card" + (l.hot ? " hot" : "");
+  const idx = STAGES.findIndex(s => s[0] === stage);
+  const prev = idx > 0 ? STAGES[idx-1] : null;
+  const next = idx < STAGES.length-1 ? STAGES[idx+1] : null;
+  div.innerHTML = `
+    <div style="display:flex;align-items:center">
+      <div class="nm">${l.hot ? "🔥 " : ""}${esc(l.name) || "(no name)"}</div>
+      <button class="del" onclick="del('${l.id}')">✕</button>
+    </div>
+    <div class="meta">
+      ${l.phone ? "📞 " + esc(l.phone) + "<br>" : ""}
+      ${l.vehicle ? "🚗 " + esc(l.vehicle) + "<br>" : ""}
+      ${(l.budget||l.down) ? `💵 ${esc(l.budget)||"?"} / down ${esc(l.down)||"?"}<br>` : ""}
+      ${l.appt ? "📅 " + esc(l.appt) + "<br>" : ""}
+      ${l.notes ? "📝 " + esc(l.notes).slice(0,80) : ""}
+    </div>
+    <div class="acts">
+      ${prev ? `<button class="mv" onclick="move('${l.id}','${prev[0]}')">← ${prev[1].split(' ')[1]||prev[0]}</button>` : ""}
+      ${next ? `<button class="mv" onclick="move('${l.id}','${next[0]}')">${next[1].split(' ')[1]||next[0]} →</button>` : ""}
+    </div>`;
+  return div;
+}
+
+async function move(id, stage) {
+  await fetch(SERVER + "/api/dealer/crm/stage", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ id, stage }) });
+  load();
+}
+async function del(id) {
+  if (!confirm("Delete this lead?")) return;
+  await fetch(SERVER + "/api/dealer/crm/delete", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ id }) });
+  load();
+}
+function exportCsv() {
+  if (!LEADS.length) return alert("No leads.");
+  const h = ["Name","Phone","Vehicle","Budget","Down","Appointment","Stage","Hot","Notes","Created"];
+  const rows = LEADS.map(l => [l.name,l.phone,l.vehicle,l.budget,l.down,l.appt,l.stage,l.hot?"YES":"",l.notes, l.createdAt?new Date(l.createdAt).toLocaleString():""]
+    .map(v => `"${String(v||"").replace(/"/g,'""')}"`).join(","));
+  const blob = new Blob([h.join(",")+"\n"+rows.join("\n")], {type:"text/csv"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "dixie-crm.csv"; a.click();
+}
+function esc(s){return String(s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+
+load();
+setInterval(load, 30000); // auto-refresh every 30s
+</script>
+</body>
+</html>

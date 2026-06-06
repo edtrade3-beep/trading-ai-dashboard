@@ -213,7 +213,12 @@ $("saveLeadBtn").addEventListener("click", async () => {
   showMsg("leadMsg", "✓ Lead saved", "ok");
 
   const settings = await getSettings();
-  // Optional: webhook to CRM
+  // Push to your CRM (cloud) so it shows in the Dealer Portal CRM dashboard
+  fetch(settings.server + "/api/dealer/crm/leads", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...lead, stage: "NEW" }),
+  }).catch(() => {});
+  // Optional: webhook to external CRM
   if (settings.webhook) {
     fetch(settings.webhook, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lead) }).catch(() => {});
   }

@@ -276,6 +276,11 @@ async function handleRequest(req, res) {
       res.end();
       return;
     }
+    if (pathname === "/crm" || pathname === "/crm/") {
+      res.writeHead(302, { Location: "/client/dealer/crm.html" });
+      res.end();
+      return;
+    }
     if (pathname === "/workstation" || pathname === "/workstation/") {
       // Workstation replaced by Smart Scanner deep dive — redirect to main platform
       res.writeHead(302, { Location: "/" });
