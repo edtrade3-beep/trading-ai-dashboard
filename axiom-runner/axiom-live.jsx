@@ -5012,6 +5012,8 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const spyQ   = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
   const spyChg = Number(spyQ?.changesPercentage || 0);
   const [glExpanded, setGlExpanded] = useState(null); // ticker whose details are shown
+  const [autoPilot, setAutoPilot] = useState(() => localStorage.getItem("axiom_autopilot") === "on");
+  const autoBoughtRef = useRef(new Set());
 
   // Build results from watchlist + scan data
   const results = (watchlistData || []).map(q => {
@@ -5023,6 +5025,19 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const green  = results.filter(r => r.signal === "GREEN");
   const yellow = results.filter(r => r.signal === "YELLOW");
   const red    = results.filter(r => r.signal === "RED");
+
+  // ── AUTO-PILOT: auto paper-buy any stock that hits GREEN LIGHT 5/5 (once/day each) ──
+  useEffect(() => {
+    if (!autoPilot) return;
+    const today = new Date().toISOString().slice(0, 10);
+    green.forEach(r => {
+      if (r.passed < 5) return;                 // only perfect 5/5 setups
+      const key = `${today}:${r.symbol}`;
+      if (autoBoughtRef.current.has(key)) return;
+      const res = addPaperTrade(r.symbol, r.bestEntry || r.px);
+      if (res === "OK" || res === "DUP") autoBoughtRef.current.add(key);
+    });
+  }, [autoPilot, green]);
 
   const sigBg  = s => s === "GREEN" ? `${C.green}18` : s === "YELLOW" ? `${C.amber}18` : `${C.red}10`;
   const sigCol = s => s === "GREEN" ? C.green : s === "YELLOW" ? C.amber : C.red;
@@ -5182,6 +5197,28 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
             </div>
           ))}
         </div>
+      </div>
+
+      {/* ── AUTO-PILOT toggle ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, padding: "12px 16px",
+        background: autoPilot ? "#7c3aed12" : C.card, border: `2px solid ${autoPilot ? "#7c3aed" : C.border}`,
+        borderRadius: 10, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 22 }}>🤖</span>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: autoPilot ? "#a78bfa" : C.text }}>
+            AUTO-PILOT {autoPilot ? "ON" : "OFF"} <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>· PAPER ONLY</span>
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
+            {autoPilot ? "Auto-buys any stock that hits GREEN LIGHT 5/5, then auto-exits at T1/T2/T3 or stop. Fully hands-off."
+                       : "Turn on to let the system auto-buy + auto-exit perfect setups in paper mode. Test the system 100% hands-free."}
+          </div>
+        </div>
+        <button onClick={() => { const v = !autoPilot; setAutoPilot(v); localStorage.setItem("axiom_autopilot", v ? "on" : "off"); }}
+          style={{ background: autoPilot ? "#7c3aed" : C.surface, color: autoPilot ? "#fff" : C.textSec,
+            border: `1px solid ${autoPilot ? "#7c3aed" : C.border}`, borderRadius: 8,
+            fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "10px 20px", cursor: "pointer" }}>
+          {autoPilot ? "⏹ TURN OFF" : "▶ TURN ON"}
+        </button>
       </div>
 
       {/* Trade Tracker — your open positions + exit alerts */}
