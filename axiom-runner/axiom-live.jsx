@@ -16806,6 +16806,32 @@ export default function App() {
               );
             })()}
 
+            {/* ── STOCKTWITS TRENDING ── what retail traders are buzzing about ── */}
+            {socialSentiment && socialSentiment.trending && socialSentiment.trending.length > 0 && (
+              <div style={{ marginBottom: 14, background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
+                <div style={{ padding: "10px 16px", background: C.surface, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#7c3aed", letterSpacing: "0.08em" }}>💬 TRENDING ON STOCKTWITS</span>
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: "auto" }}>what retail traders are buzzing about now</span>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "12px 16px" }}>
+                  {socialSentiment.trending.map((t, i) => (
+                    <button key={t.symbol} onClick={() => openDeepDiveFor(t.symbol, null)}
+                      style={{ display: "flex", alignItems: "center", gap: 6,
+                        background: i < 3 ? "#7c3aed18" : C.surface,
+                        border: `1px solid ${i < 3 ? "#7c3aed55" : C.border}`,
+                        borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>#{i+1}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: i < 3 ? "#a78bfa" : C.text }}>{t.symbol}</span>
+                      {t.watchlistCount > 0 && <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>👁 {(t.watchlistCount/1000).toFixed(0)}k</span>}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ padding: "0 16px 10px", fontFamily: SANS, fontSize: 11, color: C.textDim }}>
+                  💡 Top 3 = highest buzz. Click any to open its deep dive. High buzz = volatility — trade with tighter stops.
+                </div>
+              </div>
+            )}
+
             {/* ── DAILY P&L STRIP ── */}
             {portfolioSummary && portfolioSummary.totalCost > 0 && (() => {
               const dayPnl    = portfolioSummary.dayPnlTotal || 0;
