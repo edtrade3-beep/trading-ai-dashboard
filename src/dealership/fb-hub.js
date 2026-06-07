@@ -582,4 +582,51 @@ async function handleFbHub(req, res, pathname, searchParams, body) {
   return null; // not handled here
 }
 
-module.exports = { handleFbHub };
+// ── CRM auto follow-up + daily summary scheduler ──────────────────────────────
+function startCrmScheduler() {
+  // Check every 15 min for stale leads + send daily summary at 8am ET
+  let lastSummaryDate = "";
+  const tick = () => {
+    try {
+      const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+      const h = et.getHours(), m = et.getMinutes(), wd = et.getDay();
+      const today = et.toLocaleDateString("en-US");
+      const leads = readJsonFile(CRM_FILE, []);
+      let changed = false;
+
+      // 1) Stale NEW lead reminder — NEW lead untouched > 2 hours, not yet reminded
+      const now = Date.now();
+      for (const l of leads) {
+        if ((l.stage || "NEW") === "NEW" && !l.reminded) {
+          const age = now - (l.createdAt || now);
+          if (age > 2 * 3600_000) {  // 2 hours
+            notifyLead(l.name || "?",
+              `${l.vehicle || "vehicle ?"} · ${l.phone || "no phone"}`,
+              `⏰ FOLLOW UP — this lead has been sitting in NEW for 2+ hours. Reach out!`);
+            l.reminded = true; changed = true;
+          }
+        }
+      }
+      if (changed) saveJson(CRM_FILE, leads);
+
+      // 2) Daily 8am ET CRM summary (weekdays)
+      if (wd >= 1 && wd <= 5 && h === 8 && m < 15 && lastSummaryDate !== today) {
+        lastSummaryDate = today;
+        const newCt  = leads.filter(l => (l.stage||"NEW") === "NEW").length;
+        const apptCt = leads.filter(l => l.stage === "APPOINTMENT").length;
+        const negCt  = leads.filter(l => l.stage === "NEGOTIATING").length;
+        const hotCt  = leads.filter(l => l.hot && l.stage !== "SOLD").length;
+        if (leads.length > 0) {
+          notifyLead("CRM", "",
+            `📊 *DAILY CRM SUMMARY*\n🆕 New: ${newCt}\n📅 Appointments: ${apptCt}\n🤝 Negotiating: ${negCt}\n🔥 Hot leads: ${hotCt}\n\nWork your pipeline → ${"/crm"}`);
+        }
+      }
+    } catch (e) { console.error("[CRM] scheduler error:", e.message); }
+  };
+  tick();
+  const iv = setInterval(tick, 15 * 60_000);
+  if (iv.unref) iv.unref();
+  console.log("[CRM] Follow-up scheduler started (15-min checks + 8am daily summary)");
+}
+
+module.exports = { handleFbHub, startCrmScheduler };

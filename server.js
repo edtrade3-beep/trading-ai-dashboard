@@ -50,6 +50,7 @@ server.listen(PORT, HOST, () => {
   startTelegramBot();
   // startCOTScheduler(); // disabled — COT reports were firing 7x/day (too much noise)
   startPreMarketAlerts(); // ONE gap scan alert at 9:00 AM ET only
+  try { require("./src/dealership/fb-hub").startCrmScheduler(); } catch (e) { console.error("CRM scheduler failed:", e.message); }
 
   // Watchlist alerts — scan every 15 min for Bull BOS + high score
   // Entry zone alerts — scan every 15 min for price entering buy zones

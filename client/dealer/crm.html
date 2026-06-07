@@ -42,6 +42,17 @@
   <div class="bar">
     <button class="btn" onclick="load()">↻ Refresh</button>
     <button class="btn ghost" onclick="exportCsv()">⬇ Export CSV</button>
+    <button class="btn ghost" onclick="toggleAdd()">＋ Add Lead</button>
+  </div>
+  <div id="addForm" style="display:none; background:#1a2336; border:1px solid #2c3a52; border-radius:10px; padding:14px; margin-bottom:14px; display:none; gap:8px; flex-wrap:wrap;">
+    <input id="aName" placeholder="Name" style="flex:1;min-width:120px;background:#0f1623;border:1px solid #2c3a52;border-radius:6px;color:#e6edf3;padding:8px 10px;">
+    <input id="aPhone" placeholder="Phone" style="flex:1;min-width:120px;background:#0f1623;border:1px solid #2c3a52;border-radius:6px;color:#e6edf3;padding:8px 10px;">
+    <input id="aVehicle" placeholder="Vehicle" style="flex:1;min-width:120px;background:#0f1623;border:1px solid #2c3a52;border-radius:6px;color:#e6edf3;padding:8px 10px;">
+    <input id="aBudget" placeholder="Budget" style="width:90px;background:#0f1623;border:1px solid #2c3a52;border-radius:6px;color:#e6edf3;padding:8px 10px;">
+    <input id="aDown" placeholder="Down" style="width:90px;background:#0f1623;border:1px solid #2c3a52;border-radius:6px;color:#e6edf3;padding:8px 10px;">
+    <input id="aNotes" placeholder="Notes" style="flex:2;min-width:140px;background:#0f1623;border:1px solid #2c3a52;border-radius:6px;color:#e6edf3;padding:8px 10px;">
+    <label style="display:flex;align-items:center;gap:5px;color:#c5d2e3;font-size:12px;"><input type="checkbox" id="aHot"> 🔥</label>
+    <button class="btn" onclick="addLead()">Save</button>
   </div>
   <div class="board" id="board"></div>
 
@@ -128,6 +139,18 @@ function exportCsv() {
     .map(v => `"${String(v||"").replace(/"/g,'""')}"`).join(","));
   const blob = new Blob([h.join(",")+"\n"+rows.join("\n")], {type:"text/csv"});
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "dixie-crm.csv"; a.click();
+}
+function toggleAdd(){ const f=document.getElementById("addForm"); f.style.display = f.style.display==="none"?"flex":"none"; }
+async function addLead(){
+  const lead = {
+    name: aName.value.trim(), phone: aPhone.value.trim(), vehicle: aVehicle.value.trim(),
+    budget: aBudget.value.trim(), down: aDown.value.trim(), notes: aNotes.value.trim(),
+    hot: aHot.checked, stage: "NEW", source: "manual",
+  };
+  if (!lead.name && !lead.phone) return alert("Add a name or phone.");
+  await fetch(SERVER + "/api/dealer/crm/leads", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(lead) });
+  ["aName","aPhone","aVehicle","aBudget","aDown","aNotes"].forEach(id=>document.getElementById(id).value="");
+  aHot.checked=false; toggleAdd(); load();
 }
 function esc(s){return String(s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
 
