@@ -26965,8 +26965,8 @@ export default function App() {
                   </div>
                   <iframe
                     key={`mtf-${sym}-${tf.key}-${tvTheme}-${mtfStudies}`}
-                    src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=560&iv=${tf.interval}&st=${encodeURIComponent(mtfStudies)}`}
-                    style={{ width: "100%", height: mtfLayout === "stack" ? 620 : 540, border: "none", display: "block" }}
+                    src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=440&iv=${tf.interval}&st=${encodeURIComponent(mtfStudies)}`}
+                    style={{ width: "100%", height: mtfLayout === "stack" ? 480 : 400, border: "none", display: "block" }}
                     title={`${sym} ${tf.label}`}
                   />
                 </div>
