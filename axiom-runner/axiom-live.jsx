@@ -12260,7 +12260,38 @@ export default function App() {
     return () => clearInterval(t);
   }, [athanTimes, athanReminder]);
 
-  // Prayer time arrival — plays a Web Audio beep when prayer time hits (if athanSoundOn)
+  // Real athan recitation audio (full adhan MP3)
+  const ATHAN_URL = "https://www.islamcan.com/audio/adhan/azan2.mp3";
+  const playAthan = React.useCallback(() => {
+    try {
+      if (!athanAudioRef.current) {
+        athanAudioRef.current = new Audio(ATHAN_URL);
+        athanAudioRef.current.preload = "auto";
+      }
+      athanAudioRef.current.currentTime = 0;
+      athanAudioRef.current.volume = 1.0;
+      const p = athanAudioRef.current.play();
+      if (p && p.catch) p.catch(() => {
+        // Browser blocked autoplay — fall back to a beep so something is heard
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          [[880,0,0.4],[1100,0.45,0.4],[880,0.9,0.6]].forEach(([f,s,d]) => {
+            const o = ctx.createOscillator(), g = ctx.createGain();
+            o.connect(g); g.connect(ctx.destination); o.type = "sine"; o.frequency.value = f;
+            g.gain.setValueAtTime(0.22, ctx.currentTime + s);
+            g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + s + d);
+            o.start(ctx.currentTime + s); o.stop(ctx.currentTime + s + d);
+          });
+        } catch {}
+      });
+    } catch {}
+  }, []);
+
+  const stopAthan = React.useCallback(() => {
+    try { if (athanAudioRef.current) { athanAudioRef.current.pause(); athanAudioRef.current.currentTime = 0; } } catch {}
+  }, []);
+
+  // Prayer time arrival — plays the full athan when prayer time hits (if athanSoundOn)
   const athanFiredSounds = useRef(new Set());
   useEffect(() => {
     if (!athanTimes || !athanSoundOn) return;
@@ -12279,29 +12310,13 @@ export default function App() {
           const soundKey = `${today}:${key}`;
           if (!athanFiredSounds.current.has(soundKey)) {
             athanFiredSounds.current.add(soundKey);
-            try {
-              const ctx = new (window.AudioContext || window.webkitAudioContext)();
-              // Three-tone athan chime: 880Hz → 1100Hz → 880Hz
-              [[880, 0, 0.4], [1100, 0.45, 0.4], [880, 0.9, 0.6]].forEach(([freq, startAt, dur]) => {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.type = "sine";
-                osc.frequency.value = freq;
-                gain.gain.setValueAtTime(0.22, ctx.currentTime + startAt);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startAt + dur);
-                osc.start(ctx.currentTime + startAt);
-                osc.stop(ctx.currentTime + startAt + dur);
-                osc.onended = () => { try { ctx.close(); } catch {} };
-              });
-            } catch {}
+            playAthan();
           }
         }
       });
     }, 15000);
     return () => clearInterval(t);
-  }, [athanTimes, athanSoundOn]);
+  }, [athanTimes, athanSoundOn, playAthan]);
 
   // Reload global quran audio when surah or reciter changes, resume if was playing
   const quranWasPlaying   = useRef(false);
@@ -25959,6 +25974,20 @@ export default function App() {
                     <option value={15}>15 دقيقة</option>
                   </select>
                 </div>
+              </div>
+              {/* Test athan button */}
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button onClick={playAthan}
+                  style={{ flex: 1, background: `${gold}22`, border: `1px solid ${gold}66`, color: gold, borderRadius: 8, padding: "10px", fontFamily: "Arial, sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+                  ▶ تجربة صوت الأذان
+                </button>
+                <button onClick={stopAthan}
+                  style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textSec, borderRadius: 8, padding: "10px 16px", fontFamily: "Arial, sans-serif", fontSize: 14, cursor: "pointer" }}>
+                  ⏹ إيقاف
+                </button>
+              </div>
+              <div style={{ fontSize: 11, color: C.textDim, marginTop: 6, textAlign: "center", fontFamily: "Arial, sans-serif" }}>
+                اضغط "تجربة" مرة واحدة للسماح للمتصفح بتشغيل الصوت تلقائياً عند وقت الصلاة
               </div>
             </div>
             {!athanTimes && !athanLoading && (
