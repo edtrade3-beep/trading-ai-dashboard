@@ -4667,8 +4667,13 @@ function PredictionsTab({ C, MONO, SANS, watchlistData, macroData }) {
   });
   preds.sort((a, b) => Math.abs(b.score) - Math.abs(a.score));
 
-  const cats = ["ALL", "MARKET", "STOCK", "CRYPTO"];
-  const filtered = filter === "ALL" ? preds : preds.filter(p => p.cat === filter);
+  const cats = ["ALL", "🟢 BULLISH", "🔴 BEARISH", "MARKET", "STOCK", "CRYPTO"];
+  const filtered = preds.filter(p => {
+    if (filter === "ALL") return true;
+    if (filter === "🟢 BULLISH") return p.dir.includes("BULL") || p.dir === "LEAN UP";
+    if (filter === "🔴 BEARISH") return p.dir.includes("BEAR") || p.dir === "LEAN DOWN";
+    return p.cat === filter;
+  });
   const dirCol = d => d.includes("BULL") || d === "LEAN UP" ? C.green : d.includes("BEAR") || d === "LEAN DOWN" ? C.red : C.amber;
   const dirIcon = d => d.includes("BULL") || d === "LEAN UP" ? "📈" : d.includes("BEAR") || d === "LEAN DOWN" ? "📉" : "➡️";
 
@@ -4682,14 +4687,18 @@ function PredictionsTab({ C, MONO, SANS, watchlistData, macroData }) {
       </div>
 
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-        {cats.map(c => (
-          <button key={c} onClick={() => setFilter(c)}
-            style={{ background: filter === c ? C.accent : C.surface, color: filter === c ? "#fff" : C.textSec,
-              border: `1px solid ${filter === c ? C.accent : C.border}`, borderRadius: 6,
-              fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 12px", cursor: "pointer" }}>
-            {c}
-          </button>
-        ))}
+        {cats.map(c => {
+          const active = filter === c;
+          const accent = c === "🟢 BULLISH" ? C.green : c === "🔴 BEARISH" ? C.red : C.accent;
+          return (
+            <button key={c} onClick={() => setFilter(c)}
+              style={{ background: active ? accent : C.surface, color: active ? "#fff" : C.textSec,
+                border: `1px solid ${active ? accent : C.border}`, borderRadius: 6,
+                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 12px", cursor: "pointer" }}>
+              {c}
+            </button>
+          );
+        })}
       </div>
 
       {filtered.length === 0 && <div style={{ textAlign: "center", padding: "48px 0", fontFamily: MONO, fontSize: 14, color: C.textDim }}>Loading market data… add tickers to your watchlist.</div>}
