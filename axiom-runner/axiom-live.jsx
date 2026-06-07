@@ -4894,6 +4894,7 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
 function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFor, scanResults }) {
   const spyQ   = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
   const spyChg = Number(spyQ?.changesPercentage || 0);
+  const [glExpanded, setGlExpanded] = useState(null); // ticker whose details are shown
 
   // Build results from watchlist + scan data
   const results = (watchlistData || []).map(q => {
@@ -4975,13 +4976,59 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
           </div>
         )}
 
-        <button onClick={() => openDive(r.symbol)}
-          style={{ background: `${C.accent}15`, border: `1px solid ${C.accent}44`, color: C.accent,
-            borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700,
-            padding: "6px 12px", cursor: "pointer" }}>
-          DEEP DIVE
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <button onClick={() => setGlExpanded(glExpanded === r.symbol ? null : r.symbol)}
+            style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textSec,
+              borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700,
+              padding: "6px 12px", cursor: "pointer" }}>
+            {glExpanded === r.symbol ? "▲ LESS" : "▼ DETAILS"}
+          </button>
+          <button onClick={() => openDive(r.symbol)}
+            style={{ background: `${C.accent}15`, border: `1px solid ${C.accent}44`, color: C.accent,
+              borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700,
+              padding: "6px 12px", cursor: "pointer" }}>
+            DEEP DIVE
+          </button>
+        </div>
       </div>
+
+      {/* ── Expandable ticker details ── */}
+      {glExpanded === r.symbol && (() => {
+        const q = r.q || {};
+        const hi52 = Number(q.yearHigh || 0), lo52 = Number(q.yearLow || 0);
+        const ma50 = Number(q.priceAvg50 || 0), ma200 = Number(q.priceAvg200 || 0);
+        const mcap = Number(q.marketCap || 0);
+        const pe   = Number(q.pe || 0);
+        const vol  = Number(q.volume || 0), avgVol = Number(q.avgVolume || 0);
+        const range52 = (hi52 > lo52 && r.px > 0) ? Math.round((r.px - lo52) / (hi52 - lo52) * 100) : null;
+        const fmtCap = mcap > 1e12 ? `$${(mcap/1e12).toFixed(2)}T` : mcap > 1e9 ? `$${(mcap/1e9).toFixed(1)}B` : mcap > 1e6 ? `$${(mcap/1e6).toFixed(0)}M` : "—";
+        const fmtVol = v => v > 1e9 ? `${(v/1e9).toFixed(1)}B` : v > 1e6 ? `${(v/1e6).toFixed(1)}M` : v > 1e3 ? `${(v/1e3).toFixed(0)}K` : v;
+        const stats = [
+          ["Company", q.name || r.symbol],
+          ["Market Cap", fmtCap],
+          ["P/E Ratio", pe > 0 ? pe.toFixed(1) : "—"],
+          ["52W Range", hi52 > 0 ? `$${lo52.toFixed(2)} – $${hi52.toFixed(2)}` : "—"],
+          ["52W Position", range52 != null ? `${range52}% ${range52 > 75 ? "(near high)" : range52 < 25 ? "(near low)" : "(mid)"}` : "—"],
+          ["MA 50", ma50 > 0 ? `$${ma50.toFixed(2)} ${r.px > ma50 ? "✅ above" : "🔴 below"}` : "—"],
+          ["MA 200", ma200 > 0 ? `$${ma200.toFixed(2)} ${r.px > ma200 ? "✅ above" : "🔴 below"}` : "—"],
+          ["Volume", `${fmtVol(vol)} ${avgVol > 0 ? `(avg ${fmtVol(avgVol)})` : ""}`],
+          ["Rel Volume", r.rvol > 0 ? `${r.rvol.toFixed(2)}x ${r.rvol > 1.5 ? "🔥" : ""}` : "—"],
+          ["RSI", r.rsi > 0 ? `${r.rsi.toFixed(0)} ${r.rsi < 35 ? "(oversold)" : r.rsi > 65 ? "(overbought)" : "(neutral)"}` : "—"],
+          ["vs SPY today", `${r.relStrength >= 0 ? "+" : ""}${r.relStrength}% ${r.isLeader ? "💪 LEADER" : ""}`],
+          ["Day Range", q.dayLow && q.dayHigh ? `$${Number(q.dayLow).toFixed(2)} – $${Number(q.dayHigh).toFixed(2)}` : "—"],
+        ];
+        return (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}`,
+            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "6px 20px" }}>
+            {stats.map(([l, v]) => (
+              <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", borderBottom: `1px solid ${C.border}22` }}>
+                <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: C.text, textAlign: "right" }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 
