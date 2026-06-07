@@ -16197,12 +16197,12 @@ export default function App() {
             const NAV_GROUPS = [
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard"] },
               { id: "terminal",   label: "📈 CHART",      tabs: ["terminal", "tv", "multitf"] },
-              { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy", "under10"] },
-              { id: "markets",    label: "🌍 MARKETS",    tabs: ["news", "macro", "econ-cal", "crypto", "predictions"] },
+              { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy"] },
+              { id: "markets",    label: "🌍 MARKETS",    tabs: ["news", "macro", "econ-cal", "predictions"] },
               { id: "portfolio",  label: "💼 PORTFOLIO",  tabs: ["journal", "performance"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["education", "notes"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools"] },
-              { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih", "halal", "soccer"] },
+              { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih", "halal"] },
             ];
             const scannerBadge = scannerRows.filter(r => r.scannerScore >= 70).length || null;
             return (
@@ -16555,13 +16555,11 @@ export default function App() {
             { id: "greenlight",   label: "🟢 GREEN LIGHT" },
             { id: "smartscan",    label: "🧠 SMART SCAN" },
             { id: "dipbuy",       label: "🩸 DIP BUY" },
-            { id: "under10",      label: "💎 UNDER $50" },
           ],
           markets: [
             { id: "news",         label: "📰 NEWS" },
             { id: "macro",        label: "🌍 MACRO" },
             { id: "econ-cal",     label: "📅 EVENTS" },
-            { id: "crypto",       label: "₿ CRYPTO" },
             { id: "predictions",  label: "🎲 PREDICTIONS" },
           ],
           portfolio: [
@@ -16581,7 +16579,6 @@ export default function App() {
             { id: "athkar", label: "أذكار" },
             { id: "tasbih", label: "تسبيح" },
             { id: "halal",  label: "☪ HALAL" },
-            { id: "soccer", label: "⚽ SOCCER" },
           ],
         };
         const activeGroup = Object.entries(SUB_GROUPS).find(([, tabs]) =>
@@ -16818,11 +16815,12 @@ export default function App() {
 
         {/* ══ COMMAND CENTER — Market Pulse + Radar + Fear&Greed + Signals ══ */}
         {activeTab === "dashboard" && (() => {
-          const pulse = ["SPY","QQQ","IWM","BTC-USD"].map(sym => {
-            const q = watchlistData.find(w => w.symbol === sym) || (macroData||[]).find(m => m.symbol === sym);
+          const pulse = [["SPY","SPY"],["QQQ","QQQ"],["IWM","IWM"],["BTC","BTCUSD","BTC-USD"],["ETH","ETHUSD","ETH-USD"],["SOL","SOLUSD","SOL-USD"]].map(([label, ...syms]) => {
+            let q = null;
+            for (const s of syms) { q = watchlistData.find(w => w.symbol === s) || (macroData||[]).find(m => m.symbol === s); if (q) break; }
             if (!q) return null;
             const chg = Number(q.changesPercentage || q.delta1d || 0);
-            return { sym, chg, price: Number(q.price || 0) };
+            return { sym: label, chg, price: Number(q.price || 0) };
           }).filter(Boolean);
           const radarAlert = distData?.alert || "NORMAL";
           const radarScore = distData?.riskScore || 0;
