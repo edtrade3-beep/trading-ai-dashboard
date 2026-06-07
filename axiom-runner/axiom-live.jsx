@@ -4646,8 +4646,15 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   // ── PAPER vs LIVE mode ──
   const [mode, setMode] = useState(() => localStorage.getItem("axiom_trade_mode") || "PAPER");
   const setTradeMode = m => { setMode(m); localStorage.setItem("axiom_trade_mode", m); };
-  const PAPER_START = 10000;
-  const [paperStart] = useState(() => Number(localStorage.getItem("axiom_paper_start")) || PAPER_START);
+  const PAPER_START = 100000;
+  const [paperStart, setPaperStart] = useState(() => Number(localStorage.getItem("axiom_paper_start")) || PAPER_START);
+  const resetPaper = () => {
+    if (!window.confirm("Reset paper account to $100,000 and clear all paper trades?")) return;
+    setPaperStart(100000);
+    localStorage.setItem("axiom_paper_start", "100000");
+    const live = trades.filter(t => (t.mode || "LIVE") !== "PAPER");
+    save(live);
+  };
   const [acct, setAcct] = useState(() => Number(localStorage.getItem("axiom_acct_size")) || 10000);
   const [riskPct, setRiskPct] = useState(() => Number(localStorage.getItem("axiom_risk_pct")) || 1);
   const saveAcct = v => { setAcct(v); localStorage.setItem("axiom_acct_size", v); };
@@ -4776,12 +4783,20 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
           const bal = paperStart + totalPnl;
           const pct = ((bal - paperStart) / paperStart * 100);
           return (
-            <div style={{ background: "#7c3aed18", border: "1px solid #7c3aed44", borderRadius: 6, padding: "4px 12px" }}>
-              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>PAPER BALANCE </span>
-              <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: bal >= paperStart ? C.green : C.red }}>
-                ${bal.toFixed(0)} ({pct >= 0 ? "+" : ""}{pct.toFixed(1)}%)
-              </span>
-            </div>
+            <>
+              <div style={{ background: "#7c3aed18", border: "1px solid #7c3aed44", borderRadius: 6, padding: "4px 12px" }}>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>PAPER BALANCE </span>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: bal >= paperStart ? C.green : C.red }}>
+                  ${bal.toLocaleString()} ({pct >= 0 ? "+" : ""}{pct.toFixed(1)}%)
+                </span>
+                <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginLeft: 6 }}>start ${paperStart.toLocaleString()}</span>
+              </div>
+              <button onClick={resetPaper}
+                style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6,
+                  fontFamily: MONO, fontSize: 10, padding: "4px 10px", cursor: "pointer" }}>
+                ⟲ Reset $100k
+              </button>
+            </>
           );
         })()}
       </div>
