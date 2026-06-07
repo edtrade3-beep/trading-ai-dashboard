@@ -12132,6 +12132,8 @@ export default function App() {
   // Fear & Greed
   const [fearGreedData,    setFearGreedData]    = useState(null);
   const [fearGreedLoading, setFearGreedLoading] = useState(false);
+  // News sentiment (for next-day projection)
+  const [newsSentiment, setNewsSentiment] = useState(null);
   // Market Breadth
   const [breadthData,    setBreadthData]    = useState(null);
   const [breadthLoading, setBreadthLoading] = useState(false);
@@ -12672,6 +12674,39 @@ export default function App() {
     return () => clearInterval(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchlistData]);
+
+  // ── News sentiment scoring (for next-day direction) ──────────────────────────
+  useEffect(() => {
+    let alive = true;
+    const BULL = ["surge","soar","jump","rally","gain","rise","beat","beats","record","high","boom","upgrade","bullish","strong","growth","optimis","recover","rebound","outperform","tops","exceed","profit","breakthrough","deal","approval","cut rate","rate cut","soft landing","cools","cooling"];
+    const BEAR = ["plunge","crash","tumble","fall","drop","slump","sink","miss","misses","loss","losses","weak","cut","layoff","recession","fear","selloff","sell-off","downgrade","bearish","warn","warning","slowdown","decline","slip","sinks","hike","inflation","tariff","crisis","default","bankrupt","probe","lawsuit","slumps","craters","slides"];
+    const score = () => {
+      fetch("/api/finviz/news?limit=40").then(r => r.json()).then(d => {
+        if (!alive) return;
+        const items = d.items || [];
+        if (!items.length) { setNewsSentiment(null); return; }
+        let bull = 0, bear = 0;
+        const headlines = [];
+        items.forEach(n => {
+          const t = (n.title || "").toLowerCase();
+          let s = 0;
+          BULL.forEach(w => { if (t.includes(w)) s += 1; });
+          BEAR.forEach(w => { if (t.includes(w)) s -= 1; });
+          if (s > 0) bull++; else if (s < 0) bear++;
+          if (s !== 0) headlines.push({ title: n.title, s });
+        });
+        const total = bull + bear;
+        const netPct = total ? Math.round(((bull - bear) / total) * 100) : 0;
+        const label = netPct >= 25 ? "BULLISH" : netPct >= 8 ? "LEAN BULLISH" : netPct <= -25 ? "BEARISH" : netPct <= -8 ? "LEAN BEARISH" : "MIXED";
+        setNewsSentiment({ bull, bear, netPct, label,
+          topBull: headlines.filter(h=>h.s>0).slice(0,2).map(h=>h.title),
+          topBear: headlines.filter(h=>h.s<0).slice(0,2).map(h=>h.title) });
+      }).catch(() => {});
+    };
+    score();
+    const t = setInterval(score, 5 * 60_000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
 
   // ── TICK/TRIN on startup ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -16677,6 +16712,15 @@ export default function App() {
               if (fg <= 25) { score += 10; factors.push("✅ Extreme fear — bounce odds rise"); }
               else if (fg >= 75) { score -= 10; factors.push("⚠️ Extreme greed — pullback risk"); }
               if (qqqChg > 0.5 && spyChg > 0) { score += 8; factors.push("✅ Tech leading"); }
+              // ── News sentiment factor ──
+              if (newsSentiment && (newsSentiment.bull + newsSentiment.bear) >= 3) {
+                const np = newsSentiment.netPct;
+                if (np >= 25)      { score += 18; factors.push(`📰 News BULLISH (${np>0?"+":""}${np}% net of ${newsSentiment.bull+newsSentiment.bear} headlines)`); }
+                else if (np >= 8)  { score += 10; factors.push(`📰 News lean bullish (+${np}%)`); }
+                else if (np <= -25){ score -= 18; factors.push(`📰 News BEARISH (${np}% net of ${newsSentiment.bull+newsSentiment.bear} headlines)`); }
+                else if (np <= -8) { score -= 10; factors.push(`📰 News lean bearish (${np}%)`); }
+                else               { factors.push(`📰 News mixed (${np>0?"+":""}${np}%)`); }
+              }
 
               const bias = score >= 25 ? "BULLISH" : score >= 5 ? "LEAN BULLISH" : score <= -25 ? "BEARISH" : score <= -5 ? "LEAN BEARISH" : "NEUTRAL";
               const biasCol = score >= 25 ? C.green : score >= 5 ? "#4caf50" : score <= -25 ? C.red : score <= -5 ? "#ff6b6b" : C.amber;
@@ -16706,6 +16750,20 @@ export default function App() {
                       ))}
                       {!factors.length && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Waiting for market data…</div>}
                     </div>
+                    {/* News sentiment */}
+                    {newsSentiment && (newsSentiment.bull + newsSentiment.bear) >= 3 && (
+                      <div style={{ minWidth: 200, flex: 1 }}>
+                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>
+                          📰 NEWS SENTIMENT: <span style={{ color: newsSentiment.netPct >= 8 ? C.green : newsSentiment.netPct <= -8 ? C.red : C.amber, fontWeight: 800 }}>{newsSentiment.label} ({newsSentiment.netPct >= 0 ? "+" : ""}{newsSentiment.netPct}%)</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                          <span style={{ fontFamily: MONO, fontSize: 11, color: C.green }}>🟢 {newsSentiment.bull} bullish</span>
+                          <span style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>🔴 {newsSentiment.bear} bearish</span>
+                        </div>
+                        {newsSentiment.topBull.map((h,i) => <div key={"b"+i} style={{ fontFamily: SANS, fontSize: 10, color: C.green, lineHeight: 1.4 }}>+ {h.slice(0,60)}</div>)}
+                        {newsSentiment.topBear.map((h,i) => <div key={"r"+i} style={{ fontFamily: SANS, fontSize: 10, color: C.red, lineHeight: 1.4 }}>− {h.slice(0,60)}</div>)}
+                      </div>
+                    )}
                     {/* Levels */}
                     <div style={{ minWidth: 160 }}>
                       <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>SPY LEVELS TO WATCH</div>
