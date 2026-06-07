@@ -37,9 +37,22 @@ It only reads text **you highlight** and writes drafts **you copy**.
 4. Click **Load unpacked** → select the `chrome-extension` folder
 5. The 🚗 Dixie Motors icon appears in your toolbar — pin it.
 
-> **Icon note:** if Chrome complains about a missing `icon.png`, either add any
-> small PNG named `icon.png` to this folder, or remove the `"icons"` and
-> `"default_icon"` lines from `manifest.json`. The extension works either way.
+### Brave (same as Chrome) ✅
+1. Go to **brave://extensions**
+2. Turn on **Developer mode** (top-right)
+3. **Load unpacked** → select the `chrome-extension` folder
+4. Done — works identically to Chrome.
+
+### Firefox ✅
+1. Go to **about:debugging**
+2. Click **This Firefox** (left side)
+3. Click **Load Temporary Add-on…**
+4. Select the **manifest.json** file inside the `chrome-extension` folder
+5. The 🚗 icon appears — pin it.
+
+> **Firefox note:** "Load Temporary Add-on" lasts until you close Firefox.
+> To make it permanent you'd need to sign it (free) at addons.mozilla.org,
+> but for personal daily use, just reload it when needed — takes 5 seconds.
 
 ---
 
