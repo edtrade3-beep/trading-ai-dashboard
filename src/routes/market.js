@@ -470,6 +470,48 @@ async function handleMarket(req, res, requestUrl) {
     return writeJson(res, 200, payload);
   }
 
+  // ── Prediction markets (Polymarket) — odds for events that move stocks ──
+  if (pathname === "/api/market/predictions") {
+    try {
+      const https = require("https");
+      const getJson = (url) => new Promise((resolve, reject) => {
+        const req = https.get(url, { headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" } }, r => {
+          let d = ""; r.on("data", c => d += c); r.on("end", () => { try { resolve(JSON.parse(d)); } catch { resolve(null); } });
+        });
+        req.on("error", reject);
+        req.setTimeout(10000, () => { req.destroy(); reject(new Error("timeout")); });
+      });
+      // Polymarket Gamma API — active markets sorted by volume
+      const markets = await getJson("https://gamma-api.polymarket.com/markets?closed=false&active=true&order=volume24hr&ascending=false&limit=120");
+      const arr = Array.isArray(markets) ? markets : [];
+      // Keywords for trader-relevant events
+      const KW = /fed|rate|interest|recession|inflation|cpi|gdp|jobs|unemployment|s&p|sp500|nasdaq|dow|stock|market|bitcoin|btc|ethereum|eth|crypto|tariff|trump|election|powell|treasury|yield|gold|oil|nvidia|tesla|government shutdown/i;
+      const relevant = arr.filter(m => KW.test(m.question || "") && m.outcomes && m.outcomePrices)
+        .map(m => {
+          let outcomes = [], prices = [];
+          try { outcomes = JSON.parse(m.outcomes); prices = JSON.parse(m.outcomePrices); } catch {}
+          const yesIdx = outcomes.findIndex(o => /yes/i.test(o));
+          const yesPct = yesIdx >= 0 ? Math.round(Number(prices[yesIdx]) * 100) : (prices[0] ? Math.round(Number(prices[0]) * 100) : null);
+          return {
+            question: m.question,
+            yesPct,
+            outcomes: outcomes.map((o, i) => ({ label: o, pct: Math.round(Number(prices[i] || 0) * 100) })),
+            volume: Math.round(Number(m.volume || m.volumeNum || 0)),
+            endDate: m.endDate || null,
+            category: /fed|rate|powell|inflation|cpi|recession|gdp|jobs|treasury|yield/i.test(m.question) ? "MACRO"
+                    : /bitcoin|btc|eth|crypto/i.test(m.question) ? "CRYPTO"
+                    : /trump|election|shutdown|government/i.test(m.question) ? "POLITICS"
+                    : /s&p|nasdaq|dow|stock|nvidia|tesla|market/i.test(m.question) ? "STOCKS" : "OTHER",
+          };
+        })
+        .filter(m => m.yesPct !== null)
+        .slice(0, 40);
+      return writeJson(res, 200, { ok: true, markets: relevant, count: relevant.length });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e.message, markets: [] });
+    }
+  }
+
   // ── StockTwits social sentiment ("X for traders") ──
   if (pathname === "/api/market/social-sentiment") {
     try {

@@ -4610,6 +4610,91 @@ function computeGreenLight(q, spyChg, scanRow) {
 }
 
 // ── Trade Tracker — logs Green Light trades, manages exits, tracks stats ──────
+// ─── PREDICTION MARKETS TAB (Polymarket odds) ────────────────────────────────
+function PredictionsTab({ C, MONO, SANS }) {
+  const [markets, setMarkets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("ALL");
+  const [ts, setTs] = useState(null);
+
+  const load = () => {
+    setLoading(true);
+    fetch("/api/market/predictions").then(r => r.json()).then(d => {
+      setMarkets(d.markets || []); setTs(new Date()); setLoading(false);
+    }).catch(() => setLoading(false));
+  };
+  useEffect(() => { load(); const t = setInterval(load, 5 * 60_000); return () => clearInterval(t); }, []);
+
+  const cats = ["ALL", "MACRO", "STOCKS", "CRYPTO", "POLITICS"];
+  const catColor = c => ({ MACRO:"#3b82f6", STOCKS:"#22d47e", CRYPTO:"#f59e0b", POLITICS:"#ef4444", OTHER:"#6b7280" }[c] || C.accent);
+  const filtered = filter === "ALL" ? markets : markets.filter(m => m.category === filter);
+
+  return (
+    <div style={{ padding: "16px 20px", maxWidth: 1000, margin: "0 auto" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.text }}>🎲 PREDICTION MARKETS</div>
+          <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 3 }}>
+            Real money-backed odds from Polymarket — leading signals for what moves stocks
+          </div>
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+          {ts && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{ts.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span>}
+          <button onClick={load} style={{ background: C.accent, color: "#fff", border: "none", borderRadius: 7, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "7px 14px", cursor: "pointer" }}>{loading ? "⏳" : "↻ Refresh"}</button>
+        </div>
+      </div>
+
+      {/* Category filter */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+        {cats.map(c => (
+          <button key={c} onClick={() => setFilter(c)}
+            style={{ background: filter === c ? (c === "ALL" ? C.accent : catColor(c)) : C.surface,
+              color: filter === c ? "#fff" : C.textSec,
+              border: `1px solid ${filter === c ? (c === "ALL" ? C.accent : catColor(c)) : C.border}`,
+              borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 12px", cursor: "pointer" }}>
+            {c}
+          </button>
+        ))}
+      </div>
+
+      {loading && markets.length === 0 && <div style={{ textAlign: "center", padding: "48px 0", fontFamily: MONO, fontSize: 14, color: C.textDim }}>⏳ Loading prediction markets…</div>}
+      {!loading && filtered.length === 0 && <div style={{ textAlign: "center", padding: "48px 0", fontFamily: MONO, fontSize: 14, color: C.textDim }}>No markets in this category right now.</div>}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {filtered.map((m, i) => {
+          const pct = m.yesPct;
+          const col = pct >= 65 ? C.green : pct <= 35 ? C.red : C.amber;
+          return (
+            <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${catColor(m.category)}`, borderRadius: 10, padding: "12px 16px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: catColor(m.category), background: `${catColor(m.category)}18`, borderRadius: 3, padding: "2px 7px" }}>{m.category}</span>
+                <span style={{ flex: 1, fontFamily: SANS, fontSize: 14, fontWeight: 600, color: C.text, minWidth: 200 }}>{m.question}</span>
+                {/* Probability */}
+                <div style={{ textAlign: "center", minWidth: 70 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 900, color: col }}>{pct}%</div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>YES odds</div>
+                </div>
+              </div>
+              {/* Probability bar */}
+              <div style={{ height: 6, background: C.surface, borderRadius: 3, overflow: "hidden", marginTop: 8 }}>
+                <div style={{ width: `${pct}%`, height: "100%", background: col }} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>${(m.volume/1000).toFixed(0)}k volume</span>
+                {m.endDate && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>ends {new Date(m.endDate).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ marginTop: 16, padding: "10px 14px", background: `${C.accent}10`, border: `1px solid ${C.accent}33`, borderRadius: 8, fontFamily: SANS, fontSize: 12, color: C.textSec }}>
+        💡 These are real bets people place with money. A 75% "Fed cuts rates" means traders are confident — markets often price this in before it happens. Use as a leading signal, not gospel.
+      </div>
+    </div>
+  );
+}
+
 const GL_TRADES_KEY = "axiom_gl_trades_v1";
 
 // Shared: create an auto-managed PAPER trade (stop/T1/T2/T3 + sizing) from anywhere
@@ -12114,7 +12199,7 @@ export default function App() {
     try {
       const t = localStorage.getItem("last_tab");
       // Restore only safe tabs (don't restore modals/dialogs)
-      const safeTabs = ["dashboard","briefing","terminal","tv","multitf","fibonacci","scanner","smartscan","greenlight","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","portfolio","performance","journal","journal-stats","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","morning-routine","challenge","recap","dipbuy","tradeplanner","under10","compression","quran","athan","athkar","tasbih","halal","soccer"];
+      const safeTabs = ["dashboard","briefing","terminal","tv","multitf","fibonacci","scanner","smartscan","greenlight","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","predictions","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","portfolio","performance","journal","journal-stats","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","morning-routine","challenge","recap","dipbuy","tradeplanner","under10","compression","quran","athan","athkar","tasbih","halal","soccer"];
       return (t && safeTabs.includes(t)) ? t : "dashboard";
     } catch { return "dashboard"; }
   });
@@ -16061,7 +16146,7 @@ export default function App() {
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard", "briefing"] },
               { id: "terminal",   label: "📈 CHART",      tabs: ["terminal", "tv", "multitf"] },
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "combined", "smartscan", "tradeplanner", "dipbuy", "adol22", "compression", "under10"] },
-              { id: "markets",    label: "🌍 MARKETS",    tabs: ["news", "macro", "econ-cal", "crypto"] },
+              { id: "markets",    label: "🌍 MARKETS",    tabs: ["news", "macro", "econ-cal", "crypto", "predictions"] },
               { id: "portfolio",  label: "💼 PORTFOLIO",  tabs: ["portfolio", "journal", "performance"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["education", "notes"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["morning-routine", "challenge", "recap", "tools"] },
@@ -16430,6 +16515,7 @@ export default function App() {
             { id: "macro",        label: "🌍 MACRO" },
             { id: "econ-cal",     label: "📅 EVENTS" },
             { id: "crypto",       label: "₿ CRYPTO" },
+            { id: "predictions",  label: "🎲 PREDICTIONS" },
           ],
           portfolio: [
             { id: "portfolio",    label: "💼 POSITIONS" },
@@ -26745,6 +26831,7 @@ export default function App() {
       {activeTab === "tradeplanner" && <TradePlannerTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "dipbuy" && <DipBuyTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} />}
       {activeTab === "greenlight" && <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} />}
+      {activeTab === "predictions" && <PredictionsTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "under10" && <Under10Tab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "combined"     && <CombinedTab     C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols}
         onDeepDive={(sym, row) => openDeepDiveFor(sym, { price: row?.price || 0, changePercent: 0 })} />}
