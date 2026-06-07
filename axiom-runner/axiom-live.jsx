@@ -4610,86 +4610,123 @@ function computeGreenLight(q, spyChg, scanRow) {
 }
 
 // ── Trade Tracker — logs Green Light trades, manages exits, tracks stats ──────
-// ─── PREDICTION MARKETS TAB (Polymarket odds) ────────────────────────────────
-function PredictionsTab({ C, MONO, SANS }) {
-  const [markets, setMarkets] = useState([]);
-  const [loading, setLoading] = useState(true);
+// ─── PREDICTIONS TAB — stock / crypto / market price direction forecast ──────
+function computePrediction(q) {
+  const px    = Number(q.price || q.regularMarketPrice || 0);
+  if (!px) return null;
+  const chg   = Number(q.changesPercentage || 0);
+  const ma50  = Number(q.priceAvg50 || 0);
+  const ma200 = Number(q.priceAvg200 || 0);
+  const hi52  = Number(q.yearHigh || 0), lo52 = Number(q.yearLow || 0);
+  const vol   = Number(q.volume || 0), avgVol = Number(q.avgVolume || 0);
+  const rvol  = avgVol > 0 ? vol / avgVol : 1;
+  const dayRange = (Number(q.dayHigh||0) - Number(q.dayLow||0));
+  const atrPct = px > 0 && dayRange > 0 ? (dayRange / px) : 0.025;
+
+  let score = 0; const why = [];
+  if (ma50 > 0 && ma200 > 0) {
+    if (px > ma50 && ma50 > ma200) { score += 30; why.push("Strong uptrend (price > MA50 > MA200)"); }
+    else if (px > ma50)            { score += 15; why.push("Above MA50"); }
+    else if (px < ma50 && ma50 < ma200) { score -= 30; why.push("Downtrend (price < MA50 < MA200)"); }
+    else                           { score -= 12; why.push("Below MA50"); }
+  }
+  if (hi52 > lo52 && px > 0) {
+    const pos = (px - lo52) / (hi52 - lo52);
+    if (pos > 0.85)      { score += 12; why.push("Near 52W high — momentum"); }
+    else if (pos < 0.20) { score -= 10; why.push("Near 52W low — weak"); }
+  }
+  if (rvol > 1.8 && chg > 0)      { score += 15; why.push(`Volume surge ${rvol.toFixed(1)}x on green`); }
+  else if (rvol > 1.8 && chg < 0) { score -= 15; why.push(`Volume surge ${rvol.toFixed(1)}x on red`); }
+  if (chg > 3)       { score += 10; why.push("Strong momentum today"); }
+  else if (chg < -3) { score -= 10; why.push("Heavy selling today"); }
+
+  const conf = Math.min(90, 50 + Math.abs(score) / 2);
+  const dir  = score >= 20 ? "BULLISH" : score >= 8 ? "LEAN UP" : score <= -20 ? "BEARISH" : score <= -8 ? "LEAN DOWN" : "NEUTRAL";
+  const weeklyMove = atrPct * Math.sqrt(5) * 100;
+  const biasMult = score >= 8 ? 1 : score <= -8 ? -1 : 0;
+  const target = +(px * (1 + biasMult * weeklyMove / 100)).toFixed(2);
+  const movePct = +(biasMult * weeklyMove).toFixed(1);
+  return { px, chg, dir, conf: Math.round(conf), score, why: why.slice(0, 3), target, movePct };
+}
+
+function PredictionsTab({ C, MONO, SANS, watchlistData, macroData }) {
   const [filter, setFilter] = useState("ALL");
-  const [ts, setTs] = useState(null);
+  const CRYPTO = ["BTC-USD","ETH-USD","BTCUSD","ETHUSD","SOL-USD","SOLUSD"];
+  const INDEX  = ["SPY","QQQ","IWM","DIA"];
 
-  const load = () => {
-    setLoading(true);
-    fetch("/api/market/predictions").then(r => r.json()).then(d => {
-      setMarkets(d.markets || []); setTs(new Date()); setLoading(false);
-    }).catch(() => setLoading(false));
-  };
-  useEffect(() => { load(); const t = setInterval(load, 5 * 60_000); return () => clearInterval(t); }, []);
+  const all = [...(watchlistData || []), ...(macroData || [])];
+  const seen = new Set();
+  const preds = [];
+  all.forEach(q => {
+    if (!q.symbol || seen.has(q.symbol)) return;
+    seen.add(q.symbol);
+    const p = computePrediction(q);
+    if (!p) return;
+    const cat = INDEX.includes(q.symbol) ? "MARKET" : CRYPTO.includes(q.symbol) ? "CRYPTO" : "STOCK";
+    preds.push({ ...p, symbol: q.symbol, name: q.name, cat });
+  });
+  preds.sort((a, b) => Math.abs(b.score) - Math.abs(a.score));
 
-  const cats = ["ALL", "MACRO", "STOCKS", "CRYPTO", "POLITICS"];
-  const catColor = c => ({ MACRO:"#3b82f6", STOCKS:"#22d47e", CRYPTO:"#f59e0b", POLITICS:"#ef4444", OTHER:"#6b7280" }[c] || C.accent);
-  const filtered = filter === "ALL" ? markets : markets.filter(m => m.category === filter);
+  const cats = ["ALL", "MARKET", "STOCK", "CRYPTO"];
+  const filtered = filter === "ALL" ? preds : preds.filter(p => p.cat === filter);
+  const dirCol = d => d.includes("BULL") || d === "LEAN UP" ? C.green : d.includes("BEAR") || d === "LEAN DOWN" ? C.red : C.amber;
+  const dirIcon = d => d.includes("BULL") || d === "LEAN UP" ? "📈" : d.includes("BEAR") || d === "LEAN DOWN" ? "📉" : "➡️";
 
   return (
     <div style={{ padding: "16px 20px", maxWidth: 1000, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.text }}>🎲 PREDICTION MARKETS</div>
-          <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 3 }}>
-            Real money-backed odds from Polymarket — leading signals for what moves stocks
-          </div>
-        </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-          {ts && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{ts.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span>}
-          <button onClick={load} style={{ background: C.accent, color: "#fff", border: "none", borderRadius: 7, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "7px 14px", cursor: "pointer" }}>{loading ? "⏳" : "↻ Refresh"}</button>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.text }}>🔮 PRICE PREDICTIONS</div>
+        <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 3 }}>
+          Direction forecast + price target for stocks, crypto & the market — next ~1 week
         </div>
       </div>
 
-      {/* Category filter */}
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
         {cats.map(c => (
           <button key={c} onClick={() => setFilter(c)}
-            style={{ background: filter === c ? (c === "ALL" ? C.accent : catColor(c)) : C.surface,
-              color: filter === c ? "#fff" : C.textSec,
-              border: `1px solid ${filter === c ? (c === "ALL" ? C.accent : catColor(c)) : C.border}`,
-              borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 12px", cursor: "pointer" }}>
+            style={{ background: filter === c ? C.accent : C.surface, color: filter === c ? "#fff" : C.textSec,
+              border: `1px solid ${filter === c ? C.accent : C.border}`, borderRadius: 6,
+              fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 12px", cursor: "pointer" }}>
             {c}
           </button>
         ))}
       </div>
 
-      {loading && markets.length === 0 && <div style={{ textAlign: "center", padding: "48px 0", fontFamily: MONO, fontSize: 14, color: C.textDim }}>⏳ Loading prediction markets…</div>}
-      {!loading && filtered.length === 0 && <div style={{ textAlign: "center", padding: "48px 0", fontFamily: MONO, fontSize: 14, color: C.textDim }}>No markets in this category right now.</div>}
+      {filtered.length === 0 && <div style={{ textAlign: "center", padding: "48px 0", fontFamily: MONO, fontSize: 14, color: C.textDim }}>Loading market data… add tickers to your watchlist.</div>}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {filtered.map((m, i) => {
-          const pct = m.yesPct;
-          const col = pct >= 65 ? C.green : pct <= 35 ? C.red : C.amber;
-          return (
-            <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${catColor(m.category)}`, borderRadius: 10, padding: "12px 16px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: catColor(m.category), background: `${catColor(m.category)}18`, borderRadius: 3, padding: "2px 7px" }}>{m.category}</span>
-                <span style={{ flex: 1, fontFamily: SANS, fontSize: 14, fontWeight: 600, color: C.text, minWidth: 200 }}>{m.question}</span>
-                {/* Probability */}
-                <div style={{ textAlign: "center", minWidth: 70 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 900, color: col }}>{pct}%</div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>YES odds</div>
+        {filtered.map(p => (
+          <div key={p.symbol} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${dirCol(p.dir)}`, borderRadius: 10, padding: "12px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <div style={{ textAlign: "center", minWidth: 90 }}>
+                <div style={{ fontSize: 20 }}>{dirIcon(p.dir)}</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: dirCol(p.dir) }}>{p.dir}</div>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{p.conf}% conf</div>
+              </div>
+              <div style={{ minWidth: 110 }}>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.accent }}>{p.symbol}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, background: C.surface, borderRadius: 3, padding: "1px 5px" }}>{p.cat}</span>
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 13, color: C.text }}>${p.px.toFixed(2)}
+                  <span style={{ color: p.chg >= 0 ? C.green : C.red, marginLeft: 5 }}>{p.chg >= 0 ? "+" : ""}{p.chg.toFixed(1)}%</span>
                 </div>
               </div>
-              {/* Probability bar */}
-              <div style={{ height: 6, background: C.surface, borderRadius: 3, overflow: "hidden", marginTop: 8 }}>
-                <div style={{ width: `${pct}%`, height: "100%", background: col }} />
+              <div style={{ textAlign: "center", minWidth: 110 }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>1-WEEK TARGET</div>
+                <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: dirCol(p.dir) }}>${p.target}</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: dirCol(p.dir) }}>{p.movePct >= 0 ? "+" : ""}{p.movePct}%</div>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>${(m.volume/1000).toFixed(0)}k volume</span>
-                {m.endDate && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>ends {new Date(m.endDate).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</span>}
+              <div style={{ flex: 1, minWidth: 180 }}>
+                {p.why.map((w, i) => <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, padding: "1px 0" }}>• {w}</div>)}
               </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
 
-      <div style={{ marginTop: 16, padding: "10px 14px", background: `${C.accent}10`, border: `1px solid ${C.accent}33`, borderRadius: 8, fontFamily: SANS, fontSize: 12, color: C.textSec }}>
-        💡 These are real bets people place with money. A 75% "Fed cuts rates" means traders are confident — markets often price this in before it happens. Use as a leading signal, not gospel.
+      <div style={{ marginTop: 16, padding: "10px 14px", background: `${C.amber}10`, border: `1px solid ${C.amber}33`, borderRadius: 8, fontFamily: SANS, fontSize: 12, color: C.amber }}>
+        ⚠️ Predictions are probability-based estimates from trend + momentum + volume — not guarantees. Always use stops.
       </div>
     </div>
   );
@@ -26831,7 +26868,7 @@ export default function App() {
       {activeTab === "tradeplanner" && <TradePlannerTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "dipbuy" && <DipBuyTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} />}
       {activeTab === "greenlight" && <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} />}
-      {activeTab === "predictions" && <PredictionsTab C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "predictions" && <PredictionsTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} />}
       {activeTab === "under10" && <Under10Tab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "combined"     && <CombinedTab     C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols}
         onDeepDive={(sym, row) => openDeepDiveFor(sym, { price: row?.price || 0, changePercent: 0 })} />}
