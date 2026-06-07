@@ -2162,7 +2162,7 @@ function CanvasChart({ candleData, drawTools, loading }) {
 
 // ─── News panel inside regime card (right column, fixed list) ────────────────
 // ─── Crypto liquidations widget (Monitor) ────────────────────────────────────
-function CryptoLiquidations({ C, MONO, SANS }) {
+function CryptoLiqWidget({ C, MONO, SANS }) {
   const [data, setData] = React.useState({});
   const [loading, setLoading] = React.useState(true);
 
@@ -16998,7 +16998,7 @@ export default function App() {
             </div>
 
             {/* ── CRYPTO LIQUIDATIONS ── */}
-            <CryptoLiquidations C={C} MONO={MONO} SANS={SANS} />
+            <CryptoLiqWidget C={C} MONO={MONO} SANS={SANS} />
 
             {/* ── FUTURES STRIP ── */}
             {futuresData.length > 0 && (
