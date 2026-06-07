@@ -4614,6 +4614,11 @@ const GL_TRADES_KEY = "axiom_gl_trades_v1";
 function TradeTracker({ C, MONO, SANS, watchlistData }) {
   const [trades, setTrades] = useState(() => { try { return JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []; } catch { return []; } });
   const [form, setForm] = useState({ ticker: "", entry: "", shares: "" });
+  // ── PAPER vs LIVE mode ──
+  const [mode, setMode] = useState(() => localStorage.getItem("axiom_trade_mode") || "PAPER");
+  const setTradeMode = m => { setMode(m); localStorage.setItem("axiom_trade_mode", m); };
+  const PAPER_START = 10000;
+  const [paperStart] = useState(() => Number(localStorage.getItem("axiom_paper_start")) || PAPER_START);
   const [acct, setAcct] = useState(() => Number(localStorage.getItem("axiom_acct_size")) || 10000);
   const [riskPct, setRiskPct] = useState(() => Number(localStorage.getItem("axiom_risk_pct")) || 1);
   const saveAcct = v => { setAcct(v); localStorage.setItem("axiom_acct_size", v); };
@@ -4650,6 +4655,7 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
       t1: +(entry * 1.05).toFixed(2),
       t2: +(entry * 1.10).toFixed(2),
       status: "OPEN", t1Hit: false, openedAt: new Date().toISOString(),
+      mode,  // PAPER or LIVE
     };
     save([t, ...trades]);
     setForm({ ticker: "", entry: "", shares: "" });
@@ -4662,8 +4668,10 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   const markT1 = id => save(trades.map(t => t.id === id ? { ...t, t1Hit: true } : t));
   const deleteTrade = id => save(trades.filter(t => t.id !== id));
 
-  const open   = trades.filter(t => t.status === "OPEN");
-  const closed = trades.filter(t => t.status === "CLOSED");
+  // Filter to current mode (old trades with no mode = LIVE by default)
+  const modeTrades = trades.filter(t => (t.mode || "LIVE") === mode);
+  const open   = modeTrades.filter(t => t.status === "OPEN");
+  const closed = modeTrades.filter(t => t.status === "CLOSED");
 
   // Stats
   const wins   = closed.filter(t => (t.exit - t.entry) > 0);
@@ -4675,9 +4683,40 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
 
   return (
     <div style={{ marginBottom: 20 }}>
+      {/* PAPER / LIVE mode toggle */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>📋 MY TRADES</span>
+        <div style={{ display: "flex", borderRadius: 7, overflow: "hidden", border: `1px solid ${C.border}` }}>
+          {["PAPER", "LIVE"].map(m => (
+            <button key={m} onClick={() => setTradeMode(m)}
+              style={{ background: mode === m ? (m === "PAPER" ? "#7c3aed" : C.green) : C.surface,
+                color: mode === m ? "#fff" : C.textSec, border: "none",
+                fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 14px", cursor: "pointer" }}>
+              {m === "PAPER" ? "📝 PAPER" : "💵 LIVE"}
+            </button>
+          ))}
+        </div>
+        {mode === "PAPER" && (() => {
+          const bal = paperStart + totalPnl;
+          const pct = ((bal - paperStart) / paperStart * 100);
+          return (
+            <div style={{ background: "#7c3aed18", border: "1px solid #7c3aed44", borderRadius: 6, padding: "4px 12px" }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>PAPER BALANCE </span>
+              <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: bal >= paperStart ? C.green : C.red }}>
+                ${bal.toFixed(0)} ({pct >= 0 ? "+" : ""}{pct.toFixed(1)}%)
+              </span>
+            </div>
+          );
+        })()}
+      </div>
+
       {/* Stats bar */}
       <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
-        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>📋 MY TRADES</span>
+        {mode === "PAPER" && (
+          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#a78bfa", background: "#7c3aed18", borderRadius: 5, padding: "3px 8px" }}>
+            🧪 PRACTICE MODE — fake money, real skill
+          </span>
+        )}
         {closed.length > 0 && (
           <>
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px" }}>
