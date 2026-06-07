@@ -12251,7 +12251,7 @@ export default function App() {
     try {
       const t = localStorage.getItem("last_tab");
       // Restore only safe tabs (don't restore modals/dialogs)
-      const safeTabs = ["dashboard","briefing","terminal","tv","multitf","fibonacci","scanner","smartscan","greenlight","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","predictions","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","performance","journal","journal-stats","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","morning-routine","challenge","recap","dipbuy","tradeplanner","under10","compression","quran","athan","athkar","tasbih","halal","soccer"];
+      const safeTabs = ["dashboard","briefing","terminal","tv","multitf","fibonacci","scanner","smartscan","greenlight","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","predictions","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","performance","journal","journal-stats","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","dipbuy","under10","quran","athan","athkar","tasbih","halal","soccer"];
       return (t && safeTabs.includes(t)) ? t : "dashboard";
     } catch { return "dashboard"; }
   });
@@ -16195,13 +16195,13 @@ export default function App() {
           {/* Nav tabs — grouped */}
           {(() => {
             const NAV_GROUPS = [
-              { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard", "briefing"] },
+              { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard"] },
               { id: "terminal",   label: "📈 CHART",      tabs: ["terminal", "tv", "multitf"] },
-              { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "combined", "smartscan", "tradeplanner", "dipbuy", "adol22", "compression", "under10"] },
+              { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy", "under10"] },
               { id: "markets",    label: "🌍 MARKETS",    tabs: ["news", "macro", "econ-cal", "crypto", "predictions"] },
               { id: "portfolio",  label: "💼 PORTFOLIO",  tabs: ["journal", "performance"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["education", "notes"] },
-              { id: "tools",      label: "🛠 TOOLS",      tabs: ["morning-routine", "challenge", "recap", "tools"] },
+              { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools"] },
               { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih", "halal", "soccer"] },
             ];
             const scannerBadge = scannerRows.filter(r => r.scannerScore >= 70).length || null;
@@ -16545,7 +16545,6 @@ export default function App() {
         const SUB_GROUPS = {
           dashboard: [
             { id: "dashboard",  label: "📊 MONITOR" },
-            { id: "briefing",   label: "🌅 BRIEFING" },
           ],
           terminal: [
             { id: "terminal",   label: "📈 CHART" },
@@ -16554,12 +16553,8 @@ export default function App() {
           ],
           scanner: [
             { id: "greenlight",   label: "🟢 GREEN LIGHT" },
-            { id: "combined",     label: "⚡ BEST SETUPS" },
             { id: "smartscan",    label: "🧠 SMART SCAN" },
-            { id: "tradeplanner", label: "🎯 TRADE PLAN" },
             { id: "dipbuy",       label: "🩸 DIP BUY" },
-            { id: "adol22",       label: "🔴 ADOL22" },
-            { id: "compression",  label: "🌀 COMPRESS" },
             { id: "under10",      label: "💎 UNDER $50" },
           ],
           markets: [
@@ -16578,9 +16573,6 @@ export default function App() {
             { id: "notes",           label: "📝 NOTES" },
           ],
           tools: [
-            { id: "morning-routine", label: "☀️ MORNING" },
-            { id: "challenge",       label: "🏆 30-DAY" },
-            { id: "recap",           label: "🎬 RECAP" },
             { id: "tools",           label: "⚙ SETTINGS" },
           ],
           islamic: [
