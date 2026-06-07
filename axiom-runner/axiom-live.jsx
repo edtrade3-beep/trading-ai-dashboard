@@ -4618,13 +4618,20 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   const [riskPct, setRiskPct] = useState(() => Number(localStorage.getItem("axiom_risk_pct")) || 1);
   const saveAcct = v => { setAcct(v); localStorage.setItem("axiom_acct_size", v); };
   const saveRisk = v => { setRiskPct(v); localStorage.setItem("axiom_risk_pct", v); };
-  // Suggested shares = (account × risk%) / (entry − stop)
+  // Suggested shares = (account × risk%) / (entry − stop), capped to what the account can afford
   const suggestedShares = (() => {
-    const e = Number(form.entry); if (!e) return 0;
-    const stop = e * 0.97;
-    const riskPerShare = e - stop;
-    const dollarRisk = acct * (riskPct / 100);
-    return riskPerShare > 0 ? Math.floor(dollarRisk / riskPerShare) : 0;
+    const e = Number(form.entry);
+    if (!e || e <= 0 || !acct || acct <= 0) return 0;
+    const riskPerShare = e * 0.03;                 // 3% stop
+    const dollarRisk   = acct * (riskPct / 100);   // your max $ risk
+    const riskBased    = Math.floor(dollarRisk / riskPerShare);
+    const affordable   = Math.floor(acct / e);     // can't buy more than the account holds
+    return Math.max(0, Math.min(riskBased, affordable));
+  })();
+  const suggestedRiskCapped = (() => {
+    const e = Number(form.entry); if (!e) return false;
+    const riskBased = Math.floor((acct * (riskPct/100)) / (e * 0.03));
+    return Math.floor(acct / e) < riskBased; // true = limited by account size, not risk
   })();
   const [showForm, setShowForm] = useState(false);
   const save = t => { setTrades(t); localStorage.setItem(GL_TRADES_KEY, JSON.stringify(t)); };
@@ -4730,13 +4737,17 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
             <input value={form.shares} onChange={e => setForm(f => ({ ...f, shares: e.target.value }))} placeholder="SHARES" type="number"
               style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: MONO, fontSize: 13, color: C.text, padding: "7px 10px", width: 90, outline: "none" }} />
             {/* Suggested size */}
-            {suggestedShares > 0 && (
+            {suggestedShares > 0 ? (
               <button onClick={() => setForm(f => ({ ...f, shares: String(suggestedShares) }))}
-                title="Click to use this share count — risks exactly your max"
+                title={suggestedRiskCapped ? "Limited by your account size" : "Risks exactly your 1% max with a 3% stop"}
                 style={{ background: `${C.green}18`, border: `1px solid ${C.green}55`, borderRadius: 5,
                   fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.green, padding: "6px 10px", cursor: "pointer" }}>
-                📐 BUY {suggestedShares} sh (${(suggestedShares * Number(form.entry)).toFixed(0)})
+                📐 BUY {suggestedShares} sh (${(suggestedShares * Number(form.entry)).toFixed(0)}){suggestedRiskCapped ? " · max affordable" : ""}
               </button>
+            ) : Number(form.entry) > 0 ? (
+              <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber }}>⚠ Set account size above</span>
+            ) : (
+              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Enter price for size →</span>
             )}
             <button onClick={addTrade}
               style={{ background: C.green, color: "#fff", border: "none", borderRadius: 5, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "7px 16px", cursor: "pointer" }}>
