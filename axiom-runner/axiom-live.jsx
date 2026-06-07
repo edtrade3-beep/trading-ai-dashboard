@@ -2191,7 +2191,7 @@ function RegimeNewsPanel({ C, MONO, SANS }) {
           <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
             {n.time && <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, flexShrink: 0 }}>{n.time}</span>}
           </div>
-          <div style={{ fontSize: 11, color: C.textSec, lineHeight: 1.35, marginTop: 1 }}>{n.title}</div>
+          <div style={{ fontSize: 11, color: C.text, fontWeight: 600, lineHeight: 1.35, marginTop: 1 }}>{n.title}</div>
         </a>
       ))}
     </div>
@@ -2332,7 +2332,7 @@ function FinvizNewsCard({ C, MONO }) {
             </span>
             {n.time && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{n.time}</span>}
           </div>
-          <div style={{ fontSize: 12, color: C.textSec, lineHeight: 1.4 }}>{n.title}</div>
+          <div style={{ fontSize: 12, color: C.text, fontWeight: 600, lineHeight: 1.4 }}>{n.title}</div>
           {n.source && n.tickers && n.tickers.length > 0 && (
             <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 1 }}>{n.source}</div>
           )}
