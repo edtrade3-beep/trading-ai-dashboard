@@ -5013,6 +5013,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const spyChg = Number(spyQ?.changesPercentage || 0);
   const [glExpanded, setGlExpanded] = useState(null); // ticker whose details are shown
   const [autoPilot, setAutoPilot] = useState(() => localStorage.getItem("axiom_autopilot") === "on");
+  const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 5);
   const autoBoughtRef = useRef(new Set());
 
   // Build results from watchlist + scan data
@@ -5031,13 +5032,13 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
     if (!autoPilot) return;
     const today = new Date().toISOString().slice(0, 10);
     green.forEach(r => {
-      if (r.passed < 5) return;                 // only perfect 5/5 setups
+      if (r.passed < autoThreshold) return;      // 4/5 or 5/5 per your setting
       const key = `${today}:${r.symbol}`;
       if (autoBoughtRef.current.has(key)) return;
       const res = addPaperTrade(r.symbol, r.bestEntry || r.px);
       if (res === "OK" || res === "DUP") autoBoughtRef.current.add(key);
     });
-  }, [autoPilot, green]);
+  }, [autoPilot, green, autoThreshold]);
 
   const sigBg  = s => s === "GREEN" ? `${C.green}18` : s === "YELLOW" ? `${C.amber}18` : `${C.red}10`;
   const sigCol = s => s === "GREEN" ? C.green : s === "YELLOW" ? C.amber : C.red;
@@ -5209,9 +5210,21 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
             AUTO-PILOT {autoPilot ? "ON" : "OFF"} <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>· PAPER ONLY</span>
           </div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-            {autoPilot ? "Auto-buys any stock that hits GREEN LIGHT 5/5, then auto-exits at T1/T2/T3 or stop. Fully hands-off."
-                       : "Turn on to let the system auto-buy + auto-exit perfect setups in paper mode. Test the system 100% hands-free."}
+            {autoPilot ? `Auto-buys any stock that hits ${autoThreshold}/5, then auto-exits at T1/T2/T3 or stop. Fully hands-off.`
+                       : "Turn on to let the system auto-buy + auto-exit setups in paper mode. Test the system 100% hands-free."}
           </div>
+        </div>
+        {/* Threshold selector */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>MIN:</span>
+          {[4, 5].map(n => (
+            <button key={n} onClick={() => { setAutoThreshold(n); localStorage.setItem("axiom_autopilot_min", n); }}
+              style={{ background: autoThreshold === n ? "#7c3aed" : C.surface, color: autoThreshold === n ? "#fff" : C.textSec,
+                border: `1px solid ${autoThreshold === n ? "#7c3aed" : C.border}`, borderRadius: 6,
+                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
+              {n}/5
+            </button>
+          ))}
         </div>
         <button onClick={() => { const v = !autoPilot; setAutoPilot(v); localStorage.setItem("axiom_autopilot", v ? "on" : "off"); }}
           style={{ background: autoPilot ? "#7c3aed" : C.surface, color: autoPilot ? "#fff" : C.textSec,
