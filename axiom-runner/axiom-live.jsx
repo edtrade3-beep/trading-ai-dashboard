@@ -4611,6 +4611,35 @@ function computeGreenLight(q, spyChg, scanRow) {
 
 // ── Trade Tracker — logs Green Light trades, manages exits, tracks stats ──────
 const GL_TRADES_KEY = "axiom_gl_trades_v1";
+
+// Shared: create an auto-managed PAPER trade (stop/T1/T2/T3 + sizing) from anywhere
+function addPaperTrade(sym, entry) {
+  if (!sym || !entry || entry <= 0) return;
+  const acct    = Number(localStorage.getItem("axiom_acct_size")) || 10000;
+  const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
+  const stop    = +(entry * 0.97).toFixed(2);
+  const riskPerShare = entry - stop;
+  const dollarRisk   = acct * (riskPct / 100);
+  const riskBased    = Math.floor(dollarRisk / riskPerShare);
+  const affordable   = Math.floor(acct / entry);
+  const shares = Math.max(1, Math.min(riskBased, affordable));
+  const t = {
+    id: Date.now() + Math.floor(Math.random() * 999),
+    ticker: sym, entry, shares, remaining: shares, realized: 0,
+    stop, t1: +(entry*1.05).toFixed(2), t2: +(entry*1.10).toFixed(2), t3: +(entry*1.15).toFixed(2),
+    status: "OPEN", t1Hit: false, t2Hit: false, openedAt: new Date().toISOString(),
+    mode: "PAPER", auto: true,
+  };
+  let trades = [];
+  try { trades = JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []; } catch {}
+  // avoid duplicate open paper trade for same ticker
+  if (trades.some(x => x.ticker === sym && x.status === "OPEN" && x.mode === "PAPER")) return "DUP";
+  trades.unshift(t);
+  localStorage.setItem(GL_TRADES_KEY, JSON.stringify(trades));
+  window.dispatchEvent(new Event("gl-trades-changed"));
+  return "OK";
+}
+
 function TradeTracker({ C, MONO, SANS, watchlistData }) {
   const [trades, setTrades] = useState(() => { try { return JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []; } catch { return []; } });
   const [form, setForm] = useState({ ticker: "", entry: "", shares: "" });
@@ -4643,6 +4672,53 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
 
   // Live price map from watchlist
   const priceOf = sym => Number((watchlistData || []).find(q => q.symbol === sym)?.price || 0);
+
+  // Reload when an external paper buy is added (from Green Light cards)
+  useEffect(() => {
+    const reload = () => { try { setTrades(JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []); } catch {} };
+    window.addEventListener("gl-trades-changed", reload);
+    return () => window.removeEventListener("gl-trades-changed", reload);
+  }, []);
+
+  // ── AUTO-EXIT ENGINE for paper trades — scales out at T1/T2/T3, stops at stop ──
+  useEffect(() => {
+    const t = setInterval(() => {
+      let changed = false;
+      const updated = trades.map(tr => {
+        if (tr.status !== "OPEN" || tr.mode !== "PAPER" || !tr.auto) return tr;
+        const px = priceOf(tr.ticker);
+        if (!px) return tr;
+        let x = { ...tr };
+        x.remaining = x.remaining ?? x.shares;
+        x.realized  = x.realized ?? 0;
+        const third = Math.max(1, Math.floor(x.shares / 3));
+        // Stop hit → dump remaining at stop
+        if (px <= x.stop) {
+          x.realized += x.remaining * (x.stop - x.entry);
+          x.remaining = 0; x.status = "CLOSED"; x.exit = +(x.entry + x.realized / x.shares).toFixed(2);
+          x.closedAt = new Date().toISOString(); x.exitReason = "STOP"; changed = true; return x;
+        }
+        // T1 → sell 1/3, move stop to breakeven
+        if (!x.t1Hit && px >= x.t1) {
+          x.realized += third * (x.t1 - x.entry); x.remaining -= third; x.t1Hit = true; x.stop = x.entry; changed = true;
+        }
+        // T2 → sell 1/3
+        if (x.t1Hit && !x.t2Hit && px >= x.t2) {
+          x.realized += third * (x.t2 - x.entry); x.remaining -= third; x.t2Hit = true; changed = true;
+        }
+        // T3 → sell the rest, close
+        if (x.t2Hit && px >= x.t3) {
+          x.realized += x.remaining * (x.t3 - x.entry); x.remaining = 0; x.status = "CLOSED";
+          x.exit = +(x.entry + x.realized / x.shares).toFixed(2); x.closedAt = new Date().toISOString();
+          x.exitReason = "T3 🎯"; changed = true;
+        }
+        return x;
+      });
+      if (changed) save(updated);
+    }, 15000);
+    return () => clearInterval(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trades, watchlistData]);
 
   const addTrade = () => {
     const sym = form.ticker.trim().toUpperCase();
@@ -4825,17 +4901,19 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
               <div>
                 <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.accent }}>{t.ticker}</span>
                 <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: 6 }}>{t.shares} sh @ ${t.entry}</span>
+                {t.auto && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: "#a78bfa", background: "#7c3aed18", borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>🤖 AUTO</span>}
               </div>
               <div>
                 <span style={{ fontFamily: MONO, fontSize: 15, color: C.text }}>${live.toFixed(2)}</span>
                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: pnl >= 0 ? C.green : C.red, marginLeft: 8 }}>
                   {pnl >= 0 ? "+" : ""}${pnl.toFixed(0)} ({pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(1)}%)
                 </span>
+                {t.auto && t.remaining != null && t.remaining < t.shares && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 6 }}>· {t.remaining}/{t.shares} left</span>}
               </div>
               <div style={{ display: "flex", gap: 10 }}>
-                {[["STOP", t.stop, C.red], ["T1", t.t1, t.t1Hit ? C.textDim : C.green], ["T2", t.t2, C.green]].map(([l,v,col]) => (
+                {[["STOP", t.stop, C.red], ["T1", t.t1, t.t1Hit ? C.textDim : C.green], ["T2", t.t2, t.t2Hit ? C.textDim : C.green], ["T3", t.t3 || (t.entry*1.15).toFixed(2), C.green]].map(([l,v,col]) => (
                   <div key={l} style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{l}{l==="T1"&&t.t1Hit?" ✓":""}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{l}{l==="T1"&&t.t1Hit?" ✓":""}{l==="T2"&&t.t2Hit?" ✓":""}</div>
                     <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: col }}>${v}</div>
                   </div>
                 ))}
@@ -5016,6 +5094,20 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
         )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {/* One-click auto paper buy */}
+          <button onClick={(e) => {
+              const res = addPaperTrade(r.symbol, r.bestEntry || r.px);
+              const btn = e.currentTarget;
+              btn.textContent = res === "DUP" ? "already open" : "✓ PAPER BUY!";
+              btn.style.background = C.green; btn.style.color = "#fff";
+              setTimeout(() => { btn.textContent = "⚡ PAPER BUY"; btn.style.background = `${C.green}18`; btn.style.color = C.green; }, 1800);
+            }}
+            title="Auto paper buy: sets stop, T1, T2, T3 and exits automatically"
+            style={{ background: `${C.green}18`, border: `1px solid ${C.green}55`, color: C.green,
+              borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800,
+              padding: "6px 12px", cursor: "pointer" }}>
+            ⚡ PAPER BUY
+          </button>
           <button onClick={() => setGlExpanded(glExpanded === r.symbol ? null : r.symbol)}
             style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textSec,
               borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700,
