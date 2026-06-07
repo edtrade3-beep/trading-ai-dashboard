@@ -470,6 +470,28 @@ async function handleMarket(req, res, requestUrl) {
     return writeJson(res, 200, payload);
   }
 
+  // ── StockTwits social sentiment ("X for traders") ──
+  if (pathname === "/api/market/social-sentiment") {
+    try {
+      const st = require("../providers/stocktwits");
+      const symParam = (searchParams.get("symbols") || "SPY,QQQ").split(",").map(s => s.trim().toUpperCase()).filter(Boolean).slice(0, 6);
+      const [perSymbol, trending] = await Promise.all([
+        Promise.all(symParam.map(s => st.fetchSentiment(s).catch(() => null))),
+        st.fetchTrending(12).catch(() => []),
+      ]);
+      const valid = perSymbol.filter(Boolean);
+      // Market-wide read from SPY/QQQ
+      let totalBull = 0, totalBear = 0;
+      valid.forEach(v => { totalBull += v.bullish; totalBear += v.bearish; });
+      const tot = totalBull + totalBear;
+      const netPct = tot ? Math.round((totalBull - totalBear) / tot * 100) : 0;
+      const label = netPct >= 25 ? "BULLISH" : netPct >= 8 ? "LEAN BULLISH" : netPct <= -25 ? "BEARISH" : netPct <= -8 ? "LEAN BEARISH" : "MIXED";
+      return writeJson(res, 200, { ok: true, netPct, label, totalBull, totalBear, symbols: valid, trending });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e.message });
+    }
+  }
+
   // POST /api/market/screen — server-side momentum screener
   if (pathname === "/api/market/screen" && req.method === "POST") {
     let body;

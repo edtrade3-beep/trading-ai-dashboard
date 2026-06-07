@@ -12134,6 +12134,8 @@ export default function App() {
   const [fearGreedLoading, setFearGreedLoading] = useState(false);
   // News sentiment (for next-day projection)
   const [newsSentiment, setNewsSentiment] = useState(null);
+  // Social (StockTwits) sentiment
+  const [socialSentiment, setSocialSentiment] = useState(null);
   // Market Breadth
   const [breadthData,    setBreadthData]    = useState(null);
   const [breadthLoading, setBreadthLoading] = useState(false);
@@ -12705,6 +12707,19 @@ export default function App() {
     };
     score();
     const t = setInterval(score, 5 * 60_000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+
+  // ── Social (StockTwits) sentiment ────────────────────────────────────────────
+  useEffect(() => {
+    let alive = true;
+    const load = () => {
+      fetch("/api/market/social-sentiment?symbols=SPY,QQQ").then(r => r.json()).then(d => {
+        if (alive && d.ok) setSocialSentiment(d);
+      }).catch(() => {});
+    };
+    load();
+    const t = setInterval(load, 5 * 60_000);
     return () => { alive = false; clearInterval(t); };
   }, []);
 
@@ -16720,6 +16735,14 @@ export default function App() {
                 else if (np <= -25){ score -= 18; factors.push(`📰 News BEARISH (${np}% net of ${newsSentiment.bull+newsSentiment.bear} headlines)`); }
                 else if (np <= -8) { score -= 10; factors.push(`📰 News lean bearish (${np}%)`); }
                 else               { factors.push(`📰 News mixed (${np>0?"+":""}${np}%)`); }
+              }
+              // ── Social (StockTwits) sentiment factor ──
+              if (socialSentiment && (socialSentiment.totalBull + socialSentiment.totalBear) >= 5) {
+                const sp = socialSentiment.netPct;
+                if (sp >= 25)      { score += 12; factors.push(`💬 Traders BULLISH (${sp>0?"+":""}${sp}% on StockTwits)`); }
+                else if (sp >= 8)  { score += 7;  factors.push(`💬 Traders lean bullish (+${sp}%)`); }
+                else if (sp <= -25){ score -= 12; factors.push(`💬 Traders BEARISH (${sp}% on StockTwits)`); }
+                else if (sp <= -8) { score -= 7;  factors.push(`💬 Traders lean bearish (${sp}%)`); }
               }
 
               const bias = score >= 25 ? "BULLISH" : score >= 5 ? "LEAN BULLISH" : score <= -25 ? "BEARISH" : score <= -5 ? "LEAN BEARISH" : "NEUTRAL";
