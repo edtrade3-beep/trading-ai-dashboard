@@ -12507,6 +12507,7 @@ export default function App() {
   const [multitfSymbol,   setMultitfSymbol]   = useState("SPY");
   const [multitfInput,    setMultitfInput]    = useState("SPY");
   const [multitfInds,     setMultitfInds]     = useState({ RSI: true, MACD: true, BB: false, EMA: false, VWAP: false, STOCH: false, VOL: false, ATR: false });
+  const [mtfLayout,       setMtfLayout]       = useState("grid"); // grid (2x2) or stack (1 column)
 
   // ── Halal Screener ────────────────────────────────────────────────────────
   const [halalInput,      setHalalInput]      = useState("");
@@ -26939,22 +26940,33 @@ export default function App() {
               ⭐ <strong>Pro Rule:</strong> Only trade when Daily + 1H + 15M all agree on direction. Use 5M for entry timing only.
             </div>
 
-            {/* 2×2 Chart Grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 8, height: "calc(100vh - 220px)" }}>
+            {/* Layout toggle */}
+            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginBottom: 2 }}>
+              {[["grid","▦ 2×2"],["stack","▤ STACKED"]].map(([v,l]) => (
+                <button key={v} onClick={() => setMtfLayout(v)}
+                  style={{ background: mtfLayout === v ? C.accent : C.surface, color: mtfLayout === v ? "#fff" : C.textSec,
+                    border: `1px solid ${mtfLayout === v ? C.accent : C.border}`, borderRadius: 6,
+                    fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>{l}</button>
+              ))}
+            </div>
+            {/* Chart Grid — bigger, readable */}
+            <div style={{ display: "grid",
+              gridTemplateColumns: mtfLayout === "stack" ? "1fr" : "1fr 1fr",
+              gap: 10 }}>
               {TFS.map(tf => (
                 <div key={tf.key} style={{ background: C.card, border: `1px solid ${C.border}`,
                   borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column" }}>
                   {/* Chart label */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px",
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px",
                     background: C.surface, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent }}>{sym}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{tf.label}</span>
-                    <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{tf.desc}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>{sym}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{tf.label}</span>
+                    <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{tf.desc}</span>
                   </div>
                   <iframe
                     key={`mtf-${sym}-${tf.key}-${tvTheme}-${mtfStudies}`}
-                    src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=400&iv=${tf.interval}&st=${encodeURIComponent(mtfStudies)}`}
-                    style={{ width: "100%", flex: 1, border: "none", display: "block", minHeight: 0 }}
+                    src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=560&iv=${tf.interval}&st=${encodeURIComponent(mtfStudies)}`}
+                    style={{ width: "100%", height: mtfLayout === "stack" ? 620 : 540, border: "none", display: "block" }}
                     title={`${sym} ${tf.label}`}
                   />
                 </div>
