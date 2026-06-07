@@ -16735,49 +16735,49 @@ export default function App() {
               const resist  = spyPx * 1.015;
 
               return (
-                <div style={{ marginBottom: 10, background: `${biasCol}0c`, border: `2px solid ${biasCol}44`, borderRadius: 12, overflow: "hidden" }}>
-                  <div style={{ padding: "8px 16px", background: `${biasCol}18`, borderBottom: `1px solid ${biasCol}33`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: biasCol, letterSpacing: "0.08em" }}>🔮 NEXT DAY OUTLOOK</span>
-                    <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: biasCol }}>{biasIcon} {bias}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: "auto" }}>based on today's close · for next session</span>
+                <div style={{ marginBottom: 14, background: `${biasCol}0c`, border: `2px solid ${biasCol}44`, borderRadius: 14, overflow: "hidden" }}>
+                  <div style={{ padding: "14px 22px", background: `${biasCol}18`, borderBottom: `1px solid ${biasCol}33`, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: biasCol, letterSpacing: "0.08em" }}>🔮 NEXT DAY OUTLOOK</span>
+                    <span style={{ fontFamily: MONO, fontSize: 26, fontWeight: 900, color: biasCol }}>{biasIcon} {bias}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: "auto" }}>based on today's close · for next session</span>
                   </div>
-                  <div style={{ padding: "12px 16px", display: "flex", gap: 18, flexWrap: "wrap" }}>
+                  <div style={{ padding: "18px 22px", display: "flex", gap: 28, flexWrap: "wrap" }}>
                     {/* Factors */}
-                    <div style={{ flex: 1, minWidth: 220 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>WHAT'S DRIVING IT</div>
-                      {factors.slice(0, 6).map((f, i) => (
-                        <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, padding: "2px 0" }}>{f}</div>
+                    <div style={{ flex: 1, minWidth: 260 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>WHAT'S DRIVING IT</div>
+                      {factors.slice(0, 7).map((f, i) => (
+                        <div key={i} style={{ fontFamily: SANS, fontSize: 15, color: C.textSec, padding: "4px 0" }}>{f}</div>
                       ))}
-                      {!factors.length && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Waiting for market data…</div>}
+                      {!factors.length && <div style={{ fontFamily: SANS, fontSize: 15, color: C.textDim }}>Waiting for market data…</div>}
                     </div>
                     {/* News sentiment */}
                     {newsSentiment && (newsSentiment.bull + newsSentiment.bear) >= 3 && (
-                      <div style={{ minWidth: 200, flex: 1 }}>
-                        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>
-                          📰 NEWS SENTIMENT: <span style={{ color: newsSentiment.netPct >= 8 ? C.green : newsSentiment.netPct <= -8 ? C.red : C.amber, fontWeight: 800 }}>{newsSentiment.label} ({newsSentiment.netPct >= 0 ? "+" : ""}{newsSentiment.netPct}%)</span>
+                      <div style={{ minWidth: 260, flex: 1 }}>
+                        <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>
+                          📰 NEWS SENTIMENT: <span style={{ color: newsSentiment.netPct >= 8 ? C.green : newsSentiment.netPct <= -8 ? C.red : C.amber, fontWeight: 800, fontSize: 15 }}>{newsSentiment.label} ({newsSentiment.netPct >= 0 ? "+" : ""}{newsSentiment.netPct}%)</span>
                         </div>
-                        <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-                          <span style={{ fontFamily: MONO, fontSize: 11, color: C.green }}>🟢 {newsSentiment.bull} bullish</span>
-                          <span style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>🔴 {newsSentiment.bear} bearish</span>
+                        <div style={{ display: "flex", gap: 14, marginBottom: 10 }}>
+                          <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: C.green }}>🟢 {newsSentiment.bull} bullish</span>
+                          <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: C.red }}>🔴 {newsSentiment.bear} bearish</span>
                         </div>
-                        {newsSentiment.topBull.map((h,i) => <div key={"b"+i} style={{ fontFamily: SANS, fontSize: 10, color: C.green, lineHeight: 1.4 }}>+ {h.slice(0,60)}</div>)}
-                        {newsSentiment.topBear.map((h,i) => <div key={"r"+i} style={{ fontFamily: SANS, fontSize: 10, color: C.red, lineHeight: 1.4 }}>− {h.slice(0,60)}</div>)}
+                        {newsSentiment.topBull.map((h,i) => <div key={"b"+i} style={{ fontFamily: SANS, fontSize: 13, color: C.green, lineHeight: 1.5, padding: "1px 0" }}>+ {h.slice(0,75)}</div>)}
+                        {newsSentiment.topBear.map((h,i) => <div key={"r"+i} style={{ fontFamily: SANS, fontSize: 13, color: C.red, lineHeight: 1.5, padding: "1px 0" }}>− {h.slice(0,75)}</div>)}
                       </div>
                     )}
                     {/* Levels */}
-                    <div style={{ minWidth: 160 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>SPY LEVELS TO WATCH</div>
+                    <div style={{ minWidth: 190 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>SPY LEVELS TO WATCH</div>
                       {[["Resistance", resist, C.red], ["Current", spyPx, C.text], ["Support", support, C.green]].map(([l,v,col]) => (
-                        <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
-                          <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>${v.toFixed(2)}</span>
+                        <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", gap: 16 }}>
+                          <span style={{ fontFamily: SANS, fontSize: 15, color: C.textDim }}>{l}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: col }}>${v.toFixed(2)}</span>
                         </div>
                       ))}
                     </div>
                   </div>
-                  <div style={{ padding: "10px 16px", borderTop: `1px solid ${biasCol}22`, background: `${biasCol}08` }}>
-                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: biasCol }}>📋 TOMORROW'S PLAN: </span>
-                    <span style={{ fontFamily: SANS, fontSize: 12, color: C.text }}>{plan}</span>
+                  <div style={{ padding: "14px 22px", borderTop: `1px solid ${biasCol}22`, background: `${biasCol}08` }}>
+                    <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: biasCol }}>📋 TOMORROW'S PLAN: </span>
+                    <span style={{ fontFamily: SANS, fontSize: 15, color: C.text }}>{plan}</span>
                   </div>
                 </div>
               );
