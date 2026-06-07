@@ -12251,7 +12251,7 @@ export default function App() {
     try {
       const t = localStorage.getItem("last_tab");
       // Restore only safe tabs (don't restore modals/dialogs)
-      const safeTabs = ["dashboard","briefing","terminal","tv","multitf","fibonacci","scanner","smartscan","greenlight","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","predictions","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","portfolio","performance","journal","journal-stats","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","morning-routine","challenge","recap","dipbuy","tradeplanner","under10","compression","quran","athan","athkar","tasbih","halal","soccer"];
+      const safeTabs = ["dashboard","briefing","terminal","tv","multitf","fibonacci","scanner","smartscan","greenlight","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","predictions","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","performance","journal","journal-stats","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","morning-routine","challenge","recap","dipbuy","tradeplanner","under10","compression","quran","athan","athkar","tasbih","halal","soccer"];
       return (t && safeTabs.includes(t)) ? t : "dashboard";
     } catch { return "dashboard"; }
   });
@@ -16199,7 +16199,7 @@ export default function App() {
               { id: "terminal",   label: "📈 CHART",      tabs: ["terminal", "tv", "multitf"] },
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "combined", "smartscan", "tradeplanner", "dipbuy", "adol22", "compression", "under10"] },
               { id: "markets",    label: "🌍 MARKETS",    tabs: ["news", "macro", "econ-cal", "crypto", "predictions"] },
-              { id: "portfolio",  label: "💼 PORTFOLIO",  tabs: ["portfolio", "journal", "performance"] },
+              { id: "portfolio",  label: "💼 PORTFOLIO",  tabs: ["journal", "performance"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["education", "notes"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["morning-routine", "challenge", "recap", "tools"] },
               { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih", "halal", "soccer"] },
@@ -16570,7 +16570,6 @@ export default function App() {
             { id: "predictions",  label: "🎲 PREDICTIONS" },
           ],
           portfolio: [
-            { id: "portfolio",    label: "💼 POSITIONS" },
             { id: "journal",      label: "📓 JOURNAL" },
             { id: "performance",  label: "📊 STATS" },
           ],
