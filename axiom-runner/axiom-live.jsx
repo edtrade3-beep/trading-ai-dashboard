@@ -4584,7 +4584,29 @@ function computeGreenLight(q, spyChg, scanRow) {
   const t1     = px > 0 ? (px * 1.05).toFixed(2) : 0;
   const t2     = px > 0 ? (px * 1.10).toFixed(2) : 0;
 
-  return { checks, passed, signal, px, chg, stop, t1, t2, rvol, rsi };
+  // ── BEST ENTRY price ──
+  // Ideal entry = at the support (EMA21 or MA50), capped just below current price.
+  // If price is already at/below support, current price IS the entry.
+  const support = ema21 > 0 ? ema21 : (ma50 > 0 ? ma50 : px * 0.985);
+  let bestEntry = px;
+  let entryNote = "at market";
+  if (px > support * 1.005) {
+    // price is above support — best entry is a pullback toward support (but not below stop)
+    bestEntry = Math.max(support, px * 0.985);
+    entryNote = "wait for pullback";
+  } else if (px <= support * 1.005) {
+    bestEntry = px;
+    entryNote = "at support ✅";
+  }
+
+  // ── Relative strength vs market (SPY) ──
+  const relStrength = chg - spyChg;  // how much it's beating/lagging the market today
+  const isLeader = relStrength > 1.0; // outperforming SPY by 1%+
+
+  return {
+    checks, passed, signal, px, chg, stop, t1, t2, rvol, rsi,
+    bestEntry: +bestEntry.toFixed(2), entryNote, relStrength: +relStrength.toFixed(2), isLeader,
+  };
 }
 
 // ── Trade Tracker — logs Green Light trades, manages exits, tracks stats ──────
@@ -4867,7 +4889,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
     const scanRow = (scanResults || []).find(r => r.ticker === q.symbol);
     const gl = computeGreenLight(q, spyChg, scanRow);
     return { ...gl, symbol: q.symbol, name: q.name, q };
-  }).filter(r => r.px > 0).sort((a, b) => b.passed - a.passed || b.chg - a.chg);
+  }).filter(r => r.px > 0).sort((a, b) => b.passed - a.passed || b.relStrength - a.relStrength);
 
   const green  = results.filter(r => r.signal === "GREEN");
   const yellow = results.filter(r => r.signal === "YELLOW");
@@ -4900,13 +4922,14 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
 
         {/* Ticker info */}
         <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 6 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
             <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.accent }}>{r.symbol}</span>
             <span style={{ fontFamily: MONO, fontSize: 14, color: C.text }}>${r.px.toFixed(2)}</span>
             <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: r.chg >= 0 ? C.green : C.red }}>
               {r.chg >= 0 ? "+" : ""}{r.chg.toFixed(2)}%
             </span>
             {r.rvol > 1.5 && <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber, background: `${C.amber}18`, borderRadius: 4, padding: "1px 6px" }}>VOL {r.rvol.toFixed(1)}x</span>}
+            {r.isLeader && <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: "#fff", background: C.green, borderRadius: 4, padding: "1px 7px" }}>💪 LEADER +{r.relStrength}% vs SPY</span>}
           </div>
           {/* Checklist */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -4924,9 +4947,14 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
         </div>
 
         {/* Trade levels */}
-        {r.signal === "GREEN" && (
-          <div style={{ textAlign: "right", borderLeft: `1px solid ${C.border}`, paddingLeft: 12 }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 4 }}>IF YOU BUY NOW</div>
+        {(r.signal === "GREEN" || r.signal === "YELLOW") && (
+          <div style={{ textAlign: "right", borderLeft: `1px solid ${C.border}`, paddingLeft: 12, minWidth: 170 }}>
+            {/* Best entry — highlighted */}
+            <div style={{ background: `${C.accent}15`, border: `1px solid ${C.accent}44`, borderRadius: 6, padding: "4px 8px", marginBottom: 6 }}>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>🎯 BEST ENTRY</div>
+              <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>${r.bestEntry}</div>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: r.entryNote.includes("✅") ? C.green : C.amber }}>{r.entryNote}</div>
+            </div>
             {[["STOP", r.stop, C.red], ["T1 +5%", r.t1, C.green], ["T2 +10%", r.t2, C.green]].map(([l,v,col]) => (
               <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                 <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{l}</span>
