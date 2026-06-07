@@ -16632,6 +16632,84 @@ export default function App() {
               );
             })()}
 
+            {/* ── NEXT DAY OUTLOOK ── */}
+            {(() => {
+              const spy = (macroData||[]).find(m=>m.symbol==="SPY") || (watchlistData||[]).find(w=>w.symbol==="SPY");
+              const qqq = (macroData||[]).find(m=>m.symbol==="QQQ") || (watchlistData||[]).find(w=>w.symbol==="QQQ");
+              const spyChg = Number(spy?.changesPercentage || 0);
+              const qqqChg = Number(qqq?.changesPercentage || 0);
+              const spyPx  = Number(spy?.price || 0);
+              const ma50   = Number(spy?.priceAvg50 || 0);
+              const vix    = Number(distData?.vix || 0);
+              const fg     = Number(fearGreedData?.score || 0);
+              // Breadth from watchlist
+              const wl = (watchlistData||[]).filter(q => q.symbol && Number(q.price) > 0);
+              const adv = wl.filter(q => Number(q.changesPercentage||0) > 0).length;
+              const breadthPct = wl.length ? Math.round(adv/wl.length*100) : 50;
+
+              // Score the next-day bias (-100 to +100)
+              let score = 0;
+              const factors = [];
+              if (spyChg > 0.5) { score += 20; factors.push("✅ SPY closed green"); }
+              else if (spyChg < -1) { score -= 25; factors.push("🔴 SPY closed down hard"); }
+              else if (spyChg < 0) { score -= 10; factors.push("⚠️ SPY closed red"); }
+              if (ma50 > 0 && spyPx > ma50) { score += 15; factors.push("✅ SPY above 50D MA"); }
+              else if (ma50 > 0) { score -= 15; factors.push("🔴 SPY below 50D MA"); }
+              if (vix > 25) { score -= 20; factors.push(`🔴 VIX high (${vix.toFixed(0)}) — fear elevated`); }
+              else if (vix > 0 && vix < 16) { score += 12; factors.push(`✅ VIX low (${vix.toFixed(0)}) — calm`); }
+              if (breadthPct >= 60) { score += 15; factors.push(`✅ Strong breadth (${breadthPct}% up)`); }
+              else if (breadthPct <= 35) { score -= 15; factors.push(`🔴 Weak breadth (${breadthPct}% up)`); }
+              if (fg <= 25) { score += 10; factors.push("✅ Extreme fear — bounce odds rise"); }
+              else if (fg >= 75) { score -= 10; factors.push("⚠️ Extreme greed — pullback risk"); }
+              if (qqqChg > 0.5 && spyChg > 0) { score += 8; factors.push("✅ Tech leading"); }
+
+              const bias = score >= 25 ? "BULLISH" : score >= 5 ? "LEAN BULLISH" : score <= -25 ? "BEARISH" : score <= -5 ? "LEAN BEARISH" : "NEUTRAL";
+              const biasCol = score >= 25 ? C.green : score >= 5 ? "#4caf50" : score <= -25 ? C.red : score <= -5 ? "#ff6b6b" : C.amber;
+              const biasIcon = score >= 5 ? "📈" : score <= -5 ? "📉" : "➡️";
+              const plan = score >= 25 ? "Look for GREEN LIGHT longs at the open. Buy pullbacks to support."
+                         : score >= 5 ? "Cautiously bullish — take only A+ setups, normal size."
+                         : score <= -25 ? "Defensive. Avoid longs until SPY reclaims 50D MA. Cash is a position."
+                         : score <= -5 ? "Stay small. Wait for the open to confirm direction before committing."
+                         : "Mixed signals. Let the first 30 min set the tone — don't predict, react.";
+              // Key levels for tomorrow
+              const support = ma50 > 0 ? Math.min(ma50, spyPx * 0.985) : spyPx * 0.985;
+              const resist  = spyPx * 1.015;
+
+              return (
+                <div style={{ marginBottom: 10, background: `${biasCol}0c`, border: `2px solid ${biasCol}44`, borderRadius: 12, overflow: "hidden" }}>
+                  <div style={{ padding: "8px 16px", background: `${biasCol}18`, borderBottom: `1px solid ${biasCol}33`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: biasCol, letterSpacing: "0.08em" }}>🔮 NEXT DAY OUTLOOK</span>
+                    <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: biasCol }}>{biasIcon} {bias}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: "auto" }}>based on today's close · for next session</span>
+                  </div>
+                  <div style={{ padding: "12px 16px", display: "flex", gap: 18, flexWrap: "wrap" }}>
+                    {/* Factors */}
+                    <div style={{ flex: 1, minWidth: 220 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>WHAT'S DRIVING IT</div>
+                      {factors.slice(0, 6).map((f, i) => (
+                        <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, padding: "2px 0" }}>{f}</div>
+                      ))}
+                      {!factors.length && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Waiting for market data…</div>}
+                    </div>
+                    {/* Levels */}
+                    <div style={{ minWidth: 160 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>SPY LEVELS TO WATCH</div>
+                      {[["Resistance", resist, C.red], ["Current", spyPx, C.text], ["Support", support, C.green]].map(([l,v,col]) => (
+                        <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+                          <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>${v.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ padding: "10px 16px", borderTop: `1px solid ${biasCol}22`, background: `${biasCol}08` }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: biasCol }}>📋 TOMORROW'S PLAN: </span>
+                    <span style={{ fontFamily: SANS, fontSize: 12, color: C.text }}>{plan}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* ── DAILY P&L STRIP ── */}
             {portfolioSummary && portfolioSummary.totalCost > 0 && (() => {
               const dayPnl    = portfolioSummary.dayPnlTotal || 0;
