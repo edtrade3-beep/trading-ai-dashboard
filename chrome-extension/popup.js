@@ -85,6 +85,28 @@ $("pasteSel").addEventListener("click", async () => {
   }
 });
 
+// ── Auto-read latest message from the open conversation, then generate ──
+$("autoBtn").addEventListener("click", async () => {
+  flashIntent("📡 Reading latest message…", "normal");
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !/facebook\.com|messenger\.com/.test(tab.url || "")) {
+      flashIntent("Open the Facebook/Messenger conversation tab first.", "takeover");
+      return;
+    }
+    chrome.tabs.sendMessage(tab.id, { type: "GET_LATEST_MESSAGE" }, (resp) => {
+      if (chrome.runtime.lastError || !resp || !resp.text) {
+        flashIntent("Couldn't read it — open the chat, or highlight the message manually.", "takeover");
+        return;
+      }
+      $("custMsg").value = resp.text;
+      $("genBtn").click();  // auto-generate the reply
+    });
+  } catch {
+    flashIntent("Open the Facebook/Messenger tab and try again.", "takeover");
+  }
+});
+
 // ── Generate reply ──
 $("genBtn").addEventListener("click", async () => {
   const msg = $("custMsg").value.trim();
