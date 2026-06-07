@@ -12328,7 +12328,7 @@ export default function App() {
     try {
       const t = localStorage.getItem("last_tab");
       // Restore only safe tabs (don't restore modals/dialogs)
-      const safeTabs = ["dashboard","briefing","terminal","tv","multitf","fibonacci","scanner","smartscan","greenlight","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","predictions","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","performance","journal","journal-stats","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","dipbuy","under10","quran","athan","athkar","tasbih","halal","soccer"];
+      const safeTabs = ["dashboard","tv","multitf","fibonacci","scanner","smartscan","greenlight","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","predictions","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","performance","journal","journal-stats","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","dipbuy","under10","quran","athan","athkar","tasbih","halal","soccer"];
       return (t && safeTabs.includes(t)) ? t : "dashboard";
     } catch { return "dashboard"; }
   });
@@ -12506,6 +12506,7 @@ export default function App() {
   // ── Multi-Timeframe ───────────────────────────────────────────────────────
   const [multitfSymbol,   setMultitfSymbol]   = useState("SPY");
   const [multitfInput,    setMultitfInput]    = useState("SPY");
+  const [multitfInds,     setMultitfInds]     = useState({ RSI: true, MACD: true, BB: false, EMA: false, VWAP: false, STOCH: false, VOL: false, ATR: false });
 
   // ── Halal Screener ────────────────────────────────────────────────────────
   const [halalInput,      setHalalInput]      = useState("");
@@ -16273,7 +16274,7 @@ export default function App() {
           {(() => {
             const NAV_GROUPS = [
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard"] },
-              { id: "terminal",   label: "📈 CHART",      tabs: ["terminal", "tv", "multitf"] },
+              { id: "terminal",   label: "📈 CHART",      tabs: ["multitf", "tv"] },
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy"] },
               { id: "markets",    label: "🌍 MARKETS",    tabs: ["news", "macro", "econ-cal", "predictions"] },
               { id: "portfolio",  label: "💼 PORTFOLIO",  tabs: ["journal", "performance"] },
@@ -16624,8 +16625,7 @@ export default function App() {
             { id: "dashboard",  label: "📊 MONITOR" },
           ],
           terminal: [
-            { id: "terminal",   label: "📈 CHART" },
-            { id: "multitf",    label: "⏱ MULTI TF" },
+            { id: "multitf",    label: "📈 CHART" },
             { id: "tv",         label: "📺 TV LIVE" },
           ],
           scanner: [
@@ -26877,6 +26877,7 @@ export default function App() {
                : scores.composite <= 40 ? { txt: "🔴 BEARISH ALIGNMENT", col: C.red }
                : { txt: "⚠️ MIXED — WAIT FOR CLARITY", col: C.amber };
         })();
+        const mtfStudies = Object.entries(multitfInds).filter(([,v]) => v).map(([k]) => k).join(",");
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 4px" }}>
             {/* Header bar */}
@@ -26917,6 +26918,21 @@ export default function App() {
               )}
             </div>
 
+            {/* Indicator toggles — apply to all 4 charts */}
+            <div style={{ display: "flex", gap: 4, alignItems: "center", padding: "6px 14px",
+              background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, flexWrap: "wrap" }}>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginRight: 4 }}>INDICATORS:</span>
+              {[["RSI","RSI 14","#a78bfa"],["MACD","MACD","#3b82f6"],["BB","Bollinger","#7c3aed"],["EMA","EMA","#22d47e"],["VWAP","VWAP","#f59e0b"],["STOCH","Stoch","#0891b2"],["VOL","Volume","#6b7280"],["ATR","ATR","#ef4444"]].map(([k,label,col]) => (
+                <button key={k} onClick={() => setMultitfInds(p => ({ ...p, [k]: !p[k] }))}
+                  style={{ background: multitfInds[k] ? col : "transparent", color: multitfInds[k] ? "#fff" : C.textDim,
+                    border: `1px solid ${multitfInds[k] ? col : C.border}`, borderRadius: 5,
+                    fontFamily: MONO, fontSize: 10, fontWeight: multitfInds[k] ? 700 : 400,
+                    padding: "2px 8px", cursor: "pointer" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
             {/* Rule */}
             <div style={{ padding: "6px 14px", background: `${C.amber}10`, border: `1px solid ${C.amber}22`,
               borderRadius: 8, fontFamily: SANS, fontSize: 12, color: C.amber }}>
@@ -26936,8 +26952,8 @@ export default function App() {
                     <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{tf.desc}</span>
                   </div>
                   <iframe
-                    key={`mtf-${sym}-${tf.key}-${tvTheme}`}
-                    src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=400&iv=${tf.interval}&st=RSI,MACD`}
+                    key={`mtf-${sym}-${tf.key}-${tvTheme}-${mtfStudies}`}
+                    src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=400&iv=${tf.interval}&st=${encodeURIComponent(mtfStudies)}`}
                     style={{ width: "100%", flex: 1, border: "none", display: "block", minHeight: 0 }}
                     title={`${sym} ${tf.label}`}
                   />
