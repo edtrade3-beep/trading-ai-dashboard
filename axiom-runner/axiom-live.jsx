@@ -4642,7 +4642,10 @@ function computePrediction(q) {
 
   const conf = Math.min(90, 50 + Math.abs(score) / 2);
   const dir  = score >= 20 ? "BULLISH" : score >= 8 ? "LEAN UP" : score <= -20 ? "BEARISH" : score <= -8 ? "LEAN DOWN" : "NEUTRAL";
-  const weeklyMove = atrPct * Math.sqrt(5) * 100;
+  // Cap the ATR so a single huge-move day doesn't produce absurd targets
+  const cappedAtr = Math.min(atrPct, 0.05); // max 5% daily range used
+  let weeklyMove = cappedAtr * Math.sqrt(5) * 100;
+  weeklyMove = Math.min(weeklyMove, 12); // hard cap weekly expected move at 12%
   const biasMult = score >= 8 ? 1 : score <= -8 ? -1 : 0;
   const target = +(px * (1 + biasMult * weeklyMove / 100)).toFixed(2);
   const movePct = +(biasMult * weeklyMove).toFixed(1);
@@ -4663,7 +4666,8 @@ function PredictionsTab({ C, MONO, SANS, watchlistData, macroData }) {
     const p = computePrediction(q);
     if (!p) return;
     const cat = INDEX.includes(q.symbol) ? "MARKET" : CRYPTO.includes(q.symbol) ? "CRYPTO" : "STOCK";
-    preds.push({ ...p, symbol: q.symbol, name: q.name, cat });
+    const sector = q.sector || STOCK_TO_SECTOR[q.symbol] || (cat === "CRYPTO" ? "Cryptocurrency" : cat === "MARKET" ? "Index ETF" : "");
+    preds.push({ ...p, symbol: q.symbol, name: q.name || q.symbol, sector, cat });
   });
   preds.sort((a, b) => Math.abs(b.score) - Math.abs(a.score));
 
@@ -4712,12 +4716,14 @@ function PredictionsTab({ C, MONO, SANS, watchlistData, macroData }) {
                 <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: dirCol(p.dir) }}>{p.dir}</div>
                 <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{p.conf}% conf</div>
               </div>
-              <div style={{ minWidth: 110 }}>
+              <div style={{ minWidth: 150 }}>
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.accent }}>{p.symbol}</span>
                   <span style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, background: C.surface, borderRadius: 3, padding: "1px 5px" }}>{p.cat}</span>
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 13, color: C.text }}>${p.px.toFixed(2)}
+                {p.name && p.name !== p.symbol && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 150 }}>{p.name}</div>}
+                {p.sector && <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{p.sector}</div>}
+                <div style={{ fontFamily: MONO, fontSize: 13, color: C.text, marginTop: 2 }}>${p.px.toFixed(2)}
                   <span style={{ color: p.chg >= 0 ? C.green : C.red, marginLeft: 5 }}>{p.chg >= 0 ? "+" : ""}{p.chg.toFixed(1)}%</span>
                 </div>
               </div>
