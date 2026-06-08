@@ -8064,6 +8064,73 @@ const DEEP_LESSONS = [
       "Copper leads the economy by 3-6 months — rising copper = global growth = buy cyclicals",
     ],
     rule:"Check 10Y yield, DXY, and VIX before every trade. These tell you what institutions are doing RIGHT NOW." },
+
+  // ── MACRO EVENTS PLAYBOOK (no chart — text scenarios) ──────────────────────
+  { id:"mac1", cat:"MACRO EVENTS", icon:"🌡", title:"CPI — Inflation Data (8:30 AM ET)", color:"#ef4444",
+    summary:"The #1 market mover. Measures inflation. Lower = good for stocks (rate cuts coming). Higher = bad.",
+    points:[
+      "🔴 HOTTER than expected → stocks DROP, dollar UP, tech hit hardest. Fed keeps rates high longer.",
+      "🟢 COOLER than expected → stocks RALLY, rate-cut bets surge, growth/tech lead.",
+      "🟡 INLINE → small move, often a relief rally (uncertainty removed).",
+      "Example, expected 3.0%: prints 3.4% = Nasdaq -1 to -3% in minutes. Prints 2.6% = big green day.",
+      "Tech & high-growth react MOST (high valuations hate high rates). Value/defensives react less.",
+    ],
+    rule:"Don't hold trades INTO CPI. Wait 15-30 min after 8:30 AM, let SPY pick a direction, THEN trade the reaction." },
+
+  { id:"mac2", cat:"MACRO EVENTS", icon:"💼", title:"Jobs Report / NFP (1st Friday, 8:30 AM)", color:"#f59e0b",
+    summary:"Non-Farm Payrolls. The twist: good news can be bad news — markets want MODERATE cooling.",
+    points:[
+      "🔴 TOO STRONG (way above) → stocks often DROP. Hot economy = Fed stays restrictive.",
+      "🟢 SLIGHTLY WEAK / cooling → stocks RALLY. 'Goldilocks' — Fed can cut.",
+      "🔴 WAY TOO WEAK → stocks DROP on recession fear (now it's bad-bad).",
+      "Also watch wage growth (avg hourly earnings) — hot wages = sticky inflation = bearish.",
+      "Unemployment rate ticking up slightly = market likes it (cooling without breaking).",
+    ],
+    rule:"Want 'not too hot, not too cold.' Trade the reaction, not the number. No positions held into 8:30 AM." },
+
+  { id:"mac3", cat:"MACRO EVENTS", icon:"🏛", title:"FOMC Meeting — Fed Rate Decision (2:00 PM ET)", color:"#7c3aed",
+    summary:"8x/year the Fed sets interest rates. The single most volatile scheduled event. Two parts: the decision (2pm) + Powell's press conference (2:30pm).",
+    points:[
+      "🟢 Rate CUT or dovish tone → stocks RALLY hard (cheaper money = higher valuations).",
+      "🔴 Rate HIKE or hawkish tone → stocks DROP (higher rates pressure everything).",
+      "⚠️ The DECISION is usually priced in — the REAL move comes from Powell's 2:30pm presser & tone.",
+      "Wild whipsaw 2:00-3:00 PM: price can swing both ways violently before settling. Avoid this window.",
+      "Watch the 'dot plot' (rate projections) — more cuts projected = bullish, fewer = bearish.",
+      "Key phrases: 'data dependent' = neutral, 'higher for longer' = bearish, 'cutting cycle' = bullish.",
+    ],
+    rule:"NEVER trade 2:00-3:00 PM on FOMC day. Wait for the close or next morning once the tone is clear." },
+
+  { id:"mac4", cat:"MACRO EVENTS", icon:"📈", title:"PCE — The Fed's Favorite Inflation Gauge", color:"#ef4444",
+    summary:"Personal Consumption Expenditures. The inflation number the Fed actually uses for decisions. Same rules as CPI but Fed weighs it more.",
+    points:[
+      "🟢 Cool Core PCE → strong rally, rate-cut odds rise (this is THE number Fed targets at 2%).",
+      "🔴 Hot Core PCE → selloff, rate cuts get pushed back.",
+      "'Core' PCE (excludes food & energy) matters most — that's what the Fed watches.",
+      "Released ~end of month, 8:30 AM ET. Less hyped than CPI but arguably more important.",
+    ],
+    rule:"Treat like CPI — wait for the reaction. Core PCE matters more than headline." },
+
+  { id:"mac5", cat:"MACRO EVENTS", icon:"🛒", title:"Retail Sales & GDP", color:"#3b82f6",
+    summary:"Consumer spending (retail sales) + total economy (GDP). Show economic strength.",
+    points:[
+      "Retail Sales STRONG → consumer healthy → bullish for stocks (but can be inflationary).",
+      "Retail Sales WEAK → consumer slowing → recession worry → bearish.",
+      "GDP measures total growth — strong = healthy economy, negative 2 quarters = recession.",
+      "These move markets LESS than CPI/Jobs/FOMC but still cause volatility.",
+    ],
+    rule:"Secondary events — smaller moves. Still avoid holding into the 8:30 AM release." },
+
+  { id:"mac6", cat:"MACRO EVENTS", icon:"🎯", title:"How to Trade ANY Macro Event", color:"#22d47e",
+    summary:"The universal playbook that works for every scheduled high-impact release.",
+    points:[
+      "1. BEFORE: close or tighten positions. No new trades 30 min before.",
+      "2. AT RELEASE: do NOTHING. Watch the whipsaw — price spikes both ways in seconds.",
+      "3. WAIT 15-30 min: let the market pick a real direction after the dust settles.",
+      "4. THEN trade: if SPY trends clearly + your Green Light setups align → enter with the trend.",
+      "5. The number matters less than the REACTION — hot CPI can still rally if priced in.",
+      "6. On red/uncertain reactions → just sit out. There's always tomorrow.",
+    ],
+    rule:"Trade the reaction, never the prediction. Patience around events is what separates pros from gamblers." },
 ];
 
 function EducationTab({ C, MONO, SANS }) {
@@ -8119,7 +8186,7 @@ function EducationTab({ C, MONO, SANS }) {
         <div>
           {/* Category filter */}
           <div style={{ display:"flex", gap:6, marginBottom:16, flexWrap:"wrap" }}>
-            {["ALL","INSTITUTIONAL","TREND","LEVELS","INDICATORS","PATTERNS","CANDLES","RISK"].map(c => (
+            {["ALL","MACRO EVENTS","INSTITUTIONAL","TREND","LEVELS","INDICATORS","PATTERNS","CANDLES","RISK"].map(c => (
               <button key={c} onClick={() => setLessonFilter(c)}
                 style={{ background: lessonFilter===c ? C.accent : C.surface,
                   color: lessonFilter===c ? "#fff" : C.textSec,
@@ -8161,11 +8228,13 @@ function EducationTab({ C, MONO, SANS }) {
                 {/* Expanded — chart + content */}
                 {openLesson === lesson.id && (
                   <div style={{ borderTop:`1px solid ${C.border}` }}>
-                    <div style={{ display:"grid", gridTemplateColumns:"auto 1fr", gap:0 }}>
-                      {/* Chart */}
-                      <div style={{ background:"#050b14", padding:12, borderRight:`1px solid ${C.border}` }}>
-                        <ChartSVG type={lesson.chart} />
-                      </div>
+                    <div style={{ display:"grid", gridTemplateColumns: lesson.chart ? "auto 1fr" : "1fr", gap:0 }}>
+                      {/* Chart (optional) */}
+                      {lesson.chart && (
+                        <div style={{ background:"#050b14", padding:12, borderRight:`1px solid ${C.border}` }}>
+                          <ChartSVG type={lesson.chart} />
+                        </div>
+                      )}
                       {/* Content */}
                       <div style={{ padding:"14px 16px" }}>
                         <div style={{ fontFamily:MONO, fontSize:11, fontWeight:900, color:C.textDim,
