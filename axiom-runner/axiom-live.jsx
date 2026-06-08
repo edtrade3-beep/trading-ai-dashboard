@@ -5529,6 +5529,45 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
     return () => clearInterval(t);
   }, [watchlistData]);
 
+  // END-OF-DAY: at 4:00 PM ET on weekdays, write one session P&L summary note (once/day)
+  useEffect(() => {
+    const priceOf = sym => Number((watchlistData || []).find(q => q.symbol === sym)?.price || 0);
+    const check = () => {
+      const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+      const day = et.getDay();
+      if (day === 0 || day === 6) return;            // weekend
+      if (et.getHours() < 16) return;                // before 4:00 PM ET
+      const todayKey = `${et.getFullYear()}-${et.getMonth() + 1}-${et.getDate()}`;
+      if (localStorage.getItem("axiom_eod_date") === todayKey) return;  // already done today
+
+      let trades = [];
+      try { trades = JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []; } catch {}
+      const isToday = ds => {
+        if (!ds) return false;
+        const d = new Date(new Date(ds).toLocaleString("en-US", { timeZone: "America/New_York" }));
+        return d.getFullYear() === et.getFullYear() && d.getMonth() === et.getMonth() && d.getDate() === et.getDate();
+      };
+      const paper = trades.filter(t => t.mode === "PAPER");
+      const closedToday = paper.filter(t => t.status === "CLOSED" && isToday(t.closedAt));
+      const openedToday = paper.filter(t => isToday(t.openedAt));
+      const openNow = paper.filter(t => t.status === "OPEN");
+      if (!closedToday.length && !openedToday.length) { localStorage.setItem("axiom_eod_date", todayKey); return; }
+
+      const realized = closedToday.reduce((s, t) => s + (t.exit - t.entry) * t.shares, 0);
+      const wins = closedToday.filter(t => (t.exit - t.entry) > 0).length;
+      const losses = closedToday.length - wins;
+      const unreal = openNow.reduce((s, t) => { const px = priceOf(t.ticker) || t.entry; return s + (px - t.entry) * (t.remaining ?? t.shares); }, 0);
+      const dateLbl = et.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+      const verdict = realized > 0 ? "🟢 GREEN DAY" : realized < 0 ? "🔴 RED DAY" : "⚪ FLAT";
+      const txt = `📊 SESSION SUMMARY — ${dateLbl}\n${verdict} · Realized P&L: ${realized >= 0 ? "+" : ""}$${realized.toFixed(0)}\nClosed: ${closedToday.length} trade${closedToday.length !== 1 ? "s" : ""} · ${wins}W / ${losses}L\nOpened today: ${openedToday.length} · Still open: ${openNow.length}${openNow.length ? ` (unrealized ${unreal >= 0 ? "+" : ""}$${unreal.toFixed(0)})` : ""}`;
+      logTradeNote("summary", txt);
+      localStorage.setItem("axiom_eod_date", todayKey);
+    };
+    check();
+    const t = setInterval(check, 60000);
+    return () => clearInterval(t);
+  }, [watchlistData]);
+
   return null;
 }
 
@@ -5849,8 +5888,8 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
           <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 8 }}>⚡ RECENT AUTO ACTIVITY</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {activity.map(a => {
-              const col = a.type === "buy" ? C.green : a.type === "sell" ? C.amber : C.red;
-              const icon = a.type === "buy" ? "🟢" : a.type === "sell" ? "🎯" : "⏹";
+              const col = a.type === "buy" ? C.green : a.type === "sell" ? C.amber : a.type === "summary" ? C.accent : C.red;
+              const icon = a.type === "buy" ? "🟢" : a.type === "sell" ? "🎯" : a.type === "summary" ? "📊" : "⏹";
               const line = String(a.text || "").split("\n")[0];
               return (
                 <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, borderLeft: `3px solid ${col}`, paddingLeft: 8 }}>
@@ -9172,8 +9211,8 @@ function NotesTab({ C, MONO, SANS }) {
     return () => clearInterval(t);
   }, [lastGen]);
 
-  const typeColor = t => t === "buy" ? C.green : t === "sell" ? C.amber : t === "exit" ? C.red : t === "header" ? C.accent : t === "error" ? C.red : C.textDim;
-  const typeIcon  = t => t === "buy" ? "🟢" : t === "sell" ? "🎯" : t === "exit" ? "⏹" : t === "header" ? "📅" : t === "manual" ? "📝" : "ℹ";
+  const typeColor = t => t === "buy" ? C.green : t === "sell" ? C.amber : t === "exit" ? C.red : t === "summary" ? C.accent : t === "header" ? C.accent : t === "error" ? C.red : C.textDim;
+  const typeIcon  = t => t === "buy" ? "🟢" : t === "sell" ? "🎯" : t === "exit" ? "⏹" : t === "summary" ? "📊" : t === "header" ? "📅" : t === "manual" ? "📝" : "ℹ";
 
   return (
     <div style={{ padding: "20px 24px", maxWidth: 820, margin: "0 auto" }}>
@@ -15478,12 +15517,13 @@ export default function App() {
             rvol >= 1.2 || rvol === 0,
             ma50 > 0 && px <= ma50 * 1.05 && px >= ma50 * 0.95,
           ];
-          const isGreen = checks.filter(Boolean).length >= 4;
+          // Telegram only for PERFECT 5/5 setups (not 4/5)
+          const isGreen = checks.filter(Boolean).length === 5;
           const wasGreen = prevGreenRef.current[sym];
-          // Fire only on transition into green (not every refresh)
+          // Fire only on transition into 5/5 (not every refresh)
           if (isGreen && wasGreen === false) {
             const msg = [
-              `🟢 *GREEN LIGHT* — ${sym}`,
+              `🟢 *GREEN LIGHT 5/5* — ${sym}`,
               `Price: $${px.toFixed(2)} (${(q.changesPercentage||0) >= 0 ? "+" : ""}${(q.changesPercentage||0).toFixed(2)}%)`,
               `Stop: $${(px*0.97).toFixed(2)} · T1: $${(px*1.05).toFixed(2)} · T2: $${(px*1.10).toFixed(2)}`,
               `All 5 checks passed — BUY zone ✅`,
