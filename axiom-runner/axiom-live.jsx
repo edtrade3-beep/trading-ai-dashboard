@@ -13100,6 +13100,7 @@ export default function App() {
   const [watchlistData, setWatchlistData] = useState([]);
   const prevScoresRef = useRef({});  // symbol → last composite score, for crossing-70 detection
   const prevGreenRef = useRef({});   // symbol → was green light, for green-light transition alerts
+  const regimeRef = useRef(null);    // last known Risk-On/Risk-Off regime, for change alerts
   const morningSentRef = useRef("");  // date string of last 7am green-light summary sent
   const [marketUniverseData, setMarketUniverseData] = useState([]);
   const [marketUniverseLoading, setMarketUniverseLoading] = useState(false);
@@ -15520,7 +15521,27 @@ export default function App() {
       wl = await withClientTimeout(fetchQuotes(watchlistSymbols, providerKeys), 25000, []);
       if (Array.isArray(wl) && wl.length > 0) {
         setWatchlistData(wl);
-        // ── 🟢 GREEN LIGHT alert: Telegram when a stock turns 5/5 ──
+
+        // Session + regime for smart Telegram routing
+        const sessionNow = getMarketSessionET(new Date());      // PREMARKET | REGULAR | AFTERMARKET | OVERNIGHT
+        const isRegular  = sessionNow === "REGULAR";
+        const isExtended = sessionNow === "PREMARKET" || sessionNow === "AFTERMARKET";
+        const regimeNow  = classifyRegime(macroData);
+
+        // ── ⚖️ REGIME CHANGE alert (only pre-market & after-market) ──
+        if (regimeRef.current && regimeRef.current !== regimeNow &&
+            (regimeNow === "Risk-On" || regimeNow === "Risk-Off") && isExtended) {
+          const icon = regimeNow === "Risk-On" ? "🟢" : "🔴";
+          const msg = [
+            `${icon} *REGIME CHANGE* — ${regimeRef.current} → ${regimeNow}`,
+            `Session: ${sessionNow}`,
+            regimeNow === "Risk-On" ? "Risk appetite returning — favor longs at the open." : "Risk coming off — protect capital, cut size.",
+          ].join("\n");
+          fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+        }
+        regimeRef.current = regimeNow;  // always track so we catch the next change
+
+        // ── 🟢 GREEN LIGHT 5/5 alert (only during regular trading hours) ──
         const spyChgGL = Number(wl.find(q => q.symbol === "SPY")?.changesPercentage ||
                                 (macroData || []).find(m => m.symbol === "SPY")?.changesPercentage || 0);
         wl.forEach(q => {
@@ -15532,8 +15553,8 @@ export default function App() {
           // Telegram only for PERFECT 5/5 setups (not 4/5)
           const isGreen = gl.passed === 5;
           const wasGreen = prevGreenRef.current[sym];
-          // Fire only on transition into 5/5 (not every refresh)
-          if (isGreen && wasGreen === false) {
+          // Fire only on transition into 5/5, and only during regular hours
+          if (isGreen && wasGreen === false && isRegular) {
             const msg = [
               `🟢 *GREEN LIGHT 5/5* — ${sym}`,
               `Price: $${px.toFixed(2)} (${(q.changesPercentage||0) >= 0 ? "+" : ""}${(q.changesPercentage||0).toFixed(2)}%)`,
@@ -15542,7 +15563,7 @@ export default function App() {
             ].join("\n");
             fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
           }
-          prevGreenRef.current[sym] = isGreen;
+          prevGreenRef.current[sym] = isGreen;   // always track so we catch the next transition
           prevScoresRef.current[sym] = computeScores(q).composite;
         });
       }
