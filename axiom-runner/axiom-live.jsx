@@ -5469,7 +5469,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       if (localStorage.getItem("axiom_autopilot") !== "on") return;
       localStorage.setItem("axiom_autopilot_lastcheck", String(Date.now()));
       window.dispatchEvent(new Event("autopilot-tick"));
-      const threshold = Number(localStorage.getItem("axiom_autopilot_min")) || 5;
+      const threshold = Number(localStorage.getItem("axiom_autopilot_min")) || 4;
       const spyQ = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
       const spyChg = Number(spyQ?.changesPercentage || 0);
       const today = new Date().toISOString().slice(0, 10);
@@ -5894,7 +5894,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const spyChg = Number(spyQ?.changesPercentage || 0);
   const [glExpanded, setGlExpanded] = useState(null); // ticker whose details are shown
   const [autoPilot, setAutoPilot] = useState(() => localStorage.getItem("axiom_autopilot") === "on");
-  const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 5);
+  const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 4);
   const [atrMode, setAtrMode] = useState(() => localStorage.getItem("axiom_autopilot_atr") !== "off");
   const [lastCheck, setLastCheck] = useState(() => Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
   useEffect(() => {
@@ -6098,13 +6098,14 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
         </div>
         {/* Threshold selector */}
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>MIN:</span>
-          {[4, 5].map(n => (
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>BUY:</span>
+          {[[4, "4/5 + 5/5"], [5, "5/5 only"]].map(([n, lbl]) => (
             <button key={n} onClick={() => { setAutoThreshold(n); localStorage.setItem("axiom_autopilot_min", n); }}
+              title={n === 4 ? "Trades both 4/5 and 5/5 setups (more trades)" : "Only trades perfect 5/5 setups (fewer, stricter)"}
               style={{ background: autoThreshold === n ? "#7c3aed" : C.surface, color: autoThreshold === n ? "#fff" : C.textSec,
                 border: `1px solid ${autoThreshold === n ? "#7c3aed" : C.border}`, borderRadius: 6,
                 fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
-              {n}/5
+              {lbl}
             </button>
           ))}
         </div>
