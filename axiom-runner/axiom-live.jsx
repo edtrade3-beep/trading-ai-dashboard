@@ -5444,6 +5444,7 @@ function addPaperTrade(sym, entry, opts = {}) {
     id: Date.now() + Math.floor(Math.random() * 999),
     ticker: sym, entry, shares, remaining: shares, realized: 0,
     stop, t1, t2, t3, basis, risk0: +riskPerShare.toFixed(2),
+    glScore: Number(opts.glScore) || null,
     status: "OPEN", t1Hit: false, t2Hit: false, openedAt: new Date().toISOString(),
     mode: "PAPER", auto: true,
   };
@@ -5454,7 +5455,7 @@ function addPaperTrade(sym, entry, opts = {}) {
   trades.unshift(t);
   localStorage.setItem(GL_TRADES_KEY, JSON.stringify(trades));
   window.dispatchEvent(new Event("gl-trades-changed"));
-  logTradeNote("buy", `🟢 AUTO BUY — ${sym}\n${shares} sh @ $${entry} (paper · ${basis})\nStop $${stop} · T1 $${t1} / T2 $${t2} / T3 $${t3}`);
+  logTradeNote("buy", `🟢 AUTO BUY — ${sym}${t.glScore ? ` (${t.glScore}/5)` : ""}\n${shares} sh @ $${entry} (paper · ${basis})\nStop $${stop} · T1 $${t1} / T2 $${t2} / T3 $${t3}`);
   return "OK";
 }
 
@@ -5479,7 +5480,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
         if (gl.signal !== "GREEN" || gl.passed < threshold || !(gl.px > 0)) return;
         const key = `${today}:${q.symbol}`;
         if (autoBoughtRef.current.has(key)) return;
-        const res = addPaperTrade(q.symbol, gl.bestEntry || gl.px, { atrPct: gl.atrPct });
+        const res = addPaperTrade(q.symbol, gl.bestEntry || gl.px, { atrPct: gl.atrPct, glScore: gl.passed });
         if (res === "OK" || res === "DUP") autoBoughtRef.current.add(key);
       });
     };
@@ -5507,7 +5508,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
           x.realized += x.remaining * (x.stop - x.entry);
           x.remaining = 0; x.status = "CLOSED"; x.exit = +(x.entry + x.realized / x.shares).toFixed(2);
           x.closedAt = new Date().toISOString(); x.exitReason = "STOP"; changed = true;
-          logTradeNote("exit", `🛑 STOP HIT — ${x.ticker}\nClosed @ $${x.exit} (paper) · P&L $${x.realized.toFixed(0)}`);
+          logTradeNote("exit", `🛑 STOP HIT — ${x.ticker}${x.glScore ? ` (${x.glScore}/5)` : ""}\nClosed @ $${x.exit} (paper) · P&L $${x.realized.toFixed(0)}`);
           return x;
         }
         const pctOf = lvl => ((lvl - x.entry) / x.entry * 100);
@@ -5519,7 +5520,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
           x.realized += x.remaining * (x.t3 - x.entry); x.remaining = 0; x.status = "CLOSED";
           x.exit = +(x.entry + x.realized / x.shares).toFixed(2); x.closedAt = new Date().toISOString();
           x.exitReason = "T3 🎯"; changed = true;
-          logTradeNote("exit", `🏆 T3 +${pctOf(x.t3).toFixed(1)}% — ${x.ticker}\nClosed @ $${x.t3} (paper) · P&L $${x.realized.toFixed(0)}`);
+          logTradeNote("exit", `🏆 T3 +${pctOf(x.t3).toFixed(1)}% — ${x.ticker}${x.glScore ? ` (${x.glScore}/5)` : ""}\nClosed @ $${x.t3} (paper) · P&L $${x.realized.toFixed(0)}`);
         }
         return x;
       });
@@ -5624,6 +5625,15 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   const avgWin = wins.length ? wins.reduce((s,t) => s + (t.exit-t.entry)*t.shares, 0) / wins.length : 0;
   const avgLoss = losses.length ? Math.abs(losses.reduce((s,t) => s + (t.exit-t.entry)*t.shares, 0) / losses.length) : 0;
 
+  // Win rate by Green Light score (4/5 vs 5/5) for comparison
+  const byScore = sc => {
+    const set = closed.filter(t => Number(t.glScore) === sc);
+    if (!set.length) return null;
+    const w = set.filter(t => (t.exit - t.entry) > 0).length;
+    return { n: set.length, wr: Math.round(w / set.length * 100), pnl: set.reduce((s,t)=>s+(t.exit-t.entry)*t.shares,0) };
+  };
+  const s4 = byScore(4), s5 = byScore(5);
+
   return (
     <div style={{ marginBottom: 20 }}>
       {/* PAPER / LIVE mode toggle */}
@@ -5695,6 +5705,20 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
           {showForm ? "✕ CANCEL" : "+ LOG TRADE"}
         </button>
       </div>
+
+      {/* Win rate by setup score (4/5 vs 5/5) */}
+      {(s4 || s5) && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, alignSelf: "center" }}>BY SETUP:</span>
+          {[[4, s4, C.amber], [5, s5, C.green]].map(([sc, d, col]) => d && (
+            <div key={sc} style={{ background: `${col}12`, border: `1px solid ${col}44`, borderRadius: 6, padding: "4px 10px" }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: col }}>{sc}/5</span>
+              <span style={{ fontFamily: MONO, fontSize: 11, color: C.text, marginLeft: 6 }}>{d.wr}% WR</span>
+              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 6 }}>({d.n} · {d.pnl >= 0 ? "+" : ""}${d.pnl.toFixed(0)})</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Add form */}
       {showForm && (
@@ -5779,6 +5803,7 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
                 <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.accent }}>{t.ticker}</span>
                 <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: 6 }}>{t.shares} sh @ ${t.entry}</span>
                 {t.auto && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: "#a78bfa", background: "#7c3aed18", borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>🤖 AUTO</span>}
+                {t.glScore && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: t.glScore >= 5 ? C.green : C.amber, background: `${t.glScore >= 5 ? C.green : C.amber}18`, borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>{t.glScore}/5</span>}
                 {t.basis && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>{t.basis}</span>}
               </div>
               <div>
