@@ -2161,10 +2161,15 @@ function CanvasChart({ candleData, drawTools, loading }) {
 }
 
 // ─── News panel inside regime card (right column, fixed list) ────────────────
-// ─── Prayer times widget (Monitor) — Makkah + Medinah, color-coded + athan ───
+// ─── Prayer times widget (Monitor) — GPS auto times + Makkah/Medinah athan ───
+const ATHAN_SOUNDS = {
+  Makkah: "https://www.islamcan.com/audio/adhan/azan2.mp3",   // Makkah-style full athan
+  Medina: "https://www.islamcan.com/audio/adhan/azan1.mp3",   // Medina-style athan
+};
 function MonitorAthan({ C, MONO, SANS }) {
-  const [city, setCity] = React.useState(() => localStorage.getItem("monitor_athan_city") || "Makkah");
+  const [athanSrc, setAthanSrc] = React.useState(() => localStorage.getItem("monitor_athan_sound") || "Makkah");
   const [times, setTimes] = React.useState(null);
+  const [locName, setLocName] = React.useState("");
   const [now, setNow] = React.useState(new Date());
   const audioRef = React.useRef(null);
 
@@ -2177,19 +2182,38 @@ function MonitorAthan({ C, MONO, SANS }) {
     { key: "Isha",    ar: "العشاء",  color: "#6366f1" },
   ];
 
+  // Fetch prayer times for given coords
+  const loadByCoords = React.useCallback((lat, lng, name) => {
+    fetch(`https://api.aladhan.com/v1/timings?latitude=${lat}&longitude=${lng}&method=2`)
+      .then(r => r.json()).then(d => { if (d.data) { setTimes(d.data.timings); if (name) setLocName(name); } }).catch(() => {});
+  }, []);
+
+  // Auto: try GPS, fall back to Makkah
   React.useEffect(() => {
-    let alive = true;
-    const country = "Saudi Arabia";
-    fetch(`https://api.aladhan.com/v1/timingsByCity?city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}&method=4`)
-      .then(r => r.json()).then(d => { if (alive && d.data) setTimes(d.data.timings); }).catch(() => {});
-    return () => { alive = false; };
-  }, [city]);
+    let done = false;
+    const fallback = () => { if (!done) { done = true; setLocName("Makkah (default)"); loadByCoords(21.4225, 39.8262, "Makkah"); } };
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          done = true;
+          const { latitude, longitude } = pos.coords;
+          // Reverse geocode for city name (best-effort)
+          fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`)
+            .then(r => r.json()).then(g => loadByCoords(latitude, longitude, g.city || g.locality || "Your location"))
+            .catch(() => loadByCoords(latitude, longitude, "Your location"));
+        },
+        fallback,
+        { timeout: 8000, maximumAge: 3600000 }
+      );
+      setTimeout(fallback, 9000); // safety
+    } else fallback();
+  }, [loadByCoords]);
 
   React.useEffect(() => { const t = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(t); }, []);
 
   const playAthan = () => {
     try {
-      if (!audioRef.current) audioRef.current = new Audio("https://www.islamcan.com/audio/adhan/azan2.mp3");
+      audioRef.current = new Audio(ATHAN_SOUNDS[athanSrc] || ATHAN_SOUNDS.Makkah);
       audioRef.current.currentTime = 0; audioRef.current.play().catch(() => {});
     } catch {}
   };
@@ -2208,24 +2232,28 @@ function MonitorAthan({ C, MONO, SANS }) {
     <div style={{ marginBottom: 10, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
         <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: "#14b8a6", letterSpacing: "0.06em" }}>🕌 أوقات الصلاة</span>
-        {/* City toggle */}
-        <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: `1px solid ${C.border}` }}>
-          {["Makkah", "Medina"].map(c => (
-            <button key={c} onClick={() => { setCity(c); localStorage.setItem("monitor_athan_city", c); }}
-              style={{ background: city === c ? "#14b8a6" : C.surface, color: city === c ? "#fff" : C.textSec, border: "none",
-                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 12px", cursor: "pointer" }}>
-              {c === "Makkah" ? "🕋 مكة" : "🕌 المدينة"}
-            </button>
-          ))}
-        </div>
+        {locName && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>📍 {locName}</span>}
         {nextPrayer && (
-          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: "auto" }}>
+          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
             التالية: <span style={{ color: "#14b8a6", fontWeight: 700 }}>{PRAYERS.find(p=>p.key===nextPrayer)?.ar}</span> خلال {countdown}
           </span>
         )}
-        <button onClick={playAthan} title="تشغيل الأذان"
-          style={{ background: `${"#14b8a6"}18`, border: `1px solid #14b8a644`, color: "#14b8a6", borderRadius: 6,
-            fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>▶ أذان</button>
+        {/* Athan sound source */}
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>أذان:</span>
+          <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: `1px solid ${C.border}` }}>
+            {["Makkah", "Medina"].map(c => (
+              <button key={c} onClick={() => { setAthanSrc(c); localStorage.setItem("monitor_athan_sound", c); }}
+                style={{ background: athanSrc === c ? "#14b8a6" : C.surface, color: athanSrc === c ? "#fff" : C.textSec, border: "none",
+                  fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "4px 9px", cursor: "pointer" }}>
+                {c === "Makkah" ? "🕋 مكة" : "🕌 المدينة"}
+              </button>
+            ))}
+          </div>
+          <button onClick={playAthan} title="تشغيل الأذان"
+            style={{ background: `#14b8a618`, border: `1px solid #14b8a644`, color: "#14b8a6", borderRadius: 6,
+              fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>▶ أذان</button>
+        </div>
       </div>
       {!times && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>…</div>}
       {times && (
