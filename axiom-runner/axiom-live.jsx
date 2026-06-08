@@ -13254,6 +13254,8 @@ export default function App() {
   const [tvOsSymbol, setTvOsSymbol] = useState("SPY");
   // ── Smart Scanner state ──────────────────────────────────────────────────
   const [scanResults,  setScanResults]  = useState([]);
+  const scanResultsRef = useRef([]);
+  useEffect(() => { scanResultsRef.current = scanResults; }, [scanResults]);
   const [scanLoading,  setScanLoading]  = useState(false);
   // Scanner filters — hoisted to top level (Rules of Hooks)
   const [sfSig,      setSfSig]      = useState(() => { try { return localStorage.getItem("sf_sig") || "ALL"; } catch { return "ALL"; } });
@@ -15518,26 +15520,18 @@ export default function App() {
         wl.forEach(q => {
           const sym = q.symbol;
           const px = Number(q.price || 0);
-          const ma50 = Number(q.priceAvg50 || 0);
-          const rsiV = Number(q.rsi || 50);
-          const rvol = q.avgVolume > 0 ? q.volume / q.avgVolume : 0;
-          // 5-check green light (server-side approximation using quote fields)
-          const checks = [
-            spyChgGL > -1,
-            ma50 > 0 && px > ma50,
-            rsiV >= 35 && rsiV <= 65,
-            rvol >= 1.2 || rvol === 0,
-            ma50 > 0 && px <= ma50 * 1.05 && px >= ma50 * 0.95,
-          ];
+          // Use the SAME engine as the Green Light card so Telegram + UI always agree
+          const scanRow = (scanResultsRef.current || []).find(r => r.ticker === sym);
+          const gl = computeGreenLight(q, spyChgGL, scanRow);
           // Telegram only for PERFECT 5/5 setups (not 4/5)
-          const isGreen = checks.filter(Boolean).length === 5;
+          const isGreen = gl.passed === 5;
           const wasGreen = prevGreenRef.current[sym];
           // Fire only on transition into 5/5 (not every refresh)
           if (isGreen && wasGreen === false) {
             const msg = [
               `🟢 *GREEN LIGHT 5/5* — ${sym}`,
               `Price: $${px.toFixed(2)} (${(q.changesPercentage||0) >= 0 ? "+" : ""}${(q.changesPercentage||0).toFixed(2)}%)`,
-              `Stop: $${(px*0.97).toFixed(2)} · T1: $${(px*1.05).toFixed(2)} · T2: $${(px*1.10).toFixed(2)}`,
+              `Stop: $${gl.stop} · T1: $${gl.t1} · T2: $${gl.t2}`,
               `All 5 checks passed — BUY zone ✅`,
             ].join("\n");
             fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
