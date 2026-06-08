@@ -26932,23 +26932,17 @@ export default function App() {
                   {label}
                 </button>
               ))}
+              {/* Layout toggle — right side of indicators bar */}
+              <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+                {[["grid","▦ 2×2"],["stack","▤ STACKED"]].map(([v,l]) => (
+                  <button key={v} onClick={() => setMtfLayout(v)}
+                    style={{ background: mtfLayout === v ? C.accent : "transparent", color: mtfLayout === v ? "#fff" : C.textDim,
+                      border: `1px solid ${mtfLayout === v ? C.accent : C.border}`, borderRadius: 5,
+                      fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "2px 8px", cursor: "pointer" }}>{l}</button>
+                ))}
+              </div>
             </div>
 
-            {/* Rule */}
-            <div style={{ padding: "6px 14px", background: `${C.amber}10`, border: `1px solid ${C.amber}22`,
-              borderRadius: 8, fontFamily: SANS, fontSize: 12, color: C.amber }}>
-              ⭐ <strong>Pro Rule:</strong> Only trade when Daily + 1H + 15M all agree on direction. Use 5M for entry timing only.
-            </div>
-
-            {/* Layout toggle */}
-            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginBottom: 2 }}>
-              {[["grid","▦ 2×2"],["stack","▤ STACKED"]].map(([v,l]) => (
-                <button key={v} onClick={() => setMtfLayout(v)}
-                  style={{ background: mtfLayout === v ? C.accent : C.surface, color: mtfLayout === v ? "#fff" : C.textSec,
-                    border: `1px solid ${mtfLayout === v ? C.accent : C.border}`, borderRadius: 6,
-                    fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>{l}</button>
-              ))}
-            </div>
             {/* Chart Grid — fits the page (2×2 fills viewport, no scroll) */}
             <div style={{ display: "grid",
               gridTemplateColumns: mtfLayout === "stack" ? "1fr" : "1fr 1fr",
