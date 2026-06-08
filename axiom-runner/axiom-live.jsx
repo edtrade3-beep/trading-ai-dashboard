@@ -4878,6 +4878,174 @@ function computePrediction(q) {
   return { px, chg, dir, conf: Math.round(conf), score, why: why.slice(0, 3), target, movePct };
 }
 
+// ─── DAILY COACH — discipline, wealth, wisdom, leadership, family ────────────
+const COACH_KEY = "axiom_coach_v1";
+function CoachTab({ C, MONO, SANS }) {
+  const [form, setForm] = useState({
+    energy: "7", sleep: "7", mood: "🙂",
+    focus: "", struggle: "", win: "", money: "", family: "",
+  });
+  const [plan, setPlan] = useState(() => { try { return JSON.parse(localStorage.getItem(COACH_KEY)) || null; } catch { return null; } });
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const generate = async () => {
+    setLoading(true); setErr("");
+    const prompt = `You are a sharp, caring personal coach for a man who wants to become more disciplined, wealthy, wise, and a better leader, father, and husband. He runs a used-car dealership and trades stocks.
+
+TODAY'S CHECK-IN:
+- Energy: ${form.energy}/10, Sleep: ${form.sleep}/10, Mood: ${form.mood}
+- Main focus today: ${form.focus || "(not specified)"}
+- Biggest struggle right now: ${form.struggle || "(not specified)"}
+- Recent win: ${form.win || "(not specified)"}
+- Money situation/goal: ${form.money || "(not specified)"}
+- Family note: ${form.family || "(not specified)"}
+
+Give him a punchy, specific plan for TODAY. Format EXACTLY as these labeled sections, 2-4 short bullet points each, concrete and doable today (no fluff, no generic advice):
+
+PRIORITIES:
+MONEY ACTION:
+HEALTH ACTION:
+FAMILY ACTION:
+HARD TRUTH:
+
+The HARD TRUTH must be one honest, direct sentence that challenges him. Be warm but real. Keep the whole thing tight.`;
+
+    try {
+      const r = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt }) });
+      const d = await r.json();
+      if (d.output) {
+        const out = { text: d.output.trim(), ts: new Date().toISOString(), date: new Date().toLocaleDateString() };
+        setPlan(out); localStorage.setItem(COACH_KEY, JSON.stringify(out));
+      } else throw new Error("no output");
+    } catch (e) {
+      // Rule-based fallback (no AI key)
+      const lowEnergy = Number(form.energy) <= 5 || Number(form.sleep) <= 5;
+      const fb = [
+        "PRIORITIES:",
+        `• ${form.focus || "Pick ONE needle-mover and do it before noon"} — finish it before anything else`,
+        "• Do the hardest task first while willpower is fresh",
+        lowEnergy ? "• Energy is low — cut your to-do list in half, protect your focus" : "• Time-block your top 3 tasks, kill distractions",
+        "",
+        "MONEY ACTION:",
+        `• ${form.money || "Review one number in your business today (cash, margin, or a lead)"}`,
+        "• Only take GREEN LIGHT trades. Risk 1%. No revenge trades.",
+        "• Move $1 toward savings/investing today — habit beats amount",
+        "",
+        "HEALTH ACTION:",
+        lowEnergy ? "• Sleep is your edge — in bed 30 min earlier tonight, no phone" : "• 20-min walk + 2L water. Move your body once today.",
+        "• Eat one clean meal. Don't trade or decide hungry.",
+        "",
+        "FAMILY ACTION:",
+        `• ${form.family || "15 min fully present with your kids — phone in another room"}`,
+        "• Tell your wife one specific thing you appreciate about her today",
+        "• Lead by calm — your family feels your stress before you speak",
+        "",
+        "HARD TRUTH:",
+        `• ${form.struggle ? "You already know what's holding you back: " + form.struggle + ". Stop negotiating with it — act." : "Discipline isn't motivation — it's doing the boring thing when you don't feel like it. Today, do the boring thing."}`,
+      ].join("\n");
+      const out = { text: fb, ts: new Date().toISOString(), date: new Date().toLocaleDateString(), fallback: true };
+      setPlan(out); localStorage.setItem(COACH_KEY, JSON.stringify(out));
+    }
+    setLoading(false);
+  };
+
+  // Parse the plan into sections for nice display
+  const sections = (() => {
+    if (!plan?.text) return [];
+    const labels = ["PRIORITIES", "MONEY ACTION", "HEALTH ACTION", "FAMILY ACTION", "HARD TRUTH"];
+    const icons  = { "PRIORITIES":"🎯", "MONEY ACTION":"💰", "HEALTH ACTION":"💪", "FAMILY ACTION":"👨‍👩‍👧", "HARD TRUTH":"🔥" };
+    const cols   = { "PRIORITIES":C.accent, "MONEY ACTION":C.green, "HEALTH ACTION":"#14b8a6", "FAMILY ACTION":"#a855f7", "HARD TRUTH":C.red };
+    const out = [];
+    const text = plan.text;
+    labels.forEach((lab, i) => {
+      const re = new RegExp(lab + "\\s*:?", "i");
+      const m = text.match(re);
+      if (!m) return;
+      const start = m.index + m[0].length;
+      let end = text.length;
+      for (let j = i + 1; j < labels.length; j++) {
+        const mm = text.match(new RegExp(labels[j] + "\\s*:?", "i"));
+        if (mm && mm.index > start) { end = Math.min(end, mm.index); }
+      }
+      const body = text.slice(start, end).trim().replace(/^[-•\s]+/, "");
+      out.push({ label: lab, icon: icons[lab], color: cols[lab], body });
+    });
+    return out;
+  })();
+
+  const inp = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, fontFamily: SANS, fontSize: 13, color: C.text, padding: "8px 10px", outline: "none", width: "100%", boxSizing: "border-box" };
+
+  return (
+    <div style={{ padding: "16px 20px", maxWidth: 860, margin: "0 auto" }}>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.text }}>🧭 DAILY COACH</div>
+        <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 3 }}>
+          Discipline · Wealth · Wisdom · Leadership · Father · Husband — your plan for today
+        </div>
+      </div>
+
+      {/* Check-in form */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, marginBottom: 16 }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 12 }}>TELL ME ABOUT TODAY</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+          {[["energy","Energy"],["sleep","Sleep"]].map(([k,l]) => (
+            <div key={k}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{l}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent }}>{form[k]}/10</span>
+              </div>
+              <input type="range" min="1" max="10" value={form[k]} onChange={e => set(k, e.target.value)} style={{ width: "100%", accentColor: C.accent }} />
+            </div>
+          ))}
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 4 }}>Mood</div>
+            <div style={{ display: "flex", gap: 4 }}>
+              {["😤","😔","😐","🙂","🔥"].map(m => (
+                <button key={m} onClick={() => set("mood", m)}
+                  style={{ fontSize: 18, background: form.mood===m ? `${C.accent}22` : "none", border: `1px solid ${form.mood===m ? C.accent : C.border}`, borderRadius: 6, padding: "2px 5px", cursor: "pointer" }}>{m}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 3 }}>🎯 Main focus today</div><input value={form.focus} onChange={e=>set("focus",e.target.value)} placeholder="What matters most today?" style={inp}/></div>
+          <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 3 }}>⚠️ Biggest struggle</div><input value={form.struggle} onChange={e=>set("struggle",e.target.value)} placeholder="What's holding you back?" style={inp}/></div>
+          <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 3 }}>✅ Recent win</div><input value={form.win} onChange={e=>set("win",e.target.value)} placeholder="Something that went well" style={inp}/></div>
+          <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 3 }}>💰 Money goal/note</div><input value={form.money} onChange={e=>set("money",e.target.value)} placeholder="A money focus today" style={inp}/></div>
+          <div style={{ gridColumn: "1 / -1" }}><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 3 }}>👨‍👩‍👧 Family note</div><input value={form.family} onChange={e=>set("family",e.target.value)} placeholder="Anything on your mind with family?" style={inp}/></div>
+        </div>
+        <button onClick={generate} disabled={loading}
+          style={{ marginTop: 14, width: "100%", background: C.accent, color: "#fff", border: "none", borderRadius: 8,
+            fontFamily: MONO, fontSize: 14, fontWeight: 800, padding: "12px", cursor: loading ? "default" : "pointer" }}>
+          {loading ? "⏳ Coaching you…" : "🧭 COACH ME TODAY"}
+        </button>
+        {err && <div style={{ fontFamily: SANS, fontSize: 12, color: C.red, marginTop: 6 }}>{err}</div>}
+      </div>
+
+      {/* Plan */}
+      {plan && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>YOUR PLAN — {plan.date}</span>
+            {plan.fallback && <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>offline mode</span>}
+          </div>
+          {sections.length > 0 ? sections.map(s => (
+            <div key={s.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${s.color}`, borderRadius: 10, padding: "12px 16px", marginBottom: 8 }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: s.color, marginBottom: 6 }}>{s.icon} {s.label}</div>
+              <div style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{s.body}</div>
+            </div>
+          )) : (
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{plan.text}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PredictionsTab({ C, MONO, SANS, watchlistData, macroData }) {
   const [filter, setFilter] = useState("ALL");
   const CRYPTO = ["BTC-USD","ETH-USD","BTCUSD","ETHUSD","SOL-USD","SOLUSD"];
@@ -12546,7 +12714,7 @@ export default function App() {
     try {
       const t = localStorage.getItem("last_tab");
       // Restore only safe tabs (don't restore modals/dialogs)
-      const safeTabs = ["dashboard","tv","multitf","fibonacci","scanner","smartscan","greenlight","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","predictions","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","performance","journal","journal-stats","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","dipbuy","under10","quran","athan","athkar","tasbih","halal","soccer"];
+      const safeTabs = ["dashboard","tv","multitf","fibonacci","scanner","smartscan","greenlight","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","predictions","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","journal-stats","coach","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","dipbuy","under10","quran","athan","athkar","tasbih","halal","soccer"];
       return (t && safeTabs.includes(t)) ? t : "dashboard";
     } catch { return "dashboard"; }
   });
@@ -16496,7 +16664,7 @@ export default function App() {
               { id: "terminal",   label: "📈 CHART",      tabs: ["multitf", "tv"] },
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy"] },
               { id: "markets",    label: "🌍 MARKETS",    tabs: ["news", "macro", "econ-cal", "predictions"] },
-              { id: "portfolio",  label: "💼 PORTFOLIO",  tabs: ["journal", "performance"] },
+              { id: "coach",      label: "🧭 COACH",      tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["education", "notes"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools"] },
               { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih", "halal"] },
@@ -16858,9 +17026,8 @@ export default function App() {
             { id: "econ-cal",     label: "📅 EVENTS" },
             { id: "predictions",  label: "🎲 PREDICTIONS" },
           ],
-          portfolio: [
-            { id: "journal",      label: "📓 JOURNAL" },
-            { id: "performance",  label: "📊 STATS" },
+          coach: [
+            { id: "coach",        label: "🧭 DAILY COACH" },
           ],
           education: [
             { id: "education",       label: "🎓 EDUCATION" },
@@ -27196,6 +27363,7 @@ export default function App() {
       {activeTab === "dipbuy" && <DipBuyTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} />}
       {activeTab === "greenlight" && <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} />}
       {activeTab === "predictions" && <PredictionsTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} />}
+      {activeTab === "coach" && <CoachTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "under10" && <Under10Tab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "combined"     && <CombinedTab     C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols}
         onDeepDive={(sym, row) => openDeepDiveFor(sym, { price: row?.price || 0, changePercent: 0 })} />}
