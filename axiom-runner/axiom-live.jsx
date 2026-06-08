@@ -354,8 +354,20 @@ const WATCHLIST_SYMBOLS = [
   "CAT","DE","RTX","LMT","BA",
   // Staples & dividend
   "KO","PEP","PG","JNJ",
+  // More semis & enterprise tech
+  "TSM","ASML","INTU","CSCO","IBM","ANET","DELL","TXN","ADI","NXPI","MCHP","CDNS","SNPS","FTNT","WDAY","MDB","TTD",
+  // High-beta growth & retail favorites
+  "RBLX","U","AFRM","SOFI","HOOD","DKNG","ABNB","DASH","PINS","SNAP","SPOT","RDDT","PYPL","LULU","DECK",
+  // EV & autos
+  "RIVN","LCID","NIO","F","GM",
+  // China & international
+  "BABA","PDD","JD",
+  // Solar & clean energy
+  "ENPH","FSLR","VLO","MPC",
+  // Biotech & medical
+  "MRNA","DXCM","MDT","GILD",
   // ETF proxies for macro
-  "SPY","QQQ","IWM","XLK","XLE","XLF","GLD"
+  "SPY","QQQ","IWM","XLK","XLE","XLF","GLD","SMH","ARKK"
 ];
 const MARKET_UNIVERSE_SYMBOLS = [
   "AAPL","MSFT","NVDA","AMZN","META","GOOGL","TSLA","AVGO","BRK.B","JPM","V","UNH","XOM","LLY","MA","HD","PG","COST","JNJ","MRK",
