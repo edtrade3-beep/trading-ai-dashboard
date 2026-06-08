@@ -4875,7 +4875,7 @@ function computePrediction(q) {
   const biasMult = score >= 8 ? 1 : score <= -8 ? -1 : 0;
   const target = +(px * (1 + biasMult * weeklyMove / 100)).toFixed(2);
   const movePct = +(biasMult * weeklyMove).toFixed(1);
-  return { px, chg, dir, conf: Math.round(conf), score, why: why.slice(0, 3), target, movePct };
+  return { px, chg, dir, conf: Math.round(conf), score, why: why.slice(0, 3), target, movePct, atrPct: cappedAtr };
 }
 
 // ─── DAILY COACH — discipline, wealth, wisdom, leadership, family ────────────
@@ -5410,13 +5410,32 @@ function logTradeNote(type, text) {
   } catch {}
 }
 
-// Shared: create an auto-managed PAPER trade (stop/T1/T2/T3 + sizing) from anywhere
-function addPaperTrade(sym, entry) {
+// Shared: create an auto-managed PAPER trade (stop/T1/T2/T3 + sizing) from anywhere.
+// opts.atrPct (daily-range volatility, 0-0.05) enables ATR-based stops/targets when
+// the user has Dynamic mode on (localStorage axiom_autopilot_atr !== "off").
+function addPaperTrade(sym, entry, opts = {}) {
   if (!sym || !entry || entry <= 0) return;
   const acct    = Number(localStorage.getItem("axiom_acct_size")) || 10000;
   const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
-  const stop    = +(entry * 0.97).toFixed(2);
-  const riskPerShare = entry - stop;
+
+  const useAtr = localStorage.getItem("axiom_autopilot_atr") !== "off" && Number(opts.atrPct) > 0;
+  let stop, t1, t2, t3, basis;
+  if (useAtr) {
+    // Volatility-sized: floor 1% / cap 5% daily range; stop 1.5×ATR, targets 1.5/3/4.5×ATR (1:1, 2:1, 3:1)
+    const atrPct = Math.min(0.05, Math.max(0.01, Number(opts.atrPct)));
+    const atr = entry * atrPct;
+    stop = +(entry - atr * 1.5).toFixed(2);
+    t1   = +(entry + atr * 1.5).toFixed(2);
+    t2   = +(entry + atr * 3.0).toFixed(2);
+    t3   = +(entry + atr * 4.5).toFixed(2);
+    basis = `ATR ${(atrPct * 100).toFixed(1)}%`;
+  } else {
+    stop = +(entry * 0.97).toFixed(2);
+    t1 = +(entry * 1.05).toFixed(2); t2 = +(entry * 1.10).toFixed(2); t3 = +(entry * 1.15).toFixed(2);
+    basis = "fixed";
+  }
+
+  const riskPerShare = Math.max(0.01, entry - stop);
   const dollarRisk   = acct * (riskPct / 100);
   const riskBased    = Math.floor(dollarRisk / riskPerShare);
   const affordable   = Math.floor(acct / entry);
@@ -5424,7 +5443,7 @@ function addPaperTrade(sym, entry) {
   const t = {
     id: Date.now() + Math.floor(Math.random() * 999),
     ticker: sym, entry, shares, remaining: shares, realized: 0,
-    stop, t1: +(entry*1.05).toFixed(2), t2: +(entry*1.10).toFixed(2), t3: +(entry*1.15).toFixed(2),
+    stop, t1, t2, t3, basis,
     status: "OPEN", t1Hit: false, t2Hit: false, openedAt: new Date().toISOString(),
     mode: "PAPER", auto: true,
   };
@@ -5435,7 +5454,7 @@ function addPaperTrade(sym, entry) {
   trades.unshift(t);
   localStorage.setItem(GL_TRADES_KEY, JSON.stringify(trades));
   window.dispatchEvent(new Event("gl-trades-changed"));
-  logTradeNote("buy", `🟢 AUTO BUY — ${sym}\n${shares} sh @ $${entry} (paper)\nStop $${stop} · T1 $${t.t1} / T2 $${t.t2} / T3 $${t.t3}`);
+  logTradeNote("buy", `🟢 AUTO BUY — ${sym}\n${shares} sh @ $${entry} (paper · ${basis})\nStop $${stop} · T1 $${t1} / T2 $${t2} / T3 $${t3}`);
   return "OK";
 }
 
@@ -5460,7 +5479,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
         if (gl.signal !== "GREEN" || gl.passed < threshold || !(gl.px > 0)) return;
         const key = `${today}:${q.symbol}`;
         if (autoBoughtRef.current.has(key)) return;
-        const res = addPaperTrade(q.symbol, gl.bestEntry || gl.px);
+        const res = addPaperTrade(q.symbol, gl.bestEntry || gl.px, { atrPct: gl.atrPct });
         if (res === "OK" || res === "DUP") autoBoughtRef.current.add(key);
       });
     };
@@ -5491,15 +5510,16 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
           logTradeNote("exit", `🛑 STOP HIT — ${x.ticker}\nClosed @ $${x.exit} (paper) · P&L $${x.realized.toFixed(0)}`);
           return x;
         }
+        const pctOf = lvl => ((lvl - x.entry) / x.entry * 100);
         if (!x.t1Hit && px >= x.t1) { x.realized += third * (x.t1 - x.entry); x.remaining -= third; x.t1Hit = true; x.stop = x.entry; changed = true;
-          logTradeNote("sell", `🎯 T1 +5% — ${x.ticker}\nSold ${third} sh @ $${x.t1} · stop → breakeven · ${x.remaining} sh left`); }
+          logTradeNote("sell", `🎯 T1 +${pctOf(x.t1).toFixed(1)}% — ${x.ticker}\nSold ${third} sh @ $${x.t1} · stop → breakeven · ${x.remaining} sh left`); }
         if (x.t1Hit && !x.t2Hit && px >= x.t2) { x.realized += third * (x.t2 - x.entry); x.remaining -= third; x.t2Hit = true; changed = true;
-          logTradeNote("sell", `🎯 T2 +10% — ${x.ticker}\nSold ${third} sh @ $${x.t2} · ${x.remaining} sh left`); }
+          logTradeNote("sell", `🎯 T2 +${pctOf(x.t2).toFixed(1)}% — ${x.ticker}\nSold ${third} sh @ $${x.t2} · ${x.remaining} sh left`); }
         if (x.t2Hit && px >= x.t3) {
           x.realized += x.remaining * (x.t3 - x.entry); x.remaining = 0; x.status = "CLOSED";
           x.exit = +(x.entry + x.realized / x.shares).toFixed(2); x.closedAt = new Date().toISOString();
           x.exitReason = "T3 🎯"; changed = true;
-          logTradeNote("exit", `🏆 T3 +15% — ${x.ticker}\nClosed @ $${x.t3} (paper) · P&L $${x.realized.toFixed(0)}`);
+          logTradeNote("exit", `🏆 T3 +${pctOf(x.t3).toFixed(1)}% — ${x.ticker}\nClosed @ $${x.t3} (paper) · P&L $${x.realized.toFixed(0)}`);
         }
         return x;
       });
@@ -5868,6 +5888,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const [glExpanded, setGlExpanded] = useState(null); // ticker whose details are shown
   const [autoPilot, setAutoPilot] = useState(() => localStorage.getItem("axiom_autopilot") === "on");
   const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 5);
+  const [atrMode, setAtrMode] = useState(() => localStorage.getItem("axiom_autopilot_atr") !== "off");
   const [lastCheck, setLastCheck] = useState(() => Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
   useEffect(() => {
     const onTick = () => setLastCheck(Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
@@ -6058,7 +6079,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
             AUTO-PILOT {autoPilot ? "ON" : "OFF"} <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>· PAPER ONLY</span>
           </div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-            {autoPilot ? `Auto-buys any stock that hits ${autoThreshold}/5, then auto-exits at T1/T2/T3 or stop. Runs in the background on every tab — fully hands-off.`
+            {autoPilot ? `Auto-buys any stock that hits ${autoThreshold}/5, then auto-exits at T1/T2/T3 or stop using ${atrMode ? "ATR (volatility-sized)" : "fixed %"} levels. Runs in the background on every tab — fully hands-off.`
                        : "Turn on to let the system auto-buy + auto-exit setups in paper mode. Keeps running on every tab, 100% hands-free."}
           </div>
           {autoPilot && (
@@ -6077,6 +6098,18 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
                 border: `1px solid ${autoThreshold === n ? "#7c3aed" : C.border}`, borderRadius: 6,
                 fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
               {n}/5
+            </button>
+          ))}
+        </div>
+        {/* Stop/target basis: ATR (volatility-sized) vs FIXED % */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="ATR sizes stops/targets to each stock's volatility. FIXED uses −3% / +5/10/15% on every stock.">
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>STOPS:</span>
+          {[["ATR", true], ["FIXED", false]].map(([lbl, on]) => (
+            <button key={lbl} onClick={() => { setAtrMode(on); localStorage.setItem("axiom_autopilot_atr", on ? "on" : "off"); }}
+              style={{ background: atrMode === on ? "#7c3aed" : C.surface, color: atrMode === on ? "#fff" : C.textSec,
+                border: `1px solid ${atrMode === on ? "#7c3aed" : C.border}`, borderRadius: 6,
+                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
+              {lbl}
             </button>
           ))}
         </div>
