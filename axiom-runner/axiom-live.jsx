@@ -2168,6 +2168,7 @@ const ATHAN_SOUNDS = {
 };
 function MonitorAthan({ C, MONO, SANS }) {
   const [athanSrc, setAthanSrc] = React.useState(() => localStorage.getItem("monitor_athan_sound") || "Makkah");
+  const [autoOn, setAutoOn] = React.useState(() => localStorage.getItem("monitor_athan_auto") === "on");
   const [times, setTimes] = React.useState(null);
   const [locName, setLocName] = React.useState("");
   const [now, setNow] = React.useState(new Date());
@@ -2218,6 +2219,33 @@ function MonitorAthan({ C, MONO, SANS }) {
     } catch {}
   };
 
+  // ── AUTO-PLAY athan when a prayer time arrives ──
+  const athanFiredRef = React.useRef(new Set());
+  React.useEffect(() => {
+    if (!times || !autoOn) return;
+    const check = () => {
+      const n = new Date();
+      const today = n.toISOString().slice(0, 10);
+      const nowMin = n.getHours() * 60 + n.getMinutes();
+      ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].forEach(p => {
+        const [hh, mm] = (times[p] || "0:0").split(":").map(Number);
+        const pMin = hh * 60 + mm;
+        // fire within the first minute of the prayer time
+        if (nowMin === pMin) {
+          const key = `${today}:${p}`;
+          if (!athanFiredRef.current.has(key)) {
+            athanFiredRef.current.add(key);
+            playAthan();
+          }
+        }
+      });
+    };
+    check();
+    const t = setInterval(check, 20000); // check every 20s
+    return () => clearInterval(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [times, athanSrc, autoOn]);
+
   // Find next prayer + countdown
   let nextPrayer = null, countdown = "";
   if (times) {
@@ -2250,7 +2278,14 @@ function MonitorAthan({ C, MONO, SANS }) {
               </button>
             ))}
           </div>
-          <button onClick={playAthan} title="تشغيل الأذان"
+          <button onClick={() => { setAutoOn(v => { const nv = !v; localStorage.setItem("monitor_athan_auto", nv ? "on" : "off"); if (nv) playAthan(); return nv; }); }}
+            title="تشغيل الأذان تلقائياً عند دخول الوقت"
+            style={{ background: autoOn ? "#14b8a6" : C.surface, color: autoOn ? "#fff" : C.textSec,
+              border: `1px solid ${autoOn ? "#14b8a6" : C.border}`, borderRadius: 6,
+              fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>
+            {autoOn ? "🔔 تلقائي ON" : "🔕 تلقائي"}
+          </button>
+          <button onClick={playAthan} title="تشغيل الأذان الآن"
             style={{ background: `#14b8a618`, border: `1px solid #14b8a644`, color: "#14b8a6", borderRadius: 6,
               fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>▶ أذان</button>
         </div>
