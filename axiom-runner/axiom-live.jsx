@@ -5569,6 +5569,15 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   const [showForm, setShowForm] = useState(false);
   const save = t => { setTrades(t); localStorage.setItem(GL_TRADES_KEY, JSON.stringify(t)); };
 
+  // Recent auto buy/sell/exit activity (from the trade journal notes)
+  const readActivity = () => { try { return JSON.parse(localStorage.getItem("axiom_notes_v1") || "[]").filter(n => n.auto).slice(0, 8); } catch { return []; } };
+  const [activity, setActivity] = useState(readActivity);
+  useEffect(() => {
+    const reload = () => setActivity(readActivity());
+    window.addEventListener("notes-changed", reload);
+    return () => window.removeEventListener("notes-changed", reload);
+  }, []);
+
   // Live price map from watchlist
   const priceOf = sym => Number((watchlistData || []).find(q => q.symbol === sym)?.price || 0);
 
@@ -5833,6 +5842,27 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
           </div>
         );
       })}
+
+      {/* Recent auto activity feed */}
+      {mode === "PAPER" && activity.length > 0 && (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 8 }}>⚡ RECENT AUTO ACTIVITY</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {activity.map(a => {
+              const col = a.type === "buy" ? C.green : a.type === "sell" ? C.amber : C.red;
+              const icon = a.type === "buy" ? "🟢" : a.type === "sell" ? "🎯" : "⏹";
+              const line = String(a.text || "").split("\n")[0];
+              return (
+                <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, borderLeft: `3px solid ${col}`, paddingLeft: 8 }}>
+                  <span style={{ fontSize: 12 }}>{icon}</span>
+                  <span style={{ flex: 1, fontFamily: SANS, fontSize: 12, color: C.text }}>{line.replace(/^[🟢🎯⏹🛑🏆]\s*/u, "")}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, flexShrink: 0 }}>{new Date(a.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Equity curve */}
       {closed.length >= 2 && (() => {
