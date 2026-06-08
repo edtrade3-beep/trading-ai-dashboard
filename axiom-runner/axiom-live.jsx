@@ -434,7 +434,7 @@ const STORAGE_KEY = "axiom_local_config_v1";
 // App password is validated server-side via POST /api/auth/check (never stored in source)
 const AUTH_STORAGE_KEY = "axiom_app_unlock_v1";
 const DEFAULT_SETTINGS = {
-  refreshMs: 60000,
+  refreshMs: 30000,
   terminalLayout: "1",
   hotkeyProfile: "classic",
   themeMode: "dark", // permanent default
@@ -5448,6 +5448,8 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
   useEffect(() => {
     const tick = () => {
       if (localStorage.getItem("axiom_autopilot") !== "on") return;
+      localStorage.setItem("axiom_autopilot_lastcheck", String(Date.now()));
+      window.dispatchEvent(new Event("autopilot-tick"));
       const threshold = Number(localStorage.getItem("axiom_autopilot_min")) || 5;
       const spyQ = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
       const spyChg = Number(spyQ?.changesPercentage || 0);
@@ -5866,6 +5868,12 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const [glExpanded, setGlExpanded] = useState(null); // ticker whose details are shown
   const [autoPilot, setAutoPilot] = useState(() => localStorage.getItem("axiom_autopilot") === "on");
   const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 5);
+  const [lastCheck, setLastCheck] = useState(() => Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
+  useEffect(() => {
+    const onTick = () => setLastCheck(Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
+    window.addEventListener("autopilot-tick", onTick);
+    return () => window.removeEventListener("autopilot-tick", onTick);
+  }, []);
 
   // Build results from watchlist + scan data
   const results = (watchlistData || []).map(q => {
@@ -6053,6 +6061,12 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
             {autoPilot ? `Auto-buys any stock that hits ${autoThreshold}/5, then auto-exits at T1/T2/T3 or stop. Runs in the background on every tab — fully hands-off.`
                        : "Turn on to let the system auto-buy + auto-exit setups in paper mode. Keeps running on every tab, 100% hands-free."}
           </div>
+          {autoPilot && (
+            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#22c55e", marginTop: 5, display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", display: "inline-block", boxShadow: "0 0 6px #22c55e" }} />
+              ACTIVE · last check {lastCheck ? new Date(lastCheck).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "starting…"}
+            </div>
+          )}
         </div>
         {/* Threshold selector */}
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
