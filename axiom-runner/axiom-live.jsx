@@ -13981,13 +13981,9 @@ export default function App() {
       const greens = [], yellows = [];
       watchlistData.forEach(q => {
         const px = Number(q.price || 0); if (!px) return;
-        const ma50 = Number(q.priceAvg50 || 0);
-        const rsiV = Number(q.rsi || 50);
-        const rvol = q.avgVolume > 0 ? q.volume / q.avgVolume : 0;
-        const passed = [
-          spyChgGL > -1, ma50 > 0 && px > ma50, rsiV >= 35 && rsiV <= 65,
-          rvol >= 1.2 || rvol === 0, ma50 > 0 && px <= ma50 * 1.05 && px >= ma50 * 0.95,
-        ].filter(Boolean).length;
+        // Same engine as the Green Light card so the morning scan always agrees
+        const scanRow = (scanResultsRef.current || []).find(r => r.ticker === q.symbol);
+        const passed = computeGreenLight(q, spyChgGL, scanRow).passed;
         const line = `${q.symbol} $${px.toFixed(2)} (${(q.changesPercentage||0)>=0?"+":""}${(q.changesPercentage||0).toFixed(1)}%) — ${passed}/5`;
         if (passed >= 4) greens.push(line);
         else if (passed === 3) yellows.push(line);
@@ -20682,18 +20678,10 @@ export default function App() {
                                   const rvol = row.quote?.volume && row.quote?.avgVolume ? row.quote.volume / row.quote.avgVolume : 0;
                                   const chg1w = Number(row.quote?.delta1w || 0);
 
-                                  // ── 🟢 GREEN LIGHT SYSTEM — 5 checks ──
+                                  // ── 🟢 GREEN LIGHT SYSTEM — same engine as the Green Light card ──
                                   (() => {
                                     const spyChgGL = Number((macroData || []).find(m => m.symbol === "SPY")?.changesPercentage || 0);
-                                    const rsiGL = rsi != null ? rsi : 50;
-                                    const glChecks = [
-                                      spyChgGL > -1,                                                       // market safe
-                                      ma50 > 0 && px > ma50,                                               // above 50D
-                                      rsiGL >= 35 && rsiGL <= 65,                                          // RSI sweet spot
-                                      rvol >= 1.2 || rvol === 0,                                           // volume active
-                                      ema21 > 0 ? (px <= ema21 * 1.03 && px >= ema21 * 0.97) : (ma50 > 0 && px <= ma50 * 1.05 && px >= ma50 * 0.95), // near entry zone
-                                    ];
-                                    const passed = glChecks.filter(Boolean).length;
+                                    const passed = computeGreenLight({ ...(row.quote || {}), price: px }, spyChgGL, row).passed;
                                     if (passed >= 4)      chips.push({ txt: `🟢 GREEN LIGHT ${passed}/5`, col: C.green, title: "Green Light System: 4+ checks passed — BUY zone" });
                                     else if (passed === 3) chips.push({ txt: `🟡 ALMOST ${passed}/5`,     col: C.amber, title: "Green Light System: 3/5 — watch, almost ready" });
                                   })();
