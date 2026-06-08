@@ -5571,6 +5571,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
     const t = setInterval(() => {
       let trades = [];
       try { trades = JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []; } catch {}
+      const trailOn = localStorage.getItem("axiom_autopilot_trail") !== "off"; // default ON
       let changed = false;
       const updated = trades.map(tr => {
         if (tr.status !== "OPEN" || tr.mode !== "PAPER" || !tr.auto) return tr;
@@ -5581,11 +5582,20 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
         x.remaining = x.remaining ?? x.shares;
         x.realized  = x.realized ?? 0;
         const third = Math.max(1, Math.floor(x.shares / 3));
+        // ── TRAILING STOP: ratchet the stop UP as price makes new highs (never down) ──
+        if (trailOn) {
+          x.hwm = Math.max(Number(x.hwm) || x.entry, px);          // high-water mark
+          const trailDist = Number(x.risk0) || (x.entry - x.stop); // trail by the initial risk distance
+          const trailStop = +(x.hwm - trailDist).toFixed(2);
+          if (trailStop > x.stop) { x.stop = trailStop; changed = true; }
+        }
         if (px <= x.stop) {
           x.realized += x.remaining * (x.stop - x.entry);
           x.remaining = 0; x.status = "CLOSED"; x.exit = +(x.entry + x.realized / x.shares).toFixed(2);
-          x.closedAt = new Date().toISOString(); x.exitReason = "STOP"; changed = true;
-          logTradeNote("exit", `🛑 STOP HIT — ${x.ticker}${x.glScore ? ` (${x.glScore}/5)` : ""}\nClosed @ $${x.exit} (paper) · P&L $${x.realized.toFixed(0)}`);
+          x.closedAt = new Date().toISOString();
+          const trailed = x.stop >= x.entry;   // stop got ratcheted to/above breakeven = trailing exit
+          x.exitReason = trailed ? "TRAIL" : "STOP"; changed = true;
+          logTradeNote("exit", `${trailed ? "🔒 TRAIL STOP" : "🛑 STOP HIT"} — ${x.ticker}${x.glScore ? ` (${x.glScore}/5)` : ""}\nClosed @ $${x.exit} (paper) · P&L ${x.realized >= 0 ? "+" : ""}$${x.realized.toFixed(0)}`);
           return x;
         }
         const pctOf = lvl => ((lvl - x.entry) / x.entry * 100);
@@ -6115,6 +6125,7 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 4);
   const [atrMode, setAtrMode] = useState(() => localStorage.getItem("axiom_autopilot_atr") !== "off");
   const [optionsMode, setOptionsMode] = useState(() => localStorage.getItem("axiom_autopilot_options") === "on");
+  const [trailMode, setTrailMode] = useState(() => localStorage.getItem("axiom_autopilot_trail") !== "off");
   const [lastCheck, setLastCheck] = useState(() => Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
   useEffect(() => {
     const onTick = () => setLastCheck(Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
@@ -6168,6 +6179,18 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
             <button key={lbl} onClick={() => { setAtrMode(on); localStorage.setItem("axiom_autopilot_atr", on ? "on" : "off"); }}
               style={{ background: atrMode === on ? "#7c3aed" : C.surface, color: atrMode === on ? "#fff" : C.textSec,
                 border: `1px solid ${atrMode === on ? "#7c3aed" : C.border}`, borderRadius: 6,
+                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+        {/* Trailing stop: ratchet stop up as price rises */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="When ON, the stop ratchets UP as price makes new highs (trailing by the initial risk distance) to lock in gains. It never moves down.">
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>TRAIL:</span>
+          {[["ON", true], ["OFF", false]].map(([lbl, on]) => (
+            <button key={lbl} onClick={() => { setTrailMode(on); localStorage.setItem("axiom_autopilot_trail", on ? "on" : "off"); }}
+              style={{ background: trailMode === on ? "#7c3aed" : C.surface, color: trailMode === on ? "#fff" : C.textSec,
+                border: `1px solid ${trailMode === on ? "#7c3aed" : C.border}`, borderRadius: 6,
                 fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
               {lbl}
             </button>
