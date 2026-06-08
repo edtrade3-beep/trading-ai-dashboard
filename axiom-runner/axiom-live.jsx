@@ -4921,30 +4921,76 @@ The HARD TRUTH must be one honest, direct sentence that challenges him. Be warm 
         setPlan(out); localStorage.setItem(COACH_KEY, JSON.stringify(out));
       } else throw new Error("no output");
     } catch (e) {
-      // Rule-based fallback (no AI key)
-      const lowEnergy = Number(form.energy) <= 5 || Number(form.sleep) <= 5;
+      // ── Smart rule-based coach (no AI key needed) ──
+      const en = Number(form.energy), sl = Number(form.sleep);
+      const lowEnergy = en <= 5 || sl <= 5;
+      const lowMood = form.mood === "😤" || form.mood === "😔";
+      const pick = arr => arr[new Date().getDate() % arr.length]; // rotates daily
+
+      // PRIORITIES
+      const pri = [];
+      pri.push(form.focus ? `• ${form.focus} — this is your ONE thing. Do it before you touch anything else.` : "• Name your ONE needle-mover and finish it before noon.");
+      pri.push(lowEnergy ? "• Low fuel today — cut your list in half. Protect energy for the one thing that matters." : "• Eat the frog: do the hardest task first while willpower is fresh.");
+      pri.push(pick([
+        "• Phone on Do Not Disturb for your first deep-work block.",
+        "• Write your top 3 on paper. If it's not on the list, it doesn't happen today.",
+        "• Say NO to one thing today that doesn't move you forward.",
+        "• Batch your distractions — check messages at set times, not constantly.",
+      ]));
+
+      // MONEY
+      const money = [];
+      money.push(form.money ? `• ${form.money}` : "• Look at ONE real number today — cash position, a margin, or a hot lead. Know it cold.");
+      money.push("• Only GREEN LIGHT trades. Risk 1%. Stop set before entry. Zero revenge trades.");
+      money.push(pick([
+        "• Dealership: follow up with one warm lead you've been ignoring.",
+        "• Move something toward savings/investing — habit beats the amount.",
+        "• Cut one small recurring expense you don't even notice anymore.",
+        "• Ask: would I make this purchase if I had to pay cash in person? If no, skip it.",
+      ]));
+
+      // HEALTH
+      const health = [];
+      health.push(lowEnergy ? "• Sleep is your real edge — phone out of the room, in bed 30 min earlier tonight." : "• Move your body once: 20-min walk or quick workout. Non-negotiable.");
+      health.push(pick([
+        "• Drink water first thing — most fatigue is dehydration.",
+        "• One clean meal today. Don't decide or trade while hungry.",
+        "• 5 slow breaths before your first big decision — calm beats fast.",
+        "• Sunlight for 10 minutes — resets your energy and mood.",
+      ]));
+
+      // FAMILY
+      const fam = [];
+      fam.push(form.family ? `• ${form.family}` : "• 15 minutes fully present with your kids — phone in another room, no half-attention.");
+      fam.push(pick([
+        "• Tell your wife one specific thing you appreciate — not generic, specific.",
+        "• Ask your kid one real question and actually listen to the answer.",
+        "• Do one small thing for your wife without being asked.",
+        "• Put the phone face-down at dinner. Be there, not just present.",
+      ]));
+      fam.push("• Lead by calm — your family feels your stress before you say a word.");
+
+      // HARD TRUTH
+      const truths = [
+        "Discipline isn't motivation — it's doing the boring thing when you don't feel like it. Do the boring thing today.",
+        "You don't have a knowledge problem, you have an execution problem. You already know what to do — go do it.",
+        "Your kids won't remember the money you made. They'll remember if you were there. Choose accordingly today.",
+        "Being busy is not the same as being effective. Most of your to-do list is avoidance. Do the scary one.",
+        "You can't out-trade bad discipline or out-earn bad habits. Fix the habit, the money follows.",
+        "Comfort is the enemy. The thing you're avoiding is exactly the thing that would move your life forward.",
+        "Patience builds wealth; impatience destroys it. Slow down today — in trading and at home.",
+      ];
+      const hard = form.struggle
+        ? `• You already named what's holding you back: "${form.struggle}". Stop negotiating with it. One concrete action against it today — now.`
+        : `• ${pick(truths)}`;
+      if (lowMood) fam.push("• Heavy mood today? Don't make big decisions from a low place. Steady the ship first.");
+
       const fb = [
-        "PRIORITIES:",
-        `• ${form.focus || "Pick ONE needle-mover and do it before noon"} — finish it before anything else`,
-        "• Do the hardest task first while willpower is fresh",
-        lowEnergy ? "• Energy is low — cut your to-do list in half, protect your focus" : "• Time-block your top 3 tasks, kill distractions",
-        "",
-        "MONEY ACTION:",
-        `• ${form.money || "Review one number in your business today (cash, margin, or a lead)"}`,
-        "• Only take GREEN LIGHT trades. Risk 1%. No revenge trades.",
-        "• Move $1 toward savings/investing today — habit beats amount",
-        "",
-        "HEALTH ACTION:",
-        lowEnergy ? "• Sleep is your edge — in bed 30 min earlier tonight, no phone" : "• 20-min walk + 2L water. Move your body once today.",
-        "• Eat one clean meal. Don't trade or decide hungry.",
-        "",
-        "FAMILY ACTION:",
-        `• ${form.family || "15 min fully present with your kids — phone in another room"}`,
-        "• Tell your wife one specific thing you appreciate about her today",
-        "• Lead by calm — your family feels your stress before you speak",
-        "",
-        "HARD TRUTH:",
-        `• ${form.struggle ? "You already know what's holding you back: " + form.struggle + ". Stop negotiating with it — act." : "Discipline isn't motivation — it's doing the boring thing when you don't feel like it. Today, do the boring thing."}`,
+        "PRIORITIES:", ...pri, "",
+        "MONEY ACTION:", ...money, "",
+        "HEALTH ACTION:", ...health, "",
+        "FAMILY ACTION:", ...fam, "",
+        "HARD TRUTH:", hard,
       ].join("\n");
       const out = { text: fb, ts: new Date().toISOString(), date: new Date().toLocaleDateString(), fallback: true };
       setPlan(out); localStorage.setItem(COACH_KEY, JSON.stringify(out));
@@ -5030,7 +5076,6 @@ The HARD TRUTH must be one honest, direct sentence that challenges him. Be warm 
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>YOUR PLAN — {plan.date}</span>
-            {plan.fallback && <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>offline mode</span>}
           </div>
           {sections.length > 0 ? sections.map(s => (
             <div key={s.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${s.color}`, borderRadius: 10, padding: "12px 16px", marginBottom: 8 }}>
