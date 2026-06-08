@@ -5935,8 +5935,17 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
         </div>
       )}
 
-      {/* Open positions */}
-      {open.map(t => {
+      {/* Open positions — grouped: shares vs options */}
+      {(() => {
+        const groups = [
+          { label: "📊 SHARES",  items: open.filter(t => t.instrument !== "OPTION") },
+          { label: "📈 OPTIONS", items: open.filter(t => t.instrument === "OPTION") },
+        ].filter(g => g.items.length);
+        const showHeaders = groups.length > 1;
+        return groups.map(g => (
+          <React.Fragment key={g.label}>
+            {showHeaders && <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", margin: "8px 0 4px" }}>{g.label} ({g.items.length})</div>}
+            {g.items.map(t => {
         const live = livePxOf(t);
         const pnl = (live - t.entry) * t.shares;
         const pnlPct = ((live - t.entry) / t.entry) * 100;
@@ -5994,7 +6003,10 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
             </div>
           </div>
         );
-      })}
+            })}
+          </React.Fragment>
+        ));
+      })()}
 
       {/* Recent auto activity feed */}
       {mode === "PAPER" && activity.length > 0 && (
