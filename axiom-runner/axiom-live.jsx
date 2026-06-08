@@ -9022,6 +9022,7 @@ function NotesTab({ C, MONO, SANS }) {
   const [input, setInput] = useState("");
   const [testing, setTesting] = useState(false);
   const [lastGen, setLastGen] = useState(() => localStorage.getItem("axiom_notes_lastgen") || null);
+  const [filter, setFilter] = useState("all"); // all | trades | other
 
   const save = (updated) => {
     setNotes(updated);
@@ -9141,8 +9142,8 @@ function NotesTab({ C, MONO, SANS }) {
     return () => clearInterval(t);
   }, [lastGen]);
 
-  const typeColor = t => t === "buy" ? C.green : t === "sell" ? C.red : t === "header" ? C.accent : t === "error" ? C.red : C.textDim;
-  const typeIcon  = t => t === "buy" ? "🟢" : t === "sell" ? "🔴" : t === "header" ? "📅" : t === "manual" ? "📝" : "ℹ";
+  const typeColor = t => t === "buy" ? C.green : t === "sell" ? C.amber : t === "exit" ? C.red : t === "header" ? C.accent : t === "error" ? C.red : C.textDim;
+  const typeIcon  = t => t === "buy" ? "🟢" : t === "sell" ? "🎯" : t === "exit" ? "⏹" : t === "header" ? "📅" : t === "manual" ? "📝" : "ℹ";
 
   return (
     <div style={{ padding: "20px 24px", maxWidth: 820, margin: "0 auto" }}>
@@ -9203,6 +9204,22 @@ function NotesTab({ C, MONO, SANS }) {
         </button>
       </div>
 
+      {/* Filter: separate auto trade journal from everything else */}
+      {notes.length > 0 && (() => {
+        const tradeCount = notes.filter(n => n.auto).length;
+        const otherCount = notes.length - tradeCount;
+        return (
+          <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+            {[["all", `ALL (${notes.length})`], ["trades", `📋 TRADES (${tradeCount})`], ["other", `✍️ NOTES (${otherCount})`]].map(([id, lbl]) => (
+              <button key={id} onClick={() => setFilter(id)}
+                style={{ background: filter === id ? C.accent : C.surface, color: filter === id ? "#fff" : C.textSec,
+                  border: `1px solid ${filter === id ? C.accent : C.border}`, borderRadius: 7,
+                  fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 12px", cursor: "pointer" }}>{lbl}</button>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Notes list */}
       {notes.length === 0 ? (
         <div style={{ textAlign: "center", padding: "48px 0" }}>
@@ -9214,7 +9231,7 @@ function NotesTab({ C, MONO, SANS }) {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {notes.map(note => (
+          {notes.filter(n => filter === "all" ? true : filter === "trades" ? n.auto : !n.auto).map(note => (
             <div key={note.id} style={{
               background: C.card, border: `1px solid ${C.border}`,
               borderLeft: `4px solid ${typeColor(note.type)}`,
