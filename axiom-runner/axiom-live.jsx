@@ -5704,8 +5704,40 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   };
   const s4 = byScore(4), s5 = byScore(5);
 
+  // ── TODAY'S SESSION P&L (realized closed today + open unrealized) ──
+  const todayET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const isTodayET = ds => {
+    if (!ds) return false;
+    const d = new Date(new Date(ds).toLocaleString("en-US", { timeZone: "America/New_York" }));
+    return d.getFullYear() === todayET.getFullYear() && d.getMonth() === todayET.getMonth() && d.getDate() === todayET.getDate();
+  };
+  const closedToday  = modeTrades.filter(t => t.status === "CLOSED" && isTodayET(t.closedAt));
+  const openedToday  = modeTrades.filter(t => isTodayET(t.openedAt));
+  const realizedToday = closedToday.reduce((s, t) => s + (t.exit - t.entry) * t.shares, 0);
+  const unrealOpen    = open.reduce((s, t) => { const px = priceOf(t.ticker) || t.entry; return s + (px - t.entry) * (t.remaining ?? t.shares); }, 0);
+  const todayWins   = closedToday.filter(t => (t.exit - t.entry) > 0).length;
+  const todayLosses = closedToday.length - todayWins;
+
   return (
     <div style={{ marginBottom: 20 }}>
+      {/* ── TODAY'S SESSION P&L ── */}
+      <div style={{ background: `${realizedToday >= 0 ? C.green : C.red}0e`, border: `1px solid ${realizedToday >= 0 ? C.green : C.red}44`, borderRadius: 10, padding: "12px 16px", marginBottom: 12, display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em" }}>📅 TODAY'S SESSION</div>
+          <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 900, color: realizedToday >= 0 ? C.green : C.red, marginTop: 2 }}>
+            {realizedToday >= 0 ? "+" : ""}${realizedToday.toFixed(0)}
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>realized P&amp;L</div>
+        </div>
+        <div style={{ width: 1, alignSelf: "stretch", background: C.border }} />
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+          <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>CLOSED</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{closedToday.length} <span style={{ fontSize: 10, color: C.textDim }}>({todayWins}W/{todayLosses}L)</span></div></div>
+          <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>OPENED</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{openedToday.length}</div></div>
+          <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>OPEN NOW</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: unrealOpen >= 0 ? C.green : C.red }}>{open.length} <span style={{ fontSize: 10 }}>({unrealOpen >= 0 ? "+" : ""}${unrealOpen.toFixed(0)})</span></div></div>
+          <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>DAY TOTAL</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: (realizedToday + unrealOpen) >= 0 ? C.green : C.red }}>{(realizedToday + unrealOpen) >= 0 ? "+" : ""}${(realizedToday + unrealOpen).toFixed(0)}</div></div>
+        </div>
+      </div>
+
       {/* PAPER / LIVE mode toggle */}
       <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>📋 MY TRADES</span>
