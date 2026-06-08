@@ -16800,6 +16800,7 @@ export default function App() {
               style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}
             >☁ LOAD</button>
             <a href="/dealer" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>DEALER</a>
+            <button onClick={() => setActiveTab("greenlight")} title="Open MY TRADES (paper auto-pilot positions)" style={{ background: "#7c3aed14", border: `1px solid #7c3aed55`, color: "#a78bfa", fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>📋 TRADES</button>
             <button onClick={handleLock} style={{ background: `${C.red}10`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>LOCK</button>
             <button onClick={() => setPaletteOpen(true)} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>CMD</button>
             <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>
@@ -16950,6 +16951,10 @@ export default function App() {
               onClick={() => setMobileMenuOpen(false)}
               style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "12px 8px", borderRadius: 8, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 48, fontWeight: 700 }}
             >DEALER</a>
+            <button
+              onClick={() => { setActiveTab("greenlight"); setMobileMenuOpen(false); }}
+              style={{ background: "#7c3aed14", border: `1px solid #7c3aed55`, color: "#a78bfa", fontFamily: MONO, fontSize: 12, padding: "12px 8px", borderRadius: 8, cursor: "pointer", minHeight: 48, fontWeight: 700 }}
+            >📋 TRADES</button>
             <button
               onClick={() => { setPaletteOpen(true); setMobileMenuOpen(false); }}
               style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "12px 8px", borderRadius: 8, cursor: "pointer", minHeight: 48, fontWeight: 700 }}
