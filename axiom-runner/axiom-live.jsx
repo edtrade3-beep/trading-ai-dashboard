@@ -5481,6 +5481,54 @@ function addPaperTrade(sym, entry, opts = {}) {
   return "OK";
 }
 
+const OPT_LEVERAGE = 5;  // a near-dated ATM option moves ~5× the underlying %, modeled simply
+// Current simulated per-share option premium from the underlying price.
+function optionValue(t, underlyingPx) {
+  const u = Number(underlyingPx) || t.uEntry;
+  const dir = t.optType === "PUT" ? -1 : 1;
+  const move = (u - t.uEntry) / t.uEntry * dir;            // signed % move in the option's favor
+  return Math.max(0.01, +(t.entry * (1 + (t.lev || OPT_LEVERAGE) * move)).toFixed(2));
+}
+
+// Shared: create a SIMULATED paper option (CALL/PUT). Stored as a synthetic position whose
+// "price" is the option premium, so the same stop/target/exit/stats engine works unchanged.
+function addPaperOption(sym, uPrice, kind, opts = {}) {
+  if (!sym || !uPrice || uPrice <= 0) return;
+  const acct    = Number(localStorage.getItem("axiom_acct_size")) || 10000;
+  const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
+  const premium = +(uPrice * 0.04).toFixed(2);             // ATM near-dated premium ≈ 4% of underlying
+  if (premium <= 0.02) return;
+  // Option-value levels: stop −50%, T1 +50%, T2 +100%, T3 +150%
+  const stop = +(premium * 0.5).toFixed(2);
+  const t1 = +(premium * 1.5).toFixed(2), t2 = +(premium * 2.0).toFixed(2), t3 = +(premium * 2.5).toFixed(2);
+  const riskPerShare = premium - stop;                     // = premium*0.5 per share
+  const dollarRisk   = acct * (riskPct / 100);
+  const perContract  = premium * 100;
+  const riskContracts = Math.floor(dollarRisk / (riskPerShare * 100));
+  const affordable    = Math.floor(acct / perContract);
+  const contracts = Math.max(1, Math.min(riskContracts, affordable));
+  const shares = contracts * 100;                          // synthetic shares = contracts × 100
+  const atm = uPrice >= 200 ? Math.round(uPrice / 5) * 5 : uPrice >= 50 ? Math.round(uPrice) : Math.round(uPrice * 2) / 2;
+  const t = {
+    id: Date.now() + Math.floor(Math.random() * 999),
+    ticker: sym, instrument: "OPTION", optType: kind, uEntry: uPrice, strike: atm, lev: OPT_LEVERAGE, contracts,
+    entry: premium, shares, remaining: shares, realized: 0,
+    stop, t1, t2, t3, basis: `${kind} sim`, risk0: +riskPerShare.toFixed(2),
+    glScore: Number(opts.glScore) || null,
+    status: "OPEN", t1Hit: false, t2Hit: false, openedAt: new Date().toISOString(),
+    mode: "PAPER", auto: true,
+  };
+  let trades = [];
+  try { trades = JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []; } catch {}
+  if (trades.some(x => x.ticker === sym && x.optType === kind && x.status === "OPEN" && x.mode === "PAPER")) return "DUP";
+  trades.unshift(t);
+  localStorage.setItem(GL_TRADES_KEY, JSON.stringify(trades));
+  window.dispatchEvent(new Event("gl-trades-changed"));
+  const icon = kind === "CALL" ? "📈" : "📉";
+  logTradeNote("buy", `${icon} AUTO ${kind} — ${sym} ~$${atm}${t.glScore ? ` (${t.glScore}/5)` : ""}\n${contracts} contract${contracts !== 1 ? "s" : ""} @ $${premium} (sim · ${OPT_LEVERAGE}x)\nStop $${stop} · T1 $${t1} / T2 $${t2} / T3 $${t3}`);
+  return "OK";
+}
+
 // ── Always-mounted background engine: auto-buys GREEN setups + auto-exits paper
 //    trades on EVERY tab (not just Green Light). Fully hands-off when autopilot ON.
 function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
@@ -5493,16 +5541,22 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       localStorage.setItem("axiom_autopilot_lastcheck", String(Date.now()));
       window.dispatchEvent(new Event("autopilot-tick"));
       const threshold = Number(localStorage.getItem("axiom_autopilot_min")) || 4;
+      const optionsMode = localStorage.getItem("axiom_autopilot_options") === "on";
       const spyQ = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
       const spyChg = Number(spyQ?.changesPercentage || 0);
       const today = new Date().toISOString().slice(0, 10);
       (watchlistData || []).forEach(q => {
         const scanRow = (scanResults || []).find(r => r.ticker === q.symbol);
         const gl = computeGreenLight(q, spyChg, scanRow);
-        if (gl.signal !== "GREEN" || gl.passed < threshold || !(gl.px > 0)) return;
-        const key = `${today}:${q.symbol}`;
+        if (!(gl.px > 0)) return;
+        const bullish = gl.signal === "GREEN" && gl.passed >= threshold;
+        const bearish = optionsMode && gl.signal === "RED" && gl.chg < -1;  // puts: only in options mode, clear downside
+        if (!bullish && !bearish) return;
+        const key = `${today}:${q.symbol}:${bullish ? "C" : "P"}`;
         if (autoBoughtRef.current.has(key)) return;
-        const res = addPaperTrade(q.symbol, gl.bestEntry || gl.px, { atrPct: gl.atrPct, glScore: gl.passed });
+        let res;
+        if (optionsMode) res = addPaperOption(q.symbol, gl.px, bullish ? "CALL" : "PUT", { glScore: gl.passed });
+        else             res = addPaperTrade(q.symbol, gl.bestEntry || gl.px, { atrPct: gl.atrPct, glScore: gl.passed });
         if (res === "OK" || res === "DUP") autoBoughtRef.current.add(key);
       });
     };
@@ -5520,7 +5574,8 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       let changed = false;
       const updated = trades.map(tr => {
         if (tr.status !== "OPEN" || tr.mode !== "PAPER" || !tr.auto) return tr;
-        const px = priceOf(tr.ticker);
+        // For options the working "price" is the simulated premium derived from the underlying
+        const px = tr.instrument === "OPTION" ? optionValue(tr, priceOf(tr.ticker)) : priceOf(tr.ticker);
         if (!px) return tr;
         let x = { ...tr };
         x.remaining = x.remaining ?? x.shares;
@@ -5641,6 +5696,8 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
 
   // Live price map from watchlist
   const priceOf = sym => Number((watchlistData || []).find(q => q.symbol === sym)?.price || 0);
+  // Live "price" for a position: option premium for options, underlying for stocks
+  const livePxOf = t => t.instrument === "OPTION" ? optionValue(t, priceOf(t.ticker)) : (priceOf(t.ticker) || t.entry);
 
   // Reload when an external paper buy is added (from Green Light cards)
   useEffect(() => {
@@ -5714,7 +5771,7 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   const closedToday  = modeTrades.filter(t => t.status === "CLOSED" && isTodayET(t.closedAt));
   const openedToday  = modeTrades.filter(t => isTodayET(t.openedAt));
   const realizedToday = closedToday.reduce((s, t) => s + (t.exit - t.entry) * t.shares, 0);
-  const unrealOpen    = open.reduce((s, t) => { const px = priceOf(t.ticker) || t.entry; return s + (px - t.entry) * (t.remaining ?? t.shares); }, 0);
+  const unrealOpen    = open.reduce((s, t) => { const px = livePxOf(t); return s + (px - t.entry) * (t.remaining ?? t.shares); }, 0);
   const todayWins   = closedToday.filter(t => (t.exit - t.entry) > 0).length;
   const todayLosses = closedToday.length - todayWins;
 
@@ -5880,7 +5937,7 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
 
       {/* Open positions */}
       {open.map(t => {
-        const live = priceOf(t.ticker) || t.entry;
+        const live = livePxOf(t);
         const pnl = (live - t.entry) * t.shares;
         const pnlPct = ((live - t.entry) / t.entry) * 100;
         const risk0 = Number(t.risk0) || (t.entry - t.stop) || (t.entry * 0.03);
@@ -5903,7 +5960,10 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
             <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
               <div>
                 <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.accent }}>{t.ticker}</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: 6 }}>{t.shares} sh @ ${t.entry}</span>
+                {t.instrument === "OPTION"
+                  ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: t.optType === "CALL" ? C.green : C.red, background: `${t.optType === "CALL" ? C.green : C.red}18`, borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>{t.optType} ${t.strike}</span>
+                  : null}
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: 6 }}>{t.instrument === "OPTION" ? `${t.contracts}c @ $${t.entry}` : `${t.shares} sh @ $${t.entry}`}</span>
                 {t.auto && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: "#a78bfa", background: "#7c3aed18", borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>🤖 AUTO</span>}
                 {t.glScore && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: t.glScore >= 5 ? C.green : C.amber, background: `${t.glScore >= 5 ? C.green : C.amber}18`, borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>{t.glScore}/5</span>}
                 {t.basis && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>{t.basis}</span>}
@@ -6044,6 +6104,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const [autoPilot, setAutoPilot] = useState(() => localStorage.getItem("axiom_autopilot") === "on");
   const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 4);
   const [atrMode, setAtrMode] = useState(() => localStorage.getItem("axiom_autopilot_atr") !== "off");
+  const [optionsMode, setOptionsMode] = useState(() => localStorage.getItem("axiom_autopilot_options") === "on");
   const [lastCheck, setLastCheck] = useState(() => Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
   useEffect(() => {
     const onTick = () => setLastCheck(Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
@@ -6247,7 +6308,9 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
             AUTO-PILOT {autoPilot ? "ON" : "OFF"} <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>· PAPER ONLY</span>
           </div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-            {autoPilot ? `Auto-buys any stock that hits ${autoThreshold}/5, then auto-exits at T1/T2/T3 or stop using ${atrMode ? "ATR (volatility-sized)" : "fixed %"} levels. Runs in the background on every tab — fully hands-off.`
+            {autoPilot ? (optionsMode
+                ? `Auto-buys SIMULATED options — CALLs on bullish ${autoThreshold}/5 setups, PUTs on clearly bearish ones (~5x leverage). Auto-exits at +50/100/150% or −50% stop. ⚠️ Higher risk, model-priced — for learning.`
+                : `Auto-buys any stock that hits ${autoThreshold}/5, then auto-exits at T1/T2/T3 or stop using ${atrMode ? "ATR (volatility-sized)" : "fixed %"} levels. Runs in the background on every tab — fully hands-off.`)
                        : "Turn on to let the system auto-buy + auto-exit setups in paper mode. Keeps running on every tab, 100% hands-free."}
           </div>
           {autoPilot && (
@@ -6277,6 +6340,18 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
             <button key={lbl} onClick={() => { setAtrMode(on); localStorage.setItem("axiom_autopilot_atr", on ? "on" : "off"); }}
               style={{ background: atrMode === on ? "#7c3aed" : C.surface, color: atrMode === on ? "#fff" : C.textSec,
                 border: `1px solid ${atrMode === on ? "#7c3aed" : C.border}`, borderRadius: 6,
+                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+        {/* Instrument: shares vs simulated options */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="SHARES = paper-buy stock. OPTIONS = simulated CALLs on bullish setups / PUTs on bearish, ~5x leverage. Options are higher-risk and priced by a simple model — for learning.">
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>TRADE:</span>
+          {[["SHARES", false], ["OPTIONS", true]].map(([lbl, on]) => (
+            <button key={lbl} onClick={() => { setOptionsMode(on); localStorage.setItem("axiom_autopilot_options", on ? "on" : "off"); }}
+              style={{ background: optionsMode === on ? (on ? "#e0982f" : "#7c3aed") : C.surface, color: optionsMode === on ? "#fff" : C.textSec,
+                border: `1px solid ${optionsMode === on ? (on ? "#e0982f" : "#7c3aed") : C.border}`, borderRadius: 6,
                 fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
               {lbl}
             </button>
