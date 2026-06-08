@@ -4808,6 +4808,16 @@ function computeGreenLight(q, spyChg, scanRow) {
   const rvol   = avgVol > 0 ? vol / avgVol : 0;
   const chg    = Number(q?.changesPercentage || 0);
 
+  // Volatility for ATR-based stops/targets. Prefer today's range; if missing,
+  // estimate daily volatility from the 52-week range; else a 2.5% default. Floor 1% / cap 5%.
+  const dayRange = Number(q?.dayHigh || 0) - Number(q?.dayLow || 0);
+  const hi52 = Number(q?.yearHigh || 0), lo52 = Number(q?.yearLow || 0);
+  let atrPct;
+  if (px > 0 && dayRange > 0)                       atrPct = dayRange / px;
+  else if (px > 0 && hi52 > lo52 && lo52 > 0)       atrPct = ((hi52 - lo52) / px) / 24; // ~annual range → daily proxy
+  else                                              atrPct = 0.025;
+  atrPct = Math.max(0.01, Math.min(0.05, atrPct));
+
   const checks = [
     { label: "Market safe",        pass: spyChg > -1,                               tip: `SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}%` },
     { label: "Above 50D MA",       pass: ma50 > 0 && px > ma50,                     tip: ma50 > 0 ? `Price $${px.toFixed(2)} vs MA50 $${ma50.toFixed(2)}` : "No MA50 data" },
@@ -4842,7 +4852,7 @@ function computeGreenLight(q, spyChg, scanRow) {
   const isLeader = relStrength > 1.0; // outperforming SPY by 1%+
 
   return {
-    checks, passed, signal, px, chg, stop, t1, t2, rvol, rsi,
+    checks, passed, signal, px, chg, stop, t1, t2, rvol, rsi, atrPct,
     bestEntry: +bestEntry.toFixed(2), entryNote, relStrength: +relStrength.toFixed(2), isLeader,
   };
 }
