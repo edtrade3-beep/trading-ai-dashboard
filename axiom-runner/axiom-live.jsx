@@ -5695,6 +5695,7 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   };
   const [acct, setAcct] = useState(() => Number(localStorage.getItem("axiom_acct_size")) || 10000);
   const [riskPct, setRiskPct] = useState(() => Number(localStorage.getItem("axiom_risk_pct")) || 1);
+  const exitMode = localStorage.getItem("axiom_autopilot_exit") || "trend";
   const saveAcct = v => { setAcct(v); localStorage.setItem("axiom_acct_size", v); };
   const saveRisk = v => { setRiskPct(v); localStorage.setItem("axiom_risk_pct", v); };
   // Suggested shares = (account × risk%) / (entry − stop), capped to what the account can afford
@@ -6017,13 +6018,24 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
                 </span>
                 {t.auto && t.remaining != null && t.remaining < t.shares && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 6 }}>· {t.remaining}/{t.shares} left</span>}
               </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                {[["STOP", t.stop, C.red], ["T1", t.t1, t.t1Hit ? C.textDim : C.green], ["T2", t.t2, t.t2Hit ? C.textDim : C.green], ["T3", t.t3 || (t.entry*1.15).toFixed(2), C.green]].map(([l,v,col]) => (
-                  <div key={l} style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{l}{l==="T1"&&t.t1Hit?" ✓":""}{l==="T2"&&t.t2Hit?" ✓":""}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: col }}>${v}</div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>STOP{t.stop >= t.entry ? " 🔒" : ""}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.red }}>${t.stop}</div>
+                </div>
+                {exitMode === "trend" ? (
+                  <div style={{ textAlign: "center", background: `${C.amber}14`, border: `1px solid ${C.amber}44`, borderRadius: 5, padding: "2px 8px" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>EXIT</div>
+                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.amber }}>📉 on bearish</div>
                   </div>
-                ))}
+                ) : (
+                  [["T1", t.t1, t.t1Hit ? C.textDim : C.green], ["T2", t.t2, t.t2Hit ? C.textDim : C.green], ["T3", t.t3 || (t.entry*1.15).toFixed(2), C.green]].map(([l,v,col]) => (
+                    <div key={l} style={{ textAlign: "center" }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{l}{l==="T1"&&t.t1Hit?" ✓":""}{l==="T2"&&t.t2Hit?" ✓":""}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: col }}>${v}</div>
+                    </div>
+                  ))
+                )}
               </div>
               <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
                 {atT1 && <button onClick={() => markT1(t.id)} style={{ background: `${C.green}18`, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 5, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "5px 10px", cursor: "pointer" }}>✓ SOLD HALF</button>}
