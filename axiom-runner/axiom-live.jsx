@@ -4880,7 +4880,60 @@ function computePrediction(q) {
 
 // ─── DAILY COACH — discipline, wealth, wisdom, leadership, family ────────────
 const COACH_KEY = "axiom_coach_v1";
+
+// Coaching curriculum — 30 short lessons across 6 pillars. Work one a day.
+const COACH_LESSONS = [
+  { pillar:"DISCIPLINE", icon:"🧱", color:"#3b82f6", title:"The 5-Second Rule", teach:"The moment you feel resistance, count 5-4-3-2-1 and move. Hesitation is where discipline dies.", practice:"Today, the first time you want to delay something — count down and start within 5 seconds." },
+  { pillar:"DISCIPLINE", icon:"🧱", color:"#3b82f6", title:"Win the Morning", teach:"How you start sets the tone. The first hour predicts the whole day. No phone before you've done one good thing.", practice:"No phone for the first 30 minutes. Drink water, move, then start your #1 task." },
+  { pillar:"DISCIPLINE", icon:"🧱", color:"#3b82f6", title:"Do the Boring Thing", teach:"Success is boring. It's the same right actions repeated when no one claps. Motivation fades; systems remain.", practice:"Pick the boring task you keep avoiding. Do it first, today." },
+  { pillar:"DISCIPLINE", icon:"🧱", color:"#3b82f6", title:"Cut the Inputs", teach:"You can't focus while drowning in notifications. Attention is your most valuable asset — guard it ruthlessly.", practice:"Phone on Do Not Disturb for 2 hours of deep work today." },
+  { pillar:"DISCIPLINE", icon:"🧱", color:"#3b82f6", title:"Keep Your Word to Yourself", teach:"Every promise you break to yourself trains your brain to not trust you. Small kept promises build unshakeable self-trust.", practice:"Make ONE small promise this morning and keep it no matter what." },
+
+  { pillar:"WEALTH", icon:"💰", color:"#22d47e", title:"Pay Yourself First", teach:"Wealth isn't what you earn, it's what you keep. Save/invest before you spend, not after.", practice:"Move money to savings/investing TODAY before any spending." },
+  { pillar:"WEALTH", icon:"💰", color:"#22d47e", title:"Small Losses, Big Winners", teach:"You get rich by cutting losers fast and letting winners run. Survival first, then growth.", practice:"Review every open trade — cut anything below its stop. No exceptions." },
+  { pillar:"WEALTH", icon:"💰", color:"#22d47e", title:"Patience Pays", teach:"The market transfers money from the impatient to the patient. Most money is made by sitting, not trading.", practice:"Take ZERO impulse trades today. Only A+ Green Light setups or nothing." },
+  { pillar:"WEALTH", icon:"💰", color:"#22d47e", title:"Know Your Numbers", teach:"You can't grow what you don't measure. Wealthy people know their cash, margins, and burn cold.", practice:"Write down your current cash position and one key business number." },
+  { pillar:"WEALTH", icon:"💰", color:"#22d47e", title:"Compounding Is King", teach:"$1 invested consistently beats $100 invested once. Boring consistency over years builds fortunes.", practice:"Set up or add to one automatic recurring investment today." },
+
+  { pillar:"WISDOM", icon:"🦉", color:"#a855f7", title:"Respond, Don't React", teach:"Between stimulus and response is a gap. In that gap is your power. Pause before you act or speak.", practice:"Before any big decision or reply today, take 5 breaths first." },
+  { pillar:"WISDOM", icon:"🦉", color:"#a855f7", title:"Seek to Understand First", teach:"Most conflict is just two people wanting to be heard. Listen fully before you respond.", practice:"In your next disagreement, repeat their point back before giving yours." },
+  { pillar:"WISDOM", icon:"🦉", color:"#a855f7", title:"What Would the Wise You Do?", teach:"When stuck, ask: what would the best version of me do right now? Then do that.", practice:"Face one hard choice today by asking 'what would wise-me do?'" },
+  { pillar:"WISDOM", icon:"🦉", color:"#a855f7", title:"Gratitude Rewires You", teach:"You can't be anxious and grateful at the same time. Gratitude is a discipline, not a feeling.", practice:"Name 3 specific things you're grateful for before you sleep." },
+  { pillar:"WISDOM", icon:"🦉", color:"#a855f7", title:"Stay in Your Lane", teach:"Comparison steals joy and clouds judgment. Run your own race; your only competition is yesterday's you.", practice:"Notice when you compare yourself today — redirect to your own progress." },
+
+  { pillar:"LEADERSHIP", icon:"👑", color:"#f59e0b", title:"Lead by Calm", teach:"Your people (and family) feel your energy before your words. A calm leader creates a calm room.", practice:"In your next stressful moment, lower your voice and slow down on purpose." },
+  { pillar:"LEADERSHIP", icon:"👑", color:"#f59e0b", title:"Extreme Ownership", teach:"When something goes wrong, the leader looks in the mirror first. Blame is weakness; ownership is power.", practice:"Take full ownership of one problem today — no excuses, just the next action." },
+  { pillar:"LEADERSHIP", icon:"👑", color:"#f59e0b", title:"Praise Specifically", teach:"Generic praise is noise. Specific praise changes behavior and builds loyalty.", practice:"Praise one person today for something specific they did well." },
+  { pillar:"LEADERSHIP", icon:"👑", color:"#f59e0b", title:"Your Standard Is Set By What You Tolerate", teach:"You don't get the behavior you want, you get what you accept. Raise your standard quietly by example.", practice:"Identify one thing you've been tolerating. Address it calmly today." },
+  { pillar:"LEADERSHIP", icon:"👑", color:"#f59e0b", title:"Decide Then Move", teach:"Leaders make decisions with incomplete info and adjust. Indecision costs more than a wrong call.", practice:"Make one decision you've been postponing — today, before noon." },
+
+  { pillar:"FATHER", icon:"👨‍👧", color:"#14b8a6", title:"Presence Over Presents", teach:"Kids spell love T-I-M-E. They won't remember the gifts; they'll remember if you showed up.", practice:"15 minutes of fully-present time with your kids — phone in another room." },
+  { pillar:"FATHER", icon:"👨‍👧", color:"#14b8a6", title:"Be the Calm in Their Storm", teach:"Your reaction teaches them how to handle the world. Stay steady when they melt down.", practice:"Next time your child is upset, get calm and curious instead of frustrated." },
+  { pillar:"FATHER", icon:"👨‍👧", color:"#14b8a6", title:"Catch Them Being Good", teach:"What you notice grows. Praise the behavior you want to see more of.", practice:"Catch your child doing something right today and name it out loud." },
+  { pillar:"FATHER", icon:"👨‍👧", color:"#14b8a6", title:"They Become What They See", teach:"Kids do what you do, not what you say. You're always teaching — make sure it's the right lesson.", practice:"Model one habit today you'd want your kids to copy." },
+  { pillar:"FATHER", icon:"👨‍👧", color:"#14b8a6", title:"Ask, Then Listen", teach:"One real question and genuine listening builds more connection than an hour of talking at them.", practice:"Ask your child one open question today and just listen — no fixing." },
+
+  { pillar:"HUSBAND", icon:"❤️", color:"#ef4444", title:"Pursue Her Still", teach:"Marriage dies from neglect, not conflict. Keep dating your wife like you're still trying to win her.", practice:"Do one small thing to pursue your wife today — a note, a call, a plan." },
+  { pillar:"HUSBAND", icon:"❤️", color:"#ef4444", title:"Appreciate Out Loud", teach:"She can't read your mind. Unspoken gratitude is worthless. Say it, specifically.", practice:"Tell your wife one specific thing you appreciate about her today." },
+  { pillar:"HUSBAND", icon:"❤️", color:"#ef4444", title:"Listen to Understand, Not Fix", teach:"Often she wants to be heard, not solved. Ask 'do you want help or just to vent?'", practice:"Next time she shares a problem, listen fully before offering any solution." },
+  { pillar:"HUSBAND", icon:"❤️", color:"#ef4444", title:"Carry the Load Quietly", teach:"Do something for her without being asked and without announcing it. Service is love in action.", practice:"Do one chore or task for her today without being asked." },
+  { pillar:"HUSBAND", icon:"❤️", color:"#ef4444", title:"Protect the Connection", teach:"Phones at dinner kill intimacy. Guard the small daily moments — they're the marriage.", practice:"Phone away during dinner and one full conversation with your wife tonight." },
+];
+
+// Daily habits to build
+const COACH_HABITS = [
+  { id:"pray",    label:"🕌 Prayed on time",            color:"#14b8a6" },
+  { id:"morning", label:"☀️ Won the morning (no phone first 30m)", color:"#f59e0b" },
+  { id:"onething",label:"🎯 Did my #1 task first",       color:"#3b82f6" },
+  { id:"nodiscipline", label:"💰 Followed trading rules (1% risk, no revenge)", color:"#22d47e" },
+  { id:"move",    label:"💪 Moved my body",             color:"#14b8a6" },
+  { id:"family",  label:"👨‍👩‍👧 Present time with family",   color:"#a855f7" },
+  { id:"wife",    label:"❤️ Connected with my wife",     color:"#ef4444" },
+  { id:"gratitude", label:"🙏 Gratitude / reflection",  color:"#7c3aed" },
+];
+
 function CoachTab({ C, MONO, SANS }) {
+  const [section, setSection] = useState("today"); // today | program | habits | reflect
   const [form, setForm] = useState({
     energy: "7", sleep: "7", mood: "🙂",
     focus: "", struggle: "", win: "", money: "", family: "",
@@ -4888,6 +4941,39 @@ function CoachTab({ C, MONO, SANS }) {
   const [plan, setPlan] = useState(() => { try { return JSON.parse(localStorage.getItem(COACH_KEY)) || null; } catch { return null; } });
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+
+  // Program progress
+  const [lessonDone, setLessonDone] = useState(() => { try { return JSON.parse(localStorage.getItem("coach_lessons_done")) || {}; } catch { return {}; } });
+  const [openLesson, setOpenLesson] = useState(null);
+  const toggleLesson = (i) => { const n = { ...lessonDone, [i]: !lessonDone[i] }; setLessonDone(n); localStorage.setItem("coach_lessons_done", JSON.stringify(n)); };
+
+  // Habits (per day)
+  const todayKey = new Date().toISOString().slice(0,10);
+  const [habits, setHabits] = useState(() => { try { return JSON.parse(localStorage.getItem("coach_habits")) || {}; } catch { return {}; } });
+  const toggleHabit = (hid) => {
+    const day = habits[todayKey] || {};
+    const nd = { ...day, [hid]: !day[hid] };
+    const n = { ...habits, [todayKey]: nd };
+    setHabits(n); localStorage.setItem("coach_habits", JSON.stringify(n));
+  };
+  const habitStreak = (hid) => {
+    let streak = 0;
+    for (let i = 0; i < 365; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const k = d.toISOString().slice(0,10);
+      if (habits[k]?.[hid]) streak++; else if (i > 0) break; else break;
+    }
+    return streak;
+  };
+
+  // Reflection journal
+  const [reflectText, setReflectText] = useState("");
+  const [reflections, setReflections] = useState(() => { try { return JSON.parse(localStorage.getItem("coach_reflect")) || []; } catch { return []; } });
+  const saveReflection = () => {
+    if (!reflectText.trim()) return;
+    const n = [{ id: Date.now(), text: reflectText.trim(), date: new Date().toLocaleDateString() }, ...reflections].slice(0, 120);
+    setReflections(n); localStorage.setItem("coach_reflect", JSON.stringify(n)); setReflectText("");
+  };
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -5024,15 +5110,31 @@ The HARD TRUTH must be one honest, direct sentence that challenges him. Be warm 
 
   const inp = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, fontFamily: SANS, fontSize: 13, color: C.text, padding: "8px 10px", outline: "none", width: "100%", boxSizing: "border-box" };
 
+  const doneCount = Object.values(lessonDone).filter(Boolean).length;
+  const todayHabits = habits[todayKey] || {};
+  const habitsDoneToday = COACH_HABITS.filter(h => todayHabits[h.id]).length;
+
   return (
     <div style={{ padding: "16px 20px", maxWidth: 860, margin: "0 auto" }}>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.text }}>🧭 DAILY COACH</div>
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.text }}>🧭 COACH</div>
         <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 3 }}>
-          Discipline · Wealth · Wisdom · Leadership · Father · Husband — your plan for today
+          Discipline · Wealth · Wisdom · Leadership · Father · Husband — grow every day
         </div>
       </div>
 
+      {/* Section tabs */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+        {[["today","☀️ TODAY"],["program",`📚 PROGRAM (${doneCount}/${COACH_LESSONS.length})`],["habits",`✅ HABITS (${habitsDoneToday}/${COACH_HABITS.length})`],["reflect","🧘 REFLECT"]].map(([id,l]) => (
+          <button key={id} onClick={() => setSection(id)}
+            style={{ background: section===id ? C.accent : C.surface, color: section===id ? "#fff" : C.textSec,
+              border: `1px solid ${section===id ? C.accent : C.border}`, borderRadius: 8,
+              fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 14px", cursor: "pointer" }}>{l}</button>
+        ))}
+      </div>
+
+      {/* ═══ TODAY ═══ */}
+      {section === "today" && <>
       {/* Check-in form */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, marginBottom: 16 }}>
         <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 12 }}>TELL ME ABOUT TODAY</div>
@@ -5085,6 +5187,104 @@ The HARD TRUTH must be one honest, direct sentence that challenges him. Be warm 
           )) : (
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{plan.text}</div>
           )}
+        </div>
+      )}
+      </>}
+
+      {/* ═══ PROGRAM ═══ */}
+      {section === "program" && (
+        <div>
+          <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginBottom: 12 }}>
+            30 lessons across 6 pillars. Read one a day, do the practice, check it off. This is how you grow — one principle at a time.
+          </div>
+          {/* Progress bar */}
+          <div style={{ height: 8, background: C.surface, borderRadius: 4, overflow: "hidden", marginBottom: 16 }}>
+            <div style={{ width: `${doneCount/COACH_LESSONS.length*100}%`, height: "100%", background: C.green, transition: "width 0.4s" }} />
+          </div>
+          {COACH_LESSONS.map((l, i) => (
+            <div key={i} style={{ background: C.card, border: `1px solid ${lessonDone[i] ? C.green+"55" : C.border}`,
+              borderLeft: `4px solid ${l.color}`, borderRadius: 10, marginBottom: 8, overflow: "hidden",
+              opacity: lessonDone[i] ? 0.7 : 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer" }}
+                onClick={() => setOpenLesson(openLesson === i ? null : i)}>
+                <span style={{ fontSize: 18 }}>{l.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: l.color, background: `${l.color}18`, borderRadius: 3, padding: "1px 6px" }}>{l.pillar}</span>
+                  <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text, marginTop: 3, textDecoration: lessonDone[i] ? "line-through" : "none" }}>{l.title}</div>
+                </div>
+                <button onClick={e => { e.stopPropagation(); toggleLesson(i); }}
+                  style={{ background: lessonDone[i] ? C.green : "transparent", color: lessonDone[i] ? "#fff" : C.textDim,
+                    border: `1px solid ${lessonDone[i] ? C.green : C.border}`, borderRadius: 6, width: 28, height: 28,
+                    fontSize: 14, cursor: "pointer" }}>✓</button>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{openLesson === i ? "▲" : "▼"}</span>
+              </div>
+              {openLesson === i && (
+                <div style={{ padding: "0 14px 14px 44px" }}>
+                  <div style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.6, marginBottom: 10 }}>{l.teach}</div>
+                  <div style={{ background: `${l.color}12`, border: `1px solid ${l.color}33`, borderRadius: 8, padding: "10px 12px" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: l.color, marginBottom: 4 }}>✅ TODAY'S PRACTICE</div>
+                    <div style={{ fontFamily: SANS, fontSize: 13, color: C.text }}>{l.practice}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ═══ HABITS ═══ */}
+      {section === "habits" && (
+        <div>
+          <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginBottom: 14 }}>
+            Check these off daily. Streaks build the man. Miss a day and the streak resets — that's the point.
+          </div>
+          {COACH_HABITS.map(h => {
+            const done = todayHabits[h.id];
+            const streak = habitStreak(h.id);
+            return (
+              <div key={h.id} onClick={() => toggleHabit(h.id)}
+                style={{ display: "flex", alignItems: "center", gap: 12, background: done ? `${h.color}12` : C.card,
+                  border: `1px solid ${done ? h.color+"55" : C.border}`, borderLeft: `4px solid ${h.color}`,
+                  borderRadius: 10, padding: "12px 16px", marginBottom: 8, cursor: "pointer" }}>
+                <div style={{ width: 26, height: 26, borderRadius: 6, border: `2px solid ${done ? h.color : C.border}`,
+                  background: done ? h.color : "transparent", color: "#fff", display: "flex", alignItems: "center",
+                  justifyContent: "center", fontSize: 15, flexShrink: 0 }}>{done ? "✓" : ""}</div>
+                <span style={{ flex: 1, fontFamily: SANS, fontSize: 14, color: C.text, fontWeight: done ? 700 : 400 }}>{h.label}</span>
+                {streak > 0 && <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: h.color }}>🔥 {streak}d</span>}
+              </div>
+            );
+          })}
+          <div style={{ marginTop: 14, textAlign: "center", fontFamily: MONO, fontSize: 13, color: C.textDim }}>
+            Today: <span style={{ color: habitsDoneToday === COACH_HABITS.length ? C.green : C.accent, fontWeight: 800 }}>{habitsDoneToday}/{COACH_HABITS.length}</span>
+            {habitsDoneToday === COACH_HABITS.length && " — perfect day 🏆"}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ REFLECT ═══ */}
+      {section === "reflect" && (
+        <div>
+          <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginBottom: 12 }}>
+            End your day here. What went well, what you'd change, what you learned. Reflection is where growth compounds.
+          </div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14, marginBottom: 16 }}>
+            <textarea value={reflectText} onChange={e => setReflectText(e.target.value)} rows={4}
+              placeholder="Today I… / I'm grateful for… / Tomorrow I'll do better at…"
+              style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
+                fontFamily: SANS, fontSize: 14, color: C.text, padding: "10px 12px", resize: "vertical", boxSizing: "border-box", outline: "none" }} />
+            <button onClick={saveReflection}
+              style={{ marginTop: 10, background: C.accent, color: "#fff", border: "none", borderRadius: 8,
+                fontFamily: MONO, fontSize: 13, fontWeight: 700, padding: "10px 20px", cursor: "pointer" }}>
+              💾 SAVE REFLECTION
+            </button>
+          </div>
+          {reflections.map(r => (
+            <div key={r.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px", marginBottom: 8 }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 4 }}>{r.date}</div>
+              <div style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{r.text}</div>
+            </div>
+          ))}
+          {!reflections.length && <div style={{ textAlign: "center", padding: "30px 0", fontFamily: SANS, fontSize: 13, color: C.textDim }}>No reflections yet. End today with one.</div>}
         </div>
       )}
     </div>
