@@ -5428,6 +5428,71 @@ function addPaperTrade(sym, entry) {
   return "OK";
 }
 
+// ── Always-mounted background engine: auto-buys GREEN setups + auto-exits paper
+//    trades on EVERY tab (not just Green Light). Fully hands-off when autopilot ON.
+function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
+  const autoBoughtRef = useRef(new Set());
+
+  // AUTO-BUY: every 15s, paper-buy any stock that hits the GREEN threshold (once/day each)
+  useEffect(() => {
+    const tick = () => {
+      if (localStorage.getItem("axiom_autopilot") !== "on") return;
+      const threshold = Number(localStorage.getItem("axiom_autopilot_min")) || 5;
+      const spyQ = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
+      const spyChg = Number(spyQ?.changesPercentage || 0);
+      const today = new Date().toISOString().slice(0, 10);
+      (watchlistData || []).forEach(q => {
+        const scanRow = (scanResults || []).find(r => r.ticker === q.symbol);
+        const gl = computeGreenLight(q, spyChg, scanRow);
+        if (gl.signal !== "GREEN" || gl.passed < threshold || !(gl.px > 0)) return;
+        const key = `${today}:${q.symbol}`;
+        if (autoBoughtRef.current.has(key)) return;
+        const res = addPaperTrade(q.symbol, gl.bestEntry || gl.px);
+        if (res === "OK" || res === "DUP") autoBoughtRef.current.add(key);
+      });
+    };
+    tick();
+    const t = setInterval(tick, 15000);
+    return () => clearInterval(t);
+  }, [watchlistData, macroData, scanResults]);
+
+  // AUTO-EXIT: every 15s, scale out auto paper trades at T1/T2/T3 or dump at stop
+  useEffect(() => {
+    const priceOf = sym => Number((watchlistData || []).find(q => q.symbol === sym)?.price || 0);
+    const t = setInterval(() => {
+      let trades = [];
+      try { trades = JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []; } catch {}
+      let changed = false;
+      const updated = trades.map(tr => {
+        if (tr.status !== "OPEN" || tr.mode !== "PAPER" || !tr.auto) return tr;
+        const px = priceOf(tr.ticker);
+        if (!px) return tr;
+        let x = { ...tr };
+        x.remaining = x.remaining ?? x.shares;
+        x.realized  = x.realized ?? 0;
+        const third = Math.max(1, Math.floor(x.shares / 3));
+        if (px <= x.stop) {
+          x.realized += x.remaining * (x.stop - x.entry);
+          x.remaining = 0; x.status = "CLOSED"; x.exit = +(x.entry + x.realized / x.shares).toFixed(2);
+          x.closedAt = new Date().toISOString(); x.exitReason = "STOP"; changed = true; return x;
+        }
+        if (!x.t1Hit && px >= x.t1) { x.realized += third * (x.t1 - x.entry); x.remaining -= third; x.t1Hit = true; x.stop = x.entry; changed = true; }
+        if (x.t1Hit && !x.t2Hit && px >= x.t2) { x.realized += third * (x.t2 - x.entry); x.remaining -= third; x.t2Hit = true; changed = true; }
+        if (x.t2Hit && px >= x.t3) {
+          x.realized += x.remaining * (x.t3 - x.entry); x.remaining = 0; x.status = "CLOSED";
+          x.exit = +(x.entry + x.realized / x.shares).toFixed(2); x.closedAt = new Date().toISOString();
+          x.exitReason = "T3 🎯"; changed = true;
+        }
+        return x;
+      });
+      if (changed) { localStorage.setItem(GL_TRADES_KEY, JSON.stringify(updated)); window.dispatchEvent(new Event("gl-trades-changed")); }
+    }, 15000);
+    return () => clearInterval(t);
+  }, [watchlistData]);
+
+  return null;
+}
+
 function TradeTracker({ C, MONO, SANS, watchlistData }) {
   const [trades, setTrades] = useState(() => { try { return JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []; } catch { return []; } });
   const [form, setForm] = useState({ ticker: "", entry: "", shares: "" });
@@ -6013,8 +6078,8 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
             AUTO-PILOT {autoPilot ? "ON" : "OFF"} <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>· PAPER ONLY</span>
           </div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-            {autoPilot ? `Auto-buys any stock that hits ${autoThreshold}/5, then auto-exits at T1/T2/T3 or stop. Fully hands-off.`
-                       : "Turn on to let the system auto-buy + auto-exit setups in paper mode. Test the system 100% hands-free."}
+            {autoPilot ? `Auto-buys any stock that hits ${autoThreshold}/5, then auto-exits at T1/T2/T3 or stop. Runs in the background on every tab — fully hands-off.`
+                       : "Turn on to let the system auto-buy + auto-exit setups in paper mode. Keeps running on every tab, 100% hands-free."}
           </div>
         </div>
         {/* Threshold selector */}
@@ -27280,6 +27345,9 @@ export default function App() {
           </div>
         );
       })()}
+
+      {/* Always-on hands-off paper auto-pilot (buys + exits on every tab) */}
+      <AutoPilotEngine watchlistData={watchlistData} macroData={macroData} scanResults={scanResults} />
 
       {/* ── CUSTOM SCREENER ──────────────────────────────────────────────── */}
       {activeTab === "tradeplanner" && <TradePlannerTab C={C} MONO={MONO} SANS={SANS} />}
