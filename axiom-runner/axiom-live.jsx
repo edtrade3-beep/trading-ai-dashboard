@@ -4800,7 +4800,7 @@ function computeGreenLight(q, spyChg, scanRow) {
     { label: "Market safe",        pass: spyChg > -1,                               tip: `SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}%` },
     { label: "Above 50D MA",       pass: ma50 > 0 && px > ma50,                     tip: ma50 > 0 ? `Price $${px.toFixed(2)} vs MA50 $${ma50.toFixed(2)}` : "No MA50 data" },
     { label: "RSI 35–65",          pass: rsi >= 35 && rsi <= 65,                    tip: `RSI ${rsi.toFixed(0)}` },
-    { label: "Volume active",      pass: rvol >= 1.2 || vol === 0,                  tip: rvol > 0 ? `RVOL ${rvol.toFixed(1)}x` : "No volume data" },
+    { label: rvol > 0 ? `Volume ${rvol.toFixed(1)}x` : "Volume active",  pass: rvol >= 1.2 || vol === 0,  tip: rvol > 0 ? `RVOL ${rvol.toFixed(1)}x (≥1.2x = active)` : "No volume data" },
     { label: "Near EMA21/MA50",    pass: ema21 > 0 ? (px <= ema21 * 1.03 && px >= ema21 * 0.97) : (ma50 > 0 && px <= ma50 * 1.05 && px >= ma50 * 0.95), tip: ema21 > 0 ? `EMA21 $${ema21.toFixed(2)}` : `MA50 $${ma50.toFixed(2)}` },
   ];
 
