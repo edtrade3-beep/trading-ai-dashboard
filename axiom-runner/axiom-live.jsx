@@ -26857,8 +26857,6 @@ export default function App() {
         );
       })()}
 
-      {activeTab === "pine" && <PineScriptTab C={C} MONO={MONO} SANS={SANS} terminalSymbol={terminalSymbol} />}
-
       {/* ── MULTI-TIMEFRAME DASHBOARD ────────────────────────────────────── */}
       {activeTab === "multitf" && (() => {
         const tvTheme = themeMode === "dark" ? "dark" : "light";
@@ -26880,7 +26878,7 @@ export default function App() {
         })();
         const mtfStudies = Object.entries(multitfInds).filter(([,v]) => v).map(([k]) => k).join(",");
         return (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 4px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 4px", marginTop: -8 }}>
             {/* Header bar */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
               background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, flexWrap: "wrap" }}>
