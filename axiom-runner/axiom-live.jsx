@@ -6109,10 +6109,8 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   );
 }
 
-function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFor, scanResults }) {
-  const spyQ   = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
-  const spyChg = Number(spyQ?.changesPercentage || 0);
-  const [glExpanded, setGlExpanded] = useState(null); // ticker whose details are shown
+// ── MY TRADES tab — auto-pilot controls + paper positions (its own tab under Green Light) ──
+function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [autoPilot, setAutoPilot] = useState(() => localStorage.getItem("axiom_autopilot") === "on");
   const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 4);
   const [atrMode, setAtrMode] = useState(() => localStorage.getItem("axiom_autopilot_atr") !== "off");
@@ -6123,6 +6121,87 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
     window.addEventListener("autopilot-tick", onTick);
     return () => window.removeEventListener("autopilot-tick", onTick);
   }, []);
+
+  return (
+    <div style={{ padding: "16px 20px", maxWidth: 980, margin: "0 auto" }}>
+      <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 14 }}>📋 MY TRADES</div>
+
+      {/* ── AUTO-PILOT toggle ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, padding: "12px 16px",
+        background: autoPilot ? "#7c3aed12" : C.card, border: `2px solid ${autoPilot ? "#7c3aed" : C.border}`,
+        borderRadius: 10, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 22 }}>🤖</span>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: autoPilot ? "#a78bfa" : C.text }}>
+            AUTO-PILOT {autoPilot ? "ON" : "OFF"} <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>· PAPER ONLY</span>
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
+            {autoPilot ? (optionsMode
+                ? `Auto-buys SIMULATED options — CALLs on bullish ${autoThreshold}/5 setups, PUTs on clearly bearish ones (~5x leverage). Auto-exits at +50/100/150% or −50% stop. ⚠️ Higher risk, model-priced — for learning.`
+                : `Auto-buys any stock that hits ${autoThreshold}/5, then auto-exits at T1/T2/T3 or stop using ${atrMode ? "ATR (volatility-sized)" : "fixed %"} levels. Runs in the background on every tab — fully hands-off.`)
+                       : "Turn on to let the system auto-buy + auto-exit setups in paper mode. Keeps running on every tab, 100% hands-free."}
+          </div>
+          {autoPilot && (
+            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#22c55e", marginTop: 5, display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", display: "inline-block", boxShadow: "0 0 6px #22c55e" }} />
+              ACTIVE · last check {lastCheck ? new Date(lastCheck).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "starting…"}
+            </div>
+          )}
+        </div>
+        {/* Threshold selector */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>BUY:</span>
+          {[[4, "4/5 + 5/5"], [5, "5/5 only"]].map(([n, lbl]) => (
+            <button key={n} onClick={() => { setAutoThreshold(n); localStorage.setItem("axiom_autopilot_min", n); }}
+              title={n === 4 ? "Trades both 4/5 and 5/5 setups (more trades)" : "Only trades perfect 5/5 setups (fewer, stricter)"}
+              style={{ background: autoThreshold === n ? "#7c3aed" : C.surface, color: autoThreshold === n ? "#fff" : C.textSec,
+                border: `1px solid ${autoThreshold === n ? "#7c3aed" : C.border}`, borderRadius: 6,
+                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+        {/* Stop/target basis: ATR vs FIXED */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="ATR sizes stops/targets to each stock's volatility. FIXED uses −3% / +5/10/15% on every stock.">
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>STOPS:</span>
+          {[["ATR", true], ["FIXED", false]].map(([lbl, on]) => (
+            <button key={lbl} onClick={() => { setAtrMode(on); localStorage.setItem("axiom_autopilot_atr", on ? "on" : "off"); }}
+              style={{ background: atrMode === on ? "#7c3aed" : C.surface, color: atrMode === on ? "#fff" : C.textSec,
+                border: `1px solid ${atrMode === on ? "#7c3aed" : C.border}`, borderRadius: 6,
+                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+        {/* Instrument: shares vs simulated options */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="SHARES = paper-buy stock. OPTIONS = simulated CALLs on bullish setups / PUTs on bearish, ~5x leverage. Options are higher-risk and priced by a simple model — for learning.">
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>TRADE:</span>
+          {[["SHARES", false], ["OPTIONS", true]].map(([lbl, on]) => (
+            <button key={lbl} onClick={() => { setOptionsMode(on); localStorage.setItem("axiom_autopilot_options", on ? "on" : "off"); }}
+              style={{ background: optionsMode === on ? (on ? "#e0982f" : "#7c3aed") : C.surface, color: optionsMode === on ? "#fff" : C.textSec,
+                border: `1px solid ${optionsMode === on ? (on ? "#e0982f" : "#7c3aed") : C.border}`, borderRadius: 6,
+                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+        <button onClick={() => { const v = !autoPilot; setAutoPilot(v); localStorage.setItem("axiom_autopilot", v ? "on" : "off"); }}
+          style={{ background: autoPilot ? "#7c3aed" : C.surface, color: autoPilot ? "#fff" : C.textSec,
+            border: `1px solid ${autoPilot ? "#7c3aed" : C.border}`, borderRadius: 8,
+            fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "10px 20px", cursor: "pointer" }}>
+          {autoPilot ? "⏹ TURN OFF" : "▶ TURN ON"}
+        </button>
+      </div>
+
+      <TradeTracker C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} />
+    </div>
+  );
+}
+
+function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFor, scanResults }) {
+  const spyQ   = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
+  const spyChg = Number(spyQ?.changesPercentage || 0);
+  const [glExpanded, setGlExpanded] = useState(null); // ticker whose details are shown
 
   // Build results from watchlist + scan data
   const results = (watchlistData || []).map(q => {
@@ -6310,75 +6389,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
         </div>
       </div>
 
-      {/* ── AUTO-PILOT toggle ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, padding: "12px 16px",
-        background: autoPilot ? "#7c3aed12" : C.card, border: `2px solid ${autoPilot ? "#7c3aed" : C.border}`,
-        borderRadius: 10, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 22 }}>🤖</span>
-        <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: autoPilot ? "#a78bfa" : C.text }}>
-            AUTO-PILOT {autoPilot ? "ON" : "OFF"} <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>· PAPER ONLY</span>
-          </div>
-          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-            {autoPilot ? (optionsMode
-                ? `Auto-buys SIMULATED options — CALLs on bullish ${autoThreshold}/5 setups, PUTs on clearly bearish ones (~5x leverage). Auto-exits at +50/100/150% or −50% stop. ⚠️ Higher risk, model-priced — for learning.`
-                : `Auto-buys any stock that hits ${autoThreshold}/5, then auto-exits at T1/T2/T3 or stop using ${atrMode ? "ATR (volatility-sized)" : "fixed %"} levels. Runs in the background on every tab — fully hands-off.`)
-                       : "Turn on to let the system auto-buy + auto-exit setups in paper mode. Keeps running on every tab, 100% hands-free."}
-          </div>
-          {autoPilot && (
-            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#22c55e", marginTop: 5, display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", display: "inline-block", boxShadow: "0 0 6px #22c55e" }} />
-              ACTIVE · last check {lastCheck ? new Date(lastCheck).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "starting…"}
-            </div>
-          )}
-        </div>
-        {/* Threshold selector */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>BUY:</span>
-          {[[4, "4/5 + 5/5"], [5, "5/5 only"]].map(([n, lbl]) => (
-            <button key={n} onClick={() => { setAutoThreshold(n); localStorage.setItem("axiom_autopilot_min", n); }}
-              title={n === 4 ? "Trades both 4/5 and 5/5 setups (more trades)" : "Only trades perfect 5/5 setups (fewer, stricter)"}
-              style={{ background: autoThreshold === n ? "#7c3aed" : C.surface, color: autoThreshold === n ? "#fff" : C.textSec,
-                border: `1px solid ${autoThreshold === n ? "#7c3aed" : C.border}`, borderRadius: 6,
-                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
-              {lbl}
-            </button>
-          ))}
-        </div>
-        {/* Stop/target basis: ATR (volatility-sized) vs FIXED % */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="ATR sizes stops/targets to each stock's volatility. FIXED uses −3% / +5/10/15% on every stock.">
-          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>STOPS:</span>
-          {[["ATR", true], ["FIXED", false]].map(([lbl, on]) => (
-            <button key={lbl} onClick={() => { setAtrMode(on); localStorage.setItem("axiom_autopilot_atr", on ? "on" : "off"); }}
-              style={{ background: atrMode === on ? "#7c3aed" : C.surface, color: atrMode === on ? "#fff" : C.textSec,
-                border: `1px solid ${atrMode === on ? "#7c3aed" : C.border}`, borderRadius: 6,
-                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
-              {lbl}
-            </button>
-          ))}
-        </div>
-        {/* Instrument: shares vs simulated options */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="SHARES = paper-buy stock. OPTIONS = simulated CALLs on bullish setups / PUTs on bearish, ~5x leverage. Options are higher-risk and priced by a simple model — for learning.">
-          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>TRADE:</span>
-          {[["SHARES", false], ["OPTIONS", true]].map(([lbl, on]) => (
-            <button key={lbl} onClick={() => { setOptionsMode(on); localStorage.setItem("axiom_autopilot_options", on ? "on" : "off"); }}
-              style={{ background: optionsMode === on ? (on ? "#e0982f" : "#7c3aed") : C.surface, color: optionsMode === on ? "#fff" : C.textSec,
-                border: `1px solid ${optionsMode === on ? (on ? "#e0982f" : "#7c3aed") : C.border}`, borderRadius: 6,
-                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
-              {lbl}
-            </button>
-          ))}
-        </div>
-        <button onClick={() => { const v = !autoPilot; setAutoPilot(v); localStorage.setItem("axiom_autopilot", v ? "on" : "off"); }}
-          style={{ background: autoPilot ? "#7c3aed" : C.surface, color: autoPilot ? "#fff" : C.textSec,
-            border: `1px solid ${autoPilot ? "#7c3aed" : C.border}`, borderRadius: 8,
-            fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "10px 20px", cursor: "pointer" }}>
-          {autoPilot ? "⏹ TURN OFF" : "▶ TURN ON"}
-        </button>
-      </div>
-
-      {/* Trade Tracker — your open positions + exit alerts */}
-      <TradeTracker C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} />
+      {/* Auto-pilot + paper trades now live in their own 📋 MY TRADES tab */}
 
       {/* Market check */}
       <div style={{ padding: "10px 16px", marginBottom: 16, borderRadius: 8,
@@ -13332,7 +13343,7 @@ export default function App() {
     try {
       const t = localStorage.getItem("last_tab");
       // Restore only safe tabs (don't restore modals/dialogs)
-      const safeTabs = ["dashboard","tv","multitf","fibonacci","scanner","smartscan","greenlight","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","predictions","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","journal-stats","coach","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","dipbuy","under10","quran","athan","athkar","tasbih","halal","soccer"];
+      const safeTabs = ["dashboard","tv","multitf","fibonacci","scanner","smartscan","greenlight","mytrades","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","predictions","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","journal-stats","coach","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","dipbuy","under10","quran","athan","athkar","tasbih","halal","soccer"];
       return (t && safeTabs.includes(t)) ? t : "dashboard";
     } catch { return "dashboard"; }
   });
@@ -17078,7 +17089,7 @@ export default function App() {
               style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}
             >☁ LOAD</button>
             <a href="/dealer" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>DEALER</a>
-            <button onClick={() => setActiveTab("greenlight")} title="Open MY TRADES (paper auto-pilot positions)" style={{ background: "#7c3aed14", border: `1px solid #7c3aed55`, color: "#a78bfa", fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>📋 TRADES</button>
+            <button onClick={() => setActiveTab("mytrades")} title="Open MY TRADES (paper auto-pilot positions)" style={{ background: "#7c3aed14", border: `1px solid #7c3aed55`, color: "#a78bfa", fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>📋 TRADES</button>
             <button onClick={handleLock} style={{ background: `${C.red}10`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>LOCK</button>
             <button onClick={() => setPaletteOpen(true)} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>CMD</button>
             <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>
@@ -17230,7 +17241,7 @@ export default function App() {
               style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "12px 8px", borderRadius: 8, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 48, fontWeight: 700 }}
             >DEALER</a>
             <button
-              onClick={() => { setActiveTab("greenlight"); setMobileMenuOpen(false); }}
+              onClick={() => { setActiveTab("mytrades"); setMobileMenuOpen(false); }}
               style={{ background: "#7c3aed14", border: `1px solid #7c3aed55`, color: "#a78bfa", fontFamily: MONO, fontSize: 12, padding: "12px 8px", borderRadius: 8, cursor: "pointer", minHeight: 48, fontWeight: 700 }}
             >📋 TRADES</button>
             <button
@@ -17321,6 +17332,7 @@ export default function App() {
           ],
           scanner: [
             { id: "greenlight",   label: "🟢 GREEN LIGHT" },
+            { id: "mytrades",     label: "📋 MY TRADES" },
             { id: "smartscan",    label: "🧠 SMART SCAN" },
             { id: "dipbuy",       label: "🩸 DIP BUY" },
           ],
@@ -27661,6 +27673,7 @@ export default function App() {
       {activeTab === "tradeplanner" && <TradePlannerTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "dipbuy" && <DipBuyTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} />}
       {activeTab === "greenlight" && <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} />}
+      {activeTab === "mytrades" && <MyTradesTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} />}
       {activeTab === "predictions" && <PredictionsTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} />}
       {activeTab === "coach" && <CoachTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "under10" && <Under10Tab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} watchlistSymbols={watchlistSymbols} />}
