@@ -4881,55 +4881,61 @@ function computePrediction(q) {
 // ─── DAILY COACH — discipline, wealth, wisdom, leadership, family ────────────
 const COACH_KEY = "axiom_coach_v1";
 
-// Coaching curriculum — 30 short lessons across 6 pillars. Work one a day.
+// منهج تدريبي — 30 درساً عبر 6 ركائز. درس كل يوم.
 const COACH_LESSONS = [
-  { pillar:"DISCIPLINE", icon:"🧱", color:"#3b82f6", title:"The 5-Second Rule", teach:"The moment you feel resistance, count 5-4-3-2-1 and move. Hesitation is where discipline dies.", practice:"Today, the first time you want to delay something — count down and start within 5 seconds." },
-  { pillar:"DISCIPLINE", icon:"🧱", color:"#3b82f6", title:"Win the Morning", teach:"How you start sets the tone. The first hour predicts the whole day. No phone before you've done one good thing.", practice:"No phone for the first 30 minutes. Drink water, move, then start your #1 task." },
-  { pillar:"DISCIPLINE", icon:"🧱", color:"#3b82f6", title:"Do the Boring Thing", teach:"Success is boring. It's the same right actions repeated when no one claps. Motivation fades; systems remain.", practice:"Pick the boring task you keep avoiding. Do it first, today." },
-  { pillar:"DISCIPLINE", icon:"🧱", color:"#3b82f6", title:"Cut the Inputs", teach:"You can't focus while drowning in notifications. Attention is your most valuable asset — guard it ruthlessly.", practice:"Phone on Do Not Disturb for 2 hours of deep work today." },
-  { pillar:"DISCIPLINE", icon:"🧱", color:"#3b82f6", title:"Keep Your Word to Yourself", teach:"Every promise you break to yourself trains your brain to not trust you. Small kept promises build unshakeable self-trust.", practice:"Make ONE small promise this morning and keep it no matter what." },
+  // ── الانضباط ──
+  { pillar:"الانضباط", icon:"🧱", color:"#3b82f6", title:"قاعدة الخمس ثوانٍ", teach:"في اللحظة التي تشعر فيها بالتردد، عُدّ ٥-٤-٣-٢-١ ثم تحرّك فوراً. التردد هو المكان الذي يموت فيه الانضباط. عقلك يحاول حمايتك من الانزعاج، لكن النمو كله خلف هذا الانزعاج.", practice:"اليوم، أول مرة تريد أن تؤجّل شيئاً — عُدّ تنازلياً وابدأ خلال ٥ ثوانٍ.", mantra:"الفعل يسبق الشعور، لا العكس." },
+  { pillar:"الانضباط", icon:"🧱", color:"#3b82f6", title:"اربح الصباح", teach:"الطريقة التي تبدأ بها تحدّد إيقاع يومك كله. الساعة الأولى تتنبأ بباقي اليوم. لا تلمس الهاتف قبل أن تنجز شيئاً نافعاً — لأن أول ما تطعمه عقلك هو ما يحكمه.", practice:"لا هاتف في أول ٣٠ دقيقة. اشرب ماءً، تحرّك، ثم ابدأ مهمتك الأولى.", mantra:"من ملك صباحه ملك يومه." },
+  { pillar:"الانضباط", icon:"🧱", color:"#3b82f6", title:"افعل الشيء المُمِلّ", teach:"النجاح مُمِلّ. هو تكرار نفس الأفعال الصحيحة حين لا يصفّق لك أحد. الحماس يزول، أما الأنظمة فتبقى. العظماء يفعلون ما يكرهه الكسالى بانتظام.", practice:"اختر المهمة المملّة التي تتهرّب منها، وافعلها أولاً اليوم.", mantra:"الانضباط جسر بين الأهداف والإنجاز." },
+  { pillar:"الانضباط", icon:"🧱", color:"#3b82f6", title:"اقطع المشتتات", teach:"لا يمكنك التركيز وأنت غارق في الإشعارات. انتباهك هو أثمن ما تملك — احرسه بلا رحمة. كل تنبيه يسرق منك جزءاً من عقلك لا يعود.", practice:"ضع الهاتف على وضع 'عدم الإزعاج' لساعتين من العمل العميق اليوم.", mantra:"حيث يذهب انتباهك تذهب حياتك." },
+  { pillar:"الانضباط", icon:"🧱", color:"#3b82f6", title:"أوفِ بوعدك لنفسك", teach:"كل وعد تكسره مع نفسك يدرّب عقلك على ألا يثق بك. الوعود الصغيرة المحفوظة تبني ثقة لا تُهزم بالنفس. كن رجلاً تثق به أنت أولاً.", practice:"اقطع وعداً صغيراً هذا الصباح والتزم به مهما حدث.", mantra:"ثقتك بنفسك تُبنى من وعود صغيرة محفوظة." },
 
-  { pillar:"WEALTH", icon:"💰", color:"#22d47e", title:"Pay Yourself First", teach:"Wealth isn't what you earn, it's what you keep. Save/invest before you spend, not after.", practice:"Move money to savings/investing TODAY before any spending." },
-  { pillar:"WEALTH", icon:"💰", color:"#22d47e", title:"Small Losses, Big Winners", teach:"You get rich by cutting losers fast and letting winners run. Survival first, then growth.", practice:"Review every open trade — cut anything below its stop. No exceptions." },
-  { pillar:"WEALTH", icon:"💰", color:"#22d47e", title:"Patience Pays", teach:"The market transfers money from the impatient to the patient. Most money is made by sitting, not trading.", practice:"Take ZERO impulse trades today. Only A+ Green Light setups or nothing." },
-  { pillar:"WEALTH", icon:"💰", color:"#22d47e", title:"Know Your Numbers", teach:"You can't grow what you don't measure. Wealthy people know their cash, margins, and burn cold.", practice:"Write down your current cash position and one key business number." },
-  { pillar:"WEALTH", icon:"💰", color:"#22d47e", title:"Compounding Is King", teach:"$1 invested consistently beats $100 invested once. Boring consistency over years builds fortunes.", practice:"Set up or add to one automatic recurring investment today." },
+  // ── المال ──
+  { pillar:"المال", icon:"💰", color:"#22d47e", title:"ادفع لنفسك أولاً", teach:"الثروة ليست ما تكسبه بل ما تحتفظ به. ادّخر واستثمر قبل أن تنفق، لا بعده. من ينفق أولاً ويدّخر ما تبقّى لا يتبقّى له شيء أبداً.", practice:"حوّل مبلغاً للادخار/الاستثمار اليوم قبل أي إنفاق.", mantra:"ليست العبرة بما تكسب بل بما تبقي." },
+  { pillar:"المال", icon:"💰", color:"#22d47e", title:"خسائر صغيرة، أرباح كبيرة", teach:"تصبح غنياً بقطع الخاسر بسرعة وترك الرابح يجري. البقاء أولاً ثم النمو. صفقة سيئة واحدة بلا وقف خسارة تمحو عشر صفقات جيدة.", practice:"راجع كل صفقاتك المفتوحة — اقطع أي شيء تحت وقف الخسارة. بلا استثناء.", mantra:"اقطع الخاسر بسرعة، واترك الرابح يجري." },
+  { pillar:"المال", icon:"💰", color:"#22d47e", title:"الصبر يُثمر", teach:"السوق ينقل المال من قليل الصبر إلى صاحب الصبر. أغلب الأرباح تُصنع بالجلوس لا بالتداول. التداول الزائد عدوّك الأول.", practice:"لا تأخذ أي صفقة اندفاعية اليوم. فقط إشارات الضوء الأخضر الممتازة أو لا شيء.", mantra:"المال يُصنع بالانتظار لا بالحركة." },
+  { pillar:"المال", icon:"💰", color:"#22d47e", title:"اعرف أرقامك", teach:"لا يمكنك تنمية ما لا تقيسه. الأثرياء يعرفون سيولتهم وهوامشهم ومصاريفهم عن ظهر قلب. الجهل بأرقامك هو بداية إفلاسك.", practice:"اكتب وضع السيولة لديك ورقماً مهماً واحداً في عملك.", mantra:"ما لا يُقاس لا يُنمّى." },
+  { pillar:"المال", icon:"💰", color:"#22d47e", title:"الفائدة المركّبة ملك", teach:"دولار واحد يُستثمر بانتظام يهزم مئة دولار تُستثمر مرة واحدة. الاتساق المُمِلّ عبر السنين يبني الثروات. الوقت أقوى من المبلغ.", practice:"أنشئ أو أضف إلى استثمار دوري تلقائي واحد اليوم.", mantra:"الثبات الصغير عبر الزمن يصنع المعجزات." },
 
-  { pillar:"WISDOM", icon:"🦉", color:"#a855f7", title:"Respond, Don't React", teach:"Between stimulus and response is a gap. In that gap is your power. Pause before you act or speak.", practice:"Before any big decision or reply today, take 5 breaths first." },
-  { pillar:"WISDOM", icon:"🦉", color:"#a855f7", title:"Seek to Understand First", teach:"Most conflict is just two people wanting to be heard. Listen fully before you respond.", practice:"In your next disagreement, repeat their point back before giving yours." },
-  { pillar:"WISDOM", icon:"🦉", color:"#a855f7", title:"What Would the Wise You Do?", teach:"When stuck, ask: what would the best version of me do right now? Then do that.", practice:"Face one hard choice today by asking 'what would wise-me do?'" },
-  { pillar:"WISDOM", icon:"🦉", color:"#a855f7", title:"Gratitude Rewires You", teach:"You can't be anxious and grateful at the same time. Gratitude is a discipline, not a feeling.", practice:"Name 3 specific things you're grateful for before you sleep." },
-  { pillar:"WISDOM", icon:"🦉", color:"#a855f7", title:"Stay in Your Lane", teach:"Comparison steals joy and clouds judgment. Run your own race; your only competition is yesterday's you.", practice:"Notice when you compare yourself today — redirect to your own progress." },
+  // ── الحكمة ──
+  { pillar:"الحكمة", icon:"🦉", color:"#a855f7", title:"استجب ولا تتفاعل", teach:"بين المثير والاستجابة فجوة، وفي تلك الفجوة قوتك وحريتك. توقّف قبل أن تتصرف أو تتكلم. ردّ الفعل السريع نادراً ما يكون حكيماً.", practice:"قبل أي قرار أو ردّ مهم اليوم، خذ ٥ أنفاس أولاً.", mantra:"بين الغضب والكلمة ثانية تصنع الفرق." },
+  { pillar:"الحكمة", icon:"🦉", color:"#a855f7", title:"افهم قبل أن تُفهَم", teach:"أغلب الخلافات مجرّد شخصين يريد كلٌّ منهما أن يُسمع. أنصت تماماً قبل أن ترد. حين يشعر الآخر أنك فهمته، يلين قلبه.", practice:"في خلافك القادم، أعِد صياغة وجهة نظره قبل أن تعطي وجهة نظرك.", mantra:"الإنصات أقوى من الإقناع." },
+  { pillar:"الحكمة", icon:"🦉", color:"#a855f7", title:"ماذا يفعل أحكمُ نسخة منك؟", teach:"حين تتحيّر، اسأل: ماذا تفعل أفضل نسخة مني الآن؟ ثم افعلها. أنت تعرف الجواب غالباً، لكنك تتجنّبه.", practice:"واجه قراراً صعباً اليوم بسؤال: 'ماذا يفعل الحكيم؟'", mantra:"الحكمة أن تفعل ما تعرفه أصلاً." },
+  { pillar:"الحكمة", icon:"🦉", color:"#a855f7", title:"الامتنان يُعيد برمجتك", teach:"لا يمكنك أن تكون قلقاً وممتنّاً في آنٍ واحد. الامتنان انضباط لا شعور — تختاره حتى في الأيام الصعبة. القلب الشاكر لا يعرف اليأس.", practice:"اذكر ٣ أشياء محددة أنت ممتنّ لها قبل أن تنام.", mantra:"الشاكر لا يعرف القلق." },
+  { pillar:"الحكمة", icon:"🦉", color:"#a855f7", title:"الزم طريقك", teach:"المقارنة تسرق الفرح وتعمي البصيرة. اركض سباقك أنت؛ منافسك الوحيد هو نسختك بالأمس. ما تراه عند غيرك واجهة، وما تعيشه أنت حقيقة.", practice:"لاحظ متى تقارن نفسك اليوم — وأعِد توجيه نظرك إلى تقدّمك أنت.", mantra:"منافسك الوحيد هو أنت بالأمس." },
 
-  { pillar:"LEADERSHIP", icon:"👑", color:"#f59e0b", title:"Lead by Calm", teach:"Your people (and family) feel your energy before your words. A calm leader creates a calm room.", practice:"In your next stressful moment, lower your voice and slow down on purpose." },
-  { pillar:"LEADERSHIP", icon:"👑", color:"#f59e0b", title:"Extreme Ownership", teach:"When something goes wrong, the leader looks in the mirror first. Blame is weakness; ownership is power.", practice:"Take full ownership of one problem today — no excuses, just the next action." },
-  { pillar:"LEADERSHIP", icon:"👑", color:"#f59e0b", title:"Praise Specifically", teach:"Generic praise is noise. Specific praise changes behavior and builds loyalty.", practice:"Praise one person today for something specific they did well." },
-  { pillar:"LEADERSHIP", icon:"👑", color:"#f59e0b", title:"Your Standard Is Set By What You Tolerate", teach:"You don't get the behavior you want, you get what you accept. Raise your standard quietly by example.", practice:"Identify one thing you've been tolerating. Address it calmly today." },
-  { pillar:"LEADERSHIP", icon:"👑", color:"#f59e0b", title:"Decide Then Move", teach:"Leaders make decisions with incomplete info and adjust. Indecision costs more than a wrong call.", practice:"Make one decision you've been postponing — today, before noon." },
+  // ── القيادة ──
+  { pillar:"القيادة", icon:"👑", color:"#f59e0b", title:"قُد بالهدوء", teach:"من حولك (وأهلك) يشعرون بطاقتك قبل كلماتك. القائد الهادئ يصنع غرفة هادئة. توترك يَعدي، وسكينتك تَعدي أيضاً.", practice:"في لحظتك المتوترة القادمة، اخفض صوتك وأبطئ عمداً.", mantra:"القائد الهادئ يصنع فريقاً هادئاً." },
+  { pillar:"القيادة", icon:"👑", color:"#f59e0b", title:"المسؤولية الكاملة", teach:"حين يسوء شيء، القائد ينظر في المرآة أولاً. اللوم ضعف، والمسؤولية قوة. حين تمتلك المشكلة تمتلك الحل.", practice:"تحمّل المسؤولية الكاملة عن مشكلة واحدة اليوم — بلا أعذار، فقط الخطوة التالية.", mantra:"امتلك المشكلة تمتلك الحل." },
+  { pillar:"القيادة", icon:"👑", color:"#f59e0b", title:"امدح بالتحديد", teach:"المدح العام ضجيج. المدح المحدد يغيّر السلوك ويبني الولاء. قل للناس بالضبط ما أحسنوا فعله.", practice:"امدح شخصاً اليوم على شيء محدد أحسن فعله.", mantra:"ما تلاحظه ينمو." },
+  { pillar:"القيادة", icon:"👑", color:"#f59e0b", title:"معيارك هو ما تسكت عنه", teach:"لا تحصل على السلوك الذي تريده، بل على ما تقبله. ارفع معيارك بهدوء بالقدوة لا بالصراخ. ما تتجاهله تسمح به.", practice:"حدّد أمراً تتغاضى عنه منذ مدة، وعالجه بهدوء اليوم.", mantra:"ما تتسامح معه يصبح معيارك." },
+  { pillar:"القيادة", icon:"👑", color:"#f59e0b", title:"قرّر ثم تحرّك", teach:"القادة يقرّرون بمعلومات ناقصة ثم يعدّلون. التردد يكلّف أكثر من القرار الخاطئ. لا قرار هو أسوأ قرار.", practice:"اتخذ قراراً أجّلته — اليوم، قبل الظهر.", mantra:"التردد أغلى من الخطأ." },
 
-  { pillar:"FATHER", icon:"👨‍👧", color:"#14b8a6", title:"Presence Over Presents", teach:"Kids spell love T-I-M-E. They won't remember the gifts; they'll remember if you showed up.", practice:"15 minutes of fully-present time with your kids — phone in another room." },
-  { pillar:"FATHER", icon:"👨‍👧", color:"#14b8a6", title:"Be the Calm in Their Storm", teach:"Your reaction teaches them how to handle the world. Stay steady when they melt down.", practice:"Next time your child is upset, get calm and curious instead of frustrated." },
-  { pillar:"FATHER", icon:"👨‍👧", color:"#14b8a6", title:"Catch Them Being Good", teach:"What you notice grows. Praise the behavior you want to see more of.", practice:"Catch your child doing something right today and name it out loud." },
-  { pillar:"FATHER", icon:"👨‍👧", color:"#14b8a6", title:"They Become What They See", teach:"Kids do what you do, not what you say. You're always teaching — make sure it's the right lesson.", practice:"Model one habit today you'd want your kids to copy." },
-  { pillar:"FATHER", icon:"👨‍👧", color:"#14b8a6", title:"Ask, Then Listen", teach:"One real question and genuine listening builds more connection than an hour of talking at them.", practice:"Ask your child one open question today and just listen — no fixing." },
+  // ── الأب ──
+  { pillar:"الأب", icon:"👨‍👧", color:"#14b8a6", title:"الحضور قبل الهدايا", teach:"الأطفال يهجّون الحب: و-ق-ت. لن يتذكّروا الهدايا، بل سيتذكّرون إن كنت حاضراً. وجودك الكامل دقيقة أثمن من ساعة مشتّتة.", practice:"١٥ دقيقة حضور كامل مع أطفالك — الهاتف في غرفة أخرى.", mantra:"الأطفال يهجّون الحب: وقت." },
+  { pillar:"الأب", icon:"👨‍👧", color:"#14b8a6", title:"كن الهدوء في عاصفتهم", teach:"ردّ فعلك يعلّمهم كيف يواجهون الدنيا. اثبت حين ينهارون. إن انفعلت معهم تعلّموا الانفعال، وإن هدأت تعلّموا الاتزان.", practice:"حين يغضب طفلك القادم، كن هادئاً وفضولياً بدل الانزعاج.", mantra:"هدوؤك اليوم اتزانهم غداً." },
+  { pillar:"الأب", icon:"👨‍👧", color:"#14b8a6", title:"اضبطهم وهم محسنون", teach:"ما تلاحظه ينمو. امدح السلوك الذي تريد رؤيته أكثر. أكثر الآباء يلاحظون الخطأ ويغفلون الصواب.", practice:"اضبط طفلك وهو يفعل شيئاً صحيحاً اليوم وسمِّه بصوت عالٍ.", mantra:"ما تمدحه يتكرّر." },
+  { pillar:"الأب", icon:"👨‍👧", color:"#14b8a6", title:"يصبحون ما يرون", teach:"الأطفال يفعلون ما تفعل لا ما تقول. أنت تعلّم دائماً — فاحرص أن يكون الدرس صحيحاً. قدوتك أبلغ من ألف نصيحة.", practice:"اقتدِ بعادة واحدة اليوم تودّ أن يقلّدها أبناؤك.", mantra:"أبناؤك مرآتك." },
+  { pillar:"الأب", icon:"👨‍👧", color:"#14b8a6", title:"اسأل ثم أنصت", teach:"سؤال صادق وإنصات حقيقي يبنيان صلة أعمق من ساعة من الكلام عليهم. أعطهم أذنك لا لسانك.", practice:"اسأل طفلك سؤالاً مفتوحاً اليوم وأنصت فقط — بلا إصلاح.", mantra:"أنصت لهم يفتحوا لك قلوبهم." },
 
-  { pillar:"HUSBAND", icon:"❤️", color:"#ef4444", title:"Pursue Her Still", teach:"Marriage dies from neglect, not conflict. Keep dating your wife like you're still trying to win her.", practice:"Do one small thing to pursue your wife today — a note, a call, a plan." },
-  { pillar:"HUSBAND", icon:"❤️", color:"#ef4444", title:"Appreciate Out Loud", teach:"She can't read your mind. Unspoken gratitude is worthless. Say it, specifically.", practice:"Tell your wife one specific thing you appreciate about her today." },
-  { pillar:"HUSBAND", icon:"❤️", color:"#ef4444", title:"Listen to Understand, Not Fix", teach:"Often she wants to be heard, not solved. Ask 'do you want help or just to vent?'", practice:"Next time she shares a problem, listen fully before offering any solution." },
-  { pillar:"HUSBAND", icon:"❤️", color:"#ef4444", title:"Carry the Load Quietly", teach:"Do something for her without being asked and without announcing it. Service is love in action.", practice:"Do one chore or task for her today without being asked." },
-  { pillar:"HUSBAND", icon:"❤️", color:"#ef4444", title:"Protect the Connection", teach:"Phones at dinner kill intimacy. Guard the small daily moments — they're the marriage.", practice:"Phone away during dinner and one full conversation with your wife tonight." },
+  // ── الزوج ──
+  { pillar:"الزوج", icon:"❤️", color:"#ef4444", title:"لا تتوقّف عن مغازلتها", teach:"الزواج يموت من الإهمال لا من الخلاف. استمر في مغازلة زوجتك كأنك ما زلت تحاول كسب قلبها. ما كسبته بالاهتمام يحفظه الاهتمام.", practice:"افعل شيئاً صغيراً لتسعد زوجتك اليوم — رسالة، اتصال، خطة لقاء.", mantra:"الحب يُسقى كل يوم وإلا ذبل." },
+  { pillar:"الزوج", icon:"❤️", color:"#ef4444", title:"قُل تقديرك بصوت عالٍ", teach:"هي لا تقرأ أفكارك. الامتنان الصامت بلا قيمة. قُله، وبالتحديد. الكلمة الطيبة تبني ما تهدمه أيام الصمت.", practice:"أخبر زوجتك بشيء محدد تقدّره فيها اليوم.", mantra:"التقدير الصامت لا يصل." },
+  { pillar:"الزوج", icon:"❤️", color:"#ef4444", title:"أنصت لتفهم لا لتُصلح", teach:"غالباً تريد أن تُسمع لا أن تُحَلّ مشكلتها. اسأل: 'تريدين مساعدة أم فقط أن تتكلمي؟'. أحياناً أذنك أنفع من حلولك.", practice:"حين تشاركك مشكلة، أنصت تماماً قبل أن تقدّم أي حل.", mantra:"أحياناً تريد أذناً لا حلاً." },
+  { pillar:"الزوج", icon:"❤️", color:"#ef4444", title:"احمل العبء بصمت", teach:"افعل شيئاً لها دون أن تطلب ودون أن تُعلن. الخدمة حبٌّ في صورة فعل. الرجل الكبير يخدم بلا منّة.", practice:"أنجز عملاً منزلياً أو مهمة لها اليوم دون أن تُطلب منك.", mantra:"الخدمة الصامتة أبلغ حب." },
+  { pillar:"الزوج", icon:"❤️", color:"#ef4444", title:"احمِ الصلة", teach:"الهواتف على العشاء تقتل الألفة. احرس اللحظات الصغيرة اليومية — فهي الزواج نفسه. القرب يُبنى من لحظات لا من مناسبات.", practice:"ابعد الهاتف على العشاء، وحادث زوجتك حديثاً كاملاً الليلة.", mantra:"الزواج يُبنى من لحظات صغيرة." },
 ];
 
-// Daily habits to build
+// العادات اليومية
 const COACH_HABITS = [
-  { id:"pray",    label:"🕌 Prayed on time",            color:"#14b8a6" },
-  { id:"morning", label:"☀️ Won the morning (no phone first 30m)", color:"#f59e0b" },
-  { id:"onething",label:"🎯 Did my #1 task first",       color:"#3b82f6" },
-  { id:"nodiscipline", label:"💰 Followed trading rules (1% risk, no revenge)", color:"#22d47e" },
-  { id:"move",    label:"💪 Moved my body",             color:"#14b8a6" },
-  { id:"family",  label:"👨‍👩‍👧 Present time with family",   color:"#a855f7" },
-  { id:"wife",    label:"❤️ Connected with my wife",     color:"#ef4444" },
-  { id:"gratitude", label:"🙏 Gratitude / reflection",  color:"#7c3aed" },
+  { id:"pray",    label:"🕌 صلّيت في وقتها",            color:"#14b8a6" },
+  { id:"morning", label:"☀️ ربحت الصباح (بلا هاتف أول ٣٠ د)", color:"#f59e0b" },
+  { id:"onething",label:"🎯 أنجزت مهمتي الأولى أولاً",   color:"#3b82f6" },
+  { id:"nodiscipline", label:"💰 التزمت بقواعد التداول (مخاطرة ١٪، بلا انتقام)", color:"#22d47e" },
+  { id:"move",    label:"💪 حرّكت جسدي",                color:"#14b8a6" },
+  { id:"family",  label:"👨‍👩‍👧 وقت حضور مع العائلة",     color:"#a855f7" },
+  { id:"wife",    label:"❤️ تواصلت مع زوجتي",           color:"#ef4444" },
+  { id:"gratitude", label:"🙏 امتنان / تأمّل",          color:"#7c3aed" },
 ];
 
 function CoachTab({ C, MONO, SANS }) {
@@ -4979,25 +4985,25 @@ function CoachTab({ C, MONO, SANS }) {
 
   const generate = async () => {
     setLoading(true); setErr("");
-    const prompt = `You are a sharp, caring personal coach for a man who wants to become more disciplined, wealthy, wise, and a better leader, father, and husband. He runs a used-car dealership and trades stocks.
+    const prompt = `أنت مدرّب شخصي حكيم ومهتمّ لرجل يريد أن يصبح أكثر انضباطاً وثراءً وحكمة، وقائداً وأباً وزوجاً أفضل. يدير معرض سيارات مستعملة ويتداول الأسهم.
 
-TODAY'S CHECK-IN:
-- Energy: ${form.energy}/10, Sleep: ${form.sleep}/10, Mood: ${form.mood}
-- Main focus today: ${form.focus || "(not specified)"}
-- Biggest struggle right now: ${form.struggle || "(not specified)"}
-- Recent win: ${form.win || "(not specified)"}
-- Money situation/goal: ${form.money || "(not specified)"}
-- Family note: ${form.family || "(not specified)"}
+مراجعة اليوم:
+- الطاقة: ${form.energy}/10، النوم: ${form.sleep}/10، المزاج: ${form.mood}
+- تركيز اليوم الأهم: ${form.focus || "(غير محدّد)"}
+- أكبر تحدٍّ الآن: ${form.struggle || "(غير محدّد)"}
+- إنجاز أخير: ${form.win || "(غير محدّد)"}
+- الوضع/الهدف المالي: ${form.money || "(غير محدّد)"}
+- ملاحظة عائلية: ${form.family || "(غير محدّد)"}
 
-Give him a punchy, specific plan for TODAY. Format EXACTLY as these labeled sections, 2-4 short bullet points each, concrete and doable today (no fluff, no generic advice):
+أعطه خطة محدّدة وقوية لهذا اليوم. اكتب الرد بالكامل بالعربية، بهذا التنسيق تماماً مع هذه العناوين، ٢-٤ نقاط قصيرة لكل قسم، عملية وقابلة للتنفيذ اليوم (بلا حشو ولا نصائح عامة):
 
-PRIORITIES:
-MONEY ACTION:
-HEALTH ACTION:
-FAMILY ACTION:
-HARD TRUTH:
+الأولويات:
+خطوة مالية:
+خطوة صحية:
+خطوة عائلية:
+حقيقة صعبة:
 
-The HARD TRUTH must be one honest, direct sentence that challenges him. Be warm but real. Keep the whole thing tight.`;
+يجب أن تكون "الحقيقة الصعبة" جملة واحدة صادقة ومباشرة تتحدّاه. كن دافئاً لكن صريحاً. اجعل كل شيء مختصراً.`;
 
     try {
       const r = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt }) });
@@ -5013,70 +5019,70 @@ The HARD TRUTH must be one honest, direct sentence that challenges him. Be warm 
       const lowMood = form.mood === "😤" || form.mood === "😔";
       const pick = arr => arr[new Date().getDate() % arr.length]; // rotates daily
 
-      // PRIORITIES
+      // الأولويات
       const pri = [];
-      pri.push(form.focus ? `• ${form.focus} — this is your ONE thing. Do it before you touch anything else.` : "• Name your ONE needle-mover and finish it before noon.");
-      pri.push(lowEnergy ? "• Low fuel today — cut your list in half. Protect energy for the one thing that matters." : "• Eat the frog: do the hardest task first while willpower is fresh.");
+      pri.push(form.focus ? `• ${form.focus} — هذا هو الشيء الوحيد. أنجزه قبل أن تلمس أي شيء آخر.` : "• حدّد شيئك الأهم الوحيد وأنهِه قبل الظهر.");
+      pri.push(lowEnergy ? "• طاقتك منخفضة اليوم — اقطع قائمتك للنصف. احمِ طاقتك للشيء الوحيد المهم." : "• ابدأ بالأصعب: نفّذ أصعب مهمة أولاً ما دامت إرادتك قوية.");
       pri.push(pick([
-        "• Phone on Do Not Disturb for your first deep-work block.",
-        "• Write your top 3 on paper. If it's not on the list, it doesn't happen today.",
-        "• Say NO to one thing today that doesn't move you forward.",
-        "• Batch your distractions — check messages at set times, not constantly.",
+        "• ضع الهاتف على وضع \"عدم الإزعاج\" في أول فترة عمل عميق.",
+        "• اكتب أهم ٣ مهام على ورقة. ما ليس في القائمة لا يحدث اليوم.",
+        "• قل \"لا\" اليوم لشيء واحد لا يقدّمك للأمام.",
+        "• اجمع مشتتاتك — تفقّد الرسائل في أوقات محددة، لا باستمرار.",
       ]));
 
-      // MONEY
+      // المال
       const money = [];
-      money.push(form.money ? `• ${form.money}` : "• Look at ONE real number today — cash position, a margin, or a hot lead. Know it cold.");
-      money.push("• Only GREEN LIGHT trades. Risk 1%. Stop set before entry. Zero revenge trades.");
+      money.push(form.money ? `• ${form.money}` : "• انظر إلى رقم حقيقي واحد اليوم — السيولة، أو هامش، أو عميل ساخن. اعرفه تماماً.");
+      money.push("• صفقات الضوء الأخضر فقط. خاطر بـ١٪. ضع وقف الخسارة قبل الدخول. لا صفقات انتقامية.");
       money.push(pick([
-        "• Dealership: follow up with one warm lead you've been ignoring.",
-        "• Move something toward savings/investing — habit beats the amount.",
-        "• Cut one small recurring expense you don't even notice anymore.",
-        "• Ask: would I make this purchase if I had to pay cash in person? If no, skip it.",
+        "• المعرض: تابع مع عميل دافئ كنت تتجاهله.",
+        "• حرّك شيئاً نحو الادخار/الاستثمار — العادة أهم من المبلغ.",
+        "• اقطع مصروفاً متكرراً صغيراً لم تعد تلاحظه.",
+        "• اسأل نفسك: هل كنت سأشتري هذا لو دفعت نقداً وجهاً لوجه؟ إن لا، فاتركه.",
       ]));
 
-      // HEALTH
+      // الصحة
       const health = [];
-      health.push(lowEnergy ? "• Sleep is your real edge — phone out of the room, in bed 30 min earlier tonight." : "• Move your body once: 20-min walk or quick workout. Non-negotiable.");
+      health.push(lowEnergy ? "• النوم هو ميزتك الحقيقية — أخرج الهاتف من الغرفة، ونم قبل ٣٠ دقيقة الليلة." : "• حرّك جسدك مرة: مشي ٢٠ دقيقة أو تمرين سريع. غير قابل للتفاوض.");
       health.push(pick([
-        "• Drink water first thing — most fatigue is dehydration.",
-        "• One clean meal today. Don't decide or trade while hungry.",
-        "• 5 slow breaths before your first big decision — calm beats fast.",
-        "• Sunlight for 10 minutes — resets your energy and mood.",
+        "• اشرب الماء أول شيء — معظم الإرهاق هو جفاف.",
+        "• وجبة صحية واحدة اليوم. لا تقرّر ولا تتداول وأنت جائع.",
+        "• ٥ أنفاس بطيئة قبل أول قرار كبير — الهدوء يغلب السرعة.",
+        "• تعرّض للشمس ١٠ دقائق — يعيد ضبط طاقتك ومزاجك.",
       ]));
 
-      // FAMILY
+      // العائلة
       const fam = [];
-      fam.push(form.family ? `• ${form.family}` : "• 15 minutes fully present with your kids — phone in another room, no half-attention.");
+      fam.push(form.family ? `• ${form.family}` : "• ١٥ دقيقة حضور كامل مع أطفالك — الهاتف في غرفة أخرى، بلا انتباه نصفي.");
       fam.push(pick([
-        "• Tell your wife one specific thing you appreciate — not generic, specific.",
-        "• Ask your kid one real question and actually listen to the answer.",
-        "• Do one small thing for your wife without being asked.",
-        "• Put the phone face-down at dinner. Be there, not just present.",
+        "• أخبر زوجتك بشيء محدّد تقدّره فيها — لا عام، بل محدّد.",
+        "• اسأل طفلك سؤالاً حقيقياً واستمع فعلاً للجواب.",
+        "• افعل شيئاً صغيراً لزوجتك دون أن تُطلب منك.",
+        "• ضع الهاتف مقلوباً على العشاء. كن حاضراً بقلبك، لا بجسدك فقط.",
       ]));
-      fam.push("• Lead by calm — your family feels your stress before you say a word.");
+      fam.push("• قُد بالهدوء — عائلتك تشعر بتوترك قبل أن تنطق بكلمة.");
 
-      // HARD TRUTH
+      // حقيقة صعبة
       const truths = [
-        "Discipline isn't motivation — it's doing the boring thing when you don't feel like it. Do the boring thing today.",
-        "You don't have a knowledge problem, you have an execution problem. You already know what to do — go do it.",
-        "Your kids won't remember the money you made. They'll remember if you were there. Choose accordingly today.",
-        "Being busy is not the same as being effective. Most of your to-do list is avoidance. Do the scary one.",
-        "You can't out-trade bad discipline or out-earn bad habits. Fix the habit, the money follows.",
-        "Comfort is the enemy. The thing you're avoiding is exactly the thing that would move your life forward.",
-        "Patience builds wealth; impatience destroys it. Slow down today — in trading and at home.",
+        "الانضباط ليس حماساً — هو فعل الشيء الممل حين لا ترغب فيه. افعل الممل اليوم.",
+        "مشكلتك ليست في المعرفة بل في التنفيذ. أنت تعرف ما يجب فعله — اذهب وافعله.",
+        "أطفالك لن يتذكروا المال الذي جنيته. سيتذكرون إن كنت حاضراً. اختر على هذا الأساس اليوم.",
+        "الانشغال ليس كالفعالية. معظم قائمتك تهرّب. نفّذ المهمة المخيفة.",
+        "لا يمكنك التغلب على سوء الانضباط بالتداول، ولا على العادات السيئة بالكسب. أصلح العادة يتبعها المال.",
+        "الراحة هي العدو. الشيء الذي تتجنّبه هو بالضبط ما سيقدّم حياتك.",
+        "الصبر يبني الثروة؛ والتسرّع يدمّرها. تمهّل اليوم — في التداول وفي البيت.",
       ];
       const hard = form.struggle
-        ? `• You already named what's holding you back: "${form.struggle}". Stop negotiating with it. One concrete action against it today — now.`
+        ? `• لقد سمّيت ما يعيقك: "${form.struggle}". توقّف عن التفاوض معه. خطوة واحدة ملموسة ضدّه اليوم — الآن.`
         : `• ${pick(truths)}`;
-      if (lowMood) fam.push("• Heavy mood today? Don't make big decisions from a low place. Steady the ship first.");
+      if (lowMood) fam.push("• مزاجك ثقيل اليوم؟ لا تتخذ قرارات كبيرة من مكان منخفض. ثبّت السفينة أولاً.");
 
       const fb = [
-        "PRIORITIES:", ...pri, "",
-        "MONEY ACTION:", ...money, "",
-        "HEALTH ACTION:", ...health, "",
-        "FAMILY ACTION:", ...fam, "",
-        "HARD TRUTH:", hard,
+        "الأولويات:", ...pri, "",
+        "خطوة مالية:", ...money, "",
+        "خطوة صحية:", ...health, "",
+        "خطوة عائلية:", ...fam, "",
+        "حقيقة صعبة:", hard,
       ].join("\n");
       const out = { text: fb, ts: new Date().toISOString(), date: new Date().toLocaleDateString(), fallback: true };
       setPlan(out); localStorage.setItem(COACH_KEY, JSON.stringify(out));
@@ -5087,9 +5093,9 @@ The HARD TRUTH must be one honest, direct sentence that challenges him. Be warm 
   // Parse the plan into sections for nice display
   const sections = (() => {
     if (!plan?.text) return [];
-    const labels = ["PRIORITIES", "MONEY ACTION", "HEALTH ACTION", "FAMILY ACTION", "HARD TRUTH"];
-    const icons  = { "PRIORITIES":"🎯", "MONEY ACTION":"💰", "HEALTH ACTION":"💪", "FAMILY ACTION":"👨‍👩‍👧", "HARD TRUTH":"🔥" };
-    const cols   = { "PRIORITIES":C.accent, "MONEY ACTION":C.green, "HEALTH ACTION":"#14b8a6", "FAMILY ACTION":"#a855f7", "HARD TRUTH":C.red };
+    const labels = ["الأولويات", "خطوة مالية", "خطوة صحية", "خطوة عائلية", "حقيقة صعبة"];
+    const icons  = { "الأولويات":"🎯", "خطوة مالية":"💰", "خطوة صحية":"💪", "خطوة عائلية":"👨‍👩‍👧", "حقيقة صعبة":"🔥" };
+    const cols   = { "الأولويات":C.accent, "خطوة مالية":C.green, "خطوة صحية":"#14b8a6", "خطوة عائلية":"#a855f7", "حقيقة صعبة":C.red };
     const out = [];
     const text = plan.text;
     labels.forEach((lab, i) => {
@@ -5115,21 +5121,21 @@ The HARD TRUTH must be one honest, direct sentence that challenges him. Be warm 
   const habitsDoneToday = COACH_HABITS.filter(h => todayHabits[h.id]).length;
 
   return (
-    <div style={{ padding: "16px 20px", maxWidth: 860, margin: "0 auto" }}>
+    <div style={{ padding: "16px 20px", maxWidth: 860, margin: "0 auto", direction: "rtl" }}>
       <div style={{ marginBottom: 14 }}>
-        <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.text }}>🧭 COACH</div>
-        <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 3 }}>
-          Discipline · Wealth · Wisdom · Leadership · Father · Husband — grow every day
+        <div style={{ fontFamily: SANS, fontSize: 22, fontWeight: 900, color: C.text }}>🧭 المدرّب</div>
+        <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 3, direction: "rtl" }}>
+          الانضباط · المال · الحكمة · القيادة · الأبوّة · الزوجية — انمُ كل يوم
         </div>
       </div>
 
       {/* Section tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {[["today","☀️ TODAY"],["program",`📚 PROGRAM (${doneCount}/${COACH_LESSONS.length})`],["habits",`✅ HABITS (${habitsDoneToday}/${COACH_HABITS.length})`],["reflect","🧘 REFLECT"]].map(([id,l]) => (
+        {[["today","☀️ اليوم"],["program",`📚 البرنامج (${doneCount}/${COACH_LESSONS.length})`],["habits",`✅ العادات (${habitsDoneToday}/${COACH_HABITS.length})`],["reflect","🧘 تأمّل"]].map(([id,l]) => (
           <button key={id} onClick={() => setSection(id)}
             style={{ background: section===id ? C.accent : C.surface, color: section===id ? "#fff" : C.textSec,
               border: `1px solid ${section===id ? C.accent : C.border}`, borderRadius: 8,
-              fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 14px", cursor: "pointer" }}>{l}</button>
+              fontFamily: SANS, fontSize: 13, fontWeight: 700, padding: "8px 14px", cursor: "pointer" }}>{l}</button>
         ))}
       </div>
 
@@ -5137,19 +5143,19 @@ The HARD TRUTH must be one honest, direct sentence that challenges him. Be warm 
       {section === "today" && <>
       {/* Check-in form */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, marginBottom: 16 }}>
-        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 12 }}>TELL ME ABOUT TODAY</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
-          {[["energy","Energy"],["sleep","Sleep"]].map(([k,l]) => (
+        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: "0.04em", marginBottom: 12, direction: "rtl" }}>أخبرني عن يومك</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12, direction: "rtl" }}>
+          {[["energy","الطاقة"],["sleep","النوم"]].map(([k,l]) => (
             <div key={k}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{l}</span>
+                <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{l}</span>
                 <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent }}>{form[k]}/10</span>
               </div>
               <input type="range" min="1" max="10" value={form[k]} onChange={e => set(k, e.target.value)} style={{ width: "100%", accentColor: C.accent }} />
             </div>
           ))}
           <div>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 4 }}>Mood</div>
+            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 4 }}>المزاج</div>
             <div style={{ display: "flex", gap: 4 }}>
               {["😤","😔","😐","🙂","🔥"].map(m => (
                 <button key={m} onClick={() => set("mood", m)}
@@ -5158,30 +5164,30 @@ The HARD TRUTH must be one honest, direct sentence that challenges him. Be warm 
             </div>
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 3 }}>🎯 Main focus today</div><input value={form.focus} onChange={e=>set("focus",e.target.value)} placeholder="What matters most today?" style={inp}/></div>
-          <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 3 }}>⚠️ Biggest struggle</div><input value={form.struggle} onChange={e=>set("struggle",e.target.value)} placeholder="What's holding you back?" style={inp}/></div>
-          <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 3 }}>✅ Recent win</div><input value={form.win} onChange={e=>set("win",e.target.value)} placeholder="Something that went well" style={inp}/></div>
-          <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 3 }}>💰 Money goal/note</div><input value={form.money} onChange={e=>set("money",e.target.value)} placeholder="A money focus today" style={inp}/></div>
-          <div style={{ gridColumn: "1 / -1" }}><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 3 }}>👨‍👩‍👧 Family note</div><input value={form.family} onChange={e=>set("family",e.target.value)} placeholder="Anything on your mind with family?" style={inp}/></div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, direction: "rtl" }}>
+          <div><div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 3 }}>🎯 تركيز اليوم الأهم</div><input value={form.focus} onChange={e=>set("focus",e.target.value)} placeholder="ما الأهم اليوم؟" style={{...inp, direction:"rtl"}}/></div>
+          <div><div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 3 }}>⚠️ أكبر تحدٍّ</div><input value={form.struggle} onChange={e=>set("struggle",e.target.value)} placeholder="ما الذي يعيقك؟" style={{...inp, direction:"rtl"}}/></div>
+          <div><div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 3 }}>✅ إنجاز أخير</div><input value={form.win} onChange={e=>set("win",e.target.value)} placeholder="شيء سار جيداً" style={{...inp, direction:"rtl"}}/></div>
+          <div><div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 3 }}>💰 هدف مالي</div><input value={form.money} onChange={e=>set("money",e.target.value)} placeholder="تركيز مالي اليوم" style={{...inp, direction:"rtl"}}/></div>
+          <div style={{ gridColumn: "1 / -1" }}><div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 3 }}>👨‍👩‍👧 ملاحظة عائلية</div><input value={form.family} onChange={e=>set("family",e.target.value)} placeholder="هل هناك شيء يشغلك مع عائلتك؟" style={{...inp, direction:"rtl"}}/></div>
         </div>
         <button onClick={generate} disabled={loading}
           style={{ marginTop: 14, width: "100%", background: C.accent, color: "#fff", border: "none", borderRadius: 8,
-            fontFamily: MONO, fontSize: 14, fontWeight: 800, padding: "12px", cursor: loading ? "default" : "pointer" }}>
-          {loading ? "⏳ Coaching you…" : "🧭 COACH ME TODAY"}
+            fontFamily: SANS, fontSize: 15, fontWeight: 800, padding: "12px", cursor: loading ? "default" : "pointer" }}>
+          {loading ? "⏳ جارٍ تدريبك…" : "🧭 درّبني اليوم"}
         </button>
         {err && <div style={{ fontFamily: SANS, fontSize: 12, color: C.red, marginTop: 6 }}>{err}</div>}
       </div>
 
       {/* Plan */}
       {plan && (
-        <div>
+        <div style={{ direction: "rtl" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>YOUR PLAN — {plan.date}</span>
+            <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, color: C.text }}>خطتك — {plan.date}</span>
           </div>
           {sections.length > 0 ? sections.map(s => (
-            <div key={s.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${s.color}`, borderRadius: 10, padding: "12px 16px", marginBottom: 8 }}>
-              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: s.color, marginBottom: 6 }}>{s.icon} {s.label}</div>
+            <div key={s.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRight: `4px solid ${s.color}`, borderRadius: 10, padding: "12px 16px", marginBottom: 8 }}>
+              <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 900, color: s.color, marginBottom: 6 }}>{s.icon} {s.label}</div>
               <div style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{s.body}</div>
             </div>
           )) : (
@@ -5193,9 +5199,9 @@ The HARD TRUTH must be one honest, direct sentence that challenges him. Be warm 
 
       {/* ═══ PROGRAM ═══ */}
       {section === "program" && (
-        <div>
+        <div style={{ direction: "rtl" }}>
           <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginBottom: 12 }}>
-            30 lessons across 6 pillars. Read one a day, do the practice, check it off. This is how you grow — one principle at a time.
+            ٣٠ درساً عبر ٦ ركائز. اقرأ درساً كل يوم، طبّق التمرين، ثم علّم عليه. هكذا تنمو — مبدأ واحد في كل مرة.
           </div>
           {/* Progress bar */}
           <div style={{ height: 8, background: C.surface, borderRadius: 4, overflow: "hidden", marginBottom: 16 }}>
@@ -5203,14 +5209,14 @@ The HARD TRUTH must be one honest, direct sentence that challenges him. Be warm 
           </div>
           {COACH_LESSONS.map((l, i) => (
             <div key={i} style={{ background: C.card, border: `1px solid ${lessonDone[i] ? C.green+"55" : C.border}`,
-              borderLeft: `4px solid ${l.color}`, borderRadius: 10, marginBottom: 8, overflow: "hidden",
+              borderRight: `4px solid ${l.color}`, borderRadius: 10, marginBottom: 8, overflow: "hidden",
               opacity: lessonDone[i] ? 0.7 : 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer" }}
                 onClick={() => setOpenLesson(openLesson === i ? null : i)}>
                 <span style={{ fontSize: 18 }}>{l.icon}</span>
                 <div style={{ flex: 1 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: l.color, background: `${l.color}18`, borderRadius: 3, padding: "1px 6px" }}>{l.pillar}</span>
-                  <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text, marginTop: 3, textDecoration: lessonDone[i] ? "line-through" : "none" }}>{l.title}</div>
+                  <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: l.color, background: `${l.color}18`, borderRadius: 3, padding: "1px 8px" }}>{l.pillar}</span>
+                  <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 800, color: C.text, marginTop: 4, textDecoration: lessonDone[i] ? "line-through" : "none" }}>{l.title}</div>
                 </div>
                 <button onClick={e => { e.stopPropagation(); toggleLesson(i); }}
                   style={{ background: lessonDone[i] ? C.green : "transparent", color: lessonDone[i] ? "#fff" : C.textDim,
@@ -5219,12 +5225,18 @@ The HARD TRUTH must be one honest, direct sentence that challenges him. Be warm 
                 <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{openLesson === i ? "▲" : "▼"}</span>
               </div>
               {openLesson === i && (
-                <div style={{ padding: "0 14px 14px 44px" }}>
-                  <div style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.6, marginBottom: 10 }}>{l.teach}</div>
-                  <div style={{ background: `${l.color}12`, border: `1px solid ${l.color}33`, borderRadius: 8, padding: "10px 12px" }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: l.color, marginBottom: 4 }}>✅ TODAY'S PRACTICE</div>
-                    <div style={{ fontFamily: SANS, fontSize: 13, color: C.text }}>{l.practice}</div>
+                <div style={{ padding: "0 44px 14px 14px" }}>
+                  <div style={{ fontFamily: SANS, fontSize: 15, color: C.text, lineHeight: 1.8, marginBottom: 12 }}>{l.teach}</div>
+                  <div style={{ background: `${l.color}12`, border: `1px solid ${l.color}33`, borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
+                    <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 900, color: l.color, marginBottom: 4 }}>✅ تمرين اليوم</div>
+                    <div style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.6 }}>{l.practice}</div>
                   </div>
+                  {l.mantra && (
+                    <div style={{ textAlign: "center", padding: "8px 12px", fontFamily: SANS, fontSize: 14, fontWeight: 700,
+                      fontStyle: "italic", color: l.color, background: `${l.color}08`, borderRadius: 8 }}>
+                      ❝ {l.mantra} ❞
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -5234,9 +5246,9 @@ The HARD TRUTH must be one honest, direct sentence that challenges him. Be warm 
 
       {/* ═══ HABITS ═══ */}
       {section === "habits" && (
-        <div>
+        <div style={{ direction: "rtl" }}>
           <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginBottom: 14 }}>
-            Check these off daily. Streaks build the man. Miss a day and the streak resets — that's the point.
+            علّم على هذه يومياً. السلاسل تبني الرجل. تفوّت يوماً فتنكسر السلسلة — وهذا هو المغزى.
           </div>
           {COACH_HABITS.map(h => {
             const done = todayHabits[h.id];
@@ -5244,38 +5256,38 @@ The HARD TRUTH must be one honest, direct sentence that challenges him. Be warm 
             return (
               <div key={h.id} onClick={() => toggleHabit(h.id)}
                 style={{ display: "flex", alignItems: "center", gap: 12, background: done ? `${h.color}12` : C.card,
-                  border: `1px solid ${done ? h.color+"55" : C.border}`, borderLeft: `4px solid ${h.color}`,
+                  border: `1px solid ${done ? h.color+"55" : C.border}`, borderRight: `4px solid ${h.color}`,
                   borderRadius: 10, padding: "12px 16px", marginBottom: 8, cursor: "pointer" }}>
                 <div style={{ width: 26, height: 26, borderRadius: 6, border: `2px solid ${done ? h.color : C.border}`,
                   background: done ? h.color : "transparent", color: "#fff", display: "flex", alignItems: "center",
                   justifyContent: "center", fontSize: 15, flexShrink: 0 }}>{done ? "✓" : ""}</div>
                 <span style={{ flex: 1, fontFamily: SANS, fontSize: 14, color: C.text, fontWeight: done ? 700 : 400 }}>{h.label}</span>
-                {streak > 0 && <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: h.color }}>🔥 {streak}d</span>}
+                {streak > 0 && <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: h.color }}>🔥 {streak} يوم</span>}
               </div>
             );
           })}
-          <div style={{ marginTop: 14, textAlign: "center", fontFamily: MONO, fontSize: 13, color: C.textDim }}>
-            Today: <span style={{ color: habitsDoneToday === COACH_HABITS.length ? C.green : C.accent, fontWeight: 800 }}>{habitsDoneToday}/{COACH_HABITS.length}</span>
-            {habitsDoneToday === COACH_HABITS.length && " — perfect day 🏆"}
+          <div style={{ marginTop: 14, textAlign: "center", fontFamily: SANS, fontSize: 13, color: C.textDim }}>
+            اليوم: <span style={{ color: habitsDoneToday === COACH_HABITS.length ? C.green : C.accent, fontWeight: 800 }}>{habitsDoneToday}/{COACH_HABITS.length}</span>
+            {habitsDoneToday === COACH_HABITS.length && " — يوم مثالي 🏆"}
           </div>
         </div>
       )}
 
       {/* ═══ REFLECT ═══ */}
       {section === "reflect" && (
-        <div>
+        <div style={{ direction: "rtl" }}>
           <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginBottom: 12 }}>
-            End your day here. What went well, what you'd change, what you learned. Reflection is where growth compounds.
+            اختم يومك هنا. ما الذي سار جيداً، وما الذي ستغيّره، وما الذي تعلّمته. التأمّل هو حيث يتراكم النمو.
           </div>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14, marginBottom: 16 }}>
             <textarea value={reflectText} onChange={e => setReflectText(e.target.value)} rows={4}
-              placeholder="Today I… / I'm grateful for… / Tomorrow I'll do better at…"
+              placeholder="اليوم… / أنا ممتنّ لـ… / غداً سأتحسّن في…"
               style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
-                fontFamily: SANS, fontSize: 14, color: C.text, padding: "10px 12px", resize: "vertical", boxSizing: "border-box", outline: "none" }} />
+                fontFamily: SANS, fontSize: 14, color: C.text, padding: "10px 12px", resize: "vertical", boxSizing: "border-box", outline: "none", direction: "rtl" }} />
             <button onClick={saveReflection}
               style={{ marginTop: 10, background: C.accent, color: "#fff", border: "none", borderRadius: 8,
-                fontFamily: MONO, fontSize: 13, fontWeight: 700, padding: "10px 20px", cursor: "pointer" }}>
-              💾 SAVE REFLECTION
+                fontFamily: SANS, fontSize: 13, fontWeight: 700, padding: "10px 20px", cursor: "pointer" }}>
+              💾 احفظ التأمّل
             </button>
           </div>
           {reflections.map(r => (
@@ -5284,7 +5296,7 @@ The HARD TRUTH must be one honest, direct sentence that challenges him. Be warm 
               <div style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{r.text}</div>
             </div>
           ))}
-          {!reflections.length && <div style={{ textAlign: "center", padding: "30px 0", fontFamily: SANS, fontSize: 13, color: C.textDim }}>No reflections yet. End today with one.</div>}
+          {!reflections.length && <div style={{ textAlign: "center", padding: "30px 0", fontFamily: SANS, fontSize: 13, color: C.textDim }}>لا تأمّلات بعد. اختم يومك بواحد.</div>}
         </div>
       )}
     </div>
@@ -16909,7 +16921,7 @@ export default function App() {
               { id: "terminal",   label: "📈 CHART",      tabs: ["multitf", "tv"] },
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy"] },
               { id: "markets",    label: "🌍 MARKETS",    tabs: ["news", "macro", "econ-cal", "predictions"] },
-              { id: "coach",      label: "🧭 COACH",      tabs: ["coach"] },
+              { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["education", "notes"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools"] },
               { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih", "halal"] },
@@ -17272,7 +17284,7 @@ export default function App() {
             { id: "predictions",  label: "🎲 PREDICTIONS" },
           ],
           coach: [
-            { id: "coach",        label: "🧭 DAILY COACH" },
+            { id: "coach",        label: "🧭 المدرّب اليومي" },
           ],
           education: [
             { id: "education",       label: "🎓 EDUCATION" },
