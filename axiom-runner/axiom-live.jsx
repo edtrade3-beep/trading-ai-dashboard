@@ -5572,7 +5572,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       let trades = [];
       try { trades = JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []; } catch {}
       const trailOn = localStorage.getItem("axiom_autopilot_trail") !== "off"; // default ON
-      const exitMode = localStorage.getItem("axiom_autopilot_exit") || "targets"; // targets | trend
+      const exitMode = localStorage.getItem("axiom_autopilot_exit") || "trend"; // targets | trend (default: sell when bearish)
       let changed = false;
       const updated = trades.map(tr => {
         if (tr.status !== "OPEN" || tr.mode !== "PAPER" || !tr.auto) return tr;
@@ -6146,7 +6146,7 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [atrMode, setAtrMode] = useState(() => localStorage.getItem("axiom_autopilot_atr") !== "off");
   const [optionsMode, setOptionsMode] = useState(() => localStorage.getItem("axiom_autopilot_options") === "on");
   const [trailMode, setTrailMode] = useState(() => localStorage.getItem("axiom_autopilot_trail") !== "off");
-  const [exitMode, setExitMode] = useState(() => localStorage.getItem("axiom_autopilot_exit") || "targets");
+  const [exitMode, setExitMode] = useState(() => localStorage.getItem("axiom_autopilot_exit") || "trend");
   const [lastCheck, setLastCheck] = useState(() => Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
   useEffect(() => {
     const onTick = () => setLastCheck(Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
