@@ -5400,6 +5400,16 @@ function PredictionsTab({ C, MONO, SANS, watchlistData, macroData }) {
 
 const GL_TRADES_KEY = "axiom_gl_trades_v1";
 
+// Shared: append an automatic trade-journal note (open/close events) to the Notes tab
+function logTradeNote(type, text) {
+  try {
+    const notes = JSON.parse(localStorage.getItem("axiom_notes_v1") || "[]");
+    notes.unshift({ id: Date.now() + Math.floor(Math.random() * 9999), type, text, ts: new Date().toISOString(), auto: true });
+    localStorage.setItem("axiom_notes_v1", JSON.stringify(notes.slice(0, 200)));
+    window.dispatchEvent(new Event("notes-changed"));
+  } catch {}
+}
+
 // Shared: create an auto-managed PAPER trade (stop/T1/T2/T3 + sizing) from anywhere
 function addPaperTrade(sym, entry) {
   if (!sym || !entry || entry <= 0) return;
@@ -5425,6 +5435,7 @@ function addPaperTrade(sym, entry) {
   trades.unshift(t);
   localStorage.setItem(GL_TRADES_KEY, JSON.stringify(trades));
   window.dispatchEvent(new Event("gl-trades-changed"));
+  logTradeNote("buy", `🟢 AUTO BUY — ${sym}\n${shares} sh @ $${entry} (paper)\nStop $${stop} · T1 $${t.t1} / T2 $${t.t2} / T3 $${t.t3}`);
   return "OK";
 }
 
@@ -5474,14 +5485,19 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
         if (px <= x.stop) {
           x.realized += x.remaining * (x.stop - x.entry);
           x.remaining = 0; x.status = "CLOSED"; x.exit = +(x.entry + x.realized / x.shares).toFixed(2);
-          x.closedAt = new Date().toISOString(); x.exitReason = "STOP"; changed = true; return x;
+          x.closedAt = new Date().toISOString(); x.exitReason = "STOP"; changed = true;
+          logTradeNote("exit", `🛑 STOP HIT — ${x.ticker}\nClosed @ $${x.exit} (paper) · P&L $${x.realized.toFixed(0)}`);
+          return x;
         }
-        if (!x.t1Hit && px >= x.t1) { x.realized += third * (x.t1 - x.entry); x.remaining -= third; x.t1Hit = true; x.stop = x.entry; changed = true; }
-        if (x.t1Hit && !x.t2Hit && px >= x.t2) { x.realized += third * (x.t2 - x.entry); x.remaining -= third; x.t2Hit = true; changed = true; }
+        if (!x.t1Hit && px >= x.t1) { x.realized += third * (x.t1 - x.entry); x.remaining -= third; x.t1Hit = true; x.stop = x.entry; changed = true;
+          logTradeNote("sell", `🎯 T1 +5% — ${x.ticker}\nSold ${third} sh @ $${x.t1} · stop → breakeven · ${x.remaining} sh left`); }
+        if (x.t1Hit && !x.t2Hit && px >= x.t2) { x.realized += third * (x.t2 - x.entry); x.remaining -= third; x.t2Hit = true; changed = true;
+          logTradeNote("sell", `🎯 T2 +10% — ${x.ticker}\nSold ${third} sh @ $${x.t2} · ${x.remaining} sh left`); }
         if (x.t2Hit && px >= x.t3) {
           x.realized += x.remaining * (x.t3 - x.entry); x.remaining = 0; x.status = "CLOSED";
           x.exit = +(x.entry + x.realized / x.shares).toFixed(2); x.closedAt = new Date().toISOString();
           x.exitReason = "T3 🎯"; changed = true;
+          logTradeNote("exit", `🏆 T3 +15% — ${x.ticker}\nClosed @ $${x.t3} (paper) · P&L $${x.realized.toFixed(0)}`);
         }
         return x;
       });
@@ -5540,45 +5556,7 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
     return () => window.removeEventListener("gl-trades-changed", reload);
   }, []);
 
-  // ── AUTO-EXIT ENGINE for paper trades — scales out at T1/T2/T3, stops at stop ──
-  useEffect(() => {
-    const t = setInterval(() => {
-      let changed = false;
-      const updated = trades.map(tr => {
-        if (tr.status !== "OPEN" || tr.mode !== "PAPER" || !tr.auto) return tr;
-        const px = priceOf(tr.ticker);
-        if (!px) return tr;
-        let x = { ...tr };
-        x.remaining = x.remaining ?? x.shares;
-        x.realized  = x.realized ?? 0;
-        const third = Math.max(1, Math.floor(x.shares / 3));
-        // Stop hit → dump remaining at stop
-        if (px <= x.stop) {
-          x.realized += x.remaining * (x.stop - x.entry);
-          x.remaining = 0; x.status = "CLOSED"; x.exit = +(x.entry + x.realized / x.shares).toFixed(2);
-          x.closedAt = new Date().toISOString(); x.exitReason = "STOP"; changed = true; return x;
-        }
-        // T1 → sell 1/3, move stop to breakeven
-        if (!x.t1Hit && px >= x.t1) {
-          x.realized += third * (x.t1 - x.entry); x.remaining -= third; x.t1Hit = true; x.stop = x.entry; changed = true;
-        }
-        // T2 → sell 1/3
-        if (x.t1Hit && !x.t2Hit && px >= x.t2) {
-          x.realized += third * (x.t2 - x.entry); x.remaining -= third; x.t2Hit = true; changed = true;
-        }
-        // T3 → sell the rest, close
-        if (x.t2Hit && px >= x.t3) {
-          x.realized += x.remaining * (x.t3 - x.entry); x.remaining = 0; x.status = "CLOSED";
-          x.exit = +(x.entry + x.realized / x.shares).toFixed(2); x.closedAt = new Date().toISOString();
-          x.exitReason = "T3 🎯"; changed = true;
-        }
-        return x;
-      });
-      if (changed) save(updated);
-    }, 15000);
-    return () => clearInterval(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trades, watchlistData]);
+  // Auto-exit is handled globally by <AutoPilotEngine> so it runs on every tab.
 
   const addTrade = () => {
     const sym = form.ticker.trim().toUpperCase();
@@ -5594,11 +5572,17 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
       mode,  // PAPER or LIVE
     };
     save([t, ...trades]);
+    logTradeNote("buy", `🟢 OPEN ${mode} — ${sym}\n${shares} sh @ $${entry}\nStop $${t.stop} · T1 $${t.t1} / T2 $${t.t2}`);
     setForm({ ticker: "", entry: "", shares: "" });
     setShowForm(false);
   };
 
   const closeTrade = (id, exitPx) => {
+    const tr = trades.find(t => t.id === id);
+    if (tr) {
+      const pnl = ((Number(exitPx) - tr.entry) * tr.shares);
+      logTradeNote("exit", `⏹ CLOSE ${tr.mode || "LIVE"} — ${tr.ticker}\nExit @ $${exitPx} · P&L $${pnl.toFixed(0)}`);
+    }
     save(trades.map(t => t.id === id ? { ...t, status: "CLOSED", exit: exitPx, closedAt: new Date().toISOString() } : t));
   };
   const markT1 = id => save(trades.map(t => t.id === id ? { ...t, t1Hit: true } : t));
@@ -5882,7 +5866,6 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const [glExpanded, setGlExpanded] = useState(null); // ticker whose details are shown
   const [autoPilot, setAutoPilot] = useState(() => localStorage.getItem("axiom_autopilot") === "on");
   const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 5);
-  const autoBoughtRef = useRef(new Set());
 
   // Build results from watchlist + scan data
   const results = (watchlistData || []).map(q => {
@@ -5895,18 +5878,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const yellow = results.filter(r => r.signal === "YELLOW");
   const red    = results.filter(r => r.signal === "RED");
 
-  // ── AUTO-PILOT: auto paper-buy any stock that hits GREEN LIGHT 5/5 (once/day each) ──
-  useEffect(() => {
-    if (!autoPilot) return;
-    const today = new Date().toISOString().slice(0, 10);
-    green.forEach(r => {
-      if (r.passed < autoThreshold) return;      // 4/5 or 5/5 per your setting
-      const key = `${today}:${r.symbol}`;
-      if (autoBoughtRef.current.has(key)) return;
-      const res = addPaperTrade(r.symbol, r.bestEntry || r.px);
-      if (res === "OK" || res === "DUP") autoBoughtRef.current.add(key);
-    });
-  }, [autoPilot, green, autoThreshold]);
+  // Auto-buy is handled globally by <AutoPilotEngine> so it runs on every tab.
 
   const sigBg  = s => s === "GREEN" ? `${C.green}18` : s === "YELLOW" ? `${C.amber}18` : `${C.red}10`;
   const sigCol = s => s === "GREEN" ? C.green : s === "YELLOW" ? C.amber : C.red;
@@ -8975,6 +8947,13 @@ function NotesTab({ C, MONO, SANS }) {
     setNotes(updated);
     localStorage.setItem(NOTES_KEY, JSON.stringify(updated));
   };
+
+  // Auto-refresh when the trade engine logs a buy/sell/exit note
+  useEffect(() => {
+    const reload = () => { try { setNotes(JSON.parse(localStorage.getItem(NOTES_KEY) || "[]")); } catch {} };
+    window.addEventListener("notes-changed", reload);
+    return () => window.removeEventListener("notes-changed", reload);
+  }, []);
 
   const addNote = (note) => {
     const updated = [note, ...notes].slice(0, 200);
