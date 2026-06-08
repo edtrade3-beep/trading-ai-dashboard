@@ -2161,6 +2161,92 @@ function CanvasChart({ candleData, drawTools, loading }) {
 }
 
 // ─── News panel inside regime card (right column, fixed list) ────────────────
+// ─── Prayer times widget (Monitor) — Makkah + Medinah, color-coded + athan ───
+function MonitorAthan({ C, MONO, SANS }) {
+  const [city, setCity] = React.useState(() => localStorage.getItem("monitor_athan_city") || "Makkah");
+  const [times, setTimes] = React.useState(null);
+  const [now, setNow] = React.useState(new Date());
+  const audioRef = React.useRef(null);
+
+  const PRAYERS = [
+    { key: "Fajr",    ar: "الفجر",   color: "#3b82f6" },
+    { key: "Sunrise", ar: "الشروق",  color: "#f59e0b" },
+    { key: "Dhuhr",   ar: "الظهر",   color: "#eab308" },
+    { key: "Asr",     ar: "العصر",   color: "#14b8a6" },
+    { key: "Maghrib", ar: "المغرب",  color: "#a855f7" },
+    { key: "Isha",    ar: "العشاء",  color: "#6366f1" },
+  ];
+
+  React.useEffect(() => {
+    let alive = true;
+    const country = "Saudi Arabia";
+    fetch(`https://api.aladhan.com/v1/timingsByCity?city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}&method=4`)
+      .then(r => r.json()).then(d => { if (alive && d.data) setTimes(d.data.timings); }).catch(() => {});
+    return () => { alive = false; };
+  }, [city]);
+
+  React.useEffect(() => { const t = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(t); }, []);
+
+  const playAthan = () => {
+    try {
+      if (!audioRef.current) audioRef.current = new Audio("https://www.islamcan.com/audio/adhan/azan2.mp3");
+      audioRef.current.currentTime = 0; audioRef.current.play().catch(() => {});
+    } catch {}
+  };
+
+  // Find next prayer + countdown
+  let nextPrayer = null, countdown = "";
+  if (times) {
+    const mins = h => { const [hh, mm] = (times[h] || "0:0").split(":").map(Number); return hh * 60 + mm; };
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const order = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"];
+    for (const p of order) { if (mins(p) > nowMin) { nextPrayer = p; const diff = mins(p) - nowMin; countdown = `${Math.floor(diff/60)}h ${diff%60}m`; break; } }
+    if (!nextPrayer) { nextPrayer = "Fajr"; countdown = "tomorrow"; }
+  }
+
+  return (
+    <div style={{ marginBottom: 10, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: "#14b8a6", letterSpacing: "0.06em" }}>🕌 أوقات الصلاة</span>
+        {/* City toggle */}
+        <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: `1px solid ${C.border}` }}>
+          {["Makkah", "Medina"].map(c => (
+            <button key={c} onClick={() => { setCity(c); localStorage.setItem("monitor_athan_city", c); }}
+              style={{ background: city === c ? "#14b8a6" : C.surface, color: city === c ? "#fff" : C.textSec, border: "none",
+                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 12px", cursor: "pointer" }}>
+              {c === "Makkah" ? "🕋 مكة" : "🕌 المدينة"}
+            </button>
+          ))}
+        </div>
+        {nextPrayer && (
+          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: "auto" }}>
+            التالية: <span style={{ color: "#14b8a6", fontWeight: 700 }}>{PRAYERS.find(p=>p.key===nextPrayer)?.ar}</span> خلال {countdown}
+          </span>
+        )}
+        <button onClick={playAthan} title="تشغيل الأذان"
+          style={{ background: `${"#14b8a6"}18`, border: `1px solid #14b8a644`, color: "#14b8a6", borderRadius: 6,
+            fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>▶ أذان</button>
+      </div>
+      {!times && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>…</div>}
+      {times && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 6 }}>
+          {PRAYERS.map(p => {
+            const isNext = p.key === nextPrayer;
+            return (
+              <div key={p.key} style={{ background: isNext ? `${p.color}22` : `${p.color}0d`,
+                border: `1px solid ${isNext ? p.color : p.color + "33"}`, borderRadius: 8, padding: "8px 4px", textAlign: "center" }}>
+                <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: p.color, direction: "rtl" }}>{p.ar}</div>
+                <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text, marginTop: 2 }}>{times[p.key]}</div>
+                {isNext && <div style={{ fontFamily: SANS, fontSize: 9, color: p.color, marginTop: 1 }}>التالية</div>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Crypto liquidations widget (Monitor) ────────────────────────────────────
 function CryptoLiqWidget({ C, MONO, SANS }) {
   const [data, setData] = React.useState({});
@@ -16997,6 +17083,9 @@ export default function App() {
                 ↺ REFRESH ALL
               </button>
             </div>
+
+            {/* ── PRAYER TIMES (Makkah / Medinah) ── */}
+            <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
 
             {/* ── CRYPTO LIQUIDATIONS ── */}
             <CryptoLiqWidget C={C} MONO={MONO} SANS={SANS} />
