@@ -5443,7 +5443,7 @@ function addPaperTrade(sym, entry, opts = {}) {
   const t = {
     id: Date.now() + Math.floor(Math.random() * 999),
     ticker: sym, entry, shares, remaining: shares, realized: 0,
-    stop, t1, t2, t3, basis,
+    stop, t1, t2, t3, basis, risk0: +riskPerShare.toFixed(2),
     status: "OPEN", t1Hit: false, t2Hit: false, openedAt: new Date().toISOString(),
     mode: "PAPER", auto: true,
   };
@@ -5590,6 +5590,7 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
       stop: +(entry * 0.97).toFixed(2),
       t1: +(entry * 1.05).toFixed(2),
       t2: +(entry * 1.10).toFixed(2),
+      risk0: +(entry * 0.03).toFixed(2), basis: "fixed",
       status: "OPEN", t1Hit: false, openedAt: new Date().toISOString(),
       mode,  // PAPER or LIVE
     };
@@ -5756,6 +5757,8 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
         const live = priceOf(t.ticker) || t.entry;
         const pnl = (live - t.entry) * t.shares;
         const pnlPct = ((live - t.entry) / t.entry) * 100;
+        const risk0 = Number(t.risk0) || (t.entry - t.stop) || (t.entry * 0.03);
+        const rMult = risk0 > 0 ? (live - t.entry) / risk0 : 0;
         const atStop = live <= t.stop;
         const atT1 = live >= t.t1 && !t.t1Hit;
         const atT2 = live >= t.t2;
@@ -5776,11 +5779,15 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
                 <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.accent }}>{t.ticker}</span>
                 <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: 6 }}>{t.shares} sh @ ${t.entry}</span>
                 {t.auto && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: "#a78bfa", background: "#7c3aed18", borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>🤖 AUTO</span>}
+                {t.basis && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>{t.basis}</span>}
               </div>
               <div>
                 <span style={{ fontFamily: MONO, fontSize: 15, color: C.text }}>${live.toFixed(2)}</span>
                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: pnl >= 0 ? C.green : C.red, marginLeft: 8 }}>
                   {pnl >= 0 ? "+" : ""}${pnl.toFixed(0)} ({pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(1)}%)
+                </span>
+                <span title="R-multiple: profit measured in units of your initial risk" style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: rMult >= 0 ? C.green : C.red, marginLeft: 8, background: `${rMult >= 0 ? C.green : C.red}14`, borderRadius: 4, padding: "1px 6px" }}>
+                  {rMult >= 0 ? "+" : ""}{rMult.toFixed(2)}R
                 </span>
                 {t.auto && t.remaining != null && t.remaining < t.shares && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 6 }}>· {t.remaining}/{t.shares} left</span>}
               </div>
