@@ -26949,24 +26949,26 @@ export default function App() {
                     fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>{l}</button>
               ))}
             </div>
-            {/* Chart Grid — bigger, readable */}
+            {/* Chart Grid — fits the page (2×2 fills viewport, no scroll) */}
             <div style={{ display: "grid",
               gridTemplateColumns: mtfLayout === "stack" ? "1fr" : "1fr 1fr",
-              gap: 10 }}>
+              gridTemplateRows: mtfLayout === "stack" ? "none" : "1fr 1fr",
+              height: mtfLayout === "stack" ? "auto" : "calc(100vh - 230px)",
+              gap: 8 }}>
               {TFS.map(tf => (
                 <div key={tf.key} style={{ background: C.card, border: `1px solid ${C.border}`,
-                  borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
                   {/* Chart label */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px",
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px",
                     background: C.surface, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>{sym}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{tf.label}</span>
-                    <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{tf.desc}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.accent }}>{sym}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>{tf.label}</span>
+                    <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{tf.desc}</span>
                   </div>
                   <iframe
                     key={`mtf-${sym}-${tf.key}-${tvTheme}-${mtfStudies}`}
                     src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=320&iv=${tf.interval}&st=${encodeURIComponent(mtfStudies)}`}
-                    style={{ width: "100%", height: mtfLayout === "stack" ? 360 : 300, border: "none", display: "block" }}
+                    style={{ width: "100%", height: mtfLayout === "stack" ? 480 : "100%", flex: mtfLayout === "stack" ? "none" : 1, border: "none", display: "block", minHeight: 0 }}
                     title={`${sym} ${tf.label}`}
                   />
                 </div>
