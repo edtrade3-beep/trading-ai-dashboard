@@ -2455,47 +2455,74 @@ function SpyVolumeWidget({ C, MONO, SANS, macroData }) {
   );
 }
 
+// Directional "whisper" guidance per event — general market read, not a forecast number
+const MACRO_WHISPERS = {
+  CPI:    "Cooler core → rate-cut bets → risk-on. Hot print → yields up, risk-off.",
+  PCE:    "Fed's preferred gauge — soft = dovish tailwind for stocks.",
+  FED:    "Hold widely expected; the move is in the dot plot & Powell's tone on cut timing.",
+  FOMC:   "Hold widely expected; the move is in the dot plot & Powell's tone on cut timing.",
+  JOBS:   "Hot jobs = hawkish (yields up, growth/tech pressure). Weak = recession fears.",
+  NFP:    "Hot jobs = hawkish (yields up, growth/tech pressure). Weak = recession fears.",
+  PPI:    "Leads CPI by 1–2 months — confirms or challenges the inflation trend.",
+  RETAIL: "Strong = resilient consumer (risk-on); weak = slowdown fears.",
+  GDP:    "Two negative quarters = technical recession. Growth surprises move yields.",
+};
+
 function MacroEventsWidget({ C, MONO, SANS }) {
-  const [data, setData] = React.useState(null);
-  const [state, setState] = React.useState("loading"); // loading | live | nokey | empty
+  const [live, setLive] = React.useState(null);   // FMP events with real numbers (when key set)
+  const [cal, setCal]   = React.useState(null);   // fallback upcoming events (dates only)
   React.useEffect(() => {
     const load = () => {
+      // 1) try live FMP numbers
       fetch("/api/market/econ-events").then(r => r.json()).then(d => {
-        if (!d) { setState("empty"); return; }
-        if (d.reason === "no-fmp-key") { setState("nokey"); return; }
-        const evs = (d.events || []).filter(e => e.estimate != null || e.previous != null || e.actual != null);
-        setData(evs);
-        setState(evs.length ? "live" : "empty");
-      }).catch(() => setState("empty"));
+        const evs = (d?.events || []).filter(e => e.estimate != null || e.previous != null || e.actual != null);
+        setLive(evs.length ? evs : []);
+      }).catch(() => setLive([]));
+      // 2) always load upcoming-event dates + whisper guidance as the base view
+      fetch("/api/market/econ-calendar").then(r => r.json()).then(d => {
+        const want = ["CPI", "FED", "FOMC", "NFP", "JOBS", "PCE", "PPI"];
+        const evs = (d?.events || []).filter(e => want.includes(e.tag) && e.dte >= -1).slice(0, 5);
+        setCal(evs);
+      }).catch(() => setCal([]));
     };
     load();
     const t = setInterval(load, 15 * 60 * 1000);
     return () => clearInterval(t);
   }, []);
-  if (state === "loading") return null;
-  if (state !== "live") return null;  // no fake data — show nothing if live data unavailable
   const fmtDate = ds => { try { return new Date(ds).toLocaleDateString("en-US", { month: "short", day: "numeric" }); } catch { return ds; } };
+  const hasLive = live && live.length > 0;
+  const rows = hasLive ? live.slice(0, 5) : (cal || []);
+  if (!rows.length) return null;
   return (
     <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 10 }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>📅 MACRO EVENTS — LIVE ESTIMATES <span style={{ color: C.green }}>● FMP</span></div>
-      {data.slice(0, 5).map((e, i) => {
-        const sev = e.impact === "High" ? C.red : C.amber;
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>
+        📅 MACRO — CPI / FOMC ESTIMATES &amp; WHISPERS {hasLive ? <span style={{ color: C.green }}>● LIVE</span> : <span style={{ color: C.amber }}>● projections</span>}
+      </div>
+      {rows.map((e, i) => {
+        const tag = (e.tag || "").toUpperCase();
+        const sev = (e.impact === "High" || e.impact === "HIGH" || ["CPI","FED","FOMC","JOBS","NFP","PCE"].includes(tag)) ? C.red : C.amber;
+        const whisper = MACRO_WHISPERS[tag] || e.note || "";
         return (
           <div key={i} style={{ borderRight: `3px solid ${sev}`, paddingRight: 10, marginBottom: 9 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 3 }}>
-              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: sev, background: `${sev}18`, borderRadius: 3, padding: "1px 6px" }}>{e.tag}</span>
-              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{e.event}</span>
-              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: "auto" }}>{fmtDate(e.date)}</span>
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: sev, background: `${sev}18`, borderRadius: 3, padding: "1px 6px" }}>{tag}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{e.event || e.name}</span>
+              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: "auto" }}>{e.countdown || fmtDate(e.date)}</span>
             </div>
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontFamily: MONO, fontSize: 11 }}>
-              {e.previous != null && <span style={{ color: C.textDim }}>Prior <b style={{ color: C.text }}>{e.previous}</b></span>}
-              {e.estimate != null && <span style={{ color: C.textDim }}>Est. <b style={{ color: C.accent }}>{e.estimate}</b></span>}
-              {e.actual != null && <span style={{ color: C.textDim }}>Actual <b style={{ color: C.green }}>{e.actual}</b></span>}
-            </div>
+            {hasLive && (
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontFamily: MONO, fontSize: 11, marginBottom: 2 }}>
+                {e.previous != null && <span style={{ color: C.textDim }}>Prior <b style={{ color: C.text }}>{e.previous}</b></span>}
+                {e.estimate != null && <span style={{ color: C.textDim }}>Est. <b style={{ color: C.accent }}>{e.estimate}</b></span>}
+                {e.actual != null && <span style={{ color: C.textDim }}>Actual <b style={{ color: C.green }}>{e.actual}</b></span>}
+              </div>
+            )}
+            {whisper && <div style={{ fontFamily: SANS, fontSize: 11, color: C.amber }}>💬 {whisper}</div>}
           </div>
         );
       })}
-      <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim }}>Live consensus &amp; actuals from FMP economic calendar.</div>
+      <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim }}>
+        {hasLive ? "Live consensus & actuals from FMP." : "Estimated dates + directional read. Add FMP_API_KEY for live consensus/actual numbers."}
+      </div>
     </div>
   );
 }
