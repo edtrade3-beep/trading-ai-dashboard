@@ -6741,6 +6741,28 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
               padding: "6px 12px", cursor: "pointer" }}>
             ⚡ PAPER BUY
           </button>
+          {/* One-click simulated option (CALL on bullish, PUT on bearish) */}
+          {(() => {
+            const bullish = r.signal === "GREEN";
+            const bearish = r.signal === "RED" && r.chg < 0;
+            if (!bullish && !bearish) return null;
+            const kind = bullish ? "CALL" : "PUT";
+            const col = bullish ? "#16a34a" : "#dc2626";
+            return (
+              <button onClick={(e) => {
+                  const res = addPaperOption(r.symbol, r.px, kind, { glScore: r.passed });
+                  const btn = e.currentTarget;
+                  btn.textContent = res === "DUP" ? "already open" : `✓ ${kind} BOUGHT!`;
+                  btn.style.background = col; btn.style.color = "#fff";
+                  setTimeout(() => { btn.textContent = `${bullish ? "📈" : "📉"} BUY ${kind} (sim)`; btn.style.background = `${col}18`; btn.style.color = col; }, 1800);
+                }}
+                title={`Buy a SIMULATED ${kind} (~5x leverage, modeled). Auto stop/target exits. For learning — higher risk.`}
+                style={{ background: `${col}18`, border: `1px solid ${col}55`, color: col,
+                  borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 12px", cursor: "pointer" }}>
+                {bullish ? "📈" : "📉"} BUY {kind} (sim)
+              </button>
+            );
+          })()}
           <button onClick={() => setGlExpanded(glExpanded === r.symbol ? null : r.symbol)}
             style={{ background: `${C.accent}15`, border: `1px solid ${C.accent}44`, color: C.accent,
               borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700,
