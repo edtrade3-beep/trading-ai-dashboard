@@ -104,6 +104,42 @@ async function handleAlpaca(req, res, requestUrl) {
     return writeJson(res, 200, { ok: true, order: { id: a.data.id, symbol: a.data.symbol, qty: Number(a.data.qty), side: a.data.side, status: a.data.status } });
   }
 
+  // Place a SIMPLE option order. Body: { underlying, type: "call"|"put", qty, underlyingPx }
+  // Finds a near-dated (~2–5 wk) ATM contract and buys it at market. Requires options enabled on the paper account.
+  if (pathname === "/api/alpaca/option-order" && req.method === "POST") {
+    if (!configured) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key" });
+    const b = await readBody(req);
+    const underlying = String(b.underlying || "").toUpperCase().replace(/[^A-Z.]/g, "");
+    const type = b.type === "put" ? "put" : "call";
+    const qty = Math.max(1, Math.floor(Number(b.qty) || 1));
+    const px = Number(b.underlyingPx) || 0;
+    if (!underlying) return writeJson(res, 400, { ok: false, error: "underlying required" });
+    try {
+      const today = new Date();
+      const gte = new Date(today.getTime() + 12 * 86400000).toISOString().slice(0, 10);
+      const lte = new Date(today.getTime() + 45 * 86400000).toISOString().slice(0, 10);
+      const cAll = await alpaca(`/v2/options/contracts?underlying_symbols=${underlying}&type=${type}&style=american&status=active&expiration_date_gte=${gte}&expiration_date_lte=${lte}&limit=200`);
+      if (!cAll._ok) return writeJson(res, 200, { ok: false, error: cAll.data?.message || "contracts lookup failed (is options trading enabled on the paper account?)", status: cAll._status });
+      const contracts = cAll.data?.option_contracts || [];
+      if (!contracts.length) return writeJson(res, 200, { ok: false, error: "no contracts found in window" });
+      // nearest expiration first
+      const minExp = contracts.reduce((m, c) => c.expiration_date < m ? c.expiration_date : m, contracts[0].expiration_date);
+      const near = contracts.filter(c => c.expiration_date === minExp);
+      // strike closest to underlying price (ATM)
+      const pick = near.reduce((best, c) => {
+        const d = Math.abs(Number(c.strike_price) - px);
+        return (!best || d < best.d) ? { c, d } : best;
+      }, null);
+      const contract = pick?.c;
+      if (!contract) return writeJson(res, 200, { ok: false, error: "no ATM contract" });
+      const order = await alpaca("/v2/orders", "POST", {
+        symbol: contract.symbol, qty: String(qty), side: "buy", type: "market", time_in_force: "day",
+      });
+      if (!order._ok) return writeJson(res, 200, { ok: false, error: order.data?.message || "option order rejected", status: order._status });
+      return writeJson(res, 200, { ok: true, order: { id: order.data.id, symbol: order.data.symbol, qty: Number(order.data.qty), status: order.data.status, strike: contract.strike_price, expiry: contract.expiration_date } });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   // Close a full position (market sell everything)
   if (pathname === "/api/alpaca/close" && req.method === "POST") {
     if (!configured) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key" });

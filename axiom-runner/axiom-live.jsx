@@ -5721,6 +5721,13 @@ async function alpacaClose(sym) {
     return await r.json();
   } catch { return null; }
 }
+async function alpacaOption(underlying, type, qty, underlyingPx) {
+  try {
+    const r = await fetch("/api/alpaca/option-order", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ underlying, type, qty, underlyingPx }) });
+    return await r.json();
+  } catch { return null; }
+}
 
 // ── Always-mounted background engine: auto-buys GREEN setups + auto-exits paper
 //    trades on EVERY tab (not just Green Light). Fully hands-off when autopilot ON.
@@ -5751,6 +5758,15 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
         const key = `${today}:${q.symbol}:${bullish ? "C" : "P"}:${broker}`;
         if (autoBoughtRef.current.has(key)) return;
 
+        // ── ALPACA paper OPTIONS (real near-dated ATM contract) ──
+        if (broker === "alpaca" && optionsMode) {
+          autoBoughtRef.current.add(key);
+          alpacaOption(q.symbol, bullish ? "call" : "put", 1, gl.px).then(rr => {
+            if (rr?.ok) logTradeNote("buy", `${bullish ? "📈" : "📉"} ALPACA ${bullish ? "CALL" : "PUT"} — ${q.symbol} (${gl.passed}/5)\n1 contract · strike $${rr.order.strike} · exp ${rr.order.expiry}`);
+            else autoBoughtRef.current.delete(key);
+          });
+          return;
+        }
         // ── ALPACA paper (real broker API, server-side) — shares only, long only ──
         if (broker === "alpaca" && bullish && !optionsMode) {
           const entry = gl.bestEntry || gl.px;
@@ -6748,18 +6764,31 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
             if (!bullish && !bearish) return null;
             const kind = bullish ? "CALL" : "PUT";
             const col = bullish ? "#16a34a" : "#dc2626";
+            const useAlpaca = (localStorage.getItem("axiom_autopilot_broker") || "sim") === "alpaca";
+            const lbl = `${bullish ? "📈" : "📉"} BUY ${kind}${useAlpaca ? " 🦙" : " (sim)"}`;
             return (
               <button onClick={(e) => {
-                  const res = addPaperOption(r.symbol, r.px, kind, { glScore: r.passed });
                   const btn = e.currentTarget;
-                  btn.textContent = res === "DUP" ? "already open" : `✓ ${kind} BOUGHT!`;
-                  btn.style.background = col; btn.style.color = "#fff";
-                  setTimeout(() => { btn.textContent = `${bullish ? "📈" : "📉"} BUY ${kind} (sim)`; btn.style.background = `${col}18`; btn.style.color = col; }, 1800);
+                  if (useAlpaca) {
+                    btn.textContent = "⏳ ordering…";
+                    alpacaOption(r.symbol, kind.toLowerCase(), 1, r.px).then(res => {
+                      if (res?.ok) { btn.textContent = `✓ ${kind} @ $${res.order.strike}`; btn.style.background = col; btn.style.color = "#fff";
+                        logTradeNote && logTradeNote("buy", `${bullish ? "📈" : "📉"} ALPACA ${kind} — ${r.symbol}\n1 contract · strike $${res.order.strike} · exp ${res.order.expiry}`); }
+                      else { btn.textContent = "✗ " + (res?.error ? "see note" : "failed"); btn.style.background = C.red; btn.style.color = "#fff";
+                        logTradeNote && logTradeNote("exit", `⚠️ ALPACA option rejected — ${r.symbol}\n${res?.error || "unknown"} (enable options on your Alpaca paper account)`); }
+                      setTimeout(() => { btn.textContent = lbl; btn.style.background = `${col}18`; btn.style.color = col; }, 2600);
+                    });
+                  } else {
+                    const res = addPaperOption(r.symbol, r.px, kind, { glScore: r.passed });
+                    btn.textContent = res === "DUP" ? "already open" : `✓ ${kind} BOUGHT!`;
+                    btn.style.background = col; btn.style.color = "#fff";
+                    setTimeout(() => { btn.textContent = lbl; btn.style.background = `${col}18`; btn.style.color = col; }, 1800);
+                  }
                 }}
-                title={`Buy a SIMULATED ${kind} (~5x leverage, modeled). Auto stop/target exits. For learning — higher risk.`}
+                title={useAlpaca ? `Buy a real ${kind} on your Alpaca PAPER account (near-dated ATM, 1 contract). Requires options enabled on the account.` : `Buy a SIMULATED ${kind} (~5x leverage, modeled). For learning — higher risk.`}
                 style={{ background: `${col}18`, border: `1px solid ${col}55`, color: col,
                   borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 12px", cursor: "pointer" }}>
-                {bullish ? "📈" : "📉"} BUY {kind} (sim)
+                {lbl}
               </button>
             );
           })()}
