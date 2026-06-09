@@ -31,6 +31,7 @@ const { handleSqueeze }       = require("./routes/squeeze");
 const { handleCompression }   = require("./routes/compression");
 const { handleInsider }       = require("./routes/insider");
 const { handleGapFill }       = require("./routes/gapfill");
+const { handleAlpaca }        = require("./routes/alpaca");
 const { sendTelegramAlert, sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
 
 async function handleRequest(req, res) {
@@ -82,6 +83,10 @@ async function handleRequest(req, res) {
 
     if (pathname.startsWith("/api/autoexec")) {
       return handleAutoExec(req, res, requestUrl);
+    }
+
+    if (pathname.startsWith("/api/alpaca/")) {
+      return handleAlpaca(req, res, requestUrl);
     }
 
     if (pathname === "/api/crypto/liquidations") {

@@ -5706,6 +5706,22 @@ function addPaperOption(sym, uPrice, kind, opts = {}) {
   return "OK";
 }
 
+// ── Alpaca PAPER order helpers (orders routed server-side; keys never in browser) ──
+async function alpacaPlace(sym, qty, stop, take) {
+  try {
+    const r = await fetch("/api/alpaca/order", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol: sym, qty, side: "buy", type: "market", stop_loss: stop, take_profit: take }) });
+    return await r.json();
+  } catch { return null; }
+}
+async function alpacaClose(sym) {
+  try {
+    const r = await fetch("/api/alpaca/close", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol: sym }) });
+    return await r.json();
+  } catch { return null; }
+}
+
 // ── Always-mounted background engine: auto-buys GREEN setups + auto-exits paper
 //    trades on EVERY tab (not just Green Light). Fully hands-off when autopilot ON.
 function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
@@ -5719,6 +5735,9 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       window.dispatchEvent(new Event("autopilot-tick"));
       const threshold = Number(localStorage.getItem("axiom_autopilot_min")) || 4;
       const optionsMode = localStorage.getItem("axiom_autopilot_options") === "on";
+      const broker = localStorage.getItem("axiom_autopilot_broker") || "sim";  // sim | alpaca
+      const acct = Number(localStorage.getItem("axiom_acct_size")) || 10000;
+      const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
       const spyQ = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
       const spyChg = Number(spyQ?.changesPercentage || 0);
       const today = new Date().toISOString().slice(0, 10);
@@ -5729,8 +5748,25 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
         const bullish = gl.signal === "GREEN" && gl.passed >= threshold;
         const bearish = optionsMode && gl.signal === "RED" && gl.chg < -1;  // puts: only in options mode, clear downside
         if (!bullish && !bearish) return;
-        const key = `${today}:${q.symbol}:${bullish ? "C" : "P"}`;
+        const key = `${today}:${q.symbol}:${bullish ? "C" : "P"}:${broker}`;
         if (autoBoughtRef.current.has(key)) return;
+
+        // ── ALPACA paper (real broker API, server-side) — shares only, long only ──
+        if (broker === "alpaca" && bullish && !optionsMode) {
+          const entry = gl.bestEntry || gl.px;
+          const atr = Math.min(0.05, Math.max(0.01, Number(gl.atrPct) || 0.025));
+          const stop = +(entry * (1 - atr * 1.5)).toFixed(2);
+          const take = +(entry * (1 + atr * 3)).toFixed(2);   // T2-style bracket target
+          const riskPerShare = Math.max(0.01, entry - stop);
+          const qty = Math.max(1, Math.min(Math.floor((acct * (riskPct / 100)) / riskPerShare), Math.floor(acct / entry)));
+          autoBoughtRef.current.add(key);  // mark immediately to avoid double-fire
+          alpacaPlace(q.symbol, qty, stop, take).then(r => {
+            if (r?.ok) logTradeNote("buy", `🟢 ALPACA BUY — ${q.symbol} (${gl.passed}/5)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${take}`);
+            else { autoBoughtRef.current.delete(key); }  // allow retry if it failed
+          });
+          return;
+        }
+
         let res;
         if (optionsMode) res = addPaperOption(q.symbol, gl.px, bullish ? "CALL" : "PUT", { glScore: gl.passed });
         else             res = addPaperTrade(q.symbol, gl.bestEntry || gl.px, { atrPct: gl.atrPct, glScore: gl.passed });
@@ -5849,6 +5885,29 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
     };
     check();
     const t = setInterval(check, 60000);
+    return () => clearInterval(t);
+  }, [watchlistData]);
+
+  // ALPACA trend-exit: close positions whose underlying turns bearish (stop/target handled by Alpaca bracket)
+  useEffect(() => {
+    const t = setInterval(async () => {
+      if (localStorage.getItem("axiom_autopilot") !== "on") return;
+      if (localStorage.getItem("axiom_autopilot_broker") !== "alpaca") return;
+      if ((localStorage.getItem("axiom_autopilot_exit") || "trend") !== "trend") return;
+      try {
+        const r = await fetch("/api/alpaca/positions").then(x => x.json());
+        if (!r?.ok) return;
+        for (const p of (r.positions || [])) {
+          const q = (watchlistData || []).find(o => o.symbol === p.symbol);
+          const ma50 = Number(q?.priceAvg50 || 0), chg = Number(q?.changesPercentage || 0);
+          const bearish = (ma50 > 0 && p.current < ma50) || chg < -3;
+          if (bearish) {
+            const cr = await alpacaClose(p.symbol);
+            if (cr?.ok) logTradeNote("exit", `📉 ALPACA TREND EXIT — ${p.symbol}\nTurned bearish — closed (paper) · P&L ${p.unrealizedPL >= 0 ? "+" : ""}$${p.unrealizedPL.toFixed(0)}`);
+          }
+        }
+      } catch {}
+    }, 30000);
     return () => clearInterval(t);
   }, [watchlistData]);
 
@@ -6329,6 +6388,64 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
 }
 
 // ── MY TRADES tab — auto-pilot controls + paper positions (its own tab under Green Light) ──
+function AlpacaPanel({ C, MONO, SANS }) {
+  const [acct, setAcct] = React.useState(null);
+  const [positions, setPositions] = React.useState([]);
+  const [state, setState] = React.useState("loading"); // loading | ok | nokey | error
+  React.useEffect(() => {
+    const load = () => {
+      fetch("/api/alpaca/account").then(r => r.json()).then(d => {
+        if (d?.reason === "no-alpaca-key") { setState("nokey"); return; }
+        if (!d?.ok) { setState("error"); return; }
+        setAcct(d.account); setState("ok");
+        fetch("/api/alpaca/positions").then(r => r.json()).then(p => { if (p?.ok) setPositions(p.positions || []); }).catch(() => {});
+      }).catch(() => setState("error"));
+    };
+    load();
+    const t = setInterval(load, 30000);
+    return () => clearInterval(t);
+  }, []);
+  const wrap = { background: "#10b98112", border: `1px solid #10b98144`, borderRadius: 10, padding: "12px 16px", marginBottom: 14 };
+  if (state === "nokey") {
+    return (
+      <div style={wrap}>
+        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#10b981", marginBottom: 6 }}>🦙 ALPACA PAPER — not connected</div>
+        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>
+          Add your Alpaca <b>paper</b> keys in Render → Environment as <code>ALPACA_KEY_ID</code> and <code>ALPACA_SECRET_KEY</code>, then redeploy.
+          Get free paper keys at <span style={{ color: "#10b981" }}>alpaca.markets</span> → Paper Trading → API Keys. Orders route server-side; keys never touch the browser.
+        </div>
+      </div>
+    );
+  }
+  if (state === "error") return <div style={wrap}><div style={{ fontFamily: MONO, fontSize: 12, color: C.amber }}>🦙 Alpaca: couldn't reach account (check keys / try again).</div></div>;
+  if (state === "loading" || !acct) return <div style={wrap}><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>🦙 Connecting to Alpaca paper…</div></div>;
+  const fmt = v => `$${Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  return (
+    <div style={wrap}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#10b981" }}>🦙 ALPACA PAPER <span style={{ color: "#22c55e" }}>● {acct.status}</span></span>
+        <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>EQUITY</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{fmt(acct.equity)}</div></div>
+        <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>BUYING POWER</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{fmt(acct.buyingPower)}</div></div>
+        <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>CASH</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{fmt(acct.cash)}</div></div>
+        <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>POSITIONS</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{positions.length}</div></div>
+      </div>
+      {positions.length > 0 && (
+        <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {positions.map(p => (
+            <div key={p.symbol} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "5px 10px" }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent }}>{p.symbol}</span>
+              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 6 }}>{p.qty}sh</span>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: p.unrealizedPL >= 0 ? C.green : C.red, marginLeft: 6 }}>
+                {p.unrealizedPL >= 0 ? "+" : ""}${p.unrealizedPL.toFixed(0)} ({p.unrealizedPLpc >= 0 ? "+" : ""}{p.unrealizedPLpc.toFixed(1)}%)
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [autoPilot, setAutoPilot] = useState(() => localStorage.getItem("axiom_autopilot") === "on");
   const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 4);
@@ -6336,6 +6453,7 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [optionsMode, setOptionsMode] = useState(() => localStorage.getItem("axiom_autopilot_options") === "on");
   const [trailMode, setTrailMode] = useState(() => localStorage.getItem("axiom_autopilot_trail") !== "off");
   const [exitMode, setExitMode] = useState(() => localStorage.getItem("axiom_autopilot_exit") || "trend");
+  const [broker, setBroker] = useState(() => localStorage.getItem("axiom_autopilot_broker") || "sim");
   const [lastCheck, setLastCheck] = useState(() => Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
   useEffect(() => {
     const onTick = () => setLastCheck(Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
@@ -6418,6 +6536,18 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
             </button>
           ))}
         </div>
+        {/* Broker: simulated vs Alpaca paper (real broker API, paper money) */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="SIM = in-browser paper simulation. ALPACA = routes real orders to your Alpaca PAPER account via the official API (shares only). Requires ALPACA_KEY_ID / ALPACA_SECRET_KEY in Render env.">
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>BROKER:</span>
+          {[["SIM", "sim"], ["ALPACA", "alpaca"]].map(([lbl, val]) => (
+            <button key={val} onClick={() => { setBroker(val); localStorage.setItem("axiom_autopilot_broker", val); }}
+              style={{ background: broker === val ? (val === "alpaca" ? "#10b981" : "#7c3aed") : C.surface, color: broker === val ? "#fff" : C.textSec,
+                border: `1px solid ${broker === val ? (val === "alpaca" ? "#10b981" : "#7c3aed") : C.border}`, borderRadius: 6,
+                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
+              {lbl}
+            </button>
+          ))}
+        </div>
         {/* Instrument: shares vs simulated options */}
         <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="SHARES = paper-buy stock. OPTIONS = simulated CALLs on bullish setups / PUTs on bearish, ~5x leverage. Options are higher-risk and priced by a simple model — for learning.">
           <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>TRADE:</span>
@@ -6437,6 +6567,8 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
           {autoPilot ? "⏹ TURN OFF" : "▶ TURN ON"}
         </button>
       </div>
+
+      {broker === "alpaca" && <AlpacaPanel C={C} MONO={MONO} SANS={SANS} />}
 
       <TradeTracker C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} />
     </div>
