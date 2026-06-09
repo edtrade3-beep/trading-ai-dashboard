@@ -2422,7 +2422,9 @@ function SpyVolumeWidget({ C, MONO, SANS, macroData }) {
   const vol = Number(spy?.volume || 0), avgVol = Number(spy?.avgVolume || 0);
   const rvol = avgVol > 0 ? vol / avgVol : 0;
   const pcr = opt?.pcr;
+  const cpr = opt && opt.pv > 0 ? opt.cv / opt.pv : null;   // call/put ratio (inverse of P/C)
   const pcrCol = pcr == null ? C.textDim : pcr > 1.1 ? C.red : pcr < 0.7 ? C.green : C.amber;
+  const cprCol = cpr == null ? C.textDim : cpr > 1.4 ? C.green : cpr < 0.9 ? C.red : C.amber;
   const pcrNote = pcr == null ? "" : pcr > 1.1 ? "bearish (puts heavy)" : pcr < 0.7 ? "bullish (calls heavy)" : "balanced";
   const cell = (label, value, col) => (
     <div style={{ textAlign: "center", flex: 1, minWidth: 78 }}>
@@ -2440,6 +2442,7 @@ function SpyVolumeWidget({ C, MONO, SANS, macroData }) {
         {cell("RVOL", rvol > 0 ? `${rvol.toFixed(2)}x` : "—", rvol > 1.2 ? C.amber : C.text)}
         {cell("CALL VOL", opt ? fmt(opt.cv) : "…", C.green)}
         {cell("PUT VOL", opt ? fmt(opt.pv) : "…", C.red)}
+        {cell("CALL/PUT", cpr != null ? cpr.toFixed(2) : "…", cprCol)}
         {cell("PUT/CALL", pcr != null ? pcr.toFixed(2) : "…", pcrCol)}
       </div>
       {pcr != null && <div style={{ fontFamily: SANS, fontSize: 10, color: pcrCol, marginTop: 6, textAlign: "center" }}>P/C {pcr.toFixed(2)} — {pcrNote}</div>}
