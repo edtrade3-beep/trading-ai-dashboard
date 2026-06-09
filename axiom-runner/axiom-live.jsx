@@ -6156,9 +6156,9 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
                   <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.red }}>${t.stop}</div>
                 </div>
                 {exitMode === "trend" ? (
-                  <div style={{ textAlign: "center", background: `${C.amber}14`, border: `1px solid ${C.amber}44`, borderRadius: 5, padding: "2px 8px" }}>
+                  <div style={{ textAlign: "center", background: `${C.amber}14`, border: `1px solid ${C.amber}44`, borderRadius: 5, padding: "2px 8px" }} title="Sells all when the stock loses its 50-day MA or has a sharp adverse day (PUTs exit when the stock turns bullish)">
                     <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>EXIT</div>
-                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.amber }}>📉 on bearish</div>
+                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.amber }}>{t.optType === "PUT" ? "📈 on bullish" : "📉 on bearish"}</div>
                   </div>
                 ) : (
                   [["T1", t.t1, t.t1Hit ? C.textDim : C.green], ["T2", t.t2, t.t2Hit ? C.textDim : C.green], ["T3", t.t3 || (t.entry*1.15).toFixed(2), C.green]].map(([l,v,col]) => (
