@@ -5055,6 +5055,7 @@ function CoachTab({ C, MONO, SANS }) {
   // Program progress
   const [lessonDone, setLessonDone] = useState(() => { try { return JSON.parse(localStorage.getItem("coach_lessons_done")) || {}; } catch { return {}; } });
   const [openLesson, setOpenLesson] = useState(null);
+  const [collapsedCats, setCollapsedCats] = useState({});
   const toggleLesson = (i) => { const n = { ...lessonDone, [i]: !lessonDone[i] }; setLessonDone(n); localStorage.setItem("coach_lessons_done", JSON.stringify(n)); };
 
   // Habits (per day)
@@ -5302,51 +5303,77 @@ function CoachTab({ C, MONO, SANS }) {
       </>}
 
       {/* ═══ PROGRAM ═══ */}
-      {section === "program" && (
+      {section === "program" && (() => {
+        // Group lessons by pillar, preserving each lesson's global index
+        const groups = [];
+        COACH_LESSONS.forEach((l, i) => {
+          let g = groups.find(x => x.pillar === l.pillar);
+          if (!g) { g = { pillar: l.pillar, icon: l.icon, color: l.color, items: [] }; groups.push(g); }
+          g.items.push({ l, i });
+        });
+        const pillarCount = groups.length;
+        return (
         <div style={{ direction: "rtl" }}>
           <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginBottom: 12 }}>
-            30 درساً عبر 6 ركائز. اقرأ درساً كل يوم، طبّق التمرين، ثم علّم عليه. هكذا تنمو — مبدأ واحد في كل مرة.
+            {COACH_LESSONS.length} درساً عبر {pillarCount} ركائز. اقرأ درساً كل يوم، طبّق التمرين، ثم علّم عليه. هكذا تنمو — مبدأ واحد في كل مرة.
           </div>
           {/* Progress bar */}
           <div style={{ height: 8, background: C.surface, borderRadius: 4, overflow: "hidden", marginBottom: 16 }}>
             <div style={{ width: `${doneCount/COACH_LESSONS.length*100}%`, height: "100%", background: C.green, transition: "width 0.4s" }} />
           </div>
-          {COACH_LESSONS.map((l, i) => (
-            <div key={i} style={{ background: C.card, border: `1px solid ${lessonDone[i] ? C.green+"55" : C.border}`,
-              borderRight: `4px solid ${l.color}`, borderRadius: 10, marginBottom: 8, overflow: "hidden",
-              opacity: lessonDone[i] ? 0.7 : 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer" }}
-                onClick={() => setOpenLesson(openLesson === i ? null : i)}>
-                <span style={{ fontSize: 18 }}>{l.icon}</span>
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: l.color, background: `${l.color}18`, borderRadius: 3, padding: "1px 8px" }}>{l.pillar}</span>
-                  <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 800, color: C.text, marginTop: 4, textDecoration: lessonDone[i] ? "line-through" : "none" }}>{l.title}</div>
+          {groups.map(g => {
+            const gDone = g.items.filter(x => lessonDone[x.i]).length;
+            const collapsed = collapsedCats[g.pillar];
+            const complete = gDone === g.items.length;
+            return (
+              <div key={g.pillar} style={{ marginBottom: 14 }}>
+                {/* Category header */}
+                <div onClick={() => setCollapsedCats(p => ({ ...p, [g.pillar]: !p[g.pillar] }))}
+                  style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
+                    background: `${g.color}12`, border: `1px solid ${g.color}44`, borderRight: `5px solid ${g.color}`,
+                    borderRadius: 10, padding: "10px 14px", marginBottom: 8 }}>
+                  <span style={{ fontSize: 20 }}>{g.icon}</span>
+                  <span style={{ flex: 1, fontFamily: SANS, fontSize: 16, fontWeight: 900, color: g.color }}>{g.pillar}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: complete ? C.green : C.textDim }}>{gDone}/{g.items.length}{complete ? " ✓" : ""}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{collapsed ? "▼" : "▲"}</span>
                 </div>
-                <button onClick={e => { e.stopPropagation(); toggleLesson(i); }}
-                  style={{ background: lessonDone[i] ? C.green : "transparent", color: lessonDone[i] ? "#fff" : C.textDim,
-                    border: `1px solid ${lessonDone[i] ? C.green : C.border}`, borderRadius: 6, width: 28, height: 28,
-                    fontSize: 14, cursor: "pointer" }}>✓</button>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{openLesson === i ? "▲" : "▼"}</span>
-              </div>
-              {openLesson === i && (
-                <div style={{ padding: "0 44px 14px 14px" }}>
-                  <div style={{ fontFamily: SANS, fontSize: 15, color: C.text, lineHeight: 1.8, marginBottom: 12 }}>{l.teach}</div>
-                  <div style={{ background: `${l.color}12`, border: `1px solid ${l.color}33`, borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
-                    <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 900, color: l.color, marginBottom: 4 }}>✅ تمرين اليوم</div>
-                    <div style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.6 }}>{l.practice}</div>
-                  </div>
-                  {l.mantra && (
-                    <div style={{ textAlign: "center", padding: "8px 12px", fontFamily: SANS, fontSize: 14, fontWeight: 700,
-                      fontStyle: "italic", color: l.color, background: `${l.color}08`, borderRadius: 8 }}>
-                      ❝ {l.mantra} ❞
+                {!collapsed && g.items.map(({ l, i }) => (
+                  <div key={i} style={{ background: C.card, border: `1px solid ${lessonDone[i] ? C.green+"55" : C.border}`,
+                    borderRight: `4px solid ${l.color}`, borderRadius: 10, marginBottom: 8, marginRight: 14, overflow: "hidden",
+                    opacity: lessonDone[i] ? 0.7 : 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer" }}
+                      onClick={() => setOpenLesson(openLesson === i ? null : i)}>
+                      <span style={{ fontSize: 16 }}>{l.icon}</span>
+                      <div style={{ flex: 1, fontFamily: SANS, fontSize: 15, fontWeight: 800, color: C.text, textDecoration: lessonDone[i] ? "line-through" : "none" }}>{l.title}</div>
+                      <button onClick={e => { e.stopPropagation(); toggleLesson(i); }}
+                        style={{ background: lessonDone[i] ? C.green : "transparent", color: lessonDone[i] ? "#fff" : C.textDim,
+                          border: `1px solid ${lessonDone[i] ? C.green : C.border}`, borderRadius: 6, width: 28, height: 28,
+                          fontSize: 14, cursor: "pointer" }}>✓</button>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{openLesson === i ? "▲" : "▼"}</span>
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+                    {openLesson === i && (
+                      <div style={{ padding: "0 44px 14px 14px" }}>
+                        <div style={{ fontFamily: SANS, fontSize: 15, color: C.text, lineHeight: 1.8, marginBottom: 12 }}>{l.teach}</div>
+                        <div style={{ background: `${l.color}12`, border: `1px solid ${l.color}33`, borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
+                          <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 900, color: l.color, marginBottom: 4 }}>✅ تمرين اليوم</div>
+                          <div style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.6 }}>{l.practice}</div>
+                        </div>
+                        {l.mantra && (
+                          <div style={{ textAlign: "center", padding: "8px 12px", fontFamily: SANS, fontSize: 14, fontWeight: 700,
+                            fontStyle: "italic", color: l.color, background: `${l.color}08`, borderRadius: 8 }}>
+                            ❝ {l.mantra} ❞
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
         </div>
-      )}
+        );
+      })()}
 
       {/* ═══ HABITS ═══ */}
       {section === "habits" && (
