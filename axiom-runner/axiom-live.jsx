@@ -4960,6 +4960,16 @@ const COACH_HABITS = [
   { id:"gratitude", label:"🙏 امتنان / تأمّل",          color:"#7c3aed" },
 ];
 
+// عادات سيئة تتخلّص منها — علّم عليها حين تتجنّبها اليوم (سلسلة الأيام النظيفة)
+const COACH_BAD_HABITS = [
+  { id:"bad_phone",    label:"📵 تضييع الوقت على الهاتف", color:"#ef4444" },
+  { id:"bad_revenge",  label:"💸 التداول الانتقامي / بلا وقف", color:"#ef4444" },
+  { id:"bad_procrast", label:"⏳ التأجيل والمماطلة",      color:"#f59e0b" },
+  { id:"bad_latenight",label:"🌙 السهر المتأخر",          color:"#7c3aed" },
+  { id:"bad_junk",     label:"🍔 الأكل الليلي / غير الصحي", color:"#f59e0b" },
+  { id:"bad_anger",    label:"😤 الغضب السريع",           color:"#ef4444" },
+];
+
 function CoachTab({ C, MONO, SANS }) {
   const [section, setSection] = useState("today"); // today | program | habits | reflect
   const [form, setForm] = useState({
@@ -5292,6 +5302,29 @@ function CoachTab({ C, MONO, SANS }) {
             اليوم: <span style={{ color: habitsDoneToday === COACH_HABITS.length ? C.green : C.accent, fontWeight: 800 }}>{habitsDoneToday}/{COACH_HABITS.length}</span>
             {habitsDoneToday === COACH_HABITS.length && " — يوم مثالي 🏆"}
           </div>
+
+          {/* ── عادات سيئة تتخلّص منها ── */}
+          <div style={{ marginTop: 22, marginBottom: 12, fontFamily: SANS, fontSize: 15, fontWeight: 900, color: C.text }}>🚫 عادات تتخلّص منها</div>
+          <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginBottom: 12 }}>
+            علّم على العادة حين تتجنّبها اليوم. كل يوم نظيف يبني سلسلتك — والسلسلة تكسر العادة.
+          </div>
+          {COACH_BAD_HABITS.map(h => {
+            const clean = todayHabits[h.id];
+            const streak = habitStreak(h.id);
+            return (
+              <div key={h.id} onClick={() => toggleHabit(h.id)}
+                style={{ display: "flex", alignItems: "center", gap: 12, background: clean ? `${h.color}12` : C.card,
+                  border: `1px solid ${clean ? h.color+"55" : C.border}`, borderRight: `4px solid ${h.color}`,
+                  borderRadius: 10, padding: "12px 16px", marginBottom: 8, cursor: "pointer" }}>
+                <div style={{ width: 26, height: 26, borderRadius: 6, border: `2px solid ${clean ? h.color : C.border}`,
+                  background: clean ? h.color : "transparent", color: "#fff", display: "flex", alignItems: "center",
+                  justifyContent: "center", fontSize: 15, flexShrink: 0 }}>{clean ? "✓" : ""}</div>
+                <span style={{ flex: 1, fontFamily: SANS, fontSize: 14, color: C.text, fontWeight: clean ? 700 : 400 }}>{h.label}</span>
+                {clean && <span style={{ fontFamily: SANS, fontSize: 11, color: h.color }}>تجنّبتها ✓</span>}
+                {streak > 0 && <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: h.color }}>🔥 {streak} يوم نظيف</span>}
+              </div>
+            );
+          })}
         </div>
       )}
 
