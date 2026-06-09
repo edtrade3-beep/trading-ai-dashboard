@@ -2455,6 +2455,51 @@ function SpyVolumeWidget({ C, MONO, SANS, macroData }) {
   );
 }
 
+function MacroEventsWidget({ C, MONO, SANS }) {
+  const [data, setData] = React.useState(null);
+  const [state, setState] = React.useState("loading"); // loading | live | nokey | empty
+  React.useEffect(() => {
+    const load = () => {
+      fetch("/api/market/econ-events").then(r => r.json()).then(d => {
+        if (!d) { setState("empty"); return; }
+        if (d.reason === "no-fmp-key") { setState("nokey"); return; }
+        const evs = (d.events || []).filter(e => e.estimate != null || e.previous != null || e.actual != null);
+        setData(evs);
+        setState(evs.length ? "live" : "empty");
+      }).catch(() => setState("empty"));
+    };
+    load();
+    const t = setInterval(load, 15 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+  if (state === "loading") return null;
+  if (state !== "live") return null;  // no fake data — show nothing if live data unavailable
+  const fmtDate = ds => { try { return new Date(ds).toLocaleDateString("en-US", { month: "short", day: "numeric" }); } catch { return ds; } };
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 10 }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>📅 MACRO EVENTS — LIVE ESTIMATES <span style={{ color: C.green }}>● FMP</span></div>
+      {data.slice(0, 5).map((e, i) => {
+        const sev = e.impact === "High" ? C.red : C.amber;
+        return (
+          <div key={i} style={{ borderRight: `3px solid ${sev}`, paddingRight: 10, marginBottom: 9 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 3 }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: sev, background: `${sev}18`, borderRadius: 3, padding: "1px 6px" }}>{e.tag}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{e.event}</span>
+              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: "auto" }}>{fmtDate(e.date)}</span>
+            </div>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontFamily: MONO, fontSize: 11 }}>
+              {e.previous != null && <span style={{ color: C.textDim }}>Prior <b style={{ color: C.text }}>{e.previous}</b></span>}
+              {e.estimate != null && <span style={{ color: C.textDim }}>Est. <b style={{ color: C.accent }}>{e.estimate}</b></span>}
+              {e.actual != null && <span style={{ color: C.textDim }}>Actual <b style={{ color: C.green }}>{e.actual}</b></span>}
+            </div>
+          </div>
+        );
+      })}
+      <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim }}>Live consensus &amp; actuals from FMP economic calendar.</div>
+    </div>
+  );
+}
+
 function RegimeNewsPanel({ C, MONO, SANS }) {
   const [items, setItems] = React.useState([]);
   const [ts, setTs] = React.useState(null);
@@ -18025,41 +18070,8 @@ export default function App() {
             {/* ── SPY VOLUME + OPTIONS ── */}
             <SpyVolumeWidget C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
 
-            {/* ── MACRO EVENT ESTIMATES + WHISPERS (CPI / FOMC / Jobs) ── */}
-            {(() => {
-              const evs = (macroEventCalendar || []).filter(e => e.est && e.region === "US" && e.tteMs > -3 * 60 * 60 * 1000)
-                .sort((a, b) => a.tteMs - b.tteMs).slice(0, 2);
-              if (!evs.length) return null;
-              const fmtTte = ms => {
-                if (ms <= 0) return "🔴 LIVE / just released";
-                const d = Math.floor(ms / 86400000), h = Math.floor((ms % 86400000) / 3600000), m = Math.floor((ms % 3600000) / 60000);
-                return d > 0 ? `in ${d}d ${h}h` : h > 0 ? `in ${h}h ${m}m` : `in ${m}m`;
-              };
-              return (
-                <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 10 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>📅 MACRO EVENTS — ESTIMATES &amp; WHISPERS</div>
-                  {evs.map(e => {
-                    const sev = e.severity === "high" ? C.red : C.amber;
-                    return (
-                      <div key={e.id} style={{ borderRight: `3px solid ${sev}`, paddingRight: 10, marginBottom: 10 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-                          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: sev, background: `${sev}18`, borderRadius: 3, padding: "1px 6px" }}>{e.tag}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{e.title}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 11, color: e.tteMs <= 0 ? C.red : C.textDim, marginLeft: "auto" }}>{fmtTte(e.tteMs)}</span>
-                        </div>
-                        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontFamily: MONO, fontSize: 11 }}>
-                          <span style={{ color: C.textDim }}>{e.est.metric}</span>
-                          <span style={{ color: C.textDim }}>Prior <b style={{ color: C.text }}>{e.est.prior}</b></span>
-                          <span style={{ color: C.textDim }}>Est. <b style={{ color: C.accent }}>{e.est.consensus}</b></span>
-                        </div>
-                        <div style={{ fontFamily: SANS, fontSize: 11, color: C.amber, marginTop: 3 }}>💬 {e.est.whisper}</div>
-                      </div>
-                    );
-                  })}
-                  <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim }}>Estimated dates · consensus figures are approximate — verify against a live calendar before trading the event.</div>
-                </div>
-              );
-            })()}
+            {/* ── MACRO EVENTS — LIVE estimates/actuals (FMP) ── */}
+            <MacroEventsWidget C={C} MONO={MONO} SANS={SANS} />
 
             {/* ── CRYPTO LIQUIDATIONS ── */}
             <CryptoLiqWidget C={C} MONO={MONO} SANS={SANS} />

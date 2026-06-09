@@ -2017,6 +2017,42 @@ async function handleMarket(req, res, requestUrl) {
     return writeJson(res, 200, { ok: true, events });
   }
 
+  // ── GET /api/market/econ-events — LIVE estimates/actuals from FMP economic calendar ──
+  if (pathname === "/api/market/econ-events" && req.method === "GET") {
+    const keys = resolveProviderKeys(searchParams);
+    const fmpKey = keys.fmp;
+    if (!fmpKey) return writeJson(res, 200, { ok: false, reason: "no-fmp-key", events: [] });
+    try {
+      const now = new Date();
+      const from = now.toISOString().slice(0, 10);
+      const to = new Date(now.getTime() + 21 * 86400000).toISOString().slice(0, 10);
+      const url = `https://financialmodelingprep.com/api/v3/economic_calendar?from=${from}&to=${to}&apikey=${encodeURIComponent(fmpKey)}`;
+      const raw = await withTimeout(fetch(url).then(r => r.ok ? r.json() : []), 12000, []);
+      // Keep only the big US market-movers
+      const KEY = [
+        { match: /CPI/i, tag: "CPI" }, { match: /Core CPI/i, tag: "CPI" },
+        { match: /PCE/i, tag: "PCE" }, { match: /Federal Funds|FOMC|Interest Rate Decision/i, tag: "FED" },
+        { match: /Nonfarm|Non-Farm|Unemployment Rate/i, tag: "JOBS" }, { match: /PPI/i, tag: "PPI" },
+        { match: /Retail Sales/i, tag: "RETAIL" }, { match: /GDP/i, tag: "GDP" },
+      ];
+      const events = (Array.isArray(raw) ? raw : [])
+        .filter(e => (e.country === "US" || e.country === "USD" || e.currency === "USD"))
+        .map(e => {
+          const k = KEY.find(x => x.match.test(e.event || ""));
+          if (!k) return null;
+          return { tag: k.tag, event: e.event, date: e.date, impact: e.impact || "",
+            estimate: e.estimate, previous: e.previous, actual: e.actual };
+        })
+        .filter(Boolean)
+        .filter(e => e.impact === "High" || ["CPI","PCE","FED","JOBS"].includes(e.tag))
+        .slice(0, 8);
+      return writeJson(res, 200, { ok: true, events });
+    } catch (err) {
+      console.error("[econ-events] error:", err?.message);
+      return writeJson(res, 200, { ok: false, events: [] });
+    }
+  }
+
   // GET /api/market/chart?symbol=AMD&interval=1d&range=90d (trade planner)
   if (pathname === '/api/market/chart') {
     const sym = (requestUrl.searchParams.get('symbol')||'').toUpperCase().replace(/[^A-Z0-9.^-]/g,'').slice(0,10);
