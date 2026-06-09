@@ -2496,7 +2496,7 @@ function MacroEventsWidget({ C, MONO, SANS }) {
   return (
     <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 10 }}>
       <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>
-        📅 MACRO — CPI / FOMC ESTIMATES &amp; WHISPERS {hasLive ? <span style={{ color: C.green }}>● LIVE</span> : <span style={{ color: C.amber }}>● projections</span>}
+        📅 MACRO — CPI / FOMC {hasLive ? <>ESTIMATES <span style={{ color: C.green }}>● LIVE</span></> : <>MARKET READ <span style={{ color: C.amber }}>● guide</span></>}
       </div>
       {rows.map((e, i) => {
         const tag = (e.tag || "").toUpperCase();
@@ -2507,7 +2507,7 @@ function MacroEventsWidget({ C, MONO, SANS }) {
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 3 }}>
               <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: sev, background: `${sev}18`, borderRadius: 3, padding: "1px 6px" }}>{tag}</span>
               <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{e.event || e.name}</span>
-              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: "auto" }}>{e.countdown || fmtDate(e.date)}</span>
+              {hasLive && <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: "auto" }}>{fmtDate(e.date)}</span>}
             </div>
             {hasLive && (
               <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontFamily: MONO, fontSize: 11, marginBottom: 2 }}>
@@ -2521,7 +2521,7 @@ function MacroEventsWidget({ C, MONO, SANS }) {
         );
       })}
       <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim }}>
-        {hasLive ? "Live consensus & actuals from FMP." : "Estimated dates + directional read. Add FMP_API_KEY for live consensus/actual numbers."}
+        {hasLive ? "Live consensus & actuals from FMP." : "What each event means for the market. Add FMP_API_KEY for live dates, consensus & actual numbers."}
       </div>
     </div>
   );
