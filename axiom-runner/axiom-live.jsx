@@ -6563,109 +6563,97 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
           ["P/E Ratio", pe > 0 ? pe.toFixed(1) : "—"],
           ["52W Range", hi52 > 0 ? `$${lo52.toFixed(2)} – $${hi52.toFixed(2)}` : "—"],
           ["52W Position", range52 != null ? `${range52}% ${range52 > 75 ? "(near high)" : range52 < 25 ? "(near low)" : "(mid)"}` : "—"],
-          ["MA 50", ma50 > 0 ? `$${ma50.toFixed(2)} ${r.px > ma50 ? "✅ above" : "🔴 below"}` : "—"],
-          ["MA 200", ma200 > 0 ? `$${ma200.toFixed(2)} ${r.px > ma200 ? "✅ above" : "🔴 below"}` : "—"],
           ["Volume", `${fmtVol(vol)} ${avgVol > 0 ? `(avg ${fmtVol(avgVol)})` : ""}`],
-          ["Rel Volume", r.rvol > 0 ? `${r.rvol.toFixed(2)}x ${r.rvol > 1.5 ? "🔥" : ""}` : "—"],
-          ["RSI", r.rsi > 0 ? `${r.rsi.toFixed(0)} ${r.rsi < 35 ? "(oversold)" : r.rsi > 65 ? "(overbought)" : "(neutral)"}` : "—"],
           ["vs SPY today", `${r.relStrength >= 0 ? "+" : ""}${r.relStrength}% ${r.isLeader ? "💪 LEADER" : ""}`],
           ["Day Range", q.dayLow && q.dayHigh ? `$${Number(q.dayLow).toFixed(2)} – $${Number(q.dayHigh).toFixed(2)}` : "—"],
         ];
+        const d = glDeep[r.symbol];
+        const t = d?.tech;
+        const mom = (() => { try { return computeScores(r.q || {}).composite; } catch { return null; } })();
+        const rsiV = t?.rsi != null ? t.rsi : (r.rsi || null);
+        const ld = glDeepLoad ? "…" : "—";
+        const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 };
+        const hdr = (icon, label, col) => <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: col, letterSpacing: "0.06em", marginBottom: 10 }}>{icon} {label}</div>;
+        const Row = ({ l, v, col }) => (
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
+            <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col || C.text, textAlign: "right" }}>{v}</span>
+          </div>
+        );
+        const vsCol = (above) => above ? C.green : C.red;
+        const recCol = d?.recomNum == null ? C.textDim : d.recomNum <= 2.5 ? C.green : d.recomNum <= 3.5 ? C.amber : C.red;
+        const upside = d?.target && r.px > 0 ? ((d.target - r.px) / r.px * 100) : null;
         return (
-          <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
-            {/* ── TECHNICALS (RSI / MACD / EMA / momentum) ── */}
-            {(() => {
-              const t = glDeep[r.symbol]?.tech;
-              const mom = (() => { try { return computeScores(r.q || {}).composite; } catch { return null; } })();
-              const rsiV = t?.rsi != null ? t.rsi : (r.rsi || null);
-              const rsiCol = rsiV == null ? C.textDim : rsiV < 35 ? C.green : rsiV > 65 ? C.red : C.text;
-              const vsCol = (above) => above ? C.green : C.red;
-              const techCells = [
-                ["RSI (14)", rsiV != null ? `${rsiV} ${rsiV < 35 ? "(oversold)" : rsiV > 65 ? "(overbought)" : "(neutral)"}` : (glDeepLoad ? "…" : "—"), rsiCol],
-                ["MACD", t ? (t.macdBull ? "Bullish ▲" : "Bearish ▼") : (glDeepLoad ? "…" : "—"), t ? (t.macdBull ? C.green : C.red) : C.textDim],
-                ["EMA 9 / 21", t ? (t.ema9 >= t.ema21 ? "9 > 21 ▲" : "9 < 21 ▼") : (glDeepLoad ? "…" : "—"), t ? vsCol(t.ema9 >= t.ema21) : C.textDim],
-                ["vs EMA21", t ? `$${t.ema21.toFixed(2)} ${t.px >= t.ema21 ? "above" : "below"}` : (glDeepLoad ? "…" : "—"), t ? vsCol(t.px >= t.ema21) : C.textDim],
-                ["vs MA50", t ? `$${t.ma50.toFixed(2)} ${t.px >= t.ma50 ? "above" : "below"}` : (glDeepLoad ? "…" : "—"), t ? vsCol(t.px >= t.ma50) : C.textDim],
-                ["vs MA200", t ? `$${t.ma200.toFixed(2)} ${t.px >= t.ma200 ? "above" : "below"}` : (glDeepLoad ? "…" : "—"), t ? vsCol(t.px >= t.ma200) : C.textDim],
-                ["Momentum", mom != null ? `${mom}/100` : "—", mom == null ? C.textDim : mom >= 60 ? C.green : mom <= 40 ? C.red : C.amber],
-              ];
-              return (
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: "#0ea5e9", letterSpacing: "0.06em", marginBottom: 8 }}>⚡ TECHNICALS</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "6px 20px" }}>
-                    {techCells.map(([l, v, col]) => (
-                      <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", borderBottom: `1px solid ${C.border}22` }}>
-                        <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
-                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-            {/* 5-check recap with reasons */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-              {r.checks.map((c, i) => (
-                <span key={i} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: c.pass ? C.green : C.red,
-                  background: c.pass ? `${C.green}12` : `${C.red}10`, border: `1px solid ${c.pass ? C.green : C.red}33`,
-                  borderRadius: 4, padding: "2px 8px" }} title={c.tip}>{c.pass ? "✓" : "✗"} {c.label} · {c.tip}</span>
-              ))}
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "6px 20px" }}>
-              {stats.map(([l, v]) => (
-                <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", borderBottom: `1px solid ${C.border}22` }}>
-                  <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: C.text, textAlign: "right" }}>{v}</span>
-                </div>
-              ))}
-            </div>
-            {/* Analyst · Fundamentals (same sources as Smart Scan) */}
-            {(() => {
-              const d = glDeep[r.symbol];
-              const recCol = d?.recomNum == null ? C.textDim : d.recomNum <= 2.5 ? C.green : d.recomNum <= 3.5 ? C.amber : C.red;
-              const upside = d?.target && r.px > 0 ? ((d.target - r.px) / r.px * 100) : null;
-              const cells = [
-                ["Analyst rating", d?.recomTxt || (glDeepLoad ? "…" : "—"), recCol],
-                ["Price target", d?.target ? `$${d.target.toFixed(2)}${upside != null ? `  (${upside >= 0 ? "+" : ""}${upside.toFixed(0)}%)` : ""}` : (glDeepLoad ? "…" : "—"), upside != null ? (upside >= 0 ? C.green : C.red) : C.text],
-                ["Short float", d?.shortFloat || (glDeepLoad ? "…" : "—"), C.text],
-                ["Inst. ownership", d?.instOwn || (glDeepLoad ? "…" : "—"), C.text],
-                ["Return on equity", d?.roe != null ? `${(d.roe * 100).toFixed(1)}%` : (glDeepLoad ? "…" : "—"), C.text],
-                ["Debt / equity", d?.de != null && d.de >= 0 ? d.de.toFixed(2) : (glDeepLoad ? "…" : "—"), C.text],
-                ["Earnings date", d?.earnings ? (() => { try { return new Date(d.earnings).toLocaleDateString("en-US", { month: "short", day: "numeric" }); } catch { return "—"; } })() : (glDeepLoad ? "…" : "—"), C.amber],
-              ];
-              return (
-                <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, letterSpacing: "0.06em", marginBottom: 8 }}>📊 ANALYST · FUNDAMENTALS</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "6px 20px" }}>
-                    {cells.map(([l, v, col]) => (
-                      <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", borderBottom: `1px solid ${C.border}22` }}>
-                        <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
-                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {d?.news?.length > 0 && (
-                    <div style={{ marginTop: 12 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.purple, letterSpacing: "0.06em", marginBottom: 6 }}>📰 RECENT NEWS</div>
-                      {d.news.map((n, i) => (
-                        <a key={i} href={n.url || n.link || "#"} target="_blank" rel="noopener"
-                          style={{ display: "block", fontFamily: SANS, fontSize: 12, color: C.textSec, textDecoration: "none", padding: "3px 0", borderBottom: `1px solid ${C.border}22` }}>
-                          • {n.title || n.headline || "—"}
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-            {/* Entry plan + chart link */}
-            <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>🎯 Entry ${r.bestEntry} · 🛑 Stop ${r.stop} · 🎯 T1 ${r.t1} / T2 ${r.t2}</span>
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+            {/* Entry plan banner */}
+            <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", background: `${C.accent}0e`, border: `1px solid ${C.accent}33`, borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
+              <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>🎯 ENTRY</div><div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>${r.bestEntry}</div></div>
+              <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>🛑 STOP</div><div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: C.red }}>${r.stop}</div></div>
+              <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>🎯 T1</div><div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: C.green }}>${r.t1}</div></div>
+              <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>🎯 T2</div><div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: C.green }}>${r.t2}</div></div>
               <a href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(r.symbol)}`} target="_blank" rel="noopener"
-                style={{ marginLeft: "auto", background: `${C.accent}15`, border: `1px solid ${C.accent}44`, color: C.accent,
-                  borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 12px", textDecoration: "none" }}>
+                style={{ marginLeft: "auto", background: C.accent, color: "#fff", borderRadius: 7, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 16px", textDecoration: "none" }}>
                 📺 OPEN CHART
               </a>
+            </div>
+
+            {/* 5-check recap */}
+            <div style={{ ...card, marginBottom: 12 }}>
+              {hdr("✅", `GREEN LIGHT CHECKS · ${r.passed}/5`, r.passed >= 5 ? C.green : C.amber)}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {r.checks.map((c, i) => (
+                  <span key={i} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: c.pass ? C.green : C.red,
+                    background: c.pass ? `${C.green}12` : `${C.red}10`, border: `1px solid ${c.pass ? C.green : C.red}33`,
+                    borderRadius: 5, padding: "3px 9px" }} title={c.tip}>{c.pass ? "✓" : "✗"} {c.label} · {c.tip}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* Two-column card grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+              {/* Technicals */}
+              <div style={card}>
+                {hdr("⚡", "TECHNICALS", "#0ea5e9")}
+                <Row l="RSI (14)" v={rsiV != null ? `${rsiV} ${rsiV < 35 ? "(oversold)" : rsiV > 65 ? "(overbought)" : "(neutral)"}` : ld} col={rsiV == null ? C.textDim : rsiV < 35 ? C.green : rsiV > 65 ? C.red : C.text} />
+                <Row l="MACD" v={t ? (t.macdBull ? "Bullish ▲" : "Bearish ▼") : ld} col={t ? (t.macdBull ? C.green : C.red) : C.textDim} />
+                <Row l="EMA 9 / 21" v={t ? (t.ema9 >= t.ema21 ? "9 > 21 ▲" : "9 < 21 ▼") : ld} col={t ? vsCol(t.ema9 >= t.ema21) : C.textDim} />
+                <Row l="vs EMA21" v={t ? `$${t.ema21.toFixed(2)} ${t.px >= t.ema21 ? "above" : "below"}` : ld} col={t ? vsCol(t.px >= t.ema21) : C.textDim} />
+                <Row l="vs MA50" v={t ? `$${t.ma50.toFixed(2)} ${t.px >= t.ma50 ? "above" : "below"}` : ld} col={t ? vsCol(t.px >= t.ma50) : C.textDim} />
+                <Row l="vs MA200" v={t ? `$${t.ma200.toFixed(2)} ${t.px >= t.ma200 ? "above" : "below"}` : ld} col={t ? vsCol(t.px >= t.ma200) : C.textDim} />
+                <Row l="Momentum" v={mom != null ? `${mom}/100` : "—"} col={mom == null ? C.textDim : mom >= 60 ? C.green : mom <= 40 ? C.red : C.amber} />
+                <Row l="Rel volume" v={r.rvol > 0 ? `${r.rvol.toFixed(2)}x ${r.rvol > 1.5 ? "🔥" : ""}` : "—"} col={r.rvol > 1.5 ? C.amber : C.text} />
+              </div>
+
+              {/* Analyst & earnings */}
+              <div style={card}>
+                {hdr("📊", "ANALYST · FUNDAMENTALS", C.accent)}
+                <Row l="Analyst rating" v={d?.recomTxt || ld} col={recCol} />
+                <Row l="Price target" v={d?.target ? `$${d.target.toFixed(2)}${upside != null ? ` (${upside >= 0 ? "+" : ""}${upside.toFixed(0)}%)` : ""}` : ld} col={upside != null ? (upside >= 0 ? C.green : C.red) : C.text} />
+                <Row l="Short float" v={d?.shortFloat || ld} />
+                <Row l="Inst. ownership" v={d?.instOwn || ld} />
+                <Row l="Return on equity" v={d?.roe != null ? `${(d.roe * 100).toFixed(1)}%` : ld} />
+                <Row l="Debt / equity" v={d?.de != null && d.de >= 0 ? d.de.toFixed(2) : ld} />
+                <Row l="Earnings date" v={d?.earnings ? (() => { try { return new Date(d.earnings).toLocaleDateString("en-US", { month: "short", day: "numeric" }); } catch { return "—"; } })() : ld} col={C.amber} />
+              </div>
+
+              {/* Key stats */}
+              <div style={card}>
+                {hdr("🏢", "KEY STATS", C.purple)}
+                {stats.map(([l, v]) => <Row key={l} l={l} v={v} />)}
+              </div>
+
+              {/* News */}
+              {(d?.news?.length > 0 || glDeepLoad) && (
+                <div style={card}>
+                  {hdr("📰", "RECENT NEWS", C.cyan || "#06b6d4")}
+                  {d?.news?.length ? d.news.map((n, i) => (
+                    <a key={i} href={n.url || n.link || "#"} target="_blank" rel="noopener"
+                      style={{ display: "block", fontFamily: SANS, fontSize: 12, color: C.textSec, textDecoration: "none", padding: "5px 0", borderBottom: `1px solid ${C.border}22`, lineHeight: 1.4 }}>
+                      • {n.title || n.headline || "—"}
+                    </a>
+                  )) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Loading…</div>}
+                </div>
+              )}
             </div>
           </div>
         );
