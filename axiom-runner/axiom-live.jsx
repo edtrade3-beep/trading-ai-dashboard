@@ -6386,10 +6386,29 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
       fetch(`/api/finviz/quote?symbol=${sym}`).then(r => r.json()),
       fetch(`/api/yahoo/fundamentals?symbol=${sym}`).then(r => r.json()),
       fetch(`/api/yahoo/news?tickers=${sym}&limit=4`).then(r => r.json()),
-    ]).then(([fvR, fundR, newsR]) => {
+      fetch(`/api/market/chart?symbol=${sym}&interval=1d&range=90d`).then(r => r.json()),
+    ]).then(([fvR, fundR, newsR, chartR]) => {
       const raw  = (fvR.status === "fulfilled" ? fvR.value?.raw : null) || {};
       const fund = fundR.status === "fulfilled" ? fundR.value : null;
       const nv   = newsR.status === "fulfilled" ? newsR.value : null;
+      // ── Technicals from candles (RSI / EMA9 / EMA21 / MA50 / MA200 / MACD) ──
+      let tech = null;
+      try {
+        const cd = chartR.status === "fulfilled" ? chartR.value : null;
+        const closes = ((cd?.chart?.result?.[0]?.indicators?.quote?.[0]?.close) || []).filter(v => v > 0);
+        if (closes.length >= 26) {
+          const px = closes.at(-1);
+          const emaOf = (len) => { const k = 2 / (len + 1); let e = closes[0]; for (let i = 1; i < closes.length; i++) e = closes[i] * k + e * (1 - k); return e; };
+          const ema9 = emaOf(9), ema21 = emaOf(21), ema12 = emaOf(12), ema26 = emaOf(26);
+          const ma50 = closes.slice(-Math.min(50, closes.length)).reduce((a, b) => a + b, 0) / Math.min(50, closes.length);
+          const ma200 = closes.slice(-Math.min(200, closes.length)).reduce((a, b) => a + b, 0) / Math.min(200, closes.length);
+          let gains = 0, losses = 0; const rl = Math.min(14, closes.length - 1);
+          for (let i = closes.length - rl; i < closes.length; i++) { const d = closes[i] - closes[i - 1]; d > 0 ? gains += d : losses += Math.abs(d); }
+          const rsi = losses === 0 ? 100 : Math.round(100 - 100 / (1 + (gains / rl) / (losses / rl)));
+          const macd = ema12 - ema26;
+          tech = { px, rsi, ema9, ema21, ma50, ma200, macdBull: macd >= 0, macd };
+        }
+      } catch {}
       const news = Array.isArray(nv) ? nv : (nv?.news || nv?.items || nv?.articles || []);
       const recomNum = parseFloat(raw["Recom"] || "") || null;
       const recomTxt = recomNum == null ? null : recomNum <= 1.5 ? "Strong Buy" : recomNum <= 2.5 ? "Buy" : recomNum <= 3.5 ? "Hold" : recomNum <= 4.5 ? "Sell" : "Strong Sell";
@@ -6402,6 +6421,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
         de: fund?.debtToEquity != null ? Number(fund.debtToEquity) : null,
         earnings: fund?.earningsDate || null,
         news: (news || []).slice(0, 4),
+        tech,
       } }));
       setGlDeepLoad(false);
     }).catch(() => setGlDeepLoad(false));
@@ -6553,6 +6573,36 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
         ];
         return (
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+            {/* ── TECHNICALS (RSI / MACD / EMA / momentum) ── */}
+            {(() => {
+              const t = glDeep[r.symbol]?.tech;
+              const mom = (() => { try { return computeScores(r.q || {}).composite; } catch { return null; } })();
+              const rsiV = t?.rsi != null ? t.rsi : (r.rsi || null);
+              const rsiCol = rsiV == null ? C.textDim : rsiV < 35 ? C.green : rsiV > 65 ? C.red : C.text;
+              const vsCol = (above) => above ? C.green : C.red;
+              const techCells = [
+                ["RSI (14)", rsiV != null ? `${rsiV} ${rsiV < 35 ? "(oversold)" : rsiV > 65 ? "(overbought)" : "(neutral)"}` : (glDeepLoad ? "…" : "—"), rsiCol],
+                ["MACD", t ? (t.macdBull ? "Bullish ▲" : "Bearish ▼") : (glDeepLoad ? "…" : "—"), t ? (t.macdBull ? C.green : C.red) : C.textDim],
+                ["EMA 9 / 21", t ? (t.ema9 >= t.ema21 ? "9 > 21 ▲" : "9 < 21 ▼") : (glDeepLoad ? "…" : "—"), t ? vsCol(t.ema9 >= t.ema21) : C.textDim],
+                ["vs EMA21", t ? `$${t.ema21.toFixed(2)} ${t.px >= t.ema21 ? "above" : "below"}` : (glDeepLoad ? "…" : "—"), t ? vsCol(t.px >= t.ema21) : C.textDim],
+                ["vs MA50", t ? `$${t.ma50.toFixed(2)} ${t.px >= t.ma50 ? "above" : "below"}` : (glDeepLoad ? "…" : "—"), t ? vsCol(t.px >= t.ma50) : C.textDim],
+                ["vs MA200", t ? `$${t.ma200.toFixed(2)} ${t.px >= t.ma200 ? "above" : "below"}` : (glDeepLoad ? "…" : "—"), t ? vsCol(t.px >= t.ma200) : C.textDim],
+                ["Momentum", mom != null ? `${mom}/100` : "—", mom == null ? C.textDim : mom >= 60 ? C.green : mom <= 40 ? C.red : C.amber],
+              ];
+              return (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: "#0ea5e9", letterSpacing: "0.06em", marginBottom: 8 }}>⚡ TECHNICALS</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "6px 20px" }}>
+                    {techCells.map(([l, v, col]) => (
+                      <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", borderBottom: `1px solid ${C.border}22` }}>
+                        <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
             {/* 5-check recap with reasons */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
               {r.checks.map((c, i) => (
