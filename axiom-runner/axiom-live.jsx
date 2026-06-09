@@ -2399,6 +2399,54 @@ function CryptoLiqWidget({ C, MONO, SANS }) {
   );
 }
 
+function SpyVolumeWidget({ C, MONO, SANS, macroData }) {
+  const spy = (macroData || []).find(q => q.symbol === "SPY") || null;
+  const [opt, setOpt] = React.useState(null);
+  React.useEffect(() => {
+    const load = () => {
+      fetch("/api/yahoo/options?symbol=SPY").then(r => r.json()).then(d => {
+        if (!d) return;
+        const calls = d.calls || [], puts = d.puts || [];
+        const cv = calls.reduce((s, c) => s + (Number(c.volume) || 0), 0);
+        const pv = puts.reduce((s, c) => s + (Number(c.volume) || 0), 0);
+        const coi = calls.reduce((s, c) => s + (Number(c.openInterest) || 0), 0);
+        const poi = puts.reduce((s, c) => s + (Number(c.openInterest) || 0), 0);
+        setOpt({ cv, pv, pcr: cv > 0 ? pv / cv : null, coi, poi });
+      }).catch(() => {});
+    };
+    load();
+    const t = setInterval(load, 120000);
+    return () => clearInterval(t);
+  }, []);
+  const fmt = v => v >= 1e9 ? `${(v/1e9).toFixed(2)}B` : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : (v || "—");
+  const vol = Number(spy?.volume || 0), avgVol = Number(spy?.avgVolume || 0);
+  const rvol = avgVol > 0 ? vol / avgVol : 0;
+  const pcr = opt?.pcr;
+  const pcrCol = pcr == null ? C.textDim : pcr > 1.1 ? C.red : pcr < 0.7 ? C.green : C.amber;
+  const pcrNote = pcr == null ? "" : pcr > 1.1 ? "bearish (puts heavy)" : pcr < 0.7 ? "bullish (calls heavy)" : "balanced";
+  const cell = (label, value, col) => (
+    <div style={{ textAlign: "center", flex: 1, minWidth: 78 }}>
+      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: col || C.text }}>{value}</div>
+    </div>
+  );
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 10 }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>
+        📊 SPY VOLUME + OPTIONS {spy?.price ? <span style={{ color: C.text }}>· ${Number(spy.price).toFixed(2)} <span style={{ color: Number(spy.changesPercentage) >= 0 ? C.green : C.red }}>{Number(spy.changesPercentage) >= 0 ? "+" : ""}{Number(spy.changesPercentage || 0).toFixed(2)}%</span></span> : null}
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {cell("VOLUME", fmt(vol), C.text)}
+        {cell("RVOL", rvol > 0 ? `${rvol.toFixed(2)}x` : "—", rvol > 1.2 ? C.amber : C.text)}
+        {cell("CALL VOL", opt ? fmt(opt.cv) : "…", C.green)}
+        {cell("PUT VOL", opt ? fmt(opt.pv) : "…", C.red)}
+        {cell("PUT/CALL", pcr != null ? pcr.toFixed(2) : "…", pcrCol)}
+      </div>
+      {pcr != null && <div style={{ fontFamily: SANS, fontSize: 10, color: pcrCol, marginTop: 6, textAlign: "center" }}>P/C {pcr.toFixed(2)} — {pcrNote}</div>}
+    </div>
+  );
+}
+
 function RegimeNewsPanel({ C, MONO, SANS }) {
   const [items, setItems] = React.useState([]);
   const [ts, setTs] = React.useState(null);
@@ -17892,6 +17940,9 @@ export default function App() {
 
             {/* ── PRAYER TIMES (Makkah / Medinah) ── */}
             <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
+
+            {/* ── SPY VOLUME + OPTIONS ── */}
+            <SpyVolumeWidget C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
 
             {/* ── CRYPTO LIQUIDATIONS ── */}
             <CryptoLiqWidget C={C} MONO={MONO} SANS={SANS} />
