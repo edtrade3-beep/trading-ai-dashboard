@@ -5741,7 +5741,9 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       localStorage.setItem("axiom_autopilot_lastcheck", String(Date.now()));
       window.dispatchEvent(new Event("autopilot-tick"));
       const threshold = Number(localStorage.getItem("axiom_autopilot_min")) || 4;
-      const optionsMode = localStorage.getItem("axiom_autopilot_options") === "on";
+      const instr = localStorage.getItem("axiom_autopilot_options") || "off";  // off=shares | on=options | both
+      const doShares  = instr !== "on";                 // shares-only or both
+      const doOptions = instr === "on" || instr === "both";
       const broker = localStorage.getItem("axiom_autopilot_broker") || "sim";  // sim | alpaca
       const acct = Number(localStorage.getItem("axiom_acct_size")) || 10000;
       const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
@@ -5753,40 +5755,48 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
         const gl = computeGreenLight(q, spyChg, scanRow);
         if (!(gl.px > 0)) return;
         const bullish = gl.signal === "GREEN" && gl.passed >= threshold;
-        const bearish = optionsMode && gl.signal === "RED" && gl.chg < -1;  // puts: only in options mode, clear downside
-        if (!bullish && !bearish) return;
-        const key = `${today}:${q.symbol}:${bullish ? "C" : "P"}:${broker}`;
-        if (autoBoughtRef.current.has(key)) return;
+        const bearishPut = gl.signal === "RED" && gl.chg < -1;  // clear downside → put candidate
 
-        // ── ALPACA paper OPTIONS (real near-dated ATM contract) ──
-        if (broker === "alpaca" && optionsMode) {
-          autoBoughtRef.current.add(key);
-          alpacaOption(q.symbol, bullish ? "call" : "put", 1, gl.px).then(rr => {
-            if (rr?.ok) logTradeNote("buy", `${bullish ? "📈" : "📉"} ALPACA ${bullish ? "CALL" : "PUT"} — ${q.symbol} (${gl.passed}/5)\n1 contract · strike $${rr.order.strike} · exp ${rr.order.expiry}`);
-            else autoBoughtRef.current.delete(key);
-          });
-          return;
-        }
-        // ── ALPACA paper (real broker API, server-side) — shares only, long only ──
-        if (broker === "alpaca" && bullish && !optionsMode) {
-          const entry = gl.bestEntry || gl.px;
-          const atr = Math.min(0.05, Math.max(0.01, Number(gl.atrPct) || 0.025));
-          const stop = +(entry * (1 - atr * 1.5)).toFixed(2);
-          const take = +(entry * (1 + atr * 3)).toFixed(2);   // T2-style bracket target
-          const riskPerShare = Math.max(0.01, entry - stop);
-          const qty = Math.max(1, Math.min(Math.floor((acct * (riskPct / 100)) / riskPerShare), Math.floor(acct / entry)));
-          autoBoughtRef.current.add(key);  // mark immediately to avoid double-fire
-          alpacaPlace(q.symbol, qty, stop, take).then(r => {
-            if (r?.ok) logTradeNote("buy", `🟢 ALPACA BUY — ${q.symbol} (${gl.passed}/5)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${take}`);
-            else { autoBoughtRef.current.delete(key); }  // allow retry if it failed
-          });
-          return;
+        // ── SHARES (long only, bullish) ──
+        if (doShares && bullish) {
+          const key = `${today}:${q.symbol}:S:${broker}`;
+          if (!autoBoughtRef.current.has(key)) {
+            if (broker === "alpaca") {
+              const entry = gl.bestEntry || gl.px;
+              const atr = Math.min(0.05, Math.max(0.01, Number(gl.atrPct) || 0.025));
+              const stop = +(entry * (1 - atr * 1.5)).toFixed(2);
+              const take = +(entry * (1 + atr * 3)).toFixed(2);
+              const riskPerShare = Math.max(0.01, entry - stop);
+              const qty = Math.max(1, Math.min(Math.floor((acct * (riskPct / 100)) / riskPerShare), Math.floor(acct / entry)));
+              autoBoughtRef.current.add(key);
+              alpacaPlace(q.symbol, qty, stop, take).then(r => {
+                if (r?.ok) logTradeNote("buy", `🟢 ALPACA BUY — ${q.symbol} (${gl.passed}/5)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${take}`);
+                else autoBoughtRef.current.delete(key);
+              });
+            } else {
+              const res = addPaperTrade(q.symbol, gl.bestEntry || gl.px, { atrPct: gl.atrPct, glScore: gl.passed });
+              if (res === "OK" || res === "DUP") autoBoughtRef.current.add(key);
+            }
+          }
         }
 
-        let res;
-        if (optionsMode) res = addPaperOption(q.symbol, gl.px, bullish ? "CALL" : "PUT", { glScore: gl.passed });
-        else             res = addPaperTrade(q.symbol, gl.bestEntry || gl.px, { atrPct: gl.atrPct, glScore: gl.passed });
-        if (res === "OK" || res === "DUP") autoBoughtRef.current.add(key);
+        // ── OPTIONS (call on bullish, put on clear bearish) ──
+        if (doOptions && (bullish || bearishPut)) {
+          const kind = bullish ? "CALL" : "PUT";
+          const key = `${today}:${q.symbol}:${bullish ? "C" : "P"}:${broker}`;
+          if (!autoBoughtRef.current.has(key)) {
+            if (broker === "alpaca") {
+              autoBoughtRef.current.add(key);
+              alpacaOption(q.symbol, kind.toLowerCase(), 1, gl.px).then(rr => {
+                if (rr?.ok) logTradeNote("buy", `${bullish ? "📈" : "📉"} ALPACA ${kind} — ${q.symbol} (${gl.passed}/5)\n1 contract · strike $${rr.order.strike} · exp ${rr.order.expiry}`);
+                else autoBoughtRef.current.delete(key);
+              });
+            } else {
+              const res = addPaperOption(q.symbol, gl.px, kind, { glScore: gl.passed });
+              if (res === "OK" || res === "DUP") autoBoughtRef.current.add(key);
+            }
+          }
+        }
       });
     };
     tick();
@@ -6466,7 +6476,7 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [autoPilot, setAutoPilot] = useState(() => localStorage.getItem("axiom_autopilot") === "on");
   const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 4);
   const [atrMode, setAtrMode] = useState(() => localStorage.getItem("axiom_autopilot_atr") !== "off");
-  const [optionsMode, setOptionsMode] = useState(() => localStorage.getItem("axiom_autopilot_options") === "on");
+  const [instrMode, setInstrMode] = useState(() => localStorage.getItem("axiom_autopilot_options") || "off"); // off=shares | on=options | both
   const [trailMode, setTrailMode] = useState(() => localStorage.getItem("axiom_autopilot_trail") !== "off");
   const [exitMode, setExitMode] = useState(() => localStorage.getItem("axiom_autopilot_exit") || "trend");
   const [broker, setBroker] = useState(() => localStorage.getItem("axiom_autopilot_broker") || "sim");
@@ -6491,9 +6501,12 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
             AUTO-PILOT {autoPilot ? "ON" : "OFF"} <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>· PAPER ONLY</span>
           </div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-            {autoPilot ? (optionsMode
-                ? `Auto-buys SIMULATED options — CALLs on bullish ${autoThreshold}/5 setups, PUTs on clearly bearish ones (~5x leverage). Auto-exits at +50/100/150% or −50% stop. ⚠️ Higher risk, model-priced — for learning.`
-                : `Auto-buys any stock that hits ${autoThreshold}/5, then auto-exits at T1/T2/T3 or stop using ${atrMode ? "ATR (volatility-sized)" : "fixed %"} levels. Runs in the background on every tab — fully hands-off.`)
+            {autoPilot ? (
+                instrMode === "on"
+                ? `Auto-buys OPTIONS — CALLs on bullish ${autoThreshold}/5 setups, PUTs on clearly bearish ones${broker === "alpaca" ? " (real Alpaca paper contracts)" : " (~5x simulated)"}. ⚠️ Higher risk.`
+                : instrMode === "both"
+                ? `Auto-buys BOTH shares AND an option on every bullish ${autoThreshold}/5 setup${broker === "alpaca" ? " (Alpaca paper)" : ""}. Puts on clear bearish. Runs in the background, fully hands-off.`
+                : `Auto-buys shares on any ${autoThreshold}/5 setup, auto-exits via ${atrMode ? "ATR" : "fixed %"} levels${broker === "alpaca" ? " through Alpaca paper" : ""}. Runs in the background on every tab.`)
                        : "Turn on to let the system auto-buy + auto-exit setups in paper mode. Keeps running on every tab, 100% hands-free."}
           </div>
           {autoPilot && (
@@ -6564,13 +6577,13 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
             </button>
           ))}
         </div>
-        {/* Instrument: shares vs simulated options */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="SHARES = paper-buy stock. OPTIONS = simulated CALLs on bullish setups / PUTs on bearish, ~5x leverage. Options are higher-risk and priced by a simple model — for learning.">
+        {/* Instrument: shares, options, or both */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="SHARES = buy stock. OPTIONS = CALLs on bullish / PUTs on bearish. BOTH = buy shares AND an option on every bullish setup.">
           <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>TRADE:</span>
-          {[["SHARES", false], ["OPTIONS", true]].map(([lbl, on]) => (
-            <button key={lbl} onClick={() => { setOptionsMode(on); localStorage.setItem("axiom_autopilot_options", on ? "on" : "off"); }}
-              style={{ background: optionsMode === on ? (on ? "#e0982f" : "#7c3aed") : C.surface, color: optionsMode === on ? "#fff" : C.textSec,
-                border: `1px solid ${optionsMode === on ? (on ? "#e0982f" : "#7c3aed") : C.border}`, borderRadius: 6,
+          {[["SHARES", "off"], ["OPTIONS", "on"], ["BOTH", "both"]].map(([lbl, val]) => (
+            <button key={val} onClick={() => { setInstrMode(val); localStorage.setItem("axiom_autopilot_options", val); }}
+              style={{ background: instrMode === val ? (val === "off" ? "#7c3aed" : "#e0982f") : C.surface, color: instrMode === val ? "#fff" : C.textSec,
+                border: `1px solid ${instrMode === val ? (val === "off" ? "#7c3aed" : "#e0982f") : C.border}`, borderRadius: 6,
                 fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
               {lbl}
             </button>
