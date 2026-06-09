@@ -2406,12 +2406,11 @@ function SpyVolumeWidget({ C, MONO, SANS, macroData }) {
     const load = () => {
       fetch("/api/yahoo/options?symbol=SPY").then(r => r.json()).then(d => {
         if (!d) return;
-        const calls = d.calls || [], puts = d.puts || [];
-        const cv = calls.reduce((s, c) => s + (Number(c.volume) || 0), 0);
-        const pv = puts.reduce((s, c) => s + (Number(c.volume) || 0), 0);
-        const coi = calls.reduce((s, c) => s + (Number(c.openInterest) || 0), 0);
-        const poi = puts.reduce((s, c) => s + (Number(c.openInterest) || 0), 0);
-        setOpt({ cv, pv, pcr: cv > 0 ? pv / cv : null, coi, poi });
+        const rows = d.flowRows || [];
+        const cv = rows.filter(x => x.side === "CALL").reduce((s, x) => s + (Number(x.volume) || 0), 0);
+        const pv = rows.filter(x => x.side === "PUT").reduce((s, x) => s + (Number(x.volume) || 0), 0);
+        const cpr = Number(d.callPutRatio) || null;   // notional-based call/put ratio from the chain
+        setOpt({ cv, pv, cpr, pcr: cpr ? 1 / cpr : null });
       }).catch(() => {});
     };
     load();
@@ -2422,7 +2421,7 @@ function SpyVolumeWidget({ C, MONO, SANS, macroData }) {
   const vol = Number(spy?.volume || 0), avgVol = Number(spy?.avgVolume || 0);
   const rvol = avgVol > 0 ? vol / avgVol : 0;
   const pcr = opt?.pcr;
-  const cpr = opt && opt.pv > 0 ? opt.cv / opt.pv : null;   // call/put ratio (inverse of P/C)
+  const cpr = opt?.cpr;   // call/put ratio (notional-based, from chain)
   const pcrCol = pcr == null ? C.textDim : pcr > 1.1 ? C.red : pcr < 0.7 ? C.green : C.amber;
   const cprCol = cpr == null ? C.textDim : cpr > 1.4 ? C.green : cpr < 0.9 ? C.red : C.amber;
   const pcrNote = pcr == null ? "" : pcr > 1.1 ? "bearish (puts heavy)" : pcr < 0.7 ? "bullish (calls heavy)" : "balanced";
