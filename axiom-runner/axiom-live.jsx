@@ -2404,13 +2404,15 @@ function SpyVolumeWidget({ C, MONO, SANS, macroData }) {
   const [opt, setOpt] = React.useState(null);
   React.useEffect(() => {
     const load = () => {
-      fetch("/api/yahoo/options?symbol=SPY").then(r => r.json()).then(d => {
-        if (!d) return;
-        const rows = d.flowRows || [];
+      fetch("/api/market/options-flow?symbols=SPY").then(r => r.json()).then(d => {
+        const sym = d?.bySymbol?.[0];
+        if (!sym) return;
+        const rows = sym.topContracts || [];
         const cv = rows.filter(x => x.side === "CALL").reduce((s, x) => s + (Number(x.volume) || 0), 0);
         const pv = rows.filter(x => x.side === "PUT").reduce((s, x) => s + (Number(x.volume) || 0), 0);
-        const cpr = Number(d.callPutRatio) || null;   // notional-based call/put ratio from the chain
-        setOpt({ cv, pv, cpr, pcr: cpr ? 1 / cpr : null });
+        let cpr = Number(sym.callPutRatio) || null;   // call/put ratio
+        if (!cpr && d.summary?.putNotional > 0) cpr = d.summary.callNotional / d.summary.putNotional;
+        setOpt({ cv, pv, cpr, pcr: cpr ? 1 / cpr : null, est: String(d.source || "").includes("estimated") });
       }).catch(() => {});
     };
     load();
@@ -2434,7 +2436,7 @@ function SpyVolumeWidget({ C, MONO, SANS, macroData }) {
   return (
     <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 10 }}>
       <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>
-        📊 SPY VOLUME + OPTIONS {spy?.price ? <span style={{ color: C.text }}>· ${Number(spy.price).toFixed(2)} <span style={{ color: Number(spy.changesPercentage) >= 0 ? C.green : C.red }}>{Number(spy.changesPercentage) >= 0 ? "+" : ""}{Number(spy.changesPercentage || 0).toFixed(2)}%</span></span> : null}
+        📊 SPY VOLUME + OPTIONS {spy?.price ? <span style={{ color: C.text }}>· ${Number(spy.price).toFixed(2)} <span style={{ color: Number(spy.changesPercentage) >= 0 ? C.green : C.red }}>{Number(spy.changesPercentage) >= 0 ? "+" : ""}{Number(spy.changesPercentage || 0).toFixed(2)}%</span></span> : null}{opt?.est ? <span style={{ color: C.textDim, fontWeight: 400 }}> · options est.</span> : null}
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {cell("VOLUME", fmt(vol), C.text)}
