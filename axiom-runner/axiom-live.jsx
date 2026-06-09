@@ -6382,16 +6382,10 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
             ⚡ PAPER BUY
           </button>
           <button onClick={() => setGlExpanded(glExpanded === r.symbol ? null : r.symbol)}
-            style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textSec,
-              borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700,
-              padding: "6px 12px", cursor: "pointer" }}>
-            {glExpanded === r.symbol ? "▲ LESS" : "▼ DETAILS"}
-          </button>
-          <button onClick={() => openDive(r.symbol)}
             style={{ background: `${C.accent}15`, border: `1px solid ${C.accent}44`, color: C.accent,
               borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700,
               padding: "6px 12px", cursor: "pointer" }}>
-            DEEP DIVE
+            {glExpanded === r.symbol ? "▲ CLOSE" : "🔬 DEEP DIVE"}
           </button>
         </div>
       </div>
@@ -6422,14 +6416,32 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
           ["Day Range", q.dayLow && q.dayHigh ? `$${Number(q.dayLow).toFixed(2)} – $${Number(q.dayHigh).toFixed(2)}` : "—"],
         ];
         return (
-          <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}`,
-            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "6px 20px" }}>
-            {stats.map(([l, v]) => (
-              <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", borderBottom: `1px solid ${C.border}22` }}>
-                <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
-                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: C.text, textAlign: "right" }}>{v}</span>
-              </div>
-            ))}
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+            {/* 5-check recap with reasons */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+              {r.checks.map((c, i) => (
+                <span key={i} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: c.pass ? C.green : C.red,
+                  background: c.pass ? `${C.green}12` : `${C.red}10`, border: `1px solid ${c.pass ? C.green : C.red}33`,
+                  borderRadius: 4, padding: "2px 8px" }} title={c.tip}>{c.pass ? "✓" : "✗"} {c.label} · {c.tip}</span>
+              ))}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "6px 20px" }}>
+              {stats.map(([l, v]) => (
+                <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", borderBottom: `1px solid ${C.border}22` }}>
+                  <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: C.text, textAlign: "right" }}>{v}</span>
+                </div>
+              ))}
+            </div>
+            {/* Entry plan + chart link */}
+            <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>🎯 Entry ${r.bestEntry} · 🛑 Stop ${r.stop} · 🎯 T1 ${r.t1} / T2 ${r.t2}</span>
+              <a href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(r.symbol)}`} target="_blank" rel="noopener"
+                style={{ marginLeft: "auto", background: `${C.accent}15`, border: `1px solid ${C.accent}44`, color: C.accent,
+                  borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 12px", textDecoration: "none" }}>
+                📺 OPEN CHART
+              </a>
+            </div>
           </div>
         );
       })()}
