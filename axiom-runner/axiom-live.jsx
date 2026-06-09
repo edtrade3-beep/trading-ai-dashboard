@@ -6311,6 +6311,37 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const spyQ   = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
   const spyChg = Number(spyQ?.changesPercentage || 0);
   const [glExpanded, setGlExpanded] = useState(null); // ticker whose details are shown
+  // Deep-dive data (analyst targets, fundamentals, news) — same sources as Smart Scan
+  const [glDeep, setGlDeep] = useState({});
+  const [glDeepLoad, setGlDeepLoad] = useState(false);
+  useEffect(() => {
+    const sym = glExpanded;
+    if (!sym || glDeep[sym]) return;
+    setGlDeepLoad(true);
+    Promise.allSettled([
+      fetch(`/api/finviz/quote?symbol=${sym}`).then(r => r.json()),
+      fetch(`/api/yahoo/fundamentals?symbol=${sym}`).then(r => r.json()),
+      fetch(`/api/yahoo/news?tickers=${sym}&limit=4`).then(r => r.json()),
+    ]).then(([fvR, fundR, newsR]) => {
+      const raw  = (fvR.status === "fulfilled" ? fvR.value?.raw : null) || {};
+      const fund = fundR.status === "fulfilled" ? fundR.value : null;
+      const nv   = newsR.status === "fulfilled" ? newsR.value : null;
+      const news = Array.isArray(nv) ? nv : (nv?.news || nv?.items || nv?.articles || []);
+      const recomNum = parseFloat(raw["Recom"] || "") || null;
+      const recomTxt = recomNum == null ? null : recomNum <= 1.5 ? "Strong Buy" : recomNum <= 2.5 ? "Buy" : recomNum <= 3.5 ? "Hold" : recomNum <= 4.5 ? "Sell" : "Strong Sell";
+      setGlDeep(prev => ({ ...prev, [sym]: {
+        target: parseFloat((raw["Target Price"] || "").replace(/[^0-9.]/g, "")) || null,
+        recomTxt, recomNum,
+        shortFloat: raw["Short Float"] || null,
+        instOwn: raw["Inst Own"] || null,
+        roe: fund?.roe != null ? Number(fund.roe) : null,
+        de: fund?.debtToEquity != null ? Number(fund.debtToEquity) : null,
+        earnings: fund?.earningsDate || null,
+        news: (news || []).slice(0, 4),
+      } }));
+      setGlDeepLoad(false);
+    }).catch(() => setGlDeepLoad(false));
+  }, [glExpanded]);
 
   // Build results from watchlist + scan data
   const results = (watchlistData || []).map(q => {
@@ -6474,6 +6505,45 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
                 </div>
               ))}
             </div>
+            {/* Analyst · Fundamentals (same sources as Smart Scan) */}
+            {(() => {
+              const d = glDeep[r.symbol];
+              const recCol = d?.recomNum == null ? C.textDim : d.recomNum <= 2.5 ? C.green : d.recomNum <= 3.5 ? C.amber : C.red;
+              const upside = d?.target && r.px > 0 ? ((d.target - r.px) / r.px * 100) : null;
+              const cells = [
+                ["Analyst rating", d?.recomTxt || (glDeepLoad ? "…" : "—"), recCol],
+                ["Price target", d?.target ? `$${d.target.toFixed(2)}${upside != null ? `  (${upside >= 0 ? "+" : ""}${upside.toFixed(0)}%)` : ""}` : (glDeepLoad ? "…" : "—"), upside != null ? (upside >= 0 ? C.green : C.red) : C.text],
+                ["Short float", d?.shortFloat || (glDeepLoad ? "…" : "—"), C.text],
+                ["Inst. ownership", d?.instOwn || (glDeepLoad ? "…" : "—"), C.text],
+                ["Return on equity", d?.roe != null ? `${(d.roe * 100).toFixed(1)}%` : (glDeepLoad ? "…" : "—"), C.text],
+                ["Debt / equity", d?.de != null && d.de >= 0 ? d.de.toFixed(2) : (glDeepLoad ? "…" : "—"), C.text],
+                ["Earnings date", d?.earnings ? (() => { try { return new Date(d.earnings).toLocaleDateString("en-US", { month: "short", day: "numeric" }); } catch { return "—"; } })() : (glDeepLoad ? "…" : "—"), C.amber],
+              ];
+              return (
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, letterSpacing: "0.06em", marginBottom: 8 }}>📊 ANALYST · FUNDAMENTALS</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "6px 20px" }}>
+                    {cells.map(([l, v, col]) => (
+                      <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", borderBottom: `1px solid ${C.border}22` }}>
+                        <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {d?.news?.length > 0 && (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.purple, letterSpacing: "0.06em", marginBottom: 6 }}>📰 RECENT NEWS</div>
+                      {d.news.map((n, i) => (
+                        <a key={i} href={n.url || n.link || "#"} target="_blank" rel="noopener"
+                          style={{ display: "block", fontFamily: SANS, fontSize: 12, color: C.textSec, textDecoration: "none", padding: "3px 0", borderBottom: `1px solid ${C.border}22` }}>
+                          • {n.title || n.headline || "—"}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {/* Entry plan + chart link */}
             <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
               <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>🎯 Entry ${r.bestEntry} · 🛑 Stop ${r.stop} · 🎯 T1 ${r.t1} / T2 ${r.t2}</span>
