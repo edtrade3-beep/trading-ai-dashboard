@@ -5787,6 +5787,18 @@ async function alpacaOption(underlying, type, qty, underlyingPx) {
 //    trades on EVERY tab (not just Green Light). Fully hands-off when autopilot ON.
 function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
   const autoBoughtRef = useRef(new Set());
+  const alpacaPosRef = useRef(0);
+
+  // Keep a live count of Alpaca open positions (for the max-positions cap)
+  useEffect(() => {
+    const poll = () => {
+      if (localStorage.getItem("axiom_autopilot_broker") !== "alpaca") return;
+      fetch("/api/alpaca/positions").then(r => r.json()).then(d => { if (d?.ok) alpacaPosRef.current = (d.positions || []).length; }).catch(() => {});
+    };
+    poll();
+    const t = setInterval(poll, 30000);
+    return () => clearInterval(t);
+  }, []);
 
   // AUTO-BUY: every 15s, paper-buy any stock that hits the GREEN threshold (once/day each)
   useEffect(() => {
@@ -5801,15 +5813,37 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       const broker = localStorage.getItem("axiom_autopilot_broker") || "sim";  // sim | alpaca
       const acct = Number(localStorage.getItem("axiom_acct_size")) || 10000;
       const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
+      const maxPos = Number(localStorage.getItem("axiom_autopilot_maxpos")) || 12;  // cap concurrent positions
       const spyQ = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
       const spyChg = Number(spyQ?.changesPercentage || 0);
       const today = new Date().toISOString().slice(0, 10);
+
+      // Rank all qualifying setups by quality; only take the BEST up to the cap.
+      const candidates = [];
       (watchlistData || []).forEach(q => {
         const scanRow = (scanResults || []).find(r => r.ticker === q.symbol);
         const gl = computeGreenLight(q, spyChg, scanRow);
         if (!(gl.px > 0)) return;
         const bullish = gl.signal === "GREEN" && gl.passed >= threshold;
-        const bearishPut = gl.signal === "RED" && gl.chg < -1;  // clear downside → put candidate
+        const bearishPut = gl.signal === "RED" && gl.chg < -1;
+        if (!bullish && !bearishPut) return;
+        // quality: checks passed dominate, then relative strength + leadership
+        const quality = gl.passed * 10 + (Number(gl.relStrength) || 0) + (gl.isLeader ? 5 : 0);
+        candidates.push({ q, gl, bullish, bearishPut, quality });
+      });
+      candidates.sort((a, b) => b.quality - a.quality);
+
+      // How many slots are free (cap minus what's already open)
+      let openCount = 0;
+      if (broker === "sim") {
+        try { openCount = (JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []).filter(t => t.status === "OPEN" && t.mode === "PAPER").length; } catch {}
+      } else {
+        openCount = alpacaPosRef.current || 0;  // updated by the Alpaca positions loop
+      }
+      let slots = Math.max(0, maxPos - openCount);
+
+      candidates.forEach(({ q, gl, bullish, bearishPut }) => {
+        if (slots <= 0) return;  // cap reached — skip the rest (lower-ranked setups)
 
         // ── SHARES (long only, bullish) ──
         if (doShares && bullish) {
@@ -5822,17 +5856,20 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
               const take = +(entry * (1 + atr * 3)).toFixed(2);
               const riskPerShare = Math.max(0.01, entry - stop);
               const qty = Math.max(1, Math.min(Math.floor((acct * (riskPct / 100)) / riskPerShare), Math.floor(acct / entry)));
-              autoBoughtRef.current.add(key);
+              autoBoughtRef.current.add(key); slots--;
               alpacaPlace(q.symbol, qty, stop, take).then(r => {
                 if (r?.ok) logTradeNote("buy", `🟢 ALPACA BUY — ${q.symbol} (${gl.passed}/5)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${take}`);
-                else autoBoughtRef.current.delete(key);
+                else { autoBoughtRef.current.delete(key); }
               });
             } else {
               const res = addPaperTrade(q.symbol, gl.bestEntry || gl.px, { atrPct: gl.atrPct, glScore: gl.passed });
-              if (res === "OK" || res === "DUP") autoBoughtRef.current.add(key);
+              if (res === "OK") { autoBoughtRef.current.add(key); slots--; }
+              else if (res === "DUP") autoBoughtRef.current.add(key);
             }
           }
         }
+
+        if (slots <= 0) return;
 
         // ── OPTIONS (call on bullish, put on clear bearish) ──
         if (doOptions && (bullish || bearishPut)) {
@@ -5840,14 +5877,15 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
           const key = `${today}:${q.symbol}:${bullish ? "C" : "P"}:${broker}`;
           if (!autoBoughtRef.current.has(key)) {
             if (broker === "alpaca") {
-              autoBoughtRef.current.add(key);
+              autoBoughtRef.current.add(key); slots--;
               alpacaOption(q.symbol, kind.toLowerCase(), 1, gl.px).then(rr => {
                 if (rr?.ok) logTradeNote("buy", `${bullish ? "📈" : "📉"} ALPACA ${kind} — ${q.symbol} (${gl.passed}/5)\n1 contract · strike $${rr.order.strike} · exp ${rr.order.expiry}`);
-                else autoBoughtRef.current.delete(key);
+                else { autoBoughtRef.current.delete(key); }
               });
             } else {
               const res = addPaperOption(q.symbol, gl.px, kind, { glScore: gl.passed });
-              if (res === "OK" || res === "DUP") autoBoughtRef.current.add(key);
+              if (res === "OK") { autoBoughtRef.current.add(key); slots--; }
+              else if (res === "DUP") autoBoughtRef.current.add(key);
             }
           }
         }
@@ -6534,6 +6572,7 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [trailMode, setTrailMode] = useState(() => localStorage.getItem("axiom_autopilot_trail") !== "off");
   const [exitMode, setExitMode] = useState(() => localStorage.getItem("axiom_autopilot_exit") || "trend");
   const [broker, setBroker] = useState(() => localStorage.getItem("axiom_autopilot_broker") || "sim");
+  const [maxPos, setMaxPos] = useState(() => Number(localStorage.getItem("axiom_autopilot_maxpos")) || 12);
   const [lastCheck, setLastCheck] = useState(() => Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
   useEffect(() => {
     const onTick = () => setLastCheck(Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
@@ -6616,6 +6655,18 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
                 border: `1px solid ${exitMode === val ? "#7c3aed" : C.border}`, borderRadius: 6,
                 fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
               {lbl}
+            </button>
+          ))}
+        </div>
+        {/* Max open positions — only take the best-ranked setups */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="Caps how many positions the auto-pilot holds at once. It ranks every qualifying setup by quality (checks passed + relative strength + leadership) and only takes the BEST up to this number.">
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>MAX:</span>
+          {[10, 12, 15].map(n => (
+            <button key={n} onClick={() => { setMaxPos(n); localStorage.setItem("axiom_autopilot_maxpos", n); }}
+              style={{ background: maxPos === n ? "#7c3aed" : C.surface, color: maxPos === n ? "#fff" : C.textSec,
+                border: `1px solid ${maxPos === n ? "#7c3aed" : C.border}`, borderRadius: 6,
+                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
+              {n}
             </button>
           ))}
         </div>
