@@ -6727,7 +6727,8 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
       fetch(`/api/yahoo/fundamentals?symbol=${sym}`).then(r => r.json()),
       fetch(`/api/yahoo/news?tickers=${sym}&limit=4`).then(r => r.json()),
       fetch(`/api/market/chart?symbol=${sym}&interval=1d&range=90d`).then(r => r.json()),
-    ]).then(([fvR, fundR, newsR, chartR]) => {
+      fetch(`/api/market/chart?symbol=${sym}&interval=5m&range=1d`).then(r => r.json()),
+    ]).then(([fvR, fundR, newsR, chartR, intraR]) => {
       const raw  = (fvR.status === "fulfilled" ? fvR.value?.raw : null) || {};
       const fund = fundR.status === "fulfilled" ? fundR.value : null;
       const nv   = newsR.status === "fulfilled" ? newsR.value : null;
@@ -6746,7 +6747,20 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
           for (let i = closes.length - rl; i < closes.length; i++) { const d = closes[i] - closes[i - 1]; d > 0 ? gains += d : losses += Math.abs(d); }
           const rsi = losses === 0 ? 100 : Math.round(100 - 100 / (1 + (gains / rl) / (losses / rl)));
           const macd = ema12 - ema26;
-          tech = { px, rsi, ema9, ema21, ma50, ma200, macdBull: macd >= 0, macd };
+          // VWAP from today's intraday 5-min bars (typical price × volume)
+          let vwap = null;
+          try {
+            const iq = intraR.status === "fulfilled" ? intraR.value?.chart?.result?.[0]?.indicators?.quote?.[0] : null;
+            if (iq) {
+              const hi = iq.high || [], lo = iq.low || [], cl = iq.close || [], vol = iq.volume || [];
+              let pv = 0, vv = 0;
+              for (let i = 0; i < cl.length; i++) {
+                if (cl[i] > 0 && vol[i] > 0) { const tp = (hi[i] + lo[i] + cl[i]) / 3; pv += tp * vol[i]; vv += vol[i]; }
+              }
+              if (vv > 0) vwap = pv / vv;
+            }
+          } catch {}
+          tech = { px, rsi, ema9, ema21, ma50, ma200, macdBull: macd >= 0, macd, vwap };
         }
       } catch {}
       const news = Array.isArray(nv) ? nv : (nv?.news || nv?.items || nv?.articles || []);
@@ -6995,6 +7009,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
                 <Row l="vs EMA21" v={t ? `$${t.ema21.toFixed(2)} ${t.px >= t.ema21 ? "above" : "below"}` : ld} col={t ? vsCol(t.px >= t.ema21) : C.textDim} />
                 <Row l="vs MA50" v={t ? `$${t.ma50.toFixed(2)} ${t.px >= t.ma50 ? "above" : "below"}` : ld} col={t ? vsCol(t.px >= t.ma50) : C.textDim} />
                 <Row l="vs MA200" v={t ? `$${t.ma200.toFixed(2)} ${t.px >= t.ma200 ? "above" : "below"}` : ld} col={t ? vsCol(t.px >= t.ma200) : C.textDim} />
+                <Row l="vs VWAP" v={t?.vwap ? `$${t.vwap.toFixed(2)} ${t.px >= t.vwap ? "above ✓" : "below"}` : (glDeepLoad ? "…" : "—")} col={t?.vwap ? vsCol(t.px >= t.vwap) : C.textDim} />
                 <Row l="Momentum" v={mom != null ? `${mom}/100` : "—"} col={mom == null ? C.textDim : mom >= 60 ? C.green : mom <= 40 ? C.red : C.amber} />
                 <Row l="Rel volume" v={r.rvol > 0 ? `${r.rvol.toFixed(2)}x ${r.rvol > 1.5 ? "🔥" : ""}` : "—"} col={r.rvol > 1.5 ? C.amber : C.text} />
               </div>
