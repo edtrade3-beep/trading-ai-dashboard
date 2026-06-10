@@ -5807,9 +5807,9 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       localStorage.setItem("axiom_autopilot_lastcheck", String(Date.now()));
       window.dispatchEvent(new Event("autopilot-tick"));
       const threshold = Number(localStorage.getItem("axiom_autopilot_min")) || 5;
-      const instr = localStorage.getItem("axiom_autopilot_options") || "off";  // off=shares | on=options | both
-      const doShares  = instr !== "on";                 // shares-only or both
-      const doOptions = instr === "on" || instr === "both";
+      const doShares  = localStorage.getItem("axiom_autopilot_shares") !== "off";  // independent toggle, default ON
+      const doOptions = localStorage.getItem("axiom_autopilot_opts") === "on";      // independent toggle, default OFF
+      if (!doShares && !doOptions) return;  // nothing enabled
       const broker = localStorage.getItem("axiom_autopilot_broker") || "sim";  // sim | alpaca
       const acct = Number(localStorage.getItem("axiom_acct_size")) || 10000;
       const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
@@ -6568,7 +6568,8 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [autoPilot, setAutoPilot] = useState(() => localStorage.getItem("axiom_autopilot") === "on");
   const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 5);
   const [atrMode, setAtrMode] = useState(() => localStorage.getItem("axiom_autopilot_atr") !== "off");
-  const [instrMode, setInstrMode] = useState(() => localStorage.getItem("axiom_autopilot_options") || "off"); // off=shares | on=options | both
+  const [sharesOn, setSharesOn] = useState(() => localStorage.getItem("axiom_autopilot_shares") !== "off"); // default ON
+  const [optsOn, setOptsOn] = useState(() => localStorage.getItem("axiom_autopilot_opts") === "on");        // default OFF
   const [trailMode, setTrailMode] = useState(() => localStorage.getItem("axiom_autopilot_trail") !== "off");
   const [exitMode, setExitMode] = useState(() => localStorage.getItem("axiom_autopilot_exit") || "trend");
   const [broker, setBroker] = useState(() => localStorage.getItem("axiom_autopilot_broker") || "sim");
@@ -6595,11 +6596,9 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
           </div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
             {autoPilot ? (
-                instrMode === "on"
-                ? `Auto-buys OPTIONS — CALLs on bullish ${autoThreshold}/5 setups, PUTs on clearly bearish ones${broker === "alpaca" ? " (real Alpaca paper contracts)" : " (~5x simulated)"}. ⚠️ Higher risk.`
-                : instrMode === "both"
-                ? `Auto-buys BOTH shares AND an option on every bullish ${autoThreshold}/5 setup${broker === "alpaca" ? " (Alpaca paper)" : ""}. Puts on clear bearish. Runs in the background, fully hands-off.`
-                : `Auto-buys shares on any ${autoThreshold}/5 setup, auto-exits via ${atrMode ? "ATR" : "fixed %"} levels${broker === "alpaca" ? " through Alpaca paper" : ""}. Runs in the background on every tab.`)
+                (!sharesOn && !optsOn)
+                ? "⚠️ Both SHARES and OPTIONS are OFF — nothing will be traded. Turn at least one on."
+                : `Auto-buys the best ${autoThreshold}/5 setups (max ${maxPos}) as ${[sharesOn && "shares", optsOn && "options"].filter(Boolean).join(" + ")}${broker === "alpaca" ? " via Alpaca paper" : ""}. Auto-exits via ${exitMode === "trend" ? "trend/stop" : "targets"}. Runs in the background, hands-off.`)
                        : "Turn on to let the system auto-buy + auto-exit setups in paper mode. Keeps running on every tab, 100% hands-free."}
           </div>
           {autoPilot && (
@@ -6682,17 +6681,20 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
             </button>
           ))}
         </div>
-        {/* Instrument: shares, options, or both */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="SHARES = buy stock. OPTIONS = CALLs on bullish / PUTs on bearish. BOTH = buy shares AND an option on every bullish setup.">
-          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>TRADE:</span>
-          {[["SHARES", "off"], ["OPTIONS", "on"], ["BOTH", "both"]].map(([lbl, val]) => (
-            <button key={val} onClick={() => { setInstrMode(val); localStorage.setItem("axiom_autopilot_options", val); }}
-              style={{ background: instrMode === val ? (val === "off" ? "#7c3aed" : "#e0982f") : C.surface, color: instrMode === val ? "#fff" : C.textSec,
-                border: `1px solid ${instrMode === val ? (val === "off" ? "#7c3aed" : "#e0982f") : C.border}`, borderRadius: 6,
-                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
-              {lbl}
-            </button>
-          ))}
+        {/* Independent toggles: shares and options */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="Turn SHARES and OPTIONS on/off independently. Both on = buys shares AND an option on each setup. Both off = paused.">
+          <button onClick={() => { const v = !sharesOn; setSharesOn(v); localStorage.setItem("axiom_autopilot_shares", v ? "on" : "off"); }}
+            style={{ background: sharesOn ? "#7c3aed" : C.surface, color: sharesOn ? "#fff" : C.textSec,
+              border: `1px solid ${sharesOn ? "#7c3aed" : C.border}`, borderRadius: 6,
+              fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
+            📊 SHARES {sharesOn ? "ON" : "OFF"}
+          </button>
+          <button onClick={() => { const v = !optsOn; setOptsOn(v); localStorage.setItem("axiom_autopilot_opts", v ? "on" : "off"); }}
+            style={{ background: optsOn ? "#e0982f" : C.surface, color: optsOn ? "#fff" : C.textSec,
+              border: `1px solid ${optsOn ? "#e0982f" : C.border}`, borderRadius: 6,
+              fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
+            📈 OPTIONS {optsOn ? "ON" : "OFF"}
+          </button>
         </div>
         <button onClick={() => { const v = !autoPilot; setAutoPilot(v); localStorage.setItem("axiom_autopilot", v ? "on" : "off"); }}
           style={{ background: autoPilot ? "#7c3aed" : C.surface, color: autoPilot ? "#fff" : C.textSec,
