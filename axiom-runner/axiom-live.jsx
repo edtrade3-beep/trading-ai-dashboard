@@ -5134,6 +5134,7 @@ function CoachTab({ C, MONO, SANS }) {
   const [lessonDone, setLessonDone] = useState(() => { try { return JSON.parse(localStorage.getItem("coach_lessons_done")) || {}; } catch { return {}; } });
   const [openLesson, setOpenLesson] = useState(null);
   const [collapsedCats, setCollapsedCats] = useState({});
+  const [pillarTab, setPillarTab] = useState("الكل");
   const toggleLesson = (i) => { const n = { ...lessonDone, [i]: !lessonDone[i] }; setLessonDone(n); localStorage.setItem("coach_lessons_done", JSON.stringify(n)); };
 
   // Habits (per day)
@@ -5396,10 +5397,24 @@ function CoachTab({ C, MONO, SANS }) {
             {COACH_LESSONS.length} درساً عبر {pillarCount} ركائز. اقرأ درساً كل يوم، طبّق التمرين، ثم علّم عليه. هكذا تنمو — مبدأ واحد في كل مرة.
           </div>
           {/* Progress bar */}
-          <div style={{ height: 8, background: C.surface, borderRadius: 4, overflow: "hidden", marginBottom: 16 }}>
+          <div style={{ height: 8, background: C.surface, borderRadius: 4, overflow: "hidden", marginBottom: 14 }}>
             <div style={{ width: `${doneCount/COACH_LESSONS.length*100}%`, height: "100%", background: C.green, transition: "width 0.4s" }} />
           </div>
-          {groups.map(g => {
+          {/* Pillar tabs */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+            {[{ pillar: "الكل", icon: "📚", color: C.accent }, ...groups].map(g => {
+              const active = pillarTab === g.pillar;
+              return (
+                <button key={g.pillar} onClick={() => setPillarTab(g.pillar)}
+                  style={{ background: active ? g.color : C.surface, color: active ? "#fff" : C.textSec,
+                    border: `1px solid ${active ? g.color : C.border}`, borderRadius: 8,
+                    fontFamily: SANS, fontSize: 13, fontWeight: 800, padding: "7px 13px", cursor: "pointer", whiteSpace: "nowrap" }}>
+                  {g.icon} {g.pillar}
+                </button>
+              );
+            })}
+          </div>
+          {groups.filter(g => pillarTab === "الكل" || g.pillar === pillarTab).map(g => {
             const gDone = g.items.filter(x => lessonDone[x.i]).length;
             const collapsed = collapsedCats[g.pillar];
             const complete = gDone === g.items.length;
