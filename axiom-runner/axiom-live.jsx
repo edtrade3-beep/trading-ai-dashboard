@@ -5806,7 +5806,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       if (localStorage.getItem("axiom_autopilot") !== "on") return;
       localStorage.setItem("axiom_autopilot_lastcheck", String(Date.now()));
       window.dispatchEvent(new Event("autopilot-tick"));
-      const threshold = Number(localStorage.getItem("axiom_autopilot_min")) || 4;
+      const threshold = Number(localStorage.getItem("axiom_autopilot_min")) || 5;
       const instr = localStorage.getItem("axiom_autopilot_options") || "off";  // off=shares | on=options | both
       const doShares  = instr !== "on";                 // shares-only or both
       const doOptions = instr === "on" || instr === "both";
@@ -6566,7 +6566,7 @@ function AlpacaPanel({ C, MONO, SANS }) {
 
 function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [autoPilot, setAutoPilot] = useState(() => localStorage.getItem("axiom_autopilot") === "on");
-  const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 4);
+  const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 5);
   const [atrMode, setAtrMode] = useState(() => localStorage.getItem("axiom_autopilot_atr") !== "off");
   const [instrMode, setInstrMode] = useState(() => localStorage.getItem("axiom_autopilot_options") || "off"); // off=shares | on=options | both
   const [trailMode, setTrailMode] = useState(() => localStorage.getItem("axiom_autopilot_trail") !== "off");
