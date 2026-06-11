@@ -5907,12 +5907,16 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       });
       candidates.sort((a, b) => b.quality - a.quality);
 
-      // How many slots are free (cap minus what's already open)
+      // How many slots are free (cap minus what's already open / placed today)
       let openCount = 0;
       if (broker === "sim") {
         try { openCount = (JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []).filter(t => t.status === "OPEN" && t.mode === "PAPER").length; } catch {}
       } else {
-        openCount = alpacaPosRef.current || 0;  // updated by the Alpaca positions loop
+        // Alpaca position count refreshes only every 30s — to avoid over-buying between refreshes,
+        // also count orders already placed today (autoBoughtRef updates instantly). Use the larger.
+        let placedToday = 0;
+        autoBoughtRef.current.forEach(k => { if (k.startsWith(today) && k.endsWith(`:${broker}`)) placedToday++; });
+        openCount = Math.max(alpacaPosRef.current || 0, placedToday);
       }
       let slots = Math.max(0, maxPos - openCount);
 
