@@ -140,15 +140,31 @@ async function handleAlpaca(req, res, requestUrl) {
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
-  // Close a full position (market sell everything)
+  // Close a full position (market sell everything). Allows option (OCC) symbols too.
   if (pathname === "/api/alpaca/close" && req.method === "POST") {
     if (!configured) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key" });
     const b = await readBody(req);
-    const symbol = String(b.symbol || "").toUpperCase().replace(/[^A-Z.]/g, "");
+    const symbol = String(b.symbol || "").toUpperCase().replace(/[^A-Z0-9.]/g, "");  // keep digits for options
     if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
     const a = await alpaca(`/v2/positions/${encodeURIComponent(symbol)}`, "DELETE");
     if (!a._ok) return writeJson(res, 200, { ok: false, error: a.data?.message || "close failed", status: a._status });
     return writeJson(res, 200, { ok: true, closed: symbol });
+  }
+
+  // Liquidate only OPTION positions (keeps shares). Server-side so symbols aren't mangled.
+  if (pathname === "/api/alpaca/liquidate-options" && req.method === "POST") {
+    if (!configured) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key" });
+    const pos = await alpaca("/v2/positions");
+    if (!pos._ok) return writeJson(res, 200, { ok: false, error: pos.data?.message || "positions error" });
+    const isOption = s => /\d{6}[CP]\d{8}$/.test(s);
+    const opts = (pos.data || []).filter(p => isOption(p.symbol));
+    let closed = 0, failed = 0, pnl = 0; const errs = [];
+    for (const p of opts) {
+      pnl += Number(p.unrealized_pl || 0);
+      const c = await alpaca(`/v2/positions/${encodeURIComponent(p.symbol)}`, "DELETE");
+      if (c._ok) closed++; else { failed++; errs.push(`${p.symbol}: ${c.data?.message || c._status}`); }
+    }
+    return writeJson(res, 200, { ok: true, total: opts.length, closed, failed, pnl: Math.round(pnl), errs: errs.slice(0, 5) });
   }
 
   return writeJson(res, 404, { ok: false, error: "Unknown Alpaca endpoint" });
