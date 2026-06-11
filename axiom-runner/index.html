@@ -119,6 +119,28 @@
     }
 
     boot();
+
+    // ── Auto-reload after a Render deploy ──
+    // Poll /api/health; when the server's boot time changes (= new deploy), reload to get the latest build.
+    (function autoReloadOnDeploy() {
+      let baseline = null;
+      async function check() {
+        try {
+          const r = await fetch("/api/health", { cache: "no-store" });
+          const d = await r.json();
+          const v = d.startedAt || d.version;
+          if (baseline === null) { baseline = v; return; }
+          if (v && v !== baseline) {
+            // new version deployed — reload (skip if a text field is focused, to avoid losing typing)
+            const el = document.activeElement;
+            const typing = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+            if (!typing) location.reload();
+          }
+        } catch (e) { /* offline / mid-deploy — try again next tick */ }
+      }
+      check();
+      setInterval(check, 60000); // every 60s
+    })();
   </script>
 </body>
 </html>
