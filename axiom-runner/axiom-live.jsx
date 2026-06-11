@@ -6732,6 +6732,12 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
     window.addEventListener("autopilot-tick", onTick);
     return () => window.removeEventListener("autopilot-tick", onTick);
   }, []);
+  // Options & short disabled for now — force off so the auto-pilot trades shares only
+  useEffect(() => {
+    localStorage.setItem("axiom_autopilot_opts", "off");
+    localStorage.setItem("axiom_autopilot_short", "off");
+    setOptsOn(false); setShortOn(false);
+  }, []);
   const toggleAuto = () => { const v = !autoPilot; setAutoPilot(v); localStorage.setItem("axiom_autopilot", v ? "on" : "off"); };
   const flattenAll = async () => {
     if (!window.confirm("Close ALL open paper positions now?")) return;
@@ -6875,26 +6881,13 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
             </button>
           ))}
         </div>
-        {/* Independent toggles: shares and options */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="Turn SHARES and OPTIONS on/off independently. Both on = buys shares AND an option on each setup. Both off = paused.">
+        {/* Shares only for now (options & short disabled) */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="Auto-pilot trades SHARES only. Toggle off to pause buying.">
           <button onClick={() => { const v = !sharesOn; setSharesOn(v); localStorage.setItem("axiom_autopilot_shares", v ? "on" : "off"); }}
             style={{ background: sharesOn ? "#7c3aed" : C.surface, color: sharesOn ? "#fff" : C.textSec,
               border: `1px solid ${sharesOn ? "#7c3aed" : C.border}`, borderRadius: 6,
               fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
             📊 SHARES {sharesOn ? "ON" : "OFF"}
-          </button>
-          <button onClick={() => { const v = !optsOn; setOptsOn(v); localStorage.setItem("axiom_autopilot_opts", v ? "on" : "off"); }}
-            style={{ background: optsOn ? "#e0982f" : C.surface, color: optsOn ? "#fff" : C.textSec,
-              border: `1px solid ${optsOn ? "#e0982f" : C.border}`, borderRadius: 6,
-              fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
-            📈 OPTIONS {optsOn ? "ON" : "OFF"}
-          </button>
-          <button onClick={() => { const v = !shortOn; setShortOn(v); localStorage.setItem("axiom_autopilot_short", v ? "on" : "off"); }}
-            title="Short-sell strong bearish setups (downtrend + weak momentum + volume). Stop above, covers on bullish reversal."
-            style={{ background: shortOn ? "#dc2626" : C.surface, color: shortOn ? "#fff" : C.textSec,
-              border: `1px solid ${shortOn ? "#dc2626" : C.border}`, borderRadius: 6,
-              fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
-            🔻 SHORT {shortOn ? "ON" : "OFF"}
           </button>
         </div>
         <button onClick={() => { const v = !autoPilot; setAutoPilot(v); localStorage.setItem("axiom_autopilot", v ? "on" : "off"); }}
@@ -7092,8 +7085,9 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
               padding: "6px 12px", cursor: "pointer" }}>
             ⚡ PAPER BUY
           </button>
-          {/* One-click simulated option (CALL on bullish, PUT on bearish) */}
+          {/* Options buy disabled for now */}
           {(() => {
+            if (true) return null;  // options paused
             const bullish = r.signal === "GREEN";
             const bearish = r.signal === "RED" && r.chg < 0;
             if (!bullish && !bearish) return null;
