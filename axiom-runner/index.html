@@ -120,21 +120,25 @@
 
     boot();
 
-    // ── Auto-reload after a Render deploy ──
-    // Poll /api/health; when the server's boot time changes (= new deploy), reload to get the latest build.
+    // ── Auto-reload after a Render deploy (loop-safe) ──
+    // Poll /api/health; when the server's boot time changes (= new deploy), reload — but only once
+    // per version, and only after the change is stable for 2 checks (avoids mid-deploy blips & loops).
     (function autoReloadOnDeploy() {
-      let baseline = null;
+      let baseline = null, pending = null, stable = 0;
       async function check() {
         try {
           const r = await fetch("/api/health", { cache: "no-store" });
           const d = await r.json();
           const v = d.startedAt || d.version;
+          if (!v) return;
           if (baseline === null) { baseline = v; return; }
-          if (v && v !== baseline) {
-            // new version deployed — reload (skip if a text field is focused, to avoid losing typing)
+          if (v === baseline) { pending = null; stable = 0; return; }
+          if (sessionStorage.getItem("ax_reloaded_for") === v) return;  // already reloaded for this version
+          if (v === pending) stable++; else { pending = v; stable = 1; }
+          if (stable >= 2) {  // change confirmed across 2 checks (~2 min)
             const el = document.activeElement;
             const typing = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
-            if (!typing) location.reload();
+            if (!typing) { sessionStorage.setItem("ax_reloaded_for", v); location.reload(); }
           }
         } catch (e) { /* offline / mid-deploy — try again next tick */ }
       }
