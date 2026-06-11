@@ -93,8 +93,8 @@ async function handleAlpaca(req, res, requestUrl) {
       time_in_force: b.time_in_force || "day",
     };
     if (b.limit_price) order.limit_price = String(b.limit_price);
-    // Bracket order: attach stop loss + take profit if provided (entry must be buy/market or limit)
-    if (side === "buy" && (b.stop_loss || b.take_profit)) {
+    // Bracket order: attach stop loss + take profit if provided (works for long buys and short sells)
+    if (b.stop_loss || b.take_profit) {
       order.order_class = "bracket";
       if (b.take_profit) order.take_profit = { limit_price: String(b.take_profit) };
       if (b.stop_loss) order.stop_loss = { stop_price: String(b.stop_loss) };

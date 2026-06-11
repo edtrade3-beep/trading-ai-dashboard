@@ -4987,8 +4987,25 @@ function computeGreenLight(q, spyChg, scanRow) {
   const relStrength = chg - spyChg;  // how much it's beating/lagging the market today
   const isLeader = relStrength > 1.0; // outperforming SPY by 1%+
 
+  // ── SHORT setup: mirror checks (weak market · downtrend · bearish momentum · volume · entry near resistance) ──
+  const shortChecks = [
+    { label: "Tape ok to short", pass: spyChg < 0.5,
+      tip: `SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}% — short when the market isn't ripping up` },
+    { label: "Downtrend", pass: ma50 > 0 && px < ma50 && (ma200 > 0 ? ma50 < ma200 : true),
+      tip: (ma50 > 0 && ma200 > 0) ? `Price < MA50 $${ma50.toFixed(2)} < MA200 $${ma200.toFixed(2)}` : (ma50 > 0 ? `Price < MA50 $${ma50.toFixed(2)}` : "No MA data") },
+    { label: rsiKnown ? `Weak · RSI ${rsi.toFixed(0)}` : "Weak momentum", pass: rsiKnown ? rsi <= 50 : chg < 0,
+      tip: rsiKnown ? `RSI ${rsi.toFixed(0)} (<50 = bearish)` : `Down ${chg.toFixed(1)}% today` },
+    { label: rvol > 0 ? `Volume ${rvol.toFixed(1)}x` : "Volume active", pass: rvol >= 1.2 || vol === 0,
+      tip: rvol > 0 ? `RVOL ${rvol.toFixed(1)}x` : "No volume data" },
+    { label: "Near resistance", pass: ema21 > 0 ? (px >= ema21 * 0.96 && px <= ema21 * 1.04) : (ma50 > 0 && px >= ma50 * 0.94 && px <= ma50 * 1.04),
+      tip: ema21 > 0 ? `Near EMA21 $${ema21.toFixed(2)} — short the bounce, not the hole` : `Near MA50 $${ma50.toFixed(2)}` },
+  ];
+  const shortPassed = shortChecks.filter(c => c.pass).length;
+  const shortSignal = shortPassed >= 4 ? "SHORT" : shortPassed >= 3 ? "WATCH" : "NONE";
+
   return {
     checks, passed, signal, px, chg, stop, t1, t2, rvol, rsi, atrPct,
+    shortChecks, shortPassed, shortSignal,
     bestEntry: +bestEntry.toFixed(2), entryNote, relStrength: +relStrength.toFixed(2), isLeader,
   };
 }
@@ -5720,6 +5737,46 @@ function addPaperTrade(sym, entry, opts = {}) {
   return "OK";
 }
 
+// Shared: create a SHORT paper trade (sell to open). Stop ABOVE entry, targets BELOW. P&L = (entry − price).
+function addPaperShort(sym, entry, opts = {}) {
+  if (!sym || !entry || entry <= 0) return;
+  const acct    = Number(localStorage.getItem("axiom_acct_size")) || 10000;
+  const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
+  const useAtr = localStorage.getItem("axiom_autopilot_atr") !== "off" && Number(opts.atrPct) > 0;
+  let stop, t1, t2, t3, basis;
+  if (useAtr) {
+    const atrPct = Math.min(0.05, Math.max(0.01, Number(opts.atrPct)));
+    const atr = entry * atrPct;
+    stop = +(entry + atr * 1.5).toFixed(2);     // stop ABOVE for a short
+    t1 = +(entry - atr * 1.5).toFixed(2); t2 = +(entry - atr * 3.0).toFixed(2); t3 = +(entry - atr * 4.5).toFixed(2);
+    basis = `ATR ${(atrPct * 100).toFixed(1)}%`;
+  } else {
+    stop = +(entry * 1.03).toFixed(2);
+    t1 = +(entry * 0.95).toFixed(2); t2 = +(entry * 0.90).toFixed(2); t3 = +(entry * 0.85).toFixed(2);
+    basis = "fixed";
+  }
+  const riskPerShare = Math.max(0.01, stop - entry);
+  const dollarRisk   = acct * (riskPct / 100);
+  const riskBased    = Math.floor(dollarRisk / riskPerShare);
+  const affordable   = Math.floor(acct / entry);
+  const shares = Math.max(1, Math.min(riskBased, affordable));
+  const t = {
+    id: Date.now() + Math.floor(Math.random() * 999),
+    ticker: sym, side: "SHORT", entry, shares, remaining: shares, realized: 0,
+    stop, t1, t2, t3, basis, risk0: +riskPerShare.toFixed(2), glScore: Number(opts.glScore) || null,
+    status: "OPEN", t1Hit: false, t2Hit: false, openedAt: new Date().toISOString(),
+    mode: "PAPER", auto: true,
+  };
+  let trades = [];
+  try { trades = JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []; } catch {}
+  if (trades.some(x => x.ticker === sym && x.status === "OPEN" && x.mode === "PAPER" && x.side === "SHORT")) return "DUP";
+  trades.unshift(t);
+  localStorage.setItem(GL_TRADES_KEY, JSON.stringify(trades));
+  window.dispatchEvent(new Event("gl-trades-changed"));
+  logTradeNote("buy", `🔻 AUTO SHORT — ${sym}${t.glScore ? ` (${t.glScore}/5)` : ""}\n${shares} sh @ $${entry} (paper · ${basis})\nStop $${stop} (above) · T1 $${t1} / T2 $${t2} / T3 $${t3} (below)`);
+  return "OK";
+}
+
 const OPT_LEVERAGE = 5;  // a near-dated ATM option moves ~5× the underlying %, modeled simply
 // Current simulated per-share option premium from the underlying price.
 function optionValue(t, underlyingPx) {
@@ -5776,6 +5833,13 @@ async function alpacaPlace(sym, qty, stop, take) {
     return await r.json();
   } catch { return null; }
 }
+async function alpacaShort(sym, qty, stop, take) {
+  try {
+    const r = await fetch("/api/alpaca/order", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol: sym, qty, side: "sell", type: "market", stop_loss: stop, take_profit: take }) });
+    return await r.json();
+  } catch { return null; }
+}
 async function alpacaClose(sym) {
   try {
     const r = await fetch("/api/alpaca/close", { method: "POST", headers: { "Content-Type": "application/json" },
@@ -5817,7 +5881,8 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       const threshold = Number(localStorage.getItem("axiom_autopilot_min")) || 5;
       const doShares  = localStorage.getItem("axiom_autopilot_shares") !== "off";  // independent toggle, default ON
       const doOptions = localStorage.getItem("axiom_autopilot_opts") === "on";      // independent toggle, default OFF
-      if (!doShares && !doOptions) return;  // nothing enabled
+      const doShort   = localStorage.getItem("axiom_autopilot_short") === "on";      // short selling, default OFF
+      if (!doShares && !doOptions && !doShort) return;  // nothing enabled
       const broker = localStorage.getItem("axiom_autopilot_broker") || "sim";  // sim | alpaca
       const acct = Number(localStorage.getItem("axiom_acct_size")) || 10000;
       const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
@@ -5834,10 +5899,11 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
         if (!(gl.px > 0)) return;
         const bullish = gl.signal === "GREEN" && gl.passed >= threshold;
         const bearishPut = gl.signal === "RED" && gl.chg < -1;
-        if (!bullish && !bearishPut) return;
+        const shortSetup = doShort && gl.shortSignal === "SHORT" && gl.shortPassed >= threshold;
+        if (!bullish && !bearishPut && !shortSetup) return;
         // quality: checks passed dominate, then relative strength + leadership
-        const quality = gl.passed * 10 + (Number(gl.relStrength) || 0) + (gl.isLeader ? 5 : 0);
-        candidates.push({ q, gl, bullish, bearishPut, quality });
+        const quality = Math.max(gl.passed, shortSetup ? gl.shortPassed : 0) * 10 + Math.abs(Number(gl.relStrength) || 0) + (gl.isLeader ? 5 : 0);
+        candidates.push({ q, gl, bullish, bearishPut, shortSetup, quality });
       });
       candidates.sort((a, b) => b.quality - a.quality);
 
@@ -5850,8 +5916,33 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       }
       let slots = Math.max(0, maxPos - openCount);
 
-      candidates.forEach(({ q, gl, bullish, bearishPut }) => {
+      candidates.forEach(({ q, gl, bullish, bearishPut, shortSetup }) => {
         if (slots <= 0) return;  // cap reached — skip the rest (lower-ranked setups)
+
+        // ── SHORT (sell to open on strong bearish setups) ──
+        if (doShort && shortSetup) {
+          const key = `${today}:${q.symbol}:SH:${broker}`;
+          if (!autoBoughtRef.current.has(key)) {
+            if (broker === "alpaca") {
+              const entry = gl.px;
+              const atr = Math.min(0.05, Math.max(0.01, Number(gl.atrPct) || 0.025));
+              const stop = +(entry * (1 + atr * 1.5)).toFixed(2);   // stop above
+              const take = +(entry * (1 - atr * 3)).toFixed(2);     // target below
+              const riskPerShare = Math.max(0.01, stop - entry);
+              const qty = Math.max(1, Math.min(Math.floor((acct * (riskPct / 100)) / riskPerShare), Math.floor(acct / entry)));
+              autoBoughtRef.current.add(key); slots--;
+              alpacaShort(q.symbol, qty, stop, take).then(r => {
+                if (r?.ok) logTradeNote("buy", `🔻 ALPACA SHORT — ${q.symbol} (${gl.shortPassed}/5)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} (above) · Target $${take} (below)`);
+                else { autoBoughtRef.current.delete(key); }
+              });
+            } else {
+              const res = addPaperShort(q.symbol, gl.px, { atrPct: gl.atrPct, glScore: gl.shortPassed });
+              if (res === "OK") { autoBoughtRef.current.add(key); slots--; }
+              else if (res === "DUP") autoBoughtRef.current.add(key);
+            }
+          }
+          return;  // a short setup is its own thing — don't also long it
+        }
 
         // ── SHARES (long only, bullish) ──
         if (doShares && bullish) {
@@ -5923,6 +6014,47 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
         x.remaining = x.remaining ?? x.shares;
         x.realized  = x.realized ?? 0;
         const third = Math.max(1, Math.floor(x.shares / 3));
+
+        // ── SHORT positions: mirrored management (stop above, targets below, cover on bullish) ──
+        if (x.side === "SHORT") {
+          if (trailOn) {
+            x.lwm = Math.min(Number(x.lwm) || x.entry, px);            // low-water mark
+            const trailDist = Number(x.risk0) || (x.stop - x.entry);
+            const trailStop = +(x.lwm + trailDist).toFixed(2);
+            if (trailStop < x.stop) { x.stop = trailStop; changed = true; }   // ratchet DOWN
+          }
+          if (px >= x.stop) {  // price rose to stop → cover at a loss (or trailed profit)
+            x.realized += x.remaining * (x.entry - x.stop);
+            x.remaining = 0; x.status = "CLOSED"; x.exit = +x.stop.toFixed(2);
+            x.closedAt = new Date().toISOString();
+            const trailed = x.stop <= x.entry;
+            x.exitReason = trailed ? "TRAIL" : "STOP"; changed = true;
+            logTradeNote("exit", `${trailed ? "🔒 TRAIL COVER" : "🛑 SHORT STOP"} — ${x.ticker}${x.glScore ? ` (${x.glScore}/5)` : ""}\nCovered @ $${x.stop} (paper) · P&L ${x.realized >= 0 ? "+" : ""}$${x.realized.toFixed(0)}`);
+            return x;
+          }
+          if (exitMode === "trend") {  // cover all when the stock turns bullish
+            const ma50 = Number(q?.priceAvg50 || 0), chg = Number(q?.changesPercentage || 0);
+            if ((ma50 > 0 && px > ma50) || chg > 3) {
+              x.realized += x.remaining * (x.entry - px);
+              x.remaining = 0; x.status = "CLOSED"; x.exit = +px.toFixed(2);
+              x.closedAt = new Date().toISOString(); x.exitReason = "BULLISH"; changed = true;
+              logTradeNote("exit", `📈 SHORT COVER — ${x.ticker}${x.glScore ? ` (${x.glScore}/5)` : ""}\nTurned bullish — covered all @ $${px.toFixed(2)} (paper) · P&L ${x.realized >= 0 ? "+" : ""}$${x.realized.toFixed(0)}`);
+            }
+            return x;
+          }
+          const pctDown = lvl => ((x.entry - lvl) / x.entry * 100);
+          if (!x.t1Hit && px <= x.t1) { x.realized += third * (x.entry - x.t1); x.remaining -= third; x.t1Hit = true; x.stop = x.entry; changed = true;
+            logTradeNote("sell", `🎯 T1 +${pctDown(x.t1).toFixed(1)}% — ${x.ticker} (short)\nCovered ${third} sh @ $${x.t1} · stop → breakeven · ${x.remaining} left`); }
+          if (x.t1Hit && !x.t2Hit && px <= x.t2) { x.realized += third * (x.entry - x.t2); x.remaining -= third; x.t2Hit = true; changed = true;
+            logTradeNote("sell", `🎯 T2 +${pctDown(x.t2).toFixed(1)}% — ${x.ticker} (short)\nCovered ${third} sh @ $${x.t2} · ${x.remaining} left`); }
+          if (x.t2Hit && px <= x.t3) {
+            x.realized += x.remaining * (x.entry - x.t3); x.remaining = 0; x.status = "CLOSED";
+            x.exit = +x.t3.toFixed(2); x.closedAt = new Date().toISOString(); x.exitReason = "T3 🎯"; changed = true;
+            logTradeNote("exit", `🏆 T3 +${pctDown(x.t3).toFixed(1)}% — ${x.ticker} (short)\nCovered @ $${x.t3} (paper) · P&L $${x.realized.toFixed(0)}`);
+          }
+          return x;
+        }
+
         // ── TRAILING STOP: ratchet the stop UP as price makes new highs (never down) ──
         if (trailOn) {
           x.hwm = Math.max(Number(x.hwm) || x.entry, px);          // high-water mark
@@ -6026,10 +6158,12 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
         for (const p of (r.positions || [])) {
           const q = (watchlistData || []).find(o => o.symbol === p.symbol);
           const ma50 = Number(q?.priceAvg50 || 0), chg = Number(q?.changesPercentage || 0);
-          const bearish = (ma50 > 0 && p.current < ma50) || chg < -3;
-          if (bearish) {
+          const isShort = p.side === "short" || Number(p.qty) < 0;
+          // long covers on bearish reversal; short covers on bullish reversal
+          const reversed = isShort ? ((ma50 > 0 && p.current > ma50) || chg > 3) : ((ma50 > 0 && p.current < ma50) || chg < -3);
+          if (reversed) {
             const cr = await alpacaClose(p.symbol);
-            if (cr?.ok) logTradeNote("exit", `📉 ALPACA TREND EXIT — ${p.symbol}\nTurned bearish — closed (paper) · P&L ${p.unrealizedPL >= 0 ? "+" : ""}$${p.unrealizedPL.toFixed(0)}`);
+            if (cr?.ok) logTradeNote("exit", `${isShort ? "📈 ALPACA COVER" : "📉 ALPACA TREND EXIT"} — ${p.symbol}\nTurned ${isShort ? "bullish" : "bearish"} — closed (paper) · P&L ${p.unrealizedPL >= 0 ? "+" : ""}$${p.unrealizedPL.toFixed(0)}`);
           }
         }
       } catch {}
@@ -6137,20 +6271,21 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   const open   = modeTrades.filter(t => t.status === "OPEN");
   const closed = modeTrades.filter(t => t.status === "CLOSED");
 
-  // Stats
-  const wins   = closed.filter(t => (t.exit - t.entry) > 0);
-  const losses = closed.filter(t => (t.exit - t.entry) <= 0);
+  // Stats (direction-aware: shorts profit when exit < entry)
+  const pnlOf = t => (t.exit - t.entry) * t.shares * (t.side === "SHORT" ? -1 : 1);
+  const wins   = closed.filter(t => pnlOf(t) > 0);
+  const losses = closed.filter(t => pnlOf(t) <= 0);
   const winRate = closed.length ? Math.round(wins.length / closed.length * 100) : 0;
-  const totalPnl = closed.reduce((s, t) => s + (t.exit - t.entry) * t.shares, 0);
-  const avgWin = wins.length ? wins.reduce((s,t) => s + (t.exit-t.entry)*t.shares, 0) / wins.length : 0;
-  const avgLoss = losses.length ? Math.abs(losses.reduce((s,t) => s + (t.exit-t.entry)*t.shares, 0) / losses.length) : 0;
+  const totalPnl = closed.reduce((s, t) => s + pnlOf(t), 0);
+  const avgWin = wins.length ? wins.reduce((s,t) => s + pnlOf(t), 0) / wins.length : 0;
+  const avgLoss = losses.length ? Math.abs(losses.reduce((s,t) => s + pnlOf(t), 0) / losses.length) : 0;
 
   // Win rate by Green Light score (4/5 vs 5/5) for comparison
   const byScore = sc => {
     const set = closed.filter(t => Number(t.glScore) === sc);
     if (!set.length) return null;
-    const w = set.filter(t => (t.exit - t.entry) > 0).length;
-    return { n: set.length, wr: Math.round(w / set.length * 100), pnl: set.reduce((s,t)=>s+(t.exit-t.entry)*t.shares,0) };
+    const w = set.filter(t => pnlOf(t) > 0).length;
+    return { n: set.length, wr: Math.round(w / set.length * 100), pnl: set.reduce((s,t)=>s+pnlOf(t),0) };
   };
   const s4 = byScore(4), s5 = byScore(5);
 
@@ -6163,9 +6298,9 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   };
   const closedToday  = modeTrades.filter(t => t.status === "CLOSED" && isTodayET(t.closedAt));
   const openedToday  = modeTrades.filter(t => isTodayET(t.openedAt));
-  const realizedToday = closedToday.reduce((s, t) => s + (t.exit - t.entry) * t.shares, 0);
-  const unrealOpen    = open.reduce((s, t) => { const px = livePxOf(t); return s + (px - t.entry) * (t.remaining ?? t.shares); }, 0);
-  const todayWins   = closedToday.filter(t => (t.exit - t.entry) > 0).length;
+  const realizedToday = closedToday.reduce((s, t) => s + pnlOf(t), 0);
+  const unrealOpen    = open.reduce((s, t) => { const px = livePxOf(t); return s + (px - t.entry) * (t.remaining ?? t.shares) * (t.side === "SHORT" ? -1 : 1); }, 0);
+  const todayWins   = closedToday.filter(t => pnlOf(t) > 0).length;
   const todayLosses = closedToday.length - todayWins;
 
   return (
@@ -6340,13 +6475,14 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
             {showHeaders && <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", margin: "8px 0 4px" }}>{g.label} ({g.items.length})</div>}
             {g.items.map(t => {
         const live = livePxOf(t);
-        const pnl = (live - t.entry) * t.shares;
-        const pnlPct = ((live - t.entry) / t.entry) * 100;
-        const risk0 = Number(t.risk0) || (t.entry - t.stop) || (t.entry * 0.03);
-        const rMult = risk0 > 0 ? (live - t.entry) / risk0 : 0;
-        const atStop = live <= t.stop;
-        const atT1 = live >= t.t1 && !t.t1Hit;
-        const atT2 = live >= t.t2;
+        const dir = t.side === "SHORT" ? -1 : 1;   // shorts profit when price falls
+        const pnl = (live - t.entry) * t.shares * dir;
+        const pnlPct = ((live - t.entry) / t.entry) * 100 * dir;
+        const risk0 = Number(t.risk0) || Math.abs(t.entry - t.stop) || (t.entry * 0.03);
+        const rMult = risk0 > 0 ? ((live - t.entry) * dir) / risk0 : 0;
+        const atStop = dir === 1 ? live <= t.stop : live >= t.stop;
+        const atT1 = (dir === 1 ? live >= t.t1 : live <= t.t1) && !t.t1Hit;
+        const atT2 = dir === 1 ? live >= t.t2 : live <= t.t2;
         let alert = null, alertCol = C.textDim;
         if (atStop)      { alert = "🚨 STOP HIT — SELL ALL NOW"; alertCol = C.red; }
         else if (atT2)   { alert = "🎯 T2 HIT — SELL REMAINING"; alertCol = C.green; }
@@ -6364,6 +6500,8 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
                 <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.accent }}>{t.ticker}</span>
                 {t.instrument === "OPTION"
                   ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: t.optType === "CALL" ? C.green : C.red, background: `${t.optType === "CALL" ? C.green : C.red}18`, borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>{t.optType} ${t.strike}</span>
+                  : t.side === "SHORT"
+                  ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: "#dc2626", background: "#dc262618", borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>🔻 SHORT</span>
                   : null}
                 <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: 6 }}>{t.instrument === "OPTION" ? `${t.contracts}c @ $${t.entry}` : `${t.shares} sh @ $${t.entry}`}</span>
                 {t.auto && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: "#a78bfa", background: "#7c3aed18", borderRadius: 3, padding: "1px 5px", marginLeft: 6 }}>🤖 AUTO</span>}
@@ -6578,6 +6716,7 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [atrMode, setAtrMode] = useState(() => localStorage.getItem("axiom_autopilot_atr") !== "off");
   const [sharesOn, setSharesOn] = useState(() => localStorage.getItem("axiom_autopilot_shares") !== "off"); // default ON
   const [optsOn, setOptsOn] = useState(() => localStorage.getItem("axiom_autopilot_opts") === "on");        // default OFF
+  const [shortOn, setShortOn] = useState(() => localStorage.getItem("axiom_autopilot_short") === "on");      // default OFF
   const [trailMode, setTrailMode] = useState(() => localStorage.getItem("axiom_autopilot_trail") !== "off");
   const [exitMode, setExitMode] = useState(() => localStorage.getItem("axiom_autopilot_exit") || "trend");
   const [broker, setBroker] = useState(() => localStorage.getItem("axiom_autopilot_broker") || "sim");
@@ -6702,6 +6841,13 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
               border: `1px solid ${optsOn ? "#e0982f" : C.border}`, borderRadius: 6,
               fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
             📈 OPTIONS {optsOn ? "ON" : "OFF"}
+          </button>
+          <button onClick={() => { const v = !shortOn; setShortOn(v); localStorage.setItem("axiom_autopilot_short", v ? "on" : "off"); }}
+            title="Short-sell strong bearish setups (downtrend + weak momentum + volume). Stop above, covers on bullish reversal."
+            style={{ background: shortOn ? "#dc2626" : C.surface, color: shortOn ? "#fff" : C.textSec,
+              border: `1px solid ${shortOn ? "#dc2626" : C.border}`, borderRadius: 6,
+              fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
+            🔻 SHORT {shortOn ? "ON" : "OFF"}
           </button>
         </div>
         <button onClick={() => { const v = !autoPilot; setAutoPilot(v); localStorage.setItem("axiom_autopilot", v ? "on" : "off"); }}
