@@ -7023,19 +7023,6 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
             </span>
             {r.rvol > 1.5 && <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber, background: `${C.amber}18`, borderRadius: 4, padding: "1px 6px" }}>VOL {r.rvol.toFixed(1)}x</span>}
             {r.isLeader && <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: "#fff", background: C.green, borderRadius: 4, padding: "1px 7px" }}>💪 LEADER +{r.relStrength}% vs SPY</span>}
-            {(() => {
-              const bullish = r.signal === "GREEN";
-              const bearish = r.signal === "RED" && r.chg < 0;
-              if (!bullish && !bearish) return null;
-              const atm = r.px >= 200 ? Math.round(r.px / 5) * 5 : r.px >= 50 ? Math.round(r.px) : Math.round(r.px * 2) / 2;
-              const col = bullish ? C.green : C.red;
-              return (
-                <span title={`Options idea (not a position): a near-dated ${bullish ? "CALL" : "PUT"} near the $${atm} strike expresses this ${bullish ? "bullish" : "bearish"} setup with leverage. Higher risk — for learning.`}
-                  style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: col, background: `${col}14`, border: `1px solid ${col}44`, borderRadius: 4, padding: "1px 7px" }}>
-                  {bullish ? "📈 CALL" : "📉 PUT"} ~${atm}
-                </span>
-              );
-            })()}
           </div>
           {/* Checklist */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
