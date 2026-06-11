@@ -6726,15 +6726,58 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [broker, setBroker] = useState(() => localStorage.getItem("axiom_autopilot_broker") || "sim");
   const [maxPos, setMaxPos] = useState(() => Number(localStorage.getItem("axiom_autopilot_maxpos")) || 12);
   const [lastCheck, setLastCheck] = useState(() => Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
+  const [closing, setClosing] = useState(false);
   useEffect(() => {
     const onTick = () => setLastCheck(Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
     window.addEventListener("autopilot-tick", onTick);
     return () => window.removeEventListener("autopilot-tick", onTick);
   }, []);
+  const toggleAuto = () => { const v = !autoPilot; setAutoPilot(v); localStorage.setItem("axiom_autopilot", v ? "on" : "off"); };
+  const flattenAll = async () => {
+    if (!window.confirm("Close ALL open paper positions now?")) return;
+    setClosing(true);
+    const priceOf = sym => Number((watchlistData || []).find(q => q.symbol === sym)?.price || 0);
+    try {
+      const trades = JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || [];
+      let changed = false;
+      const updated = trades.map(t => {
+        if (t.status !== "OPEN" || t.mode !== "PAPER") return t;
+        changed = true;
+        const px = t.instrument === "OPTION" ? optionValue(t, priceOf(t.ticker)) : (priceOf(t.ticker) || t.entry);
+        const dir = t.side === "SHORT" ? -1 : 1;
+        const rem = t.remaining ?? t.shares;
+        const realized = (t.realized || 0) + rem * (px - t.entry) * dir;
+        return { ...t, status: "CLOSED", remaining: 0, realized, exit: +px.toFixed(2), closedAt: new Date().toISOString(), exitReason: "MANUAL" };
+      });
+      if (changed) { localStorage.setItem(GL_TRADES_KEY, JSON.stringify(updated)); window.dispatchEvent(new Event("gl-trades-changed")); }
+    } catch {}
+    if (broker === "alpaca") {
+      try {
+        const r = await fetch("/api/alpaca/positions").then(x => x.json());
+        if (r?.ok) for (const p of (r.positions || [])) await alpacaClose(p.symbol);
+      } catch {}
+    }
+    logTradeNote("exit", "⏹ CLOSE ALL — flattened every open paper position manually.");
+    setClosing(false);
+  };
 
   return (
     <div style={{ padding: "16px 20px", maxWidth: 980, margin: "0 auto" }}>
-      <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 14 }}>📋 MY TRADES</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+        <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>📋 MY TRADES</div>
+        {/* Big master switch */}
+        <button onClick={toggleAuto}
+          style={{ marginLeft: "auto", background: autoPilot ? "#16a34a" : C.surface, color: autoPilot ? "#fff" : C.textSec,
+            border: `2px solid ${autoPilot ? "#16a34a" : C.border}`, borderRadius: 10,
+            fontFamily: MONO, fontSize: 15, fontWeight: 900, padding: "12px 28px", cursor: "pointer", letterSpacing: "0.04em" }}>
+          {autoPilot ? "🟢 AUTO-PILOT ON" : "⚪ AUTO-PILOT OFF"}
+        </button>
+        <button onClick={flattenAll} disabled={closing}
+          style={{ background: closing ? C.surface : `${C.red}15`, color: C.red, border: `1px solid ${C.red}55`, borderRadius: 10,
+            fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "12px 18px", cursor: closing ? "default" : "pointer" }}>
+          {closing ? "closing…" : "⏹ CLOSE ALL"}
+        </button>
+      </div>
 
       {/* ── AUTO-PILOT toggle ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, padding: "12px 16px",
