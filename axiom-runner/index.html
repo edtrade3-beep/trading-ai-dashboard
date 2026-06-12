@@ -129,8 +129,9 @@
         try {
           const r = await fetch("/api/health", { cache: "no-store" });
           const d = await r.json();
-          const v = d.startedAt || d.version;
-          if (!v) return;
+          // Use the deploy commit (stable across restarts) — NOT boot time, which changes on every cold-start.
+          const v = d.build || d.version;
+          if (!v || v === "local") return;
           if (baseline === null) { baseline = v; return; }
           if (v === baseline) { pending = null; stable = 0; return; }
           if (sessionStorage.getItem("ax_reloaded_for") === v) return;  // already reloaded for this version
