@@ -6716,6 +6716,7 @@ function AlpacaPanel({ C, MONO, SANS }) {
 
 // ── MY HOLDINGS — mechanical signal · suggested stop · trend · P&L for positions you own ──
 const HOLDINGS_KEY = "axiom_holdings_v1";
+const HOLDINGS_CRYPTO = new Set(["BTC","ETH","SOL","DOGE","ADA","AVAX","LINK","XRP","LTC","BCH","DOT","MATIC","UNI","SHIB","ATOM","BNB","TRX","NEAR","APT","ARB"]);
 const DEFAULT_HOLDINGS = [
   { symbol: "MSTR", shares: 34.7, cost: 420.72 }, { symbol: "MARA", shares: 399, cost: 20.41 },
   { symbol: "COIN", shares: 15, cost: 291.20 }, { symbol: "CLSK", shares: 634, cost: 10.90 },
@@ -6750,10 +6751,18 @@ function HoldingsTab({ C, MONO, SANS, macroData }) {
   useEffect(() => {
     if (!holdings.length) return;
     const load = () => {
-      const syms = holdings.map(h => h.symbol).join(",");
-      fetch(`/api/market/quote?symbols=${syms}`).then(r => r.json()).then(arr => {
-        if (Array.isArray(arr)) { const m = {}; arr.forEach(q => { m[q.symbol] = q; }); setQuotes(m); }
-      }).catch(() => {});
+      const stockSyms = holdings.filter(h => !HOLDINGS_CRYPTO.has(h.symbol)).map(h => h.symbol);
+      const hasCrypto = holdings.some(h => HOLDINGS_CRYPTO.has(h.symbol));
+      Promise.all([
+        stockSyms.length ? fetch(`/api/market/quote?symbols=${stockSyms.join(",")}`).then(r => r.json()).catch(() => []) : Promise.resolve([]),
+        hasCrypto ? fetch("/api/market/crypto").then(r => r.json()).catch(() => null) : Promise.resolve(null),
+      ]).then(([stockArr, cryptoJson]) => {
+        const m = {};
+        (Array.isArray(stockArr) ? stockArr : []).forEach(q => { m[q.symbol] = q; });
+        const coins = cryptoJson?.coins || cryptoJson?.data?.coins || [];
+        coins.forEach(c => { if (HOLDINGS_CRYPTO.has(c.symbol)) m[c.symbol] = { symbol: c.symbol, price: Number(c.price), changesPercentage: Number(c.changesPercentage), isCrypto: true }; });
+        setQuotes(m);
+      });
     };
     load();
     const t = setInterval(load, 60000);
@@ -6771,13 +6780,20 @@ function HoldingsTab({ C, MONO, SANS, macroData }) {
   const rows = holdings.map(h => {
     const q = quotes[h.symbol];
     if (!q || !(q.price > 0)) return { ...h, loading: true };
-    const gl = computeGreenLight(q, spyChg, null);
     const px = q.price;
+    const pnl = h.cost > 0 ? (px - h.cost) * h.shares : 0;
+    const pnlPct = h.cost > 0 ? (px - h.cost) / h.cost * 100 : 0;
+    if (q.isCrypto) {
+      const chg = Number(q.changesPercentage || 0);
+      const stop = +(px * 0.85).toFixed(2);   // crypto is volatile — wider 15% stop
+      const belowStop = px <= stop;
+      const status = belowStop ? { t: "🔴 BELOW STOP", c: C.red } : chg < -5 ? { t: "🟠 DROPPING", c: C.amber } : { t: "🟢 OK", c: C.green };
+      return { ...h, q, px, stop, pnl, pnlPct, status, isCrypto: true, value: px * h.shares };
+    }
+    const gl = computeGreenLight(q, spyChg, null);
     const ma50 = Number(q.priceAvg50 || 0);
     const atrPct = Math.min(0.05, Math.max(0.01, Number(gl.atrPct) || 0.025));
     const stop = +(px * (1 - atrPct * 1.5)).toFixed(2);
-    const pnl = h.cost > 0 ? (px - h.cost) * h.shares : 0;
-    const pnlPct = h.cost > 0 ? (px - h.cost) / h.cost * 100 : 0;
     const belowStop = px <= stop;
     const belowMA = ma50 > 0 && px < ma50;
     const status = belowStop ? { t: "🔴 BELOW STOP", c: C.red } : belowMA ? { t: "🟠 BELOW MA50", c: C.amber } : { t: "🟢 TREND OK", c: C.green };
@@ -6820,7 +6836,8 @@ function HoldingsTab({ C, MONO, SANS, macroData }) {
           <div key={r.symbol} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${r.status ? r.status.c : C.border}`, borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             <div style={{ minWidth: 90 }}>
               <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>{r.symbol}</span>
-              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{r.shares} sh @ ${r.cost}</div>
+              {r.isCrypto && <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: "#f7931a", background: "#f7931a18", borderRadius: 3, padding: "1px 4px", marginLeft: 4 }}>₿ CRYPTO</span>}
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{r.shares} {r.isCrypto ? "" : "sh "}@ ${r.cost}</div>
             </div>
             {r.loading ? <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>loading…</span> : (<>
               <div style={{ minWidth: 90 }}>
