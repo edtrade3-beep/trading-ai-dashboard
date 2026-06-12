@@ -6732,7 +6732,20 @@ function HoldingsTab({ C, MONO, SANS, macroData }) {
   const [holdings, setHoldings] = useState(() => { try { return JSON.parse(localStorage.getItem(HOLDINGS_KEY)) || DEFAULT_HOLDINGS; } catch { return DEFAULT_HOLDINGS; } });
   const [quotes, setQuotes] = useState({});
   const [form, setForm] = useState({ symbol: "", shares: "", cost: "" });
-  const save = h => { setHoldings(h); localStorage.setItem(HOLDINGS_KEY, JSON.stringify(h)); };
+  const [syncedAt, setSyncedAt] = useState(null);
+  const save = (h, push = true) => {
+    setHoldings(h); localStorage.setItem(HOLDINGS_KEY, JSON.stringify(h));
+    if (push) fetch("/api/holdings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ holdings: h, source: "manual" }) }).catch(() => {});
+  };
+  // Load the server copy (refreshed by the daily Robinhood sync) on mount
+  useEffect(() => {
+    fetch("/api/holdings").then(r => r.json()).then(d => {
+      if (d?.ok && Array.isArray(d.holdings) && d.holdings.length) {
+        setHoldings(d.holdings); localStorage.setItem(HOLDINGS_KEY, JSON.stringify(d.holdings));
+        setSyncedAt(d.updatedAt || null);
+      }
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!holdings.length) return;
@@ -6778,6 +6791,7 @@ function HoldingsTab({ C, MONO, SANS, macroData }) {
       <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 4 }}>📊 MY HOLDINGS</div>
       <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 14 }}>
         Mechanical signal · suggested stop (ATR) · trend for what you own. These are tool-computed levels — <b>not advice</b>. You decide and place orders yourself.
+        {syncedAt && <span style={{ color: C.green, marginLeft: 6 }}>· ✅ synced from Robinhood {new Date(syncedAt).toLocaleDateString()}</span>}
       </div>
 
       {/* Totals */}
