@@ -16713,10 +16713,12 @@ export default function App() {
           // Fire only on transition into 5/5, and only during regular hours
           if (isGreen && wasGreen === false && isRegular) {
             const msg = [
-              `🟢 *GREEN LIGHT 5/5* — ${sym}`,
-              `Price: $${px.toFixed(2)} (${(q.changesPercentage||0) >= 0 ? "+" : ""}${(q.changesPercentage||0).toFixed(2)}%)`,
-              `Stop: $${gl.stop} · T1: $${gl.t1} · T2: $${gl.t2}`,
-              `All 5 checks passed — BUY zone ✅`,
+              `🟢 *GREEN LIGHT 5/5* — ${sym}${gl.isLeader ? " 💪 LEADER" : ""}`,
+              `$${px.toFixed(2)} (${(q.changesPercentage||0) >= 0 ? "+" : ""}${(q.changesPercentage||0).toFixed(2)}%)`,
+              `✅ At GOOD ENTRY — all 5 checks passed`,
+              `🎯 Entry $${gl.bestEntry} · 🛑 Stop $${gl.stop}`,
+              `🎯 T1 $${gl.t1} · T2 $${gl.t2}`,
+              `BUY ZONE`,
             ].join("\n");
             fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
           }
