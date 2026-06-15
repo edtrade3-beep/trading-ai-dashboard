@@ -6006,7 +6006,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       let trades = [];
       try { trades = JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []; } catch {}
       const trailOn = localStorage.getItem("axiom_autopilot_trail") !== "off"; // default ON
-      const exitMode = localStorage.getItem("axiom_autopilot_exit") || "trend"; // targets | trend (default: sell when bearish)
+      const exitMode = localStorage.getItem("axiom_autopilot_exit") || "trail"; // targets | trend (default: sell when bearish)
       let changed = false;
       const updated = trades.map(tr => {
         if (tr.status !== "OPEN" || tr.mode !== "PAPER" || !tr.auto) return tr;
@@ -6060,9 +6060,10 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
         }
 
         // ── TRAILING STOP: ratchet the stop UP as price makes new highs (never down) ──
-        if (trailOn) {
+        // Trail by ~2.5×ATR (= 5/3 × the 1.5×ATR initial risk) — the distance validated in the backtest.
+        if (trailOn || exitMode === "trail") {
           x.hwm = Math.max(Number(x.hwm) || x.entry, px);          // high-water mark
-          const trailDist = Number(x.risk0) || (x.entry - x.stop); // trail by the initial risk distance
+          const trailDist = (Number(x.risk0) || (x.entry - x.stop)) * (5 / 3);
           const trailStop = +(x.hwm - trailDist).toFixed(2);
           if (trailStop > x.stop) { x.stop = trailStop; changed = true; }
         }
@@ -6075,6 +6076,8 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
           logTradeNote("exit", `${trailed ? "🔒 TRAIL STOP" : "🛑 STOP HIT"} — ${x.ticker}${x.glScore ? ` (${x.glScore}/5)` : ""}\nClosed @ $${x.exit} (paper) · P&L ${x.realized >= 0 ? "+" : ""}$${x.realized.toFixed(0)}`);
           return x;
         }
+        // ── TRAIL mode: pure trailing stop (validated) — let winners run, no MA50 exit, no targets ──
+        if (exitMode === "trail") return x;
         // ── TREND mode: hold the runner; sell ALL when the trend turns against the position ──
         if (exitMode === "trend") {
           const uPx  = tr.instrument === "OPTION" ? (priceOf(tr.ticker) || tr.uEntry) : px;
@@ -6155,7 +6158,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
     const t = setInterval(async () => {
       if (localStorage.getItem("axiom_autopilot") !== "on") return;
       if (localStorage.getItem("axiom_autopilot_broker") !== "alpaca") return;
-      if ((localStorage.getItem("axiom_autopilot_exit") || "trend") !== "trend") return;
+      if ((localStorage.getItem("axiom_autopilot_exit") || "trail") !== "trend") return;
       try {
         const r = await fetch("/api/alpaca/positions").then(x => x.json());
         if (!r?.ok) return;
@@ -6188,7 +6191,7 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   const [paperStart, setPaperStart] = useState(() => Number(localStorage.getItem("axiom_paper_start")) || PAPER_START);
   const [acct, setAcct] = useState(() => Number(localStorage.getItem("axiom_acct_size")) || 5000);
   const [riskPct, setRiskPct] = useState(() => Number(localStorage.getItem("axiom_risk_pct")) || 1);
-  const exitMode = localStorage.getItem("axiom_autopilot_exit") || "trend";
+  const exitMode = localStorage.getItem("axiom_autopilot_exit") || "trail";
   const saveAcct = v => { setAcct(v); localStorage.setItem("axiom_acct_size", v); };
   const saveRisk = v => { setRiskPct(v); localStorage.setItem("axiom_risk_pct", v); };
   const resetPaper = () => {
@@ -6874,7 +6877,7 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [optsOn, setOptsOn] = useState(() => localStorage.getItem("axiom_autopilot_opts") === "on");        // default OFF
   const [shortOn, setShortOn] = useState(() => localStorage.getItem("axiom_autopilot_short") === "on");      // default OFF
   const [trailMode, setTrailMode] = useState(() => localStorage.getItem("axiom_autopilot_trail") !== "off");
-  const [exitMode, setExitMode] = useState(() => localStorage.getItem("axiom_autopilot_exit") || "trend");
+  const [exitMode, setExitMode] = useState(() => localStorage.getItem("axiom_autopilot_exit") || "trail");
   const [broker, setBroker] = useState(() => localStorage.getItem("axiom_autopilot_broker") || "sim");
   const [maxPos, setMaxPos] = useState(() => Number(localStorage.getItem("axiom_autopilot_maxpos")) || 12);
   const [lastCheck, setLastCheck] = useState(() => Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
@@ -6998,9 +7001,9 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
           ))}
         </div>
         {/* Exit style: scale out at targets vs ride until trend turns bearish */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="TARGETS = scale out ⅓ at T1/T2/T3. TREND = hold the whole position and sell ALL only when the stock turns bearish (drops below MA50 or sharp down day). Trailing stop still applies.">
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="TRAIL = pure trailing stop (~2.5×ATR) — the exit VALIDATED in the backtest (+1.70R). Let winners run, cut losers small. TARGETS = scale out at T1/T2/T3. TREND = sell all when the stock turns bearish.">
           <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>EXIT:</span>
-          {[["TARGETS", "targets"], ["TREND", "trend"]].map(([lbl, val]) => (
+          {[["TRAIL ✓", "trail"], ["TARGETS", "targets"], ["TREND", "trend"]].map(([lbl, val]) => (
             <button key={val} onClick={() => { setExitMode(val); localStorage.setItem("axiom_autopilot_exit", val); }}
               style={{ background: exitMode === val ? "#7c3aed" : C.surface, color: exitMode === val ? "#fff" : C.textSec,
                 border: `1px solid ${exitMode === val ? "#7c3aed" : C.border}`, borderRadius: 6,
