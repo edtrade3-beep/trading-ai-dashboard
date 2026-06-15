@@ -6184,20 +6184,23 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   // ── PAPER vs LIVE mode ──
   const [mode, setMode] = useState(() => localStorage.getItem("axiom_trade_mode") || "PAPER");
   const setTradeMode = m => { setMode(m); localStorage.setItem("axiom_trade_mode", m); };
-  const PAPER_START = 100000;
+  const PAPER_START = 5000;
   const [paperStart, setPaperStart] = useState(() => Number(localStorage.getItem("axiom_paper_start")) || PAPER_START);
-  const resetPaper = () => {
-    if (!window.confirm("Reset paper account to $100,000 and clear all paper trades?")) return;
-    setPaperStart(100000);
-    localStorage.setItem("axiom_paper_start", "100000");
-    const live = trades.filter(t => (t.mode || "LIVE") !== "PAPER");
-    save(live);
-  };
-  const [acct, setAcct] = useState(() => Number(localStorage.getItem("axiom_acct_size")) || 10000);
+  const [acct, setAcct] = useState(() => Number(localStorage.getItem("axiom_acct_size")) || 5000);
   const [riskPct, setRiskPct] = useState(() => Number(localStorage.getItem("axiom_risk_pct")) || 1);
   const exitMode = localStorage.getItem("axiom_autopilot_exit") || "trend";
   const saveAcct = v => { setAcct(v); localStorage.setItem("axiom_acct_size", v); };
   const saveRisk = v => { setRiskPct(v); localStorage.setItem("axiom_risk_pct", v); };
+  const resetPaper = () => {
+    const inp = window.prompt("Fund paper account with how much? (this clears all paper trades)", "5000");
+    if (inp === null) return;
+    const amt = Math.max(100, Math.round(Number(inp) || 5000));
+    setPaperStart(amt);
+    localStorage.setItem("axiom_paper_start", String(amt));
+    saveAcct(amt);  // position sizing uses the same account balance
+    const live = trades.filter(t => (t.mode || "LIVE") !== "PAPER");
+    save(live);
+  };
   // Suggested shares = (account × risk%) / (entry − stop), capped to what the account can afford
   const suggestedShares = (() => {
     const e = Number(form.entry);
@@ -6355,7 +6358,7 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
               <button onClick={resetPaper}
                 style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6,
                   fontFamily: MONO, fontSize: 10, padding: "4px 10px", cursor: "pointer" }}>
-                ⟲ Reset $100k
+                💵 FUND / RESET
               </button>
             </>
           );
