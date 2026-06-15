@@ -4958,8 +4958,8 @@ function computeGreenLight(q, spyChg, scanRow) {
       tip: rsiKnown ? `RSI ${rsi.toFixed(0)} (>50 = bullish momentum)` : `Up ${chg >= 0 ? "+" : ""}${chg.toFixed(1)}% today` },
     { label: rvol > 0 ? `Volume ${rvol.toFixed(1)}x` : "Volume active",  pass: rvol >= 1.2 || vol === 0,
       tip: rvol > 0 ? `RVOL ${rvol.toFixed(1)}x (≥1.2x = real participation)` : "No volume data" },
-    { label: "Good entry",   pass: ema21 > 0 ? (px <= ema21 * 1.04 && px >= ema21 * 0.96) : (ma50 > 0 && px <= ma50 * 1.06 && px >= ma50 * 0.96),
-      tip: ema21 > 0 ? `Near EMA21 $${ema21.toFixed(2)} — pullback entry, not chasing` : `Near MA50 $${ma50.toFixed(2)}` },
+    { label: "Good entry",   pass: ema21 > 0 ? (px <= ema21 * 1.08 && px >= ema21 * 0.94) : (ma50 > 0 && px <= ma50 * 1.10 && px >= ma50 * 0.92),
+      tip: ema21 > 0 ? `Within reach of EMA21 $${ema21.toFixed(2)} — not over-extended` : `Near MA50 $${ma50.toFixed(2)}` },
   ];
 
   const passed = checks.filter(c => c.pass).length;
@@ -7091,7 +7091,8 @@ function glSimulate(sym, c, spyMap, threshold, trades) {
       }
     }
     if (!open) {
-      const checks = [ spy > -0.5, ma50 > 0 && px > ma50 && ma50 > ma200, rsi >= 50, rvol >= 1.2, ema21[i] > 0 && Math.abs(px - ema21[i]) / ema21[i] <= 0.04 ];
+      const dev = ema21[i] > 0 ? (px - ema21[i]) / ema21[i] : 1;
+      const checks = [ spy > -0.5, ma50 > 0 && px > ma50 && ma50 > ma200, rsi >= 50, rvol >= 1.2, ema21[i] > 0 && dev <= 0.08 && dev >= -0.06 ];
       const passed = checks.filter(Boolean).length;
       if (passed >= threshold && atr > 0) open = { entry: px, stop: px - atr * 1.5, risk: atr * 1.5, score: passed };
     }
