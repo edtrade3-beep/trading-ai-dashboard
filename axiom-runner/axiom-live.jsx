@@ -7084,7 +7084,11 @@ function glSimulate(sym, c, spyMap, threshold, trades) {
     const atr = tr / 14;
     const spy = spyMap[ts[i]] ?? 0;
     if (open) {
-      if (px <= open.stop || (ma50 > 0 && px < ma50)) {  // stop or trend-break exit
+      // Trailing stop: let winners RUN. Ratchet the stop up to 2.5×ATR below the high, never down.
+      open.hwm = Math.max(open.hwm, px);
+      const trail = open.hwm - atr * 2.5;
+      if (trail > open.stop) open.stop = trail;
+      if (px <= open.stop) {
         const r = open.risk > 0 ? (px - open.entry) / open.risk : 0;
         trades.push({ sym, score: open.score, r, ret: (px - open.entry) / open.entry });
         open = null;
@@ -7094,7 +7098,7 @@ function glSimulate(sym, c, spyMap, threshold, trades) {
       const dev = ema21[i] > 0 ? (px - ema21[i]) / ema21[i] : 1;
       const checks = [ spy > -0.5, ma50 > 0 && px > ma50 && ma50 > ma200, rsi >= 50, rvol >= 1.2, ema21[i] > 0 && dev <= 0.08 && dev >= -0.06 ];
       const passed = checks.filter(Boolean).length;
-      if (passed >= threshold && atr > 0) open = { entry: px, stop: px - atr * 1.5, risk: atr * 1.5, score: passed };
+      if (passed >= threshold && atr > 0) open = { entry: px, stop: px - atr * 1.5, risk: atr * 1.5, hwm: px, score: passed };
     }
   }
 }
