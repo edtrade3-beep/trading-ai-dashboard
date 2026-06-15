@@ -7378,6 +7378,54 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
                   )) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Loading…</div>}
                 </div>
               )}
+
+              {/* ── OPTIONS — learn + trade in one place ── */}
+              {(() => {
+                const bullish = r.signal !== "RED";          // GREEN/YELLOW → call; RED → put
+                const kind = bullish ? "CALL" : "PUT";
+                const col = bullish ? C.green : C.red;
+                const px = r.px;
+                const atm = px >= 200 ? Math.round(px / 5) * 5 : px >= 50 ? Math.round(px) : Math.round(px * 2) / 2;
+                const premium = +(px * 0.04).toFixed(2);     // ~ATM near-dated premium
+                const contractCost = Math.round(premium * 100);
+                const breakeven = bullish ? +(atm + premium).toFixed(2) : +(atm - premium).toFixed(2);
+                return (
+                  <div style={{ ...card, gridColumn: "1 / -1", borderLeft: `4px solid ${col}` }}>
+                    {hdr(bullish ? "📈" : "📉", `OPTIONS — LEARN + TRADE THIS ${kind}`, col)}
+                    {/* The numbers */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "6px 18px", marginBottom: 12 }}>
+                      <Row l="Contract" v={`${kind} $${atm}`} col={col} />
+                      <Row l="Est. premium" v={`$${premium.toFixed(2)}`} />
+                      <Row l="Cost (1 contract)" v={`$${contractCost}`} col={C.amber} />
+                      <Row l="Breakeven" v={`$${breakeven}`} />
+                      <Row l="Max risk" v={`$${contractCost} (the premium)`} col={C.red} />
+                      <Row l="Expiry to use" v="30–60 days out" />
+                    </div>
+                    {/* Plain-English lesson tied to THIS setup */}
+                    <div style={{ background: `${col}0c`, border: `1px solid ${col}33`, borderRadius: 8, padding: "10px 12px", fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.7 }}>
+                      📖 <b>What this means:</b> A {kind} on {r.symbol} gives you the right to {bullish ? "BUY" : "SELL"} 100 shares at <b>${atm}</b>. You'd pay about <b>${premium.toFixed(2)}/share = ${contractCost}</b> for one contract.
+                      <br/>• You profit if {r.symbol} {bullish ? "rises above" : "falls below"} <b>${breakeven}</b> (your breakeven) before expiration.
+                      <br/>• <b>Max loss = ${contractCost}</b> (the whole premium) — it can go to zero.
+                      <br/>• ⏳ It loses value <b>every day</b> from time decay, even if the stock is flat — so this is a bet the move happens <b>soon</b>.
+                      <br/>• ⚠️ {contractCost > Number(localStorage.getItem("axiom_acct_size") || 5000) * 0.1 ? "This is a big bite of a small account — size down." : "Risk only what you can lose; 1 contract is already leveraged."}
+                    </div>
+                    {/* Paper trade it */}
+                    <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
+                      <button onClick={(e) => {
+                          const res = addPaperOption(r.symbol, r.px, kind, { glScore: r.passed });
+                          const b = e.currentTarget;
+                          b.textContent = res === "DUP" ? "already open" : `✓ ${kind} BOUGHT (paper)`;
+                          b.style.background = col; b.style.color = "#fff";
+                          setTimeout(() => { b.textContent = `${bullish ? "📈" : "📉"} PAPER BUY ${kind}`; b.style.background = `${col}18`; b.style.color = col; }, 2000);
+                        }}
+                        style={{ background: `${col}18`, border: `1px solid ${col}55`, color: col, borderRadius: 7, fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 16px", cursor: "pointer" }}>
+                        {bullish ? "📈" : "📉"} PAPER BUY {kind}
+                      </button>
+                      <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Simulated — watch it in MY TRADES → 📈 OPTIONS to see how it behaves. Learning, not advice.</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         );
