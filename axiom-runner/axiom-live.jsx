@@ -9923,6 +9923,54 @@ const DEEP_LESSONS = [
     rule:"Trade the reaction, never the prediction. Patience around events is what separates pros from gamblers." },
 ];
 
+// ── OPTIONS ACADEMY — honest, plain-English options education ──
+const OPTIONS_LESSONS = [
+  { icon:"📘", color:"#3b82f6", title:"1. What an option actually is",
+    body:"An option is a CONTRACT — the right (not obligation) to buy or sell 100 shares of a stock at a set price by a set date.\n\n• CALL = right to BUY at the strike. You buy calls when you think the stock goes UP.\n• PUT = right to SELL at the strike. You buy puts when you think the stock goes DOWN.\n\nYou pay a 'premium' for this right. 1 contract = 100 shares. So a $2.00 premium costs $200 (2 × 100).\n\nKey idea: options are LEVERAGE. A small move in the stock = a big move (up OR down) in the option." },
+  { icon:"🎯", color:"#22d47e", title:"2. The 4 words you must know",
+    body:"STRIKE — the price you have the right to buy/sell at.\nEXPIRATION — the date the contract dies. After this, it's worthless if not 'in the money'.\nPREMIUM — what you pay (per share × 100).\nMONEYNESS:\n  • ITM (in-the-money) — has real value (call strike below price / put strike above)\n  • ATM (at-the-money) — strike ≈ stock price\n  • OTM (out-of-the-money) — only 'hope' value, no intrinsic value\n\nExample: AAPL at $200. A $190 CALL is ITM. A $210 CALL is OTM (a bet it rises above $210)." },
+  { icon:"💸", color:"#f59e0b", title:"3. Why options LOSE money (read twice)",
+    body:"This is the lesson that just cost you. Options bleed value in ways stocks never do:\n\n⏳ TIME DECAY (theta) — an option loses value EVERY single day, even if the stock does nothing. Like ice melting. The closer to expiration, the faster it melts. A flat stock = a dying option.\n\n📉 IV CRUSH — options get expensive before big events (earnings). After the event, 'implied volatility' collapses and the option drops HARD even if you were right on direction.\n\n🎯 YOU NEED TO BE RIGHT 3 WAYS — direction, size of move, AND timing. With stock you only need direction. That's why most option buyers lose." },
+  { icon:"🔢", color:"#a855f7", title:"4. The Greeks (simplified)",
+    body:"The 'Greeks' measure how your option reacts:\n\n• DELTA — how much the option moves per $1 stock move. 0.50 delta = option moves $0.50 per $1. ATM ≈ 0.50.\n• THETA — daily time decay. −0.05 theta = you lose $5/day per contract just from time.\n• GAMMA — how fast delta changes. High near expiration = wild swings.\n• VEGA — sensitivity to volatility. High vega = IV crush hurts more.\n\nYou don't need to master these — but THETA (decay) and VEGA (IV crush) are why long options are hard. They work against you every day." },
+  { icon:"🛡️", color:"#14b8a6", title:"5. Safer strategies than buying calls/puts",
+    body:"Buying naked calls/puts is the HARDEST way to win. Safer approaches:\n\n• COVERED CALL — own 100 shares, sell a call against them. You collect premium (income). Caps upside, but you get paid. Lowest-risk options strategy.\n• CASH-SECURED PUT — sell a put on a stock you'd happily own. You get paid to wait; if it drops you buy the stock at a discount.\n• SPREADS — buy one option, sell another to offset cost & decay. Defined risk.\n\nNotice: the safer strategies SELL premium (collect decay) instead of BUYING it (paying decay). The house edge is in selling." },
+  { icon:"⚠️", color:"#ef4444", title:"6. Rules to not blow up",
+    body:"• NEVER risk money you can't lose. Options can go to ZERO fast.\n• Position size TINY — options are 5-10x leverage. 1 contract is already a big bet.\n• Buy time — never buy options expiring this week (max decay). 30-60+ days out.\n• AVOID earnings — IV crush destroys long options even when you're right.\n• Have an exit BEFORE you enter — both a stop and a target.\n• Don't average down on a losing option — it's usually dying, not 'cheap'.\n• If you can't explain WHY the option will move before it decays, don't buy it." },
+  { icon:"🧠", color:"#0ea5e9", title:"7. The honest truth about options",
+    body:"Studies consistently show MOST retail option BUYERS lose money. The leverage that excites you is the same leverage that wiped your puts this week.\n\nThe people who make money with options are usually SELLERS (collecting premium/decay) or hedgers — not buyers chasing 10-baggers.\n\nMy honest advice: learn options to UNDERSTAND the market and to use SAFE income strategies (covered calls on stocks you own) — not to gamble on direction with leverage.\n\nMaster the paper account first. Prove you can make money in SHARES before you ever add the complexity and decay of options. Options reward the patient and disciplined, and punish the rushed — which is exactly the lesson your Coach is teaching you." },
+];
+
+function OptionsEduTab({ C, MONO, SANS }) {
+  const [open, setOpen] = useState(0);
+  return (
+    <div style={{ padding: "16px 20px", maxWidth: 820, margin: "0 auto" }}>
+      <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 4 }}>📈 OPTIONS ACADEMY</div>
+      <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginBottom: 16 }}>
+        Plain-English options education — what they are, how they make and lose money, and how not to blow up. Read in order.
+      </div>
+      {OPTIONS_LESSONS.map((l, i) => (
+        <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${l.color}`, borderRadius: 10, marginBottom: 8, overflow: "hidden" }}>
+          <div onClick={() => setOpen(open === i ? null : i)}
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", cursor: "pointer" }}>
+            <span style={{ fontSize: 18 }}>{l.icon}</span>
+            <span style={{ flex: 1, fontFamily: SANS, fontSize: 15, fontWeight: 800, color: C.text }}>{l.title}</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{open === i ? "▲" : "▼"}</span>
+          </div>
+          {open === i && (
+            <div style={{ padding: "0 16px 16px 16px" }}>
+              <pre style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.7, whiteSpace: "pre-wrap", margin: 0 }}>{l.body}</pre>
+            </div>
+          )}
+        </div>
+      ))}
+      <div style={{ marginTop: 14, padding: "12px 16px", background: `${C.amber}10`, border: `1px solid ${C.amber}44`, borderRadius: 10, fontFamily: SANS, fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>
+        ⚠️ Educational only — not financial advice. Options carry real risk of total loss. Practice on paper before risking real money, and consult a licensed advisor for your situation.
+      </div>
+    </div>
+  );
+}
+
 function EducationTab({ C, MONO, SANS }) {
   const [section, setSection] = useState("lessons"); // lessons | rules | mistakes | journal
   const [openLesson, setOpenLesson] = useState(null);
@@ -14357,7 +14405,7 @@ export default function App() {
     try {
       const t = localStorage.getItem("last_tab");
       // Restore only safe tabs (don't restore modals/dialogs)
-      const safeTabs = ["dashboard","tv","multitf","fibonacci","scanner","smartscan","greenlight","mytrades","holdings","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","predictions","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","journal-stats","coach","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","dipbuy","under10","quran","athan","athkar","tasbih","halal","soccer"];
+      const safeTabs = ["dashboard","tv","multitf","fibonacci","scanner","smartscan","greenlight","mytrades","holdings","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","predictions","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","journal-stats","coach","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","options-edu","dipbuy","under10","quran","athan","athkar","tasbih","halal","soccer"];
       return (t && safeTabs.includes(t)) ? t : "dashboard";
     } catch { return "dashboard"; }
   });
@@ -17996,7 +18044,7 @@ export default function App() {
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy"] },
               { id: "markets",    label: "🌍 MARKETS",    tabs: ["news", "macro", "econ-cal", "predictions"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
-              { id: "education",  label: "🎓 LEARN",      tabs: ["education", "notes"] },
+              { id: "education",  label: "🎓 LEARN",      tabs: ["education", "options-edu", "notes"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools"] },
               { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih", "halal"] },
             ];
@@ -18364,6 +18412,7 @@ export default function App() {
           ],
           education: [
             { id: "education",       label: "🎓 EDUCATION" },
+            { id: "options-edu",     label: "📈 OPTIONS 101" },
             { id: "notes",           label: "📝 NOTES" },
           ],
           tools: [
@@ -31075,6 +31124,7 @@ export default function App() {
       {activeTab === "adol22"          && <Adol22Tab          C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "notes"           && <NotesTab           C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "education"       && <EducationTab        C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "options-edu"     && <OptionsEduTab       C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "recap"           && <RecapTab           C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "morning-routine" && <MorningRoutineTab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} macroData={macroData} distData={distData} fearGreedData={fearGreedData} />}
       {activeTab === "challenge" && <ChallengeTab C={C} MONO={MONO} SANS={SANS} />}
