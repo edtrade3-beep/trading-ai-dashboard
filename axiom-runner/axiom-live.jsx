@@ -7189,6 +7189,27 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
               </span>
             ))}
           </div>
+          {/* ── Potential strip: options · target · exit ── */}
+          {(() => {
+            const bullish = r.signal !== "RED";
+            const kind = bullish ? "CALL" : "PUT";
+            const col = bullish ? C.green : C.red;
+            const atm = r.px >= 200 ? Math.round(r.px / 5) * 5 : r.px >= 50 ? Math.round(r.px) : Math.round(r.px * 2) / 2;
+            const premium = +(r.px * 0.04).toFixed(2);
+            const be = bullish ? +(atm + premium).toFixed(2) : +(atm - premium).toFixed(2);
+            const t2 = Number(r.t2) || r.px * 1.1;
+            const optGain = Math.round(((t2 - r.px) / r.px) * 5 * 100); // ~5x leverage if target hits
+            return (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8, alignItems: "center", fontFamily: MONO, fontSize: 10.5 }}>
+                <span style={{ color: col, fontWeight: 800, background: `${col}14`, border: `1px solid ${col}44`, borderRadius: 4, padding: "2px 8px" }}>
+                  {bullish ? "📈" : "📉"} {kind} ${atm} · ~${premium} · BE ${be}{optGain > 0 ? ` · ≈+${optGain}% if T2` : ""}
+                </span>
+                <span style={{ color: C.green }}>🎯 Target ${r.t2} (+10%)</span>
+                <span style={{ color: C.red }}>🛑 Stop ${r.stop}</span>
+                <span style={{ color: C.amber }}>⏹ Exit on bearish</span>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Trade levels */}
