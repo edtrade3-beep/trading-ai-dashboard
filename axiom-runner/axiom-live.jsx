@@ -19105,23 +19105,36 @@ export default function App() {
               </button>
             </div>
 
-            {/* ── MARKET RISK TRAFFIC LIGHT (top panel) ── */}
-            <RiskTrafficLight C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
+            {(() => {
+              const SectionLabel = ({ children }) => (
+                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim,
+                  letterSpacing: "0.1em", margin: "16px 2px 8px", display: "flex", alignItems: "center", gap: 8 }}>
+                  {children}
+                  <span style={{ flex: 1, height: 1, background: C.border }} />
+                </div>
+              );
+              return (
+                <>
+                  {/* ── 1. MARKET MODE — am I risk-on or risk-off right now? ── */}
+                  <SectionLabel>🚦 MARKET MODE</SectionLabel>
+                  <RiskTrafficLight C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
 
-            {/* ── FED INTERPRETER ── */}
-            <FedInterpreter C={C} MONO={MONO} SANS={SANS} />
+                  {/* ── 2. CATALYSTS — Fed + scheduled economic events ── */}
+                  <SectionLabel>🏛 CATALYSTS &amp; EVENTS</SectionLabel>
+                  <FedInterpreter C={C} MONO={MONO} SANS={SANS} />
+                  <MacroEventsWidget C={C} MONO={MONO} SANS={SANS} />
 
-            {/* ── PRAYER TIMES (Makkah / Medinah) ── */}
-            <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
+                  {/* ── 3. FLOW & MOVERS — where is the money going? ── */}
+                  <SectionLabel>📊 FLOW &amp; MOVERS</SectionLabel>
+                  <SpyVolumeWidget C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
+                  <CryptoLiqWidget C={C} MONO={MONO} SANS={SANS} />
 
-            {/* ── SPY VOLUME + OPTIONS ── */}
-            <SpyVolumeWidget C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
-
-            {/* ── MACRO EVENTS — LIVE estimates/actuals (FMP) ── */}
-            <MacroEventsWidget C={C} MONO={MONO} SANS={SANS} />
-
-            {/* ── CRYPTO LIQUIDATIONS ── */}
-            <CryptoLiqWidget C={C} MONO={MONO} SANS={SANS} />
+                  {/* ── PERSONAL ── */}
+                  <SectionLabel>🕌 PRAYER TIMES</SectionLabel>
+                  <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
+                </>
+              );
+            })()}
 
             {/* ── FUTURES STRIP ── */}
             {futuresData.length > 0 && (
