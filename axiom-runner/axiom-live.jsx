@@ -2636,6 +2636,30 @@ function FedInterpreter({ C, MONO, SANS }) {
     if (!res?.ok) return;
     fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `🏛 *FED INTERPRETER*\n\nBias: ${res.bias} ${res.score}/100\n${res.read}` }) }).catch(() => {});
   };
+  // ── AUTO-SEND: when ON, poll for a FRESH statement and push to Telegram automatically (once) ──
+  React.useEffect(() => {
+    if (!on) return;
+    const check = async () => {
+      try {
+        const d = await fetch("/api/market/fed-interpret").then(r => r.json());
+        if (d?.ok && !d.stale) {
+          const key = d.date || d.title || "";
+          if (key && localStorage.getItem("axiom_fed_sent") !== key) {
+            localStorage.setItem("axiom_fed_sent", key);
+            setRes(d);
+            if (localStorage.getItem("axiom_risklight_sound") === "on") riskBuzz(d.bias === "DOVISH" ? "GREEN" : d.bias === "HAWKISH" ? "RED" : "YELLOW");
+            riskVibrate(d.bias === "DOVISH" ? "GREEN" : d.bias === "HAWKISH" ? "RED" : "YELLOW");
+            const tg = `🏛 *FOMC STATEMENT — ${d.bias}*\n\nScore: ${d.score}/100\n${d.read}\n\n📄 ${d.title || ""}`;
+            fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: tg }) }).catch(() => {});
+          }
+        }
+      } catch {}
+    };
+    check();
+    const t = setInterval(check, 8 * 60 * 1000); // every 8 min while ON
+    return () => clearInterval(t);
+  }, [on]);
+
   const col = res?.ok ? (res.bias === "DOVISH" ? C.green : res.bias === "HAWKISH" ? C.red : C.amber) : C.textDim;
   return (
     <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 12 }}>
@@ -2645,7 +2669,7 @@ function FedInterpreter({ C, MONO, SANS }) {
           style={{ background: on ? "#7c3aed" : C.surface, color: on ? "#fff" : C.textSec, border: `1px solid ${on ? "#7c3aed" : C.border}`, borderRadius: 6, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>
           {on ? "ON" : "OFF"}
         </button>
-        <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>Use at 2:00–2:30 PM ET on FOMC days</span>
+        <span style={{ fontFamily: SANS, fontSize: 10, color: on ? C.green : C.textDim }}>{on ? "🟢 AUTO — pushes the statement read to Telegram the moment it drops" : "Switch ON for auto-interpret + Telegram"}</span>
         {on && <button onClick={() => setWatch(w => !w)} style={{ marginLeft: "auto", background: watch ? "#dc2626" : C.surface, color: watch ? "#fff" : C.textSec, border: `1px solid ${watch ? "#dc2626" : C.border}`, borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 12px", cursor: "pointer" }}>{watch ? "✕ HIDE LIVE" : "📺 WATCH LIVE"}</button>}
         {on && <button onClick={interpret} disabled={loading} style={{ background: loading ? C.surface : C.accent, color: loading ? C.textDim : "#fff", border: "none", borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 14px", cursor: loading ? "default" : "pointer" }}>{loading ? "…" : "🎙 INTERPRET FED"}</button>}
       </div>
