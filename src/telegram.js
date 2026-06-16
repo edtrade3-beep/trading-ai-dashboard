@@ -68,22 +68,27 @@ async function sendTelegramMessage(text) {
 // `caption` = the written text shown under the clip. Falls back to a plain text message if TTS fails.
 async function sendTelegramVoice(speak, caption) {
   if (!isConfigured()) return;
-  const phrase = String(speak || "").slice(0, 180);
+  const phrase = String(speak || "").slice(0, 190);  // Google TTS caps ~200 chars/request
   const cap = caption != null ? String(caption) : undefined;
-  // Free TTS (no key) → returns an mp3 Telegram can fetch by URL.
-  const ttsUrl = `https://api.streamelements.com/kappa/v2/speech?voice=Brian&text=${encodeURIComponent(phrase)}`;
-  const post = (method, body) => fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/${method}`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, ...body }),
-  }).then(r => r.json()).catch(() => ({}));
   try {
-    let json = await post("sendVoice", { voice: ttsUrl, caption: cap });
-    if (!json.ok) json = await post("sendAudio", { audio: ttsUrl, caption: cap, title: "Market Alert" });
-    if (!json.ok) { await sendTelegramMessage(cap || phrase); }  // last-resort: text always gets through
+    // Fetch real speech audio server-side (needs a browser UA or Google 403s).
+    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en-US&client=tw-ob&q=${encodeURIComponent(phrase)}`;
+    const audioRes = await fetch(ttsUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
+    if (!audioRes.ok) throw new Error("TTS " + audioRes.status);
+    const buf = Buffer.from(await audioRes.arrayBuffer());
+    // Upload the mp3 to Telegram as an audio message (Node 20 has global FormData/Blob).
+    const form = new FormData();
+    form.append("chat_id", String(TELEGRAM_CHAT_ID));
+    form.append("title", "Market Alert");
+    if (cap) form.append("caption", cap);
+    form.append("audio", new Blob([buf], { type: "audio/mpeg" }), "alert.mp3");
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendAudio`, { method: "POST", body: form });
+    const json = await res.json().catch(() => ({}));
+    if (!json.ok) { console.error("[Telegram] sendTelegramVoice failed:", json.description || ""); await sendTelegramMessage(cap || phrase); }
     return json;
   } catch (err) {
     console.error("[Telegram] sendTelegramVoice error:", err.message);
-    await sendTelegramMessage(cap || phrase);
+    await sendTelegramMessage(cap || phrase);  // text always gets through
   }
 }
 
