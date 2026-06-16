@@ -2531,12 +2531,22 @@ function MacroEventsWidget({ C, MONO, SANS }) {
 function riskBuzz(light) {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const cfg = light === "GREEN" ? { f: 600, d: 0.15, n: 1 } : light === "YELLOW" ? { f: 800, d: 0.12, n: 2 } : { f: 1200, d: 0.1, n: 6 };
-    for (let i = 0; i < cfg.n; i++) setTimeout(() => {
+    const beep = (freq, start, dur, type, vol) => {
       const o = ctx.createOscillator(), g = ctx.createGain();
-      o.frequency.value = cfg.f; o.type = "square"; g.gain.value = 0.18;
-      o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + cfg.d);
-    }, i * 200);
+      o.type = type || "sine"; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime + start);
+      g.gain.exponentialRampToValueAtTime(vol || 0.25, ctx.currentTime + start + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(ctx.currentTime + start); o.stop(ctx.currentTime + start + dur + 0.02);
+    };
+    if (light === "GREEN") {            // RISK ON  → cheerful rising two-tone "ding-ding ↑"
+      beep(660, 0, 0.18, "sine", 0.28); beep(990, 0.18, 0.30, "sine", 0.28);
+    } else if (light === "YELLOW") {    // CAUTION  → two flat equal mid beeps "beep–beep"
+      beep(740, 0, 0.16, "triangle", 0.24); beep(740, 0.24, 0.16, "triangle", 0.24);
+    } else {                            // RISK OFF → urgent alarm, alternating high/low x5
+      for (let i = 0; i < 5; i++) beep(i % 2 ? 500 : 940, i * 0.16, 0.13, "square", 0.30);
+    }
   } catch {}
 }
 function riskVibrate(light) {
@@ -2614,7 +2624,7 @@ function RiskTrafficLight({ C, MONO, SANS, macroData }) {
       const lastTg = Number(localStorage.getItem("axiom_risklight_tg_ts") || 0);
       if (Date.now() - lastTg > 20 * 60 * 1000) {
         localStorage.setItem("axiom_risklight_tg_ts", String(Date.now()));
-        if (soundOn) speakRisk(RISK_SPEAK[light] || cfg.title);  // speak it out loud
+        if (soundOn) { riskBuzz(light); speakRisk(RISK_SPEAK[light] || cfg.title); }  // distinct buzz + spoken
         const leaders = light === "GREEN" ? "NVDA · AMD · AVGO" : light === "RED" ? "defensive / cash" : "wait for confirmation";
         const tg = [`${cfg.icon} ${cfg.title}`, ``, cfg.msg, ``, `Risk Score: ${score}/100`,
           `SPY ${spy >= 0 ? "+" : ""}${spy.toFixed(2)}% · QQQ ${qqq >= 0 ? "+" : ""}${qqq.toFixed(2)}%`,
@@ -2632,7 +2642,7 @@ function RiskTrafficLight({ C, MONO, SANS, macroData }) {
     const last = Number(localStorage.getItem("axiom_panic_ts") || 0);
     if (panic && Date.now() - last > 45 * 60 * 1000) {
       localStorage.setItem("axiom_panic_ts", String(Date.now()));
-      if (localStorage.getItem("axiom_risklight_sound") === "on") speakRisk("Panic. Risk shock. Protect capital now.");
+      if (localStorage.getItem("axiom_risklight_sound") === "on") { riskBuzz("RED"); speakRisk("Panic. Risk shock. Protect capital now."); }
       riskVibrate("RED");
       const what = [vixy > 8 ? `VIX spiking +${vixy.toFixed(1)}%` : "", spy < -1.8 ? `SPY plunging ${spy.toFixed(2)}%` : ""].filter(Boolean).join(" · ");
       const msg = `🚨 *PANIC — RISK SHOCK*\n\n${what}\nDollar ${uup >= 0 ? "↑" : "↓"} · QQQ ${qqq >= 0 ? "+" : ""}${qqq.toFixed(2)}%\n\nProtect capital — reduce exposure, no fresh longs.`;
@@ -2658,11 +2668,20 @@ function RiskTrafficLight({ C, MONO, SANS, macroData }) {
             <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: col }}>{val}</div>
           </div>
         ))}
-        <button onClick={() => { const nv = !soundOn; setSoundOn(nv); localStorage.setItem("axiom_risklight_sound", nv ? "on" : "off"); if (nv) speakRisk("Voice alerts on. " + (RISK_SPEAK[light] || "")); }}
-          title="Speak the market mode out loud when it flips (green/yellow/red). Telegram fires regardless."
-          style={{ alignSelf: "center", background: soundOn ? cfg.c : C.surface, color: soundOn ? "#fff" : C.textSec, border: `1px solid ${soundOn ? cfg.c : C.border}`, borderRadius: 7, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 12px", cursor: "pointer" }}>
-          {soundOn ? "🔊 VOICE ON" : "🔇 VOICE"}
-        </button>
+        <div style={{ alignSelf: "center", display: "flex", alignItems: "center", gap: 6 }}>
+          <button onClick={() => { const nv = !soundOn; setSoundOn(nv); localStorage.setItem("axiom_risklight_sound", nv ? "on" : "off"); if (nv) { riskBuzz(light); speakRisk(RISK_SPEAK[light] || ""); } }}
+            title="Play a distinct sound (+ spoken words) when the market mode flips. Telegram fires regardless."
+            style={{ background: soundOn ? cfg.c : C.surface, color: soundOn ? "#fff" : C.textSec, border: `1px solid ${soundOn ? cfg.c : C.border}`, borderRadius: 7, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 12px", cursor: "pointer" }}>
+            {soundOn ? "🔊 SOUND ON" : "🔇 SOUND"}
+          </button>
+          {/* Preview each distinct sound */}
+          {[["🟢", "GREEN"], ["🟡", "YELLOW"], ["🔴", "RED"]].map(([ico, lt]) => (
+            <button key={lt} onClick={() => riskBuzz(lt)} title={`Preview the ${lt === "GREEN" ? "RISK ON" : lt === "YELLOW" ? "CAUTION" : "RISK OFF"} sound`}
+              style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, padding: "5px 7px", cursor: "pointer", lineHeight: 1 }}>
+              {ico}▶
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
