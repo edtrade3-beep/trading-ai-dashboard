@@ -7076,11 +7076,12 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
     window.addEventListener("autopilot-tick", onTick);
     return () => window.removeEventListener("autopilot-tick", onTick);
   }, []);
-  // Options & short disabled for now — force off so the auto-pilot trades shares only
+  // Shares-only mode: force shares ON, options & short OFF so the auto-pilot always has something to trade
   useEffect(() => {
+    localStorage.setItem("axiom_autopilot_shares", "on");
     localStorage.setItem("axiom_autopilot_opts", "off");
     localStorage.setItem("axiom_autopilot_short", "off");
-    setOptsOn(false); setShortOn(false);
+    setSharesOn(true); setOptsOn(false); setShortOn(false);
   }, []);
   const toggleAuto = () => { const v = !autoPilot; setAutoPilot(v); localStorage.setItem("axiom_autopilot", v ? "on" : "off"); };
   const flattenAll = async () => {
@@ -7111,135 +7112,92 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
     setClosing(false);
   };
 
+  // Reusable labeled setting block: title + caption + segmented buttons
+  const Setting = ({ label, hint, options, value, onPick, accent = "#7c3aed" }) => (
+    <div style={{ minWidth: 130 }}>
+      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textSec, letterSpacing: "0.04em" }}>{label}</div>
+      <div style={{ display: "flex", gap: 4, marginTop: 5 }}>
+        {options.map(([lbl, val, col]) => {
+          const sel = value === val;
+          const c = col || accent;
+          return (
+            <button key={String(val)} onClick={() => onPick(val)}
+              style={{ background: sel ? c : C.surface, color: sel ? "#fff" : C.textSec,
+                border: `1px solid ${sel ? c : C.border}`, borderRadius: 6,
+                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 10px", cursor: "pointer" }}>
+              {lbl}
+            </button>
+          );
+        })}
+      </div>
+      {hint && <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 4, maxWidth: 200, lineHeight: 1.4 }}>{hint}</div>}
+    </div>
+  );
+
   return (
     <div style={{ padding: "16px 20px", maxWidth: 980, margin: "0 auto" }}>
+      {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
         <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>📋 MY TRADES</div>
-        {/* Big master switch */}
-        <button onClick={toggleAuto}
-          style={{ marginLeft: "auto", background: autoPilot ? "#16a34a" : C.surface, color: autoPilot ? "#fff" : C.textSec,
-            border: `2px solid ${autoPilot ? "#16a34a" : C.border}`, borderRadius: 10,
-            fontFamily: MONO, fontSize: 15, fontWeight: 900, padding: "12px 28px", cursor: "pointer", letterSpacing: "0.04em" }}>
-          {autoPilot ? "🟢 AUTO-PILOT ON" : "⚪ AUTO-PILOT OFF"}
-        </button>
+        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim, padding: "3px 8px", borderRadius: 6, border: `1px solid ${C.border}` }}>PAPER · SHARES ONLY</span>
         <button onClick={flattenAll} disabled={closing}
-          style={{ background: closing ? C.surface : `${C.red}15`, color: C.red, border: `1px solid ${C.red}55`, borderRadius: 10,
-            fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "12px 18px", cursor: closing ? "default" : "pointer" }}>
+          style={{ marginLeft: "auto", background: closing ? C.surface : `${C.red}15`, color: C.red, border: `1px solid ${C.red}55`, borderRadius: 10,
+            fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "10px 18px", cursor: closing ? "default" : "pointer" }}>
           {closing ? "closing…" : "⏹ CLOSE ALL"}
         </button>
       </div>
 
-      {/* ── AUTO-PILOT toggle ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, padding: "12px 16px",
-        background: autoPilot ? "#7c3aed12" : C.card, border: `2px solid ${autoPilot ? "#7c3aed" : C.border}`,
-        borderRadius: 10, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 22 }}>🤖</span>
+      {/* ── 1. Master switch ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12, padding: "16px 18px",
+        background: autoPilot ? "#16a34a14" : C.card, border: `2px solid ${autoPilot ? "#16a34a" : C.border}`, borderRadius: 12, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 30 }}>🤖</span>
         <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: autoPilot ? "#a78bfa" : C.text }}>
-            AUTO-PILOT {autoPilot ? "ON" : "OFF"} <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>· PAPER ONLY</span>
+          <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: autoPilot ? "#16a34a" : C.text }}>
+            AUTO-PILOT {autoPilot ? "ON" : "OFF"}
           </div>
-          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-            {autoPilot ? (
-                (!sharesOn && !optsOn)
-                ? "⚠️ Both SHARES and OPTIONS are OFF — nothing will be traded. Turn at least one on."
-                : `Auto-buys the best ${autoThreshold}/5 setups (max ${maxPos}) as ${[sharesOn && "shares", optsOn && "options"].filter(Boolean).join(" + ")}${broker === "alpaca" ? " via Alpaca paper" : ""}. Auto-exits via ${exitMode === "trend" ? "trend/stop" : "targets"}. Runs in the background, hands-off.`)
-                       : "Turn on to let the system auto-buy + auto-exit setups in paper mode. Keeps running on every tab, 100% hands-free."}
+          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 3 }}>
+            {autoPilot
+              ? `Buying the best ${autoThreshold === 5 ? "5/5" : "4/5+"} setups (up to ${maxPos}), auto-exiting via ${exitMode === "trail" ? "trailing stop" : exitMode === "trend" ? "trend turn" : "price targets"}${broker === "alpaca" ? ", through Alpaca paper" : ""}. Runs in the background on every tab — hands-off.`
+              : "Turn on to let the system auto-buy and auto-exit paper trades for you, 100% hands-free."}
           </div>
           {autoPilot && (
-            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#22c55e", marginTop: 5, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#22c55e", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", display: "inline-block", boxShadow: "0 0 6px #22c55e" }} />
               ACTIVE · last check {lastCheck ? new Date(lastCheck).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "starting…"}
             </div>
           )}
         </div>
-        {/* Threshold selector */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>BUY:</span>
-          {[[4, "4/5 + 5/5"], [5, "5/5 only"]].map(([n, lbl]) => (
-            <button key={n} onClick={() => { setAutoThreshold(n); localStorage.setItem("axiom_autopilot_min", n); }}
-              title={n === 4 ? "Trades both 4/5 and 5/5 setups (more trades)" : "Only trades perfect 5/5 setups (fewer, stricter)"}
-              style={{ background: autoThreshold === n ? "#7c3aed" : C.surface, color: autoThreshold === n ? "#fff" : C.textSec,
-                border: `1px solid ${autoThreshold === n ? "#7c3aed" : C.border}`, borderRadius: 6,
-                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
-              {lbl}
-            </button>
-          ))}
-        </div>
-        {/* Stop/target basis: ATR vs FIXED */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="ATR sizes stops/targets to each stock's volatility. FIXED uses −3% / +5/10/15% on every stock.">
-          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>STOPS:</span>
-          {[["ATR", true], ["FIXED", false]].map(([lbl, on]) => (
-            <button key={lbl} onClick={() => { setAtrMode(on); localStorage.setItem("axiom_autopilot_atr", on ? "on" : "off"); }}
-              style={{ background: atrMode === on ? "#7c3aed" : C.surface, color: atrMode === on ? "#fff" : C.textSec,
-                border: `1px solid ${atrMode === on ? "#7c3aed" : C.border}`, borderRadius: 6,
-                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
-              {lbl}
-            </button>
-          ))}
-        </div>
-        {/* Trailing stop: ratchet stop up as price rises */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="When ON, the stop ratchets UP as price makes new highs (trailing by the initial risk distance) to lock in gains. It never moves down.">
-          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>TRAIL:</span>
-          {[["ON", true], ["OFF", false]].map(([lbl, on]) => (
-            <button key={lbl} onClick={() => { setTrailMode(on); localStorage.setItem("axiom_autopilot_trail", on ? "on" : "off"); }}
-              style={{ background: trailMode === on ? "#7c3aed" : C.surface, color: trailMode === on ? "#fff" : C.textSec,
-                border: `1px solid ${trailMode === on ? "#7c3aed" : C.border}`, borderRadius: 6,
-                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
-              {lbl}
-            </button>
-          ))}
-        </div>
-        {/* Exit style: scale out at targets vs ride until trend turns bearish */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="TRAIL = pure trailing stop (~2.5×ATR) — the exit VALIDATED in the backtest (+1.70R). Let winners run, cut losers small. TARGETS = scale out at T1/T2/T3. TREND = sell all when the stock turns bearish.">
-          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>EXIT:</span>
-          {[["TRAIL ✓", "trail"], ["TARGETS", "targets"], ["TREND", "trend"]].map(([lbl, val]) => (
-            <button key={val} onClick={() => { setExitMode(val); localStorage.setItem("axiom_autopilot_exit", val); }}
-              style={{ background: exitMode === val ? "#7c3aed" : C.surface, color: exitMode === val ? "#fff" : C.textSec,
-                border: `1px solid ${exitMode === val ? "#7c3aed" : C.border}`, borderRadius: 6,
-                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
-              {lbl}
-            </button>
-          ))}
-        </div>
-        {/* Max open positions — only take the best-ranked setups */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="Caps how many positions the auto-pilot holds at once. It ranks every qualifying setup by quality (checks passed + relative strength + leadership) and only takes the BEST up to this number.">
-          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>MAX:</span>
-          {[10, 12, 15].map(n => (
-            <button key={n} onClick={() => { setMaxPos(n); localStorage.setItem("axiom_autopilot_maxpos", n); }}
-              style={{ background: maxPos === n ? "#7c3aed" : C.surface, color: maxPos === n ? "#fff" : C.textSec,
-                border: `1px solid ${maxPos === n ? "#7c3aed" : C.border}`, borderRadius: 6,
-                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
-              {n}
-            </button>
-          ))}
-        </div>
-        {/* Broker: simulated vs Alpaca paper (real broker API, paper money) */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="SIM = in-browser paper simulation. ALPACA = routes real orders to your Alpaca PAPER account via the official API (shares only). Requires ALPACA_KEY_ID / ALPACA_SECRET_KEY in Render env.">
-          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>BROKER:</span>
-          {[["SIM", "sim"], ["ALPACA", "alpaca"]].map(([lbl, val]) => (
-            <button key={val} onClick={() => { setBroker(val); localStorage.setItem("axiom_autopilot_broker", val); }}
-              style={{ background: broker === val ? (val === "alpaca" ? "#10b981" : "#7c3aed") : C.surface, color: broker === val ? "#fff" : C.textSec,
-                border: `1px solid ${broker === val ? (val === "alpaca" ? "#10b981" : "#7c3aed") : C.border}`, borderRadius: 6,
-                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
-              {lbl}
-            </button>
-          ))}
-        </div>
-        {/* Shares only for now (options & short disabled) */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }} title="Auto-pilot trades SHARES only. Toggle off to pause buying.">
-          <button onClick={() => { const v = !sharesOn; setSharesOn(v); localStorage.setItem("axiom_autopilot_shares", v ? "on" : "off"); }}
-            style={{ background: sharesOn ? "#7c3aed" : C.surface, color: sharesOn ? "#fff" : C.textSec,
-              border: `1px solid ${sharesOn ? "#7c3aed" : C.border}`, borderRadius: 6,
-              fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", cursor: "pointer" }}>
-            📊 SHARES {sharesOn ? "ON" : "OFF"}
-          </button>
-        </div>
-        <button onClick={() => { const v = !autoPilot; setAutoPilot(v); localStorage.setItem("axiom_autopilot", v ? "on" : "off"); }}
-          style={{ background: autoPilot ? "#7c3aed" : C.surface, color: autoPilot ? "#fff" : C.textSec,
-            border: `1px solid ${autoPilot ? "#7c3aed" : C.border}`, borderRadius: 8,
-            fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "10px 20px", cursor: "pointer" }}>
+        <button onClick={toggleAuto}
+          style={{ background: autoPilot ? "#16a34a" : C.surface, color: autoPilot ? "#fff" : C.textSec,
+            border: `2px solid ${autoPilot ? "#16a34a" : C.border}`, borderRadius: 10,
+            fontFamily: MONO, fontSize: 15, fontWeight: 900, padding: "14px 30px", cursor: "pointer", letterSpacing: "0.04em" }}>
           {autoPilot ? "⏹ TURN OFF" : "▶ TURN ON"}
         </button>
+      </div>
+
+      {/* ── 2. Settings ── */}
+      <div style={{ marginBottom: 14, padding: "14px 18px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em", marginBottom: 12 }}>⚙️ SETTINGS</div>
+        <div style={{ display: "flex", gap: 22, rowGap: 16, flexWrap: "wrap" }}>
+          <Setting label="WHEN TO BUY" hint="How strict the entry is. 5/5 = fewer, perfect setups." value={autoThreshold}
+            onPick={n => { setAutoThreshold(n); localStorage.setItem("axiom_autopilot_min", n); }}
+            options={[["4/5+", 4], ["5/5 only", 5]]} />
+          <Setting label="MAX POSITIONS" hint="Holds only the best-ranked setups, up to this many at once." value={maxPos}
+            onPick={n => { setMaxPos(n); localStorage.setItem("axiom_autopilot_maxpos", n); }}
+            options={[["10", 10], ["12", 12], ["15", 15]]} />
+          <Setting label="STOP SIZE" hint="ATR sizes the stop to each stock's volatility. FIXED uses a flat %." value={atrMode}
+            onPick={on => { setAtrMode(on); localStorage.setItem("axiom_autopilot_atr", on ? "on" : "off"); }}
+            options={[["ATR", true], ["FIXED", false]]} />
+          <Setting label="TRAILING STOP" hint="Ratchets the stop up as price rises to lock in gains. Never moves down." value={trailMode}
+            onPick={on => { setTrailMode(on); localStorage.setItem("axiom_autopilot_trail", on ? "on" : "off"); }}
+            options={[["ON", true], ["OFF", false]]} />
+          <Setting label="HOW TO EXIT" hint="TRAIL = the backtest-validated exit (+1.70R). Let winners run." value={exitMode}
+            onPick={val => { setExitMode(val); localStorage.setItem("axiom_autopilot_exit", val); }}
+            options={[["TRAIL ✓", "trail"], ["TARGETS", "targets"], ["TREND", "trend"]]} />
+          <Setting label="BROKER" hint="SIM = in-browser paper. ALPACA = your Alpaca paper account (shares only)." value={broker}
+            onPick={val => { setBroker(val); localStorage.setItem("axiom_autopilot_broker", val); }}
+            options={[["SIM", "sim"], ["ALPACA", "alpaca", "#10b981"]]} />
+        </div>
       </div>
 
       {broker === "alpaca" && <AlpacaPanel C={C} MONO={MONO} SANS={SANS} />}
