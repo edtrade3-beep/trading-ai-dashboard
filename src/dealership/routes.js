@@ -1,6 +1,49 @@
 const { writeJson, fetchJsonSafe, withTimeout, readRequestBody } = require("../utils");
-const { callAnthropicApi } = require("../anthropic");
+const { callAnthropicApi, callAnthropicWithSearch } = require("../anthropic");
 const { ANTHROPIC_API_KEY } = require("../config");
+
+// Pull the first JSON object out of an AI response (handles ```json fences or a bare {...}).
+function extractJsonBlock(text) {
+  if (!text) return null;
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = fence ? fence[1] : (text.match(/\{[\s\S]*\}/) || [null])[0];
+  if (!candidate) return null;
+  try { return JSON.parse(candidate); } catch { return null; }
+}
+
+// Builds the deal-intelligence prompt around the decoded vehicle + inputs.
+function buildDealFinderPrompt(v, vin, mileage, zip, radius) {
+  const vehicle = `${v.year} ${v.make} ${v.model}${v.trim ? " " + v.trim : ""} (${v.engine}, ${v.drive}, ${v.transmission})`;
+  return `You are an automotive market intelligence analyst for a used-car dealership. Use the web_search tool to find REAL, currently-listed vehicles. Do not invent any listing, price, or history — if you cannot verify something, say so and mark it "unverified".
+
+TARGET VEHICLE
+- VIN: ${vin}
+- Decoded: ${vehicle}
+- Subject mileage: ${mileage ? mileage.toLocaleString() + " miles" : "not specified"}
+- Reference ZIP: ${zip} · Search radius: ${radius} miles
+
+STEPS (think through each before answering)
+1. IDENTIFY: confirm year/make/model/trim. Note trim-equivalent names across marketplaces.
+2. SCAN: web_search Cars.com, CarGurus, AutoTrader, and similar for matching listings within ~${radius} mi of ${zip}. Match exact year/model or ±1 year, trim-equivalent. For each listing capture: price, mileage, location, dealer/private, title status, accident notes, source.
+3. HISTORY/RISK: from what each listing states (title status, accident claims), classify GREEN (clean) / YELLOW (minor/gaps) / RED (accident/major) / BLACKLIST (salvage/structural). You will NOT have full Carfax — base risk only on stated info and label gaps "unverified".
+4. PRICING: compute market low / average / high from the listings you actually found. Tag each listing Cheap / Fair / High / Overpriced.
+5. SCORE each listing 0–100: price vs market 35%, mileage vs expected 25%, history quality 25%, ownership/condition 15%.
+6. OUTPUTS: rank best→worst and pick: cheapest, best safe deal, top value, best resale profit, and risk alerts.
+
+RESPOND IN TWO PARTS:
+PART 1 — a fenced \`\`\`json block with this shape:
+{
+  "marketSummary": { "low": number, "average": number, "high": number, "listingsFound": number },
+  "listings": [ { "title": string, "price": number, "mileage": number, "location": string, "seller": "dealer|private", "titleStatus": string, "risk": "GREEN|YELLOW|RED|BLACKLIST", "pricePosition": "Cheap|Fair|High|Overpriced", "score": number, "source": string } ],
+  "picks": { "cheapest": string, "bestSafeDeal": string, "topDeal": string, "bestProfit": string },
+  "riskAlerts": [ string ],
+  "resaleRange": { "low": number, "high": number },
+  "priceCeiling": number
+}
+PART 2 — a short, clear human-readable summary (market low/avg/high, best buy + why, expected resale, suggested max purchase price).
+
+If web search returns no usable listings, return listingsFound: 0 and explain honestly rather than inventing data.`;
+}
 
 function monthlyPayment(amount, apr, months, downPayment) {
   const principal = Math.max(Number(amount || 0) - Number(downPayment || 0), 0);
@@ -280,6 +323,39 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
       return writeJson(res, 200, { description: text, style, generatedAt: new Date().toISOString() });
     } catch (err) {
       return writeJson(res, 422, { error: err instanceof Error ? err.message : "AI description failed" });
+    }
+  }
+
+  // POST /api/dealer/deal-finder — AI market scan + deal scoring via live web search
+  if (pathname === "/api/dealer/deal-finder" && req.method === "POST") {
+    if (!ANTHROPIC_API_KEY) {
+      return writeJson(res, 503, { error: "ANTHROPIC_API_KEY is not configured." });
+    }
+    let body;
+    try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
+
+    const vin = String(body.vin || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 17);
+    const mileage = Number(body.mileage || 0);
+    const zip = (String(body.zip || "45014").replace(/[^0-9]/g, "").slice(0, 5)) || "45014";
+    const radius = Math.min(Math.max(Number(body.radius || 200), 25), 500);
+    if (vin.length !== 17) return writeJson(res, 400, { error: "VIN must be exactly 17 alphanumeric characters" });
+
+    // Decode with real NHTSA data first
+    let decoded = null;
+    try { decoded = await decodeVinNhtsa(vin); } catch {}
+    if (!decoded) decoded = decodeVinStub(vin);
+
+    const prompt = buildDealFinderPrompt(decoded, vin, mileage, zip, radius);
+    try {
+      const text = await callAnthropicWithSearch(prompt, ANTHROPIC_API_KEY, { model: "claude-sonnet-4-6", maxTokens: 6000, maxSearches: 8 });
+      return writeJson(res, 200, {
+        vin, vehicle: decoded, mileage, zip, radius,
+        analysis: extractJsonBlock(text),
+        summary: text,
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      return writeJson(res, 422, { error: err instanceof Error ? err.message : "Deal finder failed" });
     }
   }
 
