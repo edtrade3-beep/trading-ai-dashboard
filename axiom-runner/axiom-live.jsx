@@ -2582,7 +2582,14 @@ function RiskTrafficLight({ C, MONO, SANS, macroData }) {
   const spy = v("SPY"), qqq = v("QQQ"), vixy = v("VIXY"), tlt = v("TLT"), uup = v("UUP"), hyg = v("HYG");
   let score = 50 + spy * 8 + qqq * 6 - vixy * 3 + tlt * 2 - uup * 3 + hyg * 4;
   score = Math.max(0, Math.min(100, Math.round(score)));
-  const light = !has ? "—" : score >= 65 ? "GREEN" : score >= 40 ? "YELLOW" : "RED";
+  // Hysteresis: the light is "sticky" — it needs a clear 5-point cross to flip, so a score
+  // wobbling around a threshold (e.g. 64↔65) doesn't flap the light and spam alerts.
+  const prevLight = localStorage.getItem("axiom_risklight") || "YELLOW";
+  let light;
+  if (!has) light = "—";
+  else if (score >= 65 || (prevLight === "GREEN" && score >= 60)) light = "GREEN";
+  else if (score < 40 || (prevLight === "RED" && score < 45)) light = "RED";
+  else light = "YELLOW";
   const cfg = { GREEN: { c: "#16a34a", icon: "🟢", title: "RISK ON", msg: "Fed supportive, liquidity improving, buyers in control", act: "Look for growth, AI, semis, small caps" },
     YELLOW: { c: "#e0982f", icon: "🟡", title: "CAUTION", msg: "Mixed signals — reduce size, wait for confirmation", act: "Protect profits · avoid chasing" },
     RED: { c: "#dc2626", icon: "🔴", title: "RISK OFF", msg: "Capital protection mode", act: "Reduce exposure · defensive · cash/hedges" },
@@ -2592,13 +2599,18 @@ function RiskTrafficLight({ C, MONO, SANS, macroData }) {
     if (light === "—") return;
     const prev = localStorage.getItem("axiom_risklight");
     if (prev && prev !== light) {
-      if (soundOn) riskBuzz(light);
-      riskVibrate(light);
-      const leaders = light === "GREEN" ? "NVDA · AMD · AVGO" : light === "RED" ? "defensive / cash" : "wait for confirmation";
-      const tg = [`${cfg.icon} *MARKET MODE: ${cfg.title}*`, ``, `Risk Score: ${score}/100`,
-        `SPY ${spy >= 0 ? "+" : ""}${spy.toFixed(2)}% · QQQ ${qqq >= 0 ? "+" : ""}${qqq.toFixed(2)}%`,
-        `VIX ${vixy >= 0 ? "rising" : "falling"} · Dollar ${uup >= 0 ? "up" : "down"}`, ``, cfg.msg, ``, `Focus: ${leaders}`].join("\n");
-      fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: tg }) }).catch(() => {});
+      // Cooldown: at most one regime alert per 20 min, so a borderline market can't spam Telegram.
+      const lastTg = Number(localStorage.getItem("axiom_risklight_tg_ts") || 0);
+      if (Date.now() - lastTg > 20 * 60 * 1000) {
+        localStorage.setItem("axiom_risklight_tg_ts", String(Date.now()));
+        if (soundOn) riskBuzz(light);
+        riskVibrate(light);
+        const leaders = light === "GREEN" ? "NVDA · AMD · AVGO" : light === "RED" ? "defensive / cash" : "wait for confirmation";
+        const tg = [`${cfg.icon} *MARKET MODE: ${cfg.title}*`, ``, `Risk Score: ${score}/100`,
+          `SPY ${spy >= 0 ? "+" : ""}${spy.toFixed(2)}% · QQQ ${qqq >= 0 ? "+" : ""}${qqq.toFixed(2)}%`,
+          `VIX ${vixy >= 0 ? "rising" : "falling"} · Dollar ${uup >= 0 ? "up" : "down"}`, ``, cfg.msg, ``, `Focus: ${leaders}`].join("\n");
+        fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: tg }) }).catch(() => {});
+      }
     }
     localStorage.setItem("axiom_risklight", light);
   }, [light]);
