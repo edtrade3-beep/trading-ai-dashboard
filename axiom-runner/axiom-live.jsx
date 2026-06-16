@@ -2603,12 +2603,11 @@ function RiskTrafficLight({ C, MONO, SANS, macroData }) {
       const lastTg = Number(localStorage.getItem("axiom_risklight_tg_ts") || 0);
       if (Date.now() - lastTg > 20 * 60 * 1000) {
         localStorage.setItem("axiom_risklight_tg_ts", String(Date.now()));
-        if (soundOn) riskBuzz(light);
-        riskVibrate(light);
+        // No buzz — Telegram says it in words instead.
         const leaders = light === "GREEN" ? "NVDA · AMD · AVGO" : light === "RED" ? "defensive / cash" : "wait for confirmation";
-        const tg = [`${cfg.icon} *MARKET MODE: ${cfg.title}*`, ``, `Risk Score: ${score}/100`,
+        const tg = [`${cfg.icon} ${cfg.title}`, ``, cfg.msg, ``, `Risk Score: ${score}/100`,
           `SPY ${spy >= 0 ? "+" : ""}${spy.toFixed(2)}% · QQQ ${qqq >= 0 ? "+" : ""}${qqq.toFixed(2)}%`,
-          `VIX ${vixy >= 0 ? "rising" : "falling"} · Dollar ${uup >= 0 ? "up" : "down"}`, ``, cfg.msg, ``, `Focus: ${leaders}`].join("\n");
+          `VIX ${vixy >= 0 ? "rising" : "falling"} · Dollar ${uup >= 0 ? "up" : "down"}`, ``, `Focus: ${leaders}`].join("\n");
         fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: tg }) }).catch(() => {});
       }
     }
