@@ -2620,6 +2620,7 @@ function FedInterpreter({ C, MONO, SANS }) {
   const [loading, setLoading] = React.useState(false);
   const [res, setRes] = React.useState(null);
   const [paste, setPaste] = React.useState("");
+  const [watch, setWatch] = React.useState(false);
   const interpret = async () => {
     setLoading(true); setRes(null);
     try { const d = await fetch("/api/market/fed-interpret").then(r => r.json()); setRes(d); } catch { setRes({ ok: false }); }
@@ -2645,8 +2646,15 @@ function FedInterpreter({ C, MONO, SANS }) {
           {on ? "ON" : "OFF"}
         </button>
         <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>Use at 2:00–2:30 PM ET on FOMC days</span>
-        {on && <button onClick={interpret} disabled={loading} style={{ marginLeft: "auto", background: loading ? C.surface : C.accent, color: loading ? C.textDim : "#fff", border: "none", borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 14px", cursor: loading ? "default" : "pointer" }}>{loading ? "…" : "🎙 INTERPRET FED"}</button>}
+        {on && <button onClick={() => setWatch(w => !w)} style={{ marginLeft: "auto", background: watch ? "#dc2626" : C.surface, color: watch ? "#fff" : C.textSec, border: `1px solid ${watch ? "#dc2626" : C.border}`, borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 12px", cursor: "pointer" }}>{watch ? "✕ HIDE LIVE" : "📺 WATCH LIVE"}</button>}
+        {on && <button onClick={interpret} disabled={loading} style={{ background: loading ? C.surface : C.accent, color: loading ? C.textDim : "#fff", border: "none", borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 14px", cursor: loading ? "default" : "pointer" }}>{loading ? "…" : "🎙 INTERPRET FED"}</button>}
       </div>
+      {on && watch && (
+        <div style={{ marginTop: 10, position: "relative", paddingTop: "56.25%", borderRadius: 8, overflow: "hidden", border: `1px solid ${C.border}` }}>
+          <iframe src="https://www.youtube.com/embed/QB5BNdBFujE?autoplay=1" title="Fed Live" frameBorder="0" allow="autoplay; encrypted-media" allowFullScreen
+            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }} />
+        </div>
+      )}
       {on && (
         <div style={{ marginTop: 10 }}>
           {res?.ok ? (
