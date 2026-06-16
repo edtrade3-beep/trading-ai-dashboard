@@ -2571,6 +2571,21 @@ function RiskTrafficLight({ C, MONO, SANS, macroData }) {
     localStorage.setItem("axiom_risklight", light);
   }, [light]);
 
+  // ── 🧠 PANIC DETECTOR — sudden VIX spike or SPY plunge fires an urgent alert (debounced 45m) ──
+  React.useEffect(() => {
+    if (!has) return;
+    const panic = vixy > 8 || spy < -1.8;
+    const last = Number(localStorage.getItem("axiom_panic_ts") || 0);
+    if (panic && Date.now() - last > 45 * 60 * 1000) {
+      localStorage.setItem("axiom_panic_ts", String(Date.now()));
+      if (localStorage.getItem("axiom_risklight_sound") === "on") riskBuzz("RED");
+      riskVibrate("RED");
+      const what = [vixy > 8 ? `VIX spiking +${vixy.toFixed(1)}%` : "", spy < -1.8 ? `SPY plunging ${spy.toFixed(2)}%` : ""].filter(Boolean).join(" · ");
+      const msg = `🚨 *PANIC — RISK SHOCK*\n\n${what}\nDollar ${uup >= 0 ? "↑" : "↓"} · QQQ ${qqq >= 0 ? "+" : ""}${qqq.toFixed(2)}%\n\nProtect capital — reduce exposure, no fresh longs.`;
+      fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+    }
+  }, [macroData]);
+
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 12, padding: "14px 18px", borderRadius: 12,
       background: `${cfg.c}12`, border: `2px solid ${cfg.c}`, flexWrap: "wrap" }}>
