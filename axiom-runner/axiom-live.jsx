@@ -2614,6 +2614,63 @@ function RiskTrafficLight({ C, MONO, SANS, macroData }) {
   );
 }
 
+// ── FED INTERPRETER — pulls the official FOMC statement & scores it dovish↔hawkish ──
+function FedInterpreter({ C, MONO, SANS }) {
+  const [on, setOn] = React.useState(() => localStorage.getItem("axiom_fed_on") === "on");
+  const [loading, setLoading] = React.useState(false);
+  const [res, setRes] = React.useState(null);
+  const [paste, setPaste] = React.useState("");
+  const interpret = async () => {
+    setLoading(true); setRes(null);
+    try { const d = await fetch("/api/market/fed-interpret").then(r => r.json()); setRes(d); } catch { setRes({ ok: false }); }
+    setLoading(false);
+  };
+  const interpretPaste = async () => {
+    if (!paste.trim()) return;
+    setLoading(true); setRes(null);
+    try { const d = await fetch("/api/market/fed-interpret", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: paste }) }).then(r => r.json()); setRes(d); } catch { setRes({ ok: false }); }
+    setLoading(false);
+  };
+  const sendTg = () => {
+    if (!res?.ok) return;
+    fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `🏛 *FED INTERPRETER*\n\nBias: ${res.bias} ${res.score}/100\n${res.read}` }) }).catch(() => {});
+  };
+  const col = res?.ok ? (res.bias === "DOVISH" ? C.green : res.bias === "HAWKISH" ? C.red : C.amber) : C.textDim;
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em" }}>🏛 FED INTERPRETER</span>
+        <button onClick={() => { const v = !on; setOn(v); localStorage.setItem("axiom_fed_on", v ? "on" : "off"); }}
+          style={{ background: on ? "#7c3aed" : C.surface, color: on ? "#fff" : C.textSec, border: `1px solid ${on ? "#7c3aed" : C.border}`, borderRadius: 6, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>
+          {on ? "ON" : "OFF"}
+        </button>
+        <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>Use at 2:00–2:30 PM ET on FOMC days</span>
+        {on && <button onClick={interpret} disabled={loading} style={{ marginLeft: "auto", background: loading ? C.surface : C.accent, color: loading ? C.textDim : "#fff", border: "none", borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 14px", cursor: loading ? "default" : "pointer" }}>{loading ? "…" : "🎙 INTERPRET FED"}</button>}
+      </div>
+      {on && (
+        <div style={{ marginTop: 10 }}>
+          {res?.ok ? (
+            <div style={{ background: `${col}12`, border: `1px solid ${col}44`, borderRadius: 8, padding: "10px 12px" }}>
+              <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: col }}>{res.bias} · {res.score}/100</div>
+              <div style={{ fontFamily: SANS, fontSize: 12, color: C.text, marginTop: 4 }}>{res.read}</div>
+              {res.title && <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 6 }}>📄 {res.title} {res.link && <a href={res.link} target="_blank" rel="noopener" style={{ color: C.accent }}>· read</a>}</div>}
+              <button onClick={sendTg} style={{ marginTop: 8, background: `${C.accent}15`, border: `1px solid ${C.accent}44`, color: C.accent, borderRadius: 6, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>📱 SEND TO TELEGRAM</button>
+            </div>
+          ) : res && !res.ok ? (
+            <div>
+              <div style={{ fontFamily: SANS, fontSize: 11, color: C.amber, marginBottom: 6 }}>Couldn't auto-fetch the statement — paste it here and interpret:</div>
+              <textarea value={paste} onChange={e => setPaste(e.target.value)} rows={3} placeholder="Paste the FOMC statement text…" style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, fontFamily: SANS, fontSize: 12, padding: "8px", boxSizing: "border-box", outline: "none" }} />
+              <button onClick={interpretPaste} style={{ marginTop: 6, background: C.accent, color: "#fff", border: "none", borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 14px", cursor: "pointer" }}>SCORE IT</button>
+            </div>
+          ) : (
+            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Tap INTERPRET FED after the 2pm statement drops — it scores the policy dovish (risk-on) ↔ hawkish (risk-off).</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RegimeNewsPanel({ C, MONO, SANS }) {
   const [items, setItems] = React.useState([]);
   const [ts, setTs] = React.useState(null);
@@ -19047,6 +19104,9 @@ export default function App() {
 
             {/* ── MARKET RISK TRAFFIC LIGHT (top panel) ── */}
             <RiskTrafficLight C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
+
+            {/* ── FED INTERPRETER ── */}
+            <FedInterpreter C={C} MONO={MONO} SANS={SANS} />
 
             {/* ── PRAYER TIMES (Makkah / Medinah) ── */}
             <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
