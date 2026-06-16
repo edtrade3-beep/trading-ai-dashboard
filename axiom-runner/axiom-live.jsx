@@ -2543,6 +2543,26 @@ function riskVibrate(light) {
   if (!navigator.vibrate) return;
   navigator.vibrate(light === "GREEN" ? 100 : light === "YELLOW" ? [100, 100, 100] : [300, 200, 300, 200, 500]);
 }
+// Collapsible Monitor section — click the header to fold it away. Remembers state per section.
+function MonitorSection({ C, MONO, label, storeKey, defaultOpen = true, children }) {
+  const [open, setOpen] = React.useState(() => {
+    const v = localStorage.getItem(storeKey);
+    return v === null ? defaultOpen : v === "1";
+  });
+  const toggle = () => { const v = !open; setOpen(v); localStorage.setItem(storeKey, v ? "1" : "0"); };
+  return (
+    <div>
+      <button onClick={toggle} title={open ? "Click to collapse" : "Click to expand"}
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, background: "transparent",
+          border: "none", cursor: "pointer", margin: "16px 0 8px", padding: 0 }}>
+        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, letterSpacing: "0.1em" }}>{label}</span>
+        <span style={{ flex: 1, height: 1, background: C.border }} />
+        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{open ? "▼ hide" : "▶ show"}</span>
+      </button>
+      {open && children}
+    </div>
+  );
+}
 const RISK_SYMS = ["SPY", "QQQ", "VIXY", "TLT", "UUP", "HYG"];
 function RiskTrafficLight({ C, MONO, SANS, macroData }) {
   const [soundOn, setSoundOn] = React.useState(() => localStorage.getItem("axiom_risklight_sound") === "on");
@@ -19105,36 +19125,27 @@ export default function App() {
               </button>
             </div>
 
-            {(() => {
-              const SectionLabel = ({ children }) => (
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim,
-                  letterSpacing: "0.1em", margin: "16px 2px 8px", display: "flex", alignItems: "center", gap: 8 }}>
-                  {children}
-                  <span style={{ flex: 1, height: 1, background: C.border }} />
-                </div>
-              );
-              return (
-                <>
-                  {/* ── 1. MARKET MODE — am I risk-on or risk-off right now? ── */}
-                  <SectionLabel>🚦 MARKET MODE</SectionLabel>
-                  <RiskTrafficLight C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
+            {/* ── 1. MARKET MODE — am I risk-on or risk-off right now? ── */}
+            <MonitorSection C={C} MONO={MONO} label="🚦 MARKET MODE" storeKey="mon_mode">
+              <RiskTrafficLight C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
+            </MonitorSection>
 
-                  {/* ── 2. CATALYSTS — Fed + scheduled economic events ── */}
-                  <SectionLabel>🏛 CATALYSTS &amp; EVENTS</SectionLabel>
-                  <FedInterpreter C={C} MONO={MONO} SANS={SANS} />
-                  <MacroEventsWidget C={C} MONO={MONO} SANS={SANS} />
+            {/* ── 2. CATALYSTS — Fed + scheduled economic events ── */}
+            <MonitorSection C={C} MONO={MONO} label="🏛 CATALYSTS & EVENTS" storeKey="mon_catalysts">
+              <FedInterpreter C={C} MONO={MONO} SANS={SANS} />
+              <MacroEventsWidget C={C} MONO={MONO} SANS={SANS} />
+            </MonitorSection>
 
-                  {/* ── 3. FLOW & MOVERS — where is the money going? ── */}
-                  <SectionLabel>📊 FLOW &amp; MOVERS</SectionLabel>
-                  <SpyVolumeWidget C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
-                  <CryptoLiqWidget C={C} MONO={MONO} SANS={SANS} />
+            {/* ── 3. FLOW & MOVERS — where is the money going? ── */}
+            <MonitorSection C={C} MONO={MONO} label="📊 FLOW & MOVERS" storeKey="mon_flow">
+              <SpyVolumeWidget C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
+              <CryptoLiqWidget C={C} MONO={MONO} SANS={SANS} />
+            </MonitorSection>
 
-                  {/* ── PERSONAL ── */}
-                  <SectionLabel>🕌 PRAYER TIMES</SectionLabel>
-                  <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
-                </>
-              );
-            })()}
+            {/* ── PERSONAL (collapsed by default to save space) ── */}
+            <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={false}>
+              <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
+            </MonitorSection>
 
             {/* ── FUTURES STRIP ── */}
             {futuresData.length > 0 && (
@@ -19214,6 +19225,7 @@ export default function App() {
             </div>
 
             {/* ── MARKET REGIME DASHBOARD ── */}
+            <MonitorSection C={C} MONO={MONO} label="📊 MARKET REGIME" storeKey="mon_regime">
             {(() => {
               const spy    = macroData.find(m => m.symbol === "SPY");
               const qqq    = macroData.find(m => m.symbol === "QQQ");
@@ -19293,8 +19305,10 @@ export default function App() {
                 </div>
               );
             })()}
+            </MonitorSection>
 
             {/* ── NEXT DAY OUTLOOK ── */}
+            <MonitorSection C={C} MONO={MONO} label="🔮 NEXT DAY OUTLOOK" storeKey="mon_nextday">
             {(() => {
               const spy = (macroData||[]).find(m=>m.symbol==="SPY") || (watchlistData||[]).find(w=>w.symbol==="SPY");
               const qqq = (macroData||[]).find(m=>m.symbol==="QQQ") || (watchlistData||[]).find(w=>w.symbol==="QQQ");
@@ -19402,6 +19416,7 @@ export default function App() {
                 </div>
               );
             })()}
+            </MonitorSection>
 
             {/* ── STOCKTWITS TRENDING ── what retail traders are buzzing about ── */}
             {socialSentiment && socialSentiment.trending && socialSentiment.trending.length > 0 && (
