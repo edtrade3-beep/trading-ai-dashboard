@@ -2686,7 +2686,7 @@ function FedInterpreter({ C, MONO, SANS }) {
               {res.stale && <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: C.amber, marginBottom: 6 }}>⚠️ This is the LAST meeting's statement ({res.ageDays}d old) — no new one yet. Re-tap after 2pm ET on meeting day.</div>}
               <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: res.stale ? C.textDim : col }}>{res.bias} · {res.score}/100{res.stale ? " (old)" : ""}</div>
               <div style={{ fontFamily: SANS, fontSize: 12, color: C.text, marginTop: 4 }}>{res.read}</div>
-              {res.title && <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 6 }}>📄 {res.title} {res.date ? `· ${new Date(res.date).toLocaleDateString()}` : ""} {res.link && <a href={res.link} target="_blank" rel="noopener" style={{ color: C.accent }}>· read</a>}</div>}
+              {res.title && <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 6 }}>📄 {res.title} {res.date ? `· ${new Date(res.date).toLocaleDateString()}` : ""} <a href="https://www.federalreserve.gov/newsevents/pressreleases.htm" target="_blank" rel="noopener" style={{ color: C.accent }}>· open Fed releases</a></div>}
               <button onClick={sendTg} style={{ marginTop: 8, background: `${C.accent}15`, border: `1px solid ${C.accent}44`, color: C.accent, borderRadius: 6, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>📱 SEND TO TELEGRAM</button>
             </div>
           ) : res && !res.ok ? (
