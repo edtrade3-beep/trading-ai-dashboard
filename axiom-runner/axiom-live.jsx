@@ -2543,6 +2543,17 @@ function riskVibrate(light) {
   if (!navigator.vibrate) return;
   navigator.vibrate(light === "GREEN" ? 100 : light === "YELLOW" ? [100, 100, 100] : [300, 200, 300, 200, 500]);
 }
+// Speak the market mode out loud using the browser's built-in voice.
+function speakRisk(phrase) {
+  try {
+    if (!window.speechSynthesis) return;
+    const u = new SpeechSynthesisUtterance(phrase);
+    u.rate = 0.95; u.pitch = 1; u.volume = 1; u.lang = "en-US";
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  } catch {}
+}
+const RISK_SPEAK = { GREEN: "Risk on. Buyers in control.", YELLOW: "Caution. Mixed signals, reduce size.", RED: "Risk off. Protect capital." };
 // Collapsible Monitor section — click the header to fold it away. Remembers state per section.
 function MonitorSection({ C, MONO, label, storeKey, defaultOpen = true, children }) {
   const [open, setOpen] = React.useState(() => {
@@ -2603,7 +2614,7 @@ function RiskTrafficLight({ C, MONO, SANS, macroData }) {
       const lastTg = Number(localStorage.getItem("axiom_risklight_tg_ts") || 0);
       if (Date.now() - lastTg > 20 * 60 * 1000) {
         localStorage.setItem("axiom_risklight_tg_ts", String(Date.now()));
-        // No buzz — Telegram says it in words instead.
+        if (soundOn) speakRisk(RISK_SPEAK[light] || cfg.title);  // speak it out loud
         const leaders = light === "GREEN" ? "NVDA · AMD · AVGO" : light === "RED" ? "defensive / cash" : "wait for confirmation";
         const tg = [`${cfg.icon} ${cfg.title}`, ``, cfg.msg, ``, `Risk Score: ${score}/100`,
           `SPY ${spy >= 0 ? "+" : ""}${spy.toFixed(2)}% · QQQ ${qqq >= 0 ? "+" : ""}${qqq.toFixed(2)}%`,
@@ -2621,7 +2632,7 @@ function RiskTrafficLight({ C, MONO, SANS, macroData }) {
     const last = Number(localStorage.getItem("axiom_panic_ts") || 0);
     if (panic && Date.now() - last > 45 * 60 * 1000) {
       localStorage.setItem("axiom_panic_ts", String(Date.now()));
-      if (localStorage.getItem("axiom_risklight_sound") === "on") riskBuzz("RED");
+      if (localStorage.getItem("axiom_risklight_sound") === "on") speakRisk("Panic. Risk shock. Protect capital now.");
       riskVibrate("RED");
       const what = [vixy > 8 ? `VIX spiking +${vixy.toFixed(1)}%` : "", spy < -1.8 ? `SPY plunging ${spy.toFixed(2)}%` : ""].filter(Boolean).join(" · ");
       const msg = `🚨 *PANIC — RISK SHOCK*\n\n${what}\nDollar ${uup >= 0 ? "↑" : "↓"} · QQQ ${qqq >= 0 ? "+" : ""}${qqq.toFixed(2)}%\n\nProtect capital — reduce exposure, no fresh longs.`;
@@ -2647,10 +2658,10 @@ function RiskTrafficLight({ C, MONO, SANS, macroData }) {
             <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: col }}>{val}</div>
           </div>
         ))}
-        <button onClick={() => { const nv = !soundOn; setSoundOn(nv); localStorage.setItem("axiom_risklight_sound", nv ? "on" : "off"); if (nv) riskBuzz(light); }}
-          title="Buzz + vibrate when the market mode flips (green/yellow/red). Telegram fires regardless."
+        <button onClick={() => { const nv = !soundOn; setSoundOn(nv); localStorage.setItem("axiom_risklight_sound", nv ? "on" : "off"); if (nv) speakRisk("Voice alerts on. " + (RISK_SPEAK[light] || "")); }}
+          title="Speak the market mode out loud when it flips (green/yellow/red). Telegram fires regardless."
           style={{ alignSelf: "center", background: soundOn ? cfg.c : C.surface, color: soundOn ? "#fff" : C.textSec, border: `1px solid ${soundOn ? cfg.c : C.border}`, borderRadius: 7, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 12px", cursor: "pointer" }}>
-          {soundOn ? "🔊 SOUND ON" : "🔇 SOUND"}
+          {soundOn ? "🔊 VOICE ON" : "🔇 VOICE"}
         </button>
       </div>
     </div>
