@@ -292,27 +292,86 @@ function App() {
   }, [inventory]);
   const [vinLoading, setVinLoading] = useState(false);
   const [vinSource, setVinSource] = useState("");
-  // ── Deal Finder (AI market scan) ──
+  // ── Deal Finder (no-key: free decode + free market estimate + client-side scoring) ──
   const [dfVin, setDfVin] = useState("");
   const [dfMileage, setDfMileage] = useState("");
-  const [dfRadius, setDfRadius] = useState(200);
   const [dfLoading, setDfLoading] = useState(false);
   const [dfError, setDfError] = useState("");
+  const [dfVehicle, setDfVehicle] = useState(null);   // decoded vehicle + market range
+  const [dfMarket, setDfMarket] = useState(null);      // { low, average, high }
+  const [dfPaste, setDfPaste] = useState("");
   const [dfResult, setDfResult] = useState(null);
-  const runDealFinder = async () => {
+
+  // Step 1: decode VIN + pull a free market-value estimate (no API key needed)
+  const dfDecodeAndValue = async () => {
     const cleanVin = dfVin.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 17);
     if (cleanVin.length !== 17) { setDfError("Enter a valid 17-character VIN."); return; }
-    setDfLoading(true); setDfError(""); setDfResult(null);
+    setDfLoading(true); setDfError(""); setDfResult(null); setDfVehicle(null); setDfMarket(null);
     try {
-      const r = await fetch("/api/dealer/deal-finder", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vin: cleanVin, mileage: Number(dfMileage) || 0, zip: "45014", radius: dfRadius }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Analysis failed");
-      setDfResult(d);
-    } catch (e) { setDfError(e.message || "Analysis failed"); }
+      const dec = await fetch(`/api/dealer/vin-decode?vin=${cleanVin}`).then(r => r.json());
+      if (dec.error) throw new Error(dec.error);
+      const miles = Number(dfMileage) || 0;
+      const comps = await fetch(`/api/dealer/comps?year=${dec.year}&make=${encodeURIComponent(dec.make)}&model=${encodeURIComponent(dec.model)}&trim=${encodeURIComponent(dec.trim || "")}&mileage=${miles}&condition=Good`).then(r => r.json());
+      setDfVehicle({ ...dec, mileage: miles });
+      if (comps && comps.marketValue) {
+        setDfMarket({ low: comps.priceRange?.low || Math.round(comps.marketValue * 0.9), average: comps.marketValue, high: comps.priceRange?.high || Math.round(comps.marketValue * 1.1), cleanTrade: comps.cleanTrade });
+      }
+    } catch (e) { setDfError(e.message || "Decode failed"); }
     setDfLoading(false);
+  };
+
+  // Step 2: parse pasted listings and score each 0–100 (pure client-side, no AI)
+  const dfScoreDeals = () => {
+    setDfError("");
+    const expectedMiles = dfVehicle?.year ? Math.max((new Date().getFullYear() - dfVehicle.year) * 12000, 6000) : 100000;
+    const avg = dfMarket?.average || 0;
+    // Each line: price, miles, title, location, link  (commas; title/location/link optional)
+    const rows = dfPaste.split("\n").map(l => l.trim()).filter(Boolean).map(line => {
+      const parts = line.split(",").map(p => p.trim());
+      const price = Number((parts[0] || "").replace(/[^0-9.]/g, "")) || 0;
+      const mileage = Number((parts[1] || "").replace(/[^0-9.]/g, "")) || 0;
+      const titleRaw = (parts[2] || "").toLowerCase();
+      const location = parts[3] || "";
+      const source = parts[4] || "";
+      return { price, mileage, titleRaw, location, source, title: `$${price.toLocaleString()} · ${mileage.toLocaleString()}mi` };
+    }).filter(r => r.price > 0);
+    if (!rows.length) { setDfError("Paste at least one listing line: price, miles, title, location, link"); return; }
+
+    const marketAvg = avg || Math.round(rows.reduce((s, r) => s + r.price, 0) / rows.length);
+    const scored = rows.map(r => {
+      // Risk from title text
+      let risk = "GREEN", riskScore = 100;
+      if (/salvage|flood|structural|junk/.test(r.titleRaw)) { risk = "BLACKLIST"; riskScore = 0; }
+      else if (/rebuilt|reconstructed|lemon/.test(r.titleRaw)) { risk = "RED"; riskScore = 35; }
+      else if (/accident|damage|branded|gap|unknown/.test(r.titleRaw)) { risk = "YELLOW"; riskScore = 65; }
+      else if (/clean|none|no accident/.test(r.titleRaw) || !r.titleRaw) { risk = r.titleRaw ? "GREEN" : "YELLOW"; riskScore = r.titleRaw ? 100 : 75; }
+      // Price vs market (35%)
+      const priceRatio = marketAvg ? r.price / marketAvg : 1;
+      const priceScore = Math.max(0, Math.min(100, Math.round(50 + (1 - priceRatio) * 220)));
+      // Mileage vs expected (25%)
+      const mileRatio = r.mileage && expectedMiles ? r.mileage / expectedMiles : 1;
+      const mileScore = Math.max(0, Math.min(100, Math.round(50 + (1 - mileRatio) * 120)));
+      // Condition placeholder (15%)
+      const condScore = 70;
+      const score = Math.round(priceScore * 0.35 + mileScore * 0.25 + riskScore * 0.25 + condScore * 0.15);
+      const pricePosition = priceRatio < 0.9 ? "Cheap" : priceRatio <= 1.02 ? "Fair" : priceRatio <= 1.12 ? "High" : "Overpriced";
+      const profit = marketAvg ? Math.round(marketAvg - r.price) : 0;
+      return { ...r, risk, riskScore, score, pricePosition, profit };
+    }).sort((a, b) => b.score - a.score);
+
+    const safe = scored.filter(s => s.risk === "GREEN" || s.risk === "YELLOW");
+    const cheapest = [...scored].sort((a, b) => a.price - b.price)[0];
+    const bestProfit = [...scored].filter(s => s.risk !== "BLACKLIST" && s.risk !== "RED").sort((a, b) => b.profit - a.profit)[0];
+    const lows = scored.map(s => s.price);
+    setDfResult({
+      vehicle: dfVehicle,
+      market: { low: Math.min(...lows), average: marketAvg, high: Math.max(...lows), listingsFound: scored.length, estimate: !!avg },
+      listings: scored,
+      picks: { topDeal: scored[0]?.title, cheapest: cheapest?.title, bestSafeDeal: safe[0]?.title, bestProfit: bestProfit?.title },
+      riskAlerts: scored.filter(s => s.risk === "RED" || s.risk === "BLACKLIST").map(s => `${s.title} — ${s.risk} (${s.titleRaw || "title concern"})`),
+      priceCeiling: Math.round((dfMarket?.cleanTrade || marketAvg * 0.88)),
+      resaleRange: { low: Math.round(marketAvg * 0.95), high: Math.round(marketAvg * 1.08) },
+    });
   };
   const [finance, setFinance] = useState({ apr: 9.9, downPayment: 3000, termMonths: 72 });
   const [deal, setDeal] = useState({ salePrice: "", tradeValue: "", tradeOwed: "", salesTaxPct: "6.25", docFee: "299", titleFee: "75", tagFee: "50" });
@@ -1326,112 +1385,100 @@ function App() {
             )}
 
             {tab === "Deal Finder" && (
-              <Panel title="AI Deal Finder" badge="Live Web Search" styles={styles}>
+              <Panel title="Deal Finder" badge="No API key needed" styles={styles}>
                 <div style={{ fontSize: 13, color: styles.smallLabel.color, marginBottom: 12 }}>
-                  Enter a VIN and mileage. The AI decodes it, searches the market within range of ZIP 45014, scores every listing 0–100, and ranks the best deals. <b>Real listings only — it won't invent data.</b>
+                  <b>Step 1:</b> decode a VIN to get a free market-value estimate. <b>Step 2:</b> paste the listings you found, and it scores each 0–100, grades risk, and ranks the best deals. No keys, no cost.
                 </div>
+
+                {/* Step 1 */}
                 <div style={{ ...styles.threeCol }}>
                   <Field label="VIN (17 chars)" styles={styles}>
-                    <input value={dfVin} onChange={(e) => setDfVin(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 17))}
-                      placeholder={vehicle?.vin || "1HGCM82633A004352"} style={styles.input} />
+                    <input value={dfVin} onChange={(e) => setDfVin(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 17))} placeholder={vehicle?.vin || "1HGCM82633A004352"} style={styles.input} />
                   </Field>
-                  <Field label="Mileage" styles={styles}>
+                  <Field label="Subject Mileage" styles={styles}>
                     <input value={dfMileage} onChange={(e) => setDfMileage(e.target.value.replace(/[^0-9]/g, ""))} placeholder="e.g. 85000" style={styles.input} />
                   </Field>
-                  <Field label="Search Radius" styles={styles}>
-                    <select value={dfRadius} onChange={(e) => setDfRadius(Number(e.target.value))} style={styles.input}>
-                      {[50, 100, 200, 300, 500].map(r => <option key={r} value={r}>{r} miles</option>)}
-                    </select>
+                  <Field label=" " styles={styles}>
+                    <button onClick={dfDecodeAndValue} disabled={dfLoading} style={styles.buttonPrimary}>{dfLoading ? "Decoding…" : "1 · Decode & Value"}</button>
                   </Field>
                 </div>
-                <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
-                  <button onClick={runDealFinder} disabled={dfLoading} style={styles.buttonPrimary}>
-                    {dfLoading ? "Analyzing market… (~30–60s)" : "🔎 Analyze Market"}
-                  </button>
-                  {vehicle?.vin && <button onClick={() => { setDfVin(vehicle.vin); setDfMileage(String(vehicle.mileage || "")); }} style={styles.buttonGhost}>Use decoded VIN</button>}
-                </div>
+                {vehicle?.vin && <button onClick={() => { setDfVin(vehicle.vin); setDfMileage(String(vehicle.mileage || "")); }} style={{ ...styles.buttonGhost, marginTop: 4 }}>Use decoded VIN from Vehicle tab</button>}
                 {dfError && <div style={{ ...styles.card, marginTop: 12, borderColor: "#dc2626", color: "#dc2626" }}>{dfError}</div>}
-                {dfLoading && <div style={{ ...styles.card, marginTop: 12 }}>Searching Cars.com, CarGurus, AutoTrader and others, then scoring each deal… this runs a live web search so give it up to a minute.</div>}
+
+                {dfVehicle && (
+                  <div style={{ ...styles.card, marginTop: 12 }}>
+                    <div style={{ fontSize: 16, fontWeight: 700 }}>{dfVehicle.year} {dfVehicle.make} {dfVehicle.model}{dfVehicle.trim ? " " + dfVehicle.trim : ""}</div>
+                    <div style={{ fontSize: 12, color: styles.smallLabel.color }}>{dfVehicle.engine} · {dfVehicle.drive} · {dfVehicle.transmission} · {dfVehicle.mileage ? dfVehicle.mileage.toLocaleString() + " mi" : "—"}</div>
+                    {dfMarket && <div style={{ marginTop: 8, fontSize: 14 }}>Est. market: <b>{money(dfMarket.low)}</b> low · <b>{money(dfMarket.average)}</b> avg · <b>{money(dfMarket.high)}</b> high <span style={{ fontSize: 11, color: styles.smallLabel.color }}>(heuristic estimate)</span></div>}
+                  </div>
+                )}
+
+                {/* Step 2 */}
+                {dfVehicle && (
+                  <div style={{ marginTop: 14 }}>
+                    <Field label="Paste listings — one per line:  price, miles, title, location, link" styles={styles}>
+                      <textarea value={dfPaste} onChange={(e) => setDfPaste(e.target.value)} rows={6}
+                        placeholder={"18995, 82000, clean, Cincinnati OH, https://...\n17500, 110000, rebuilt, Dayton OH\n19900, 65000, clean accident-reported, Columbus OH"}
+                        style={{ ...styles.input, fontFamily: "monospace", resize: "vertical" }} />
+                    </Field>
+                    <button onClick={dfScoreDeals} style={{ ...styles.buttonPrimary, marginTop: 8 }}>2 · Score & Rank Deals</button>
+                    <div style={{ fontSize: 11, color: styles.smallLabel.color, marginTop: 4 }}>Title keywords: <b>clean</b> = green · <b>accident/branded</b> = yellow · <b>rebuilt</b> = red · <b>salvage/flood</b> = blacklist. Only price is required per line.</div>
+                  </div>
+                )}
 
                 {dfResult && (() => {
-                  const a = dfResult.analysis;
-                  const v = dfResult.vehicle || {};
+                  const a = dfResult;
                   return (
                     <div style={{ marginTop: 16 }}>
-                      <div style={{ ...styles.card }}>
-                        <div style={styles.smallLabel}>VEHICLE</div>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: styles.text?.color || "#111" }}>
-                          {v.year} {v.make} {v.model}{v.trim ? " " + v.trim : ""} · {dfResult.mileage ? Number(dfResult.mileage).toLocaleString() + " mi" : "—"}
-                        </div>
-                        <div style={{ fontSize: 12, color: styles.smallLabel.color }}>{v.engine} · {v.drive} · {v.transmission}</div>
+                      <div style={{ ...styles.threeCol }}>
+                        {[["Market Low", a.market.low], ["Market Avg", a.market.average], ["Market High", a.market.high]].map(([l, val]) => (
+                          <div key={l} style={{ ...styles.card, textAlign: "center" }}><div style={styles.smallLabel}>{l}</div><div style={{ fontSize: 20, fontWeight: 800 }}>{val ? money(val) : "—"}</div></div>
+                        ))}
                       </div>
 
-                      {a && a.marketSummary && (
-                        <div style={{ ...styles.threeCol, marginTop: 12 }}>
-                          {[["Market Low", a.marketSummary.low], ["Market Avg", a.marketSummary.average], ["Market High", a.marketSummary.high]].map(([l, val]) => (
-                            <div key={l} style={{ ...styles.card, textAlign: "center" }}>
-                              <div style={styles.smallLabel}>{l}</div>
-                              <div style={{ fontSize: 20, fontWeight: 800 }}>{val ? money(val) : "—"}</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <div style={{ ...styles.card, marginTop: 12 }}>
+                        <div style={styles.smallLabel}>TOP PICKS</div>
+                        {[["🥇 Top Deal", a.picks.topDeal], ["💰 Cheapest", a.picks.cheapest], ["🛡 Best Safe Deal", a.picks.bestSafeDeal], ["📈 Best Resale Profit", a.picks.bestProfit]].map(([l, val]) => val && (
+                          <div key={l} style={{ display: "flex", gap: 8, padding: "4px 0", fontSize: 13 }}><span style={{ fontWeight: 700, minWidth: 150 }}>{l}</span><span>{val}</span></div>
+                        ))}
+                      </div>
 
-                      {a && a.picks && (
-                        <div style={{ ...styles.card, marginTop: 12 }}>
-                          <div style={styles.smallLabel}>TOP PICKS</div>
-                          {[["🥇 Top Deal", a.picks.topDeal], ["💰 Cheapest", a.picks.cheapest], ["🛡 Best Safe Deal", a.picks.bestSafeDeal], ["📈 Best Resale Profit", a.picks.bestProfit]].map(([l, val]) => val && (
-                            <div key={l} style={{ display: "flex", gap: 8, padding: "4px 0", fontSize: 13 }}>
-                              <span style={{ fontWeight: 700, minWidth: 150 }}>{l}</span><span>{val}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <div style={{ ...styles.card, marginTop: 12, overflowX: "auto" }}>
+                        <div style={styles.smallLabel}>RANKED LISTINGS ({a.listings.length})</div>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, marginTop: 6 }}>
+                          <thead><tr style={{ textAlign: "left", color: styles.smallLabel.color }}>
+                            {["Score", "Price", "Miles", "Risk", "Position", "Est. Margin", "Location"].map(h => <th key={h} style={{ padding: "4px 6px" }}>{h}</th>)}
+                          </tr></thead>
+                          <tbody>
+                            {a.listings.map((li, i) => {
+                              const rc = { GREEN: "#16a34a", YELLOW: "#d97706", RED: "#dc2626", BLACKLIST: "#000" }[li.risk] || "#666";
+                              const sc = li.score >= 75 ? "#16a34a" : li.score >= 55 ? "#d97706" : "#dc2626";
+                              return (
+                                <tr key={i} style={{ borderTop: "1px solid #eee" }}>
+                                  <td style={{ padding: "5px 6px", fontWeight: 800, color: sc }}>{li.score}</td>
+                                  <td style={{ padding: "5px 6px" }}>{li.source ? <a href={li.source} target="_blank" rel="noopener" style={{ color: styles.buttonPrimary.background }}>{money(li.price)}</a> : money(li.price)}</td>
+                                  <td style={{ padding: "5px 6px" }}>{li.mileage ? li.mileage.toLocaleString() : "—"}</td>
+                                  <td style={{ padding: "5px 6px", fontWeight: 700, color: rc }}>{li.risk}</td>
+                                  <td style={{ padding: "5px 6px" }}>{li.pricePosition}</td>
+                                  <td style={{ padding: "5px 6px", color: li.profit >= 0 ? "#16a34a" : "#dc2626" }}>{li.profit >= 0 ? "+" : ""}{money(li.profit)}</td>
+                                  <td style={{ padding: "5px 6px" }}>{li.location || "—"}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
 
-                      {a && Array.isArray(a.listings) && a.listings.length > 0 && (
-                        <div style={{ ...styles.card, marginTop: 12, overflowX: "auto" }}>
-                          <div style={styles.smallLabel}>RANKED LISTINGS ({a.listings.length})</div>
-                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, marginTop: 6 }}>
-                            <thead><tr style={{ textAlign: "left", color: styles.smallLabel.color }}>
-                              {["Score", "Vehicle", "Price", "Miles", "Risk", "Position", "Location"].map(h => <th key={h} style={{ padding: "4px 6px" }}>{h}</th>)}
-                            </tr></thead>
-                            <tbody>
-                              {[...a.listings].sort((x, y) => (y.score || 0) - (x.score || 0)).map((li, i) => {
-                                const rc = { GREEN: "#16a34a", YELLOW: "#d97706", RED: "#dc2626", BLACKLIST: "#000" }[li.risk] || "#666";
-                                return (
-                                  <tr key={i} style={{ borderTop: `1px solid ${styles.card.borderColor || "#eee"}` }}>
-                                    <td style={{ padding: "5px 6px", fontWeight: 800 }}>{li.score ?? "—"}</td>
-                                    <td style={{ padding: "5px 6px" }}>{li.source ? <a href={li.source} target="_blank" rel="noopener" style={{ color: styles.buttonPrimary.background }}>{li.title}</a> : li.title}</td>
-                                    <td style={{ padding: "5px 6px" }}>{li.price ? money(li.price) : "—"}</td>
-                                    <td style={{ padding: "5px 6px" }}>{li.mileage ? Number(li.mileage).toLocaleString() : "—"}</td>
-                                    <td style={{ padding: "5px 6px", fontWeight: 700, color: rc }}>{li.risk || "—"}</td>
-                                    <td style={{ padding: "5px 6px" }}>{li.pricePosition || "—"}</td>
-                                    <td style={{ padding: "5px 6px" }}>{li.location || "—"}</td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-
-                      {a && Array.isArray(a.riskAlerts) && a.riskAlerts.length > 0 && (
+                      {a.riskAlerts.length > 0 && (
                         <div style={{ ...styles.card, marginTop: 12, borderColor: "#dc2626" }}>
                           <div style={{ ...styles.smallLabel, color: "#dc2626" }}>⚠️ RISK ALERTS</div>
                           {a.riskAlerts.map((r, i) => <div key={i} style={{ fontSize: 13, padding: "2px 0" }}>• {r}</div>)}
                         </div>
                       )}
 
-                      {a && (a.priceCeiling || a.resaleRange) && (
-                        <div style={{ ...styles.threeCol, marginTop: 12 }}>
-                          {a.resaleRange && <div style={{ ...styles.card, textAlign: "center" }}><div style={styles.smallLabel}>Est. Resale Range</div><div style={{ fontSize: 16, fontWeight: 800 }}>{money(a.resaleRange.low)}–{money(a.resaleRange.high)}</div></div>}
-                          {a.priceCeiling != null && <div style={{ ...styles.card, textAlign: "center" }}><div style={styles.smallLabel}>Suggested Max Buy</div><div style={{ fontSize: 20, fontWeight: 800, color: styles.buttonPrimary.background }}>{money(a.priceCeiling)}</div></div>}
-                        </div>
-                      )}
-
-                      <div style={{ ...styles.card, marginTop: 12, whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6 }}>
-                        <div style={styles.smallLabel}>ANALYST SUMMARY</div>
-                        {(dfResult.summary || "").replace(/```json[\s\S]*?```/g, "").trim() || "No summary returned."}
+                      <div style={{ ...styles.threeCol, marginTop: 12 }}>
+                        <div style={{ ...styles.card, textAlign: "center" }}><div style={styles.smallLabel}>Est. Resale Range</div><div style={{ fontSize: 16, fontWeight: 800 }}>{money(a.resaleRange.low)}–{money(a.resaleRange.high)}</div></div>
+                        <div style={{ ...styles.card, textAlign: "center" }}><div style={styles.smallLabel}>Suggested Max Buy</div><div style={{ fontSize: 20, fontWeight: 800, color: styles.buttonPrimary.background }}>{money(a.priceCeiling)}</div></div>
                       </div>
                     </div>
                   );
