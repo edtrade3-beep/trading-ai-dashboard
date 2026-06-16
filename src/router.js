@@ -185,8 +185,8 @@ async function handleRequest(req, res) {
       for await (const chunk of req) body += chunk;
       const { speak, caption } = JSON.parse(body || "{}");
       if (!speak) return writeJson(res, 400, { ok: false, error: "Missing speak" });
-      await sendTelegramVoice(speak, caption);
-      return writeJson(res, 200, { ok: true });
+      const vr = await sendTelegramVoice(speak, caption);
+      return writeJson(res, 200, vr || { ok: true });
     }
 
     // GET /api/telegram/getchatid — call getUpdates to find who messaged the bot recently
