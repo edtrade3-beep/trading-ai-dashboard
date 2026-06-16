@@ -25,12 +25,20 @@ async function fetchLatestFedStatement() {
   try {
     const xml = await fetch("https://www.federalreserve.gov/feeds/press_monetary.xml", { headers: { "User-Agent": "Mozilla/5.0" } }).then(r => r.ok ? r.text() : "");
     if (!xml) return null;
-    // grab the first <item> (most recent)
-    const item = xml.split("<item>")[1] || "";
-    const pick = (tag) => { const m = item.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`)); return m ? m[1].replace(/<!\\[CDATA\\[|\\]\\]>/g, "").trim() : ""; };
-    const title = pick("title"), date = pick("pubDate"), link = pick("link"), desc = pick("description");
-    if (!title) return null;
-    return { title, date, link, text: `${title}. ${desc}` };
+    const items = xml.split("<item>").slice(1);
+    const pickFrom = (item, tag) => { const m = item.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`)); return m ? m[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim() : ""; };
+    // Find the actual FOMC POLICY STATEMENT — skip discount-rate minutes, meeting minutes, implementation notes
+    for (const item of items) {
+      const title = pickFrom(item, "title");
+      const tl = title.toLowerCase();
+      if (tl.includes("discount rate") || tl.includes("minutes") || tl.includes("implementation note")) continue;
+      if (tl.includes("fomc statement") || tl.includes("issues fomc") || (tl.includes("monetary policy") && tl.includes("statement"))) {
+        const date = pickFrom(item, "pubDate");
+        const ageDays = date ? Math.floor((Date.now() - new Date(date).getTime()) / 86400000) : null;
+        return { title, date, ageDays, link: pickFrom(item, "link"), text: `${title}. ${pickFrom(item, "description")}` };
+      }
+    }
+    return null;  // no policy statement found in the feed
   } catch { return null; }
 }
 
@@ -48,9 +56,10 @@ async function handleFed(req, res, requestUrl) {
 
   // GET — fetch latest official statement and score it
   const stmt = await fetchLatestFedStatement();
-  if (!stmt) return writeJson(res, 200, { ok: false, reason: "fetch-failed", hint: "Paste the statement text instead (POST text)." });
+  if (!stmt) return writeJson(res, 200, { ok: false, reason: "no-statement", hint: "No FOMC statement found — the meeting may not have happened yet. Paste the statement text after 2pm ET on meeting day." });
   const r = scoreText(stmt.text);
-  return writeJson(res, 200, { ok: true, source: "federalreserve.gov", title: stmt.title, date: stmt.date, link: stmt.link, ...r });
+  const stale = stmt.ageDays != null && stmt.ageDays > 2;  // older than 2 days = last meeting's, not today's
+  return writeJson(res, 200, { ok: true, source: "federalreserve.gov", title: stmt.title, date: stmt.date, ageDays: stmt.ageDays, stale, link: stmt.link, ...r });
 }
 
 module.exports = { handleFed };
