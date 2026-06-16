@@ -34,7 +34,7 @@ const { handleGapFill }       = require("./routes/gapfill");
 const { handleAlpaca }        = require("./routes/alpaca");
 const { handleHoldings }      = require("./routes/holdings");
 const { handleFed }           = require("./routes/fed");
-const { sendTelegramAlert, sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
+const { sendTelegramAlert, sendTelegramMessage, sendTelegramVoice, isConfigured: telegramConfigured } = require("./telegram");
 
 async function handleRequest(req, res) {
   try {
@@ -173,6 +173,19 @@ async function handleRequest(req, res) {
       const { text } = JSON.parse(body || "{}");
       if (!text) return writeJson(res, 400, { ok: false, error: "Missing text" });
       await sendTelegramMessage(text);
+      return writeJson(res, 200, { ok: true });
+    }
+
+    // POST /api/notify-voice — sends a SPOKEN voice message to Telegram { speak, caption }
+    if (pathname === "/api/notify-voice" && req.method === "POST") {
+      if (!telegramConfigured()) {
+        return writeJson(res, 503, { ok: false, error: "Telegram not configured." });
+      }
+      let body = "";
+      for await (const chunk of req) body += chunk;
+      const { speak, caption } = JSON.parse(body || "{}");
+      if (!speak) return writeJson(res, 400, { ok: false, error: "Missing speak" });
+      await sendTelegramVoice(speak, caption);
       return writeJson(res, 200, { ok: true });
     }
 
