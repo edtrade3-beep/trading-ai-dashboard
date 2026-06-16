@@ -2527,6 +2527,78 @@ function MacroEventsWidget({ C, MONO, SANS }) {
   );
 }
 
+// ── MARKET RISK TRAFFIC LIGHT — 🟢🟡🔴 regime score + sound/vibration + Telegram on change ──
+function riskBuzz(light) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const cfg = light === "GREEN" ? { f: 600, d: 0.15, n: 1 } : light === "YELLOW" ? { f: 800, d: 0.12, n: 2 } : { f: 1200, d: 0.1, n: 6 };
+    for (let i = 0; i < cfg.n; i++) setTimeout(() => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = cfg.f; o.type = "square"; g.gain.value = 0.18;
+      o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + cfg.d);
+    }, i * 200);
+  } catch {}
+}
+function riskVibrate(light) {
+  if (!navigator.vibrate) return;
+  navigator.vibrate(light === "GREEN" ? 100 : light === "YELLOW" ? [100, 100, 100] : [300, 200, 300, 200, 500]);
+}
+function RiskTrafficLight({ C, MONO, SANS, macroData }) {
+  const [soundOn, setSoundOn] = React.useState(() => localStorage.getItem("axiom_risklight_sound") === "on");
+  const v = sym => Number((macroData || []).find(m => m.symbol === sym)?.changesPercentage || 0);
+  const has = (macroData || []).some(m => m.symbol === "SPY");
+  const spy = v("SPY"), qqq = v("QQQ"), vixy = v("VIXY"), tlt = v("TLT"), uup = v("UUP"), hyg = v("HYG");
+  let score = 50 + spy * 8 + qqq * 6 - vixy * 3 + tlt * 2 - uup * 3 + hyg * 4;
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const light = !has ? "—" : score >= 65 ? "GREEN" : score >= 40 ? "YELLOW" : "RED";
+  const cfg = { GREEN: { c: "#16a34a", icon: "🟢", title: "RISK ON", msg: "Fed supportive, liquidity improving, buyers in control", act: "Look for growth, AI, semis, small caps" },
+    YELLOW: { c: "#e0982f", icon: "🟡", title: "CAUTION", msg: "Mixed signals — reduce size, wait for confirmation", act: "Protect profits · avoid chasing" },
+    RED: { c: "#dc2626", icon: "🔴", title: "RISK OFF", msg: "Capital protection mode", act: "Reduce exposure · defensive · cash/hedges" },
+    "—": { c: C.textDim, icon: "⚪", title: "LOADING", msg: "Waiting for market data…", act: "" } }[light];
+
+  React.useEffect(() => {
+    if (light === "—") return;
+    const prev = localStorage.getItem("axiom_risklight");
+    if (prev && prev !== light) {
+      if (soundOn) riskBuzz(light);
+      riskVibrate(light);
+      const leaders = light === "GREEN" ? "NVDA · AMD · AVGO" : light === "RED" ? "defensive / cash" : "wait for confirmation";
+      const tg = [`${cfg.icon} *MARKET MODE: ${cfg.title}*`, ``, `Risk Score: ${score}/100`,
+        `SPY ${spy >= 0 ? "+" : ""}${spy.toFixed(2)}% · QQQ ${qqq >= 0 ? "+" : ""}${qqq.toFixed(2)}%`,
+        `VIX ${vixy >= 0 ? "rising" : "falling"} · Dollar ${uup >= 0 ? "up" : "down"}`, ``, cfg.msg, ``, `Focus: ${leaders}`].join("\n");
+      fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: tg }) }).catch(() => {});
+    }
+    localStorage.setItem("axiom_risklight", light);
+  }, [light]);
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 12, padding: "14px 18px", borderRadius: 12,
+      background: `${cfg.c}12`, border: `2px solid ${cfg.c}`, flexWrap: "wrap" }}>
+      <div style={{ fontSize: 44, lineHeight: 1 }}>{cfg.icon}</div>
+      <div style={{ minWidth: 150 }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.1em" }}>MARKET MODE</div>
+        <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 900, color: cfg.c }}>{cfg.title}</div>
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 2 }}>{cfg.msg}</div>
+      </div>
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginLeft: "auto" }}>
+        {[["RISK SCORE", `${light === "—" ? "—" : score}/100`, cfg.c], ["SPY", `${spy >= 0 ? "+" : ""}${spy.toFixed(2)}%`, spy >= 0 ? C.green : C.red],
+          ["QQQ", `${qqq >= 0 ? "+" : ""}${qqq.toFixed(2)}%`, qqq >= 0 ? C.green : C.red], ["VIX", vixy >= 0 ? "↑ rising" : "↓ falling", vixy <= 0 ? C.green : C.red],
+          ["DOLLAR", uup >= 0 ? "↑" : "↓", uup <= 0 ? C.green : C.red]].map(([l, val, col]) => (
+          <div key={l} style={{ textAlign: "center" }}>
+            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{l}</div>
+            <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: col }}>{val}</div>
+          </div>
+        ))}
+        <button onClick={() => { const nv = !soundOn; setSoundOn(nv); localStorage.setItem("axiom_risklight_sound", nv ? "on" : "off"); if (nv) riskBuzz(light); }}
+          title="Buzz + vibrate when the market mode flips (green/yellow/red). Telegram fires regardless."
+          style={{ alignSelf: "center", background: soundOn ? cfg.c : C.surface, color: soundOn ? "#fff" : C.textSec, border: `1px solid ${soundOn ? cfg.c : C.border}`, borderRadius: 7, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 12px", cursor: "pointer" }}>
+          {soundOn ? "🔊 SOUND ON" : "🔇 SOUND"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function RegimeNewsPanel({ C, MONO, SANS }) {
   const [items, setItems] = React.useState([]);
   const [ts, setTs] = React.useState(null);
@@ -18957,6 +19029,9 @@ export default function App() {
                 ↺ REFRESH ALL
               </button>
             </div>
+
+            {/* ── MARKET RISK TRAFFIC LIGHT (top panel) ── */}
+            <RiskTrafficLight C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
 
             {/* ── PRAYER TIMES (Makkah / Medinah) ── */}
             <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
