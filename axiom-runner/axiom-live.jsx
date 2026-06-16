@@ -2543,10 +2543,22 @@ function riskVibrate(light) {
   if (!navigator.vibrate) return;
   navigator.vibrate(light === "GREEN" ? 100 : light === "YELLOW" ? [100, 100, 100] : [300, 200, 300, 200, 500]);
 }
+const RISK_SYMS = ["SPY", "QQQ", "VIXY", "TLT", "UUP", "HYG"];
 function RiskTrafficLight({ C, MONO, SANS, macroData }) {
   const [soundOn, setSoundOn] = React.useState(() => localStorage.getItem("axiom_risklight_sound") === "on");
-  const v = sym => Number((macroData || []).find(m => m.symbol === sym)?.changesPercentage || 0);
-  const has = (macroData || []).some(m => m.symbol === "SPY");
+  // ── Fast self-poll (every 15s) straight off our own quote engine — no TradingView needed ──
+  const [fast, setFast] = React.useState(null);
+  React.useEffect(() => {
+    let alive = true;
+    const load = () => fetch(`/api/market/quote?symbols=${RISK_SYMS.join(",")}`)
+      .then(r => r.json()).then(arr => { if (alive && Array.isArray(arr) && arr.length) setFast(arr); }).catch(() => {});
+    load();
+    const t = setInterval(load, 15000); // 15s — fast panic detection
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+  const src = (fast && fast.length) ? fast : (macroData || []);
+  const v = sym => Number(src.find(m => m.symbol === sym)?.changesPercentage || 0);
+  const has = src.some(m => m.symbol === "SPY");
   const spy = v("SPY"), qqq = v("QQQ"), vixy = v("VIXY"), tlt = v("TLT"), uup = v("UUP"), hyg = v("HYG");
   let score = 50 + spy * 8 + qqq * 6 - vixy * 3 + tlt * 2 - uup * 3 + hyg * 4;
   score = Math.max(0, Math.min(100, Math.round(score)));
@@ -2584,7 +2596,7 @@ function RiskTrafficLight({ C, MONO, SANS, macroData }) {
       const msg = `🚨 *PANIC — RISK SHOCK*\n\n${what}\nDollar ${uup >= 0 ? "↑" : "↓"} · QQQ ${qqq >= 0 ? "+" : ""}${qqq.toFixed(2)}%\n\nProtect capital — reduce exposure, no fresh longs.`;
       fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
     }
-  }, [macroData]);
+  }, [spy, vixy, qqq, uup]);
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 12, padding: "14px 18px", borderRadius: 12,
