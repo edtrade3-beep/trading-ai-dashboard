@@ -2668,7 +2668,7 @@ function FedInterpreter({ C, MONO, SANS }) {
       } catch {}
     };
     check();
-    const t = setInterval(check, 8 * 60 * 1000); // every 8 min while ON
+    const t = setInterval(check, 15 * 1000); // every 15s while ON — catch the statement the second it drops
     return () => clearInterval(t);
   }, [on]);
 
