@@ -351,7 +351,20 @@ function App() {
   const [pbSerpInput, setPbSerpInput] = useState("");
   const [pbMcInput, setPbMcInput] = useState("");
   const [pbAdInput, setPbAdInput] = useState("");
-  const [pbAdd, setPbAdd] = useState({ year: "", make: "", model: "", trim: "", mileage: "", price: "" });
+  const [pbAdd, setPbAdd] = useState({ vin: "", year: "", make: "", model: "", trim: "", mileage: "", price: "" });
+  const [pbDecoding, setPbDecoding] = useState(false);
+  const pbDecodeVin = async () => {
+    const vin = (pbAdd.vin || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 17);
+    if (vin.length !== 17) { showToast("Enter a valid 17-character VIN", "error"); return; }
+    setPbDecoding(true);
+    try {
+      const d = await fetch(`/api/dealer/vin-decode?vin=${vin}`).then(r => r.json());
+      if (d.error) throw new Error(d.error);
+      setPbAdd(a => ({ ...a, vin, year: String(d.year || ""), make: d.make || "", model: d.model || "", trim: d.trim || "" }));
+      showToast(`Decoded: ${d.year} ${d.make} ${d.model}`, "success");
+    } catch (e) { showToast(e.message || "Decode failed", "error"); }
+    setPbDecoding(false);
+  };
   const refreshPbKeys = () => fetch("/api/dealer/ai-key").then(r => r.json())
     .then(d => { setPbBraveSet(!!d.brave); setPbSerpSet(!!d.google); setPbMcSet(!!d.marketcheck); setPbAdSet(!!d.autodev); setPbBraveOn(!!d.braveOn); setPbSerpOn(!!d.googleOn); setPbMcOn(!!d.mcOn); setPbAdOn(!!d.adOn); setPbKeyConfigured(!!d.configured); })
     .catch(() => setPbKeyConfigured(false));
@@ -392,9 +405,10 @@ function App() {
   const pbAddVehicle = () => {
     const year = Number(pbAdd.year), make = pbAdd.make.trim(), model = pbAdd.model.trim();
     if (!year || !make || !model) { showToast("Year, make and model are required", "error"); return; }
-    const v = { vin: `MANUAL-${Date.now()}`, year, make, model, trim: pbAdd.trim.trim(), mileage: Number(pbAdd.mileage) || 0, price: Number(pbAdd.price) || 0, condition: "Good", addedAt: new Date().toISOString() };
+    const vin = (pbAdd.vin || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const v = { vin: vin.length === 17 ? vin : `MANUAL-${Date.now()}`, year, make, model, trim: pbAdd.trim.trim(), mileage: Number(pbAdd.mileage) || 0, price: Number(pbAdd.price) || 0, condition: "Good", addedAt: new Date().toISOString() };
     setInventory(prev => [v, ...prev]);
-    setPbAdd({ year: "", make: "", model: "", trim: "", mileage: "", price: "" });
+    setPbAdd({ vin: "", year: "", make: "", model: "", trim: "", mileage: "", price: "" });
     showToast(`${year} ${make} ${model} added — scan it below`, "success");
   };
   const savePbResults = (next) => { setPbResults(next); try { localStorage.setItem("dixie_pb_results", JSON.stringify(next)); } catch {} };
@@ -1761,6 +1775,12 @@ function App() {
                   {/* Add a single vehicle */}
                   <div style={{ ...styles.card, marginBottom: 12 }}>
                     <div style={styles.smallLabel}>➕ ADD A VEHICLE TO SCAN</div>
+                    {/* VIN → decode */}
+                    <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <input value={pbAdd.vin} onChange={(e) => setPbAdd(a => ({ ...a, vin: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 17) }))} placeholder="Enter VIN to auto-fill (17 chars)" style={{ ...styles.input, width: 280, fontFamily: "monospace" }} />
+                      <button onClick={pbDecodeVin} disabled={pbDecoding} style={styles.buttonGhost}>{pbDecoding ? "Decoding…" : "🔍 Decode VIN"}</button>
+                      <span style={{ fontSize: 10, color: styles.smallLabel.color }}>or fill the fields below</span>
+                    </div>
                     <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
                       {[["year", "Year", 70], ["make", "Make", 110], ["model", "Model", 120], ["trim", "Trim", 130], ["mileage", "Miles", 90], ["price", "My Price", 100]].map(([k, ph, w]) => (
                         <input key={k} value={pbAdd[k]} onChange={(e) => setPbAdd(a => ({ ...a, [k]: e.target.value }))} placeholder={ph} style={{ ...styles.input, width: w }} />
