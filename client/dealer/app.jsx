@@ -338,6 +338,17 @@ function App() {
     a.download = `price-beater-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click(); URL.revokeObjectURL(a.href);
   };
+  // Import a CSV directly in the Price Beater — loads into inventory (which auto-saves to the server).
+  const pbImportCsv = async (e) => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    try {
+      const items = parseInventoryCsv(await f.text());
+      if (!items.length) { showToast("No rows parsed — CSV needs Year/Make/Model columns", "error"); return; }
+      setInventory(items);
+      showToast(`Imported ${items.length} vehicles — saved`, "success");
+    } catch (err) { showToast(err.message || "Import failed", "error"); }
+    e.target.value = "";
+  };
   const [pbKeyConfigured, setPbKeyConfigured] = useState(null); // null = unknown; true if either engine set
   const [pbBraveSet, setPbBraveSet] = useState(false);
   const [pbSerpSet, setPbSerpSet] = useState(false);
@@ -1808,6 +1819,9 @@ function App() {
                         <option value="gap">Sort: Gap</option>
                       </select>
                     </Field>
+                    <label style={{ ...styles.buttonGhost, display: "inline-flex", alignItems: "center", cursor: "pointer" }}>⬆ Import CSV (saves)
+                      <input type="file" accept=".csv,text/csv" onChange={pbImportCsv} style={{ display: "none" }} />
+                    </label>
                     {inventory.length > 0 && <button onClick={pbExportCsv} style={styles.buttonGhost}>⬇ Export CSV</button>}
                     {Object.keys(pbResults).length > 0 && <button onClick={() => savePbResults({})} style={styles.buttonGhost}>Reset scans</button>}
                   </div>
