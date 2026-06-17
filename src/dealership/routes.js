@@ -177,7 +177,10 @@ const { handleFbHub } = require("./fb-hub");
 
 // ─── Search-engine price scans (free alternatives to the AI engine) ────────────
 const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
-const carQuery = ({ year, make, model, trim, zip }) => `${year} ${make} ${model} ${trim} for sale ${zip}`.replace(/\s+/g, " ").trim();
+const carQuery = ({ year, make, model, trim, zip }) => `${year} ${make} ${model} ${trim} for sale near ${zip} dealer`.replace(/\s+/g, " ").trim();
+// Skip platform "average / market value / estimate" pages — we want real dealer asking prices, not valuations.
+const AGG_RE = /average|market value|trade.?in|what(?:'s| is) it worth|how much is|price guide|value your|book value|kbb|edmunds true|estimate|depreciat|price analysis|values?\b|nadaguides|fair purchase|typical price|starting (?:at|from)/i;
+const looksAggregate = (text) => AGG_RE.test(String(text || ""));
 
 // Turn a list of {price,source,link} into the standard result (market low/avg + 3 cheapest).
 function aggregateHits(hits) {
@@ -204,8 +207,13 @@ async function googlePriceScan(vehicle, serpKey) {
   if (d.error) return { found: false, error: d.error };
   const hits = [];
   const add = (price, source, link) => hits.push({ price: Number(String(price).replace(/[^0-9]/g, "")), source: source || "Google", link: link || "" });
-  (d.shopping_results || []).forEach(s => add(s.price, s.source || "Google Shopping", s.link));
-  (d.organic_results || []).forEach(o => { const m = `${o.title || ""} ${o.snippet || ""}`.match(/\$\s?[0-9]{1,3},[0-9]{3}/g) || []; m.forEach(p => add(p, o.source || o.displayed_link || "Google", o.link)); });
+  (d.shopping_results || []).forEach(s => { if (!looksAggregate(`${s.title || ""} ${s.source || ""}`)) add(s.price, s.source || hostOf(s.link) || "dealer", s.link); });
+  (d.organic_results || []).forEach(o => {
+    const txt = `${o.title || ""} ${o.snippet || ""}`;
+    if (looksAggregate(txt)) return;  // skip valuation / market-average pages
+    const m = txt.match(/\$\s?[0-9]{1,3},[0-9]{3}/g) || [];
+    m.forEach(p => add(p, o.source || hostOf(o.link) || "dealer", o.link));
+  });
   return aggregateHits(hits);
 }
 
@@ -221,7 +229,12 @@ async function bravePriceScan(vehicle, braveKey) {
   }
   const results = (d.web && d.web.results) || [];
   const hits = [];
-  results.forEach(o => { const m = `${o.title || ""} ${o.description || ""}`.match(/\$\s?[0-9]{1,3},[0-9]{3}/g) || []; m.forEach(p => hits.push({ price: Number(String(p).replace(/[^0-9]/g, "")), source: (o.profile && o.profile.name) || hostOf(o.url) || "Brave", link: o.url || "" })); });
+  results.forEach(o => {
+    const txt = `${o.title || ""} ${o.description || ""}`;
+    if (looksAggregate(txt)) return;  // skip valuation / market-average pages
+    const m = txt.match(/\$\s?[0-9]{1,3},[0-9]{3}/g) || [];
+    m.forEach(p => hits.push({ price: Number(String(p).replace(/[^0-9]/g, "")), source: (o.profile && o.profile.name) || hostOf(o.url) || "dealer", link: o.url || "" }));
+  });
   return aggregateHits(hits);
 }
 
