@@ -627,7 +627,7 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
       result = result || { found: false };
 
       const comps = Array.isArray(result.competitors) ? result.competitors : [];
-      const clean = comps.map(c => ({ price: toNum(c.price), source: c.source || "", dealer: c.dealer || "", miles: toNum(c.miles), link: c.link || "" }))
+      const clean = comps.map(c => ({ price: toNum(c.price), source: c.source || "", dealer: c.dealer || "", location: c.location || "", distance: c.distance || 0, miles: toNum(c.miles), link: c.link || "" }))
         .filter(c => c.price > 0).sort((a, b) => a.price - b.price).slice(0, 3);
       const marketLow = toNum(result.marketLow) || (clean[0] && clean[0].price) || 0;
       const marketAvg = toNum(result.marketAvg) || 0;
