@@ -1787,8 +1787,7 @@ function App() {
                                 <td style={{ padding: "8px 10px" }}>{
                                   (r.competitors && r.competitors.length)
                                     ? r.competitors.map((c, ci) => (
-                                        <div key={ci} style={{ marginBottom: ci < r.competitors.length - 1 ? 4 : 0, padding: ci === 0 ? "2px 6px" : 0, background: ci === 0 ? "#16a34a14" : "transparent", borderRadius: 4, display: "inline-block" }}>
-                                          {ci === 0 && <span style={{ fontSize: 9, fontWeight: 800, color: "#16a34a", marginRight: 4 }}>🏆 BEAT THIS</span>}
+                                        <div key={ci} style={{ marginBottom: ci < r.competitors.length - 1 ? 4 : 0 }}>
                                           <span style={{ fontWeight: ci === 0 ? 800 : 500, color: ci === 0 ? "#16a34a" : "inherit" }}>{c.link ? <a href={c.link} target="_blank" rel="noopener" style={{ color: ci === 0 ? "#16a34a" : styles.buttonPrimary.background }}>{money(c.price)}</a> : money(c.price)}</span>
                                           <span style={{ fontSize: 10, color: styles.smallLabel.color }}> · {c.dealer || c.source || "dealer"}{c.location ? " · 📍 " + c.location : ""}{c.miles ? " · " + Number(c.miles).toLocaleString() + "mi" : ""}</span>
                                         </div>
