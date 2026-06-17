@@ -357,12 +357,13 @@ function App() {
     const cur = { ...pbResults, [v.vin]: { status: "scanning" } };
     savePbResults(cur);
     const res = await scanOnePB(v);
-    if (res.status === "error" && /not configured|invalid|no scan engine|serpapi/i.test(res.error || "")) {
+    if (res.status === "error" && /not configured|no scan engine|key is invalid/i.test(res.error || "")) {
       setPbKeyConfigured(false);
       const cleared = { ...cur }; delete cleared[v.vin]; savePbResults(cleared);
-      showToast("Add your Anthropic API key first (box at the top)", "error");
+      showToast(res.error || "Add a scan key first", "error");
       return;
     }
+    if (res.status === "error") { setPbStatus("⚠️ " + (res.error || "scan failed")); showToast(res.error || "Scan failed", "error"); }
     savePbResults({ ...cur, [v.vin]: res });
   };
   const pbScanAll = async () => {
@@ -377,10 +378,15 @@ function App() {
       setPbStatus(`Scanning ${i + 1}/${list.length}: ${v.year} ${v.make} ${v.model}`);
       acc = { ...acc, [v.vin]: { status: "scanning" } }; savePbResults(acc);
       const res = await scanOnePB(v);
-      if (res.status === "error" && /not configured|invalid|no scan engine|serpapi/i.test(res.error || "")) {
-        setPbStatus("⚠️ Add your Anthropic API key above to enable scanning.");
+      if (res.status === "error" && /not configured|no scan engine|key is invalid/i.test(res.error || "")) {
+        setPbStatus("⚠️ " + (res.error || "Add a scan key above to enable scanning."));
         const cleared = { ...acc }; delete cleared[v.vin]; savePbResults(cleared);
         setPbKeyConfigured(false); setPbScanning(false); return;
+      }
+      if (res.status === "error") {  // other error (e.g. out of searches) — stop and show why
+        setPbStatus("⚠️ " + (res.error || "scan failed"));
+        const cleared = { ...acc }; delete cleared[v.vin]; savePbResults(cleared);
+        setPbScanning(false); showToast(res.error || "Scan failed", "error"); return;
       }
       acc = { ...acc, [v.vin]: res }; savePbResults(acc);
       await new Promise(r => setTimeout(r, 800));
