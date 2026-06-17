@@ -208,9 +208,29 @@ function locationOf(text) {
   return m ? `${m[1].trim()}, ${m[2]}` : "";
 }
 
+// Pull asking prices out of text, skipping monthly-payment / down-payment numbers.
+function extractPrices(text) {
+  const t = String(text || "");
+  const out = [];
+  const re = /\$\s?([0-9]{1,3},[0-9]{3})/g;
+  let m;
+  while ((m = re.exec(t))) {
+    const n = Number(m[1].replace(/,/g, ""));
+    const before = t.slice(Math.max(0, m.index - 22), m.index).toLowerCase();
+    const after = t.slice(m.index + m[0].length, m.index + m[0].length + 8).toLowerCase();
+    if (/\/mo|month|\bmo\b/.test(after)) continue;                 // "$399/mo"
+    if (/down|payment|deposit|as low as|finance|lease|apr/.test(before)) continue;  // "$2,499 down"
+    out.push(n);
+  }
+  return out;
+}
+
 // Turn a list of {price,source,link,title,dealer} into the standard result (market low/avg + 3 cheapest).
-function aggregateHits(hits) {
-  const ok = hits.filter(h => h.price >= 1500 && h.price <= 200000);
+// refPrice (my asking price) gates out implausible numbers (down payments, fees, unrelated vehicles).
+function aggregateHits(hits, refPrice) {
+  const lo = refPrice > 0 ? Math.max(refPrice * 0.5, 3000) : 4000;
+  const hi = refPrice > 0 ? refPrice * 1.8 : 200000;
+  const ok = hits.filter(h => h.price >= lo && h.price <= hi);
   if (!ok.length) return { found: false };
   const prices = ok.map(h => h.price).sort((a, b) => a - b);
   const marketLow = prices[0];
@@ -227,7 +247,7 @@ function aggregateHits(hits) {
 }
 
 // SerpAPI (Google)
-async function googlePriceScan(vehicle, serpKey) {
+async function googlePriceScan(vehicle, serpKey, refPrice) {
   const url = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(carQuery(vehicle))}&location=${encodeURIComponent("Ohio, United States")}&num=20&api_key=${serpKey}`;
   let d = null;
   try { d = await withTimeout(fetch(url).then(r => r.json()), 15000, null); } catch { d = null; }
@@ -235,19 +255,18 @@ async function googlePriceScan(vehicle, serpKey) {
   if (d.error) return { found: false, error: d.error };
   const hits = [];
   const add = (price, meta) => hits.push({ price: Number(String(price).replace(/[^0-9]/g, "")), source: meta.source || "", link: meta.link || "", title: meta.title || "", dealer: meta.dealer || "" });
-  // Shopping results: `source` is the seller/dealer name.
+  // Shopping results: `source` is the seller/dealer name; `price` is the listing price.
   (d.shopping_results || []).forEach(s => { if (!looksAggregate(`${s.title || ""} ${s.source || ""}`)) add(s.price, { source: s.source, link: s.link, title: s.title, dealer: s.source }); });
   (d.organic_results || []).forEach(o => {
     const txt = `${o.title || ""} ${o.snippet || ""}`;
     if (looksAggregate(txt)) return;  // skip valuation / market-average pages
-    const m = txt.match(/\$\s?[0-9]{1,3},[0-9]{3}/g) || [];
-    m.forEach(p => add(p, { source: o.source, link: o.link, title: txt }));
+    extractPrices(txt).forEach(p => add(p, { source: o.source, link: o.link, title: txt }));
   });
-  return aggregateHits(hits);
+  return aggregateHits(hits, refPrice);
 }
 
 // Brave Search API
-async function bravePriceScan(vehicle, braveKey) {
+async function bravePriceScan(vehicle, braveKey, refPrice) {
   const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(carQuery(vehicle))}&count=20`;
   let d = null;
   try { d = await withTimeout(fetch(url, { headers: { "X-Subscription-Token": braveKey, "Accept": "application/json" } }).then(r => r.json()), 15000, null); } catch { d = null; }
@@ -261,10 +280,9 @@ async function bravePriceScan(vehicle, braveKey) {
   results.forEach(o => {
     const txt = `${o.title || ""} ${o.description || ""}`;
     if (looksAggregate(txt)) return;  // skip valuation / market-average pages
-    const m = txt.match(/\$\s?[0-9]{1,3},[0-9]{3}/g) || [];
-    m.forEach(p => hits.push({ price: Number(String(p).replace(/[^0-9]/g, "")), source: (o.profile && o.profile.name) || "", link: o.url || "", title: txt, dealer: "" }));
+    extractPrices(txt).forEach(p => hits.push({ price: p, source: (o.profile && o.profile.name) || "", link: o.url || "", title: txt, dealer: "" }));
   });
-  return aggregateHits(hits);
+  return aggregateHits(hits, refPrice);
 }
 
 // ─── Route handler ────────────────────────────────────────────────────────────
@@ -507,13 +525,13 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
       // 1) Brave search (free 2,000/mo) — preferred.
       if (braveKey) {
         engine = "brave";
-        const b = await bravePriceScan(veh, braveKey);
+        const b = await bravePriceScan(veh, braveKey, myPrice);
         if (b.error) lastErr = /invalid/i.test(b.error) ? "Your Brave key is invalid." : `Brave: ${b.error}`; else result = b;
       }
       // 2) SerpAPI (Google) — when Brave is absent/empty/out of quota.
       if ((!result || !result.found) && serpKey) {
         engine = "google";
-        const g = await googlePriceScan(veh, serpKey);
+        const g = await googlePriceScan(veh, serpKey, myPrice);
         if (g.error) lastErr = /invalid api key/i.test(g.error) ? "Your SerpAPI key is invalid." : `SerpAPI: ${g.error}`; else result = g;
       }
       result = result || { found: false };
