@@ -1,6 +1,10 @@
 const { writeJson, fetchJsonSafe, withTimeout, readRequestBody } = require("../utils");
 const { callAnthropicApi, callAnthropicWithSearch } = require("../anthropic");
 const { ANTHROPIC_API_KEY } = require("../config");
+const { getKey, setKey } = require("../runtime-keys");
+
+// Resolve the Anthropic key from runtime override → env → config (lets the UI set it).
+const anthropicKey = () => getKey("ANTHROPIC_API_KEY", ANTHROPIC_API_KEY);
 
 // Pull the first JSON object out of an AI response (handles ```json fences or a bare {...}).
 function extractJsonBlock(text) {
@@ -264,7 +268,7 @@ async function handleDealership(req, res, requestUrl) {
 
   // POST /api/dealer/describe — AI vehicle description generator
   if (pathname === "/api/dealer/describe" && req.method === "POST") {
-    if (!ANTHROPIC_API_KEY) {
+    if (!anthropicKey()) {
       return writeJson(res, 503, { error: "ANTHROPIC_API_KEY is not configured." });
     }
     let body;
@@ -319,7 +323,7 @@ PLATFORM / STYLE: ${styleInstructions[style] || styleInstructions.facebook}
 Do not invent features not listed above. Do not use all-caps except for the vehicle name. No emojis unless writing for Facebook.`;
 
     try {
-      const text = await callAnthropicApi(prompt, ANTHROPIC_API_KEY, { maxTokens: 600 });
+      const text = await callAnthropicApi(prompt, anthropicKey(), { maxTokens: 600 });
       return writeJson(res, 200, { description: text, style, generatedAt: new Date().toISOString() });
     } catch (err) {
       return writeJson(res, 422, { error: err instanceof Error ? err.message : "AI description failed" });
@@ -328,7 +332,7 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
 
   // POST /api/dealer/deal-finder — AI market scan + deal scoring via live web search
   if (pathname === "/api/dealer/deal-finder" && req.method === "POST") {
-    if (!ANTHROPIC_API_KEY) {
+    if (!anthropicKey()) {
       return writeJson(res, 503, { error: "ANTHROPIC_API_KEY is not configured." });
     }
     let body;
@@ -347,7 +351,7 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
 
     const prompt = buildDealFinderPrompt(decoded, vin, mileage, zip, radius);
     try {
-      const text = await callAnthropicWithSearch(prompt, ANTHROPIC_API_KEY, { model: "claude-sonnet-4-6", maxTokens: 6000, maxSearches: 8 });
+      const text = await callAnthropicWithSearch(prompt, anthropicKey(), { model: "claude-sonnet-4-6", maxTokens: 6000, maxSearches: 8 });
       return writeJson(res, 200, {
         vin, vehicle: decoded, mileage, zip, radius,
         analysis: extractJsonBlock(text),
@@ -359,9 +363,23 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
     }
   }
 
-  // POST /api/dealer/price-beat — "Am I cheapest?" Finds the lowest competitor price for ONE vehicle.
+  // GET /api/dealer/ai-key — is the Anthropic key configured? (never returns the value)
+  if (pathname === "/api/dealer/ai-key" && req.method === "GET") {
+    return writeJson(res, 200, { configured: !!anthropicKey() });
+  }
+  // POST /api/dealer/ai-key — set the Anthropic key from the UI { key }
+  if (pathname === "/api/dealer/ai-key" && req.method === "POST") {
+    let body;
+    try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
+    const key = String(body.key || "").trim();
+    if (!/^sk-ant-/.test(key)) return writeJson(res, 400, { error: "That doesn't look like an Anthropic key (should start with sk-ant-)." });
+    setKey("ANTHROPIC_API_KEY", key);
+    return writeJson(res, 200, { ok: true, configured: true });
+  }
+
+  // POST /api/dealer/price-beat — "Am I cheapest?" Finds the 3 cheapest competitor prices for ONE vehicle.
   if (pathname === "/api/dealer/price-beat" && req.method === "POST") {
-    if (!ANTHROPIC_API_KEY) {
+    if (!anthropicKey()) {
       return writeJson(res, 503, { error: "ANTHROPIC_API_KEY is not configured." });
     }
     let body;
@@ -376,32 +394,33 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
     const myPrice = Number(body.myPrice || 0);
     if (!year || !make || !model) return writeJson(res, 400, { error: "year, make, and model are required" });
 
-    const prompt = `You are a used-car pricing research assistant. Use the web_search tool to find the single CHEAPEST currently-listed used car matching this vehicle, from any OTHER seller.
+    const prompt = `You are a used-car pricing research assistant. Use the web_search tool to find the THREE cheapest currently-listed used cars matching this vehicle, from OTHER sellers.
 
 Vehicle: ${year} ${make} ${model} ${trim}
 Within ${radius} miles of ZIP ${zip}.
 EXCLUDE my own dealership: "Dixie Motors", "Dixie Imports", "Cincy Automall".
-Search CarGurus, Cars.com, and AutoTrader for the lowest asking price from any other dealer or private seller.
+Search CarGurus, Cars.com, and AutoTrader. Return up to 3 of the lowest asking prices from other dealers or private sellers, cheapest first.
 
 Reply with ONLY valid JSON, no markdown:
-If found: {"found":true,"cheapest_price":12500,"source":"CarGurus","dealer":"ABC Motors","miles":95000,"link":"https://..."}
+If found: {"found":true,"competitors":[{"price":12500,"source":"CarGurus","dealer":"ABC Motors","miles":95000,"link":"https://..."},{"price":12900,"source":"Cars.com","dealer":"XYZ Auto","miles":88000,"link":"https://..."},{"price":13200,"source":"AutoTrader","dealer":"Best Cars","miles":91000,"link":"https://..."}]}
 If nothing comparable found: {"found":false}`;
 
     try {
-      const text = await callAnthropicWithSearch(prompt, ANTHROPIC_API_KEY, { model: "claude-sonnet-4-6", maxTokens: 700, maxSearches: 5 });
+      const text = await callAnthropicWithSearch(prompt, anthropicKey(), { model: "claude-sonnet-4-6", maxTokens: 1100, maxSearches: 6 });
       const result = extractJsonBlock(text) || { found: false };
-      let out = { found: !!result.found };
-      if (result.found) {
-        const comp = Number(result.cheapest_price || 0);
-        const gap = myPrice && comp ? myPrice - comp : null;       // positive = I'm cheaper
-        out = {
-          found: true, cheapestPrice: comp, source: result.source || "", dealer: result.dealer || "",
-          compMiles: Number(result.miles || 0), link: result.link || "",
-          gap, status: gap == null ? "unknown" : gap >= 0 ? "cheapest" : gap >= -500 ? "close" : "not_cheapest",
-          suggested: gap != null && gap < 0 ? Math.max(comp - 100, 0) : null,
-        };
-      }
-      return writeJson(res, 200, out);
+      const comps = Array.isArray(result.competitors) ? result.competitors
+        : (result.found && result.cheapest_price ? [{ price: result.cheapest_price, source: result.source, dealer: result.dealer, miles: result.miles, link: result.link }] : []);
+      const clean = comps.map(c => ({ price: Number(c.price || 0), source: c.source || "", dealer: c.dealer || "", miles: Number(c.miles || 0), link: c.link || "" }))
+        .filter(c => c.price > 0).sort((a, b) => a.price - b.price).slice(0, 3);
+      if (!result.found || !clean.length) return writeJson(res, 200, { found: false });
+      const comp = clean[0].price;
+      const gap = myPrice && comp ? myPrice - comp : null;       // positive = I'm cheaper
+      return writeJson(res, 200, {
+        found: true, competitors: clean,
+        cheapestPrice: comp, source: clean[0].source, dealer: clean[0].dealer, compMiles: clean[0].miles, link: clean[0].link,
+        gap, status: gap == null ? "unknown" : gap >= 0 ? "cheapest" : gap >= -500 ? "close" : "not_cheapest",
+        suggested: gap != null && gap < 0 ? Math.max(comp - 100, 0) : null,
+      });
     } catch (err) {
       return writeJson(res, 422, { error: err instanceof Error ? err.message : "Price scan failed" });
     }

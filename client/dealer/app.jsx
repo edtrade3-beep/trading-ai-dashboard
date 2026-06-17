@@ -307,6 +307,28 @@ function App() {
   const [pbScanning, setPbScanning] = useState(false);
   const [pbStatus, setPbStatus] = useState("");
   const [pbRadius, setPbRadius] = useState(200);
+  const [pbKeyConfigured, setPbKeyConfigured] = useState(null); // null = unknown
+  const [pbKeyInput, setPbKeyInput] = useState("");
+  const [pbAdd, setPbAdd] = useState({ year: "", make: "", model: "", trim: "", mileage: "", price: "" });
+  useEffect(() => { fetch("/api/dealer/ai-key").then(r => r.json()).then(d => setPbKeyConfigured(!!d.configured)).catch(() => setPbKeyConfigured(false)); }, []);
+  const savePbKey = async () => {
+    const key = pbKeyInput.trim();
+    if (!/^sk-ant-/.test(key)) { showToast("Key should start with sk-ant-", "error"); return; }
+    try {
+      const r = await fetch("/api/dealer/ai-key", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Save failed");
+      setPbKeyConfigured(true); setPbKeyInput(""); showToast("Anthropic key saved — scanning enabled", "success");
+    } catch (e) { showToast(e.message, "error"); }
+  };
+  const pbAddVehicle = () => {
+    const year = Number(pbAdd.year), make = pbAdd.make.trim(), model = pbAdd.model.trim();
+    if (!year || !make || !model) { showToast("Year, make and model are required", "error"); return; }
+    const v = { vin: `MANUAL-${Date.now()}`, year, make, model, trim: pbAdd.trim.trim(), mileage: Number(pbAdd.mileage) || 0, price: Number(pbAdd.price) || 0, condition: "Good", addedAt: new Date().toISOString() };
+    setInventory(prev => [v, ...prev]);
+    setPbAdd({ year: "", make: "", model: "", trim: "", mileage: "", price: "" });
+    showToast(`${year} ${make} ${model} added — scan it below`, "success");
+  };
   const savePbResults = (next) => { setPbResults(next); try { localStorage.setItem("dixie_pb_results", JSON.stringify(next)); } catch {} };
   const scanOnePB = async (v) => {
     try {
@@ -317,7 +339,7 @@ function App() {
       const d = await r.json();
       if (!r.ok) return { status: "error", error: d.error || "scan failed", scanned: false };
       if (!d.found) return { status: "no_comps", scanned: true };
-      return { status: d.status, scanned: true, compPrice: d.cheapestPrice, gap: d.gap, source: d.source, dealer: d.dealer, compMiles: d.compMiles, suggested: d.suggested, link: d.link };
+      return { status: d.status, scanned: true, compPrice: d.cheapestPrice, gap: d.gap, source: d.source, dealer: d.dealer, compMiles: d.compMiles, suggested: d.suggested, link: d.link, competitors: d.competitors || [] };
     } catch (e) { return { status: "error", error: e.message, scanned: false }; }
   };
   const pbScanVehicle = async (v) => {
@@ -338,8 +360,8 @@ function App() {
       acc = { ...acc, [v.vin]: { status: "scanning" } }; savePbResults(acc);
       const res = await scanOnePB(v);
       if (res.status === "error" && /not configured/i.test(res.error || "")) {
-        setPbStatus("⚠️ Anthropic API key not set on the server — add ANTHROPIC_API_KEY in Render.");
-        setPbScanning(false); return;
+        setPbStatus("⚠️ Add your Anthropic API key above to enable scanning.");
+        setPbKeyConfigured(false); setPbScanning(false); return;
       }
       acc = { ...acc, [v.vin]: res }; savePbResults(acc);
       await new Promise(r => setTimeout(r, 800));
@@ -1612,7 +1634,33 @@ function App() {
               return (
                 <Panel title="Price Beater — Am I Cheapest?" badge="AI Live Search" styles={styles}>
                   <div style={{ fontSize: 13, color: styles.smallLabel.color, marginBottom: 12 }}>
-                    For every car in your inventory, AI searches CarGurus / Cars.com / AutoTrader within range of 45014 and tells you if you're the <b>cheapest</b> — or by how much you need to <b>reprice to win</b>. Your own listings are excluded.
+                    For every car in your inventory, AI searches CarGurus / Cars.com / AutoTrader within range of 45014 and shows the <b>3 cheapest competitors</b> and whether you're the <b>cheapest</b> — or how much to <b>reprice to win</b>. Your own listings are excluded.
+                  </div>
+
+                  {/* Anthropic API key setup */}
+                  {pbKeyConfigured === false && (
+                    <div style={{ ...styles.card, marginBottom: 12, borderColor: "#d97706" }}>
+                      <div style={{ ...styles.smallLabel, color: "#92400e" }}>⚙️ ENABLE AI SCANNING — paste your Anthropic API key (one time)</div>
+                      <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                        <input type="password" value={pbKeyInput} onChange={(e) => setPbKeyInput(e.target.value)} placeholder="sk-ant-..." style={{ ...styles.input, flex: 1, minWidth: 220 }} />
+                        <button onClick={savePbKey} style={styles.buttonPrimary}>Save Key</button>
+                      </div>
+                      <div style={{ fontSize: 11, color: styles.smallLabel.color, marginTop: 4 }}>Get one at console.anthropic.com → API Keys. Stored on your server only — never shown again.</div>
+                    </div>
+                  )}
+                  {pbKeyConfigured === true && (
+                    <div style={{ fontSize: 11, color: "#16a34a", marginBottom: 10 }}>✓ AI scanning enabled <button onClick={() => setPbKeyConfigured(false)} style={{ ...styles.buttonGhost, height: 22, padding: "0 6px", fontSize: 10, marginLeft: 6 }}>change key</button></div>
+                  )}
+
+                  {/* Add a single vehicle */}
+                  <div style={{ ...styles.card, marginBottom: 12 }}>
+                    <div style={styles.smallLabel}>➕ ADD A VEHICLE TO SCAN</div>
+                    <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                      {[["year", "Year", 70], ["make", "Make", 110], ["model", "Model", 120], ["trim", "Trim", 130], ["mileage", "Miles", 90], ["price", "My Price", 100]].map(([k, ph, w]) => (
+                        <input key={k} value={pbAdd[k]} onChange={(e) => setPbAdd(a => ({ ...a, [k]: e.target.value }))} placeholder={ph} style={{ ...styles.input, width: w }} />
+                      ))}
+                      <button onClick={pbAddVehicle} style={styles.buttonPrimary}>Add</button>
+                    </div>
                   </div>
                   <div style={{ ...styles.threeCol, gridTemplateColumns: "repeat(5,1fr)" }}>
                     {[["✓ Cheapest", counts.cheapest, "#16a34a"], ["✕ Reprice", counts.not_cheapest, "#dc2626"], ["⚠ Close", counts.close, "#d97706"], ["No comps", counts.no_comps, "#6b7280"], ["Not scanned", counts.unscanned, "#9ca3af"]].map(([l, n, c]) => (
@@ -1635,7 +1683,7 @@ function App() {
                     <div style={{ ...styles.card, marginTop: 12, overflowX: "auto", padding: 0 }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                         <thead><tr style={{ textAlign: "left", color: styles.smallLabel.color }}>
-                          {["", "Status", "My Price", "Vehicle", "Miles", "Cheapest Comp", "Gap", "Reprice", ""].map((h, i) => <th key={i} style={{ padding: "8px 10px" }}>{h}</th>)}
+                          {["", "Status", "My Price", "Vehicle", "Miles", "3 Cheapest Competitors", "Gap", "Reprice", ""].map((h, i) => <th key={i} style={{ padding: "8px 10px" }}>{h}</th>)}
                         </tr></thead>
                         <tbody>
                           {[...inventory].sort((a, b) => (a.price || 0) - (b.price || 0)).map(v => {
@@ -1647,7 +1695,16 @@ function App() {
                                 <td style={{ padding: "8px 10px", fontWeight: 700 }}>{money(v.price || 0)}</td>
                                 <td style={{ padding: "8px 10px" }}>{v.year} {v.make} {v.model} <span style={{ color: styles.smallLabel.color }}>{v.trim}</span></td>
                                 <td style={{ padding: "8px 10px" }}>{v.mileage ? v.mileage.toLocaleString() : "—"}</td>
-                                <td style={{ padding: "8px 10px" }}>{r.compPrice ? <>{r.link ? <a href={r.link} target="_blank" rel="noopener" style={{ color: styles.buttonPrimary.background }}>{money(r.compPrice)}</a> : money(r.compPrice)}<div style={{ fontSize: 10, color: styles.smallLabel.color }}>{r.source}{r.dealer ? " · " + r.dealer : ""}</div></> : "—"}</td>
+                                <td style={{ padding: "8px 10px" }}>{
+                                  (r.competitors && r.competitors.length)
+                                    ? r.competitors.map((c, ci) => (
+                                        <div key={ci} style={{ marginBottom: ci < r.competitors.length - 1 ? 4 : 0 }}>
+                                          <span style={{ fontWeight: ci === 0 ? 700 : 500 }}>{c.link ? <a href={c.link} target="_blank" rel="noopener" style={{ color: styles.buttonPrimary.background }}>{money(c.price)}</a> : money(c.price)}</span>
+                                          <span style={{ fontSize: 10, color: styles.smallLabel.color }}> · {c.source}{c.dealer ? " · " + c.dealer : ""}{c.miles ? " · " + Number(c.miles).toLocaleString() + "mi" : ""}</span>
+                                        </div>
+                                      ))
+                                    : (r.compPrice ? money(r.compPrice) : "—")
+                                }</td>
                                 <td style={{ padding: "8px 10px", fontWeight: 700, color: r.gap == null ? "#6b7280" : r.gap >= 0 ? "#16a34a" : "#dc2626" }}>{r.gap == null ? "—" : (r.gap >= 0 ? "+" : "") + money(r.gap)}</td>
                                 <td style={{ padding: "8px 10px", color: "#dc2626" }}>{r.suggested ? money(r.suggested) : "—"}</td>
                                 <td style={{ padding: "8px 10px" }}><button onClick={() => pbScanVehicle(v)} disabled={r.status === "scanning" || pbScanning} style={{ ...styles.buttonGhost, height: 26, padding: "0 8px", fontSize: 11 }}>{r.status === "scanning" ? "…" : "🤖 Scan"}</button></td>
