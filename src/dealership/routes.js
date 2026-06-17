@@ -179,7 +179,8 @@ const { handleFbHub } = require("./fb-hub");
 async function googlePriceScan({ year, make, model, trim, zip }, serpKey) {
   const q = `${year} ${make} ${model} ${trim} for sale ${zip}`.replace(/\s+/g, " ").trim();
   const url = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(q)}&location=${encodeURIComponent("Ohio, United States")}&num=20&api_key=${serpKey}`;
-  const d = await withTimeout(fetchJsonSafe(url), 15000, null);
+  let d = null;
+  try { d = await withTimeout(fetch(url).then(r => r.json()), 15000, null); } catch { d = null; }
   if (!d) return { found: false, error: "Google search unavailable" };
   if (d.error) return { found: false, error: d.error };
 
@@ -435,14 +436,17 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
     const toNum = (x) => { const n = Number(String(x ?? "").replace(/[^0-9.]/g, "")); return Number.isFinite(n) ? n : 0; };
     try {
       let result, engine;
-      // 1) Google search (free) when a SerpAPI key is present
+      // 1) Google search (free, preferred) — when a SerpAPI key is present, use ONLY Google (no paid fallback).
       if (serpKey) {
         engine = "google";
         result = await googlePriceScan({ year, make, model, trim, zip }, serpKey);
-        if (result.error && /invalid api key/i.test(result.error)) return writeJson(res, 422, { error: "Your SerpAPI (Google) key is invalid — get a free one at serpapi.com." });
+        if (result.error) {
+          const inv = /invalid api key/i.test(result.error);
+          return writeJson(res, 422, { error: inv ? "Your SerpAPI (Google) key is invalid — get a free one at serpapi.com and re-save it." : `Google search error: ${result.error}` });
+        }
       }
-      // 2) AI fallback when Google found nothing and an Anthropic key exists
-      if ((!result || !result.found) && anthropicKey()) {
+      // 2) AI engine — only when NO Google key is set
+      if (!serpKey && anthropicKey()) {
         engine = "ai";
         const prompt = `You are a used-car pricing research assistant. Use the web_search tool to research the current market price for a ${year} ${make} ${model} ${trim} near ZIP ${zip} (within ~${radius} miles). EXCLUDE "Dixie Motors", "Dixie Imports", "Cincy Automall". Aggregate market data (KBB, CarGurus average) is acceptable. Reply ONLY valid JSON: {"found":true,"marketLow":12495,"marketAvg":14148,"competitors":[{"price":12495,"source":"KBB","miles":104000,"link":""}]} or {"found":false}`;
         const text = await callAnthropicWithSearch(prompt, anthropicKey(), { model: "claude-sonnet-4-6", maxTokens: 1100, maxSearches: 6 });
