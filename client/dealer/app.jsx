@@ -855,10 +855,52 @@ function App() {
     }
   }
 
+  // Parse one CSV line, honoring quoted fields.
+  function parseCsvLine(line) {
+    const out = []; let cur = "", q = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (q) { if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+      else { if (c === '"') q = true; else if (c === ",") { out.push(cur); cur = ""; } else cur += c; }
+    }
+    out.push(cur); return out;
+  }
+  // Map a dealer inventory CSV (any column order) to inventory items.
+  function parseInventoryCsv(text) {
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) return [];
+    const headers = parseCsvLine(lines[0]).map(h => h.trim().toLowerCase());
+    const idx = (...names) => {
+      for (const n of names) { const i = headers.indexOf(n); if (i >= 0) return i; }
+      for (let i = 0; i < headers.length; i++) if (names.some(n => headers[i].includes(n))) return i;
+      return -1;
+    };
+    const iVin = idx("vin"), iYear = idx("year"), iMake = idx("make"), iModel = idx("model"), iTrim = idx("trim"),
+      iMiles = idx("mileage", "miles", "odometer"), iPrice = idx("price"), iStock = idx("stock number", "stock"), iColor = idx("exterior color", "color");
+    const items = [];
+    for (let r = 1; r < lines.length; r++) {
+      const c = parseCsvLine(lines[r]);
+      const num = (x) => Number(String(c[x] ?? "").replace(/[^0-9.]/g, "")) || 0;
+      const year = iYear >= 0 ? Math.round(num(iYear)) : 0;
+      const make = (c[iMake] || "").trim(), model = (c[iModel] || "").trim();
+      if (!year || !make || !model) continue;
+      const stock = (c[iStock] || "").trim();
+      items.push({
+        vin: ((c[iVin] || "").trim().toUpperCase()) || `NOVIN-${stock || r}`,
+        year, make, model, trim: (c[iTrim] || "").trim(),
+        mileage: iMiles >= 0 ? Math.round(num(iMiles)) : 0,
+        price: iPrice >= 0 ? Math.round(num(iPrice)) : 0,
+        condition: "Good", stock, color: (c[iColor] || "").trim(),
+        addedAt: new Date().toISOString(),
+      });
+    }
+    return items;
+  }
+
   async function importPdfs() {
     const selected = pdfFiles.filter(Boolean);
     if (!selected.length) {
-      showToast("Choose at least one PDF file first", "error");
+      showToast("Choose at least one CSV or PDF file first", "error");
       return;
     }
 
@@ -871,6 +913,18 @@ function App() {
     for (let fi = 0; fi < selected.length; fi++) {
       const file = selected[fi];
       setPdfStatus(`Processing ${file.name} (${fi + 1}/${selected.length})…`);
+      const isCsv = /\.csv$/i.test(file.name) || file.type === "text/csv";
+      if (isCsv) {
+        try {
+          const text = await file.text();
+          const items = parseInventoryCsv(text);
+          allItems.push(...items);
+          fileResults.push({ name: file.name, count: items.length, error: items.length ? null : "No rows parsed — check the CSV has Year/Make/Model columns" });
+        } catch (err) {
+          fileResults.push({ name: file.name, count: 0, error: err.message || "CSV parse failed" });
+        }
+        continue;
+      }
       const formData = new FormData();
       formData.append("file", file);
       try {
@@ -893,6 +947,7 @@ function App() {
     if (allItems.length) {
       setInventory(allItems);
       setTab("Inventory");
+      showToast(`Imported ${allItems.length} vehicles`, "success");
     }
     setPdfLoading(false);
   }
@@ -1056,15 +1111,15 @@ function App() {
 
               <div style={{ ...styles.pdfGrid, marginTop: 12 }}>
                 {Array.from({ length: PDF_SLOTS }).map((_, index) => (
-                  <Field key={index} label={`Inventory PDF ${index + 1}`} styles={styles}>
-                    <input type="file" accept="application/pdf" onChange={(e) => setPdfSlot(index, e.target.files?.[0] || null)} style={{ ...styles.input, paddingTop: 12 }} />
+                  <Field key={index} label={`Inventory File ${index + 1} (CSV or PDF)`} styles={styles}>
+                    <input type="file" accept=".csv,text/csv,application/pdf" onChange={(e) => setPdfSlot(index, e.target.files?.[0] || null)} style={{ ...styles.input, paddingTop: 12 }} />
                   </Field>
                 ))}
               </div>
 
               <div style={{ display: "flex", gap: 12, marginTop: 12, flexWrap: "wrap" }}>
-                <button onClick={importPdfs} style={{ ...styles.buttonWarn, minWidth: 220 }}>{pdfLoading ? "Uploading..." : "Import All PDFs"}</button>
-                <button onClick={() => setPdfFiles(Array(PDF_SLOTS).fill(null))} style={styles.buttonGhost}>Clear PDF Boxes</button>
+                <button onClick={importPdfs} style={{ ...styles.buttonWarn, minWidth: 220 }}>{pdfLoading ? "Importing..." : "Import All Files"}</button>
+                <button onClick={() => setPdfFiles(Array(PDF_SLOTS).fill(null))} style={styles.buttonGhost}>Clear Boxes</button>
               </div>
 
               {siteLoading && siteStatus && (
