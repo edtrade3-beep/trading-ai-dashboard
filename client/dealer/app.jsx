@@ -319,7 +319,7 @@ function App() {
     return 0;
   };
   const pbExportCsv = () => {
-    const compCols = (n) => [`Comp${n} Price`, `Comp${n} Dealer`, `Comp${n} Location`, `Comp${n} Distance (mi)`, `Comp${n} Miles`, `Comp${n} Link`];
+    const compCols = (n) => [`Comp${n} Price`, `Comp${n} Dealer (distance)`, `Comp${n} Location`, `Comp${n} Miles`, `Comp${n} Link`];
     const rows = [[
       "Stock/VIN", "Year", "Make", "Model", "Trim", "Miles", "My Price", "Status",
       "Market Low", "Market Avg", "Suggested Reprice",
@@ -329,7 +329,7 @@ function App() {
     [...inventory].sort(pbSortFn).forEach(v => {
       const r = pbResults[v.vin] || {};
       const comps = r.competitors || [];
-      const cc = (i) => { const c = comps[i] || {}; return [c.price || "", c.dealer || c.source || "", c.location || "", c.distance || "", c.miles || "", c.link || ""]; };
+      const cc = (i) => { const c = comps[i] || {}; const dlr = (c.dealer || c.source || "") + (c.distance ? ` (${c.distance} mi away)` : ""); return [c.price || "", dlr.trim(), c.location || "", c.miles || "", c.link || ""]; };
       rows.push([
         v.stock || v.vin, v.year, v.make, v.model, v.trim || "", v.mileage || "", v.price || "",
         r.scanned ? (statusMap[r.status] || r.status || "") : "",
