@@ -181,7 +181,7 @@ const { handleFbHub } = require("./fb-hub");
 const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
 const carQuery = ({ year, make, model, trim, zip }) => `${year} ${make} ${model} ${trim} for sale near ${zip} dealer`.replace(/\s+/g, " ").trim();
 // Skip platform "average / market value / estimate" pages — we want real dealer asking prices, not valuations.
-const AGG_RE = /average|market value|trade.?in|what(?:'s| is) it worth|how much is|price guide|value your|book value|kbb|edmunds true|estimate|depreciat|price analysis|values?\b|nadaguides|fair purchase|typical price|starting (?:at|from)/i;
+const AGG_RE = /average|market value|trade.?in|what(?:'s| is) it worth|how much is|price guide|value your|book value|kbb|kelley blue book|blue book|edmunds|nadaguides|nada\b|estimate|depreciat|price analysis|values?\b|fair purchase|typical price|starting (?:at|from)|carfax history/i;
 const looksAggregate = (text) => AGG_RE.test(String(text || ""));
 
 // Big marketplaces (the dealer name is on the listing, not the domain).
@@ -228,8 +228,8 @@ function extractPrices(text) {
 // Turn a list of {price,source,link,title,dealer} into the standard result (market low/avg + 3 cheapest).
 // refPrice (my asking price) gates out implausible numbers (down payments, fees, unrelated vehicles).
 function aggregateHits(hits, refPrice) {
-  const lo = refPrice > 0 ? Math.max(refPrice * 0.5, 3000) : 4000;
-  const hi = refPrice > 0 ? refPrice * 1.8 : 200000;
+  const lo = refPrice > 0 ? Math.max(refPrice * 0.6, 4000) : 5000;
+  const hi = refPrice > 0 ? refPrice * 1.4 : 200000;
   const ok = hits.filter(h => h.price >= lo && h.price <= hi);
   if (!ok.length) return { found: false };
   const prices = ok.map(h => h.price).sort((a, b) => a - b);
