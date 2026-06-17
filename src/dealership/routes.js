@@ -653,7 +653,7 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
         const est = estimateMarketValue(year, make, model, myMiles, "Good");
         if (est > 0) {
           const low = Math.round(est * 0.9);
-          const gap = myPrice && low ? myPrice - low : null;
+          const gap = myPrice && low ? low - myPrice : null;
           return writeJson(res, 200, {
             found: true, engine: "estimate", competitors: [], marketLow: low, marketAvg: est,
             cheapestPrice: low, dealer: "Market estimate (no live listing)", location: "", distance: 0, compMiles: 0, link: "",
@@ -667,7 +667,7 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
       const marketLow = toNum(result.marketLow) || clean[0].price;
       const marketAvg = toNum(result.marketAvg) || 0;
       const comp = clean[0].price;
-      const gap = myPrice && comp ? myPrice - comp : null;
+      const gap = myPrice && comp ? comp - myPrice : null;
       return writeJson(res, 200, {
         found: true, engine, competitors: clean, marketLow, marketAvg,
         cheapestPrice: comp, source: clean[0]?.source || "market est.", dealer: clean[0]?.dealer || "", compMiles: clean[0]?.miles || 0, link: clean[0]?.link || "",
