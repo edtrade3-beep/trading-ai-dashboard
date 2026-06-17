@@ -287,7 +287,7 @@ async function marketcheckScan({ year, make, model, trim, zip }, mcKey, radius) 
 }
 
 // Auto.dev — real structured used-car listings (generous free tier).
-async function autodevScan({ year, make, model, trim, zip }, key, refPrice) {
+async function autodevScan({ year, make, model, trim, zip }, key, refPrice, refCoords) {
   const p = new URLSearchParams({ apikey: key, makes: make, models: model, year: String(year), zip: zip || "45014", sort: "price" });
   const url = `https://api.auto.dev/listings?${p.toString()}`;
   let d = null;
@@ -302,6 +302,18 @@ async function autodevScan({ year, make, model, trim, zip }, key, refPrice) {
   const num = (x) => Number(String(x ?? "").replace(/[^0-9.]/g, "")) || 0;
 // Distance (miles) from the reference ZIP to a listing. Coords for common ZIPs; default 45014.
 const ZIP_COORDS = { "45014": [39.34, -84.56], "45011": [39.40, -84.56], "45013": [39.35, -84.61], "45069": [39.34, -84.40] };
+const ZIP_CACHE = {};
+// Geocode any US ZIP to [lat, lng] (free, no key, cached). Falls back to 45014.
+async function geocodeZip(zip) {
+  if (ZIP_COORDS[zip]) return ZIP_COORDS[zip];
+  if (ZIP_CACHE[zip]) return ZIP_CACHE[zip];
+  try {
+    const d = await withTimeout(fetch(`https://api.zippopotam.us/us/${zip}`).then(r => r.json()), 6000);
+    const p = d && d.places && d.places[0];
+    if (p && p.latitude) { const c = [Number(p.latitude), Number(p.longitude)]; ZIP_CACHE[zip] = c; return c; }
+  } catch {}
+  return ZIP_COORDS["45014"];
+}
 function milesBetween(a, b) {
   if (!a || !b) return 0;
   const R = 3959, toR = (x) => x * Math.PI / 180;
@@ -310,7 +322,7 @@ function milesBetween(a, b) {
   return Math.round(2 * R * Math.asin(Math.sqrt(h)));
 }
   const lo = refPrice > 0 ? refPrice * 0.5 : 0, hi = refPrice > 0 ? refPrice * 1.6 : 1e9;
-  const ref = ZIP_COORDS[zip] || ZIP_COORDS["45014"];
+  const ref = refCoords || ZIP_COORDS[zip] || ZIP_COORDS["45014"];
   const comps = (d.data || [])
     .map(rec => { const l = rec.retailListing || rec.wholesaleListing || {};
       const loc = Array.isArray(rec.location) && rec.location.length === 2 ? [rec.location[1], rec.location[0]] : null; // [lat,lng]
@@ -609,6 +621,7 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
     try {
       let result, engine, lastErr = "";
       const veh = { year, make, model, trim, zip };
+      const refCoords = await geocodeZip(zip);   // your location's coordinates, for distance
       // 1) MarketCheck — real structured listings, preferred.
       if (mcKey) {
         engine = "marketcheck";
@@ -618,7 +631,7 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
       // 2) Auto.dev — real structured listings (free tier).
       if ((!result || !result.found) && adKey) {
         engine = "autodev";
-        const a = await autodevScan(veh, adKey, myPrice);
+        const a = await autodevScan(veh, adKey, myPrice, refCoords);
         if (a.error) lastErr = a.error; else result = a;
       }
       // 3) Brave search (free 2,000/mo).

@@ -310,6 +310,8 @@ function App() {
   const [pbScanning, setPbScanning] = useState(false);
   const [pbStatus, setPbStatus] = useState("");
   const [pbRadius, setPbRadius] = useState(200);
+  const [pbZip, setPbZip] = useState(() => { try { return localStorage.getItem("dixie_pb_zip") || "45014"; } catch { return "45014"; } });
+  useEffect(() => { try { localStorage.setItem("dixie_pb_zip", pbZip); } catch {} }, [pbZip]);
   const [pbSort, setPbSort] = useState("make");
   const pbSortFn = (a, b) => {
     if (pbSort === "make") return `${a.make} ${a.model}`.localeCompare(`${b.make} ${b.model}`) || (a.price || 0) - (b.price || 0);
@@ -448,7 +450,7 @@ function App() {
     try {
       const r = await fetch("/api/dealer/price-beat", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ year: v.year, make: v.make, model: v.model, trim: v.trim || "", zip: "45014", radius: 200, myPrice: v.price || 0, myMiles: v.mileage || 0 }),
+        body: JSON.stringify({ year: v.year, make: v.make, model: v.model, trim: v.trim || "", zip: (pbZip || "45014"), radius: 200, myPrice: v.price || 0, myMiles: v.mileage || 0 }),
       });
       const d = await r.json();
       if (!r.ok) return { status: "error", error: d.error || "scan failed", scanned: false };
@@ -1799,6 +1801,8 @@ function App() {
                   {/* Controls */}
                   <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
                     <button onClick={pbScanAll} disabled={pbScanning} style={styles.buttonPrimary}>{pbScanning ? "Scanning…" : "▶ Scan All"}</button>
+                    <span style={{ fontSize: 11, color: styles.smallLabel.color }}>📍 My ZIP</span>
+                    <input value={pbZip} onChange={(e) => setPbZip(e.target.value.replace(/[^0-9]/g, "").slice(0, 5))} placeholder="45014" style={{ ...styles.input, width: 80 }} title="Distances are measured from this ZIP, within 200 mi" />
                     <select value={pbSort} onChange={(e) => setPbSort(e.target.value)} style={styles.input} title="Sort table">
                       <option value="make">Sort: Make</option>
                       <option value="price">Sort: My Price</option>
