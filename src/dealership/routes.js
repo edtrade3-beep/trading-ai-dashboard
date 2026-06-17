@@ -271,6 +271,7 @@ async function marketcheckScan({ year, make, model, trim, zip }, mcKey, radius) 
       source: l.dealer.name || "",
       location: [l.dealer.city, l.dealer.state].filter(Boolean).join(", "),
       miles: Number(l.miles || 0),
+      distance: Math.round(num(l.dist)),
       link: l.vdp_url || "",
     }))
     .filter(c => c.price > 0)
@@ -299,13 +300,26 @@ async function autodevScan({ year, make, model, trim, zip }, key, refPrice) {
     return { found: false, error: `Auto.dev: ${msg}` };
   }
   const num = (x) => Number(String(x ?? "").replace(/[^0-9.]/g, "")) || 0;
+// Distance (miles) from the reference ZIP to a listing. Coords for common ZIPs; default 45014.
+const ZIP_COORDS = { "45014": [39.34, -84.56], "45011": [39.40, -84.56], "45013": [39.35, -84.61], "45069": [39.34, -84.40] };
+function milesBetween(a, b) {
+  if (!a || !b) return 0;
+  const R = 3959, toR = (x) => x * Math.PI / 180;
+  const dLat = toR(b[0] - a[0]), dLng = toR(b[1] - a[1]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toR(a[0])) * Math.cos(toR(b[0])) * Math.sin(dLng / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(h)));
+}
   const lo = refPrice > 0 ? refPrice * 0.5 : 0, hi = refPrice > 0 ? refPrice * 1.6 : 1e9;
+  const ref = ZIP_COORDS[zip] || ZIP_COORDS["45014"];
   const comps = (d.data || [])
-    .map(rec => { const l = rec.retailListing || rec.wholesaleListing || {}; return {
-      price: num(l.price), dealer: l.dealer || "", source: l.dealer || "",
-      location: [l.city, l.state].filter(Boolean).join(", "), miles: num(l.miles),
-      link: l.carfaxUrl || rec["@id"] || "",
-    }; })
+    .map(rec => { const l = rec.retailListing || rec.wholesaleListing || {};
+      const loc = Array.isArray(rec.location) && rec.location.length === 2 ? [rec.location[1], rec.location[0]] : null; // [lat,lng]
+      return {
+        price: num(l.price), dealer: l.dealer || "", source: l.dealer || "",
+        location: [l.city, l.state].filter(Boolean).join(", "), miles: num(l.miles),
+        distance: loc ? milesBetween(ref, loc) : 0,
+        link: l.carfaxUrl || rec["@id"] || "",
+      }; })
     .filter(c => c.price > 0 && (refPrice <= 0 || (c.price >= lo && c.price <= hi)) && !/dixie|cincy automall/i.test(c.dealer))
     .sort((a, b) => a.price - b.price);
   if (!comps.length) return { found: false };
