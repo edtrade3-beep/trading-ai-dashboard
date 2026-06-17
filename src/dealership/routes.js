@@ -286,34 +286,27 @@ async function marketcheckScan({ year, make, model, trim, zip }, mcKey, radius) 
 }
 
 // Auto.dev — real structured used-car listings (generous free tier).
-async function autodevScan({ year, make, model, trim, zip }, key, radius) {
-  const p = new URLSearchParams({
-    apikey: key, make, model, year_min: String(year), year_max: String(year),
-    zip: zip || "45014", radius: String(radius || 200),
-  });
+async function autodevScan({ year, make, model, trim, zip }, key, refPrice) {
+  const p = new URLSearchParams({ apikey: key, makes: make, models: model, year: String(year), zip: zip || "45014", sort: "price" });
   const url = `https://api.auto.dev/listings?${p.toString()}`;
   let d = null;
   try { d = await withTimeout(fetch(url).then(r => r.json()), 15000, null); } catch { d = null; }
   if (!d) return { found: false, error: "Auto.dev unavailable" };
-  const records = d.records || d.listings || d.data;
-  if (!Array.isArray(records)) {
-    const msg = JSON.stringify(d);
-    if (/invalid|unauthor|forbidden|api.?key|401|403/i.test(msg)) return { found: false, error: "Your Auto.dev key is invalid." };
-    if (/limit|quota|exceeded|429/i.test(msg)) return { found: false, error: "Auto.dev quota exceeded." };
-    return { found: false, error: d.message || d.error || "Auto.dev error" };
+  if (d.error) {
+    const st = d.error.status, msg = d.error.error || "";
+    if (st === 401 || st === 403 || /unauthor|invalid.?key|api.?key/i.test(msg)) return { found: false, error: "Your Auto.dev key is invalid." };
+    if (st === 429 || /limit|quota/i.test(msg)) return { found: false, error: "Auto.dev quota exceeded." };
+    return { found: false, error: `Auto.dev: ${msg}` };
   }
   const num = (x) => Number(String(x ?? "").replace(/[^0-9.]/g, "")) || 0;
-  const comps = records
-    .filter(r => !/dixie|cincy automall/i.test(r.dealerName || r.dealer || r.seller || ""))
-    .map(r => ({
-      price: num(r.price),
-      dealer: r.dealerName || r.dealer || r.seller || "",
-      source: r.dealerName || r.dealer || r.seller || "",
-      location: [r.city, r.state].filter(Boolean).join(", "),
-      miles: num(r.mileage || r.miles),
-      link: r.clickoffURL || r.clickoffUrl || r.vdpURL || r.vdpUrl || r.url || "",
-    }))
-    .filter(c => c.price > 0)
+  const lo = refPrice > 0 ? refPrice * 0.5 : 0, hi = refPrice > 0 ? refPrice * 1.6 : 1e9;
+  const comps = (d.data || [])
+    .map(rec => { const l = rec.retailListing || rec.wholesaleListing || {}; return {
+      price: num(l.price), dealer: l.dealer || "", source: l.dealer || "",
+      location: [l.city, l.state].filter(Boolean).join(", "), miles: num(l.miles),
+      link: l.carfaxUrl || rec["@id"] || "",
+    }; })
+    .filter(c => c.price > 0 && (refPrice <= 0 || (c.price >= lo && c.price <= hi)) && !/dixie|cincy automall/i.test(c.dealer))
     .sort((a, b) => a.price - b.price);
   if (!comps.length) return { found: false };
   const prices = comps.map(c => c.price);
@@ -609,7 +602,7 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
       // 2) Auto.dev — real structured listings.
       if ((!result || !result.found) && adKey) {
         engine = "autodev";
-        const a = await autodevScan(veh, adKey, radius);
+        const a = await autodevScan(veh, adKey, myPrice);
         if (a.error) lastErr = a.error; else result = a;
       }
       // 3) Brave search (free 2,000/mo).
