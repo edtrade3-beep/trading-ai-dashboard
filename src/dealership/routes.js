@@ -413,35 +413,28 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
     }
   }
 
-  // GET /api/dealer/ai-key — which scan engines are configured? (never returns values)
+  // GET /api/dealer/ai-key — which search engines are configured? (never returns values)
   if (pathname === "/api/dealer/ai-key" && req.method === "GET") {
-    const google = !!getKey("SERPAPI_KEY"), brave = !!getKey("BRAVE_API_KEY"), ai = !!anthropicKey();
-    return writeJson(res, 200, { configured: google || brave || ai, google, brave, ai, engine: google ? "google" : brave ? "brave" : ai ? "ai" : null });
+    const google = !!getKey("SERPAPI_KEY"), brave = !!getKey("BRAVE_API_KEY");
+    return writeJson(res, 200, { configured: google || brave, google, brave, engine: brave ? "brave" : google ? "google" : null });
   }
-  // POST /api/dealer/ai-key — set a scan key from the UI { key, provider } (google | brave | anthropic; auto-detected if omitted)
+  // POST /api/dealer/ai-key — set a search key from the UI { key, provider } (google | brave; auto-detected if omitted)
   if (pathname === "/api/dealer/ai-key" && req.method === "POST") {
     let body;
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
     const key = String(body.key || "").trim();
-    const provider = String(body.provider || (/^sk-ant-/.test(key) ? "anthropic" : /^BSA/i.test(key) ? "brave" : "google")).toLowerCase();
-    if (provider === "anthropic") {
-      if (!/^sk-ant-/.test(key)) return writeJson(res, 400, { error: "Anthropic key should start with sk-ant-." });
-      setKey("ANTHROPIC_API_KEY", key);
-    } else if (provider === "brave") {
-      if (key.length < 20) return writeJson(res, 400, { error: "That Brave key looks too short." });
-      setKey("BRAVE_API_KEY", key);
-    } else {
-      if (key.length < 20) return writeJson(res, 400, { error: "That SerpAPI key looks too short." });
-      setKey("SERPAPI_KEY", key);
-    }
+    if (key.length < 20) return writeJson(res, 400, { error: "That key looks too short." });
+    const provider = String(body.provider || (/^BSA/i.test(key) ? "brave" : "google")).toLowerCase();
+    if (provider === "brave") setKey("BRAVE_API_KEY", key);
+    else setKey("SERPAPI_KEY", key);
     return writeJson(res, 200, { ok: true, configured: true, provider });
   }
 
-  // POST /api/dealer/price-beat — "Am I cheapest?" — SerpAPI → Brave → AI (falls through on quota).
+  // POST /api/dealer/price-beat — "Am I cheapest?" — Brave → SerpAPI (free search engines only).
   if (pathname === "/api/dealer/price-beat" && req.method === "POST") {
     const serpKey = getKey("SERPAPI_KEY"), braveKey = getKey("BRAVE_API_KEY");
-    if (!serpKey && !braveKey && !anthropicKey()) {
-      return writeJson(res, 503, { error: "No scan engine configured — add a free SerpAPI or Brave key, or an Anthropic key." });
+    if (!serpKey && !braveKey) {
+      return writeJson(res, 503, { error: "No search engine configured — add a free SerpAPI or Brave key." });
     }
     let body;
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
@@ -459,24 +452,17 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
     try {
       let result, engine, lastErr = "";
       const veh = { year, make, model, trim, zip };
-      // 1) SerpAPI (Google) — fall through to Brave/AI if it errors or finds nothing.
-      if (serpKey) {
-        engine = "google";
-        result = await googlePriceScan(veh, serpKey);
-        if (result.error) { lastErr = /invalid api key/i.test(result.error) ? "Your SerpAPI key is invalid." : `SerpAPI: ${result.error}`; result = null; }
-      }
-      // 2) Brave search — when SerpAPI is absent/empty/out of quota.
-      if ((!result || !result.found) && braveKey) {
+      // 1) Brave search (free 2,000/mo) — preferred.
+      if (braveKey) {
         engine = "brave";
         const b = await bravePriceScan(veh, braveKey);
-        if (b.error) lastErr = `Brave: ${b.error}`; else result = b;
+        if (b.error) lastErr = /invalid/i.test(b.error) ? "Your Brave key is invalid." : `Brave: ${b.error}`; else result = b;
       }
-      // 3) AI engine — last resort.
-      if ((!result || !result.found) && anthropicKey()) {
-        engine = "ai";
-        const prompt = `You are a used-car pricing research assistant. Use the web_search tool to research the current market price for a ${year} ${make} ${model} ${trim} near ZIP ${zip} (within ~${radius} miles). EXCLUDE "Dixie Motors", "Dixie Imports", "Cincy Automall". Aggregate market data (KBB, CarGurus average) is acceptable. Reply ONLY valid JSON: {"found":true,"marketLow":12495,"marketAvg":14148,"competitors":[{"price":12495,"source":"KBB","miles":104000,"link":""}]} or {"found":false}`;
-        const text = await callAnthropicWithSearch(prompt, anthropicKey(), { model: "claude-sonnet-4-6", maxTokens: 1100, maxSearches: 6 });
-        result = extractJsonBlock(text) || { found: false };
+      // 2) SerpAPI (Google) — when Brave is absent/empty/out of quota.
+      if ((!result || !result.found) && serpKey) {
+        engine = "google";
+        const g = await googlePriceScan(veh, serpKey);
+        if (g.error) lastErr = /invalid api key/i.test(g.error) ? "Your SerpAPI key is invalid." : `SerpAPI: ${g.error}`; else result = g;
       }
       result = result || { found: false };
 

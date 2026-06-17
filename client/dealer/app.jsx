@@ -323,12 +323,12 @@ function App() {
   const savePbKey = async () => {
     const key = pbKeyInput.trim();
     if (key.length < 20) { showToast("That key looks too short", "error"); return; }
-    const provider = /^sk-ant-/.test(key) ? "anthropic" : /^BSA/i.test(key) ? "brave" : "google";
+    const provider = /^BSA/i.test(key) ? "brave" : "google";
     try {
       const r = await fetch("/api/dealer/ai-key", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, provider }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Save failed");
-      const label = { google: "SerpAPI (Google)", brave: "Brave search", anthropic: "Anthropic" }[provider];
+      const label = { google: "SerpAPI (Google)", brave: "Brave search" }[provider];
       setPbKeyConfigured(true); setPbKeyInput(""); showToast(`${label} key saved — scanning enabled`, "success");
     } catch (e) { showToast(e.message, "error"); }
   };
@@ -1666,12 +1666,12 @@ function App() {
                   {/* Anthropic API key setup */}
                   {pbKeyConfigured === false && (
                     <div style={{ ...styles.card, marginBottom: 12, borderColor: "#d97706" }}>
-                      <div style={{ ...styles.smallLabel, color: "#92400e" }}>⚙️ ENABLE SCANNING — paste a SerpAPI, Brave, or Anthropic key (auto-detected)</div>
+                      <div style={{ ...styles.smallLabel, color: "#92400e" }}>⚙️ ENABLE SCANNING — paste a free Brave or SerpAPI key (auto-detected)</div>
                       <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-                        <input type="password" value={pbKeyInput} onChange={(e) => setPbKeyInput(e.target.value)} placeholder="SerpAPI / Brave (BSA…) / Anthropic (sk-ant…) key" style={{ ...styles.input, flex: 1, minWidth: 240 }} />
+                        <input type="password" value={pbKeyInput} onChange={(e) => setPbKeyInput(e.target.value)} placeholder="Brave (BSA…) or SerpAPI key" style={{ ...styles.input, flex: 1, minWidth: 240 }} />
                         <button onClick={savePbKey} style={styles.buttonPrimary}>Save Key</button>
                       </div>
-                      <div style={{ fontSize: 11, color: styles.smallLabel.color, marginTop: 4 }}>🟢 <b>Free options:</b> Brave (2,000 searches/mo, brave.com/search/api) · SerpAPI (100/mo, serpapi.com). Add both — it uses whichever has searches left. Stored on your server only.</div>
+                      <div style={{ fontSize: 11, color: styles.smallLabel.color, marginTop: 4 }}>🟢 <b>Free:</b> Brave (2,000 searches/mo, brave.com/search/api) · SerpAPI (100/mo, serpapi.com). Add both — it uses whichever has searches left. Stored on your server only.</div>
                     </div>
                   )}
                   {pbKeyConfigured === true && (
