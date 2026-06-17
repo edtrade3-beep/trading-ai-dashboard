@@ -348,7 +348,7 @@ function App() {
       const d = await r.json();
       if (!r.ok) return { status: "error", error: d.error || "scan failed", scanned: false };
       if (!d.found) return { status: "no_comps", scanned: true };
-      return { status: d.status, scanned: true, compPrice: d.cheapestPrice, gap: d.gap, source: d.source, dealer: d.dealer, compMiles: d.compMiles, suggested: d.suggested, link: d.link, competitors: d.competitors || [] };
+      return { status: d.status, scanned: true, compPrice: d.cheapestPrice, gap: d.gap, source: d.source, dealer: d.dealer, compMiles: d.compMiles, suggested: d.suggested, link: d.link, competitors: d.competitors || [], marketLow: d.marketLow, marketAvg: d.marketAvg };
     } catch (e) { return { status: "error", error: e.message, scanned: false }; }
   };
   const pbScanVehicle = async (v) => {
@@ -1721,7 +1721,7 @@ function App() {
                                           <span style={{ fontSize: 10, color: styles.smallLabel.color }}> · {c.source}{c.dealer ? " · " + c.dealer : ""}{c.miles ? " · " + Number(c.miles).toLocaleString() + "mi" : ""}</span>
                                         </div>
                                       ))
-                                    : (r.compPrice ? money(r.compPrice) : "—")
+                                    : (r.marketLow ? <div><span style={{ fontWeight: 700 }}>{money(r.marketLow)}</span><span style={{ fontSize: 10, color: styles.smallLabel.color }}> · market low{r.marketAvg ? " · avg " + money(r.marketAvg) : ""}</span></div> : (r.compPrice ? money(r.compPrice) : "—"))
                                 }</td>
                                 <td style={{ padding: "8px 10px", fontWeight: 700, color: r.gap == null ? "#6b7280" : r.gap >= 0 ? "#16a34a" : "#dc2626" }}>{r.gap == null ? "—" : (r.gap >= 0 ? "+" : "") + money(r.gap)}</td>
                                 <td style={{ padding: "8px 10px", color: "#dc2626" }}>{r.suggested ? money(r.suggested) : "—"}</td>

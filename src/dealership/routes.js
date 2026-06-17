@@ -394,30 +394,33 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
     const myPrice = Number(body.myPrice || 0);
     if (!year || !make || !model) return writeJson(res, 400, { error: "year, make, and model are required" });
 
-    const prompt = `You are a used-car pricing research assistant. Use the web_search tool to find the THREE cheapest currently-listed used cars matching this vehicle, from OTHER sellers.
+    const prompt = `You are a used-car pricing research assistant. Use the web_search tool to research the current market price for this vehicle.
 
 Vehicle: ${year} ${make} ${model} ${trim}
-Within ${radius} miles of ZIP ${zip}.
+Near ZIP ${zip}, within ~${radius} miles.
 EXCLUDE my own dealership: "Dixie Motors", "Dixie Imports", "Cincy Automall".
-Search CarGurus, Cars.com, and AutoTrader. Return up to 3 of the lowest asking prices from other dealers or private sellers, cheapest first.
+
+Search CarGurus, Cars.com, AutoTrader, KBB, and similar. Report the realistic LOW asking price and AVERAGE asking price for this year/make/model/trim in this region. Aggregate market data (KBB, CarGurus market average, etc.) is acceptable — you do NOT need exact individual listings. If you can find specific cheap listings, include up to 3 (cheapest first).
 
 Reply with ONLY valid JSON, no markdown:
-If found: {"found":true,"competitors":[{"price":12500,"source":"CarGurus","dealer":"ABC Motors","miles":95000,"link":"https://..."},{"price":12900,"source":"Cars.com","dealer":"XYZ Auto","miles":88000,"link":"https://..."},{"price":13200,"source":"AutoTrader","dealer":"Best Cars","miles":91000,"link":"https://..."}]}
-If nothing comparable found: {"found":false}`;
+If found: {"found":true,"marketLow":12495,"marketAvg":14148,"competitors":[{"price":12495,"source":"KBB","dealer":"","miles":104000,"link":""},{"price":13493,"source":"Capital One","dealer":"","miles":51743,"link":""}]}
+If truly nothing found: {"found":false}`;
 
     try {
       const text = await callAnthropicWithSearch(prompt, anthropicKey(), { model: "claude-sonnet-4-6", maxTokens: 1100, maxSearches: 6 });
       const result = extractJsonBlock(text) || { found: false };
-      const comps = Array.isArray(result.competitors) ? result.competitors
-        : (result.found && result.cheapest_price ? [{ price: result.cheapest_price, source: result.source, dealer: result.dealer, miles: result.miles, link: result.link }] : []);
-      const clean = comps.map(c => ({ price: Number(c.price || 0), source: c.source || "", dealer: c.dealer || "", miles: Number(c.miles || 0), link: c.link || "" }))
+      const toNum = (x) => { const n = Number(String(x ?? "").replace(/[^0-9.]/g, "")); return Number.isFinite(n) ? n : 0; };
+      const comps = Array.isArray(result.competitors) ? result.competitors : [];
+      const clean = comps.map(c => ({ price: toNum(c.price), source: c.source || "", dealer: c.dealer || "", miles: toNum(c.miles), link: c.link || "", note: c.note || "" }))
         .filter(c => c.price > 0).sort((a, b) => a.price - b.price).slice(0, 3);
-      if (!result.found || !clean.length) return writeJson(res, 200, { found: false });
-      const comp = clean[0].price;
-      const gap = myPrice && comp ? myPrice - comp : null;       // positive = I'm cheaper
+      const marketLow = toNum(result.marketLow) || (clean[0] && clean[0].price) || 0;
+      const marketAvg = toNum(result.marketAvg) || 0;
+      if (!result.found || (!marketLow && !clean.length)) return writeJson(res, 200, { found: false });
+      const comp = clean.length ? clean[0].price : marketLow;     // benchmark = cheapest comp, else market low
+      const gap = myPrice && comp ? myPrice - comp : null;        // positive = I'm cheaper
       return writeJson(res, 200, {
-        found: true, competitors: clean,
-        cheapestPrice: comp, source: clean[0].source, dealer: clean[0].dealer, compMiles: clean[0].miles, link: clean[0].link,
+        found: true, competitors: clean, marketLow, marketAvg,
+        cheapestPrice: comp, source: clean[0]?.source || "market est.", dealer: clean[0]?.dealer || "", compMiles: clean[0]?.miles || 0, link: clean[0]?.link || "",
         gap, status: gap == null ? "unknown" : gap >= 0 ? "cheapest" : gap >= -500 ? "close" : "not_cheapest",
         suggested: gap != null && gap < 0 ? Math.max(comp - 100, 0) : null,
       });
