@@ -319,16 +319,22 @@ function App() {
     return 0;
   };
   const pbExportCsv = () => {
-    const rows = [["Stock/VIN", "Year", "Make", "Model", "Trim", "Miles", "My Price", "Status", "Cheapest Price", "Cheapest Dealer", "Location", "Distance (mi)", "Comp Miles", "Suggested Reprice"]];
+    const compCols = (n) => [`Comp${n} Price`, `Comp${n} Dealer`, `Comp${n} Location`, `Comp${n} Distance (mi)`, `Comp${n} Miles`, `Comp${n} Link`];
+    const rows = [[
+      "Stock/VIN", "Year", "Make", "Model", "Trim", "Miles", "My Price", "Status",
+      "Market Low", "Market Avg", "Suggested Reprice",
+      ...compCols(1), ...compCols(2), ...compCols(3),
+    ]];
+    const statusMap = { cheapest: "Cheapest", not_cheapest: "Reprice", close: "Close", no_comps: "No comps", error: "Error" };
     [...inventory].sort(pbSortFn).forEach(v => {
       const r = pbResults[v.vin] || {};
-      const c0 = r.competitors?.[0] || {};
-      const statusMap = { cheapest: "Cheapest", not_cheapest: "Reprice", close: "Close", no_comps: "No comps", error: "Error" };
+      const comps = r.competitors || [];
+      const cc = (i) => { const c = comps[i] || {}; return [c.price || "", c.dealer || c.source || "", c.location || "", c.distance || "", c.miles || "", c.link || ""]; };
       rows.push([
         v.stock || v.vin, v.year, v.make, v.model, v.trim || "", v.mileage || "", v.price || "",
         r.scanned ? (statusMap[r.status] || r.status || "") : "",
-        c0.price || r.compPrice || r.marketLow || "", c0.dealer || c0.source || r.source || "", c0.location || "",
-        c0.distance || "", c0.miles || "", r.suggested || "",
+        r.marketLow || "", r.marketAvg || "", r.suggested || "",
+        ...cc(0), ...cc(1), ...cc(2),
       ]);
     });
     const csv = rows.map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
