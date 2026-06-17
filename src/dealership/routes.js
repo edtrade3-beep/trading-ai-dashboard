@@ -646,15 +646,10 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
       const comps = Array.isArray(result.competitors) ? result.competitors : [];
       const all = comps.map(c => ({ price: toNum(c.price), source: c.source || "", dealer: c.dealer || "", location: c.location || "", distance: c.distance || 0, miles: toNum(c.miles), link: c.link || "" }))
         .filter(c => c.price > 0).sort((a, b) => a.price - b.price);
-      // 1) Within the search radius (default 200 mi) of the reference ZIP — REQUIRE a known distance,
-      //    so far-away results (e.g. New York from search engines that don't return location) are dropped.
-      let pool = all.filter(c => c.distance > 0 && c.distance <= radius);
-      // 2) Apples-to-apples: similar odometer (±15,000 mi of MY car).
-      if (myMiles > 0) {
-        const within = pool.filter(c => c.miles > 0 && Math.abs(c.miles - myMiles) <= 15000);
-        if (within.length) pool = within;   // if none match on miles, keep the local cheapest
-      }
-      const clean = pool.slice(0, 1);        // the single cheapest LOCAL comparable (empty = none within 200 mi)
+      // Within the search radius (default 200 mi) of the reference ZIP — REQUIRE a known distance,
+      // so far-away results (e.g. New York from engines that don't return location) are dropped. No mileage filter.
+      const pool = all.filter(c => c.distance > 0 && c.distance <= radius);
+      const clean = pool.slice(0, 1);        // the single cheapest LOCAL listing (empty = none within 200 mi)
       // No local comparable found within 200 mi → say so (never fall back to a far-away price).
       if (!clean.length) {
         if (lastErr) return writeJson(res, 422, { error: /run out|quota|rate|limit/i.test(lastErr) ? `Out of searches — ${lastErr}. Add another key or top up.` : lastErr });
