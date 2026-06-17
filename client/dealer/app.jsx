@@ -2,7 +2,7 @@ const { useMemo, useState, useEffect, useRef, useCallback } = React;
 
 // App password is validated server-side via POST /api/auth/check (never stored in source)
 const PDF_SLOTS = 3;
-const TABS = ["Overview", "Vehicle", "Deal Finder", "Finance", "Facebook", "Showroom", "Inventory", "Leads"];
+const TABS = ["Overview", "Vehicle", "Deal Finder", "Price Beater", "Finance", "Facebook", "Showroom", "Inventory", "Leads"];
 
 const THEMES = {
   dark: {
@@ -301,6 +301,53 @@ function App() {
   const [dfMarket, setDfMarket] = useState(null);      // { low, average, high }
   const [dfPaste, setDfPaste] = useState("");
   const [dfResult, setDfResult] = useState(null);
+
+  // ── Price Beater ("Am I cheapest?" across my inventory, AI live search) ──
+  const [pbResults, setPbResults] = useState(() => { try { return JSON.parse(localStorage.getItem("dixie_pb_results") || "{}"); } catch { return {}; } });
+  const [pbScanning, setPbScanning] = useState(false);
+  const [pbStatus, setPbStatus] = useState("");
+  const [pbRadius, setPbRadius] = useState(200);
+  const savePbResults = (next) => { setPbResults(next); try { localStorage.setItem("dixie_pb_results", JSON.stringify(next)); } catch {} };
+  const scanOnePB = async (v) => {
+    try {
+      const r = await fetch("/api/dealer/price-beat", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ year: v.year, make: v.make, model: v.model, trim: v.trim || "", zip: "45014", radius: pbRadius, myPrice: v.price || 0 }),
+      });
+      const d = await r.json();
+      if (!r.ok) return { status: "error", error: d.error || "scan failed", scanned: false };
+      if (!d.found) return { status: "no_comps", scanned: true };
+      return { status: d.status, scanned: true, compPrice: d.cheapestPrice, gap: d.gap, source: d.source, dealer: d.dealer, compMiles: d.compMiles, suggested: d.suggested, link: d.link };
+    } catch (e) { return { status: "error", error: e.message, scanned: false }; }
+  };
+  const pbScanVehicle = async (v) => {
+    const cur = { ...pbResults, [v.vin]: { status: "scanning" } };
+    savePbResults(cur);
+    const res = await scanOnePB(v);
+    savePbResults({ ...cur, [v.vin]: res });
+  };
+  const pbScanAll = async () => {
+    if (pbScanning) return;
+    const list = inventory.filter(v => v.vin && !pbResults[v.vin]?.scanned);
+    if (!list.length) { showToast("All inventory already scanned", "success"); return; }
+    setPbScanning(true);
+    let acc = { ...pbResults };
+    for (let i = 0; i < list.length; i++) {
+      const v = list[i];
+      setPbStatus(`Scanning ${i + 1}/${list.length}: ${v.year} ${v.make} ${v.model}`);
+      acc = { ...acc, [v.vin]: { status: "scanning" } }; savePbResults(acc);
+      const res = await scanOnePB(v);
+      if (res.status === "error" && /not configured/i.test(res.error || "")) {
+        setPbStatus("⚠️ Anthropic API key not set on the server — add ANTHROPIC_API_KEY in Render.");
+        setPbScanning(false); return;
+      }
+      acc = { ...acc, [v.vin]: res }; savePbResults(acc);
+      await new Promise(r => setTimeout(r, 800));
+    }
+    setPbStatus(`✓ Done — scanned ${list.length} vehicles`);
+    setPbScanning(false);
+    showToast(`Scanned ${list.length} vehicles`, "success");
+  };
 
   // Step 1: decode VIN + pull a free market-value estimate (no API key needed)
   const dfDecodeAndValue = async () => {
@@ -1485,6 +1532,80 @@ function App() {
                 })()}
               </Panel>
             )}
+
+            {tab === "Price Beater" && (() => {
+              const counts = { cheapest: 0, not_cheapest: 0, close: 0, no_comps: 0, unscanned: 0 };
+              inventory.forEach(v => {
+                const r = pbResults[v.vin];
+                if (!r || !r.scanned) counts.unscanned++;
+                else if (r.status === "cheapest") counts.cheapest++;
+                else if (r.status === "not_cheapest") counts.not_cheapest++;
+                else if (r.status === "close") counts.close++;
+                else if (r.status === "no_comps") counts.no_comps++;
+              });
+              const dot = (s) => ({ cheapest: "#16a34a", not_cheapest: "#dc2626", close: "#d97706", no_comps: "#9ca3af", scanning: "#1a56db" }[s] || "#9ca3af");
+              const badge = (r) => {
+                if (!r || !r.scanned) {
+                  if (r?.status === "scanning") return <span style={{ color: "#1a56db" }}>scanning…</span>;
+                  if (r?.status === "error") return <span title={r.error} style={{ color: "#dc2626" }}>error</span>;
+                  return <span style={{ color: "#9ca3af" }}>—</span>;
+                }
+                const map = { cheapest: ["✓ Cheapest", "#16a34a"], not_cheapest: ["✕ Reprice", "#dc2626"], close: ["⚠ Close", "#d97706"], no_comps: ["No comps", "#6b7280"] };
+                const [t, c] = map[r.status] || ["—", "#6b7280"];
+                return <span style={{ color: c, fontWeight: 600 }}>{t}</span>;
+              };
+              return (
+                <Panel title="Price Beater — Am I Cheapest?" badge="AI Live Search" styles={styles}>
+                  <div style={{ fontSize: 13, color: styles.smallLabel.color, marginBottom: 12 }}>
+                    For every car in your inventory, AI searches CarGurus / Cars.com / AutoTrader within range of 45014 and tells you if you're the <b>cheapest</b> — or by how much you need to <b>reprice to win</b>. Your own listings are excluded.
+                  </div>
+                  <div style={{ ...styles.threeCol, gridTemplateColumns: "repeat(5,1fr)" }}>
+                    {[["✓ Cheapest", counts.cheapest, "#16a34a"], ["✕ Reprice", counts.not_cheapest, "#dc2626"], ["⚠ Close", counts.close, "#d97706"], ["No comps", counts.no_comps, "#6b7280"], ["Not scanned", counts.unscanned, "#9ca3af"]].map(([l, n, c]) => (
+                      <div key={l} style={{ ...styles.card, textAlign: "center" }}><div style={styles.smallLabel}>{l}</div><div style={{ fontSize: 20, fontWeight: 800, color: c }}>{n}</div></div>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+                    <button onClick={pbScanAll} disabled={pbScanning} style={styles.buttonPrimary}>{pbScanning ? "Scanning…" : "▶ Scan All Inventory"}</button>
+                    <Field label="" styles={styles}>
+                      <select value={pbRadius} onChange={(e) => setPbRadius(Number(e.target.value))} style={styles.input}>
+                        {[50, 100, 200, 300].map(r => <option key={r} value={r}>{r} mi</option>)}
+                      </select>
+                    </Field>
+                    {Object.keys(pbResults).length > 0 && <button onClick={() => savePbResults({})} style={styles.buttonGhost}>Reset scans</button>}
+                  </div>
+                  {pbStatus && <div style={{ ...styles.card, marginTop: 10, fontSize: 12 }}>{pbStatus}</div>}
+                  {!inventory.length && <div style={{ ...styles.card, marginTop: 12 }}>No inventory yet — add vehicles in the Inventory tab first.</div>}
+
+                  {inventory.length > 0 && (
+                    <div style={{ ...styles.card, marginTop: 12, overflowX: "auto", padding: 0 }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                        <thead><tr style={{ textAlign: "left", color: styles.smallLabel.color }}>
+                          {["", "Status", "My Price", "Vehicle", "Miles", "Cheapest Comp", "Gap", "Reprice", ""].map((h, i) => <th key={i} style={{ padding: "8px 10px" }}>{h}</th>)}
+                        </tr></thead>
+                        <tbody>
+                          {[...inventory].sort((a, b) => (a.price || 0) - (b.price || 0)).map(v => {
+                            const r = pbResults[v.vin] || {};
+                            return (
+                              <tr key={v.vin} style={{ borderTop: "1px solid #eee" }}>
+                                <td style={{ padding: "8px 10px" }}><span style={{ width: 9, height: 9, borderRadius: "50%", background: dot(r.status), display: "inline-block" }} /></td>
+                                <td style={{ padding: "8px 10px" }}>{badge(r)}</td>
+                                <td style={{ padding: "8px 10px", fontWeight: 700 }}>{money(v.price || 0)}</td>
+                                <td style={{ padding: "8px 10px" }}>{v.year} {v.make} {v.model} <span style={{ color: styles.smallLabel.color }}>{v.trim}</span></td>
+                                <td style={{ padding: "8px 10px" }}>{v.mileage ? v.mileage.toLocaleString() : "—"}</td>
+                                <td style={{ padding: "8px 10px" }}>{r.compPrice ? <>{r.link ? <a href={r.link} target="_blank" rel="noopener" style={{ color: styles.buttonPrimary.background }}>{money(r.compPrice)}</a> : money(r.compPrice)}<div style={{ fontSize: 10, color: styles.smallLabel.color }}>{r.source}{r.dealer ? " · " + r.dealer : ""}</div></> : "—"}</td>
+                                <td style={{ padding: "8px 10px", fontWeight: 700, color: r.gap == null ? "#6b7280" : r.gap >= 0 ? "#16a34a" : "#dc2626" }}>{r.gap == null ? "—" : (r.gap >= 0 ? "+" : "") + money(r.gap)}</td>
+                                <td style={{ padding: "8px 10px", color: "#dc2626" }}>{r.suggested ? money(r.suggested) : "—"}</td>
+                                <td style={{ padding: "8px 10px" }}><button onClick={() => pbScanVehicle(v)} disabled={r.status === "scanning" || pbScanning} style={{ ...styles.buttonGhost, height: 26, padding: "0 8px", fontSize: 11 }}>{r.status === "scanning" ? "…" : "🤖 Scan"}</button></td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Panel>
+              );
+            })()}
 
             {tab === "Finance" && (
               <div style={{ display: "grid", gap: 18 }}>

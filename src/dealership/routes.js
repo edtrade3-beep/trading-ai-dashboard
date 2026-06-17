@@ -359,6 +359,54 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
     }
   }
 
+  // POST /api/dealer/price-beat — "Am I cheapest?" Finds the lowest competitor price for ONE vehicle.
+  if (pathname === "/api/dealer/price-beat" && req.method === "POST") {
+    if (!ANTHROPIC_API_KEY) {
+      return writeJson(res, 503, { error: "ANTHROPIC_API_KEY is not configured." });
+    }
+    let body;
+    try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
+
+    const year = Number(body.year || 0);
+    const make = String(body.make || "").trim();
+    const model = String(body.model || "").trim();
+    const trim = String(body.trim || "").trim();
+    const zip = (String(body.zip || "45014").replace(/[^0-9]/g, "").slice(0, 5)) || "45014";
+    const radius = Math.min(Math.max(Number(body.radius || 200), 25), 500);
+    const myPrice = Number(body.myPrice || 0);
+    if (!year || !make || !model) return writeJson(res, 400, { error: "year, make, and model are required" });
+
+    const prompt = `You are a used-car pricing research assistant. Use the web_search tool to find the single CHEAPEST currently-listed used car matching this vehicle, from any OTHER seller.
+
+Vehicle: ${year} ${make} ${model} ${trim}
+Within ${radius} miles of ZIP ${zip}.
+EXCLUDE my own dealership: "Dixie Motors", "Dixie Imports", "Cincy Automall".
+Search CarGurus, Cars.com, and AutoTrader for the lowest asking price from any other dealer or private seller.
+
+Reply with ONLY valid JSON, no markdown:
+If found: {"found":true,"cheapest_price":12500,"source":"CarGurus","dealer":"ABC Motors","miles":95000,"link":"https://..."}
+If nothing comparable found: {"found":false}`;
+
+    try {
+      const text = await callAnthropicWithSearch(prompt, ANTHROPIC_API_KEY, { model: "claude-sonnet-4-6", maxTokens: 700, maxSearches: 5 });
+      const result = extractJsonBlock(text) || { found: false };
+      let out = { found: !!result.found };
+      if (result.found) {
+        const comp = Number(result.cheapest_price || 0);
+        const gap = myPrice && comp ? myPrice - comp : null;       // positive = I'm cheaper
+        out = {
+          found: true, cheapestPrice: comp, source: result.source || "", dealer: result.dealer || "",
+          compMiles: Number(result.miles || 0), link: result.link || "",
+          gap, status: gap == null ? "unknown" : gap >= 0 ? "cheapest" : gap >= -500 ? "close" : "not_cheapest",
+          suggested: gap != null && gap < 0 ? Math.max(comp - 100, 0) : null,
+        };
+      }
+      return writeJson(res, 200, out);
+    } catch (err) {
+      return writeJson(res, 422, { error: err instanceof Error ? err.message : "Price scan failed" });
+    }
+  }
+
   return writeJson(res, 404, { error: "Dealer endpoint not found" });
 }
 
