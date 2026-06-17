@@ -184,7 +184,23 @@ const carQuery = ({ year, make, model, trim, zip }) => `${year} ${make} ${model}
 const AGG_RE = /average|market value|trade.?in|what(?:'s| is) it worth|how much is|price guide|value your|book value|kbb|edmunds true|estimate|depreciat|price analysis|values?\b|nadaguides|fair purchase|typical price|starting (?:at|from)/i;
 const looksAggregate = (text) => AGG_RE.test(String(text || ""));
 
-// Turn a list of {price,source,link} into the standard result (market low/avg + 3 cheapest).
+// Big marketplaces (the dealer name is on the listing, not the domain).
+const MARKETPLACE_RE = /cargurus|cars\.com|autotrader|kbb|carfax|truecar|capitalone|carvana|vroom|edmunds|facebook|craigslist|ebay|google/i;
+const titleCase = (s) => String(s || "").replace(/[-_.]/g, " ").replace(/\s+/g, " ").trim().replace(/\b\w/g, c => c.toUpperCase());
+// Best-effort dealership name from a listing title/snippet + its URL.
+function dealerName(text, host, explicit) {
+  if (explicit && !MARKETPLACE_RE.test(explicit)) return explicit.trim();
+  // A dealer's own website → use the domain as the name.
+  if (host && !MARKETPLACE_RE.test(host)) {
+    const core = host.replace(/\.(com|net|org|us|co|biz|auto)$/i, "").split(".").pop();
+    if (core && core.length > 2) return titleCase(core);
+  }
+  // Otherwise try to pull a dealer-looking phrase out of the title/snippet.
+  const m = String(text || "").match(/(?:at|from|[-–·|@])\s*([A-Z][A-Za-z0-9'&.\- ]{2,38}?(?:Motors?|Auto(?:s|motive)?|Cars?|Dealership|Group|Sales|Imports?|Used Cars|Toyota|Honda|Ford|Chevrolet|Chevy|Nissan|Hyundai|Kia|GMC|Buick|Dodge|Jeep|Ram|Mazda|Subaru|Volkswagen|VW|BMW|Mercedes|Audi|Lexus|Acura|Infiniti|Mitsubishi|Cadillac|Lincoln))\b/);
+  return m ? m[1].trim() : "";
+}
+
+// Turn a list of {price,source,link,title,dealer} into the standard result (market low/avg + 3 cheapest).
 function aggregateHits(hits) {
   const ok = hits.filter(h => h.price >= 1500 && h.price <= 200000);
   if (!ok.length) return { found: false };
@@ -194,7 +210,9 @@ function aggregateHits(hits) {
   const seen = new Set(), competitors = [];
   for (const h of ok.sort((a, b) => a.price - b.price)) {
     if (seen.has(h.price)) continue; seen.add(h.price);
-    competitors.push({ price: h.price, source: h.source, dealer: "", miles: 0, link: h.link });
+    const host = hostOf(h.link);
+    const dealer = dealerName(h.title, host, h.dealer);
+    competitors.push({ price: h.price, source: dealer || h.source || host || "dealer", dealer, miles: 0, link: h.link });
     if (competitors.length >= 3) break;
   }
   return { found: true, marketLow, marketAvg, competitors };
@@ -208,13 +226,14 @@ async function googlePriceScan(vehicle, serpKey) {
   if (!d) return { found: false, error: "Google search unavailable" };
   if (d.error) return { found: false, error: d.error };
   const hits = [];
-  const add = (price, source, link) => hits.push({ price: Number(String(price).replace(/[^0-9]/g, "")), source: source || "Google", link: link || "" });
-  (d.shopping_results || []).forEach(s => { if (!looksAggregate(`${s.title || ""} ${s.source || ""}`)) add(s.price, s.source || hostOf(s.link) || "dealer", s.link); });
+  const add = (price, meta) => hits.push({ price: Number(String(price).replace(/[^0-9]/g, "")), source: meta.source || "", link: meta.link || "", title: meta.title || "", dealer: meta.dealer || "" });
+  // Shopping results: `source` is the seller/dealer name.
+  (d.shopping_results || []).forEach(s => { if (!looksAggregate(`${s.title || ""} ${s.source || ""}`)) add(s.price, { source: s.source, link: s.link, title: s.title, dealer: s.source }); });
   (d.organic_results || []).forEach(o => {
     const txt = `${o.title || ""} ${o.snippet || ""}`;
     if (looksAggregate(txt)) return;  // skip valuation / market-average pages
     const m = txt.match(/\$\s?[0-9]{1,3},[0-9]{3}/g) || [];
-    m.forEach(p => add(p, o.source || hostOf(o.link) || "dealer", o.link));
+    m.forEach(p => add(p, { source: o.source, link: o.link, title: txt }));
   });
   return aggregateHits(hits);
 }
@@ -235,7 +254,7 @@ async function bravePriceScan(vehicle, braveKey) {
     const txt = `${o.title || ""} ${o.description || ""}`;
     if (looksAggregate(txt)) return;  // skip valuation / market-average pages
     const m = txt.match(/\$\s?[0-9]{1,3},[0-9]{3}/g) || [];
-    m.forEach(p => hits.push({ price: Number(String(p).replace(/[^0-9]/g, "")), source: (o.profile && o.profile.name) || hostOf(o.url) || "dealer", link: o.url || "" }));
+    m.forEach(p => hits.push({ price: Number(String(p).replace(/[^0-9]/g, "")), source: (o.profile && o.profile.name) || "", link: o.url || "", title: txt, dealer: "" }));
   });
   return aggregateHits(hits);
 }
