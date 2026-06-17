@@ -175,35 +175,54 @@ function buildComps(year, make, model, trim, mileage, condition, marketValue) {
 
 const { handleFbHub } = require("./fb-hub");
 
-// ─── Google-search price scan (SerpAPI) — free alternative to the AI engine ────
-async function googlePriceScan({ year, make, model, trim, zip }, serpKey) {
-  const q = `${year} ${make} ${model} ${trim} for sale ${zip}`.replace(/\s+/g, " ").trim();
-  const url = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(q)}&location=${encodeURIComponent("Ohio, United States")}&num=20&api_key=${serpKey}`;
-  let d = null;
-  try { d = await withTimeout(fetch(url).then(r => r.json()), 15000, null); } catch { d = null; }
-  if (!d) return { found: false, error: "Google search unavailable" };
-  if (d.error) return { found: false, error: d.error };
+// ─── Search-engine price scans (free alternatives to the AI engine) ────────────
+const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
+const carQuery = ({ year, make, model, trim, zip }) => `${year} ${make} ${model} ${trim} for sale ${zip}`.replace(/\s+/g, " ").trim();
 
-  const hits = [];
-  const add = (price, source, link) => { const n = Number(String(price).replace(/[^0-9]/g, "")); if (n >= 1500 && n <= 200000) hits.push({ price: n, source: source || "Google", link: link || "" }); };
-  (d.shopping_results || []).forEach(s => add(s.price, s.source || "Google Shopping", s.link));
-  (d.organic_results || []).forEach(o => {
-    const txt = `${o.title || ""} ${o.snippet || ""}`;
-    const m = txt.match(/\$\s?[0-9]{1,3},[0-9]{3}/g) || [];
-    m.forEach(p => add(p, o.source || o.displayed_link || "Google", o.link));
-  });
-  if (!hits.length) return { found: false };
-
-  const prices = hits.map(h => h.price).sort((a, b) => a - b);
+// Turn a list of {price,source,link} into the standard result (market low/avg + 3 cheapest).
+function aggregateHits(hits) {
+  const ok = hits.filter(h => h.price >= 1500 && h.price <= 200000);
+  if (!ok.length) return { found: false };
+  const prices = ok.map(h => h.price).sort((a, b) => a - b);
   const marketLow = prices[0];
   const marketAvg = Math.round(prices.reduce((s, p) => s + p, 0) / prices.length);
   const seen = new Set(), competitors = [];
-  for (const h of hits.sort((a, b) => a.price - b.price)) {
+  for (const h of ok.sort((a, b) => a.price - b.price)) {
     if (seen.has(h.price)) continue; seen.add(h.price);
     competitors.push({ price: h.price, source: h.source, dealer: "", miles: 0, link: h.link });
     if (competitors.length >= 3) break;
   }
   return { found: true, marketLow, marketAvg, competitors };
+}
+
+// SerpAPI (Google)
+async function googlePriceScan(vehicle, serpKey) {
+  const url = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(carQuery(vehicle))}&location=${encodeURIComponent("Ohio, United States")}&num=20&api_key=${serpKey}`;
+  let d = null;
+  try { d = await withTimeout(fetch(url).then(r => r.json()), 15000, null); } catch { d = null; }
+  if (!d) return { found: false, error: "Google search unavailable" };
+  if (d.error) return { found: false, error: d.error };
+  const hits = [];
+  const add = (price, source, link) => hits.push({ price: Number(String(price).replace(/[^0-9]/g, "")), source: source || "Google", link: link || "" });
+  (d.shopping_results || []).forEach(s => add(s.price, s.source || "Google Shopping", s.link));
+  (d.organic_results || []).forEach(o => { const m = `${o.title || ""} ${o.snippet || ""}`.match(/\$\s?[0-9]{1,3},[0-9]{3}/g) || []; m.forEach(p => add(p, o.source || o.displayed_link || "Google", o.link)); });
+  return aggregateHits(hits);
+}
+
+// Brave Search API
+async function bravePriceScan(vehicle, braveKey) {
+  const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(carQuery(vehicle))}&count=20`;
+  let d = null;
+  try { d = await withTimeout(fetch(url, { headers: { "X-Subscription-Token": braveKey, "Accept": "application/json" } }).then(r => r.json()), 15000, null); } catch { d = null; }
+  if (!d) return { found: false, error: "Brave search unavailable" };
+  if (d.error || (d.type === "ErrorResponse")) {
+    const msg = (d.error && (d.error.detail || d.error.meta?.error || d.error.code)) || d.message || "Brave search error";
+    return { found: false, error: /quota|rate|limit|subscription/i.test(JSON.stringify(d)) ? "Brave account has run out of searches." : (/unauthor|invalid|token/i.test(JSON.stringify(d)) ? "Your Brave key is invalid." : msg) };
+  }
+  const results = (d.web && d.web.results) || [];
+  const hits = [];
+  results.forEach(o => { const m = `${o.title || ""} ${o.description || ""}`.match(/\$\s?[0-9]{1,3},[0-9]{3}/g) || []; m.forEach(p => hits.push({ price: Number(String(p).replace(/[^0-9]/g, "")), source: (o.profile && o.profile.name) || hostOf(o.url) || "Brave", link: o.url || "" })); });
+  return aggregateHits(hits);
 }
 
 // ─── Route handler ────────────────────────────────────────────────────────────
@@ -396,18 +415,21 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
 
   // GET /api/dealer/ai-key — which scan engines are configured? (never returns values)
   if (pathname === "/api/dealer/ai-key" && req.method === "GET") {
-    const google = !!getKey("SERPAPI_KEY"), ai = !!anthropicKey();
-    return writeJson(res, 200, { configured: google || ai, google, ai, engine: google ? "google" : ai ? "ai" : null });
+    const google = !!getKey("SERPAPI_KEY"), brave = !!getKey("BRAVE_API_KEY"), ai = !!anthropicKey();
+    return writeJson(res, 200, { configured: google || brave || ai, google, brave, ai, engine: google ? "google" : brave ? "brave" : ai ? "ai" : null });
   }
-  // POST /api/dealer/ai-key — set a scan key from the UI { key, provider } (provider: "google" | "anthropic")
+  // POST /api/dealer/ai-key — set a scan key from the UI { key, provider } (google | brave | anthropic; auto-detected if omitted)
   if (pathname === "/api/dealer/ai-key" && req.method === "POST") {
     let body;
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
     const key = String(body.key || "").trim();
-    const provider = String(body.provider || (/^sk-ant-/.test(key) ? "anthropic" : "google")).toLowerCase();
+    const provider = String(body.provider || (/^sk-ant-/.test(key) ? "anthropic" : /^BSA/i.test(key) ? "brave" : "google")).toLowerCase();
     if (provider === "anthropic") {
       if (!/^sk-ant-/.test(key)) return writeJson(res, 400, { error: "Anthropic key should start with sk-ant-." });
       setKey("ANTHROPIC_API_KEY", key);
+    } else if (provider === "brave") {
+      if (key.length < 20) return writeJson(res, 400, { error: "That Brave key looks too short." });
+      setKey("BRAVE_API_KEY", key);
     } else {
       if (key.length < 20) return writeJson(res, 400, { error: "That SerpAPI key looks too short." });
       setKey("SERPAPI_KEY", key);
@@ -415,11 +437,11 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
     return writeJson(res, 200, { ok: true, configured: true, provider });
   }
 
-  // POST /api/dealer/price-beat — "Am I cheapest?" — Google (SerpAPI) first, AI fallback.
+  // POST /api/dealer/price-beat — "Am I cheapest?" — SerpAPI → Brave → AI (falls through on quota).
   if (pathname === "/api/dealer/price-beat" && req.method === "POST") {
-    const serpKey = getKey("SERPAPI_KEY");
-    if (!serpKey && !anthropicKey()) {
-      return writeJson(res, 503, { error: "No scan engine configured — add a free SerpAPI (Google) key or an Anthropic key." });
+    const serpKey = getKey("SERPAPI_KEY"), braveKey = getKey("BRAVE_API_KEY");
+    if (!serpKey && !braveKey && !anthropicKey()) {
+      return writeJson(res, 503, { error: "No scan engine configured — add a free SerpAPI or Brave key, or an Anthropic key." });
     }
     let body;
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
@@ -435,18 +457,22 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
 
     const toNum = (x) => { const n = Number(String(x ?? "").replace(/[^0-9.]/g, "")); return Number.isFinite(n) ? n : 0; };
     try {
-      let result, engine;
-      // 1) Google search (free, preferred) — when a SerpAPI key is present, use ONLY Google (no paid fallback).
+      let result, engine, lastErr = "";
+      const veh = { year, make, model, trim, zip };
+      // 1) SerpAPI (Google) — fall through to Brave/AI if it errors or finds nothing.
       if (serpKey) {
         engine = "google";
-        result = await googlePriceScan({ year, make, model, trim, zip }, serpKey);
-        if (result.error) {
-          const inv = /invalid api key/i.test(result.error);
-          return writeJson(res, 422, { error: inv ? "Your SerpAPI (Google) key is invalid — get a free one at serpapi.com and re-save it." : `Google search error: ${result.error}` });
-        }
+        result = await googlePriceScan(veh, serpKey);
+        if (result.error) { lastErr = /invalid api key/i.test(result.error) ? "Your SerpAPI key is invalid." : `SerpAPI: ${result.error}`; result = null; }
       }
-      // 2) AI engine — only when NO Google key is set
-      if (!serpKey && anthropicKey()) {
+      // 2) Brave search — when SerpAPI is absent/empty/out of quota.
+      if ((!result || !result.found) && braveKey) {
+        engine = "brave";
+        const b = await bravePriceScan(veh, braveKey);
+        if (b.error) lastErr = `Brave: ${b.error}`; else result = b;
+      }
+      // 3) AI engine — last resort.
+      if ((!result || !result.found) && anthropicKey()) {
         engine = "ai";
         const prompt = `You are a used-car pricing research assistant. Use the web_search tool to research the current market price for a ${year} ${make} ${model} ${trim} near ZIP ${zip} (within ~${radius} miles). EXCLUDE "Dixie Motors", "Dixie Imports", "Cincy Automall". Aggregate market data (KBB, CarGurus average) is acceptable. Reply ONLY valid JSON: {"found":true,"marketLow":12495,"marketAvg":14148,"competitors":[{"price":12495,"source":"KBB","miles":104000,"link":""}]} or {"found":false}`;
         const text = await callAnthropicWithSearch(prompt, anthropicKey(), { model: "claude-sonnet-4-6", maxTokens: 1100, maxSearches: 6 });
@@ -459,7 +485,11 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
         .filter(c => c.price > 0).sort((a, b) => a.price - b.price).slice(0, 3);
       const marketLow = toNum(result.marketLow) || (clean[0] && clean[0].price) || 0;
       const marketAvg = toNum(result.marketAvg) || 0;
-      if (!result.found || (!marketLow && !clean.length)) return writeJson(res, 200, { found: false, engine });
+      if (!result.found || (!marketLow && !clean.length)) {
+        // If every engine errored (e.g. all out of quota), surface that instead of a silent "no results".
+        if (lastErr) return writeJson(res, 422, { error: /run out|quota|rate|limit/i.test(lastErr) ? `Out of searches — ${lastErr}. Add another key or top up.` : lastErr });
+        return writeJson(res, 200, { found: false, engine });
+      }
       const comp = clean.length ? clean[0].price : marketLow;
       const gap = myPrice && comp ? myPrice - comp : null;
       return writeJson(res, 200, {
