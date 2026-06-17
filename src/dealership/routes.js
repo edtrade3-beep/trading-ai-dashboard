@@ -241,7 +241,7 @@ function aggregateHits(hits, refPrice) {
     const host = hostOf(h.link);
     const dealer = dealerName(h.title, host, h.dealer);
     competitors.push({ price: h.price, source: dealer || h.source || host || "dealer", dealer, location: locationOf(h.title), miles: 0, link: h.link });
-    if (competitors.length >= 3) break;
+    if (competitors.length >= 40) break;
   }
   return { found: true, marketLow, marketAvg, competitors };
 }
@@ -282,7 +282,7 @@ async function marketcheckScan({ year, make, model, trim, zip }, mcKey, radius) 
     found: true,
     marketLow: prices[0],
     marketAvg: Math.round(prices.reduce((s, v) => s + v, 0) / prices.length),
-    competitors: comps.slice(0, 3),
+    competitors: comps.slice(0, 40),
   };
 }
 
@@ -326,7 +326,7 @@ function milesBetween(a, b) {
     .sort((a, b) => a.price - b.price);
   if (!comps.length) return { found: false };
   const prices = comps.map(c => c.price);
-  return { found: true, marketLow: prices[0], marketAvg: Math.round(prices.reduce((s, v) => s + v, 0) / prices.length), competitors: comps.slice(0, 3) };
+  return { found: true, marketLow: prices[0], marketAvg: Math.round(prices.reduce((s, v) => s + v, 0) / prices.length), competitors: comps.slice(0, 40) };
 }
 
 // SerpAPI (Google)
@@ -602,6 +602,7 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
     const zip = (String(body.zip || "45014").replace(/[^0-9]/g, "").slice(0, 5)) || "45014";
     const radius = Math.min(Math.max(Number(body.radius || 200), 25), 500);
     const myPrice = Number(body.myPrice || 0);
+    const myMiles = Number(body.myMiles || 0);
     if (!year || !make || !model) return writeJson(res, 400, { error: "year, make, and model are required" });
 
     const toNum = (x) => { const n = Number(String(x ?? "").replace(/[^0-9.]/g, "")); return Number.isFinite(n) ? n : 0; };
@@ -629,8 +630,15 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
       result = result || { found: false };
 
       const comps = Array.isArray(result.competitors) ? result.competitors : [];
-      const clean = comps.map(c => ({ price: toNum(c.price), source: c.source || "", dealer: c.dealer || "", location: c.location || "", distance: c.distance || 0, miles: toNum(c.miles), link: c.link || "" }))
-        .filter(c => c.price > 0).sort((a, b) => a.price - b.price).slice(0, 3);
+      const all = comps.map(c => ({ price: toNum(c.price), source: c.source || "", dealer: c.dealer || "", location: c.location || "", distance: c.distance || 0, miles: toNum(c.miles), link: c.link || "" }))
+        .filter(c => c.price > 0).sort((a, b) => a.price - b.price);
+      // Compare apples-to-apples: keep only listings within ±5,000 odometer miles of MY car, then take the cheapest.
+      let pool = all;
+      if (myMiles > 0) {
+        const within = all.filter(c => c.miles > 0 && Math.abs(c.miles - myMiles) <= 5000);
+        if (within.length) pool = within;   // if none in range, fall back to all so you still get a number
+      }
+      const clean = pool.slice(0, 1);        // just the single cheapest comparable
       const marketLow = toNum(result.marketLow) || (clean[0] && clean[0].price) || 0;
       const marketAvg = toNum(result.marketAvg) || 0;
       if (!result.found || (!marketLow && !clean.length)) {

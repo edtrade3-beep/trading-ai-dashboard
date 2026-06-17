@@ -433,7 +433,7 @@ function App() {
     try {
       const r = await fetch("/api/dealer/price-beat", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ year: v.year, make: v.make, model: v.model, trim: v.trim || "", zip: "45014", radius: pbRadius, myPrice: v.price || 0 }),
+        body: JSON.stringify({ year: v.year, make: v.make, model: v.model, trim: v.trim || "", zip: "45014", radius: pbRadius, myPrice: v.price || 0, myMiles: v.mileage || 0 }),
       });
       const d = await r.json();
       if (!r.ok) return { status: "error", error: d.error || "scan failed", scanned: false };
