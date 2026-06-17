@@ -310,7 +310,16 @@ function App() {
   const [pbKeyConfigured, setPbKeyConfigured] = useState(null); // null = unknown
   const [pbKeyInput, setPbKeyInput] = useState("");
   const [pbAdd, setPbAdd] = useState({ year: "", make: "", model: "", trim: "", mileage: "", price: "" });
-  useEffect(() => { fetch("/api/dealer/ai-key").then(r => r.json()).then(d => setPbKeyConfigured(!!d.configured)).catch(() => setPbKeyConfigured(false)); }, []);
+  useEffect(() => {
+    fetch("/api/dealer/ai-key").then(r => r.json()).then(d => setPbKeyConfigured(!!d.configured)).catch(() => setPbKeyConfigured(false));
+    // Clear any rows stuck in "scanning" from an interrupted run
+    setPbResults(prev => {
+      let changed = false; const next = { ...prev };
+      for (const k in next) if (next[k]?.status === "scanning") { delete next[k]; changed = true; }
+      if (changed) { try { localStorage.setItem("dixie_pb_results", JSON.stringify(next)); } catch {} return next; }
+      return prev;
+    });
+  }, []);
   const savePbKey = async () => {
     const key = pbKeyInput.trim();
     if (!/^sk-ant-/.test(key)) { showToast("Key should start with sk-ant-", "error"); return; }
@@ -343,13 +352,21 @@ function App() {
     } catch (e) { return { status: "error", error: e.message, scanned: false }; }
   };
   const pbScanVehicle = async (v) => {
+    if (pbKeyConfigured === false) { showToast("Add your Anthropic API key first (box at the top)", "error"); return; }
     const cur = { ...pbResults, [v.vin]: { status: "scanning" } };
     savePbResults(cur);
     const res = await scanOnePB(v);
+    if (res.status === "error" && /not configured/i.test(res.error || "")) {
+      setPbKeyConfigured(false);
+      const cleared = { ...cur }; delete cleared[v.vin]; savePbResults(cleared);
+      showToast("Add your Anthropic API key first (box at the top)", "error");
+      return;
+    }
     savePbResults({ ...cur, [v.vin]: res });
   };
   const pbScanAll = async () => {
     if (pbScanning) return;
+    if (pbKeyConfigured === false) { showToast("Add your Anthropic API key first (box at the top)", "error"); setPbStatus("⚠️ Add your Anthropic API key above to enable scanning."); return; }
     const list = inventory.filter(v => v.vin && !pbResults[v.vin]?.scanned);
     if (!list.length) { showToast("All inventory already scanned", "success"); return; }
     setPbScanning(true);
@@ -361,6 +378,7 @@ function App() {
       const res = await scanOnePB(v);
       if (res.status === "error" && /not configured/i.test(res.error || "")) {
         setPbStatus("⚠️ Add your Anthropic API key above to enable scanning.");
+        const cleared = { ...acc }; delete cleared[v.vin]; savePbResults(cleared);
         setPbKeyConfigured(false); setPbScanning(false); return;
       }
       acc = { ...acc, [v.vin]: res }; savePbResults(acc);
