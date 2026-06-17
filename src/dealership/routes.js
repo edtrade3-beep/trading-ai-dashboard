@@ -246,6 +246,45 @@ function aggregateHits(hits, refPrice) {
   return { found: true, marketLow, marketAvg, competitors };
 }
 
+// MarketCheck — real structured used-car listings (exact dealer, price, miles, location, link).
+async function marketcheckScan({ year, make, model, trim, zip }, mcKey, radius) {
+  const p = new URLSearchParams({
+    api_key: mcKey, car_type: "used", year: String(year), make, model,
+    zip: zip || "45014", radius: String(radius || 200), rows: "20", sort_by: "price", sort_order: "asc",
+  });
+  if (trim) p.set("trim", trim);
+  const url = `https://mc-api.marketcheck.com/v2/search/car/active?${p.toString()}`;
+  let d = null;
+  try { d = await withTimeout(fetch(url).then(r => r.json()), 15000, null); } catch { d = null; }
+  if (!d) return { found: false, error: "MarketCheck unavailable" };
+  if (!Array.isArray(d.listings)) {
+    const msg = JSON.stringify(d);
+    if (/invalid|unauthor|forbidden|api.?key/i.test(msg)) return { found: false, error: "Your MarketCheck key is invalid." };
+    if (/limit|quota|exceeded/i.test(msg)) return { found: false, error: "MarketCheck quota exceeded." };
+    return { found: false, error: d.message || d.error || "MarketCheck error" };
+  }
+  const comps = (d.listings || [])
+    .filter(l => l.dealer && !/dixie|cincy automall/i.test(l.dealer.name || ""))
+    .map(l => ({
+      price: Number(l.price || 0),
+      dealer: l.dealer.name || "",
+      source: l.dealer.name || "",
+      location: [l.dealer.city, l.dealer.state].filter(Boolean).join(", "),
+      miles: Number(l.miles || 0),
+      link: l.vdp_url || "",
+    }))
+    .filter(c => c.price > 0)
+    .sort((a, b) => a.price - b.price);
+  if (!comps.length) return { found: false };
+  const prices = comps.map(c => c.price);
+  return {
+    found: true,
+    marketLow: prices[0],
+    marketAvg: Math.round(prices.reduce((s, v) => s + v, 0) / prices.length),
+    competitors: comps.slice(0, 3),
+  };
+}
+
 // SerpAPI (Google)
 async function googlePriceScan(vehicle, serpKey, refPrice) {
   const url = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(carQuery(vehicle))}&location=${encodeURIComponent("Ohio, United States")}&num=20&api_key=${serpKey}`;
@@ -473,38 +512,41 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
     }
   }
 
-  // GET /api/dealer/ai-key — which search engines are set + enabled? (never returns values)
+  // GET /api/dealer/ai-key — which engines are set + enabled? (never returns values)
   if (pathname === "/api/dealer/ai-key" && req.method === "GET") {
-    const google = !!getKey("SERPAPI_KEY"), brave = !!getKey("BRAVE_API_KEY");
-    const googleOn = google && engineOn("SERPAPI"), braveOn = brave && engineOn("BRAVE");
-    return writeJson(res, 200, { configured: googleOn || braveOn, google, brave, googleOn, braveOn, engine: braveOn ? "brave" : googleOn ? "google" : null });
+    const google = !!getKey("SERPAPI_KEY"), brave = !!getKey("BRAVE_API_KEY"), mc = !!getKey("MARKETCHECK_API_KEY");
+    const googleOn = google && engineOn("SERPAPI"), braveOn = brave && engineOn("BRAVE"), mcOn = mc && engineOn("MARKETCHECK");
+    return writeJson(res, 200, { configured: googleOn || braveOn || mcOn, google, brave, marketcheck: mc, googleOn, braveOn, mcOn, engine: mcOn ? "marketcheck" : braveOn ? "brave" : googleOn ? "google" : null });
   }
   // POST /api/dealer/ai-key — set a key { key, provider }, OR toggle an engine { provider, enabled:bool }
   if (pathname === "/api/dealer/ai-key" && req.method === "POST") {
     let body;
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
+    const KEYS = { brave: "BRAVE_API_KEY", google: "SERPAPI_KEY", marketcheck: "MARKETCHECK_API_KEY" };
+    const FLAGS = { brave: "BRAVE_ENABLED", google: "SERPAPI_ENABLED", marketcheck: "MARKETCHECK_ENABLED" };
     // Toggle on/off (no key change)
     if (typeof body.enabled === "boolean") {
       const provider = String(body.provider || "").toLowerCase();
-      if (provider !== "brave" && provider !== "google") return writeJson(res, 400, { error: "provider must be 'brave' or 'google'" });
-      setKey(provider === "brave" ? "BRAVE_ENABLED" : "SERPAPI_ENABLED", body.enabled ? "on" : "off");
+      if (!FLAGS[provider]) return writeJson(res, 400, { error: "provider must be 'brave', 'google', or 'marketcheck'" });
+      setKey(FLAGS[provider], body.enabled ? "on" : "off");
       return writeJson(res, 200, { ok: true, provider, enabled: body.enabled });
     }
     // Set a key
     const key = String(body.key || "").trim();
-    if (key.length < 20) return writeJson(res, 400, { error: "That key looks too short." });
+    if (key.length < 15) return writeJson(res, 400, { error: "That key looks too short." });
     const provider = String(body.provider || (/^BSA/i.test(key) ? "brave" : "google")).toLowerCase();
-    if (provider === "brave") { setKey("BRAVE_API_KEY", key); setKey("BRAVE_ENABLED", "on"); }
-    else { setKey("SERPAPI_KEY", key); setKey("SERPAPI_ENABLED", "on"); }
+    if (!KEYS[provider]) return writeJson(res, 400, { error: "Unknown provider." });
+    setKey(KEYS[provider], key); setKey(FLAGS[provider], "on");
     return writeJson(res, 200, { ok: true, configured: true, provider });
   }
 
   // POST /api/dealer/price-beat — "Am I cheapest?" — Brave → SerpAPI (free search engines only).
   if (pathname === "/api/dealer/price-beat" && req.method === "POST") {
+    const mcKey = engineOn("MARKETCHECK") ? getKey("MARKETCHECK_API_KEY") : "";
     const serpKey = engineOn("SERPAPI") ? getKey("SERPAPI_KEY") : "";
     const braveKey = engineOn("BRAVE") ? getKey("BRAVE_API_KEY") : "";
-    if (!serpKey && !braveKey) {
-      return writeJson(res, 503, { error: "No search engine enabled — add or enable a Brave or SerpAPI key." });
+    if (!mcKey && !serpKey && !braveKey) {
+      return writeJson(res, 503, { error: "No engine enabled — add a MarketCheck, Brave, or SerpAPI key." });
     }
     let body;
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
@@ -522,13 +564,19 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
     try {
       let result, engine, lastErr = "";
       const veh = { year, make, model, trim, zip };
-      // 1) Brave search (free 2,000/mo) — preferred.
-      if (braveKey) {
+      // 1) MarketCheck — real structured listings, preferred.
+      if (mcKey) {
+        engine = "marketcheck";
+        const m = await marketcheckScan(veh, mcKey, radius);
+        if (m.error) lastErr = m.error; else result = m;
+      }
+      // 2) Brave search (free 2,000/mo).
+      if ((!result || !result.found) && braveKey) {
         engine = "brave";
         const b = await bravePriceScan(veh, braveKey, myPrice);
         if (b.error) lastErr = /invalid/i.test(b.error) ? "Your Brave key is invalid." : `Brave: ${b.error}`; else result = b;
       }
-      // 2) SerpAPI (Google) — when Brave is absent/empty/out of quota.
+      // 3) SerpAPI (Google) — when others are absent/empty/out of quota.
       if ((!result || !result.found) && serpKey) {
         engine = "google";
         const g = await googlePriceScan(veh, serpKey, myPrice);

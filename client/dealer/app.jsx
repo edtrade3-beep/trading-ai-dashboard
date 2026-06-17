@@ -341,19 +341,22 @@ function App() {
   const [pbKeyConfigured, setPbKeyConfigured] = useState(null); // null = unknown; true if either engine set
   const [pbBraveSet, setPbBraveSet] = useState(false);
   const [pbSerpSet, setPbSerpSet] = useState(false);
+  const [pbMcSet, setPbMcSet] = useState(false);
   const [pbBraveOn, setPbBraveOn] = useState(false);
   const [pbSerpOn, setPbSerpOn] = useState(false);
+  const [pbMcOn, setPbMcOn] = useState(false);
   const [pbBraveInput, setPbBraveInput] = useState("");
   const [pbSerpInput, setPbSerpInput] = useState("");
+  const [pbMcInput, setPbMcInput] = useState("");
   const [pbAdd, setPbAdd] = useState({ year: "", make: "", model: "", trim: "", mileage: "", price: "" });
   const refreshPbKeys = () => fetch("/api/dealer/ai-key").then(r => r.json())
-    .then(d => { setPbBraveSet(!!d.brave); setPbSerpSet(!!d.google); setPbBraveOn(!!d.braveOn); setPbSerpOn(!!d.googleOn); setPbKeyConfigured(!!d.configured); })
+    .then(d => { setPbBraveSet(!!d.brave); setPbSerpSet(!!d.google); setPbMcSet(!!d.marketcheck); setPbBraveOn(!!d.braveOn); setPbSerpOn(!!d.googleOn); setPbMcOn(!!d.mcOn); setPbKeyConfigured(!!d.configured); })
     .catch(() => setPbKeyConfigured(false));
   const togglePbEngine = async (provider, enabled) => {
     try {
       const r = await fetch("/api/dealer/ai-key", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider, enabled }) });
       if (!r.ok) throw new Error((await r.json()).error || "Toggle failed");
-      if (provider === "brave") setPbBraveOn(enabled); else setPbSerpOn(enabled);
+      if (provider === "brave") setPbBraveOn(enabled); else if (provider === "marketcheck") setPbMcOn(enabled); else setPbSerpOn(enabled);
       refreshPbKeys();
     } catch (e) { showToast(e.message, "error"); }
   };
@@ -374,9 +377,11 @@ function App() {
       const r = await fetch("/api/dealer/ai-key", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, provider }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Save failed");
-      if (provider === "brave") { setPbBraveSet(true); setPbBraveInput(""); } else { setPbSerpSet(true); setPbSerpInput(""); }
+      if (provider === "brave") { setPbBraveSet(true); setPbBraveInput(""); }
+      else if (provider === "marketcheck") { setPbMcSet(true); setPbMcInput(""); }
+      else { setPbSerpSet(true); setPbSerpInput(""); }
       setPbKeyConfigured(true);
-      showToast(`${provider === "brave" ? "Brave" : "SerpAPI"} key saved — scanning enabled`, "success");
+      showToast(`${provider === "brave" ? "Brave" : provider === "marketcheck" ? "MarketCheck" : "SerpAPI"} key saved — scanning enabled`, "success");
     } catch (e) { showToast(e.message, "error"); }
   };
   const pbAddVehicle = () => {
@@ -1712,7 +1717,15 @@ function App() {
 
                   {/* Search API keys — Brave + SerpAPI (separate fields) */}
                   <div style={{ ...styles.card, marginBottom: 12, borderColor: pbKeyConfigured ? styles.card.borderColor : "#d97706" }}>
-                    <div style={{ ...styles.smallLabel, color: pbKeyConfigured ? styles.smallLabel.color : "#92400e" }}>⚙️ SEARCH KEYS — add either or both (it uses whichever has searches left)</div>
+                    <div style={{ ...styles.smallLabel, color: pbKeyConfigured ? styles.smallLabel.color : "#92400e" }}>⚙️ DATA KEYS — MarketCheck (best) is used first, then Brave, then SerpAPI</div>
+                    {/* MarketCheck — recommended */}
+                    <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
+                      <span style={{ width: 130, fontSize: 12, fontWeight: 600 }}>MarketCheck ⭐ {pbMcSet ? <span style={{ color: "#16a34a" }}>✓</span> : ""}</span>
+                      <input type="password" value={pbMcInput} onChange={(e) => setPbMcInput(e.target.value)} placeholder={pbMcSet ? "saved — paste to replace" : "MarketCheck API key"} style={{ ...styles.input, flex: 1, minWidth: 180 }} />
+                      <button onClick={() => savePbKey("marketcheck", pbMcInput)} style={styles.buttonPrimary}>Save</button>
+                      {pbMcSet && <button onClick={() => togglePbEngine("marketcheck", !pbMcOn)} title="Enable/disable this engine" style={{ ...(pbMcOn ? styles.buttonPrimary : styles.buttonGhost), background: pbMcOn ? "#16a34a" : undefined, borderColor: pbMcOn ? "#16a34a" : undefined, minWidth: 64 }}>{pbMcOn ? "ON" : "OFF"}</button>}
+                    </div>
+                    <div style={{ fontSize: 10, color: styles.smallLabel.color, margin: "2px 0 0 138px" }}>Real listings — exact dealer, price, location · marketcheck.com (free trial)</div>
                     {/* Brave */}
                     <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
                       <span style={{ width: 130, fontSize: 12, fontWeight: 600 }}>Brave {pbBraveSet ? <span style={{ color: "#16a34a" }}>✓</span> : ""}</span>
