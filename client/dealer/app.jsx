@@ -307,6 +307,33 @@ function App() {
   const [pbScanning, setPbScanning] = useState(false);
   const [pbStatus, setPbStatus] = useState("");
   const [pbRadius, setPbRadius] = useState(200);
+  const [pbSort, setPbSort] = useState("make");
+  const pbSortFn = (a, b) => {
+    if (pbSort === "make") return `${a.make} ${a.model}`.localeCompare(`${b.make} ${b.model}`) || (a.price || 0) - (b.price || 0);
+    if (pbSort === "price") return (a.price || 0) - (b.price || 0);
+    if (pbSort === "year") return (b.year || 0) - (a.year || 0);
+    if (pbSort === "gap") return ((pbResults[a.vin]?.gap ?? 9e9)) - ((pbResults[b.vin]?.gap ?? 9e9));
+    return 0;
+  };
+  const pbExportCsv = () => {
+    const rows = [["Stock/VIN", "Year", "Make", "Model", "Trim", "Miles", "My Price", "Status", "Cheapest Dealer", "Source", "Gap", "Suggested Reprice"]];
+    [...inventory].sort(pbSortFn).forEach(v => {
+      const r = pbResults[v.vin] || {};
+      const statusMap = { cheapest: "Cheapest", not_cheapest: "Reprice", close: "Close", no_comps: "No comps", error: "Error" };
+      rows.push([
+        v.stock || v.vin, v.year, v.make, v.model, v.trim || "", v.mileage || "", v.price || "",
+        r.scanned ? (statusMap[r.status] || r.status || "") : "",
+        r.competitors?.[0]?.price || r.compPrice || "", r.competitors?.[0]?.source || r.source || "",
+        r.gap == null ? "" : r.gap, r.suggested || "",
+      ]);
+    });
+    const csv = rows.map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `price-beater-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click(); URL.revokeObjectURL(a.href);
+  };
   const [pbKeyConfigured, setPbKeyConfigured] = useState(null); // null = unknown; true if either engine set
   const [pbBraveSet, setPbBraveSet] = useState(false);
   const [pbSerpSet, setPbSerpSet] = useState(false);
@@ -1723,6 +1750,15 @@ function App() {
                         {[50, 100, 200, 300].map(r => <option key={r} value={r}>{r} mi</option>)}
                       </select>
                     </Field>
+                    <Field label="" styles={styles}>
+                      <select value={pbSort} onChange={(e) => setPbSort(e.target.value)} style={styles.input} title="Sort table by">
+                        <option value="make">Sort: Make</option>
+                        <option value="price">Sort: My Price</option>
+                        <option value="year">Sort: Year</option>
+                        <option value="gap">Sort: Gap</option>
+                      </select>
+                    </Field>
+                    {inventory.length > 0 && <button onClick={pbExportCsv} style={styles.buttonGhost}>⬇ Export CSV</button>}
                     {Object.keys(pbResults).length > 0 && <button onClick={() => savePbResults({})} style={styles.buttonGhost}>Reset scans</button>}
                   </div>
                   {pbStatus && <div style={{ ...styles.card, marginTop: 10, fontSize: 12 }}>{pbStatus}</div>}
@@ -1735,7 +1771,7 @@ function App() {
                           {["", "Status", "My Price", "Vehicle", "Miles", "Cheapest Dealer Prices", "Gap vs Cheapest", "Reprice", ""].map((h, i) => <th key={i} style={{ padding: "8px 10px" }}>{h}</th>)}
                         </tr></thead>
                         <tbody>
-                          {[...inventory].sort((a, b) => (a.price || 0) - (b.price || 0)).map(v => {
+                          {[...inventory].sort(pbSortFn).map(v => {
                             const r = pbResults[v.vin] || {};
                             return (
                               <tr key={v.vin} style={{ borderTop: "1px solid #eee" }}>
