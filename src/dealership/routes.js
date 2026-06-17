@@ -200,6 +200,14 @@ function dealerName(text, host, explicit) {
   return m ? m[1].trim() : "";
 }
 
+const US_STATES = "AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY";
+const LOC_RE = new RegExp(`\\b([A-Z][a-zA-Z.\\-]+(?:\\s[A-Z][a-zA-Z.\\-]+)?),?\\s+(${US_STATES})\\b`);
+// Best-effort "City, ST" from a listing title/snippet.
+function locationOf(text) {
+  const m = String(text || "").match(LOC_RE);
+  return m ? `${m[1].trim()}, ${m[2]}` : "";
+}
+
 // Turn a list of {price,source,link,title,dealer} into the standard result (market low/avg + 3 cheapest).
 function aggregateHits(hits) {
   const ok = hits.filter(h => h.price >= 1500 && h.price <= 200000);
@@ -212,7 +220,7 @@ function aggregateHits(hits) {
     if (seen.has(h.price)) continue; seen.add(h.price);
     const host = hostOf(h.link);
     const dealer = dealerName(h.title, host, h.dealer);
-    competitors.push({ price: h.price, source: dealer || h.source || host || "dealer", dealer, miles: 0, link: h.link });
+    competitors.push({ price: h.price, source: dealer || h.source || host || "dealer", dealer, location: locationOf(h.title), miles: 0, link: h.link });
     if (competitors.length >= 3) break;
   }
   return { found: true, marketLow, marketAvg, competitors };
