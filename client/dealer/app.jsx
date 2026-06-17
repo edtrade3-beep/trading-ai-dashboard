@@ -1806,7 +1806,7 @@ function App() {
                     <div style={{ ...styles.card, marginTop: 12, overflowX: "auto", padding: 0 }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                         <thead><tr style={{ textAlign: "left", color: styles.smallLabel.color }}>
-                          {["Status", "Vehicle", "My Miles", "My Price", "Cheapest Dealer", "Their Price", "Reprice To", ""].map((h, i) => <th key={i} style={{ padding: "8px 10px" }}>{h}</th>)}
+                          {["Status", "Vehicle", "My Miles", "My Price", "Cheapest Dealer", "Location", "Distance", "Comp Miles", "Their Price", "Reprice To", ""].map((h, i) => <th key={i} style={{ padding: "8px 10px" }}>{h}</th>)}
                         </tr></thead>
                         <tbody>
                           {[...inventory].sort(pbSortFn).map(v => {
@@ -1822,12 +1822,10 @@ function App() {
                                 <td style={{ padding: "8px 10px" }}>{v.year} {v.make} {v.model} <span style={{ color: styles.smallLabel.color }}>{v.trim}</span></td>
                                 <td style={{ padding: "8px 10px" }}>{v.mileage ? Number(v.mileage).toLocaleString() : "—"}</td>
                                 <td style={{ padding: "8px 10px", fontWeight: 700 }}>{money(v.price || 0)}</td>
-                                <td style={{ padding: "8px 10px" }}>{c ? (
-                                  <div>
-                                    <div style={{ fontWeight: 600 }}>{c.dealer || c.source || "dealer"}{c.distance ? <span style={{ color: styles.smallLabel.color, fontWeight: 400 }}> · 🚗 {c.distance} mi away</span> : ""}</div>
-                                    <div style={{ fontSize: 10, color: styles.smallLabel.color }}>{c.location}{c.miles ? " · 🛣 " + Number(c.miles).toLocaleString() + " mi" : ""}</div>
-                                  </div>
-                                ) : (r.scanned ? "no match ±5k mi" : "—")}</td>
+                                <td style={{ padding: "8px 10px", fontWeight: 600 }}>{c ? (c.dealer || c.source || "dealer") : (r.scanned ? "no match ±5k mi" : "—")}</td>
+                                <td style={{ padding: "8px 10px" }}>{c && c.location ? "📍 " + c.location : "—"}</td>
+                                <td style={{ padding: "8px 10px", fontWeight: 600 }}>{c && c.distance ? "🚗 " + c.distance + " mi" : "—"}</td>
+                                <td style={{ padding: "8px 10px" }}>{c && c.miles ? Number(c.miles).toLocaleString() : "—"}</td>
                                 <td style={{ padding: "8px 10px", fontWeight: 800, color: "#16a34a" }}>{c ? (c.link ? <a href={c.link} target="_blank" rel="noopener" style={{ color: "#16a34a" }}>{money(c.price)}</a> : money(c.price)) : "—"}</td>
                                 <td style={{ padding: "8px 10px", color: "#dc2626", fontWeight: 600 }}>{r.suggested ? money(r.suggested) : "—"}</td>
                                 <td style={{ padding: "8px 10px" }}><button onClick={() => pbScanVehicle(v)} disabled={r.status === "scanning" || pbScanning} style={{ ...styles.buttonGhost, height: 26, padding: "0 8px", fontSize: 11 }}>{r.status === "scanning" ? "…" : "🤖 Scan"}</button></td>
