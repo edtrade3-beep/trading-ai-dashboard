@@ -602,9 +602,7 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
     const mcKey = engineOn("MARKETCHECK") ? getKey("MARKETCHECK_API_KEY") : "";
     const adKey = engineOn("AUTODEV") ? getKey("AUTODEV_API_KEY") : "";
     const braveKey = engineOn("BRAVE") ? getKey("BRAVE_API_KEY") : "";
-    if (!mcKey && !adKey && !braveKey) {
-      return writeJson(res, 503, { error: "No engine enabled — add a MarketCheck, Auto.dev, or Brave key." });
-    }
+    // No keys is OK — we fall back to a free, no-API market-value estimate below.
     let body;
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
 
@@ -650,9 +648,20 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
       // so far-away results (e.g. New York from engines that don't return location) are dropped. No mileage filter.
       const pool = all.filter(c => c.distance > 0 && c.distance <= radius);
       const clean = pool.slice(0, 1);        // the single cheapest LOCAL listing (empty = none within 200 mi)
-      // No local comparable found within 200 mi → say so (never fall back to a far-away price).
+      // No live listing (no key / out of quota / nothing local) → free no-API market-value estimate.
       if (!clean.length) {
-        if (lastErr) return writeJson(res, 422, { error: /run out|quota|rate|limit/i.test(lastErr) ? `Out of searches — ${lastErr}. Add another key or top up.` : lastErr });
+        const est = estimateMarketValue(year, make, model, myMiles, "Good");
+        if (est > 0) {
+          const low = Math.round(est * 0.9);
+          const gap = myPrice && low ? myPrice - low : null;
+          return writeJson(res, 200, {
+            found: true, engine: "estimate", competitors: [], marketLow: low, marketAvg: est,
+            cheapestPrice: low, dealer: "Market estimate (no live listing)", location: "", distance: 0, compMiles: 0, link: "",
+            gap, status: gap == null ? "unknown" : gap >= 0 ? "cheapest" : gap >= -500 ? "close" : "not_cheapest",
+            suggested: gap != null && gap < 0 ? Math.max(low - 100, 0) : null,
+          });
+        }
+        if (lastErr) return writeJson(res, 422, { error: /run out|quota|rate|limit/i.test(lastErr) ? `Out of searches — ${lastErr}` : lastErr });
         return writeJson(res, 200, { found: false, engine, reason: "no_local_match" });
       }
       const marketLow = toNum(result.marketLow) || clean[0].price;
