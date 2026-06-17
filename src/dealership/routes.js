@@ -314,11 +314,13 @@ function milesBetween(a, b) {
   const comps = (d.data || [])
     .map(rec => { const l = rec.retailListing || rec.wholesaleListing || {};
       const loc = Array.isArray(rec.location) && rec.location.length === 2 ? [rec.location[1], rec.location[0]] : null; // [lat,lng]
+      const vdp = l.vdp || "";
+      // Link to the actual car listing — the dealer's VDP if it's a real URL, else a VIN search that lands on the live listing. Never Carfax.
+      const link = /^https?:/i.test(vdp) ? vdp : (rec.vin ? `https://www.google.com/search?q=${rec.vin}+for+sale` : "");
       return {
         price: num(l.price), dealer: l.dealer || "", source: l.dealer || "",
         location: [l.city, l.state].filter(Boolean).join(", "), miles: num(l.miles),
-        distance: loc ? milesBetween(ref, loc) : 0,
-        link: l.carfaxUrl || rec["@id"] || "",
+        distance: loc ? milesBetween(ref, loc) : 0, vin: rec.vin || "", link,
       }; })
     .filter(c => c.price > 0 && (refPrice <= 0 || (c.price >= lo && c.price <= hi)) && !/dixie|cincy automall/i.test(c.dealer))
     .sort((a, b) => a.price - b.price);
