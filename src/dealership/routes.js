@@ -542,16 +542,16 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
 
   // GET /api/dealer/ai-key — which engines are set + enabled? (never returns values)
   if (pathname === "/api/dealer/ai-key" && req.method === "GET") {
-    const google = !!getKey("SERPAPI_KEY"), brave = !!getKey("BRAVE_API_KEY"), mc = !!getKey("MARKETCHECK_API_KEY"), ad = !!getKey("AUTODEV_API_KEY");
-    const googleOn = google && engineOn("SERPAPI"), braveOn = brave && engineOn("BRAVE"), mcOn = mc && engineOn("MARKETCHECK"), adOn = ad && engineOn("AUTODEV");
-    return writeJson(res, 200, { configured: googleOn || braveOn || mcOn || adOn, google, brave, marketcheck: mc, autodev: ad, googleOn, braveOn, mcOn, adOn, engine: mcOn ? "marketcheck" : adOn ? "autodev" : braveOn ? "brave" : googleOn ? "google" : null });
+    const brave = !!getKey("BRAVE_API_KEY"), mc = !!getKey("MARKETCHECK_API_KEY");
+    const braveOn = brave && engineOn("BRAVE"), mcOn = mc && engineOn("MARKETCHECK");
+    return writeJson(res, 200, { configured: braveOn || mcOn, brave, marketcheck: mc, braveOn, mcOn, engine: mcOn ? "marketcheck" : braveOn ? "brave" : null });
   }
   // POST /api/dealer/ai-key — set a key { key, provider }, OR toggle an engine { provider, enabled:bool }
   if (pathname === "/api/dealer/ai-key" && req.method === "POST") {
     let body;
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
-    const KEYS = { brave: "BRAVE_API_KEY", google: "SERPAPI_KEY", marketcheck: "MARKETCHECK_API_KEY", autodev: "AUTODEV_API_KEY" };
-    const FLAGS = { brave: "BRAVE_ENABLED", google: "SERPAPI_ENABLED", marketcheck: "MARKETCHECK_ENABLED", autodev: "AUTODEV_ENABLED" };
+    const KEYS = { brave: "BRAVE_API_KEY", marketcheck: "MARKETCHECK_API_KEY" };
+    const FLAGS = { brave: "BRAVE_ENABLED", marketcheck: "MARKETCHECK_ENABLED" };
     // Toggle on/off (no key change)
     if (typeof body.enabled === "boolean") {
       const provider = String(body.provider || "").toLowerCase();
@@ -571,11 +571,9 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
   // POST /api/dealer/price-beat — "Am I cheapest?" — Brave → SerpAPI (free search engines only).
   if (pathname === "/api/dealer/price-beat" && req.method === "POST") {
     const mcKey = engineOn("MARKETCHECK") ? getKey("MARKETCHECK_API_KEY") : "";
-    const adKey = engineOn("AUTODEV") ? getKey("AUTODEV_API_KEY") : "";
-    const serpKey = engineOn("SERPAPI") ? getKey("SERPAPI_KEY") : "";
     const braveKey = engineOn("BRAVE") ? getKey("BRAVE_API_KEY") : "";
-    if (!mcKey && !adKey && !serpKey && !braveKey) {
-      return writeJson(res, 503, { error: "No engine enabled — add a MarketCheck, Auto.dev, Brave, or SerpAPI key." });
+    if (!mcKey && !braveKey) {
+      return writeJson(res, 503, { error: "No engine enabled — add a MarketCheck or Brave key." });
     }
     let body;
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
@@ -599,23 +597,11 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
         const m = await marketcheckScan(veh, mcKey, radius);
         if (m.error) lastErr = m.error; else result = m;
       }
-      // 2) Auto.dev — real structured listings.
-      if ((!result || !result.found) && adKey) {
-        engine = "autodev";
-        const a = await autodevScan(veh, adKey, myPrice);
-        if (a.error) lastErr = a.error; else result = a;
-      }
-      // 3) Brave search (free 2,000/mo).
+      // 2) Brave search (free 2,000/mo).
       if ((!result || !result.found) && braveKey) {
         engine = "brave";
         const b = await bravePriceScan(veh, braveKey, myPrice);
         if (b.error) lastErr = /invalid/i.test(b.error) ? "Your Brave key is invalid." : `Brave: ${b.error}`; else result = b;
-      }
-      // 3) SerpAPI (Google) — when others are absent/empty/out of quota.
-      if ((!result || !result.found) && serpKey) {
-        engine = "google";
-        const g = await googlePriceScan(veh, serpKey, myPrice);
-        if (g.error) lastErr = /invalid api key/i.test(g.error) ? "Your SerpAPI key is invalid." : `SerpAPI: ${g.error}`; else result = g;
       }
       result = result || { found: false };
 
