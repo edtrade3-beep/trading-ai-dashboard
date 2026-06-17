@@ -286,21 +286,7 @@ async function marketcheckScan({ year, make, model, trim, zip }, mcKey, radius) 
   };
 }
 
-// Auto.dev — real structured used-car listings (generous free tier).
-async function autodevScan({ year, make, model, trim, zip }, key, refPrice, refCoords) {
-  const p = new URLSearchParams({ apikey: key, makes: make, models: model, year: String(year), zip: zip || "45014", sort: "price" });
-  const url = `https://api.auto.dev/listings?${p.toString()}`;
-  let d = null;
-  try { d = await withTimeout(fetch(url).then(r => r.json()), 15000, null); } catch { d = null; }
-  if (!d) return { found: false, error: "Auto.dev unavailable" };
-  if (d.error) {
-    const st = d.error.status, msg = d.error.error || "";
-    if (st === 401 || st === 403 || /unauthor|invalid.?key|api.?key/i.test(msg)) return { found: false, error: "Your Auto.dev key is invalid." };
-    if (st === 429 || /limit|quota/i.test(msg)) return { found: false, error: "Auto.dev quota exceeded." };
-    return { found: false, error: `Auto.dev: ${msg}` };
-  }
-  const num = (x) => Number(String(x ?? "").replace(/[^0-9.]/g, "")) || 0;
-// Distance (miles) from the reference ZIP to a listing. Coords for common ZIPs; default 45014.
+// Distance (miles) between two [lat,lng] points (haversine).
 const ZIP_COORDS = { "45014": [39.34, -84.56], "45011": [39.40, -84.56], "45013": [39.35, -84.61], "45069": [39.34, -84.40] };
 const ZIP_CACHE = {};
 // Geocode any US ZIP to [lat, lng] (free, no key, cached). Falls back to 45014.
@@ -321,6 +307,21 @@ function milesBetween(a, b) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(toR(a[0])) * Math.cos(toR(b[0])) * Math.sin(dLng / 2) ** 2;
   return Math.round(2 * R * Math.asin(Math.sqrt(h)));
 }
+
+// Auto.dev — real structured used-car listings (generous free tier).
+async function autodevScan({ year, make, model, trim, zip }, key, refPrice, refCoords) {
+  const p = new URLSearchParams({ apikey: key, makes: make, models: model, year: String(year), zip: zip || "45014", sort: "price" });
+  const url = `https://api.auto.dev/listings?${p.toString()}`;
+  let d = null;
+  try { d = await withTimeout(fetch(url).then(r => r.json()), 15000, null); } catch { d = null; }
+  if (!d) return { found: false, error: "Auto.dev unavailable" };
+  if (d.error) {
+    const st = d.error.status, msg = d.error.error || "";
+    if (st === 401 || st === 403 || /unauthor|invalid.?key|api.?key/i.test(msg)) return { found: false, error: "Your Auto.dev key is invalid." };
+    if (st === 429 || /limit|quota/i.test(msg)) return { found: false, error: "Auto.dev quota exceeded." };
+    return { found: false, error: `Auto.dev: ${msg}` };
+  }
+  const num = (x) => Number(String(x ?? "").replace(/[^0-9.]/g, "")) || 0;
   const lo = refPrice > 0 ? refPrice * 0.5 : 0, hi = refPrice > 0 ? refPrice * 1.6 : 1e9;
   const ref = refCoords || ZIP_COORDS[zip] || ZIP_COORDS["45014"];
   const comps = (d.data || [])
