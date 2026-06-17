@@ -172,8 +172,8 @@ async function handleWebhooks(req, res, requestUrl) {
     });
   } catch {}
 
-  // Fire Telegram notification (non-blocking, errors suppressed)
-  sendTelegramAlert(payload);
+  // TradingView → Telegram forwarding is disabled (alerts are still stored/shown in the app).
+  // sendTelegramAlert(payload);
 
   return writeJson(res, 200, { ok: true, received: payload, total: TV_WEBHOOK_ALERTS.length });
 }
