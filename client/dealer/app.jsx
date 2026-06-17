@@ -1745,26 +1745,18 @@ function App() {
                     For every car in your inventory, AI searches CarGurus / Cars.com / AutoTrader within range of 45014 and shows the <b>3 cheapest competitors</b> and whether you're the <b>cheapest</b> — or how much to <b>reprice to win</b>. Your own listings are excluded.
                   </div>
 
-                  {/* Data keys — MarketCheck + Brave */}
+                  {/* Data engines — keys come from the server Environment (Render) */}
                   <div style={{ ...styles.card, marginBottom: 12, borderColor: pbKeyConfigured ? styles.card.borderColor : "#d97706" }}>
-                    <div style={{ ...styles.smallLabel, color: pbKeyConfigured ? styles.smallLabel.color : "#92400e" }}>⚙️ DATA KEYS — MarketCheck (real listings) is used first, then Brave</div>
-                    {/* MarketCheck — recommended */}
-                    <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
-                      <span style={{ width: 130, fontSize: 12, fontWeight: 600 }}>MarketCheck ⭐ {pbMcSet ? <span style={{ color: "#16a34a" }}>✓</span> : ""}</span>
-                      <input type="password" value={pbMcInput} onChange={(e) => setPbMcInput(e.target.value)} placeholder={pbMcSet ? "saved — paste to replace" : "MarketCheck API key"} style={{ ...styles.input, flex: 1, minWidth: 180 }} />
-                      <button onClick={() => savePbKey("marketcheck", pbMcInput)} style={styles.buttonPrimary}>Save</button>
-                      {pbMcSet && <button onClick={() => togglePbEngine("marketcheck", !pbMcOn)} title="Enable/disable this engine" style={{ ...(pbMcOn ? styles.buttonPrimary : styles.buttonGhost), background: pbMcOn ? "#16a34a" : undefined, borderColor: pbMcOn ? "#16a34a" : undefined, minWidth: 64 }}>{pbMcOn ? "ON" : "OFF"}</button>}
-                    </div>
-                    <div style={{ fontSize: 10, color: styles.smallLabel.color, margin: "2px 0 0 138px" }}>Real listings — exact dealer, price, location · marketcheck.com (free trial)</div>
-                    {/* Brave */}
-                    <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
-                      <span style={{ width: 130, fontSize: 12, fontWeight: 600 }}>Brave {pbBraveSet ? <span style={{ color: "#16a34a" }}>✓</span> : ""}</span>
-                      <input type="password" value={pbBraveInput} onChange={(e) => setPbBraveInput(e.target.value)} placeholder={pbBraveSet ? "saved — paste to replace (BSA…)" : "BSA… key"} style={{ ...styles.input, flex: 1, minWidth: 180 }} />
-                      <button onClick={() => savePbKey("brave", pbBraveInput)} style={styles.buttonPrimary}>Save</button>
-                      {pbBraveSet && <button onClick={() => togglePbEngine("brave", !pbBraveOn)} title="Enable/disable this engine" style={{ ...(pbBraveOn ? styles.buttonPrimary : styles.buttonGhost), background: pbBraveOn ? "#16a34a" : undefined, borderColor: pbBraveOn ? "#16a34a" : undefined, minWidth: 64 }}>{pbBraveOn ? "ON" : "OFF"}</button>}
-                    </div>
-                    <div style={{ fontSize: 10, color: styles.smallLabel.color, margin: "2px 0 0 138px" }}>Free 2,000/mo · brave.com/search/api</div>
-                    <div style={{ fontSize: 10, color: styles.smallLabel.color, marginTop: 8 }}>Stored on your server only. MarketCheck is tried first, then Brave.</div>
+                    <div style={{ ...styles.smallLabel, color: pbKeyConfigured ? styles.smallLabel.color : "#92400e" }}>⚙️ DATA ENGINES — keys set in Render → Environment</div>
+                    {[["MarketCheck ⭐", pbMcSet, pbMcOn, "marketcheck", "MARKETCHECK_API_KEY", "real listings — exact dealer, price, location"],
+                      ["Brave", pbBraveSet, pbBraveOn, "brave", "BRAVE_API_KEY", "free 2,000/mo search"]].map(([name, set, on, prov, envname, desc]) => (
+                      <div key={prov} style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
+                        <span style={{ width: 130, fontSize: 12, fontWeight: 600 }}>{name}</span>
+                        <span style={{ fontSize: 12, color: set ? "#16a34a" : "#dc2626", minWidth: 220 }}>{set ? "✓ key found in environment" : `✗ not set — add ${envname}`}</span>
+                        {set && <button onClick={() => togglePbEngine(prov, !on)} title="Enable/disable this engine" style={{ ...(on ? styles.buttonPrimary : styles.buttonGhost), background: on ? "#16a34a" : undefined, borderColor: on ? "#16a34a" : undefined, minWidth: 64 }}>{on ? "ON" : "OFF"}</button>}
+                      </div>
+                    ))}
+                    <div style={{ fontSize: 10, color: styles.smallLabel.color, marginTop: 8 }}>Set <b>MARKETCHECK_API_KEY</b> and <b>BRAVE_API_KEY</b> in Render → Environment. MarketCheck is tried first, then Brave.</div>
                   </div>
 
                   {/* Add a single vehicle */}
