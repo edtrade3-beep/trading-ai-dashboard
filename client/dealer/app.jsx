@@ -261,7 +261,10 @@ function App() {
   const [password, setPassword] = useState("");
   const [unlocked, setUnlocked] = useState(true);   // password lock removed
   const [loginLoading, setLoginLoading] = useState(false);
-  const [tab, setTab] = useState("Overview");
+  const [tab, setTab] = useState(() => {
+    try { const t = new URLSearchParams(window.location.search).get("tab"); if (t && TABS.includes(t)) return t; } catch {}
+    return "Overview";
+  });
   const [vin, setVin] = useState("");
   const [vehicle, setVehicle] = useState(null);
   const [vinHistory, setVinHistory] = useState(() => { try { return JSON.parse(localStorage.getItem("dixie_vin_history") || "[]"); } catch { return []; } });

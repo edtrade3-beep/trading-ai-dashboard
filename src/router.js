@@ -309,6 +309,11 @@ async function handleRequest(req, res) {
       res.end();
       return;
     }
+    if (pathname === "/price-beater" || pathname === "/pricebeater" || pathname === "/price-beater/") {
+      res.writeHead(302, { Location: "/client/dealer/index.html?tab=Price%20Beater" });
+      res.end();
+      return;
+    }
     if (pathname === "/workstation" || pathname === "/workstation/") {
       // Workstation replaced by Smart Scanner deep dive — redirect to main platform
       res.writeHead(302, { Location: "/" });
