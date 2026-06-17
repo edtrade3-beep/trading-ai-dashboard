@@ -635,9 +635,9 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
       // 1) Within the search radius (default 200 mi) of the reference ZIP. Keep listings with unknown distance.
       let pool = all.filter(c => !c.distance || c.distance <= radius);
       if (!pool.length) pool = all;
-      // 2) Apples-to-apples: similar odometer (±5,000 mi of MY car).
+      // 2) Apples-to-apples: similar odometer (±15,000 mi of MY car).
       if (myMiles > 0) {
-        const within = pool.filter(c => c.miles > 0 && Math.abs(c.miles - myMiles) <= 5000);
+        const within = pool.filter(c => c.miles > 0 && Math.abs(c.miles - myMiles) <= 15000);
         if (within.length) pool = within;   // if none match, fall back so you still get a number
       }
       const clean = pool.slice(0, 1);        // the single cheapest comparable

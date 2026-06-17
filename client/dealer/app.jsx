@@ -1760,7 +1760,7 @@ function App() {
               return (
                 <Panel title="Price Beater" badge="Real dealer listings" styles={styles}>
                   <div style={{ fontSize: 13, color: styles.smallLabel.color, marginBottom: 12 }}>
-                    For each car, finds the <b>cheapest competing dealer</b> near <b>45014</b> with similar mileage (±5,000 mi) — shows the dealer, how far, the odometer, and a link to the listing. Your own listings are excluded.
+                    For each car, finds the <b>cheapest competing dealer</b> near <b>45014</b> with similar mileage (±15,000 mi) — shows the dealer, how far, the odometer, and a link to the listing. Your own listings are excluded.
                   </div>
 
                   {/* Data engines — keys come from the server Environment */}
@@ -1837,7 +1837,7 @@ function App() {
                                 <td style={{ padding: "8px 10px" }}>{v.year} {v.make} {v.model} <span style={{ color: styles.smallLabel.color }}>{v.trim}</span></td>
                                 <td style={{ padding: "8px 10px" }}>{v.mileage ? Number(v.mileage).toLocaleString() : "—"}</td>
                                 <td style={{ padding: "8px 10px", fontWeight: 700 }}>{money(v.price || 0)}</td>
-                                <td style={{ padding: "8px 10px", fontWeight: 600 }}>{c ? (c.dealer || c.source || "dealer") : (r.scanned ? "no match ±5k mi" : "—")}</td>
+                                <td style={{ padding: "8px 10px", fontWeight: 600 }}>{c ? (c.dealer || c.source || "dealer") : (r.scanned ? "no match ±15k mi" : "—")}</td>
                                 <td style={{ padding: "8px 10px" }}>{c && c.location ? "📍 " + c.location : "—"}</td>
                                 <td style={{ padding: "8px 10px", fontWeight: 600 }}>{c && c.distance ? "🚗 " + c.distance + " mi" : "—"}</td>
                                 <td style={{ padding: "8px 10px" }}>{c && c.miles ? Number(c.miles).toLocaleString() : "—"}</td>
