@@ -632,13 +632,15 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
       const comps = Array.isArray(result.competitors) ? result.competitors : [];
       const all = comps.map(c => ({ price: toNum(c.price), source: c.source || "", dealer: c.dealer || "", location: c.location || "", distance: c.distance || 0, miles: toNum(c.miles), link: c.link || "" }))
         .filter(c => c.price > 0).sort((a, b) => a.price - b.price);
-      // Compare apples-to-apples: keep only listings within ±5,000 odometer miles of MY car, then take the cheapest.
-      let pool = all;
+      // 1) Within the search radius (default 200 mi) of the reference ZIP. Keep listings with unknown distance.
+      let pool = all.filter(c => !c.distance || c.distance <= radius);
+      if (!pool.length) pool = all;
+      // 2) Apples-to-apples: similar odometer (±5,000 mi of MY car).
       if (myMiles > 0) {
-        const within = all.filter(c => c.miles > 0 && Math.abs(c.miles - myMiles) <= 5000);
-        if (within.length) pool = within;   // if none in range, fall back to all so you still get a number
+        const within = pool.filter(c => c.miles > 0 && Math.abs(c.miles - myMiles) <= 5000);
+        if (within.length) pool = within;   // if none match, fall back so you still get a number
       }
-      const clean = pool.slice(0, 1);        // just the single cheapest comparable
+      const clean = pool.slice(0, 1);        // the single cheapest comparable
       const marketLow = toNum(result.marketLow) || (clean[0] && clean[0].price) || 0;
       const marketAvg = toNum(result.marketAvg) || 0;
       if (!result.found || (!marketLow && !clean.length)) {
