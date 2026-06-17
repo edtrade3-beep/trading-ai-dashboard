@@ -307,11 +307,17 @@ function App() {
   const [pbScanning, setPbScanning] = useState(false);
   const [pbStatus, setPbStatus] = useState("");
   const [pbRadius, setPbRadius] = useState(200);
-  const [pbKeyConfigured, setPbKeyConfigured] = useState(null); // null = unknown
-  const [pbKeyInput, setPbKeyInput] = useState("");
+  const [pbKeyConfigured, setPbKeyConfigured] = useState(null); // null = unknown; true if either engine set
+  const [pbBraveSet, setPbBraveSet] = useState(false);
+  const [pbSerpSet, setPbSerpSet] = useState(false);
+  const [pbBraveInput, setPbBraveInput] = useState("");
+  const [pbSerpInput, setPbSerpInput] = useState("");
   const [pbAdd, setPbAdd] = useState({ year: "", make: "", model: "", trim: "", mileage: "", price: "" });
+  const refreshPbKeys = () => fetch("/api/dealer/ai-key").then(r => r.json())
+    .then(d => { setPbBraveSet(!!d.brave); setPbSerpSet(!!d.google); setPbKeyConfigured(!!d.configured); })
+    .catch(() => setPbKeyConfigured(false));
   useEffect(() => {
-    fetch("/api/dealer/ai-key").then(r => r.json()).then(d => setPbKeyConfigured(!!d.configured)).catch(() => setPbKeyConfigured(false));
+    refreshPbKeys();
     // Clear any rows stuck in "scanning" from an interrupted run
     setPbResults(prev => {
       let changed = false; const next = { ...prev };
@@ -320,16 +326,16 @@ function App() {
       return prev;
     });
   }, []);
-  const savePbKey = async () => {
-    const key = pbKeyInput.trim();
+  const savePbKey = async (provider, value) => {
+    const key = (value || "").trim();
     if (key.length < 20) { showToast("That key looks too short", "error"); return; }
-    const provider = /^BSA/i.test(key) ? "brave" : "google";
     try {
       const r = await fetch("/api/dealer/ai-key", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, provider }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Save failed");
-      const label = { google: "SerpAPI (Google)", brave: "Brave search" }[provider];
-      setPbKeyConfigured(true); setPbKeyInput(""); showToast(`${label} key saved — scanning enabled`, "success");
+      if (provider === "brave") { setPbBraveSet(true); setPbBraveInput(""); } else { setPbSerpSet(true); setPbSerpInput(""); }
+      setPbKeyConfigured(true);
+      showToast(`${provider === "brave" ? "Brave" : "SerpAPI"} key saved — scanning enabled`, "success");
     } catch (e) { showToast(e.message, "error"); }
   };
   const pbAddVehicle = () => {
@@ -354,7 +360,7 @@ function App() {
     } catch (e) { return { status: "error", error: e.message, scanned: false }; }
   };
   const pbScanVehicle = async (v) => {
-    if (pbKeyConfigured === false) { showToast("Add your Anthropic API key first (box at the top)", "error"); return; }
+    if (pbKeyConfigured === false) { showToast("Add a Brave or SerpAPI key first (box at the top)", "error"); return; }
     const cur = { ...pbResults, [v.vin]: { status: "scanning" } };
     savePbResults(cur);
     const res = await scanOnePB(v);
@@ -369,7 +375,7 @@ function App() {
   };
   const pbScanAll = async () => {
     if (pbScanning) return;
-    if (pbKeyConfigured === false) { showToast("Add your Anthropic API key first (box at the top)", "error"); setPbStatus("⚠️ Add your Anthropic API key above to enable scanning."); return; }
+    if (pbKeyConfigured === false) { showToast("Add a Brave or SerpAPI key first (box at the top)", "error"); setPbStatus("⚠️ Add a Brave or SerpAPI key above to enable scanning."); return; }
     const list = inventory.filter(v => v.vin && !pbResults[v.vin]?.scanned);
     if (!list.length) { showToast("All inventory already scanned", "success"); return; }
     setPbScanning(true);
@@ -1663,20 +1669,25 @@ function App() {
                     For every car in your inventory, AI searches CarGurus / Cars.com / AutoTrader within range of 45014 and shows the <b>3 cheapest competitors</b> and whether you're the <b>cheapest</b> — or how much to <b>reprice to win</b>. Your own listings are excluded.
                   </div>
 
-                  {/* Anthropic API key setup */}
-                  {pbKeyConfigured === false && (
-                    <div style={{ ...styles.card, marginBottom: 12, borderColor: "#d97706" }}>
-                      <div style={{ ...styles.smallLabel, color: "#92400e" }}>⚙️ ENABLE SCANNING — paste a free Brave or SerpAPI key (auto-detected)</div>
-                      <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-                        <input type="password" value={pbKeyInput} onChange={(e) => setPbKeyInput(e.target.value)} placeholder="Brave (BSA…) or SerpAPI key" style={{ ...styles.input, flex: 1, minWidth: 240 }} />
-                        <button onClick={savePbKey} style={styles.buttonPrimary}>Save Key</button>
-                      </div>
-                      <div style={{ fontSize: 11, color: styles.smallLabel.color, marginTop: 4 }}>🟢 <b>Free:</b> Brave (2,000 searches/mo, brave.com/search/api) · SerpAPI (100/mo, serpapi.com). Add both — it uses whichever has searches left. Stored on your server only.</div>
+                  {/* Search API keys — Brave + SerpAPI (separate fields) */}
+                  <div style={{ ...styles.card, marginBottom: 12, borderColor: pbKeyConfigured ? styles.card.borderColor : "#d97706" }}>
+                    <div style={{ ...styles.smallLabel, color: pbKeyConfigured ? styles.smallLabel.color : "#92400e" }}>⚙️ SEARCH KEYS — add either or both (it uses whichever has searches left)</div>
+                    {/* Brave */}
+                    <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
+                      <span style={{ width: 130, fontSize: 12, fontWeight: 600 }}>Brave {pbBraveSet ? <span style={{ color: "#16a34a" }}>✓</span> : ""}</span>
+                      <input type="password" value={pbBraveInput} onChange={(e) => setPbBraveInput(e.target.value)} placeholder={pbBraveSet ? "saved — paste to replace (BSA…)" : "BSA… key"} style={{ ...styles.input, flex: 1, minWidth: 200 }} />
+                      <button onClick={() => savePbKey("brave", pbBraveInput)} style={styles.buttonPrimary}>Save</button>
                     </div>
-                  )}
-                  {pbKeyConfigured === true && (
-                    <div style={{ fontSize: 11, color: "#16a34a", marginBottom: 10 }}>✓ AI scanning enabled <button onClick={() => setPbKeyConfigured(false)} style={{ ...styles.buttonGhost, height: 22, padding: "0 6px", fontSize: 10, marginLeft: 6 }}>change key</button></div>
-                  )}
+                    <div style={{ fontSize: 10, color: styles.smallLabel.color, margin: "2px 0 0 138px" }}>Free 2,000/mo · brave.com/search/api</div>
+                    {/* SerpAPI */}
+                    <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
+                      <span style={{ width: 130, fontSize: 12, fontWeight: 600 }}>SerpAPI {pbSerpSet ? <span style={{ color: "#16a34a" }}>✓</span> : ""}</span>
+                      <input type="password" value={pbSerpInput} onChange={(e) => setPbSerpInput(e.target.value)} placeholder={pbSerpSet ? "saved — paste to replace" : "SerpAPI key"} style={{ ...styles.input, flex: 1, minWidth: 200 }} />
+                      <button onClick={() => savePbKey("google", pbSerpInput)} style={styles.buttonPrimary}>Save</button>
+                    </div>
+                    <div style={{ fontSize: 10, color: styles.smallLabel.color, margin: "2px 0 0 138px" }}>Free 100/mo · serpapi.com</div>
+                    <div style={{ fontSize: 10, color: styles.smallLabel.color, marginTop: 8 }}>Stored on your server only. Brave is tried first, then SerpAPI.</div>
+                  </div>
 
                   {/* Add a single vehicle */}
                   <div style={{ ...styles.card, marginBottom: 12 }}>
