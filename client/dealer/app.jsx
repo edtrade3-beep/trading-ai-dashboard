@@ -322,12 +322,13 @@ function App() {
   }, []);
   const savePbKey = async () => {
     const key = pbKeyInput.trim();
-    if (!/^sk-ant-/.test(key)) { showToast("Key should start with sk-ant-", "error"); return; }
+    if (key.length < 20) { showToast("That key looks too short", "error"); return; }
+    const provider = /^sk-ant-/.test(key) ? "anthropic" : "google";
     try {
-      const r = await fetch("/api/dealer/ai-key", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key }) });
+      const r = await fetch("/api/dealer/ai-key", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, provider }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Save failed");
-      setPbKeyConfigured(true); setPbKeyInput(""); showToast("Anthropic key saved — scanning enabled", "success");
+      setPbKeyConfigured(true); setPbKeyInput(""); showToast(`${provider === "google" ? "Google search" : "Anthropic"} key saved — scanning enabled`, "success");
     } catch (e) { showToast(e.message, "error"); }
   };
   const pbAddVehicle = () => {
@@ -356,7 +357,7 @@ function App() {
     const cur = { ...pbResults, [v.vin]: { status: "scanning" } };
     savePbResults(cur);
     const res = await scanOnePB(v);
-    if (res.status === "error" && /not configured/i.test(res.error || "")) {
+    if (res.status === "error" && /not configured|invalid|no scan engine|serpapi/i.test(res.error || "")) {
       setPbKeyConfigured(false);
       const cleared = { ...cur }; delete cleared[v.vin]; savePbResults(cleared);
       showToast("Add your Anthropic API key first (box at the top)", "error");
@@ -376,7 +377,7 @@ function App() {
       setPbStatus(`Scanning ${i + 1}/${list.length}: ${v.year} ${v.make} ${v.model}`);
       acc = { ...acc, [v.vin]: { status: "scanning" } }; savePbResults(acc);
       const res = await scanOnePB(v);
-      if (res.status === "error" && /not configured/i.test(res.error || "")) {
+      if (res.status === "error" && /not configured|invalid|no scan engine|serpapi/i.test(res.error || "")) {
         setPbStatus("⚠️ Add your Anthropic API key above to enable scanning.");
         const cleared = { ...acc }; delete cleared[v.vin]; savePbResults(cleared);
         setPbKeyConfigured(false); setPbScanning(false); return;
@@ -1658,12 +1659,12 @@ function App() {
                   {/* Anthropic API key setup */}
                   {pbKeyConfigured === false && (
                     <div style={{ ...styles.card, marginBottom: 12, borderColor: "#d97706" }}>
-                      <div style={{ ...styles.smallLabel, color: "#92400e" }}>⚙️ ENABLE AI SCANNING — paste your Anthropic API key (one time)</div>
+                      <div style={{ ...styles.smallLabel, color: "#92400e" }}>⚙️ ENABLE SCANNING — paste a free Google (SerpAPI) key, or an Anthropic key</div>
                       <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-                        <input type="password" value={pbKeyInput} onChange={(e) => setPbKeyInput(e.target.value)} placeholder="sk-ant-..." style={{ ...styles.input, flex: 1, minWidth: 220 }} />
+                        <input type="password" value={pbKeyInput} onChange={(e) => setPbKeyInput(e.target.value)} placeholder="SerpAPI key (free) or sk-ant-..." style={{ ...styles.input, flex: 1, minWidth: 220 }} />
                         <button onClick={savePbKey} style={styles.buttonPrimary}>Save Key</button>
                       </div>
-                      <div style={{ fontSize: 11, color: styles.smallLabel.color, marginTop: 4 }}>Get one at console.anthropic.com → API Keys. Stored on your server only — never shown again.</div>
+                      <div style={{ fontSize: 11, color: styles.smallLabel.color, marginTop: 4 }}>🟢 <b>Free:</b> get a SerpAPI key at serpapi.com (100 Google searches/month, no charge). Or use Anthropic (console.anthropic.com — paid). Stored on your server only.</div>
                     </div>
                   )}
                   {pbKeyConfigured === true && (

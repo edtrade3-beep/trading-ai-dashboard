@@ -175,6 +175,36 @@ function buildComps(year, make, model, trim, mileage, condition, marketValue) {
 
 const { handleFbHub } = require("./fb-hub");
 
+// ─── Google-search price scan (SerpAPI) — free alternative to the AI engine ────
+async function googlePriceScan({ year, make, model, trim, zip }, serpKey) {
+  const q = `${year} ${make} ${model} ${trim} for sale ${zip}`.replace(/\s+/g, " ").trim();
+  const url = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(q)}&location=${encodeURIComponent("Ohio, United States")}&num=20&api_key=${serpKey}`;
+  const d = await withTimeout(fetchJsonSafe(url), 15000, null);
+  if (!d) return { found: false, error: "Google search unavailable" };
+  if (d.error) return { found: false, error: d.error };
+
+  const hits = [];
+  const add = (price, source, link) => { const n = Number(String(price).replace(/[^0-9]/g, "")); if (n >= 1500 && n <= 200000) hits.push({ price: n, source: source || "Google", link: link || "" }); };
+  (d.shopping_results || []).forEach(s => add(s.price, s.source || "Google Shopping", s.link));
+  (d.organic_results || []).forEach(o => {
+    const txt = `${o.title || ""} ${o.snippet || ""}`;
+    const m = txt.match(/\$\s?[0-9]{1,3},[0-9]{3}/g) || [];
+    m.forEach(p => add(p, o.source || o.displayed_link || "Google", o.link));
+  });
+  if (!hits.length) return { found: false };
+
+  const prices = hits.map(h => h.price).sort((a, b) => a - b);
+  const marketLow = prices[0];
+  const marketAvg = Math.round(prices.reduce((s, p) => s + p, 0) / prices.length);
+  const seen = new Set(), competitors = [];
+  for (const h of hits.sort((a, b) => a.price - b.price)) {
+    if (seen.has(h.price)) continue; seen.add(h.price);
+    competitors.push({ price: h.price, source: h.source, dealer: "", miles: 0, link: h.link });
+    if (competitors.length >= 3) break;
+  }
+  return { found: true, marketLow, marketAvg, competitors };
+}
+
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 async function handleDealership(req, res, requestUrl) {
@@ -363,24 +393,32 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
     }
   }
 
-  // GET /api/dealer/ai-key — is the Anthropic key configured? (never returns the value)
+  // GET /api/dealer/ai-key — which scan engines are configured? (never returns values)
   if (pathname === "/api/dealer/ai-key" && req.method === "GET") {
-    return writeJson(res, 200, { configured: !!anthropicKey() });
+    const google = !!getKey("SERPAPI_KEY"), ai = !!anthropicKey();
+    return writeJson(res, 200, { configured: google || ai, google, ai, engine: google ? "google" : ai ? "ai" : null });
   }
-  // POST /api/dealer/ai-key — set the Anthropic key from the UI { key }
+  // POST /api/dealer/ai-key — set a scan key from the UI { key, provider } (provider: "google" | "anthropic")
   if (pathname === "/api/dealer/ai-key" && req.method === "POST") {
     let body;
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
     const key = String(body.key || "").trim();
-    if (!/^sk-ant-/.test(key)) return writeJson(res, 400, { error: "That doesn't look like an Anthropic key (should start with sk-ant-)." });
-    setKey("ANTHROPIC_API_KEY", key);
-    return writeJson(res, 200, { ok: true, configured: true });
+    const provider = String(body.provider || (/^sk-ant-/.test(key) ? "anthropic" : "google")).toLowerCase();
+    if (provider === "anthropic") {
+      if (!/^sk-ant-/.test(key)) return writeJson(res, 400, { error: "Anthropic key should start with sk-ant-." });
+      setKey("ANTHROPIC_API_KEY", key);
+    } else {
+      if (key.length < 20) return writeJson(res, 400, { error: "That SerpAPI key looks too short." });
+      setKey("SERPAPI_KEY", key);
+    }
+    return writeJson(res, 200, { ok: true, configured: true, provider });
   }
 
-  // POST /api/dealer/price-beat — "Am I cheapest?" Finds the 3 cheapest competitor prices for ONE vehicle.
+  // POST /api/dealer/price-beat — "Am I cheapest?" — Google (SerpAPI) first, AI fallback.
   if (pathname === "/api/dealer/price-beat" && req.method === "POST") {
-    if (!anthropicKey()) {
-      return writeJson(res, 503, { error: "ANTHROPIC_API_KEY is not configured." });
+    const serpKey = getKey("SERPAPI_KEY");
+    if (!serpKey && !anthropicKey()) {
+      return writeJson(res, 503, { error: "No scan engine configured — add a free SerpAPI (Google) key or an Anthropic key." });
     }
     let body;
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
@@ -394,32 +432,34 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
     const myPrice = Number(body.myPrice || 0);
     if (!year || !make || !model) return writeJson(res, 400, { error: "year, make, and model are required" });
 
-    const prompt = `You are a used-car pricing research assistant. Use the web_search tool to research the current market price for this vehicle.
-
-Vehicle: ${year} ${make} ${model} ${trim}
-Near ZIP ${zip}, within ~${radius} miles.
-EXCLUDE my own dealership: "Dixie Motors", "Dixie Imports", "Cincy Automall".
-
-Search CarGurus, Cars.com, AutoTrader, KBB, and similar. Report the realistic LOW asking price and AVERAGE asking price for this year/make/model/trim in this region. Aggregate market data (KBB, CarGurus market average, etc.) is acceptable — you do NOT need exact individual listings. If you can find specific cheap listings, include up to 3 (cheapest first).
-
-Reply with ONLY valid JSON, no markdown:
-If found: {"found":true,"marketLow":12495,"marketAvg":14148,"competitors":[{"price":12495,"source":"KBB","dealer":"","miles":104000,"link":""},{"price":13493,"source":"Capital One","dealer":"","miles":51743,"link":""}]}
-If truly nothing found: {"found":false}`;
-
+    const toNum = (x) => { const n = Number(String(x ?? "").replace(/[^0-9.]/g, "")); return Number.isFinite(n) ? n : 0; };
     try {
-      const text = await callAnthropicWithSearch(prompt, anthropicKey(), { model: "claude-sonnet-4-6", maxTokens: 1100, maxSearches: 6 });
-      const result = extractJsonBlock(text) || { found: false };
-      const toNum = (x) => { const n = Number(String(x ?? "").replace(/[^0-9.]/g, "")); return Number.isFinite(n) ? n : 0; };
+      let result, engine;
+      // 1) Google search (free) when a SerpAPI key is present
+      if (serpKey) {
+        engine = "google";
+        result = await googlePriceScan({ year, make, model, trim, zip }, serpKey);
+        if (result.error && /invalid api key/i.test(result.error)) return writeJson(res, 422, { error: "Your SerpAPI (Google) key is invalid — get a free one at serpapi.com." });
+      }
+      // 2) AI fallback when Google found nothing and an Anthropic key exists
+      if ((!result || !result.found) && anthropicKey()) {
+        engine = "ai";
+        const prompt = `You are a used-car pricing research assistant. Use the web_search tool to research the current market price for a ${year} ${make} ${model} ${trim} near ZIP ${zip} (within ~${radius} miles). EXCLUDE "Dixie Motors", "Dixie Imports", "Cincy Automall". Aggregate market data (KBB, CarGurus average) is acceptable. Reply ONLY valid JSON: {"found":true,"marketLow":12495,"marketAvg":14148,"competitors":[{"price":12495,"source":"KBB","miles":104000,"link":""}]} or {"found":false}`;
+        const text = await callAnthropicWithSearch(prompt, anthropicKey(), { model: "claude-sonnet-4-6", maxTokens: 1100, maxSearches: 6 });
+        result = extractJsonBlock(text) || { found: false };
+      }
+      result = result || { found: false };
+
       const comps = Array.isArray(result.competitors) ? result.competitors : [];
-      const clean = comps.map(c => ({ price: toNum(c.price), source: c.source || "", dealer: c.dealer || "", miles: toNum(c.miles), link: c.link || "", note: c.note || "" }))
+      const clean = comps.map(c => ({ price: toNum(c.price), source: c.source || "", dealer: c.dealer || "", miles: toNum(c.miles), link: c.link || "" }))
         .filter(c => c.price > 0).sort((a, b) => a.price - b.price).slice(0, 3);
       const marketLow = toNum(result.marketLow) || (clean[0] && clean[0].price) || 0;
       const marketAvg = toNum(result.marketAvg) || 0;
-      if (!result.found || (!marketLow && !clean.length)) return writeJson(res, 200, { found: false });
-      const comp = clean.length ? clean[0].price : marketLow;     // benchmark = cheapest comp, else market low
-      const gap = myPrice && comp ? myPrice - comp : null;        // positive = I'm cheaper
+      if (!result.found || (!marketLow && !clean.length)) return writeJson(res, 200, { found: false, engine });
+      const comp = clean.length ? clean[0].price : marketLow;
+      const gap = myPrice && comp ? myPrice - comp : null;
       return writeJson(res, 200, {
-        found: true, competitors: clean, marketLow, marketAvg,
+        found: true, engine, competitors: clean, marketLow, marketAvg,
         cheapestPrice: comp, source: clean[0]?.source || "market est.", dealer: clean[0]?.dealer || "", compMiles: clean[0]?.miles || 0, link: clean[0]?.link || "",
         gap, status: gap == null ? "unknown" : gap >= 0 ? "cheapest" : gap >= -500 ? "close" : "not_cheapest",
         suggested: gap != null && gap < 0 ? Math.max(comp - 100, 0) : null,
