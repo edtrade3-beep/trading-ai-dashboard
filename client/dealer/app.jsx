@@ -310,12 +310,22 @@ function App() {
   const [pbKeyConfigured, setPbKeyConfigured] = useState(null); // null = unknown; true if either engine set
   const [pbBraveSet, setPbBraveSet] = useState(false);
   const [pbSerpSet, setPbSerpSet] = useState(false);
+  const [pbBraveOn, setPbBraveOn] = useState(false);
+  const [pbSerpOn, setPbSerpOn] = useState(false);
   const [pbBraveInput, setPbBraveInput] = useState("");
   const [pbSerpInput, setPbSerpInput] = useState("");
   const [pbAdd, setPbAdd] = useState({ year: "", make: "", model: "", trim: "", mileage: "", price: "" });
   const refreshPbKeys = () => fetch("/api/dealer/ai-key").then(r => r.json())
-    .then(d => { setPbBraveSet(!!d.brave); setPbSerpSet(!!d.google); setPbKeyConfigured(!!d.configured); })
+    .then(d => { setPbBraveSet(!!d.brave); setPbSerpSet(!!d.google); setPbBraveOn(!!d.braveOn); setPbSerpOn(!!d.googleOn); setPbKeyConfigured(!!d.configured); })
     .catch(() => setPbKeyConfigured(false));
+  const togglePbEngine = async (provider, enabled) => {
+    try {
+      const r = await fetch("/api/dealer/ai-key", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider, enabled }) });
+      if (!r.ok) throw new Error((await r.json()).error || "Toggle failed");
+      if (provider === "brave") setPbBraveOn(enabled); else setPbSerpOn(enabled);
+      refreshPbKeys();
+    } catch (e) { showToast(e.message, "error"); }
+  };
   useEffect(() => {
     refreshPbKeys();
     // Clear any rows stuck in "scanning" from an interrupted run
@@ -1675,15 +1685,17 @@ function App() {
                     {/* Brave */}
                     <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
                       <span style={{ width: 130, fontSize: 12, fontWeight: 600 }}>Brave {pbBraveSet ? <span style={{ color: "#16a34a" }}>✓</span> : ""}</span>
-                      <input type="password" value={pbBraveInput} onChange={(e) => setPbBraveInput(e.target.value)} placeholder={pbBraveSet ? "saved — paste to replace (BSA…)" : "BSA… key"} style={{ ...styles.input, flex: 1, minWidth: 200 }} />
+                      <input type="password" value={pbBraveInput} onChange={(e) => setPbBraveInput(e.target.value)} placeholder={pbBraveSet ? "saved — paste to replace (BSA…)" : "BSA… key"} style={{ ...styles.input, flex: 1, minWidth: 180 }} />
                       <button onClick={() => savePbKey("brave", pbBraveInput)} style={styles.buttonPrimary}>Save</button>
+                      {pbBraveSet && <button onClick={() => togglePbEngine("brave", !pbBraveOn)} title="Enable/disable this engine" style={{ ...(pbBraveOn ? styles.buttonPrimary : styles.buttonGhost), background: pbBraveOn ? "#16a34a" : undefined, borderColor: pbBraveOn ? "#16a34a" : undefined, minWidth: 64 }}>{pbBraveOn ? "ON" : "OFF"}</button>}
                     </div>
                     <div style={{ fontSize: 10, color: styles.smallLabel.color, margin: "2px 0 0 138px" }}>Free 2,000/mo · brave.com/search/api</div>
                     {/* SerpAPI */}
                     <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
                       <span style={{ width: 130, fontSize: 12, fontWeight: 600 }}>SerpAPI {pbSerpSet ? <span style={{ color: "#16a34a" }}>✓</span> : ""}</span>
-                      <input type="password" value={pbSerpInput} onChange={(e) => setPbSerpInput(e.target.value)} placeholder={pbSerpSet ? "saved — paste to replace" : "SerpAPI key"} style={{ ...styles.input, flex: 1, minWidth: 200 }} />
+                      <input type="password" value={pbSerpInput} onChange={(e) => setPbSerpInput(e.target.value)} placeholder={pbSerpSet ? "saved — paste to replace" : "SerpAPI key"} style={{ ...styles.input, flex: 1, minWidth: 180 }} />
                       <button onClick={() => savePbKey("google", pbSerpInput)} style={styles.buttonPrimary}>Save</button>
+                      {pbSerpSet && <button onClick={() => togglePbEngine("google", !pbSerpOn)} title="Enable/disable this engine" style={{ ...(pbSerpOn ? styles.buttonPrimary : styles.buttonGhost), background: pbSerpOn ? "#16a34a" : undefined, borderColor: pbSerpOn ? "#16a34a" : undefined, minWidth: 64 }}>{pbSerpOn ? "ON" : "OFF"}</button>}
                     </div>
                     <div style={{ fontSize: 10, color: styles.smallLabel.color, margin: "2px 0 0 138px" }}>Free 100/mo · serpapi.com</div>
                     <div style={{ fontSize: 10, color: styles.smallLabel.color, marginTop: 8 }}>Stored on your server only. Brave is tried first, then SerpAPI.</div>

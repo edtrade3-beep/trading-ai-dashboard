@@ -5,6 +5,8 @@ const { getKey, setKey } = require("../runtime-keys");
 
 // Resolve the Anthropic key from runtime override → env → config (lets the UI set it).
 const anthropicKey = () => getKey("ANTHROPIC_API_KEY", ANTHROPIC_API_KEY);
+// An engine is on unless explicitly disabled.
+const engineOn = (name) => getKey(name + "_ENABLED") !== "off";
 
 // Pull the first JSON object out of an AI response (handles ```json fences or a bare {...}).
 function extractJsonBlock(text) {
@@ -426,28 +428,38 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
     }
   }
 
-  // GET /api/dealer/ai-key — which search engines are configured? (never returns values)
+  // GET /api/dealer/ai-key — which search engines are set + enabled? (never returns values)
   if (pathname === "/api/dealer/ai-key" && req.method === "GET") {
     const google = !!getKey("SERPAPI_KEY"), brave = !!getKey("BRAVE_API_KEY");
-    return writeJson(res, 200, { configured: google || brave, google, brave, engine: brave ? "brave" : google ? "google" : null });
+    const googleOn = google && engineOn("SERPAPI"), braveOn = brave && engineOn("BRAVE");
+    return writeJson(res, 200, { configured: googleOn || braveOn, google, brave, googleOn, braveOn, engine: braveOn ? "brave" : googleOn ? "google" : null });
   }
-  // POST /api/dealer/ai-key — set a search key from the UI { key, provider } (google | brave; auto-detected if omitted)
+  // POST /api/dealer/ai-key — set a key { key, provider }, OR toggle an engine { provider, enabled:bool }
   if (pathname === "/api/dealer/ai-key" && req.method === "POST") {
     let body;
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
+    // Toggle on/off (no key change)
+    if (typeof body.enabled === "boolean") {
+      const provider = String(body.provider || "").toLowerCase();
+      if (provider !== "brave" && provider !== "google") return writeJson(res, 400, { error: "provider must be 'brave' or 'google'" });
+      setKey(provider === "brave" ? "BRAVE_ENABLED" : "SERPAPI_ENABLED", body.enabled ? "on" : "off");
+      return writeJson(res, 200, { ok: true, provider, enabled: body.enabled });
+    }
+    // Set a key
     const key = String(body.key || "").trim();
     if (key.length < 20) return writeJson(res, 400, { error: "That key looks too short." });
     const provider = String(body.provider || (/^BSA/i.test(key) ? "brave" : "google")).toLowerCase();
-    if (provider === "brave") setKey("BRAVE_API_KEY", key);
-    else setKey("SERPAPI_KEY", key);
+    if (provider === "brave") { setKey("BRAVE_API_KEY", key); setKey("BRAVE_ENABLED", "on"); }
+    else { setKey("SERPAPI_KEY", key); setKey("SERPAPI_ENABLED", "on"); }
     return writeJson(res, 200, { ok: true, configured: true, provider });
   }
 
   // POST /api/dealer/price-beat — "Am I cheapest?" — Brave → SerpAPI (free search engines only).
   if (pathname === "/api/dealer/price-beat" && req.method === "POST") {
-    const serpKey = getKey("SERPAPI_KEY"), braveKey = getKey("BRAVE_API_KEY");
+    const serpKey = engineOn("SERPAPI") ? getKey("SERPAPI_KEY") : "";
+    const braveKey = engineOn("BRAVE") ? getKey("BRAVE_API_KEY") : "";
     if (!serpKey && !braveKey) {
-      return writeJson(res, 503, { error: "No search engine configured — add a free SerpAPI or Brave key." });
+      return writeJson(res, 503, { error: "No search engine enabled — add or enable a Brave or SerpAPI key." });
     }
     let body;
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
