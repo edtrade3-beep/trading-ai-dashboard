@@ -352,11 +352,12 @@ function App() {
     const yr = v.year || "";
     const g = (dom) => `https://www.google.com/search?q=${encodeURIComponent(`${yr} ${v.make} ${v.model} for sale 45014`)}+site:${dom}`;
     return [
-      ["CarGurus", `https://www.cargurus.com/Cars/l-Used-${mk}-${md}#resultsPage=1&zip=45014&distance=200`],
-      ["Cars.com", `https://www.cars.com/shopping/results/?stock_type=used&makes[]=${mk}&models[]=${mk}-${md}&year_min=${yr}&year_max=${yr}&maximum_distance=200&zip=45014`],
-      ["TrueCar", `https://www.truecar.com/used-cars-for-sale/listings/${mk}/${md}/?zipcode=45014&searchRadius=200`],
-      ["AutoTrader", `https://www.autotrader.com/cars-for-sale/all-cars/${mk}/${md}/fairfield-oh-45014?searchRadius=200&startYear=${yr}&endYear=${yr}`],
-      ["Carfax", g("carfax.com")],
+      ["CG", "CarGurus", `https://www.cargurus.com/Cars/l-Used-${mk}-${md}#resultsPage=1&zip=45014&distance=200`],
+      ["Cars", "Cars.com", `https://www.cars.com/shopping/results/?stock_type=used&makes[]=${mk}&models[]=${mk}-${md}&year_min=${yr}&year_max=${yr}&maximum_distance=200&zip=45014`],
+      ["TC", "TrueCar", `https://www.truecar.com/used-cars-for-sale/listings/${mk}/${md}/?zipcode=45014&searchRadius=200`],
+      ["AT", "AutoTrader", `https://www.autotrader.com/cars-for-sale/all-cars/${mk}/${md}/fairfield-oh-45014?searchRadius=200&startYear=${yr}&endYear=${yr}`],
+      ["CFS", "CarsForSale", g("carsforsale.com")],
+      ["CFX", "Carfax", g("carfax.com")],
     ];
   };
   const pbSaveInventory = async () => {
@@ -1842,8 +1843,8 @@ function App() {
                                 <td style={{ padding: "8px 10px" }}>{c && c.miles ? Number(c.miles).toLocaleString() : "—"}</td>
                                 <td style={{ padding: "8px 10px", fontWeight: 800, color: "#16a34a" }}>{c ? (c.link ? <a href={c.link} target="_blank" rel="noopener" style={{ color: "#16a34a" }}>{money(c.price)}</a> : money(c.price)) : "—"}</td>
                                 <td style={{ padding: "8px 10px", color: "#dc2626", fontWeight: 600 }}>{r.suggested ? money(r.suggested) : "—"}</td>
-                                <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>{pbSiteLinks(v).map(([name, url], i) => (
-                                  <a key={name} href={url} target="_blank" rel="noopener" title={`Search ${name}`} style={{ fontSize: 10, marginRight: 5, padding: "2px 5px", border: `1px solid ${styles.card.borderColor || "#ddd"}`, borderRadius: 4, color: styles.buttonPrimary.background, textDecoration: "none" }}>{name.slice(0, 2)}</a>
+                                <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>{pbSiteLinks(v).map(([abbr, name, url]) => (
+                                  <a key={abbr} href={url} target="_blank" rel="noopener" title={`Search ${name}`} style={{ fontSize: 10, marginRight: 4, padding: "2px 5px", border: `1px solid ${styles.card.borderColor || "#ddd"}`, borderRadius: 4, color: styles.buttonPrimary.background, textDecoration: "none" }}>{abbr}</a>
                                 ))}</td>
                                 <td style={{ padding: "8px 10px" }}><button onClick={() => pbScanVehicle(v)} disabled={r.status === "scanning" || pbScanning} style={{ ...styles.buttonGhost, height: 26, padding: "0 8px", fontSize: 11 }}>{r.status === "scanning" ? "…" : "🤖 Scan"}</button></td>
                               </tr>
