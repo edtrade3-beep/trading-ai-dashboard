@@ -1729,117 +1729,107 @@ function App() {
               inventory.forEach(v => {
                 const r = pbResults[v.vin];
                 if (!r || !r.scanned) counts.unscanned++;
-                else if (r.status === "cheapest") counts.cheapest++;
-                else if (r.status === "not_cheapest") counts.not_cheapest++;
-                else if (r.status === "close") counts.close++;
-                else if (r.status === "no_comps") counts.no_comps++;
+                else if (counts[r.status] != null) counts[r.status]++;
               });
-              const dot = (s) => ({ cheapest: "#16a34a", not_cheapest: "#dc2626", close: "#d97706", no_comps: "#9ca3af", scanning: "#1a56db" }[s] || "#9ca3af");
-              const badge = (r) => {
-                if (!r || !r.scanned) {
-                  if (r?.status === "scanning") return <span style={{ color: "#1a56db" }}>scanning…</span>;
-                  if (r?.status === "error") return <span title={r.error} style={{ color: "#dc2626" }}>error</span>;
-                  return <span style={{ color: "#9ca3af" }}>—</span>;
-                }
-                const map = { cheapest: ["✓ Cheapest", "#16a34a"], not_cheapest: ["✕ Reprice", "#dc2626"], close: ["⚠ Close", "#d97706"], no_comps: ["No comps", "#6b7280"] };
-                const [t, c] = map[r.status] || ["—", "#6b7280"];
-                return <span style={{ color: c, fontWeight: 600 }}>{t}</span>;
+              const STAT = {
+                cheapest:     { label: "✓ Cheapest", color: "#16a34a" },
+                not_cheapest: { label: "✕ Reprice",  color: "#dc2626" },
+                close:        { label: "⚠ Close",     color: "#d97706" },
+                no_comps:     { label: "No comps",    color: "#6b7280" },
               };
+              const engines = [
+                ["MarketCheck", pbMcSet, pbMcOn, "marketcheck", "MARKETCHECK_API_KEY"],
+                ["Auto.dev", pbAdSet, pbAdOn, "autodev", "AUTODEV_API_KEY"],
+                ["Brave", pbBraveSet, pbBraveOn, "brave", "BRAVE_API_KEY"],
+              ];
               return (
-                <Panel title="Price Beater — Am I Cheapest?" badge="AI Live Search" styles={styles}>
+                <Panel title="Price Beater" badge="Real dealer listings" styles={styles}>
                   <div style={{ fontSize: 13, color: styles.smallLabel.color, marginBottom: 12 }}>
-                    For every car in your inventory, AI searches CarGurus / Cars.com / AutoTrader within range of 45014 and shows the <b>3 cheapest competitors</b> and whether you're the <b>cheapest</b> — or how much to <b>reprice to win</b>. Your own listings are excluded.
+                    For each car, finds the <b>cheapest competing dealer</b> near <b>45014</b> with similar mileage (±5,000 mi) — shows the dealer, how far, the odometer, and a link to the listing. Your own listings are excluded.
                   </div>
 
-                  {/* Data engines — keys come from the server Environment (Render) */}
+                  {/* Data engines — keys come from the server Environment */}
                   <div style={{ ...styles.card, marginBottom: 12, borderColor: pbKeyConfigured ? styles.card.borderColor : "#d97706" }}>
-                    <div style={{ ...styles.smallLabel, color: pbKeyConfigured ? styles.smallLabel.color : "#92400e" }}>⚙️ DATA ENGINES — keys set in Render → Environment</div>
-                    {[["MarketCheck ⭐", pbMcSet, pbMcOn, "marketcheck", "MARKETCHECK_API_KEY"],
-                      ["Auto.dev", pbAdSet, pbAdOn, "autodev", "AUTODEV_API_KEY"],
-                      ["Brave", pbBraveSet, pbBraveOn, "brave", "BRAVE_API_KEY"]].map(([name, set, on, prov, envname]) => (
-                      <div key={prov} style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
-                        <span style={{ width: 130, fontSize: 12, fontWeight: 600 }}>{name}</span>
-                        <span style={{ fontSize: 12, color: set ? "#16a34a" : "#dc2626", minWidth: 220 }}>{set ? "✓ key found in environment" : `✗ not set — add ${envname}`}</span>
-                        {set && <button onClick={() => togglePbEngine(prov, !on)} title="Enable/disable this engine" style={{ ...(on ? styles.buttonPrimary : styles.buttonGhost), background: on ? "#16a34a" : undefined, borderColor: on ? "#16a34a" : undefined, minWidth: 64 }}>{on ? "ON" : "OFF"}</button>}
+                    <div style={{ ...styles.smallLabel, color: pbKeyConfigured ? styles.smallLabel.color : "#92400e" }}>⚙️ DATA ENGINES — API keys set in Render → Environment</div>
+                    {engines.map(([name, set, on, prov, envname]) => (
+                      <div key={prov} style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        <span style={{ width: 110, fontSize: 12, fontWeight: 600 }}>{name}</span>
+                        <span style={{ fontSize: 12, color: set ? "#16a34a" : "#9ca3af", minWidth: 200 }}>{set ? "✓ configured" : `not set — add ${envname}`}</span>
+                        {set && <button onClick={() => togglePbEngine(prov, !on)} style={{ ...(on ? styles.buttonPrimary : styles.buttonGhost), background: on ? "#16a34a" : undefined, borderColor: on ? "#16a34a" : undefined, minWidth: 60 }}>{on ? "ON" : "OFF"}</button>}
                       </div>
                     ))}
-                    <div style={{ fontSize: 10, color: styles.smallLabel.color, marginTop: 8 }}>Set <b>MARKETCHECK_API_KEY</b> and <b>BRAVE_API_KEY</b> in Render → Environment. MarketCheck is tried first, then Brave.</div>
                   </div>
 
-                  {/* Add a single vehicle */}
+                  {/* Add a vehicle */}
                   <div style={{ ...styles.card, marginBottom: 12 }}>
-                    <div style={styles.smallLabel}>➕ ADD A VEHICLE TO SCAN</div>
-                    {/* VIN → decode */}
+                    <div style={styles.smallLabel}>➕ ADD A VEHICLE</div>
                     <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
-                      <input value={pbAdd.vin} onChange={(e) => setPbAdd(a => ({ ...a, vin: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 17) }))} placeholder="Enter VIN to auto-fill (17 chars)" style={{ ...styles.input, width: 280, fontFamily: "monospace" }} />
-                      <button onClick={pbDecodeVin} disabled={pbDecoding} style={styles.buttonGhost}>{pbDecoding ? "Decoding…" : "🔍 Decode VIN"}</button>
-                      <span style={{ fontSize: 10, color: styles.smallLabel.color }}>or fill the fields below</span>
-                    </div>
-                    <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                      {[["year", "Year", 70], ["make", "Make", 110], ["model", "Model", 120], ["trim", "Trim", 130], ["mileage", "Miles", 90], ["price", "My Price", 100]].map(([k, ph, w]) => (
+                      <input value={pbAdd.vin} onChange={(e) => setPbAdd(a => ({ ...a, vin: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 17) }))} placeholder="VIN (17 chars) — auto-fills" style={{ ...styles.input, width: 250, fontFamily: "monospace" }} />
+                      <button onClick={pbDecodeVin} disabled={pbDecoding} style={styles.buttonGhost}>{pbDecoding ? "Decoding…" : "🔍 Decode"}</button>
+                      <span style={{ fontSize: 10, color: styles.smallLabel.color }}>or type the fields →</span>
+                      {[["year", "Year", 64], ["make", "Make", 96], ["model", "Model", 104], ["trim", "Trim", 96], ["mileage", "Miles", 84], ["price", "My Price", 90]].map(([k, ph, w]) => (
                         <input key={k} value={pbAdd[k]} onChange={(e) => setPbAdd(a => ({ ...a, [k]: e.target.value }))} placeholder={ph} style={{ ...styles.input, width: w }} />
                       ))}
                       <button onClick={pbAddVehicle} style={styles.buttonPrimary}>Add</button>
                     </div>
                   </div>
+
+                  {/* Summary */}
                   <div style={{ ...styles.threeCol, gridTemplateColumns: "repeat(5,1fr)" }}>
                     {[["✓ Cheapest", counts.cheapest, "#16a34a"], ["✕ Reprice", counts.not_cheapest, "#dc2626"], ["⚠ Close", counts.close, "#d97706"], ["No comps", counts.no_comps, "#6b7280"], ["Not scanned", counts.unscanned, "#9ca3af"]].map(([l, n, c]) => (
                       <div key={l} style={{ ...styles.card, textAlign: "center" }}><div style={styles.smallLabel}>{l}</div><div style={{ fontSize: 20, fontWeight: 800, color: c }}>{n}</div></div>
                     ))}
                   </div>
-                  <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
-                    <button onClick={pbScanAll} disabled={pbScanning} style={styles.buttonPrimary}>{pbScanning ? "Scanning…" : "▶ Scan All Inventory"}</button>
-                    <Field label="" styles={styles}>
-                      <select value={pbRadius} onChange={(e) => setPbRadius(Number(e.target.value))} style={styles.input}>
-                        {[50, 100, 200, 300].map(r => <option key={r} value={r}>{r} mi</option>)}
-                      </select>
-                    </Field>
-                    <Field label="" styles={styles}>
-                      <select value={pbSort} onChange={(e) => setPbSort(e.target.value)} style={styles.input} title="Sort table by">
-                        <option value="make">Sort: Make</option>
-                        <option value="price">Sort: My Price</option>
-                        <option value="year">Sort: Year</option>
-                        <option value="gap">Sort: Gap</option>
-                      </select>
-                    </Field>
-                    <label style={{ ...styles.buttonGhost, display: "inline-flex", alignItems: "center", cursor: "pointer" }}>⬆ Import CSV (saves)
+
+                  {/* Controls */}
+                  <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+                    <button onClick={pbScanAll} disabled={pbScanning} style={styles.buttonPrimary}>{pbScanning ? "Scanning…" : "▶ Scan All"}</button>
+                    <select value={pbSort} onChange={(e) => setPbSort(e.target.value)} style={styles.input} title="Sort table">
+                      <option value="make">Sort: Make</option>
+                      <option value="price">Sort: My Price</option>
+                      <option value="year">Sort: Year</option>
+                      <option value="gap">Sort: Gap</option>
+                    </select>
+                    <label style={{ ...styles.buttonGhost, display: "inline-flex", alignItems: "center", cursor: "pointer" }}>⬆ Import CSV
                       <input type="file" accept=".csv,text/csv" onChange={pbImportCsv} style={{ display: "none" }} />
                     </label>
-                    {inventory.length > 0 && <button onClick={pbSaveInventory} style={styles.buttonSuccess || styles.buttonPrimary}>💾 Save Inventory</button>}
+                    {inventory.length > 0 && <button onClick={pbSaveInventory} style={styles.buttonSuccess || styles.buttonPrimary}>💾 Save</button>}
                     {inventory.length > 0 && <button onClick={pbExportCsv} style={styles.buttonGhost}>⬇ Export CSV</button>}
                     {Object.keys(pbResults).length > 0 && <button onClick={() => savePbResults({})} style={styles.buttonGhost}>Reset scans</button>}
                   </div>
                   {pbStatus && <div style={{ ...styles.card, marginTop: 10, fontSize: 12 }}>{pbStatus}</div>}
-                  {!inventory.length && <div style={{ ...styles.card, marginTop: 12 }}>No inventory yet — add vehicles in the Inventory tab first.</div>}
 
-                  {inventory.length > 0 && (
+                  {/* Table */}
+                  {!inventory.length
+                    ? <div style={{ ...styles.card, marginTop: 12, color: styles.smallLabel.color }}>No vehicles yet — add one above or import a CSV.</div>
+                    : (
                     <div style={{ ...styles.card, marginTop: 12, overflowX: "auto", padding: 0 }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                         <thead><tr style={{ textAlign: "left", color: styles.smallLabel.color }}>
-                          {["", "Status", "My Price", "Vehicle", "Miles", "Cheapest Dealer Prices", "Cheapest Price", "Reprice", ""].map((h, i) => <th key={i} style={{ padding: "8px 10px" }}>{h}</th>)}
+                          {["Status", "Vehicle", "My Miles", "My Price", "Cheapest Dealer", "Their Price", "Reprice To", ""].map((h, i) => <th key={i} style={{ padding: "8px 10px" }}>{h}</th>)}
                         </tr></thead>
                         <tbody>
                           {[...inventory].sort(pbSortFn).map(v => {
                             const r = pbResults[v.vin] || {};
+                            const c = (r.competitors && r.competitors[0]) || null;
+                            const st = r.status === "scanning" ? { label: "scanning…", color: "#1a56db" }
+                              : r.status === "error" ? { label: "error", color: "#dc2626" }
+                              : r.scanned ? (STAT[r.status] || { label: "—", color: "#6b7280" })
+                              : { label: "—", color: "#9ca3af" };
                             return (
-                              <tr key={v.vin} style={{ borderTop: "1px solid #eee" }}>
-                                <td style={{ padding: "8px 10px" }}><span style={{ width: 9, height: 9, borderRadius: "50%", background: dot(r.status), display: "inline-block" }} /></td>
-                                <td style={{ padding: "8px 10px" }}>{badge(r)}</td>
-                                <td style={{ padding: "8px 10px", fontWeight: 700 }}>{money(v.price || 0)}</td>
+                              <tr key={v.vin} style={{ borderTop: "1px solid #eef1f4" }}>
+                                <td style={{ padding: "8px 10px", color: st.color, fontWeight: 600 }} title={r.error || ""}>{st.label}</td>
                                 <td style={{ padding: "8px 10px" }}>{v.year} {v.make} {v.model} <span style={{ color: styles.smallLabel.color }}>{v.trim}</span></td>
-                                <td style={{ padding: "8px 10px" }}>{v.mileage ? v.mileage.toLocaleString() : "—"}</td>
-                                <td style={{ padding: "8px 10px" }}>{
-                                  (r.competitors && r.competitors.length)
-                                    ? r.competitors.map((c, ci) => (
-                                        <div key={ci} style={{ marginBottom: ci < r.competitors.length - 1 ? 4 : 0 }}>
-                                          <span style={{ fontWeight: ci === 0 ? 800 : 500, color: ci === 0 ? "#16a34a" : "inherit" }}>{c.link ? <a href={c.link} target="_blank" rel="noopener" style={{ color: ci === 0 ? "#16a34a" : styles.buttonPrimary.background }}>{money(c.price)}</a> : money(c.price)}</span>
-                                          <span style={{ fontSize: 10, color: styles.smallLabel.color }}> · {c.dealer || c.source || "dealer"}{c.location ? " · 📍 " + c.location : ""}{c.distance ? " · 🚗 " + c.distance + " mi away" : ""}{c.miles ? " · 🛣 " + Number(c.miles).toLocaleString() + " mi" : ""}</span>
-                                        </div>
-                                      ))
-                                    : (r.marketLow ? <div><span style={{ fontWeight: 700 }}>{money(r.marketLow)}</span><span style={{ fontSize: 10, color: styles.smallLabel.color }}> · market low{r.marketAvg ? " · avg " + money(r.marketAvg) : ""}</span></div> : (r.compPrice ? money(r.compPrice) : "—"))
-                                }</td>
-                                <td style={{ padding: "8px 10px", fontWeight: 800, color: "#16a34a" }}>{(r.competitors?.[0]?.price || r.compPrice || r.marketLow) ? money(r.competitors?.[0]?.price || r.compPrice || r.marketLow) : "—"}</td>
-                                <td style={{ padding: "8px 10px", color: "#dc2626" }}>{r.suggested ? money(r.suggested) : "—"}</td>
+                                <td style={{ padding: "8px 10px" }}>{v.mileage ? Number(v.mileage).toLocaleString() : "—"}</td>
+                                <td style={{ padding: "8px 10px", fontWeight: 700 }}>{money(v.price || 0)}</td>
+                                <td style={{ padding: "8px 10px" }}>{c ? (
+                                  <div>
+                                    <div style={{ fontWeight: 600 }}>{c.dealer || c.source || "dealer"}{c.distance ? <span style={{ color: styles.smallLabel.color, fontWeight: 400 }}> · 🚗 {c.distance} mi away</span> : ""}</div>
+                                    <div style={{ fontSize: 10, color: styles.smallLabel.color }}>{c.location}{c.miles ? " · 🛣 " + Number(c.miles).toLocaleString() + " mi" : ""}</div>
+                                  </div>
+                                ) : (r.scanned ? "no match ±5k mi" : "—")}</td>
+                                <td style={{ padding: "8px 10px", fontWeight: 800, color: "#16a34a" }}>{c ? (c.link ? <a href={c.link} target="_blank" rel="noopener" style={{ color: "#16a34a" }}>{money(c.price)}</a> : money(c.price)) : "—"}</td>
+                                <td style={{ padding: "8px 10px", color: "#dc2626", fontWeight: 600 }}>{r.suggested ? money(r.suggested) : "—"}</td>
                                 <td style={{ padding: "8px 10px" }}><button onClick={() => pbScanVehicle(v)} disabled={r.status === "scanning" || pbScanning} style={{ ...styles.buttonGhost, height: 26, padding: "0 8px", fontSize: 11 }}>{r.status === "scanning" ? "…" : "🤖 Scan"}</button></td>
                               </tr>
                             );
