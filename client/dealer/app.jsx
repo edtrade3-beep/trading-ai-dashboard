@@ -338,6 +338,14 @@ function App() {
     a.download = `price-beater-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click(); URL.revokeObjectURL(a.href);
   };
+  // Explicit save of the current inventory to the server.
+  const pbSaveInventory = async () => {
+    try {
+      const r = await fetch("/api/inventory/save", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: inventory }) });
+      if (!r.ok) throw new Error("save failed");
+      showToast(`Saved ${inventory.length} vehicles`, "success");
+    } catch { showToast("Could not save inventory", "error"); }
+  };
   // Import a CSV directly in the Price Beater — loads into inventory (which auto-saves to the server).
   const pbImportCsv = async (e) => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
@@ -1822,6 +1830,7 @@ function App() {
                     <label style={{ ...styles.buttonGhost, display: "inline-flex", alignItems: "center", cursor: "pointer" }}>⬆ Import CSV (saves)
                       <input type="file" accept=".csv,text/csv" onChange={pbImportCsv} style={{ display: "none" }} />
                     </label>
+                    {inventory.length > 0 && <button onClick={pbSaveInventory} style={styles.buttonSuccess || styles.buttonPrimary}>💾 Save Inventory</button>}
                     {inventory.length > 0 && <button onClick={pbExportCsv} style={styles.buttonGhost}>⬇ Export CSV</button>}
                     {Object.keys(pbResults).length > 0 && <button onClick={() => savePbResults({})} style={styles.buttonGhost}>Reset scans</button>}
                   </div>
