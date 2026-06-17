@@ -1732,7 +1732,7 @@ function App() {
                     <div style={{ ...styles.card, marginTop: 12, overflowX: "auto", padding: 0 }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                         <thead><tr style={{ textAlign: "left", color: styles.smallLabel.color }}>
-                          {["", "Status", "My Price", "Vehicle", "Miles", "3 Cheapest Competitors", "Gap", "Reprice", ""].map((h, i) => <th key={i} style={{ padding: "8px 10px" }}>{h}</th>)}
+                          {["", "Status", "My Price", "Vehicle", "Miles", "Cheapest Dealer Prices", "Gap vs Cheapest", "Reprice", ""].map((h, i) => <th key={i} style={{ padding: "8px 10px" }}>{h}</th>)}
                         </tr></thead>
                         <tbody>
                           {[...inventory].sort((a, b) => (a.price || 0) - (b.price || 0)).map(v => {
@@ -1747,9 +1747,10 @@ function App() {
                                 <td style={{ padding: "8px 10px" }}>{
                                   (r.competitors && r.competitors.length)
                                     ? r.competitors.map((c, ci) => (
-                                        <div key={ci} style={{ marginBottom: ci < r.competitors.length - 1 ? 4 : 0 }}>
-                                          <span style={{ fontWeight: ci === 0 ? 700 : 500 }}>{c.link ? <a href={c.link} target="_blank" rel="noopener" style={{ color: styles.buttonPrimary.background }}>{money(c.price)}</a> : money(c.price)}</span>
-                                          <span style={{ fontSize: 10, color: styles.smallLabel.color }}> · {c.source}{c.dealer ? " · " + c.dealer : ""}{c.miles ? " · " + Number(c.miles).toLocaleString() + "mi" : ""}</span>
+                                        <div key={ci} style={{ marginBottom: ci < r.competitors.length - 1 ? 4 : 0, padding: ci === 0 ? "2px 6px" : 0, background: ci === 0 ? "#16a34a14" : "transparent", borderRadius: 4, display: "inline-block" }}>
+                                          {ci === 0 && <span style={{ fontSize: 9, fontWeight: 800, color: "#16a34a", marginRight: 4 }}>🏆 BEAT THIS</span>}
+                                          <span style={{ fontWeight: ci === 0 ? 800 : 500, color: ci === 0 ? "#16a34a" : "inherit" }}>{c.link ? <a href={c.link} target="_blank" rel="noopener" style={{ color: ci === 0 ? "#16a34a" : styles.buttonPrimary.background }}>{money(c.price)}</a> : money(c.price)}</span>
+                                          <span style={{ fontSize: 10, color: styles.smallLabel.color }}> · {c.source || "dealer"}{c.dealer ? " · " + c.dealer : ""}{c.miles ? " · " + Number(c.miles).toLocaleString() + "mi" : ""}</span>
                                         </div>
                                       ))
                                     : (r.marketLow ? <div><span style={{ fontWeight: 700 }}>{money(r.marketLow)}</span><span style={{ fontSize: 10, color: styles.smallLabel.color }}> · market low{r.marketAvg ? " · avg " + money(r.marketAvg) : ""}</span></div> : (r.compPrice ? money(r.compPrice) : "—"))
