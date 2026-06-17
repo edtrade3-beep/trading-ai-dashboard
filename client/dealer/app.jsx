@@ -316,15 +316,15 @@ function App() {
     return 0;
   };
   const pbExportCsv = () => {
-    const rows = [["Stock/VIN", "Year", "Make", "Model", "Trim", "Miles", "My Price", "Status", "Cheapest Dealer", "Source", "Gap", "Suggested Reprice"]];
+    const rows = [["Stock/VIN", "Year", "Make", "Model", "Trim", "Miles", "My Price", "Status", "Cheapest Price", "Source", "Suggested Reprice"]];
     [...inventory].sort(pbSortFn).forEach(v => {
       const r = pbResults[v.vin] || {};
       const statusMap = { cheapest: "Cheapest", not_cheapest: "Reprice", close: "Close", no_comps: "No comps", error: "Error" };
       rows.push([
         v.stock || v.vin, v.year, v.make, v.model, v.trim || "", v.mileage || "", v.price || "",
         r.scanned ? (statusMap[r.status] || r.status || "") : "",
-        r.competitors?.[0]?.price || r.compPrice || "", r.competitors?.[0]?.source || r.source || "",
-        r.gap == null ? "" : r.gap, r.suggested || "",
+        r.competitors?.[0]?.price || r.compPrice || r.marketLow || "", r.competitors?.[0]?.source || r.source || "",
+        r.suggested || "",
       ]);
     });
     const csv = rows.map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -1768,7 +1768,7 @@ function App() {
                     <div style={{ ...styles.card, marginTop: 12, overflowX: "auto", padding: 0 }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                         <thead><tr style={{ textAlign: "left", color: styles.smallLabel.color }}>
-                          {["", "Status", "My Price", "Vehicle", "Miles", "Cheapest Dealer Prices", "Gap vs Cheapest", "Reprice", ""].map((h, i) => <th key={i} style={{ padding: "8px 10px" }}>{h}</th>)}
+                          {["", "Status", "My Price", "Vehicle", "Miles", "Cheapest Dealer Prices", "Cheapest Price", "Reprice", ""].map((h, i) => <th key={i} style={{ padding: "8px 10px" }}>{h}</th>)}
                         </tr></thead>
                         <tbody>
                           {[...inventory].sort(pbSortFn).map(v => {
@@ -1791,7 +1791,7 @@ function App() {
                                       ))
                                     : (r.marketLow ? <div><span style={{ fontWeight: 700 }}>{money(r.marketLow)}</span><span style={{ fontSize: 10, color: styles.smallLabel.color }}> · market low{r.marketAvg ? " · avg " + money(r.marketAvg) : ""}</span></div> : (r.compPrice ? money(r.compPrice) : "—"))
                                 }</td>
-                                <td style={{ padding: "8px 10px", fontWeight: 700, color: r.gap == null ? "#6b7280" : r.gap >= 0 ? "#16a34a" : "#dc2626" }}>{r.gap == null ? "—" : (r.gap >= 0 ? "+" : "") + money(r.gap)}</td>
+                                <td style={{ padding: "8px 10px", fontWeight: 800, color: "#16a34a" }}>{(r.competitors?.[0]?.price || r.compPrice || r.marketLow) ? money(r.competitors?.[0]?.price || r.compPrice || r.marketLow) : "—"}</td>
                                 <td style={{ padding: "8px 10px", color: "#dc2626" }}>{r.suggested ? money(r.suggested) : "—"}</td>
                                 <td style={{ padding: "8px 10px" }}><button onClick={() => pbScanVehicle(v)} disabled={r.status === "scanning" || pbScanning} style={{ ...styles.buttonGhost, height: 26, padding: "0 8px", fontSize: 11 }}>{r.status === "scanning" ? "…" : "🤖 Scan"}</button></td>
                               </tr>
