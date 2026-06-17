@@ -360,10 +360,10 @@ function App() {
   const [pbKeyConfigured, setPbKeyConfigured] = useState(null); // null = unknown; true if either engine set
   const [pbBraveSet, setPbBraveSet] = useState(false);
   const [pbMcSet, setPbMcSet] = useState(false);
+  const [pbAdSet, setPbAdSet] = useState(false);
   const [pbBraveOn, setPbBraveOn] = useState(false);
   const [pbMcOn, setPbMcOn] = useState(false);
-  const [pbBraveInput, setPbBraveInput] = useState("");
-  const [pbMcInput, setPbMcInput] = useState("");
+  const [pbAdOn, setPbAdOn] = useState(false);
   const [pbAdd, setPbAdd] = useState({ vin: "", year: "", make: "", model: "", trim: "", mileage: "", price: "" });
   const [pbDecoding, setPbDecoding] = useState(false);
   const pbDecodeVin = async () => {
@@ -379,13 +379,13 @@ function App() {
     setPbDecoding(false);
   };
   const refreshPbKeys = () => fetch("/api/dealer/ai-key").then(r => r.json())
-    .then(d => { setPbBraveSet(!!d.brave); setPbMcSet(!!d.marketcheck); setPbBraveOn(!!d.braveOn); setPbMcOn(!!d.mcOn); setPbKeyConfigured(!!d.configured); })
+    .then(d => { setPbBraveSet(!!d.brave); setPbMcSet(!!d.marketcheck); setPbAdSet(!!d.autodev); setPbBraveOn(!!d.braveOn); setPbMcOn(!!d.mcOn); setPbAdOn(!!d.adOn); setPbKeyConfigured(!!d.configured); })
     .catch(() => setPbKeyConfigured(false));
   const togglePbEngine = async (provider, enabled) => {
     try {
       const r = await fetch("/api/dealer/ai-key", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider, enabled }) });
       if (!r.ok) throw new Error((await r.json()).error || "Toggle failed");
-      if (provider === "brave") setPbBraveOn(enabled); else setPbMcOn(enabled);
+      if (provider === "brave") setPbBraveOn(enabled); else if (provider === "autodev") setPbAdOn(enabled); else setPbMcOn(enabled);
       refreshPbKeys();
     } catch (e) { showToast(e.message, "error"); }
   };
@@ -1748,8 +1748,9 @@ function App() {
                   {/* Data engines — keys come from the server Environment (Render) */}
                   <div style={{ ...styles.card, marginBottom: 12, borderColor: pbKeyConfigured ? styles.card.borderColor : "#d97706" }}>
                     <div style={{ ...styles.smallLabel, color: pbKeyConfigured ? styles.smallLabel.color : "#92400e" }}>⚙️ DATA ENGINES — keys set in Render → Environment</div>
-                    {[["MarketCheck ⭐", pbMcSet, pbMcOn, "marketcheck", "MARKETCHECK_API_KEY", "real listings — exact dealer, price, location"],
-                      ["Brave", pbBraveSet, pbBraveOn, "brave", "BRAVE_API_KEY", "free 2,000/mo search"]].map(([name, set, on, prov, envname, desc]) => (
+                    {[["MarketCheck ⭐", pbMcSet, pbMcOn, "marketcheck", "MARKETCHECK_API_KEY"],
+                      ["Auto.dev", pbAdSet, pbAdOn, "autodev", "AUTODEV_API_KEY"],
+                      ["Brave", pbBraveSet, pbBraveOn, "brave", "BRAVE_API_KEY"]].map(([name, set, on, prov, envname]) => (
                       <div key={prov} style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
                         <span style={{ width: 130, fontSize: 12, fontWeight: 600 }}>{name}</span>
                         <span style={{ fontSize: 12, color: set ? "#16a34a" : "#dc2626", minWidth: 220 }}>{set ? "✓ key found in environment" : `✗ not set — add ${envname}`}</span>
