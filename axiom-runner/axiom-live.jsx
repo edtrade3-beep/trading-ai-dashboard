@@ -19871,32 +19871,6 @@ export default function App() {
               <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
             </MonitorSection>
 
-            {/* ── FUTURES STRIP ── */}
-            {futuresData.length > 0 && (
-              <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 10, padding: "8px 16px",
-                background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
-                overflowX: "auto", scrollbarWidth: "none" }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim,
-                  marginRight: 14, flexShrink: 0, letterSpacing: "0.08em" }}>FUTURES</span>
-                {futuresData.map((f, i) => (
-                  <div key={f.sym} style={{ display: "flex", alignItems: "center" }}>
-                    {i > 0 && <span style={{ width: 1, height: 16, background: C.border, margin: "0 14px", flexShrink: 0 }} />}
-                    <div style={{ textAlign: "center", flexShrink: 0 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>{f.sym}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>
-                        {f.price > 1000 ? f.price.toLocaleString("en-US", { maximumFractionDigits: 0 }) : f.price.toFixed(2)}
-                      </div>
-                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: f.chg >= 0 ? C.green : C.red }}>
-                        {f.chg >= 0 ? "+" : ""}{f.chg.toFixed(2)}%
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.textDim, flexShrink: 0 }}>
-                  {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "America/New_York" })} ET
-                </span>
-              </div>
-            )}
 
             {/* ── EVENT COUNTDOWN + PRE-MARKET MOVERS ── */}
             <div style={{ display: "grid", gridTemplateColumns: eventCountdowns.length > 0 && preMktMovers.length > 0 ? "1fr 1fr" : "1fr",
@@ -20142,31 +20116,6 @@ export default function App() {
             })()}
             </MonitorSection>
 
-            {/* ── STOCKTWITS TRENDING ── what retail traders are buzzing about ── */}
-            {socialSentiment && socialSentiment.trending && socialSentiment.trending.length > 0 && (
-              <div style={{ marginBottom: 14, background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
-                <div style={{ padding: "10px 16px", background: C.surface, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#7c3aed", letterSpacing: "0.08em" }}>💬 TRENDING ON STOCKTWITS</span>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: "auto" }}>what retail traders are buzzing about now</span>
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "12px 16px" }}>
-                  {socialSentiment.trending.map((t, i) => (
-                    <button key={t.symbol} onClick={() => openDeepDiveFor(t.symbol, null)}
-                      style={{ display: "flex", alignItems: "center", gap: 6,
-                        background: i < 3 ? "#7c3aed18" : C.surface,
-                        border: `1px solid ${i < 3 ? "#7c3aed55" : C.border}`,
-                        borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>#{i+1}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: i < 3 ? "#a78bfa" : C.text }}>{t.symbol}</span>
-                      {t.watchlistCount > 0 && <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>👁 {(t.watchlistCount/1000).toFixed(0)}k</span>}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ padding: "0 16px 10px", fontFamily: SANS, fontSize: 11, color: C.textDim }}>
-                  💡 Top 3 = highest buzz. Click any to open its deep dive. High buzz = volatility — trade with tighter stops.
-                </div>
-              </div>
-            )}
 
             {/* ── DAILY P&L STRIP ── */}
             {portfolioSummary && portfolioSummary.totalCost > 0 && (() => {
@@ -20280,26 +20229,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* ── MARKET SUMMARY (replaces Intelligence Row) ── */}
-            {distData && (
-              <div style={{ padding: '10px 16px', marginBottom: 10, background: C.card,
-                border: '1px solid ' + radarColor + '44', borderLeft: '4px solid ' + radarColor,
-                borderRadius: 8, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                <span style={{ fontFamily: MONO, fontSize: 16 }}>{radarIcon}</span>
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: radarColor }}>{radarAlert}</span>
-                  {(distData.indexSnapshot||[]).map(idx => (
-                    <span key={idx.sym} style={{ fontFamily: MONO, fontSize: 11, marginLeft: 12,
-                      color: idx.chg >= 0 ? C.green : C.red }}>
-                      {idx.sym} {idx.chg >= 0 ? '+' : ''}{idx.chg}%
-                    </span>
-                  ))}
-                </div>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
-                  VIX {distData.vix?.toFixed(1)} · Score {radarScore}/100
-                </span>
-              </div>
-            )}
             {/* 3: LIVE SIGNALS TABLE */}
             <div style={{ background: C.card, border: `1px solid ${C.borderLit}`, borderRadius: 8, overflow: "hidden", marginBottom: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px",
