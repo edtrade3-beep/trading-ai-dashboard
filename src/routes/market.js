@@ -702,6 +702,125 @@ EXPLANATION: ${explanation}`;
   };
 }
 
+// ── 30-Day Market Outlook ──
+// Aggregates trend/momentum/breadth/volatility/seasonality + prediction-market
+// odds into a composite lean, and a volatility-based expected 30-day range.
+async function fetchPolymarketOdds() {
+  try {
+    const data = await withTimeout(
+      fetch("https://gamma-api.polymarket.com/markets?closed=false&active=true&limit=500&order=volume24hr&ascending=false")
+        .then((r) => (r.ok ? r.json() : null)), 9000, null);
+    if (!Array.isArray(data)) return {};
+    const yesProb = (m) => { try {
+      const p = JSON.parse(m.outcomePrices || "[]"), o = JSON.parse(m.outcomes || "[]");
+      const yi = o.findIndex((x) => /yes/i.test(x));
+      const v = Number(p[yi >= 0 ? yi : 0]);
+      return Number.isFinite(v) ? v : null;
+    } catch { return null; } };
+
+    // Fed rate markets — aggregate the per-outcome Yes probabilities into hike/hold/cut.
+    const fedMs = data.filter((m) => /fed|interest rate/i.test(m.question || "") && /meeting/i.test(m.question || ""));
+    let fed = null;
+    if (fedMs.length) {
+      let hold = 0, cut = 0, hike = 0;
+      for (const m of fedMs) {
+        const p = yesProb(m); if (p == null) continue;
+        const q = (m.question || "").toLowerCase();
+        if (/no change|maintain|keep|unchanged/.test(q)) hold += p;
+        else if (/decrease|cut|lower/.test(q)) cut += p;
+        else if (/increase|hike|raise/.test(q)) hike += p;
+      }
+      const tot = hold + cut + hike;
+      if (tot > 0) fed = {
+        cut: Math.round(cut / tot * 100), hold: Math.round(hold / tot * 100), hike: Math.round(hike / tot * 100),
+        meeting: ((fedMs[0].question || "").match(/after the (.*?) meeting/i) || [])[1] || null,
+      };
+    }
+    const rec = data.find((m) => /recession/i.test(m.question || ""));
+    return {
+      fed,
+      recession: rec ? { q: rec.question, prob: Math.round((yesProb(rec) || 0) * 100) } : null,
+    };
+  } catch { return {}; }
+}
+
+async function buildMarketOutlook() {
+  const spy = await fetchYahooBars("SPY", "1y", "1d");
+  if (!Array.isArray(spy) || spy.length < 60) throw new Error("SPY data unavailable.");
+  const closes = spy.map((b) => b.close);
+  const last = closes.length - 1, price = closes[last];
+
+  const sma = (arr, p, end) => { if (end - p + 1 < 0) return null; let s = 0; for (let i = end - p + 1; i <= end; i++) s += arr[i]; return s / p; };
+  const ma50 = sma(closes, 50, last), ma200 = sma(closes, 200, last);
+  const ret1mo = closes[last - 21] ? (price / closes[last - 21] - 1) * 100 : 0;
+  const rsi = (() => { try { const { computeRSI } = require("../indicators"); const r = computeRSI(closes, 14); return Array.isArray(r) ? r[r.length - 1] : r; } catch { return 50; } })();
+
+  // Realized volatility → expected 30-day range (1σ ≈ 68%, 2σ ≈ 95%)
+  const rets = [];
+  for (let i = last - 29; i <= last; i++) if (i > 0) rets.push(Math.log(closes[i] / closes[i - 1]));
+  const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+  const dailyVol = Math.sqrt(rets.reduce((a, r) => a + (r - mean) ** 2, 0) / rets.length);
+  const sigma30 = dailyVol * Math.sqrt(21);
+  const range = {
+    expectedMovePct: round2(sigma30 * 100),
+    low1: round2(price * (1 - sigma30)), high1: round2(price * (1 + sigma30)),
+    low2: round2(price * (1 - 2 * sigma30)), high2: round2(price * (1 + 2 * sigma30)),
+  };
+
+  // VIX
+  let vix = null, vixTrend = 0;
+  try { const v = await fetchYahooBars("^VIX", "1mo", "1d"); if (v && v.length) { vix = round2(v[v.length - 1].close); vixTrend = round2(v[v.length - 1].close - v[0].close); } } catch {}
+
+  // Breadth proxy — % of major index ETFs above their 50-day MA
+  let breadthPct = null;
+  try {
+    const etfs = ["SPY", "QQQ", "IWM", "RSP", "MDY"];
+    const res = await Promise.all(etfs.map((s) => fetchYahooBars(s, "6mo", "1d").catch(() => null)));
+    const above = res.filter((bars) => { if (!bars || bars.length < 50) return false; const c = bars.map((b) => b.close); const m = sma(c, 50, c.length - 1); return c[c.length - 1] > m; }).length;
+    breadthPct = Math.round(above / etfs.length * 100);
+  } catch {}
+
+  // Seasonality — average SPY return for the current calendar month (multi-year)
+  let seasonality = null;
+  try {
+    const m = await fetchYahooBars("SPY", "5y", "1mo");
+    if (m && m.length > 13) {
+      const curMonth = new Date().getMonth();
+      const rs = [];
+      for (let i = 1; i < m.length; i++) if (new Date(m[i].time).getMonth() === curMonth) rs.push(m[i].close / m[i - 1].close - 1);
+      if (rs.length) seasonality = round2(rs.reduce((a, b) => a + b, 0) / rs.length * 100);
+    }
+  } catch {}
+
+  const odds = await fetchPolymarketOdds();
+
+  // ── Composite lean (signed sub-scores, weighted) ──
+  const signals = [];
+  const add = (name, val, detail) => signals.push({ name, score: round2(val), detail });
+  add("Trend", ma50 && ma200 ? (price > ma50 && ma50 > ma200 ? 25 : price < ma50 && ma50 < ma200 ? -25 : price > ma200 ? 8 : -8) : 0,
+    ma50 && ma200 ? `SPY ${price > ma50 ? "above" : "below"} 50DMA, 50 ${ma50 > ma200 ? ">" : "<"} 200` : "n/a");
+  add("Momentum", Math.max(-20, Math.min(20, ret1mo * 2)) * 0.5 + (rsi > 55 ? 8 : rsi < 45 ? -8 : 0) + (rsi > 78 ? -4 : 0),
+    `1mo ${ret1mo >= 0 ? "+" : ""}${round2(ret1mo)}%, RSI ${Math.round(rsi)}`);
+  add("Breadth", breadthPct == null ? 0 : breadthPct >= 60 ? 15 : breadthPct <= 40 ? -15 : (breadthPct - 50) * 0.6, breadthPct == null ? "n/a" : `${breadthPct}% of index ETFs > 50DMA`);
+  add("Volatility", vix == null ? 0 : (vix < 15 ? 12 : vix < 18 ? 4 : vix < 22 ? -4 : vix < 28 ? -12 : -18) + (vixTrend > 2 ? -4 : vixTrend < -2 ? 4 : 0), vix == null ? "n/a" : `VIX ${vix}${vixTrend >= 0 ? " +" : " "}${vixTrend}`);
+  add("Seasonality", seasonality == null ? 0 : Math.max(-8, Math.min(8, seasonality * 4)), seasonality == null ? "n/a" : `${new Date().toLocaleString("en-US", { month: "long" })} avg ${seasonality >= 0 ? "+" : ""}${seasonality}%`);
+  if (odds.recession && odds.recession.prob != null) add("Recession odds", Math.max(-12, -(odds.recession.prob - 25) * 0.3), `${odds.recession.prob}% (Polymarket)`);
+  if (odds.fed) add("Fed cut odds", Math.min(8, odds.fed.cut * 0.08) - (odds.fed.hike > 30 ? 6 : 0), `cut ${odds.fed.cut}% · hold ${odds.fed.hold}% · hike ${odds.fed.hike}% (Polymarket)`);
+
+  const composite = round2(signals.reduce((a, s) => a + s.score, 0));
+  const lean = composite >= 20 ? "BULLISH" : composite <= -20 ? "BEARISH" : "NEUTRAL";
+  const confidence = Math.min(100, Math.round(Math.abs(composite) / 60 * 100));
+
+  return {
+    asOf: new Date().toISOString(),
+    spy: round2(price), lean, composite, confidence,
+    range, vix, breadthPct, seasonality,
+    predictionMarkets: odds,
+    signals,
+    note: "Weighted read of current conditions + a volatility-based probabilistic range — not a prediction or advice.",
+  };
+}
+
 async function buildTrendTemplate(symbol, opts = {}) {
   const bars = await fetchYahooBars(symbol, "1y", "1d");
   if (!Array.isArray(bars) || bars.length < 200) {
@@ -947,6 +1066,15 @@ async function handleMarket(req, res, requestUrl) {
       return writeJson(res, 200, payload);
     } catch (err) {
       return writeJson(res, 502, { error: err instanceof Error ? err.message : "Trend Template failed." });
+    }
+  }
+
+  if (pathname === "/api/market/outlook" && req.method === "GET") {
+    try {
+      const payload = await buildMarketOutlook();
+      return writeJson(res, 200, payload);
+    } catch (err) {
+      return writeJson(res, 502, { error: err instanceof Error ? err.message : "Outlook failed." });
     }
   }
 
