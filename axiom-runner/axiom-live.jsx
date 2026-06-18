@@ -15491,14 +15491,8 @@ export default function App() {
   const [briefLoading, setBriefLoading] = useState(false);
   const [briefAt, setBriefAt] = useState("");
   const [briefExpanded, setBriefExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState(() => {
-    try {
-      const t = localStorage.getItem("last_tab");
-      // Restore only safe tabs (don't restore modals/dialogs)
-      const safeTabs = ["dashboard","tv","multitf","fibonacci","scanner","smartscan","greenlight","gl-backtest","mytrades","trendtemplate","outlook","quotes","morning-routine","holdings","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","predictions","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","journal-stats","coach","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","options-edu","dipbuy","under10","quran","athan","athkar","tasbih","halal","soccer"];
-      return (t && safeTabs.includes(t)) ? t : "dashboard";
-    } catch { return "dashboard"; }
-  });
+  // Always open on the Monitor dashboard, regardless of the last tab used.
+  const [activeTab, setActiveTab] = useState("dashboard");
   // Save tab on change
   React.useEffect(() => { try { localStorage.setItem("last_tab", activeTab); } catch {} }, [activeTab]);
   const [loading, setLoading] = useState(false);
