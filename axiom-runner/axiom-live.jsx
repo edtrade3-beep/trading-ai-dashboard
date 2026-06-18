@@ -19162,7 +19162,7 @@ export default function App() {
           {/* Nav tabs — grouped */}
           {(() => {
             const NAV_GROUPS = [
-              { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard", "quotes", "news", "econ-cal", "macro"] },
+              { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard", "quotes", "crypto", "news", "econ-cal", "macro"] },
               { id: "terminal",   label: "📈 CHART",      tabs: ["multitf", "tv"] },
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy", "trendtemplate", "outlook", "predictions", "morning-routine", "mytrades", "holdings", "gl-backtest"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
@@ -19512,6 +19512,7 @@ export default function App() {
           dashboard: [
             { id: "dashboard",  label: "📊 MONITOR" },
             { id: "quotes",     label: "📋 QUOTES" },
+            { id: "crypto",     label: "🪙 CRYPTO" },
             { id: "news",       label: "📰 NEWS" },
             { id: "econ-cal",   label: "📅 EVENTS" },
             { id: "macro",      label: "🌍 MACRO" },
