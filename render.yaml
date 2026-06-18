@@ -38,3 +38,7 @@ services:
         sync: false
       - key: SERPAPI_KEY
         sync: false
+      - key: ALPACA_KEY_ID
+        sync: false
+      - key: ALPACA_SECRET_KEY
+        sync: false
