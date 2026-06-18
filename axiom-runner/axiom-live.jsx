@@ -11972,6 +11972,17 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
     fetch("/api/watchlist").then(r => r.json()).then(d => go(d.symbols)).catch(() => go([]));
   }, [watchlistSymbols]);
 
+  const [alertMsg, setAlertMsg] = React.useState("");
+  const armPivotAlert = React.useCallback((symbol, pivot) => {
+    fetch("/api/price-alerts", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol, targetPrice: pivot, direction: "above", note: "Minervini pivot breakout" }),
+    }).then(r => r.json())
+      .then(d => setAlertMsg(d.error ? `${symbol}: ${d.error}` : `🔔 Alert armed — ${symbol} above ${pivot}`))
+      .catch(e => setAlertMsg(symbol + ": " + e.message));
+    setTimeout(() => setAlertMsg(""), 4000);
+  }, []);
+
   const load = React.useCallback((s) => {
     const symbol = (s || sym || "ARM").trim().toUpperCase();
     if (!symbol) return;
@@ -12098,7 +12109,15 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                                 <TrendChart data={rd} C={C} MONO={MONO} SANS={SANS} height={360} />
                               </div>
                               <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12 }}>
+                                {(() => { const vc = rd.setup.verdict === "GO" ? C.green : rd.setup.verdict === "AVOID" ? C.red : "#d6a312";
+                                  return <div style={{ display: "inline-block", padding: "3px 12px", borderRadius: 6, fontFamily: MONO, fontSize: 14, fontWeight: 900,
+                                    border: `1px solid ${vc}`, background: `${vc}1e`, color: vc, marginBottom: 6 }} title={rd.setup.verdictReason}>{rd.setup.verdict}</div>; })()}
+                                <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginBottom: 6 }}>{rd.setup.verdictReason}</div>
                                 <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: sCol }}>{rd.passCount}/8 · {rd.stage}</div>
+                                {rd.setup.contractions && rd.setup.contractions.length > 0 && (
+                                  <div style={{ fontFamily: MONO, fontSize: 11, color: rd.setup.tightening ? C.green : C.textDim, marginTop: 4 }}>
+                                    VCP {rd.setup.contractions.map(c => "-" + c + "%").join(" → ")}{rd.setup.tightening ? " ✓" : ""}</div>
+                                )}
                                 <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 8, fontFamily: MONO, fontSize: 12 }}>
                                   {[["Pivot", rd.setup.entry, C.accent], ["Stop", rd.setup.stop, C.red], ["Risk", rd.setup.riskPct + "%", C.textDim],
                                     ["Target 2R", rd.setup.target2, C.green], ["Target 3R", rd.setup.target3, C.green], ["RS", rd.rsRating, rd.rsRating >= 70 ? C.green : C.textDim]].map(([k, v, col]) => (
@@ -12109,8 +12128,11 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                                 </div>
                                 {!rd.setup.actionable && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 8 }}>
                                   No actionable setup — {Math.abs(rd.setup.abovePivotPct)}% below pivot.</div>}
-                                <button onClick={(e) => { e.stopPropagation(); setSym(r.symbol); load(r.symbol); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                                <button onClick={(e) => { e.stopPropagation(); armPivotAlert(r.symbol, rd.setup.entry); }}
                                   style={{ marginTop: 10, width: "100%", fontFamily: MONO, fontSize: 11, padding: "6px 0", borderRadius: 6,
+                                    border: `1px solid ${C.accent}`, background: `${C.accent}12`, color: C.accent, cursor: "pointer" }}>🔔 Alert at pivot {rd.setup.entry}</button>
+                                <button onClick={(e) => { e.stopPropagation(); setSym(r.symbol); load(r.symbol); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                                  style={{ marginTop: 6, width: "100%", fontFamily: MONO, fontSize: 11, padding: "6px 0", borderRadius: 6,
                                     border: `1px solid ${C.border}`, background: "transparent", color: C.accent, cursor: "pointer" }}>Open full view ↑</button>
                                 <div style={{ marginTop: 12, fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text }}>Trend Template</div>
                                 {rd.criteria.map(c => (
@@ -12172,12 +12194,24 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
         );
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>🎯 TRADE SETUP</div>
+              {(() => { const vc = su.verdict === "GO" ? C.green : su.verdict === "AVOID" ? C.red : "#d6a312";
+                return <div style={{ padding: "4px 12px", borderRadius: 6, fontFamily: MONO, fontSize: 13, fontWeight: 900,
+                  border: `1px solid ${vc}`, background: `${vc}1e`, color: vc }} title={su.verdictReason}>{su.verdict}</div>; })()}
+              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{su.verdictReason}</div>
               <div style={{ padding: "4px 10px", borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800,
                 border: `1px solid ${sc}`, background: `${sc}1e`, color: sc }}>{su.status}</div>
-              {su.extended && <div style={{ fontFamily: SANS, fontSize: 11, color: C.red }}>⚠ Extended {su.abovePivotPct}% above pivot — chasing risk</div>}
+              {su.contractions && su.contractions.length > 0 && (
+                <div style={{ fontFamily: MONO, fontSize: 11, color: su.tightening ? C.green : C.textDim }}>
+                  VCP: {su.contractions.map(c => "-" + c + "%").join(" → ")}{su.tightening ? " ✓ tightening" : ""}</div>
+              )}
+              <button onClick={() => armPivotAlert(data.symbol, su.entry)}
+                style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 12px", borderRadius: 6,
+                  border: `1px solid ${C.accent}`, background: "transparent", color: C.accent, cursor: "pointer" }}>🔔 Alert at pivot {su.entry}</button>
+              {su.extended && <div style={{ fontFamily: SANS, fontSize: 11, color: C.red }}>⚠ Extended {su.abovePivotPct}% above pivot</div>}
             </div>
+            {alertMsg && <div style={{ fontFamily: MONO, fontSize: 11, color: C.green }}>{alertMsg}</div>}
             {!su.actionable && (
               <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, background: `${C.textDim}14`,
                 border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>

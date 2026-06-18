@@ -542,6 +542,40 @@ async function buildTrendTemplate(symbol, opts = {}) {
   if (price < ma50) sellSignals.push("Closed below 50-day MA");
   if (price < ema21) sellSignals.push("Closed below 21-day EMA");
 
+  // ── VCP contraction analysis (each pullback should get shallower) ──
+  // Build a chronological peak/trough sequence over the last ~60 bars, then
+  // measure each peak→trough drawdown to see if the base is tightening.
+  const swingLows = [];
+  for (let i = Math.max(W, last - 60); i <= last - W; i += 1) {
+    let isLow = true;
+    for (let j = i - W; j <= i + W; j += 1) { if (lows[j] < lows[i]) { isLow = false; break; } }
+    if (isLow) swingLows.push({ i, v: lows[i], t: "L" });
+  }
+  const pivots = [
+    ...swingHighs.filter((s) => s.i >= last - 60).map((s) => ({ i: s.i, v: s.h, t: "H" })),
+    ...swingLows,
+  ].sort((a, b) => a.i - b.i);
+  const contractions = [];
+  for (let i = 0; i < pivots.length - 1; i += 1) {
+    if (pivots[i].t === "H" && pivots[i + 1].t === "L") {
+      const depth = round2((pivots[i].v - pivots[i + 1].v) / pivots[i].v * 100);
+      if (depth > 1) contractions.push(depth);
+    }
+  }
+  const recentContractions = contractions.slice(-4);
+  const tightening = recentContractions.length >= 2 &&
+    recentContractions[recentContractions.length - 1] < recentContractions[0];
+
+  // ── GO / WAIT / AVOID verdict ──
+  let verdict, verdictReason;
+  if (passCount <= 5) { verdict = "AVOID"; verdictReason = "Trend not in gear (" + passCount + "/8)"; }
+  else if (breakoutConfirmed && passCount >= 7) { verdict = "GO"; verdictReason = "Breakout above pivot on volume"; }
+  else if (actionable && passCount >= 7) {
+    verdict = "WAIT";
+    verdictReason = price > pivot ? "Above pivot — needs volume ≥1.4×" : "At pivot — wait for the breakout";
+  } else if (passCount >= 6) { verdict = "WAIT"; verdictReason = abovePivotPct < -6 ? "Base building below pivot" : "Trend good — wait for pivot"; }
+  else { verdict = "AVOID"; verdictReason = "No setup"; }
+
   const setup = {
     pivot: round2(pivot),
     entry: round2(entry),
@@ -560,6 +594,10 @@ async function buildTrendTemplate(symbol, opts = {}) {
     actionable,
     status: setupStatus,
     sellSignals,
+    contractions: recentContractions,
+    tightening,
+    verdict,
+    verdictReason,
   };
 
   const stage = trendPass && passCount === 8 ? "Stage 2 — Confirmed Uptrend"
@@ -621,6 +659,7 @@ async function screenTrendTemplate(symbols) {
           target2: r.setup.target2, abovePivotPct: r.setup.abovePivotPct,
           breakoutConfirmed: r.setup.breakoutConfirmed, extended: r.setup.extended,
           setupStatus: r.setup.status, actionable: r.setup.actionable,
+          verdict: r.setup.verdict, tightening: r.setup.tightening,
           atBuyPoint: r.passCount >= 7 && r.setup.actionable && !r.setup.extended,
         });
       } catch (err) {
