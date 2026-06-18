@@ -12150,7 +12150,7 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12 }}>
               <thead><tr style={{ color: C.textDim, textAlign: "left" }}>
-                {["", "Sym", "Score", "RS", "Price", "Pivot", "vs Pivot", "Entry", "Stop", "Risk", "T2", "Setup"].map((h, i) => (
+                {["", "Sym", "Score", "RS", "VCP", "Price", "Pivot", "vs Pivot", "Entry", "Stop", "Risk", "State"].map((h, i) => (
                   <th key={i} style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, fontWeight: 700, fontSize: 10.5, textTransform: "uppercase" }}>{h}</th>
                 ))}
               </tr></thead>
@@ -12175,14 +12175,17 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                       <td style={{ padding: "7px 10px", fontWeight: 800, color: C.text }}>{r.symbol}</td>
                       <td style={{ padding: "7px 10px", color: sCol, fontWeight: 800 }}>{r.passCount}/8</td>
                       <td style={{ padding: "7px 10px", color: r.rsRating >= 70 ? C.green : C.textDim }}>{r.rsRating ?? "—"}</td>
+                      <td style={{ padding: "7px 10px" }}>{(() => { const g = r.vcpGrade; const gc = g === "A" ? C.green : g === "B" ? "#5ab552" : g === "C" ? "#d6a312" : C.textDim;
+                        return <span style={{ color: gc, fontWeight: 800 }}>{r.tCount} {g}</span>; })()}</td>
                       <td style={{ padding: "7px 10px", color: C.text }}>{r.price}</td>
                       <td style={{ padding: "7px 10px", color: C.textDim }}>{r.pivot}</td>
                       <td style={{ padding: "7px 10px", color: Math.abs(r.abovePivotPct) <= 5 ? C.green : C.textDim }}>{r.abovePivotPct}%</td>
                       <td style={{ padding: "7px 10px", color: C.accent }}>{r.entry}</td>
                       <td style={{ padding: "7px 10px", color: C.red }}>{r.stop}</td>
                       <td style={{ padding: "7px 10px", color: C.textDim }}>{r.riskPct}%</td>
-                      <td style={{ padding: "7px 10px", color: C.green }}>{r.target2}</td>
-                      <td style={{ padding: "7px 10px", color: C.textDim, fontFamily: SANS, fontSize: 11 }}>{r.setupStatus}</td>
+                      <td style={{ padding: "7px 10px" }}>{(() => { const st = r.state || "WATCH";
+                        const col = st === "CONFIRMED" ? C.green : st === "BREAKOUT_ACTIVE" ? C.accent : st === "SETUP_READY" ? "#d6a312" : st === "FAILED" ? C.red : C.textDim;
+                        return <span style={{ color: col, fontWeight: 800, fontSize: 11 }} title={`signal ${r.signal} · ${r.confidence}%`}>{st.replace("_", " ")}{r.signal && r.signal !== "NONE" ? " ●" : ""}</span>; })()}</td>
                     </tr>
                     {open && (
                       <tr>
@@ -12198,6 +12201,10 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                                   return <div style={{ display: "inline-block", padding: "3px 12px", borderRadius: 6, fontFamily: MONO, fontSize: 14, fontWeight: 900,
                                     border: `1px solid ${vc}`, background: `${vc}1e`, color: vc, marginBottom: 6 }} title={rd.setup.verdictReason}>{rd.setup.verdict}</div>; })()}
                                 <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginBottom: 6 }}>{rd.setup.verdictReason}</div>
+                                {rd.setup.breakout && (() => { const st = rd.setup.breakout.state;
+                                  const col = st === "CONFIRMED" ? C.green : st === "BREAKOUT_ACTIVE" ? C.accent : st === "SETUP_READY" ? "#d6a312" : st === "FAILED" ? C.red : C.textDim;
+                                  return <div style={{ display: "inline-block", padding: "2px 9px", borderRadius: 5, fontFamily: MONO, fontSize: 10.5, fontWeight: 800,
+                                    border: `1px solid ${col}`, background: `${col}1e`, color: col, marginBottom: 6 }}>{st.replace("_", " ")} · {rd.setup.breakout.confidence}%{rd.setup.breakout.signal !== "NONE" ? " · " + rd.setup.breakout.signal : ""}</div>; })()}
                                 <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: sCol }}>{rd.passCount}/8 · {rd.stage}</div>
                                 {rd.setup.vcp && (() => { const gc = rd.setup.vcp.grade === "A" ? C.green : rd.setup.vcp.grade === "B" ? "#5ab552" : rd.setup.vcp.grade === "C" ? "#d6a312" : C.red;
                                   return <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 4 }}>
@@ -12284,6 +12291,12 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
               {(() => { const vc = su.verdict === "GO" ? C.green : su.verdict === "AVOID" ? C.red : "#d6a312";
                 return <div style={{ padding: "4px 12px", borderRadius: 6, fontFamily: MONO, fontSize: 13, fontWeight: 900,
                   border: `1px solid ${vc}`, background: `${vc}1e`, color: vc }} title={su.verdictReason}>{su.verdict}</div>; })()}
+              {su.breakout && (() => { const st = su.breakout.state;
+                const col = st === "CONFIRMED" ? C.green : st === "BREAKOUT_ACTIVE" ? C.accent : st === "SETUP_READY" ? "#d6a312" : st === "FAILED" ? C.red : C.textDim;
+                return <div style={{ padding: "4px 10px", borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800,
+                  border: `1px solid ${col}`, background: `${col}1e`, color: col }}
+                  title={`signal ${su.breakout.signal} · confidence ${su.breakout.confidence} · vol ${su.breakout.volume.grade}`}>
+                  {st.replace("_", " ")}{su.breakout.signal !== "NONE" ? ` · ${su.breakout.signal}` : ""} · {su.breakout.confidence}%</div>; })()}
               <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{su.verdictReason}</div>
               <div style={{ padding: "4px 10px", borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800,
                 border: `1px solid ${sc}`, background: `${sc}1e`, color: sc }}>{su.status}</div>

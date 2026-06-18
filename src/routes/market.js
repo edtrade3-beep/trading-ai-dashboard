@@ -512,6 +512,95 @@ function analyzeVCP(bars) {
   };
 }
 
+// ── VCP Breakout Engine (deterministic) ──
+// Extends analyzeVCP output with pivot/proximity/breakout/volume/state machine.
+// Does NOT modify VCP detection or grading.
+function vcpBreakoutEngine(symbol, bars, vcp, price) {
+  const n = bars.length, last = n - 1;
+  const highs = bars.map((b) => b.high), vols = bars.map((b) => b.volume || 0), closes = bars.map((b) => b.close);
+  const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+
+  const out = {
+    symbol,
+    vcpGrade: vcp ? vcp.grade : "-",
+    tCount: vcp ? vcp.footprint : "-",
+    baseDepth: vcp ? vcp.baseDepth : 0,
+    pivot: { price: 0, distancePct: 0, valid: false },
+    state: "WATCH",
+    volume: { dryUpScore: 0, breakoutRatio: 0, grade: "weak" },
+    signal: "NONE",
+    confidence: 0,
+  };
+  if (!vcp || !vcp.contractions || !vcp.contractions.length) return out;
+
+  // 1. Pivot = highest high of the FINAL contraction leg (inside final base only).
+  const finalC = vcp.contractions[vcp.contractions.length - 1];
+  let pivot = 0;
+  for (let i = finalC.highIdx; i <= last; i += 1) pivot = Math.max(pivot, highs[i]);
+  const gradeValid = ["A", "B", "C"].includes(vcp.grade);
+  out.pivot.price = round2(pivot);
+  out.pivot.valid = gradeValid;
+  const distancePct = round2((pivot - price) / pivot * 100); // + = price below pivot
+  out.pivot.distancePct = distancePct;
+
+  // dry-up score derived from existing volTrend (grading untouched)
+  const vt = vcp.volTrend == null ? 1 : vcp.volTrend;
+  out.volume.dryUpScore = Math.round(Math.max(0, Math.min(100, (1 - vt) * 100 + 50)));
+
+  // 4. Volume expansion model
+  const avg20 = mean(vols.slice(Math.max(0, last - 19), last + 1));
+  const baseStart = vcp.points && vcp.points.length ? vcp.points[0].i : Math.max(0, last - 40);
+  const baseVolumeAvg = mean(vols.slice(baseStart, last + 1)) || 1;
+  const legVols = vcp.contractions.slice(-3).map((c) => mean(vols.slice(c.highIdx, c.lowIdx + 1)));
+  const maxLegVol = legVols.length ? Math.max(...legVols) : 0;
+
+  // 3. Breakout detection — most recent close that crosses above pivot inside the base.
+  let breakoutIdx = -1;
+  for (let i = Math.max(baseStart + 1, 1); i <= last; i += 1) {
+    if (closes[i] > pivot && closes[i - 1] <= pivot) breakoutIdx = i;
+  }
+  const breakoutVolume = vols[breakoutIdx >= 0 ? breakoutIdx : last];
+  const breakoutRatio = round2(breakoutVolume / baseVolumeAvg);
+  out.volume.breakoutRatio = breakoutRatio;
+  out.volume.grade = breakoutRatio >= 2 ? "A+" : breakoutRatio >= 1.5 ? "valid" : "weak";
+  // Strict volume condition: > 1.5× the 20-day avg AND > the heaviest of the last 3 legs.
+  const volStrict = breakoutVolume > avg20 * 1.5 && breakoutVolume > maxLegVol;
+
+  if (!gradeValid) {
+    out.confidence = Math.round((vcp.quality || 0) * 0.5);
+    return out; // base too weak — stays WATCH / NONE
+  }
+
+  // 5. Trade state machine
+  let state, signal = "NONE";
+  if (breakoutIdx >= 0) {
+    const end = Math.min(breakoutIdx + 5, last);
+    let failedWithin5 = false;
+    for (let i = breakoutIdx + 1; i <= end; i += 1) if (closes[i] < pivot) { failedWithin5 = true; break; }
+    const currentlyAbove = closes[last] > pivot;
+    if (failedWithin5 || !currentlyAbove) { state = "FAILED"; signal = "FAILURE"; }
+    else if (volStrict && breakoutRatio >= 1.5) { state = "CONFIRMED"; signal = "BREAKOUT"; }
+    else { state = "BREAKOUT_ACTIVE"; signal = "NONE"; }
+  } else if (distancePct <= 8 && distancePct >= -2) {
+    state = "SETUP_READY";
+    if (["A", "B"].includes(vcp.grade)) signal = "SETUP";
+  } else {
+    state = "WATCH"; // base exists but price not near pivot (≤15% or beyond)
+  }
+  out.state = state;
+  out.signal = signal;
+
+  // 7. Confidence (deterministic)
+  let conf = vcp.quality || 0;
+  if (state === "SETUP_READY") conf = Math.round(conf * 0.9);
+  else if (state === "BREAKOUT_ACTIVE") conf = Math.round(conf * 0.95);
+  else if (state === "CONFIRMED") conf = conf + 10 + (breakoutRatio >= 2 ? 10 : 0);
+  else if (state === "FAILED") conf = Math.round(conf * 0.3);
+  else conf = Math.round(conf * 0.7); // WATCH
+  out.confidence = Math.max(0, Math.min(100, conf));
+  return out;
+}
+
 async function buildTrendTemplate(symbol, opts = {}) {
   const bars = await fetchYahooBars(symbol, "1y", "1d");
   if (!Array.isArray(bars) || bars.length < 200) {
@@ -663,6 +752,7 @@ async function buildTrendTemplate(symbol, opts = {}) {
     contractions: recentContractions,
     tightening,
     vcp,
+    breakout: vcpBreakoutEngine(symbol, bars, vcp, price),
     verdict,
     verdictReason,
   };
@@ -727,6 +817,8 @@ async function screenTrendTemplate(symbols) {
           breakoutConfirmed: r.setup.breakoutConfirmed, extended: r.setup.extended,
           setupStatus: r.setup.status, actionable: r.setup.actionable,
           verdict: r.setup.verdict, tightening: r.setup.tightening,
+          vcpGrade: r.setup.vcp ? r.setup.vcp.grade : "-", tCount: r.setup.vcp ? r.setup.vcp.footprint : "-",
+          state: r.setup.breakout.state, signal: r.setup.breakout.signal, confidence: r.setup.breakout.confidence,
           atBuyPoint: r.passCount >= 7 && r.setup.actionable && !r.setup.extended,
         });
       } catch (err) {
