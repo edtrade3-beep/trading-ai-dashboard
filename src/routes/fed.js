@@ -70,19 +70,29 @@ async function fetchLatestFedStatement() {
   } catch { return null; }
 }
 
-// Brave news search — analyst/market reaction to the latest Fed decision (on demand).
+// Market/analyst reaction to the latest Fed decision.
+// Primary: Google News RSS (free, no key, no quota). Optional: Brave if a key is set.
+async function fetchFromGoogleNews(query) {
+  const url = "https://news.google.com/rss/search?q=" + encodeURIComponent(query) + "&hl=en-US&gl=US&ceid=US:en";
+  const xml = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } }).then(r => (r.ok ? r.text() : ""));
+  if (!xml) return [];
+  const items = xml.split("<item>").slice(1);
+  const pick = (s, tag) => { const m = s.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`)); return m ? m[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim() : ""; };
+  return items.slice(0, 8).map((it) => {
+    let title = pick(it, "title");
+    let source = pick(it, "source");
+    // Google appends " - Publisher" to every title — strip it (use it as source if none).
+    if (/ - [^-]+$/.test(title)) { if (!source) source = title.replace(/^.* - /, ""); title = title.replace(/ - [^-]+$/, ""); }
+    const date = pick(it, "pubDate");
+    return { title, url: pick(it, "link"), source, age: date ? new Date(date).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "" };
+  }).filter((h) => h.title);
+}
+
 async function fetchFedReactions() {
-  const key = process.env.BRAVE_API_KEY || "";
-  if (!key) return { ok: false, error: "BRAVE_API_KEY not set on the server." };
   try {
-    const url = "https://api.search.brave.com/res/v1/news/search?q=" +
-      encodeURIComponent("FOMC Fed decision reaction analysis") + "&count=8&freshness=pw";
-    const d = await fetch(url, { headers: { "X-Subscription-Token": key, "Accept": "application/json" } }).then(r => r.json());
-    const results = Array.isArray(d?.results) ? d.results : [];
-    if (!results.length) return { ok: false, error: /quota|rate|limit|subscription/i.test(JSON.stringify(d)) ? "Brave search quota exhausted." : /unauthor|invalid|token/i.test(JSON.stringify(d)) ? "Brave key invalid." : "No reaction headlines found." };
-    return { ok: true, headlines: results.slice(0, 8).map(r => ({
-      title: r.title, url: r.url, source: r.meta_url?.hostname || r.profile?.name || "", age: r.age || "", description: (r.description || "").replace(/<[^>]+>/g, "").slice(0, 200),
-    })) };
+    const headlines = await fetchFromGoogleNews("FOMC Federal Reserve interest rate decision reaction");
+    if (headlines.length) return { ok: true, headlines, source: "Google News" };
+    return { ok: false, error: "No reaction headlines found right now." };
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
