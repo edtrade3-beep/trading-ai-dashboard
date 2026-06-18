@@ -601,6 +601,107 @@ function vcpBreakoutEngine(symbol, bars, vcp, price) {
   return out;
 }
 
+function atrAt(bars, period, endIdx) {
+  if (endIdx - period < 0) return null;
+  let sum = 0;
+  for (let i = endIdx - period + 1; i <= endIdx; i += 1) {
+    const tr = Math.max(bars[i].high - bars[i].low, Math.abs(bars[i].high - bars[i - 1].close), Math.abs(bars[i].low - bars[i - 1].close));
+    sum += tr;
+  }
+  return sum / period;
+}
+
+// ── VCP Report (deterministic, weighted 0–100 rubric + structured verdict) ──
+// Separate from analyzeVCP grading — this scores Trend(20)/Contraction(30)/
+// Volatility(20)/Volume(20)/Breakout(10) and produces the formatted report.
+function vcpReport(symbol, bars, vcp, trend, price) {
+  const n = bars.length, last = n - 1;
+  const closes = bars.map((b) => b.close), highs = bars.map((b) => b.high);
+  const baseStart = vcp && vcp.points && vcp.points.length ? vcp.points[0].i : Math.max(0, last - 40);
+
+  // Prior uptrend (into the base)
+  const momRef = Math.max(0, baseStart - 120);
+  const mom = closes[momRef] ? closes[baseStart] / closes[momRef] - 1 : 0;
+  const stack = (price > trend.ma50 ? 1 : 0) + (trend.ma50 > trend.ma150 ? 1 : 0) + (trend.ma150 > trend.ma200 ? 1 : 0) + (price > trend.ma200 ? 1 : 0);
+  const uptrendValid = mom > 0 && price > trend.ma200 && trend.passCount >= 5;
+
+  // Component scores
+  const cTrend = Math.min(20, (stack / 4) * 10 + (mom > 0.3 ? 10 : mom > 0.15 ? 7 : mom > 0 ? 4 : 0));
+
+  const cc = vcp ? vcp.count : 0;
+  const depths = vcp ? vcp.depths : [];
+  let tighterSteps = 0;
+  for (let k = 1; k < depths.length; k += 1) if (depths[k] <= depths[k - 1] + 0.5) tighterSteps += 1;
+  const tightening = vcp ? vcp.tightening : false;
+  const cCount = (cc >= 2 && cc <= 4) ? 15 : cc === 1 ? 5 : cc === 5 ? 9 : 4;
+  const cTighten = cc >= 2 ? Math.round((tighterSteps / (cc - 1)) * 15) : 0;
+  const cContraction = Math.min(30, cCount + cTighten);
+
+  // Volatility compression via ATR(14): now vs base start
+  const atrNow = atrAt(bars, 14, last), atrBase = atrAt(bars, 14, Math.min(last, baseStart + 14));
+  const atrRatio = (atrNow != null && atrBase) ? atrNow / atrBase : null;
+  const cVolatility = atrRatio == null ? 8 : atrRatio < 0.6 ? 20 : atrRatio < 0.75 ? 15 : atrRatio < 0.9 ? 10 : atrRatio < 1.0 ? 6 : 2;
+
+  const vt = vcp && vcp.volTrend != null ? vcp.volTrend : 1;
+  const cVolume = vt < 0.7 ? 20 : vt < 0.85 ? 15 : vt < 1.0 ? 10 : vt < 1.15 ? 5 : 2;
+
+  // Breakout readiness (proximity to final-leg pivot)
+  let pivot = 0;
+  if (vcp && vcp.contractions.length) { const f = vcp.contractions[vcp.contractions.length - 1]; for (let i = f.highIdx; i <= last; i += 1) pivot = Math.max(pivot, highs[i]); }
+  const dist = pivot ? (pivot - price) / pivot * 100 : 100;
+  const cBreakout = dist < 0 ? 10 : dist <= 3 ? 10 : dist <= 8 ? 7 : dist <= 15 ? 4 : 1;
+
+  const score = Math.round(cTrend + cContraction + cVolatility + cVolume + cBreakout);
+
+  // Verdict + risk
+  let verdict;
+  if (!uptrendValid || cc < 2 || !tightening) verdict = "INVALID VCP";
+  else if (score >= 80 && cBreakout >= 7) verdict = "A+ SETUP";
+  else if (score >= 60) verdict = "WATCHLIST";
+  else if (score >= 40) verdict = "WEAK SETUP";
+  else verdict = "INVALID VCP";
+  const riskState = (verdict === "INVALID VCP") ? "HIGH" : score >= 75 ? "LOW" : score >= 55 ? "MEDIUM" : "HIGH";
+
+  const pct = (x) => (x >= 0 ? "+" : "") + round2(x) + "%";
+  const structure = {
+    trend: uptrendValid
+      ? `${trend.stage}; ${stack}/4 MA stack; ${pct(mom * 100)} into the base over ~6 mo.`
+      : `No clear prior uptrend (mom ${pct(mom * 100)}, ${trend.passCount}/8 template). Structure unqualified.`,
+    contractions: cc
+      ? `${cc} contraction${cc > 1 ? "s" : ""}: ${depths.map((d) => "-" + d + "%").join(" → ")} — ${tightening ? "progressively tightening" : "NOT progressively tightening"}.`
+      : "No measurable contractions in the base.",
+    volatility: atrRatio == null ? "Insufficient data for ATR." : `ATR ${atrRatio < 1 ? "contracted" : "expanded"} ${pct((atrRatio - 1) * 100)} vs base start (ratio ${round2(atrRatio)}).`,
+    volume: `Volume into apex ${vt < 1 ? "drying up" : "rising"} — ratio ${round2(vt)}× vs first half of base.`,
+    breakout: pivot ? `Pivot ${round2(pivot)}; price ${dist < 0 ? "above by " + pct(-dist) : pct(dist) + " below"}.` : "No pivot.",
+  };
+  const explanation = verdict === "INVALID VCP"
+    ? (!uptrendValid ? "Rejected: no qualifying prior uptrend." : cc < 2 ? "Rejected: fewer than two contractions — no compression sequence." : !tightening ? "Rejected: contractions are not progressively tightening." : "Score too low for a tradable base.")
+    : `${cc}-leg base${tightening ? ", tightening" : ""}; ATR ${atrRatio != null && atrRatio < 1 ? "compressing" : "elevated"}, volume ${vt < 1 ? "drying up" : "not drying"}; ${dist < 0 ? "above pivot" : round2(dist) + "% from pivot"}. ${verdict === "A+ SETUP" ? "Textbook structure at the buy point." : verdict === "WATCHLIST" ? "Solid base — watch for the breakout." : "Base present but quality/readiness is sub-par."}`;
+
+  const text =
+`${symbol}:
+VCP SCORE (0–100): ${score}
+
+STRUCTURE:
+Trend Analysis: ${structure.trend}
+Contraction Phases: ${structure.contractions}
+Volatility Behavior: ${structure.volatility}
+Volume Behavior: ${structure.volume}
+Breakout Level: ${structure.breakout}
+
+RISK STATE: ${riskState}
+
+FINAL VERDICT: ${verdict}
+
+EXPLANATION: ${explanation}`;
+
+  return {
+    score, verdict, riskState,
+    components: { trend: Math.round(cTrend), contraction: Math.round(cContraction), volatility: cVolatility, volume: cVolume, breakout: cBreakout },
+    structure, explanation, text,
+  };
+}
+
 async function buildTrendTemplate(symbol, opts = {}) {
   const bars = await fetchYahooBars(symbol, "1y", "1d");
   if (!Array.isArray(bars) || bars.length < 200) {
@@ -731,6 +832,11 @@ async function buildTrendTemplate(symbol, opts = {}) {
   } else if (passCount >= 6) { verdict = "WAIT"; verdictReason = abovePivotPct < -6 ? "Base building below pivot" : "Trend good — wait for pivot"; }
   else { verdict = "AVOID"; verdictReason = "No setup"; }
 
+  const stage = trendPass && passCount === 8 ? "Stage 2 — Confirmed Uptrend"
+    : trendPass ? "Stage 2 — Uptrend (RS soft)"
+    : passCount >= 4 ? "Stage 1/3 — Transition"
+    : "Stage 4 — Downtrend";
+
   const setup = {
     pivot: round2(pivot),
     entry: round2(entry),
@@ -753,14 +859,10 @@ async function buildTrendTemplate(symbol, opts = {}) {
     tightening,
     vcp,
     breakout: vcpBreakoutEngine(symbol, bars, vcp, price),
+    report: vcpReport(symbol, bars, vcp, { passCount, ma50, ma150, ma200, stage, price }, price),
     verdict,
     verdictReason,
   };
-
-  const stage = trendPass && passCount === 8 ? "Stage 2 — Confirmed Uptrend"
-    : trendPass ? "Stage 2 — Uptrend (RS soft)"
-    : passCount >= 4 ? "Stage 1/3 — Transition"
-    : "Stage 4 — Downtrend";
 
   const result = {
     symbol,
@@ -819,6 +921,7 @@ async function screenTrendTemplate(symbols) {
           verdict: r.setup.verdict, tightening: r.setup.tightening,
           vcpGrade: r.setup.vcp ? r.setup.vcp.grade : "-", tCount: r.setup.vcp ? r.setup.vcp.footprint : "-",
           state: r.setup.breakout.state, signal: r.setup.breakout.signal, confidence: r.setup.breakout.confidence,
+          vcpScore: r.setup.report.score, vcpVerdict: r.setup.report.verdict, riskState: r.setup.report.riskState,
           atBuyPoint: r.passCount >= 7 && r.setup.actionable && !r.setup.extended,
         });
       } catch (err) {

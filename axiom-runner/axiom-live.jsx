@@ -11954,6 +11954,7 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
   const [screening, setScreening] = React.useState(false);
   const [scoreFilter, setScoreFilter] = React.useState("ALL"); // ALL | BUY | 8 | 7 | 6
   const [showHelp, setShowHelp] = React.useState(false);
+  const [showReport, setShowReport] = React.useState(false);
   const [rowOpen, setRowOpen] = React.useState(null);   // symbol expanded inline in the table
   const [rowData, setRowData] = React.useState({});      // symbol -> full trend-template payload
   const [rowLoading, setRowLoading] = React.useState(null);
@@ -12038,6 +12039,9 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
         <button onClick={scanWatchlist} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "7px 14px",
           borderRadius: 6, border: `1px solid ${C.green}`, background: `${C.green}18`, color: C.green, cursor: "pointer" }}>
           {screening ? "Scanning…" : "📋 Scan Watchlist"}</button>
+        <button onClick={() => setShowReport(r => !r)} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "7px 12px",
+          borderRadius: 6, border: `1px solid ${C.border}`, background: showReport ? `${C.accent}18` : "transparent", color: showReport ? C.accent : C.textDim, cursor: "pointer" }}>
+          📋 VCP Report</button>
         <button onClick={() => setShowHelp(h => !h)} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "7px 12px",
           borderRadius: 6, border: `1px solid ${C.border}`, background: showHelp ? `${C.accent}18` : "transparent", color: showHelp ? C.accent : C.textDim, cursor: "pointer" }}>
           {showHelp ? "✕ Close" : "❔ How to use"}</button>
@@ -12255,6 +12259,45 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
       )}
 
       {err && <div style={{ color: C.red, fontFamily: SANS, fontSize: 13 }}>Could not load: {err}</div>}
+
+      {data && showReport && data.setup.report && (() => {
+        const rp = data.setup.report;
+        const vc = rp.verdict === "A+ SETUP" ? C.green : rp.verdict === "WATCHLIST" ? "#5ab552" : rp.verdict === "WEAK SETUP" ? "#d6a312" : C.red;
+        const rc = rp.riskState === "LOW" ? C.green : rp.riskState === "MEDIUM" ? "#d6a312" : C.red;
+        const comps = [["Trend", rp.components.trend, 20], ["Contraction", rp.components.contraction, 30], ["Volatility", rp.components.volatility, 20], ["Volume", rp.components.volume, 20], ["Breakout", rp.components.breakout, 10]];
+        return (
+          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+              <div style={{ fontFamily: MONO, fontWeight: 900, fontSize: 15 }}>📋 VCP Report · {data.symbol}</div>
+              <div style={{ fontFamily: MONO, fontWeight: 900, fontSize: 26, color: vc }}>{rp.score}<span style={{ fontSize: 13, color: C.textDim }}>/100</span></div>
+              <div style={{ padding: "5px 14px", borderRadius: 6, fontFamily: MONO, fontSize: 13, fontWeight: 900, border: `1px solid ${vc}`, background: `${vc}1e`, color: vc }}>{rp.verdict}</div>
+              <div style={{ padding: "5px 12px", borderRadius: 6, fontFamily: MONO, fontSize: 12, fontWeight: 800, border: `1px solid ${rc}`, background: `${rc}1e`, color: rc }}>RISK {rp.riskState}</div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div>
+                {comps.map(([k, v, max]) => (
+                  <div key={k} style={{ marginBottom: 7 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+                      <span>{k}</span><span style={{ color: C.text, fontWeight: 700 }}>{v}/{max}</span></div>
+                    <div style={{ height: 6, borderRadius: 3, background: `${C.textDim}22`, marginTop: 2 }}>
+                      <div style={{ height: 6, borderRadius: 3, width: (v / max * 100) + "%", background: v / max >= 0.66 ? C.green : v / max >= 0.4 ? "#d6a312" : C.red }} /></div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.6 }}>
+                <div><b style={{ color: C.accent }}>Trend:</b> {rp.structure.trend}</div>
+                <div><b style={{ color: C.accent }}>Contractions:</b> {rp.structure.contractions}</div>
+                <div><b style={{ color: C.accent }}>Volatility:</b> {rp.structure.volatility}</div>
+                <div><b style={{ color: C.accent }}>Volume:</b> {rp.structure.volume}</div>
+                <div><b style={{ color: C.accent }}>Breakout:</b> {rp.structure.breakout}</div>
+                <div style={{ marginTop: 8, color: C.textDim }}><b>Why:</b> {rp.explanation}</div>
+              </div>
+            </div>
+            <button onClick={() => { navigator.clipboard?.writeText(rp.text).catch(() => {}); }}
+              style={{ marginTop: 12, fontFamily: MONO, fontSize: 11, padding: "5px 12px", borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent", color: C.textDim, cursor: "pointer" }}>⧉ Copy report</button>
+          </div>
+        );
+      })()}
 
       {data && (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
