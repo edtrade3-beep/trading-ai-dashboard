@@ -5466,6 +5466,12 @@ const COACH_HABITS = [
   { id:"family",  label:"👨‍👩‍👧 وقت حضور مع العائلة",     color:"#a855f7" },
   { id:"wife",    label:"❤️ تواصلت مع زوجتي",           color:"#ef4444" },
   { id:"gratitude", label:"🙏 امتنان / تأمّل",          color:"#7c3aed" },
+  { id:"learn",   label:"📖 قرأت أو تعلّمت شيئاً جديداً", color:"#3b82f6" },
+  { id:"review",  label:"📓 راجعت صفقاتي اليوم",          color:"#22d47e" },
+  { id:"water",   label:"💧 شربت ماءً كافياً",            color:"#06b6d4" },
+  { id:"nosugar", label:"🥗 أكلت صحياً (بلا سكر زائد)",   color:"#84cc16" },
+  { id:"plan",    label:"📝 خطّطت ليوم غدٍ قبل النوم",     color:"#f59e0b" },
+  { id:"quran",   label:"📿 وِردي من القرآن / الأذكار",    color:"#14b8a6" },
 ];
 
 // عادات سيئة تتخلّص منها — علّم عليها حين تتجنّبها اليوم (سلسلة الأيام النظيفة)
@@ -5476,6 +5482,10 @@ const COACH_BAD_HABITS = [
   { id:"bad_latenight",label:"🌙 السهر المتأخر",          color:"#7c3aed" },
   { id:"bad_junk",     label:"🍔 الأكل الليلي / غير الصحي", color:"#f59e0b" },
   { id:"bad_anger",    label:"😤 الغضب السريع",           color:"#ef4444" },
+  { id:"bad_social",   label:"🤳 السوشيال ميديا بلا هدف",  color:"#ef4444" },
+  { id:"bad_overspend",label:"🛒 شراء عاطفي / صرف زائد",   color:"#f59e0b" },
+  { id:"bad_overtrade",label:"📈 الإفراط في التداول",      color:"#ef4444" },
+  { id:"bad_gossip",   label:"🗣️ الكلام فيما لا يعني",     color:"#7c3aed" },
 ];
 
 function CoachTab({ C, MONO, SANS }) {
