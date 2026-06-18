@@ -1324,6 +1324,17 @@ async function pollOnce() {
 
     if (configuredId && incomingChatId !== configuredId) {
       console.warn(`[TgBot] Ignored — from ${incomingChatId}, expected ${configuredId}`);
+      // Help the owner re-link: reply to the unconfigured chat with its own ID so they
+      // can set TELEGRAM_CHAT_ID correctly (safe — only echoes the sender's own chat id).
+      try {
+        await fetch(`${API}/sendMessage`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: incomingChatId,
+            text: `👋 Your Telegram chat ID is:\n\n${incomingChatId}\n\nThis bot is currently linked to a different chat (${configuredId}). To receive alerts here, set TELEGRAM_CHAT_ID = ${incomingChatId} in the Render environment and redeploy.`,
+          }),
+        });
+      } catch {}
       continue;
     }
 
