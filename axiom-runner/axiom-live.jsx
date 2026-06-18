@@ -11939,6 +11939,7 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
   const [err, setErr]   = React.useState(null);
   const [screen, setScreen] = React.useState(null);
   const [screening, setScreening] = React.useState(false);
+  const [scoreFilter, setScoreFilter] = React.useState("ALL"); // ALL | BUY | 8 | 7 | 6
   const [rowOpen, setRowOpen] = React.useState(null);   // symbol expanded inline in the table
   const [rowData, setRowData] = React.useState({});      // symbol -> full trend-template payload
   const [rowLoading, setRowLoading] = React.useState(null);
@@ -12020,7 +12021,37 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
         <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
           {screen.error && <div style={{ padding: 12, color: C.red, fontFamily: SANS, fontSize: 13 }}>Screen failed: {screen.error}</div>}
           {screen.empty && <div style={{ padding: 12, color: C.textDim, fontFamily: SANS, fontSize: 13 }}>Your watchlist is empty — add symbols first.</div>}
-          {Array.isArray(screen.results) && screen.results.length > 0 && (
+          {Array.isArray(screen.results) && screen.results.length > 0 && (() => {
+            const match = (r) => {
+              if (r.error) return false;
+              if (scoreFilter === "BUY") return r.atBuyPoint;
+              if (scoreFilter === "8") return r.passCount === 8;
+              if (scoreFilter === "7") return r.passCount >= 7;
+              if (scoreFilter === "6") return r.passCount >= 6;
+              return true;
+            };
+            const filtered = screen.results.filter(match);
+            const counts = {
+              ALL: screen.results.filter(r => !r.error).length,
+              BUY: screen.results.filter(r => r.atBuyPoint).length,
+              "8": screen.results.filter(r => r.passCount === 8).length,
+              "7": screen.results.filter(r => r.passCount >= 7).length,
+              "6": screen.results.filter(r => r.passCount >= 6).length,
+            };
+            const filters = [["ALL", "All"], ["BUY", "🟢 Buy point"], ["8", "8/8"], ["7", "≥7/8"], ["6", "≥6/8"]];
+            return (
+            <>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "10px 10px 6px" }}>
+              {filters.map(([k, lbl]) => (
+                <button key={k} onClick={() => setScoreFilter(k)}
+                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 11px", borderRadius: 6,
+                    border: `1px solid ${scoreFilter === k ? C.accent : C.border}`,
+                    background: scoreFilter === k ? `${C.accent}18` : "transparent",
+                    color: scoreFilter === k ? C.accent : C.textDim, cursor: "pointer" }}>
+                  {lbl} <span style={{ opacity: .7 }}>({counts[k]})</span>
+                </button>
+              ))}
+            </div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12 }}>
               <thead><tr style={{ color: C.textDim, textAlign: "left" }}>
                 {["", "Sym", "Score", "RS", "Price", "Pivot", "vs Pivot", "Entry", "Stop", "Risk", "T2", "Setup"].map((h, i) => (
@@ -12028,7 +12059,10 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                 ))}
               </tr></thead>
               <tbody>
-                {screen.results.map((r) => {
+                {filtered.length === 0 && (
+                  <tr><td colSpan={12} style={{ padding: 14, color: C.textDim, fontFamily: SANS, fontSize: 12 }}>No symbols match this filter.</td></tr>
+                )}
+                {filtered.map((r) => {
                   if (r.error) return (
                     <tr key={r.symbol}><td style={{ padding: "7px 10px" }}></td>
                       <td style={{ padding: "7px 10px", fontWeight: 800 }}>{r.symbol}</td>
@@ -12089,7 +12123,9 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                 })}
               </tbody>
             </table>
-          )}
+            </>
+            );
+          })()}
         </div>
       )}
 
