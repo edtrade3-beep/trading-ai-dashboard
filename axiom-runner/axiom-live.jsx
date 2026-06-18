@@ -11848,6 +11848,90 @@ function GapFillTab({ C, MONO, SANS, setActiveTab }) {
 }
 
 // ── Squeeze Screener ─────────────────────────────────────────────────────────
+function TrendChart({ data, C, MONO, SANS, height }) {
+  const canvasRef = React.useRef(null);
+  const H = height || 520;
+  React.useEffect(() => {
+    const cv = canvasRef.current;
+    if (!cv || !data || !data.bars) return;
+    const ctx = cv.getContext("2d");
+    const W = cv.clientWidth || 820, dpr = window.devicePixelRatio || 1;
+    cv.width = W * dpr; cv.height = H * dpr; cv.style.height = H + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+
+    const bars = data.bars, n = bars.length;
+    const padL = 8, padR = 60, plotW = W - padL - padR;
+    const bw = plotW / n, x = i => padL + i * bw + bw / 2;
+    const pTop = 30, vH = Math.round(H * 0.18), pH = H - pTop - 20 - vH - 24, pBot = pTop + pH;
+    const vTop = pBot + 20, vBot = vTop + vH;
+
+    let hi = -1e9, lo = 1e9;
+    bars.forEach(b => { hi = Math.max(hi, b.high); lo = Math.min(lo, b.low); });
+    ["ma50","ma150","ma200"].forEach(k => data.series[k].forEach(v => { if (v != null) { hi = Math.max(hi, v); lo = Math.min(lo, v); } }));
+    hi *= 1.03; lo *= 0.97;
+    const py = v => pTop + (1 - (v - lo) / (hi - lo)) * pH;
+
+    ctx.font = "11px " + SANS; ctx.textAlign = "left";
+    const raw = Math.max(1, Math.ceil((hi - lo) / 8));
+    const stepV = [1,2,5,10,20,25,50,100,200,500].find(s => s >= raw) || raw;
+    for (let v = Math.ceil(lo / stepV) * stepV; v < hi; v += stepV) {
+      const y = py(v); ctx.strokeStyle = C.border; ctx.globalAlpha = .35;
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.fillStyle = C.textDim; ctx.fillText(v.toFixed(0), padL + plotW + 6, y + 3);
+    }
+    const drawMA = (arr, color, w) => { ctx.strokeStyle = color; ctx.lineWidth = w; ctx.beginPath(); let st = false;
+      for (let i = 0; i < n; i++) { if (arr[i] == null) continue; const yy = py(arr[i]); st ? ctx.lineTo(x(i), yy) : ctx.moveTo(x(i), yy); st = true; } ctx.stroke(); };
+    drawMA(data.series.ma200, "#c94440", 1.5);
+    drawMA(data.series.ma150, "#d6a312", 1.3);
+    drawMA(data.series.ma50, C.accent, 1.5);
+
+    const cw = Math.max(1.5, bw * 0.62);
+    for (let i = 0; i < n; i++) { const d = bars[i], up = d.close >= d.open;
+      ctx.strokeStyle = up ? C.green : C.red; ctx.fillStyle = up ? C.green : C.red;
+      ctx.beginPath(); ctx.moveTo(x(i), py(d.high)); ctx.lineTo(x(i), py(d.low)); ctx.stroke();
+      const yo = py(d.open), yc = py(d.close); ctx.fillRect(x(i) - cw / 2, Math.min(yo, yc), cw, Math.max(1, Math.abs(yc - yo))); }
+
+    const last = bars[n - 1];
+    ctx.fillStyle = last.close >= last.open ? C.green : C.red; ctx.fillRect(padL + plotW, py(last.close) - 9, padR - 2, 18);
+    ctx.fillStyle = "#0a0a0a"; ctx.textAlign = "right"; ctx.font = "bold 11px " + MONO;
+    ctx.fillText(last.close.toFixed(2), W - 4, py(last.close) + 4); ctx.textAlign = "left";
+
+    const su = data.setup;
+    if (su) {
+      const line = (val, color, label, dash) => {
+        if (val == null || val < lo || val > hi) return;
+        const y = py(val);
+        ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash(dash || [5, 4]);
+        ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = color; ctx.font = "bold 10px " + MONO; ctx.textAlign = "left";
+        ctx.fillText(label, padL + 4, y - 3);
+      };
+      line(su.entry, C.accent, "PIVOT " + su.entry, [6, 3]);
+      if (su.actionable) {
+        line(su.target3, C.green, "T3 " + su.target3);
+        line(su.target2, C.green, "T2 " + su.target2);
+        line(su.stop, C.red, "STOP " + su.stop);
+      }
+    }
+
+    ctx.font = "11px " + MONO;
+    ctx.fillStyle = C.accent; ctx.fillText("MA50", padL + plotW - 150, pTop - 12);
+    ctx.fillStyle = "#d6a312"; ctx.fillText("MA150", padL + plotW - 105, pTop - 12);
+    ctx.fillStyle = "#c94440"; ctx.fillText("MA200", padL + plotW - 55, pTop - 12);
+
+    let vhi = 0; bars.forEach(b => vhi = Math.max(vhi, b.volume));
+    for (let i = 0; i < n; i++) { const d = bars[i], up = d.close >= d.open; const h = (d.volume / vhi) * vH;
+      ctx.globalAlpha = .5; ctx.fillStyle = up ? C.green : C.red;
+      ctx.fillRect(padL + i * bw + bw * 0.2, vBot - h, Math.max(1, bw * 0.6), h); ctx.globalAlpha = 1; }
+    ctx.fillStyle = C.textDim; ctx.font = "12px " + SANS; ctx.fillText("Volume", padL + 8, vTop + 14);
+
+    ctx.fillStyle = C.textDim; ctx.font = "11px " + SANS;
+    [0, Math.floor(n*0.25), Math.floor(n*0.5), Math.floor(n*0.75), n-1].forEach(i => {
+      const dt = new Date(bars[i].time); ctx.fillText((dt.getMonth()+1)+"/"+dt.getDate(), x(i)-10, H-4); });
+  }, [data, C, MONO, SANS, H]);
+  return <canvas ref={canvasRef} style={{ display: "block", width: "100%" }} />;
+}
+
 function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
   const [sym, setSym]   = React.useState("ARM");
   const [data, setData] = React.useState(null);
@@ -11855,7 +11939,22 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
   const [err, setErr]   = React.useState(null);
   const [screen, setScreen] = React.useState(null);
   const [screening, setScreening] = React.useState(false);
-  const canvasRef = React.useRef(null);
+  const [rowOpen, setRowOpen] = React.useState(null);   // symbol expanded inline in the table
+  const [rowData, setRowData] = React.useState({});      // symbol -> full trend-template payload
+  const [rowLoading, setRowLoading] = React.useState(null);
+
+  const toggleRow = React.useCallback((symbol) => {
+    if (rowOpen === symbol) { setRowOpen(null); return; }
+    setRowOpen(symbol);
+    if (!rowData[symbol]) {
+      setRowLoading(symbol);
+      fetch("/api/market/trend-template?symbol=" + encodeURIComponent(symbol))
+        .then(r => r.json())
+        .then(d => { if (!d.error) setRowData(prev => ({ ...prev, [symbol]: d })); })
+        .catch(() => {})
+        .finally(() => setRowLoading(null));
+    }
+  }, [rowOpen, rowData]);
 
   const scanWatchlist = React.useCallback(() => {
     setScreening(true); setScreen(null);
@@ -11884,88 +11983,6 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
   }, [sym]);
 
   React.useEffect(() => { load("ARM"); }, []); // eslint-disable-line
-
-  // ── canvas render ──
-  React.useEffect(() => {
-    const cv = canvasRef.current;
-    if (!cv || !data) return;
-    const ctx = cv.getContext("2d");
-    const W = cv.clientWidth || 820, dpr = window.devicePixelRatio || 1, H = 520;
-    cv.width = W * dpr; cv.height = H * dpr; cv.style.height = H + "px";
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
-
-    const bars = data.bars, n = bars.length;
-    const padL = 8, padR = 60, plotW = W - padL - padR;
-    const bw = plotW / n, x = i => padL + i * bw + bw / 2;
-    const pTop = 30, pH = 350, pBot = pTop + pH;
-    const vTop = pBot + 20, vH = 96, vBot = vTop + vH;
-
-    let hi = -1e9, lo = 1e9;
-    bars.forEach(b => { hi = Math.max(hi, b.high); lo = Math.min(lo, b.low); });
-    ["ma50","ma150","ma200"].forEach(k => data.series[k].forEach(v => { if (v != null) { hi = Math.max(hi, v); lo = Math.min(lo, v); } }));
-    hi *= 1.03; lo *= 0.97;
-    const py = v => pTop + (1 - (v - lo) / (hi - lo)) * pH;
-
-    ctx.font = "11px " + SANS; ctx.textAlign = "left";
-    const raw = Math.max(1, Math.ceil((hi - lo) / 8));
-    const stepV = [1,2,5,10,20,25,50,100,200].find(s => s >= raw) || raw;
-    for (let v = Math.ceil(lo / stepV) * stepV; v < hi; v += stepV) {
-      const y = py(v); ctx.strokeStyle = C.border; ctx.globalAlpha = .35;
-      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke(); ctx.globalAlpha = 1;
-      ctx.fillStyle = C.textDim; ctx.fillText(v.toFixed(0), padL + plotW + 6, y + 3);
-    }
-    const drawMA = (arr, color, w) => { ctx.strokeStyle = color; ctx.lineWidth = w; ctx.beginPath(); let st = false;
-      for (let i = 0; i < n; i++) { if (arr[i] == null) continue; const yy = py(arr[i]); st ? ctx.lineTo(x(i), yy) : ctx.moveTo(x(i), yy); st = true; } ctx.stroke(); };
-    drawMA(data.series.ma200, "#c94440", 1.5);
-    drawMA(data.series.ma150, "#d6a312", 1.3);
-    drawMA(data.series.ma50, C.accent, 1.5);
-
-    const cw = Math.max(1.5, bw * 0.62);
-    for (let i = 0; i < n; i++) { const d = bars[i], up = d.close >= d.open;
-      ctx.strokeStyle = up ? C.green : C.red; ctx.fillStyle = up ? C.green : C.red;
-      ctx.beginPath(); ctx.moveTo(x(i), py(d.high)); ctx.lineTo(x(i), py(d.low)); ctx.stroke();
-      const yo = py(d.open), yc = py(d.close); ctx.fillRect(x(i) - cw / 2, Math.min(yo, yc), cw, Math.max(1, Math.abs(yc - yo))); }
-
-    const last = bars[n - 1];
-    ctx.fillStyle = last.close >= last.open ? C.green : C.red; ctx.fillRect(padL + plotW, py(last.close) - 9, padR - 2, 18);
-    ctx.fillStyle = "#0a0a0a"; ctx.textAlign = "right"; ctx.font = "bold 11px " + MONO;
-    ctx.fillText(last.close.toFixed(2), W - 4, py(last.close) + 4); ctx.textAlign = "left";
-
-    // entry / stop / target lines
-    const su = data.setup;
-    if (su) {
-      const line = (val, color, label, dash) => {
-        if (val == null || val < lo || val > hi) return;
-        const y = py(val);
-        ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash(dash || [5, 4]);
-        ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke(); ctx.setLineDash([]);
-        ctx.fillStyle = color; ctx.font = "bold 10px " + MONO; ctx.textAlign = "left";
-        ctx.fillText(label, padL + 4, y - 3);
-      };
-      // Pivot is always a useful reference; stop/targets only when the setup is live.
-      line(su.entry, C.accent, "PIVOT " + su.entry, [6, 3]);
-      if (su.actionable) {
-        line(su.target3, C.green, "T3 " + su.target3);
-        line(su.target2, C.green, "T2 " + su.target2);
-        line(su.stop, C.red, "STOP " + su.stop);
-      }
-    }
-
-    ctx.font = "11px " + MONO;
-    ctx.fillStyle = C.accent; ctx.fillText("MA50", padL + plotW - 150, pTop - 12);
-    ctx.fillStyle = "#d6a312"; ctx.fillText("MA150", padL + plotW - 105, pTop - 12);
-    ctx.fillStyle = "#c94440"; ctx.fillText("MA200", padL + plotW - 55, pTop - 12);
-
-    let vhi = 0; bars.forEach(b => vhi = Math.max(vhi, b.volume));
-    for (let i = 0; i < n; i++) { const d = bars[i], up = d.close >= d.open; const h = (d.volume / vhi) * vH;
-      ctx.globalAlpha = .5; ctx.fillStyle = up ? C.green : C.red;
-      ctx.fillRect(padL + i * bw + bw * 0.2, vBot - h, Math.max(1, bw * 0.6), h); ctx.globalAlpha = 1; }
-    ctx.fillStyle = C.textDim; ctx.font = "12px " + SANS; ctx.fillText("Volume", padL + 8, vTop + 14);
-
-    ctx.fillStyle = C.textDim; ctx.font = "11px " + SANS;
-    [0, Math.floor(n*0.25), Math.floor(n*0.5), Math.floor(n*0.75), n-1].forEach(i => {
-      const dt = new Date(bars[i].time); ctx.fillText((dt.getMonth()+1)+"/"+dt.getDate(), x(i)-10, H-4); });
-  }, [data, C, MONO, SANS]);
 
   const stageColor = !data ? C.textDim : data.qualifies ? C.green : data.passCount >= 4 ? "#d6a312" : C.red;
   const chip = (k, v, col) => (
@@ -12018,10 +12035,13 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                       <td colSpan={10} style={{ padding: "7px 10px", color: C.textDim }}>{r.error}</td></tr>
                   );
                   const sCol = r.qualifies ? C.green : r.passCount >= 4 ? "#d6a312" : C.red;
+                  const open = rowOpen === r.symbol;
+                  const rd = rowData[r.symbol];
                   return (
-                    <tr key={r.symbol} onClick={() => { setSym(r.symbol); load(r.symbol); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                      style={{ cursor: "pointer", background: r.atBuyPoint ? `${C.green}12` : "transparent" }}>
-                      <td style={{ padding: "7px 10px" }}>{r.atBuyPoint ? "🟢" : r.extended ? "⚠" : ""}</td>
+                    <React.Fragment key={r.symbol}>
+                    <tr onClick={() => toggleRow(r.symbol)}
+                      style={{ cursor: "pointer", background: open ? `${C.accent}12` : r.atBuyPoint ? `${C.green}12` : "transparent" }}>
+                      <td style={{ padding: "7px 10px" }}>{open ? "▼" : r.atBuyPoint ? "🟢" : r.extended ? "⚠" : "▸"}</td>
                       <td style={{ padding: "7px 10px", fontWeight: 800, color: C.text }}>{r.symbol}</td>
                       <td style={{ padding: "7px 10px", color: sCol, fontWeight: 800 }}>{r.passCount}/8</td>
                       <td style={{ padding: "7px 10px", color: r.rsRating >= 70 ? C.green : C.textDim }}>{r.rsRating ?? "—"}</td>
@@ -12034,6 +12054,37 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                       <td style={{ padding: "7px 10px", color: C.green }}>{r.target2}</td>
                       <td style={{ padding: "7px 10px", color: C.textDim, fontFamily: SANS, fontSize: 11 }}>{r.setupStatus}</td>
                     </tr>
+                    {open && (
+                      <tr>
+                        <td colSpan={12} style={{ padding: "0 10px 12px", background: `${C.accent}08` }}>
+                          {rowLoading === r.symbol && <div style={{ padding: 16, color: C.textDim, fontFamily: SANS, fontSize: 12 }}>Loading {r.symbol} chart…</div>}
+                          {rd && (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 220px", gap: 12, paddingTop: 8 }}>
+                              <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+                                <TrendChart data={rd} C={C} MONO={MONO} SANS={SANS} height={360} />
+                              </div>
+                              <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12 }}>
+                                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: sCol }}>{rd.passCount}/8 · {rd.stage}</div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 8, fontFamily: MONO, fontSize: 12 }}>
+                                  {[["Pivot", rd.setup.entry, C.accent], ["Stop", rd.setup.stop, C.red], ["Risk", rd.setup.riskPct + "%", C.textDim],
+                                    ["Target 2R", rd.setup.target2, C.green], ["Target 3R", rd.setup.target3, C.green], ["RS", rd.rsRating, rd.rsRating >= 70 ? C.green : C.textDim]].map(([k, v, col]) => (
+                                    <div key={k} style={{ display: "flex", justifyContent: "space-between" }}>
+                                      <span style={{ color: C.textDim }}>{k}</span><span style={{ color: col, fontWeight: 700 }}>{v}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                {!rd.setup.actionable && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 8 }}>
+                                  No actionable setup — {Math.abs(rd.setup.abovePivotPct)}% below pivot.</div>}
+                                <button onClick={(e) => { e.stopPropagation(); setSym(r.symbol); load(r.symbol); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                                  style={{ marginTop: 10, width: "100%", fontFamily: MONO, fontSize: 11, padding: "6px 0", borderRadius: 6,
+                                    border: `1px solid ${C.border}`, background: "transparent", color: C.accent, cursor: "pointer" }}>Open full view ↑</button>
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -12111,7 +12162,7 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 12 }}>
         <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
-          <canvas ref={canvasRef} style={{ display: "block", width: "100%" }} />
+          <TrendChart data={data} C={C} MONO={MONO} SANS={SANS} />
         </div>
         <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
           {data && (<>
