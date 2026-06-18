@@ -11940,6 +11940,7 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
   const [screen, setScreen] = React.useState(null);
   const [screening, setScreening] = React.useState(false);
   const [scoreFilter, setScoreFilter] = React.useState("ALL"); // ALL | BUY | 8 | 7 | 6
+  const [showHelp, setShowHelp] = React.useState(false);
   const [rowOpen, setRowOpen] = React.useState(null);   // symbol expanded inline in the table
   const [rowData, setRowData] = React.useState({});      // symbol -> full trend-template payload
   const [rowLoading, setRowLoading] = React.useState(null);
@@ -12024,9 +12025,70 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
         <button onClick={scanWatchlist} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "7px 14px",
           borderRadius: 6, border: `1px solid ${C.green}`, background: `${C.green}18`, color: C.green, cursor: "pointer" }}>
           {screening ? "Scanning…" : "📋 Scan Watchlist"}</button>
+        <button onClick={() => setShowHelp(h => !h)} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "7px 12px",
+          borderRadius: 6, border: `1px solid ${C.border}`, background: showHelp ? `${C.accent}18` : "transparent", color: showHelp ? C.accent : C.textDim, cursor: "pointer" }}>
+          {showHelp ? "✕ Close" : "❔ How to use"}</button>
         <div style={{ marginLeft: "auto", fontFamily: SANS, fontSize: 11, color: C.textDim }}>
           Live · Yahoo daily · Minervini SEPA criteria</div>
       </div>
+
+      {showHelp && (
+        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 18px",
+          fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.6 }}>
+          <div style={{ fontFamily: MONO, fontWeight: 900, fontSize: 15, marginBottom: 4 }}>How to use the Trend Template</div>
+          <div style={{ color: C.textDim, fontSize: 12, marginBottom: 14 }}>
+            Based on Mark Minervini's SEPA® method (<i>Trade Like a Stock Market Wizard</i>). This is an educational tool, not financial advice — verify every level on the chart and manage your own risk.</div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+            <div>
+              <div style={{ fontFamily: MONO, fontWeight: 800, color: C.accent, marginBottom: 6 }}>① The Trend Template (8 rules)</div>
+              <div style={{ color: C.textDim, marginBottom: 8 }}>A stock must pass <b>all 8</b> to be a Stage 2 leader worth trading. The score tells you trend quality at a glance:</div>
+              <ol style={{ margin: 0, paddingLeft: 18, color: C.text }}>
+                <li>Price above the 150 &amp; 200-day MA</li>
+                <li>150-day MA above the 200-day MA</li>
+                <li>200-day MA trending up (≥1 month)</li>
+                <li>50-day MA above the 150 &amp; 200-day MA</li>
+                <li>Price above the 50-day MA</li>
+                <li>Price ≥30% above its 52-week low</li>
+                <li>Price within 25% of its 52-week high</li>
+                <li>Relative Strength rating ≥70 (leader vs the market)</li>
+              </ol>
+              <div style={{ color: C.textDim, marginTop: 8, fontSize: 12 }}>
+                <b style={{ color: C.green }}>8/8</b> = textbook uptrend. <b style={{ color: "#d6a312" }}>6–7/8</b> = transition, watch. <b style={{ color: C.red }}>≤5/8</b> = avoid (Stage 1/4).</div>
+            </div>
+
+            <div>
+              <div style={{ fontFamily: MONO, fontWeight: 800, color: C.accent, marginBottom: 6 }}>② Entry — the pivot buy point</div>
+              <div style={{ color: C.text, marginBottom: 10 }}>
+                The template alone isn't a buy signal. Wait for a <b>VCP</b> (Volatility Contraction Pattern): a base where each pullback gets <b>shallower</b> and volume <b>dries up</b>. The <b style={{ color: C.accent }}>pivot</b> is the high of that tight base.
+                <br/>👉 <b>Buy when price breaks above the pivot on volume ≥1.4× average.</b></div>
+              <div style={{ fontFamily: MONO, fontWeight: 800, color: C.accent, marginBottom: 6 }}>③ Exit — stop &amp; targets</div>
+              <div style={{ color: C.text }}>
+                <b style={{ color: C.red }}>Stop:</b> just below the pivot / contraction low — tightest of −8% or the base low.<br/>
+                <b style={{ color: C.green }}>Targets:</b> sell into strength at 2×–3× your risk, <i>or</i> when price closes below the 50-day MA / 21-day EMA (trend over).</div>
+            </div>
+          </div>
+
+          <div style={{ fontFamily: MONO, fontWeight: 800, color: C.accent, margin: "16px 0 6px" }}>④ Reading this tool</div>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", color: C.text }}>
+            <div style={{ flex: "1 1 180px" }}><b style={{ color: C.green }}>GO</b> — 8/8 &amp; broke the pivot on volume. A real buy trigger.</div>
+            <div style={{ flex: "1 1 180px" }}><b style={{ color: "#d6a312" }}>WAIT</b> — trend is there but price isn't at the pivot yet (or no volume). Arm an alert.</div>
+            <div style={{ flex: "1 1 180px" }}><b style={{ color: C.red }}>AVOID</b> — trend not in gear. No trade.</div>
+            <div style={{ flex: "1 1 180px" }}><b style={{ color: C.green }}>🟢 / VCP ✓</b> — at a valid buy point / contractions are tightening (good base).</div>
+          </div>
+
+          <div style={{ fontFamily: MONO, fontWeight: 800, color: C.accent, margin: "16px 0 6px" }}>⑤ A daily workflow</div>
+          <ol style={{ margin: 0, paddingLeft: 18, color: C.text }}>
+            <li><b>📋 Scan Watchlist</b> → filter to <b>🟢 Buy point</b> to see only actionable names.</li>
+            <li>Click a row → check the chart: is the pivot a real tight VCP base? Is the verdict <b>GO</b> or <b>WAIT</b>?</li>
+            <li><b>WAIT</b> setups → hit <b>🔔 Alert at pivot</b> so you're pinged on the breakout.</li>
+            <li>On a <b>GO</b>, buy near the pivot, set the stop shown, and size so the stop = ~1% of your account.</li>
+            <li>Manage: take partials into strength at 2R–3R; exit if it closes below the 50-day MA.</li>
+          </ol>
+          <div style={{ color: C.textDim, fontSize: 11.5, marginTop: 12 }}>
+            ⚠ The RS rating is approximate (momentum vs SPY, not a true full-market percentile). Pivot/VCP detection is automated and not perfect — always confirm against the chart before acting.</div>
+        </div>
+      )}
 
       {screen && (
         <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
