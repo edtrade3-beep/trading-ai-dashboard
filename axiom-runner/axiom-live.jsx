@@ -19903,13 +19903,7 @@ export default function App() {
               <MacroEventsWidget C={C} MONO={MONO} SANS={SANS} />
             </MonitorSection>
 
-            {/* ── PERSONAL (collapsed by default to save space) ── */}
-            <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={false}>
-              <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
-            </MonitorSection>
-
-
-            {/* ── EVENT COUNTDOWN + PRE-MARKET MOVERS ── */}
+            {/* ── EVENT COUNTDOWN + PRE-MARKET MOVERS (under Catalysts) ── */}
             <div style={{ display: "grid", gridTemplateColumns: eventCountdowns.length > 0 && preMktMovers.length > 0 ? "1fr 1fr" : "1fr",
               gap: 10, marginBottom: 10 }}>
 
@@ -20150,6 +20144,10 @@ export default function App() {
             })()}
             </MonitorSection>
 
+            {/* ── Prayer Times (non-trading, collapsed, kept at the bottom) ── */}
+            <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={false}>
+              <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
+            </MonitorSection>
 
             </>
           );
