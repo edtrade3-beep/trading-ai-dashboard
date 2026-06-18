@@ -19894,7 +19894,6 @@ export default function App() {
             <MonitorSection C={C} MONO={MONO} label="🚦 MARKET MODE & FLOW" storeKey="mon_mode">
               <RiskTrafficLight C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
               <SpyVolumeWidget C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
-              <CryptoLiqWidget C={C} MONO={MONO} SANS={SANS} />
             </MonitorSection>
 
             {/* ── 2. CATALYSTS — Fed + scheduled economic events ── */}
@@ -20839,7 +20838,10 @@ export default function App() {
         )}
 
         {activeTab === "crypto" && (
-          <CryptoTab C={C} MONO={MONO} SANS={SANS} />
+          <>
+            <CryptoLiqWidget C={C} MONO={MONO} SANS={SANS} />
+            <CryptoTab C={C} MONO={MONO} SANS={SANS} />
+          </>
         )}
 
         {activeTab === "options" && (
