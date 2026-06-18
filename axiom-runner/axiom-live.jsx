@@ -19995,8 +19995,8 @@ export default function App() {
                 { label: "FLOW", val: flowBias || "—", color: (flowBias||"").includes("CALL") ? C.green : (flowBias||"").includes("PUT") ? C.red : C.amber },
               ];
               return (
-                <div style={{ marginBottom: 10, background: regBg, border: `2px solid ${regColor}55`,
-                  borderRadius: 12, overflow: "hidden" }}>
+                <div style={{ marginBottom: 0, background: regBg, border: `2px solid ${regColor}55`,
+                  borderBottom: "none", borderRadius: "12px 12px 0 0", overflow: "hidden" }}>
                   {/* Title bar */}
                   <div style={{ padding: "8px 16px", background: `${regColor}22`, borderBottom: `1px solid ${regColor}33`,
                     display: "flex", alignItems: "center", gap: 10 }}>
@@ -20101,7 +20101,7 @@ export default function App() {
               const resist  = spyPx * 1.015;
 
               return (
-                <div style={{ marginBottom: 14, background: `${biasCol}0c`, border: `2px solid ${biasCol}44`, borderRadius: 14, overflow: "hidden" }}>
+                <div style={{ marginBottom: 14, background: `${biasCol}0c`, border: `2px solid ${biasCol}44`, borderTop: "none", borderRadius: "0 0 14px 14px", overflow: "hidden" }}>
                   <div style={{ padding: "14px 22px", background: `${biasCol}18`, borderBottom: `1px solid ${biasCol}33`, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
                     <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: biasCol, letterSpacing: "0.08em" }}>🔮 NEXT DAY OUTLOOK</span>
                     <span style={{ fontFamily: MONO, fontSize: 26, fontWeight: 900, color: biasCol }}>{biasIcon} {bias}</span>
