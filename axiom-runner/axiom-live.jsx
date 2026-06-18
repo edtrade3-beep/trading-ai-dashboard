@@ -2468,9 +2468,19 @@ const MACRO_WHISPERS = {
   GDP:    "Two negative quarters = technical recession. Growth surprises move yields.",
 };
 
+const MOVERS_UNIVERSE = "AAPL,MSFT,NVDA,AMZN,META,GOOGL,TSLA,AMD,AVGO,NFLX,JPM,BAC,XOM,WMT,UNH,LLY,COST,CRM,ORCL,ADBE,INTC,MU,PLTR,COIN,SMCI,MRVL,QCOM,UBER,DIS,BA";
+
 function MacroEventsWidget({ C, MONO, SANS }) {
   const [live, setLive] = React.useState(null);   // FMP events with real numbers (when key set)
   const [cal, setCal]   = React.useState(null);   // fallback upcoming events (dates only)
+  const [movers, setMovers] = React.useState(null);
+  React.useEffect(() => {
+    const loadMovers = () => fetch(`/api/market/movers?symbols=${MOVERS_UNIVERSE}&n=5`)
+      .then(r => r.json()).then(d => { if (d && d.gainers) setMovers(d); }).catch(() => {});
+    loadMovers();
+    const mt = setInterval(loadMovers, 60000);
+    return () => clearInterval(mt);
+  }, []);
   React.useEffect(() => {
     const load = () => {
       // 1) try live FMP numbers
@@ -2498,6 +2508,8 @@ function MacroEventsWidget({ C, MONO, SANS }) {
       <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>
         📅 MACRO — CPI / FOMC {hasLive ? <>ESTIMATES <span style={{ color: C.green }}>● LIVE</span></> : <>MARKET READ <span style={{ color: C.amber }}>● guide</span></>}
       </div>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.1fr) minmax(0, 1fr)", gap: 18, alignItems: "start" }}>
+      <div>
       {rows.map((e, i) => {
         const tag = (e.tag || "").toUpperCase();
         const sev = (e.impact === "High" || e.impact === "HIGH" || ["CPI","FED","FOMC","JOBS","NFP","PCE"].includes(tag)) ? C.red : C.amber;
@@ -2522,6 +2534,33 @@ function MacroEventsWidget({ C, MONO, SANS }) {
       })}
       <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim }}>
         {hasLive ? "Live consensus & actuals from FMP." : "What each event means for the market. Add FMP_API_KEY for live dates, consensus & actual numbers."}
+      </div>
+      </div>
+
+      {/* STOCK MOVERS (fills the right side) */}
+      <div>
+        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>📈 STOCK MOVERS</div>
+        {!movers ? (
+          <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Loading movers…</div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {[["GAINERS", movers.gainers, C.green], ["LOSERS", movers.losers, C.red]].map(([title, list, col]) => (
+              <div key={title}>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: col, marginBottom: 4 }}>{title}</div>
+                {(list || []).slice(0, 5).map((m) => (
+                  <div key={m.symbol} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "3px 0", fontFamily: MONO, fontSize: 11 }}>
+                    <span style={{ fontWeight: 800, color: C.text }}>{m.symbol}</span>
+                    <span style={{ color: C.textDim, fontSize: 10 }}>${Number(m.price).toFixed(2)}</span>
+                    <span style={{ fontWeight: 800, color: m.changesPercentage >= 0 ? C.green : C.red, minWidth: 52, textAlign: "right" }}>
+                      {m.changesPercentage >= 0 ? "+" : ""}{Number(m.changesPercentage).toFixed(2)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       </div>
     </div>
   );
