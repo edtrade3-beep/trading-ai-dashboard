@@ -19897,6 +19897,11 @@ export default function App() {
               <SpyVolumeWidget C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
             </MonitorSection>
 
+            {/* ── Prayer Times (collapsed) ── */}
+            <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={false}>
+              <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
+            </MonitorSection>
+
             {/* ── 2. CATALYSTS — Fed + scheduled economic events ── */}
             <MonitorSection C={C} MONO={MONO} label="🏛 CATALYSTS & EVENTS" storeKey="mon_catalysts">
               <FedInterpreter C={C} MONO={MONO} SANS={SANS} />
@@ -20142,11 +20147,6 @@ export default function App() {
                 </div>
               );
             })()}
-            </MonitorSection>
-
-            {/* ── Prayer Times (non-trading, collapsed, kept at the bottom) ── */}
-            <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={false}>
-              <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
             </MonitorSection>
 
             </>
