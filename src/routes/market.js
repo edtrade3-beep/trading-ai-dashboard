@@ -403,8 +403,122 @@ async function buildLivePayload(ticker, timeframe, style) {
 
 // --- Route handler ---
 
+// ── Minervini Trend Template (8 public criteria from "Trade Like a Stock Market Wizard") ──
+function ttSmaAt(values, period, endIdx) {
+  if (endIdx == null) endIdx = values.length - 1;
+  if (endIdx - period + 1 < 0) return null;
+  let sum = 0;
+  for (let i = endIdx - period + 1; i <= endIdx; i += 1) sum += values[i];
+  return sum / period;
+}
+
+function ttSmaSeries(values, period) {
+  return values.map((_, i) => ttSmaAt(values, period, i));
+}
+
+// IBD-style weighted momentum: most recent quarter double-weighted.
+function ttWeightedMomentum(closes) {
+  const last = closes.length - 1;
+  const perf = (back) => {
+    const idx = last - back;
+    if (idx < 0 || !closes[idx]) return 0;
+    return closes[last] / closes[idx] - 1;
+  };
+  return 0.4 * perf(63) + 0.2 * perf(126) + 0.2 * perf(189) + 0.2 * perf(252);
+}
+
+async function buildTrendTemplate(symbol) {
+  const bars = await fetchYahooBars(symbol, "1y", "1d");
+  if (!Array.isArray(bars) || bars.length < 200) {
+    throw new Error(`Not enough history for ${symbol} (need ~200 trading days, got ${bars ? bars.length : 0}).`);
+  }
+  const closes = bars.map((b) => b.close);
+  const last = closes.length - 1;
+  const price = closes[last];
+
+  const ma50 = ttSmaAt(closes, 50, last);
+  const ma150 = ttSmaAt(closes, 150, last);
+  const ma200 = ttSmaAt(closes, 200, last);
+  const ma200Prev = ttSmaAt(closes, 200, last - 22); // ~1 month ago
+
+  const hi52 = Math.max(...bars.map((b) => b.high));
+  const lo52 = Math.min(...bars.map((b) => b.low));
+  const pctFromHigh = round2((price / hi52 - 1) * 100);
+  const pctFromLow = round2((price / lo52 - 1) * 100);
+
+  // Relative Strength vs SPY (approximate — no full-universe percentile available)
+  let rsRating = null;
+  try {
+    const spy = await fetchYahooBars("SPY", "1y", "1d");
+    const stockMom = ttWeightedMomentum(closes);
+    const spyMom = ttWeightedMomentum(spy.map((b) => b.close));
+    rsRating = Math.max(1, Math.min(99, Math.round(50 + 50 * Math.tanh(2 * (stockMom - spyMom)))));
+  } catch {
+    rsRating = null;
+  }
+
+  const criteria = [
+    { id: 1, label: "Price above 150-day & 200-day MA", pass: price > ma150 && price > ma200 },
+    { id: 2, label: "150-day MA above 200-day MA", pass: ma150 > ma200 },
+    { id: 3, label: "200-day MA trending up (≥1 month)", pass: ma200Prev != null && ma200 > ma200Prev },
+    { id: 4, label: "50-day MA above 150-day & 200-day MA", pass: ma50 > ma150 && ma50 > ma200 },
+    { id: 5, label: "Price above 50-day MA", pass: price > ma50 },
+    { id: 6, label: "Price ≥30% above 52-week low", pass: price >= lo52 * 1.30 },
+    { id: 7, label: "Price within 25% of 52-week high", pass: price >= hi52 * 0.75 },
+    { id: 8, label: "Relative Strength rating ≥70", pass: rsRating != null && rsRating >= 70, value: rsRating },
+  ];
+  const passCount = criteria.filter((c) => c.pass).length;
+  const trendPass = criteria.slice(0, 7).every((c) => c.pass);
+  const stage = trendPass && passCount === 8 ? "Stage 2 — Confirmed Uptrend"
+    : trendPass ? "Stage 2 — Uptrend (RS soft)"
+    : passCount >= 4 ? "Stage 1/3 — Transition"
+    : "Stage 4 — Downtrend";
+
+  return {
+    symbol,
+    asOf: new Date(bars[last].time).toISOString(),
+    price: round2(price),
+    passCount,
+    score: passCount,
+    qualifies: passCount === 8,
+    stage,
+    rsRating,
+    rsApprox: true,
+    ma: { ma50: round2(ma50), ma150: round2(ma150), ma200: round2(ma200) },
+    hi52: round2(hi52),
+    lo52: round2(lo52),
+    pctFromHigh,
+    pctFromLow,
+    criteria,
+    bars: bars.map((b) => ({
+      time: b.time,
+      open: round2(b.open),
+      high: round2(b.high),
+      low: round2(b.low),
+      close: round2(b.close),
+      volume: Math.round(b.volume || 0),
+    })),
+    series: {
+      ma50: ttSmaSeries(closes, 50).map((v) => (v == null ? null : round2(v))),
+      ma150: ttSmaSeries(closes, 150).map((v) => (v == null ? null : round2(v))),
+      ma200: ttSmaSeries(closes, 200).map((v) => (v == null ? null : round2(v))),
+    },
+  };
+}
+
 async function handleMarket(req, res, requestUrl) {
   const { pathname, searchParams } = requestUrl;
+
+  if (pathname === "/api/market/trend-template" && req.method === "GET") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { error: "Symbol is required." });
+    try {
+      const payload = await buildTrendTemplate(symbol);
+      return writeJson(res, 200, payload);
+    } catch (err) {
+      return writeJson(res, 502, { error: err instanceof Error ? err.message : "Trend Template failed." });
+    }
+  }
 
   if (pathname === "/api/market/quote") {
     const symbols = (searchParams.get("symbols") || "")
