@@ -11848,6 +11848,173 @@ function GapFillTab({ C, MONO, SANS, setActiveTab }) {
 }
 
 // ── Squeeze Screener ─────────────────────────────────────────────────────────
+function TrendTemplateTab({ C, MONO, SANS }) {
+  const [sym, setSym]   = React.useState("ARM");
+  const [data, setData] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [err, setErr]   = React.useState(null);
+  const canvasRef = React.useRef(null);
+
+  const load = React.useCallback((s) => {
+    const symbol = (s || sym || "ARM").trim().toUpperCase();
+    if (!symbol) return;
+    setLoading(true); setErr(null);
+    fetch("/api/market/trend-template?symbol=" + encodeURIComponent(symbol))
+      .then(r => r.json())
+      .then(d => { if (d.error) { setErr(d.error); setData(null); } else { setData(d); } })
+      .catch(e => { setErr(e.message); setData(null); })
+      .finally(() => setLoading(false));
+  }, [sym]);
+
+  React.useEffect(() => { load("ARM"); }, []); // eslint-disable-line
+
+  // ── canvas render ──
+  React.useEffect(() => {
+    const cv = canvasRef.current;
+    if (!cv || !data) return;
+    const ctx = cv.getContext("2d");
+    const W = cv.clientWidth || 820, dpr = window.devicePixelRatio || 1, H = 520;
+    cv.width = W * dpr; cv.height = H * dpr; cv.style.height = H + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+
+    const bars = data.bars, n = bars.length;
+    const padL = 8, padR = 60, plotW = W - padL - padR;
+    const bw = plotW / n, x = i => padL + i * bw + bw / 2;
+    const pTop = 30, pH = 350, pBot = pTop + pH;
+    const vTop = pBot + 20, vH = 96, vBot = vTop + vH;
+
+    let hi = -1e9, lo = 1e9;
+    bars.forEach(b => { hi = Math.max(hi, b.high); lo = Math.min(lo, b.low); });
+    ["ma50","ma150","ma200"].forEach(k => data.series[k].forEach(v => { if (v != null) { hi = Math.max(hi, v); lo = Math.min(lo, v); } }));
+    hi *= 1.03; lo *= 0.97;
+    const py = v => pTop + (1 - (v - lo) / (hi - lo)) * pH;
+
+    ctx.font = "11px " + SANS; ctx.textAlign = "left";
+    const raw = Math.max(1, Math.ceil((hi - lo) / 8));
+    const stepV = [1,2,5,10,20,25,50,100,200].find(s => s >= raw) || raw;
+    for (let v = Math.ceil(lo / stepV) * stepV; v < hi; v += stepV) {
+      const y = py(v); ctx.strokeStyle = C.border; ctx.globalAlpha = .35;
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.fillStyle = C.textDim; ctx.fillText(v.toFixed(0), padL + plotW + 6, y + 3);
+    }
+    const drawMA = (arr, color, w) => { ctx.strokeStyle = color; ctx.lineWidth = w; ctx.beginPath(); let st = false;
+      for (let i = 0; i < n; i++) { if (arr[i] == null) continue; const yy = py(arr[i]); st ? ctx.lineTo(x(i), yy) : ctx.moveTo(x(i), yy); st = true; } ctx.stroke(); };
+    drawMA(data.series.ma200, "#c94440", 1.5);
+    drawMA(data.series.ma150, "#d6a312", 1.3);
+    drawMA(data.series.ma50, C.accent, 1.5);
+
+    const cw = Math.max(1.5, bw * 0.62);
+    for (let i = 0; i < n; i++) { const d = bars[i], up = d.close >= d.open;
+      ctx.strokeStyle = up ? C.green : C.red; ctx.fillStyle = up ? C.green : C.red;
+      ctx.beginPath(); ctx.moveTo(x(i), py(d.high)); ctx.lineTo(x(i), py(d.low)); ctx.stroke();
+      const yo = py(d.open), yc = py(d.close); ctx.fillRect(x(i) - cw / 2, Math.min(yo, yc), cw, Math.max(1, Math.abs(yc - yo))); }
+
+    const last = bars[n - 1];
+    ctx.fillStyle = last.close >= last.open ? C.green : C.red; ctx.fillRect(padL + plotW, py(last.close) - 9, padR - 2, 18);
+    ctx.fillStyle = "#0a0a0a"; ctx.textAlign = "right"; ctx.font = "bold 11px " + MONO;
+    ctx.fillText(last.close.toFixed(2), W - 4, py(last.close) + 4); ctx.textAlign = "left";
+
+    ctx.font = "11px " + MONO;
+    ctx.fillStyle = C.accent; ctx.fillText("MA50", padL + plotW - 150, pTop - 12);
+    ctx.fillStyle = "#d6a312"; ctx.fillText("MA150", padL + plotW - 105, pTop - 12);
+    ctx.fillStyle = "#c94440"; ctx.fillText("MA200", padL + plotW - 55, pTop - 12);
+
+    let vhi = 0; bars.forEach(b => vhi = Math.max(vhi, b.volume));
+    for (let i = 0; i < n; i++) { const d = bars[i], up = d.close >= d.open; const h = (d.volume / vhi) * vH;
+      ctx.globalAlpha = .5; ctx.fillStyle = up ? C.green : C.red;
+      ctx.fillRect(padL + i * bw + bw * 0.2, vBot - h, Math.max(1, bw * 0.6), h); ctx.globalAlpha = 1; }
+    ctx.fillStyle = C.textDim; ctx.font = "12px " + SANS; ctx.fillText("Volume", padL + 8, vTop + 14);
+
+    ctx.fillStyle = C.textDim; ctx.font = "11px " + SANS;
+    [0, Math.floor(n*0.25), Math.floor(n*0.5), Math.floor(n*0.75), n-1].forEach(i => {
+      const dt = new Date(bars[i].time); ctx.fillText((dt.getMonth()+1)+"/"+dt.getDate(), x(i)-10, H-4); });
+  }, [data, C, MONO, SANS]);
+
+  const stageColor = !data ? C.textDim : data.qualifies ? C.green : data.passCount >= 4 ? "#d6a312" : C.red;
+  const chip = (k, v, col) => (
+    <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 7, padding: "6px 10px",
+      fontFamily: MONO, fontSize: 12, display: "flex", gap: 6, alignItems: "center" }}>
+      <span style={{ color: C.textDim, fontWeight: 600 }}>{k}</span>
+      <span style={{ color: col || C.text, fontWeight: 800 }}>{v}</span>
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>🏆 TREND TEMPLATE</div>
+        <input value={sym} maxLength={6} onChange={e => setSym(e.target.value.toUpperCase())}
+          onKeyDown={e => { if (e.key === "Enter") load(); }}
+          style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6,
+            padding: "7px 10px", fontFamily: MONO, fontSize: 15, fontWeight: 700, width: 100, textTransform: "uppercase" }} />
+        <button onClick={() => load()} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "7px 16px",
+          borderRadius: 6, border: `1px solid ${C.accent}`, background: `${C.accent}18`, color: C.accent, cursor: "pointer" }}>
+          {loading ? "…" : "Scan"}</button>
+        {["NVDA","TSLA","PLTR","AAPL","AMD"].map(s => (
+          <button key={s} onClick={() => { setSym(s); load(s); }}
+            style={{ fontFamily: MONO, fontSize: 11, padding: "6px 10px", borderRadius: 6,
+              border: `1px solid ${C.border}`, background: "transparent", color: C.textDim, cursor: "pointer" }}>{s}</button>
+        ))}
+        <div style={{ marginLeft: "auto", fontFamily: SANS, fontSize: 11, color: C.textDim }}>
+          Live · Yahoo daily · Minervini SEPA criteria</div>
+      </div>
+
+      {err && <div style={{ color: C.red, fontFamily: SANS, fontSize: 13 }}>Could not load: {err}</div>}
+
+      {data && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          {chip("$", data.price.toFixed(2))}
+          {chip("Score", data.passCount + "/8", stageColor)}
+          {chip("RS", data.rsRating == null ? "—" : data.rsRating, data.rsRating >= 70 ? C.green : data.rsRating >= 40 ? "#d6a312" : C.red)}
+          {chip("50MA", data.ma.ma50?.toFixed(2) ?? "—")}
+          {chip("150MA", data.ma.ma150?.toFixed(2) ?? "—")}
+          {chip("200MA", data.ma.ma200?.toFixed(2) ?? "—")}
+          {chip("52wH", data.hi52?.toFixed(2) ?? "—")}
+          {chip("52wL", data.lo52?.toFixed(2) ?? "—")}
+          {chip("vs High", data.pctFromHigh + "%", data.pctFromHigh >= -25 ? C.green : C.red)}
+          {chip("vs Low", "+" + data.pctFromLow + "%", C.green)}
+          <div style={{ marginLeft: "auto", padding: "6px 12px", borderRadius: 7, fontFamily: MONO, fontSize: 12,
+            fontWeight: 800, border: `1px solid ${stageColor}`, background: `${stageColor}1e`, color: stageColor }}>
+            {data.stage}</div>
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 12 }}>
+        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+          <canvas ref={canvasRef} style={{ display: "block", width: "100%" }} />
+        </div>
+        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
+          {data && (<>
+            <div style={{ textAlign: "center", paddingBottom: 8 }}>
+              <div style={{ fontFamily: MONO, fontSize: 36, fontWeight: 900, color: stageColor }}>{data.passCount}/8</div>
+              <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{data.stage}</div>
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>Minervini Trend Template</div>
+            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, margin: "2px 0 10px" }}>
+              All 8 must pass for a Stage 2 buy candidate.</div>
+            {data.criteria.map(c => (
+              <div key={c.id} style={{ display: "flex", gap: 9, alignItems: "flex-start", padding: "7px 0",
+                borderTop: `1px solid ${C.border}`, fontFamily: SANS, fontSize: 12.5,
+                color: c.pass ? C.text : C.textDim }}>
+                <div style={{ width: 18, height: 18, borderRadius: "50%", flex: "0 0 18px", display: "flex",
+                  alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, marginTop: 1,
+                  border: `1px solid ${c.pass ? C.green : C.red}`, background: `${c.pass ? C.green : C.red}22`,
+                  color: c.pass ? C.green : C.red }}>{c.pass ? "✓" : "✕"}</div>
+                <span>{c.label}{c.value != null ? ` · ${c.value}` : ""}</span>
+              </div>
+            ))}
+            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 10, lineHeight: 1.5 }}>
+              RS rating is approximate (weighted momentum vs SPY mapped 1–99), not a true full-universe
+              percentile. Everything else is computed from live Yahoo daily bars
+              {data.asOf ? ` (${new Date(data.asOf).toLocaleDateString()})` : ""}.</div>
+          </>)}
+          {!data && !err && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Scanning…</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SqueezeTab({ C, MONO, SANS, setActiveTab }) {
   const [sqData,    setSqData]    = React.useState(null);
   const [sqLoading, setSqLoading] = React.useState(false);
@@ -14805,7 +14972,7 @@ export default function App() {
     try {
       const t = localStorage.getItem("last_tab");
       // Restore only safe tabs (don't restore modals/dialogs)
-      const safeTabs = ["dashboard","tv","multitf","fibonacci","scanner","smartscan","greenlight","gl-backtest","mytrades","holdings","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","predictions","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","journal-stats","coach","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","options-edu","dipbuy","under10","quran","athan","athkar","tasbih","halal","soccer"];
+      const safeTabs = ["dashboard","tv","multitf","fibonacci","scanner","smartscan","greenlight","gl-backtest","mytrades","trendtemplate","holdings","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","predictions","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","journal-stats","coach","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","options-edu","dipbuy","under10","quran","athan","athkar","tasbih","halal","soccer"];
       return (t && safeTabs.includes(t)) ? t : "dashboard";
     } catch { return "dashboard"; }
   });
@@ -18800,6 +18967,7 @@ export default function App() {
             { id: "mytrades",     label: "📋 MY TRADES" },
             { id: "holdings",     label: "📊 MY HOLDINGS" },
             { id: "smartscan",    label: "🧠 SMART SCAN" },
+            { id: "trendtemplate", label: "🏆 TREND TEMPLATE" },
             { id: "dipbuy",       label: "🩸 DIP BUY" },
           ],
           markets: [
@@ -29161,6 +29329,7 @@ export default function App() {
       {activeTab === "dipbuy" && <DipBuyTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} />}
       {activeTab === "greenlight" && <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} />}
       {activeTab === "mytrades" && <MyTradesTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} />}
+      {activeTab === "trendtemplate" && <TrendTemplateTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "holdings" && <HoldingsTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} />}
       {activeTab === "gl-backtest" && <GLBacktestTab C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "predictions" && <PredictionsTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} />}
