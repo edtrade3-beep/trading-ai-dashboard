@@ -19891,20 +19891,16 @@ export default function App() {
             </div>
 
             {/* ── 1. MARKET MODE — am I risk-on or risk-off right now? ── */}
-            <MonitorSection C={C} MONO={MONO} label="🚦 MARKET MODE" storeKey="mon_mode">
+            <MonitorSection C={C} MONO={MONO} label="🚦 MARKET MODE & FLOW" storeKey="mon_mode">
               <RiskTrafficLight C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
+              <SpyVolumeWidget C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
+              <CryptoLiqWidget C={C} MONO={MONO} SANS={SANS} />
             </MonitorSection>
 
             {/* ── 2. CATALYSTS — Fed + scheduled economic events ── */}
             <MonitorSection C={C} MONO={MONO} label="🏛 CATALYSTS & EVENTS" storeKey="mon_catalysts">
               <FedInterpreter C={C} MONO={MONO} SANS={SANS} />
               <MacroEventsWidget C={C} MONO={MONO} SANS={SANS} />
-            </MonitorSection>
-
-            {/* ── 3. FLOW & MOVERS — where is the money going? ── */}
-            <MonitorSection C={C} MONO={MONO} label="📊 FLOW & MOVERS" storeKey="mon_flow">
-              <SpyVolumeWidget C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
-              <CryptoLiqWidget C={C} MONO={MONO} SANS={SANS} />
             </MonitorSection>
 
             {/* ── PERSONAL (collapsed by default to save space) ── */}
