@@ -2432,7 +2432,7 @@ function SpyVolumeWidget({ C, MONO, SANS, macroData }) {
   const cprCol = cpr == null ? C.textDim : cpr > 1.4 ? C.green : cpr < 0.9 ? C.red : C.amber;
   const pcrNote = pcr == null ? "" : pcr > 1.1 ? "bearish (puts heavy)" : pcr < 0.7 ? "bullish (calls heavy)" : "balanced";
   const cell = (label, value, col) => (
-    <div style={{ textAlign: "center", flex: 1, minWidth: 78 }}>
+    <div style={{ textAlign: "center", flex: "0 0 auto", minWidth: 64 }}>
       <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{label}</div>
       <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: col || C.text }}>{value}</div>
     </div>
@@ -2442,7 +2442,7 @@ function SpyVolumeWidget({ C, MONO, SANS, macroData }) {
       <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>
         📊 SPY VOLUME + OPTIONS {spy?.price ? <span style={{ color: C.text }}>· ${Number(spy.price).toFixed(2)} <span style={{ color: Number(spy.changesPercentage) >= 0 ? C.green : C.red }}>{Number(spy.changesPercentage) >= 0 ? "+" : ""}{Number(spy.changesPercentage || 0).toFixed(2)}%</span></span> : null}{opt?.est ? <span style={{ color: C.textDim, fontWeight: 400 }}> · options est.</span> : null}
       </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 28, flexWrap: "wrap", justifyContent: "flex-start" }}>
         {cell("VOLUME", fmt(vol), C.text)}
         {cell("RVOL", rvol > 0 ? `${rvol.toFixed(2)}x` : "—", rvol > 1.2 ? C.amber : C.text)}
         {cell("CALL VOL", opt ? fmt(opt.cv) : "…", C.green)}
