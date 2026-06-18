@@ -2694,6 +2694,14 @@ function FedInterpreter({ C, MONO, SANS }) {
   const [res, setRes] = React.useState(null);
   const [paste, setPaste] = React.useState("");
   const [watch, setWatch] = React.useState(false);
+  const [news, setNews] = React.useState(null);
+  const [newsLoading, setNewsLoading] = React.useState(false);
+  const loadNews = async () => {
+    setNewsLoading(true);
+    try { const d = await fetch("/api/market/fed-news").then(r => r.json()); setNews(d); }
+    catch (e) { setNews({ ok: false, error: e.message }); }
+    setNewsLoading(false);
+  };
   const interpret = async () => {
     setLoading(true); setRes(null);
     try { const d = await fetch("/api/market/fed-interpret").then(r => r.json()); setRes(d); } catch { setRes({ ok: false }); }
@@ -2764,7 +2772,27 @@ function FedInterpreter({ C, MONO, SANS }) {
                   🦅 hawkish {res.hawkishHits} · 🕊 dovish {res.dovishHits}{res.fullText ? " · full text" : " · headline only"}</div>
               )}
               {res.title && <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 6 }}>📄 {res.title} {res.date ? `· ${new Date(res.date).toLocaleDateString()}` : ""} <a href="https://www.federalreserve.gov/newsevents/pressreleases.htm" target="_blank" rel="noopener" style={{ color: C.accent }}>· open Fed releases</a></div>}
-              <button onClick={sendTg} style={{ marginTop: 8, background: `${C.accent}15`, border: `1px solid ${C.accent}44`, color: C.accent, borderRadius: 6, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>📱 SEND TO TELEGRAM</button>
+              <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                <button onClick={sendTg} style={{ background: `${C.accent}15`, border: `1px solid ${C.accent}44`, color: C.accent, borderRadius: 6, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>📱 SEND TO TELEGRAM</button>
+                <button onClick={loadNews} style={{ background: `${C.green}12`, border: `1px solid ${C.green}44`, color: C.green, borderRadius: 6, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>{newsLoading ? "…" : "📰 MARKET REACTION"}</button>
+              </div>
+              {news && (
+                <div style={{ marginTop: 8, borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
+                  {news.ok ? (
+                    <>
+                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginBottom: 5 }}>WHAT ANALYSTS ARE SAYING <span style={{ fontWeight: 400 }}>· via Brave</span></div>
+                      {news.headlines.map((h, i) => (
+                        <div key={i} style={{ marginBottom: 7 }}>
+                          <a href={h.url} target="_blank" rel="noopener" style={{ fontFamily: SANS, fontSize: 12, color: C.accent, textDecoration: "none", fontWeight: 600 }}>{h.title}</a>
+                          <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{h.source}{h.age ? ` · ${h.age}` : ""}</div>
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.amber }}>📰 {news.error}{/not set/i.test(news.error || "") ? " — add BRAVE_API_KEY in Render." : ""}</div>
+                  )}
+                </div>
+              )}
             </div>
           ) : res && !res.ok ? (
             <div>

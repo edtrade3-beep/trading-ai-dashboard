@@ -95,7 +95,7 @@ async function handleRequest(req, res) {
       return handleHoldings(req, res, requestUrl);
     }
 
-    if (pathname === "/api/market/fed-interpret") {
+    if (pathname === "/api/market/fed-interpret" || pathname === "/api/market/fed-news") {
       return handleFed(req, res, requestUrl);
     }
 

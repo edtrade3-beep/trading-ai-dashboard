@@ -70,7 +70,27 @@ async function fetchLatestFedStatement() {
   } catch { return null; }
 }
 
+// Brave news search — analyst/market reaction to the latest Fed decision (on demand).
+async function fetchFedReactions() {
+  const key = process.env.BRAVE_API_KEY || "";
+  if (!key) return { ok: false, error: "BRAVE_API_KEY not set on the server." };
+  try {
+    const url = "https://api.search.brave.com/res/v1/news/search?q=" +
+      encodeURIComponent("FOMC Fed decision reaction analysis") + "&count=8&freshness=pw";
+    const d = await fetch(url, { headers: { "X-Subscription-Token": key, "Accept": "application/json" } }).then(r => r.json());
+    const results = Array.isArray(d?.results) ? d.results : [];
+    if (!results.length) return { ok: false, error: /quota|rate|limit|subscription/i.test(JSON.stringify(d)) ? "Brave search quota exhausted." : /unauthor|invalid|token/i.test(JSON.stringify(d)) ? "Brave key invalid." : "No reaction headlines found." };
+    return { ok: true, headlines: results.slice(0, 8).map(r => ({
+      title: r.title, url: r.url, source: r.meta_url?.hostname || r.profile?.name || "", age: r.age || "", description: (r.description || "").replace(/<[^>]+>/g, "").slice(0, 200),
+    })) };
+  } catch (e) { return { ok: false, error: e.message }; }
+}
+
 async function handleFed(req, res, requestUrl) {
+  if (requestUrl.pathname === "/api/market/fed-news") {
+    const r = await fetchFedReactions();
+    return writeJson(res, r.ok ? 200 : 200, r);
+  }
   if (requestUrl.pathname !== "/api/market/fed-interpret") return writeJson(res, 404, { ok: false });
 
   // POST { text } — interpret pasted statement
