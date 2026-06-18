@@ -2659,7 +2659,13 @@ function RiskTrafficLight({ C, MONO, SANS, macroData }) {
         <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 900, color: cfg.c }}>{cfg.title}</div>
         <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 2 }}>{cfg.msg}</div>
       </div>
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginLeft: "auto" }}>
+      <div style={{ flex: 1, minWidth: 160, alignSelf: "center" }}>
+        {cfg.act && (<>
+          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.1em" }}>PLAYBOOK</div>
+          <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: cfg.c, marginTop: 2 }}>{cfg.act}</div>
+        </>)}
+      </div>
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
         {[["RISK SCORE", `${light === "—" ? "—" : score}/100`, cfg.c], ["SPY", `${spy >= 0 ? "+" : ""}${spy.toFixed(2)}%`, spy >= 0 ? C.green : C.red],
           ["QQQ", `${qqq >= 0 ? "+" : ""}${qqq.toFixed(2)}%`, qqq >= 0 ? C.green : C.red], ["VIX", vixy >= 0 ? "↑ rising" : "↓ falling", vixy <= 0 ? C.green : C.red],
           ["DOLLAR", uup >= 0 ? "↑" : "↓", uup <= 0 ? C.green : C.red]].map(([l, val, col]) => (
