@@ -12112,6 +12112,17 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                                 <button onClick={(e) => { e.stopPropagation(); setSym(r.symbol); load(r.symbol); window.scrollTo({ top: 0, behavior: "smooth" }); }}
                                   style={{ marginTop: 10, width: "100%", fontFamily: MONO, fontSize: 11, padding: "6px 0", borderRadius: 6,
                                     border: `1px solid ${C.border}`, background: "transparent", color: C.accent, cursor: "pointer" }}>Open full view ↑</button>
+                                <div style={{ marginTop: 12, fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text }}>Trend Template</div>
+                                {rd.criteria.map(c => (
+                                  <div key={c.id} style={{ display: "flex", gap: 7, alignItems: "flex-start", padding: "5px 0",
+                                    borderTop: `1px solid ${C.border}`, fontFamily: SANS, fontSize: 11.5, color: c.pass ? C.text : C.textDim }}>
+                                    <div style={{ width: 15, height: 15, borderRadius: "50%", flex: "0 0 15px", display: "flex",
+                                      alignItems: "center", justifyContent: "center", fontSize: 9.5, fontWeight: 800, marginTop: 1,
+                                      border: `1px solid ${c.pass ? C.green : C.red}`, background: `${c.pass ? C.green : C.red}22`,
+                                      color: c.pass ? C.green : C.red }}>{c.pass ? "✓" : "✕"}</div>
+                                    <span>{c.label}{c.value != null ? ` · ${c.value}` : ""}</span>
+                                  </div>
+                                ))}
                               </div>
                             </div>
                           )}
