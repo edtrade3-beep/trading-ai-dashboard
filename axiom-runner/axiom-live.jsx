@@ -11942,10 +11942,13 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
         ctx.fillStyle = color; ctx.font = "bold 10px " + MONO; ctx.textAlign = "left";
         ctx.fillText(label, padL + 4, y - 3);
       };
-      line(su.target3, C.green, "T3 " + su.target3);
-      line(su.target2, C.green, "T2 " + su.target2);
-      line(su.entry, C.accent, "ENTRY/PIVOT " + su.entry, [6, 3]);
-      line(su.stop, C.red, "STOP " + su.stop);
+      // Pivot is always a useful reference; stop/targets only when the setup is live.
+      line(su.entry, C.accent, "PIVOT " + su.entry, [6, 3]);
+      if (su.actionable) {
+        line(su.target3, C.green, "T3 " + su.target3);
+        line(su.target2, C.green, "T2 " + su.target2);
+        line(su.stop, C.red, "STOP " + su.stop);
+      }
     }
 
     ctx.font = "11px " + MONO;
@@ -12061,7 +12064,7 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
 
       {data && data.setup && (() => {
         const su = data.setup;
-        const sc = su.breakoutConfirmed ? C.green : su.extended ? C.red : "#d6a312";
+        const sc = !su.actionable ? C.textDim : su.breakoutConfirmed ? C.green : su.extended ? C.red : "#d6a312";
         const box = (label, val, col, sub) => (
           <div style={{ flex: "1 1 120px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
             <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, textTransform: "uppercase", letterSpacing: .4 }}>{label}</div>
@@ -12077,7 +12080,14 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                 border: `1px solid ${sc}`, background: `${sc}1e`, color: sc }}>{su.status}</div>
               {su.extended && <div style={{ fontFamily: SANS, fontSize: 11, color: C.red }}>⚠ Extended {su.abovePivotPct}% above pivot — chasing risk</div>}
             </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {!su.actionable && (
+              <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, background: `${C.textDim}14`,
+                border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
+                No actionable setup — price is {Math.abs(su.abovePivotPct)}% below the pivot {su.entry}.
+                Wait for a base to form near the pivot; entry/stop/targets shown muted until then.
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", opacity: su.actionable ? 1 : 0.5 }}>
               {box("Entry (pivot)", su.entry, C.accent, su.breakoutConfirmed ? "breakout confirmed" : `price ${su.abovePivotPct}% vs pivot`)}
               {box("Stop", su.stop, C.red, `risk ${su.riskPct}%`)}
               {box("Target 2R", su.target2, C.green, "+" + (su.riskPct * 2).toFixed(1) + "%")}

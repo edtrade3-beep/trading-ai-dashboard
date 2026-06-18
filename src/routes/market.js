@@ -480,9 +480,26 @@ async function buildTrendTemplate(symbol, opts = {}) {
   const lows = bars.map((b) => b.low);
   const vols = bars.map((b) => b.volume || 0);
 
-  // Pivot = resistance high of the recent base (30 bars ending yesterday).
-  const baseHi = highs.slice(Math.max(0, last - 30), last);
-  const pivot = baseHi.length ? Math.max(...baseHi) : price;
+  // Pivot = resistance of the most recent base. Find swing highs (local maxima)
+  // and take the resistance of the most recent consolidation, so the pivot tracks
+  // the current base rather than a stale months-old peak.
+  const W = 3; // bars on each side for a swing high
+  const swingHighs = [];
+  for (let i = Math.max(W, last - 50); i <= last - W; i += 1) {
+    let isHigh = true;
+    for (let j = i - W; j <= i + W; j += 1) { if (highs[j] > highs[i]) { isHigh = false; break; } }
+    if (isHigh) swingHighs.push({ i, h: highs[i] });
+  }
+  let pivot;
+  const recentSwings = swingHighs.filter((s) => s.i >= last - 25); // recent base resistance
+  if (recentSwings.length) pivot = Math.max(...recentSwings.map((s) => s.h));
+  else if (swingHighs.length) pivot = swingHighs[swingHighs.length - 1].h;
+  else pivot = Math.max(...highs.slice(Math.max(0, last - 20)));
+  // If the latest bar is poking to a fresh high, the pivot is the prior swing it cleared.
+  if (price > pivot && recentSwings.length > 1) {
+    const below = recentSwings.map((s) => s.h).filter((h) => h < price).sort((a, b) => b - a);
+    if (below.length) pivot = below[0];
+  }
   // Tightest recent contraction low (15 bars) — used for a tighter stop.
   const contractionLow = Math.min(...lows.slice(Math.max(0, last - 15)));
 
@@ -510,13 +527,16 @@ async function buildTrendTemplate(symbol, opts = {}) {
 
   const abovePivotPct = round2((price / pivot - 1) * 100);
   const breakoutConfirmed = price > pivot && volSurge >= 1.4;
+  const extended = abovePivotPct > 10; // chasing risk
+  // Actionable only when price is near/at the pivot (a tradable distance) — not stranded
+  // far below it. This gates whether the entry/stop/target levels are live.
+  const actionable = abovePivotPct >= -6 && abovePivotPct <= 10;
   let setupStatus;
   if (breakoutConfirmed) setupStatus = "Breakout — buy trigger hit";
   else if (price > pivot) setupStatus = "Above pivot — needs volume confirmation";
   else if (abovePivotPct >= -3) setupStatus = "At pivot — watch for breakout";
-  else if (abovePivotPct >= -12) setupStatus = "Base forming below pivot";
-  else setupStatus = "Far below pivot — no setup";
-  const extended = abovePivotPct > 10; // chasing risk
+  else if (abovePivotPct >= -8) setupStatus = "Base forming near pivot";
+  else setupStatus = "Below pivot — no actionable setup yet";
 
   const sellSignals = [];
   if (price < ma50) sellSignals.push("Closed below 50-day MA");
@@ -537,6 +557,7 @@ async function buildTrendTemplate(symbol, opts = {}) {
     abovePivotPct,
     breakoutConfirmed,
     extended,
+    actionable,
     status: setupStatus,
     sellSignals,
   };
@@ -599,7 +620,8 @@ async function screenTrendTemplate(symbols) {
           pivot: r.setup.pivot, entry: r.setup.entry, stop: r.setup.stop, riskPct: r.setup.riskPct,
           target2: r.setup.target2, abovePivotPct: r.setup.abovePivotPct,
           breakoutConfirmed: r.setup.breakoutConfirmed, extended: r.setup.extended,
-          setupStatus: r.setup.status, atBuyPoint: r.passCount >= 7 && Math.abs(r.setup.abovePivotPct) <= 5 && !r.setup.extended,
+          setupStatus: r.setup.status, actionable: r.setup.actionable,
+          atBuyPoint: r.passCount >= 7 && r.setup.actionable && !r.setup.extended,
         });
       } catch (err) {
         out.push({ symbol: sym, error: err instanceof Error ? err.message : "failed" });
