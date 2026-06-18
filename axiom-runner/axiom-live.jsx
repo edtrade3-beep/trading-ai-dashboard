@@ -2707,7 +2707,7 @@ function FedInterpreter({ C, MONO, SANS }) {
   };
   const sendTg = () => {
     if (!res?.ok) return;
-    fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `🏛 *FED INTERPRETER*\n\nBias: ${res.bias} ${res.score}/100\n${res.read}` }) }).catch(() => {});
+    fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `🏛 *FED INTERPRETER*\n\n${res.label || res.bias} · ${res.score}/100${res.rateAction && res.rateAction !== "UNKNOWN" ? ` · ${res.rateAction}` : ""}\n${res.read}` }) }).catch(() => {});
   };
   // ── AUTO-SEND: when ON, poll for a FRESH statement and push to Telegram automatically (once) ──
   React.useEffect(() => {
@@ -2722,7 +2722,7 @@ function FedInterpreter({ C, MONO, SANS }) {
             setRes(d);
             if (localStorage.getItem("axiom_risklight_sound") === "on") riskBuzz(d.bias === "DOVISH" ? "GREEN" : d.bias === "HAWKISH" ? "RED" : "YELLOW");
             riskVibrate(d.bias === "DOVISH" ? "GREEN" : d.bias === "HAWKISH" ? "RED" : "YELLOW");
-            const tg = `🏛 *FOMC STATEMENT — ${d.bias}*\n\nScore: ${d.score}/100\n${d.read}\n\n📄 ${d.title || ""}`;
+            const tg = `🏛 *FOMC STATEMENT — ${d.label || d.bias}*\n\nScore: ${d.score}/100${d.rateAction && d.rateAction !== "UNKNOWN" ? `\nDecision: ${d.rateAction}` : ""}\n${d.read}\n\n📄 ${d.title || ""}`;
             fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: tg }) }).catch(() => {});
           }
         }
@@ -2757,8 +2757,12 @@ function FedInterpreter({ C, MONO, SANS }) {
           {res?.ok ? (
             <div style={{ background: `${col}12`, border: `1px solid ${col}44`, borderRadius: 8, padding: "10px 12px" }}>
               {res.stale && <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: C.amber, marginBottom: 6 }}>⚠️ This is the LAST meeting's statement ({res.ageDays}d old) — no new one yet. Re-tap after 2pm ET on meeting day.</div>}
-              <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: res.stale ? C.textDim : col }}>{res.bias} · {res.score}/100{res.stale ? " (old)" : ""}</div>
+              <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: res.stale ? C.textDim : col }}>{res.label || res.bias} · {res.score}/100{res.stale ? " (old)" : ""}{res.rateAction && res.rateAction !== "UNKNOWN" ? ` · ${res.rateAction}` : ""}</div>
               <div style={{ fontFamily: SANS, fontSize: 12, color: C.text, marginTop: 4 }}>{res.read}</div>
+              {(res.hawkishHits > 0 || res.dovishHits > 0) && (
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 5 }}>
+                  🦅 hawkish {res.hawkishHits} · 🕊 dovish {res.dovishHits}{res.fullText ? " · full text" : " · headline only"}</div>
+              )}
               {res.title && <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 6 }}>📄 {res.title} {res.date ? `· ${new Date(res.date).toLocaleDateString()}` : ""} <a href="https://www.federalreserve.gov/newsevents/pressreleases.htm" target="_blank" rel="noopener" style={{ color: C.accent }}>· open Fed releases</a></div>}
               <button onClick={sendTg} style={{ marginTop: 8, background: `${C.accent}15`, border: `1px solid ${C.accent}44`, color: C.accent, borderRadius: 6, fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>📱 SEND TO TELEGRAM</button>
             </div>
