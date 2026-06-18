@@ -2450,7 +2450,7 @@ function SpyVolumeWidget({ C, MONO, SANS, macroData }) {
         {cell("CALL/PUT", cpr != null ? cpr.toFixed(2) : "…", cprCol)}
         {cell("PUT/CALL", pcr != null ? pcr.toFixed(2) : "…", pcrCol)}
       </div>
-      {pcr != null && <div style={{ fontFamily: SANS, fontSize: 10, color: pcrCol, marginTop: 6, textAlign: "center" }}>P/C {pcr.toFixed(2)} — {pcrNote}</div>}
+      {pcr != null && <div style={{ fontFamily: SANS, fontSize: 10, color: pcrCol, marginTop: 6, textAlign: "left" }}>P/C {pcr.toFixed(2)} — {pcrNote}</div>}
     </div>
   );
 }
