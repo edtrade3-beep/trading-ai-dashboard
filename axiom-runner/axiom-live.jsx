@@ -11912,6 +11912,19 @@ function TrendChart({ data, C, MONO, SANS, height }) {
         line(su.target2, C.green, "T2 " + su.target2);
         line(su.stop, C.red, "STOP " + su.stop);
       }
+      // VCP base footprint: connect swing points and label each contraction depth.
+      const vc = su.vcp;
+      if (vc && vc.points && vc.points.length > 1) {
+        ctx.strokeStyle = C.accent; ctx.globalAlpha = .55; ctx.lineWidth = 1.3; ctx.setLineDash([3, 2]);
+        ctx.beginPath();
+        vc.points.forEach((p, k) => { const xx = x(p.i), yy = py(p.price); k ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); });
+        ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+        vc.points.forEach(p => { const xx = x(p.i), yy = py(p.price);
+          ctx.fillStyle = p.type === "H" ? C.red : C.green; ctx.beginPath(); ctx.arc(xx, yy, 2.6, 0, 7); ctx.fill(); });
+        ctx.font = "bold 9px " + MONO; ctx.fillStyle = C.text; ctx.textAlign = "center";
+        vc.contractions.forEach(c => { ctx.fillText("-" + c.depth + "%", x(c.lowIdx), py(c.low) + 13); });
+        ctx.textAlign = "left";
+      }
     }
 
     ctx.font = "11px " + MONO;
@@ -12058,10 +12071,20 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
             </div>
 
             <div>
-              <div style={{ fontFamily: MONO, fontWeight: 800, color: C.accent, marginBottom: 6 }}>② Entry — the pivot buy point</div>
+              <div style={{ fontFamily: MONO, fontWeight: 800, color: C.accent, marginBottom: 6 }}>② Entry — the VCP &amp; pivot</div>
+              <div style={{ color: C.text, marginBottom: 8 }}>
+                The template alone isn't a buy signal. Wait for a <b>VCP</b> (Volatility Contraction Pattern): a base where each pullback gets <b>shallower</b> and volume <b>dries up</b> — the stock coiling before a breakout. The <b style={{ color: C.accent }}>pivot</b> is the high of that tight base.</div>
+              <div style={{ color: C.textDim, fontSize: 12, marginBottom: 8 }}>
+                A textbook VCP has:
+                <ul style={{ margin: "4px 0", paddingLeft: 18 }}>
+                  <li><b>2–4 contractions</b> ("T-count" footprint, e.g. <b>3T</b>)</li>
+                  <li>each pullback <b>shallower</b> than the last (e.g. −25% → −13% → −7%)</li>
+                  <li>a <b>tight final contraction</b> (ideally under 5–8%)</li>
+                  <li><b>volume drying up</b> into the apex (vol ratio &lt; 1)</li>
+                </ul>
+                The tool grades each base <b style={{ color: C.green }}>A</b>–<b style={{ color: C.red }}>D</b> on these. On the chart, the dashed zig-zag marks the base swings and each leg's depth. Higher grade = cleaner, more reliable base.</div>
               <div style={{ color: C.text, marginBottom: 10 }}>
-                The template alone isn't a buy signal. Wait for a <b>VCP</b> (Volatility Contraction Pattern): a base where each pullback gets <b>shallower</b> and volume <b>dries up</b>. The <b style={{ color: C.accent }}>pivot</b> is the high of that tight base.
-                <br/>👉 <b>Buy when price breaks above the pivot on volume ≥1.4× average.</b></div>
+                👉 <b>Buy when price breaks above the pivot on volume ≥1.4× average.</b></div>
               <div style={{ fontFamily: MONO, fontWeight: 800, color: C.accent, marginBottom: 6 }}>③ Exit — stop &amp; targets</div>
               <div style={{ color: C.text }}>
                 <b style={{ color: C.red }}>Stop:</b> just below the pivot / contraction low — tightest of −8% or the base low.<br/>
@@ -12176,10 +12199,10 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                                     border: `1px solid ${vc}`, background: `${vc}1e`, color: vc, marginBottom: 6 }} title={rd.setup.verdictReason}>{rd.setup.verdict}</div>; })()}
                                 <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginBottom: 6 }}>{rd.setup.verdictReason}</div>
                                 <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: sCol }}>{rd.passCount}/8 · {rd.stage}</div>
-                                {rd.setup.contractions && rd.setup.contractions.length > 0 && (
-                                  <div style={{ fontFamily: MONO, fontSize: 11, color: rd.setup.tightening ? C.green : C.textDim, marginTop: 4 }}>
-                                    VCP {rd.setup.contractions.map(c => "-" + c + "%").join(" → ")}{rd.setup.tightening ? " ✓" : ""}</div>
-                                )}
+                                {rd.setup.vcp && (() => { const gc = rd.setup.vcp.grade === "A" ? C.green : rd.setup.vcp.grade === "B" ? "#5ab552" : rd.setup.vcp.grade === "C" ? "#d6a312" : C.red;
+                                  return <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 4 }}>
+                                    VCP <b style={{ color: C.accent }}>{rd.setup.vcp.footprint}</b> <b style={{ color: gc }}>{rd.setup.vcp.grade}</b> · {rd.setup.vcp.depths.map(c => "-" + c + "%").join(" → ")}{rd.setup.tightening ? " ✓" : ""}<br/>
+                                    <span style={{ fontSize: 10 }}>base {rd.setup.vcp.baseDepth}% · {rd.setup.vcp.weeks}wk · vol {rd.setup.vcp.volTrend}×</span></div>; })()}
                                 <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 8, fontFamily: MONO, fontSize: 12 }}>
                                   {[["Pivot", rd.setup.entry, C.accent], ["Stop", rd.setup.stop, C.red], ["Risk", rd.setup.riskPct + "%", C.textDim],
                                     ["Target 2R", rd.setup.target2, C.green], ["Target 3R", rd.setup.target3, C.green], ["RS", rd.rsRating, rd.rsRating >= 70 ? C.green : C.textDim]].map(([k, v, col]) => (
@@ -12264,10 +12287,9 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
               <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{su.verdictReason}</div>
               <div style={{ padding: "4px 10px", borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800,
                 border: `1px solid ${sc}`, background: `${sc}1e`, color: sc }}>{su.status}</div>
-              {su.contractions && su.contractions.length > 0 && (
-                <div style={{ fontFamily: MONO, fontSize: 11, color: su.tightening ? C.green : C.textDim }}>
-                  VCP: {su.contractions.map(c => "-" + c + "%").join(" → ")}{su.tightening ? " ✓ tightening" : ""}</div>
-              )}
+              {su.vcp && (() => { const gc = su.vcp.grade === "A" ? C.green : su.vcp.grade === "B" ? "#5ab552" : su.vcp.grade === "C" ? "#d6a312" : C.red;
+                return <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }} title={`base ${su.vcp.baseDepth}% deep over ${su.vcp.weeks} wk, volume ${su.vcp.volTrend}x`}>
+                  VCP <b style={{ color: C.accent }}>{su.vcp.footprint}</b> <b style={{ color: gc }}>Grade {su.vcp.grade}</b> · {su.vcp.depths.map(c => "-" + c + "%").join(" → ")}{su.tightening ? " ✓" : ""}</div>; })()}
               <button onClick={() => armPivotAlert(data.symbol, su.entry)}
                 style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 12px", borderRadius: 6,
                   border: `1px solid ${C.accent}`, background: "transparent", color: C.accent, cursor: "pointer" }}>🔔 Alert at pivot {su.entry}</button>

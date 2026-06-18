@@ -427,6 +427,91 @@ function ttWeightedMomentum(closes) {
   return 0.4 * perf(63) + 0.2 * perf(126) + 0.2 * perf(189) + 0.2 * perf(252);
 }
 
+// ── Deep VCP analysis (Volatility Contraction Pattern, Minervini) ──
+// Isolates the most recent base, counts contractions (the "T" footprint),
+// checks progressive tightening + volume dry-up, and grades base quality.
+function analyzeVCP(bars) {
+  const n = bars.length, last = n - 1;
+  if (n < 30) return null;
+  const highs = bars.map((b) => b.high), lows = bars.map((b) => b.low), vols = bars.map((b) => b.volume || 0);
+  const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+  const W = 2;
+  const start = Math.max(W, last - 65); // ~13 weeks of base history
+
+  // Detect swing highs/lows (fractals).
+  const pts = [];
+  for (let i = start; i <= last - W; i += 1) {
+    let isH = true, isL = true;
+    for (let j = i - W; j <= i + W; j += 1) {
+      if (j === i) continue;
+      if (highs[j] >= highs[i]) isH = false;
+      if (lows[j] <= lows[i]) isL = false;
+    }
+    if (isH) pts.push({ i, price: highs[i], type: "H" });
+    else if (isL) pts.push({ i, price: lows[i], type: "L" });
+  }
+  // Collapse consecutive same-type swings, keeping the extreme.
+  const seq = [];
+  for (const p of pts) {
+    const prev = seq[seq.length - 1];
+    if (prev && prev.type === p.type) {
+      if ((p.type === "H" && p.price > prev.price) || (p.type === "L" && p.price < prev.price)) seq[seq.length - 1] = p;
+    } else seq.push(p);
+  }
+  // Base begins at the highest swing high (left side of the consolidation).
+  let startIdx = 0, maxH = -Infinity;
+  for (let k = 0; k < seq.length; k += 1) if (seq[k].type === "H" && seq[k].price > maxH) { maxH = seq[k].price; startIdx = k; }
+  const base = seq.slice(startIdx);
+  if (base.length < 2) return null;
+
+  // Each high→low leg is one contraction.
+  const contractions = [];
+  for (let k = 0; k < base.length - 1; k += 1) {
+    if (base[k].type === "H" && base[k + 1].type === "L") {
+      const depth = (base[k].price - base[k + 1].price) / base[k].price * 100;
+      if (depth > 0.5) contractions.push({
+        depth: round2(depth), high: round2(base[k].price), low: round2(base[k + 1].price),
+        highIdx: base[k].i, lowIdx: base[k + 1].i,
+      });
+    }
+  }
+  if (!contractions.length) return null;
+  const depths = contractions.map((c) => c.depth);
+  const baseHigh = Math.max(...base.filter((p) => p.type === "H").map((p) => p.price));
+  const baseLow = Math.min(...base.filter((p) => p.type === "L").map((p) => p.price));
+  const baseDepth = round2((baseHigh - baseLow) / baseHigh * 100);
+  const baseStartI = base[0].i;
+  const weeks = round2((last - baseStartI) / 5);
+  const finalDepth = depths[depths.length - 1];
+
+  let tighterSteps = 0;
+  for (let k = 1; k < depths.length; k += 1) if (depths[k] <= depths[k - 1] + 0.5) tighterSteps += 1;
+  const tightening = depths.length >= 2 && depths[depths.length - 1] < depths[0];
+
+  // Volume should dry up into the apex: 2nd half of base vs 1st half.
+  const halfLen = Math.max(1, Math.floor((last - baseStartI) / 2));
+  const firstHalfVol = mean(vols.slice(baseStartI, baseStartI + halfLen + 1));
+  const secondHalfVol = mean(vols.slice(last - halfLen, last + 1));
+  const volTrend = firstHalfVol ? round2(secondHalfVol / firstHalfVol) : null; // <1 = drying up
+
+  // Quality score 0–100.
+  const cc = depths.length;
+  let q = (cc >= 2 && cc <= 4) ? 25 : cc === 1 ? 8 : cc === 5 ? 15 : 5;
+  q += depths.length >= 2 ? Math.round(30 * (tighterSteps / (depths.length - 1))) : 0;
+  q += finalDepth < 5 ? 25 : finalDepth < 8 ? 18 : finalDepth < 12 ? 10 : 3;
+  q += volTrend == null ? 5 : volTrend < 0.8 ? 20 : volTrend < 1 ? 12 : volTrend < 1.2 ? 5 : 0;
+  q = Math.min(100, q);
+  const grade = q >= 80 ? "A" : q >= 65 ? "B" : q >= 50 ? "C" : "D";
+
+  return {
+    footprint: cc + "T", count: cc, contractions, depths,
+    baseHigh: round2(baseHigh), baseLow: round2(baseLow), baseDepth, weeks,
+    tightening, tighterSteps, finalDepth: round2(finalDepth), volTrend,
+    quality: q, grade,
+    points: base.map((p) => ({ i: p.i, price: round2(p.price), type: p.type })),
+  };
+}
+
 async function buildTrendTemplate(symbol, opts = {}) {
   const bars = await fetchYahooBars(symbol, "1y", "1d");
   if (!Array.isArray(bars) || bars.length < 200) {
@@ -542,29 +627,10 @@ async function buildTrendTemplate(symbol, opts = {}) {
   if (price < ma50) sellSignals.push("Closed below 50-day MA");
   if (price < ema21) sellSignals.push("Closed below 21-day EMA");
 
-  // ── VCP contraction analysis (each pullback should get shallower) ──
-  // Build a chronological peak/trough sequence over the last ~60 bars, then
-  // measure each peak→trough drawdown to see if the base is tightening.
-  const swingLows = [];
-  for (let i = Math.max(W, last - 60); i <= last - W; i += 1) {
-    let isLow = true;
-    for (let j = i - W; j <= i + W; j += 1) { if (lows[j] < lows[i]) { isLow = false; break; } }
-    if (isLow) swingLows.push({ i, v: lows[i], t: "L" });
-  }
-  const pivots = [
-    ...swingHighs.filter((s) => s.i >= last - 60).map((s) => ({ i: s.i, v: s.h, t: "H" })),
-    ...swingLows,
-  ].sort((a, b) => a.i - b.i);
-  const contractions = [];
-  for (let i = 0; i < pivots.length - 1; i += 1) {
-    if (pivots[i].t === "H" && pivots[i + 1].t === "L") {
-      const depth = round2((pivots[i].v - pivots[i + 1].v) / pivots[i].v * 100);
-      if (depth > 1) contractions.push(depth);
-    }
-  }
-  const recentContractions = contractions.slice(-4);
-  const tightening = recentContractions.length >= 2 &&
-    recentContractions[recentContractions.length - 1] < recentContractions[0];
+  // ── Deep VCP analysis ──
+  const vcp = analyzeVCP(bars);
+  const recentContractions = vcp ? vcp.depths.slice(-4) : [];
+  const tightening = vcp ? vcp.tightening : false;
 
   // ── GO / WAIT / AVOID verdict ──
   let verdict, verdictReason;
@@ -596,6 +662,7 @@ async function buildTrendTemplate(symbol, opts = {}) {
     sellSignals,
     contractions: recentContractions,
     tightening,
+    vcp,
     verdict,
     verdictReason,
   };
