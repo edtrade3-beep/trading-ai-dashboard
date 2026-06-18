@@ -427,7 +427,7 @@ function ttWeightedMomentum(closes) {
   return 0.4 * perf(63) + 0.2 * perf(126) + 0.2 * perf(189) + 0.2 * perf(252);
 }
 
-async function buildTrendTemplate(symbol) {
+async function buildTrendTemplate(symbol, opts = {}) {
   const bars = await fetchYahooBars(symbol, "1y", "1d");
   if (!Array.isArray(bars) || bars.length < 200) {
     throw new Error(`Not enough history for ${symbol} (need ~200 trading days, got ${bars ? bars.length : 0}).`);
@@ -449,9 +449,12 @@ async function buildTrendTemplate(symbol) {
   // Relative Strength vs SPY (approximate — no full-universe percentile available)
   let rsRating = null;
   try {
-    const spy = await fetchYahooBars("SPY", "1y", "1d");
+    let spyMom = opts.spyMom;
+    if (spyMom == null) {
+      const spy = await fetchYahooBars("SPY", "1y", "1d");
+      spyMom = ttWeightedMomentum(spy.map((b) => b.close));
+    }
     const stockMom = ttWeightedMomentum(closes);
-    const spyMom = ttWeightedMomentum(spy.map((b) => b.close));
     rsRating = Math.max(1, Math.min(99, Math.round(50 + 50 * Math.tanh(2 * (stockMom - spyMom)))));
   } catch {
     rsRating = null;
@@ -543,7 +546,7 @@ async function buildTrendTemplate(symbol) {
     : passCount >= 4 ? "Stage 1/3 — Transition"
     : "Stage 4 — Downtrend";
 
-  return {
+  const result = {
     symbol,
     asOf: new Date(bars[last].time).toISOString(),
     price: round2(price),
@@ -560,20 +563,54 @@ async function buildTrendTemplate(symbol) {
     pctFromLow,
     criteria,
     setup,
-    bars: bars.map((b) => ({
-      time: b.time,
-      open: round2(b.open),
-      high: round2(b.high),
-      low: round2(b.low),
-      close: round2(b.close),
-      volume: Math.round(b.volume || 0),
-    })),
-    series: {
-      ma50: ttSmaSeries(closes, 50).map((v) => (v == null ? null : round2(v))),
-      ma150: ttSmaSeries(closes, 150).map((v) => (v == null ? null : round2(v))),
-      ma200: ttSmaSeries(closes, 200).map((v) => (v == null ? null : round2(v))),
-    },
   };
+  if (opts.light) return result;
+  result.bars = bars.map((b) => ({
+    time: b.time,
+    open: round2(b.open),
+    high: round2(b.high),
+    low: round2(b.low),
+    close: round2(b.close),
+    volume: Math.round(b.volume || 0),
+  }));
+  result.series = {
+    ma50: ttSmaSeries(closes, 50).map((v) => (v == null ? null : round2(v))),
+    ma150: ttSmaSeries(closes, 150).map((v) => (v == null ? null : round2(v))),
+    ma200: ttSmaSeries(closes, 200).map((v) => (v == null ? null : round2(v))),
+  };
+  return result;
+}
+
+// Scan many symbols with bounded concurrency, fetching SPY momentum just once.
+async function screenTrendTemplate(symbols) {
+  let spyMom = null;
+  try { spyMom = ttWeightedMomentum((await fetchYahooBars("SPY", "1y", "1d")).map((b) => b.close)); } catch {}
+
+  const out = [];
+  const queue = symbols.slice();
+  const worker = async () => {
+    while (queue.length) {
+      const sym = queue.shift();
+      try {
+        const r = await buildTrendTemplate(sym, { light: true, spyMom });
+        out.push({
+          symbol: r.symbol, price: r.price, passCount: r.passCount, qualifies: r.qualifies,
+          stage: r.stage, rsRating: r.rsRating, pctFromHigh: r.pctFromHigh,
+          pivot: r.setup.pivot, entry: r.setup.entry, stop: r.setup.stop, riskPct: r.setup.riskPct,
+          target2: r.setup.target2, abovePivotPct: r.setup.abovePivotPct,
+          breakoutConfirmed: r.setup.breakoutConfirmed, extended: r.setup.extended,
+          setupStatus: r.setup.status, atBuyPoint: r.passCount >= 7 && Math.abs(r.setup.abovePivotPct) <= 5 && !r.setup.extended,
+        });
+      } catch (err) {
+        out.push({ symbol: sym, error: err instanceof Error ? err.message : "failed" });
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(6, symbols.length) }, worker));
+
+  const rank = (x) => x.error ? -1 : (x.atBuyPoint ? 1000 : 0) + x.passCount * 100 + (x.rsRating || 0);
+  out.sort((a, b) => rank(b) - rank(a));
+  return out;
 }
 
 async function handleMarket(req, res, requestUrl) {
@@ -587,6 +624,18 @@ async function handleMarket(req, res, requestUrl) {
       return writeJson(res, 200, payload);
     } catch (err) {
       return writeJson(res, 502, { error: err instanceof Error ? err.message : "Trend Template failed." });
+    }
+  }
+
+  if (pathname === "/api/market/trend-screen" && req.method === "GET") {
+    const symbols = (searchParams.get("symbols") || "")
+      .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 60);
+    if (!symbols.length) return writeJson(res, 400, { error: "symbols required" });
+    try {
+      const results = await screenTrendTemplate(symbols);
+      return writeJson(res, 200, { count: results.length, results });
+    } catch (err) {
+      return writeJson(res, 502, { error: err instanceof Error ? err.message : "Screen failed." });
     }
   }
 

@@ -11848,12 +11848,29 @@ function GapFillTab({ C, MONO, SANS, setActiveTab }) {
 }
 
 // ── Squeeze Screener ─────────────────────────────────────────────────────────
-function TrendTemplateTab({ C, MONO, SANS }) {
+function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
   const [sym, setSym]   = React.useState("ARM");
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [err, setErr]   = React.useState(null);
+  const [screen, setScreen] = React.useState(null);
+  const [screening, setScreening] = React.useState(false);
   const canvasRef = React.useRef(null);
+
+  const scanWatchlist = React.useCallback(() => {
+    setScreening(true); setScreen(null);
+    const go = (syms) => {
+      const list = (syms || []).map(s => String(s).trim().toUpperCase()).filter(Boolean).slice(0, 60);
+      if (!list.length) { setScreening(false); setScreen({ results: [], empty: true }); return; }
+      fetch("/api/market/trend-screen?symbols=" + encodeURIComponent(list.join(",")))
+        .then(r => r.json())
+        .then(d => setScreen(d))
+        .catch(e => setScreen({ error: e.message }))
+        .finally(() => setScreening(false));
+    };
+    if (watchlistSymbols && watchlistSymbols.length) return go(watchlistSymbols);
+    fetch("/api/watchlist").then(r => r.json()).then(d => go(d.symbols)).catch(() => go([]));
+  }, [watchlistSymbols]);
 
   const load = React.useCallback((s) => {
     const symbol = (s || sym || "ARM").trim().toUpperCase();
@@ -11972,9 +11989,55 @@ function TrendTemplateTab({ C, MONO, SANS }) {
             style={{ fontFamily: MONO, fontSize: 11, padding: "6px 10px", borderRadius: 6,
               border: `1px solid ${C.border}`, background: "transparent", color: C.textDim, cursor: "pointer" }}>{s}</button>
         ))}
+        <button onClick={scanWatchlist} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "7px 14px",
+          borderRadius: 6, border: `1px solid ${C.green}`, background: `${C.green}18`, color: C.green, cursor: "pointer" }}>
+          {screening ? "Scanning…" : "📋 Scan Watchlist"}</button>
         <div style={{ marginLeft: "auto", fontFamily: SANS, fontSize: 11, color: C.textDim }}>
           Live · Yahoo daily · Minervini SEPA criteria</div>
       </div>
+
+      {screen && (
+        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+          {screen.error && <div style={{ padding: 12, color: C.red, fontFamily: SANS, fontSize: 13 }}>Screen failed: {screen.error}</div>}
+          {screen.empty && <div style={{ padding: 12, color: C.textDim, fontFamily: SANS, fontSize: 13 }}>Your watchlist is empty — add symbols first.</div>}
+          {Array.isArray(screen.results) && screen.results.length > 0 && (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12 }}>
+              <thead><tr style={{ color: C.textDim, textAlign: "left" }}>
+                {["", "Sym", "Score", "RS", "Price", "Pivot", "vs Pivot", "Entry", "Stop", "Risk", "T2", "Setup"].map((h, i) => (
+                  <th key={i} style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, fontWeight: 700, fontSize: 10.5, textTransform: "uppercase" }}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {screen.results.map((r) => {
+                  if (r.error) return (
+                    <tr key={r.symbol}><td style={{ padding: "7px 10px" }}></td>
+                      <td style={{ padding: "7px 10px", fontWeight: 800 }}>{r.symbol}</td>
+                      <td colSpan={10} style={{ padding: "7px 10px", color: C.textDim }}>{r.error}</td></tr>
+                  );
+                  const sCol = r.qualifies ? C.green : r.passCount >= 4 ? "#d6a312" : C.red;
+                  return (
+                    <tr key={r.symbol} onClick={() => { setSym(r.symbol); load(r.symbol); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                      style={{ cursor: "pointer", background: r.atBuyPoint ? `${C.green}12` : "transparent" }}>
+                      <td style={{ padding: "7px 10px" }}>{r.atBuyPoint ? "🟢" : r.extended ? "⚠" : ""}</td>
+                      <td style={{ padding: "7px 10px", fontWeight: 800, color: C.text }}>{r.symbol}</td>
+                      <td style={{ padding: "7px 10px", color: sCol, fontWeight: 800 }}>{r.passCount}/8</td>
+                      <td style={{ padding: "7px 10px", color: r.rsRating >= 70 ? C.green : C.textDim }}>{r.rsRating ?? "—"}</td>
+                      <td style={{ padding: "7px 10px", color: C.text }}>{r.price}</td>
+                      <td style={{ padding: "7px 10px", color: C.textDim }}>{r.pivot}</td>
+                      <td style={{ padding: "7px 10px", color: Math.abs(r.abovePivotPct) <= 5 ? C.green : C.textDim }}>{r.abovePivotPct}%</td>
+                      <td style={{ padding: "7px 10px", color: C.accent }}>{r.entry}</td>
+                      <td style={{ padding: "7px 10px", color: C.red }}>{r.stop}</td>
+                      <td style={{ padding: "7px 10px", color: C.textDim }}>{r.riskPct}%</td>
+                      <td style={{ padding: "7px 10px", color: C.green }}>{r.target2}</td>
+                      <td style={{ padding: "7px 10px", color: C.textDim, fontFamily: SANS, fontSize: 11 }}>{r.setupStatus}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       {err && <div style={{ color: C.red, fontFamily: SANS, fontSize: 13 }}>Could not load: {err}</div>}
 
@@ -29386,7 +29449,7 @@ export default function App() {
       {activeTab === "dipbuy" && <DipBuyTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} />}
       {activeTab === "greenlight" && <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} />}
       {activeTab === "mytrades" && <MyTradesTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} />}
-      {activeTab === "trendtemplate" && <TrendTemplateTab C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "trendtemplate" && <TrendTemplateTab C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "holdings" && <HoldingsTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} />}
       {activeTab === "gl-backtest" && <GLBacktestTab C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "predictions" && <PredictionsTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} />}
