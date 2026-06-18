@@ -19923,7 +19923,7 @@ export default function App() {
             </div>
 
             {/* ── MARKET REGIME DASHBOARD ── */}
-            <MonitorSection C={C} MONO={MONO} label="📊 MARKET REGIME" storeKey="mon_regime">
+            <MonitorSection C={C} MONO={MONO} label="🌡 MARKET CONDITIONS" storeKey="mon_regime">
             {(() => {
               const spy    = macroData.find(m => m.symbol === "SPY");
               const qqq    = macroData.find(m => m.symbol === "QQQ");
@@ -20003,10 +20003,7 @@ export default function App() {
                 </div>
               );
             })()}
-            </MonitorSection>
-
-            {/* ── NEXT DAY OUTLOOK ── */}
-            <MonitorSection C={C} MONO={MONO} label="🔮 NEXT DAY OUTLOOK" storeKey="mon_nextday">
+            {/* ── Next-day outlook (merged into Market Conditions) ── */}
             {(() => {
               const spy = (macroData||[]).find(m=>m.symbol==="SPY") || (watchlistData||[]).find(w=>w.symbol==="SPY");
               const qqq = (macroData||[]).find(m=>m.symbol==="QQQ") || (watchlistData||[]).find(w=>w.symbol==="QQQ");
