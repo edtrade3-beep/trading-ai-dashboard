@@ -19123,10 +19123,9 @@ export default function App() {
           {/* Nav tabs — grouped */}
           {(() => {
             const NAV_GROUPS = [
-              { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard"] },
+              { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard", "news", "econ-cal", "macro"] },
               { id: "terminal",   label: "📈 CHART",      tabs: ["multitf", "tv"] },
-              { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy"] },
-              { id: "markets",    label: "🌍 MARKETS",    tabs: ["news", "macro", "econ-cal", "predictions"] },
+              { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy", "trendtemplate", "outlook", "predictions", "mytrades", "holdings", "gl-backtest"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["education", "options-edu", "notes"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools"] },
@@ -19473,6 +19472,9 @@ export default function App() {
         const SUB_GROUPS = {
           dashboard: [
             { id: "dashboard",  label: "📊 MONITOR" },
+            { id: "news",       label: "📰 NEWS" },
+            { id: "econ-cal",   label: "📅 EVENTS" },
+            { id: "macro",      label: "🌍 MACRO" },
           ],
           terminal: [
             { id: "multitf",    label: "📈 CHART" },
@@ -19485,14 +19487,9 @@ export default function App() {
             { id: "holdings",     label: "📊 MY HOLDINGS" },
             { id: "smartscan",    label: "🧠 SMART SCAN" },
             { id: "trendtemplate", label: "🏆 TREND TEMPLATE" },
-            { id: "dipbuy",       label: "🩸 DIP BUY" },
-          ],
-          markets: [
             { id: "outlook",      label: "🧭 30-DAY OUTLOOK" },
-            { id: "news",         label: "📰 NEWS" },
-            { id: "macro",        label: "🌍 MACRO" },
-            { id: "econ-cal",     label: "📅 EVENTS" },
             { id: "predictions",  label: "🎲 PREDICTIONS" },
+            { id: "dipbuy",       label: "🩸 DIP BUY" },
           ],
           coach: [
             { id: "coach",        label: "🧭 المدرّب اليومي" },
