@@ -19901,15 +19901,15 @@ export default function App() {
               </button>
             </div>
 
+            {/* ── Prayer Times (collapsed, top) ── */}
+            <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={false}>
+              <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
+            </MonitorSection>
+
             {/* ── 1. MARKET MODE — am I risk-on or risk-off right now? ── */}
             <MonitorSection C={C} MONO={MONO} label="🚦 MARKET MODE & FLOW" storeKey="mon_mode">
               <RiskTrafficLight C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
               <SpyVolumeWidget C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
-            </MonitorSection>
-
-            {/* ── Prayer Times (collapsed) ── */}
-            <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={false}>
-              <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
             </MonitorSection>
 
             {/* ── 2. CATALYSTS — Fed + scheduled economic events ── */}
