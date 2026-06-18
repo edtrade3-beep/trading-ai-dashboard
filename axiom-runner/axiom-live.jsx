@@ -11914,6 +11914,23 @@ function TrendTemplateTab({ C, MONO, SANS }) {
     ctx.fillStyle = "#0a0a0a"; ctx.textAlign = "right"; ctx.font = "bold 11px " + MONO;
     ctx.fillText(last.close.toFixed(2), W - 4, py(last.close) + 4); ctx.textAlign = "left";
 
+    // entry / stop / target lines
+    const su = data.setup;
+    if (su) {
+      const line = (val, color, label, dash) => {
+        if (val == null || val < lo || val > hi) return;
+        const y = py(val);
+        ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash(dash || [5, 4]);
+        ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = color; ctx.font = "bold 10px " + MONO; ctx.textAlign = "left";
+        ctx.fillText(label, padL + 4, y - 3);
+      };
+      line(su.target3, C.green, "T3 " + su.target3);
+      line(su.target2, C.green, "T2 " + su.target2);
+      line(su.entry, C.accent, "ENTRY/PIVOT " + su.entry, [6, 3]);
+      line(su.stop, C.red, "STOP " + su.stop);
+    }
+
     ctx.font = "11px " + MONO;
     ctx.fillStyle = C.accent; ctx.fillText("MA50", padL + plotW - 150, pTop - 12);
     ctx.fillStyle = "#d6a312"; ctx.fillText("MA150", padL + plotW - 105, pTop - 12);
@@ -11978,6 +11995,46 @@ function TrendTemplateTab({ C, MONO, SANS }) {
             {data.stage}</div>
         </div>
       )}
+
+      {data && data.setup && (() => {
+        const su = data.setup;
+        const sc = su.breakoutConfirmed ? C.green : su.extended ? C.red : "#d6a312";
+        const box = (label, val, col, sub) => (
+          <div style={{ flex: "1 1 120px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
+            <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, textTransform: "uppercase", letterSpacing: .4 }}>{label}</div>
+            <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 800, color: col || C.text }}>{val}</div>
+            {sub && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>{sub}</div>}
+          </div>
+        );
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>🎯 TRADE SETUP</div>
+              <div style={{ padding: "4px 10px", borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800,
+                border: `1px solid ${sc}`, background: `${sc}1e`, color: sc }}>{su.status}</div>
+              {su.extended && <div style={{ fontFamily: SANS, fontSize: 11, color: C.red }}>⚠ Extended {su.abovePivotPct}% above pivot — chasing risk</div>}
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {box("Entry (pivot)", su.entry, C.accent, su.breakoutConfirmed ? "breakout confirmed" : `price ${su.abovePivotPct}% vs pivot`)}
+              {box("Stop", su.stop, C.red, `risk ${su.riskPct}%`)}
+              {box("Target 2R", su.target2, C.green, "+" + (su.riskPct * 2).toFixed(1) + "%")}
+              {box("Target 3R", su.target3, C.green, "+" + (su.riskPct * 3).toFixed(1) + "%")}
+              {box("Tightness", su.tightnessPct + "%", su.tightnessPct <= 10 ? C.green : C.text, "10d range")}
+              {box("Vol dry-up", su.volDryup == null ? "—" : su.volDryup + "×", su.volDryup != null && su.volDryup < 0.9 ? C.green : C.text, "vs 50d avg")}
+              {box("Breakout vol", su.volSurge + "×", su.volSurge >= 1.4 ? C.green : C.textDim, "need ≥1.4×")}
+            </div>
+            {su.sellSignals.length > 0 && (
+              <div style={{ fontFamily: SANS, fontSize: 12, color: C.red }}>
+                🔴 Sell signal: {su.sellSignals.join(" · ")}</div>
+            )}
+            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, lineHeight: 1.5 }}>
+              Pivot = high of the recent base (buy on a break above it with volume ≥1.4× average).
+              Stop = tighter of −8% or just under the last contraction low. Targets are 2× and 3× your risk —
+              sell into strength or when price closes below the 50-day MA / 21-day EMA.
+            </div>
+          </div>
+        );
+      })()}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 12 }}>
         <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>

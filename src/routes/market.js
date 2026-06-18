@@ -469,6 +469,75 @@ async function buildTrendTemplate(symbol) {
   ];
   const passCount = criteria.filter((c) => c.pass).length;
   const trendPass = criteria.slice(0, 7).every((c) => c.pass);
+
+  // ── Entry / Stop / Target (VCP pivot breakout, Minervini SEPA) ──
+  const avg = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
+  const tail = (k) => bars.slice(Math.max(0, bars.length - k));
+  const highs = bars.map((b) => b.high);
+  const lows = bars.map((b) => b.low);
+  const vols = bars.map((b) => b.volume || 0);
+
+  // Pivot = resistance high of the recent base (30 bars ending yesterday).
+  const baseHi = highs.slice(Math.max(0, last - 30), last);
+  const pivot = baseHi.length ? Math.max(...baseHi) : price;
+  // Tightest recent contraction low (15 bars) — used for a tighter stop.
+  const contractionLow = Math.min(...lows.slice(Math.max(0, last - 15)));
+
+  const avgVol50 = avg(vols.slice(Math.max(0, last - 50)));
+  const lastVol = vols[last];
+  const volSurge = avgVol50 ? lastVol / avgVol50 : 0;
+
+  // Volatility contraction read.
+  const range10 = (Math.max(...highs.slice(last - 10)) - Math.min(...lows.slice(last - 10)));
+  const tightnessPct = round2((range10 / price) * 100);
+  const volDryup = avgVol50 ? round2(avg(vols.slice(last - 10)) / avgVol50) : null;
+
+  // 21-day EMA for the faster trailing-sell rule.
+  let ema21 = closes[Math.max(0, last - 21)];
+  const kE = 2 / (21 + 1);
+  for (let i = Math.max(1, last - 21) + 1; i <= last; i += 1) ema21 = closes[i] * kE + ema21 * (1 - kE);
+
+  const entry = pivot; // buy trigger = break above pivot
+  // Stop: tighter of −8% from entry or just under the contraction low; never above entry.
+  let stop = Math.max(entry * 0.92, contractionLow * 0.995);
+  if (stop >= entry) stop = entry * 0.92;
+  const riskPct = round2(((entry - stop) / entry) * 100);
+  const target2 = round2(entry + 2 * (entry - stop));
+  const target3 = round2(entry + 3 * (entry - stop));
+
+  const abovePivotPct = round2((price / pivot - 1) * 100);
+  const breakoutConfirmed = price > pivot && volSurge >= 1.4;
+  let setupStatus;
+  if (breakoutConfirmed) setupStatus = "Breakout — buy trigger hit";
+  else if (price > pivot) setupStatus = "Above pivot — needs volume confirmation";
+  else if (abovePivotPct >= -3) setupStatus = "At pivot — watch for breakout";
+  else if (abovePivotPct >= -12) setupStatus = "Base forming below pivot";
+  else setupStatus = "Far below pivot — no setup";
+  const extended = abovePivotPct > 10; // chasing risk
+
+  const sellSignals = [];
+  if (price < ma50) sellSignals.push("Closed below 50-day MA");
+  if (price < ema21) sellSignals.push("Closed below 21-day EMA");
+
+  const setup = {
+    pivot: round2(pivot),
+    entry: round2(entry),
+    stop: round2(stop),
+    riskPct,
+    target2,
+    target3,
+    contractionLow: round2(contractionLow),
+    tightnessPct,
+    volDryup,
+    volSurge: round2(volSurge),
+    ema21: round2(ema21),
+    abovePivotPct,
+    breakoutConfirmed,
+    extended,
+    status: setupStatus,
+    sellSignals,
+  };
+
   const stage = trendPass && passCount === 8 ? "Stage 2 — Confirmed Uptrend"
     : trendPass ? "Stage 2 — Uptrend (RS soft)"
     : passCount >= 4 ? "Stage 1/3 — Transition"
@@ -490,6 +559,7 @@ async function buildTrendTemplate(symbol) {
     pctFromHigh,
     pctFromLow,
     criteria,
+    setup,
     bars: bars.map((b) => ({
       time: b.time,
       open: round2(b.open),
