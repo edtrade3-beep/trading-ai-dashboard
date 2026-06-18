@@ -15489,7 +15489,7 @@ export default function App() {
     try {
       const t = localStorage.getItem("last_tab");
       // Restore only safe tabs (don't restore modals/dialogs)
-      const safeTabs = ["dashboard","tv","multitf","fibonacci","scanner","smartscan","greenlight","gl-backtest","mytrades","trendtemplate","outlook","holdings","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","predictions","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","journal-stats","coach","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","options-edu","dipbuy","under10","quran","athan","athkar","tasbih","halal","soccer"];
+      const safeTabs = ["dashboard","tv","multitf","fibonacci","scanner","smartscan","greenlight","gl-backtest","mytrades","trendtemplate","outlook","quotes","morning-routine","holdings","gap","early","screener","flow","fivex","news","macro","earn-cal","econ-cal","sectors","feargreed","breadth","crypto","predictions","cot","shortint","smartmoney","social","analyst","ipo","sec-filings","darkpool","short-changes","dp-heatmap","journal-stats","coach","alerts","risklab","heatmap","correlation","academy","workflow","agent","backtest","telegram","tools","notes","education","options-edu","dipbuy","under10","quran","athan","athkar","tasbih","halal","soccer"];
       return (t && safeTabs.includes(t)) ? t : "dashboard";
     } catch { return "dashboard"; }
   });
@@ -19123,9 +19123,9 @@ export default function App() {
           {/* Nav tabs — grouped */}
           {(() => {
             const NAV_GROUPS = [
-              { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard", "news", "econ-cal", "macro"] },
+              { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard", "quotes", "news", "econ-cal", "macro"] },
               { id: "terminal",   label: "📈 CHART",      tabs: ["multitf", "tv"] },
-              { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy", "trendtemplate", "outlook", "predictions", "mytrades", "holdings", "gl-backtest"] },
+              { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy", "trendtemplate", "outlook", "predictions", "morning-routine", "mytrades", "holdings", "gl-backtest"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["education", "options-edu", "notes"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools"] },
@@ -19472,6 +19472,7 @@ export default function App() {
         const SUB_GROUPS = {
           dashboard: [
             { id: "dashboard",  label: "📊 MONITOR" },
+            { id: "quotes",     label: "📋 QUOTES" },
             { id: "news",       label: "📰 NEWS" },
             { id: "econ-cal",   label: "📅 EVENTS" },
             { id: "macro",      label: "🌍 MACRO" },
@@ -19489,6 +19490,7 @@ export default function App() {
             { id: "trendtemplate", label: "🏆 TREND TEMPLATE" },
             { id: "outlook",      label: "🧭 30-DAY OUTLOOK" },
             { id: "predictions",  label: "🎲 PREDICTIONS" },
+            { id: "morning-routine", label: "☀️ MORNING BRIEF" },
             { id: "dipbuy",       label: "🩸 DIP BUY" },
           ],
           coach: [
@@ -20302,8 +20304,8 @@ export default function App() {
         })()}
 
 
-        {activeTab === "dashboard" && watchlistData.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : `minmax(0, 1fr) minmax(260px, ${LAYOUT.sidebarWidth}px)`, gap: LAYOUT.gridGap, alignItems: "start", width: "100%", overflow: "hidden" }}>
+        {activeTab === "quotes" && watchlistData.length > 0 && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: LAYOUT.gridGap, alignItems: "start", width: "100%", overflow: "hidden" }}>
             {/* Watchlist Table */}
             <div>
               {/* ── Named Watchlist Tabs ── */}
@@ -20983,350 +20985,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Right Sidebar */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, alignSelf: "start" }}>
-              {/* Tablet: show a divider label */}
-              {isTablet && (
-                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim, padding: "8px 0", borderTop: `2px solid ${C.border}`, letterSpacing: "0.08em" }}>
-                  ▼ BRIEF & ALERTS
-                </div>
-              )}
-              {/* Morning Brief */}
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>MORNING BRIEF</div>
-                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    {briefAt && <span style={{ fontSize: 12, fontFamily: MONO, color: C.textDim }}>{briefAt}</span>}
-                    <button
-                      onClick={runMorningBrief}
-                      disabled={briefLoading}
-                      style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}14`, color: C.accent, borderRadius: 6, padding: "3px 8px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-                    >
-                      {briefLoading ? "..." : briefText ? "REFRESH" : "BRIEF ME"}
-                    </button>
-                  </div>
-                </div>
-                {briefText ? (
-                  <>
-                    <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, lineHeight: 1.45, whiteSpace: "pre-wrap", maxHeight: briefExpanded ? "none" : 120, overflow: "hidden" }}>
-                      {briefText}
-                    </div>
-                    <button
-                      onClick={() => setBriefExpanded(x => !x)}
-                      style={{ marginTop: 6, border: "none", background: "none", color: C.accent, fontFamily: MONO, fontSize: 12, cursor: "pointer", padding: 0 }}
-                    >
-                      {briefExpanded ? "COLLAPSE ▲" : "EXPAND ▼"}
-                    </button>
-                  </>
-                ) : (
-                  <div style={{ fontSize: 12, fontFamily: SANS, color: C.textDim }}>
-                    Click BRIEF ME for an AI-generated market summary.
-                  </div>
-                )}
-              </div>
-              {/* Alerts Feed */}
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
-                    ALERT FEED
-                  </div>
-                  <Badge color={combinedAlerts.length ? C.amber : C.textDim}>{combinedAlerts.length ? `${combinedAlerts.length} ACTIVE` : "CLEAR"}</Badge>
-                </div>
-                {combinedAlerts.length === 0 && (
-                  <div style={{ fontSize: 12, fontFamily: SANS, color: C.textDim }}>
-                    No high-priority alerts right now.
-                  </div>
-                )}
-                {combinedAlerts.map((a, i) => (
-                  <div key={`${a.symbol}-${i}`} style={{
-                    borderBottom: `1px solid ${C.border}`, padding: "7px 0",
-                    display: "grid", gridTemplateColumns: "50px 1fr", gap: 8,
-                  }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{a.symbol}</span>
-                      <Badge color={a.type === "risk" ? C.red : a.type === "flow" ? C.amber : C.green}>{a.type}</Badge>
-                    </div>
-                    <div>
-                      <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.35 }}>{a.text}</div>
-                      <div style={{ marginTop: 5 }}>
-                        <ScoreBar value={a.score} color={a.type === "risk" ? C.red : a.type === "flow" ? C.amber : C.green} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Market Summary */}
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
-                <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 10 }}>
-                  MARKET SNAPSHOT
-                </div>
-                {macroData.filter(q => ["SPY","QQQ","IWM","DIA"].includes(q.symbol)).map(q => {
-                  const chg = q.changesPercentage || 0;
-                  const isUp = chg >= 0;
-                  return (
-                    <div key={q.symbol} style={{
-                      display: "flex", justifyContent: "space-between", alignItems: "center",
-                      padding: "5px 0", borderBottom: `1px solid ${C.border}`,
-                    }}>
-                      <div>
-                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{q.symbol}</span>
-                        <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginLeft: 6 }}>{q._label}</span>
-                      </div>
-                      <div style={{ textAlign: "right" }}>
-                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.text, marginRight: 8 }}>${q.price?.toFixed(2)}</span>
-                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: isUp ? C.green : C.red }}>
-                          {isUp ? "+" : ""}{chg.toFixed(2)}%
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Daily Economic Calendar */}
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em" }}>
-                    DAILY ECONOMIC CALENDAR
-                  </div>
-                  <Badge color={(econCalendarRows || []).some((e) => e.phase === "live" || e.phase === "imminent") ? C.red : C.green}>
-                    {(econCalendarRows || []).some((e) => e.phase === "live" || e.phase === "imminent") ? "RISK WINDOW" : "NORMAL"}
-                  </Badge>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
-                  <button
-                    onClick={() => setSettings((s) => ({ ...s, econCalendarView: "today" }))}
-                    style={{ border: `1px solid ${econCalendarView === "today" ? C.accent : C.border}`, background: econCalendarView === "today" ? `${C.accent}14` : C.surface, color: econCalendarView === "today" ? C.accent : C.textSec, borderRadius: 6, padding: "4px 6px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-                  >
-                    TODAY
-                  </button>
-                  <button
-                    onClick={() => setSettings((s) => ({ ...s, econCalendarView: "week" }))}
-                    style={{ border: `1px solid ${econCalendarView === "week" ? C.accent : C.border}`, background: econCalendarView === "week" ? `${C.accent}14` : C.surface, color: econCalendarView === "week" ? C.accent : C.textSec, borderRadius: 6, padding: "4px 6px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-                  >
-                    THIS WEEK
-                  </button>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
-                  <button
-                    onClick={() => setSettings((s) => ({ ...s, econCalendarRegion: "US" }))}
-                    style={{ border: `1px solid ${econCalendarRegion === "US" ? C.green : C.border}`, background: econCalendarRegion === "US" ? `${C.green}14` : C.surface, color: econCalendarRegion === "US" ? C.green : C.textSec, borderRadius: 6, padding: "4px 6px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-                  >
-                    US ONLY
-                  </button>
-                  <button
-                    onClick={() => setSettings((s) => ({ ...s, econCalendarRegion: "GLOBAL" }))}
-                    style={{ border: `1px solid ${econCalendarRegion === "GLOBAL" ? C.purple : C.border}`, background: econCalendarRegion === "GLOBAL" ? `${C.purple}14` : C.surface, color: econCalendarRegion === "GLOBAL" ? C.purple : C.textSec, borderRadius: 6, padding: "4px 6px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-                  >
-                    GLOBAL
-                  </button>
-                </div>
-                <button
-                  onClick={() => setSettings((s) => ({ ...s, econAutoRisk30m: !econAutoRisk30m }))}
-                  style={{ width: "100%", marginBottom: 8, border: `1px solid ${econAutoRisk30m ? C.red : C.border}`, background: econAutoRisk30m ? `${C.red}14` : C.surface, color: econAutoRisk30m ? C.red : C.textSec, borderRadius: 6, padding: "5px 8px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-                >
-                  {econAutoRisk30m ? "AUTO REDUCE RISK T-30M: ON" : "AUTO REDUCE RISK T-30M: OFF"}
-                </button>
-                {(econCalendarRows || [])
-                  .map((e) => (
-                    <div key={`daily-eco-${e.id}`} style={{
-                      borderBottom: `1px solid ${C.border}`,
-                      padding: "6px 0",
-                      display: "grid",
-                      gridTemplateColumns: "54px 1fr 78px",
-                      gap: 8,
-                      alignItems: "center",
-                    }}>
-                      <div>
-                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent }}>{e.tag}</span>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: e.severity === "high" ? C.red : e.severity === "medium" ? C.amber : C.green, fontWeight: 700 }}>
-                          {e.impact || String(e.severity || "").toUpperCase()}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.3 }}>{e.title}</div>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-                          {e.region} • {e.time.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                        </div>
-                      </div>
-                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, textAlign: "right", color: e.phase === "live" ? C.red : e.phase === "imminent" ? C.amber : C.textSec }}>
-                        {e.phase === "live" ? "LIVE" : formatCountdown(e.tteMs)}
-                      </span>
-                    </div>
-                  ))}
-                {!((econCalendarRows || []).length) && (
-                  <div style={{ fontSize: 12, fontFamily: SANS, color: C.textDim }}>
-                    No major events in selected window.
-                  </div>
-                )}
-              </div>
-
-              {/* Weather */}
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em" }}>
-                    WEATHER ({WEATHER_ZIP})
-                  </div>
-                  <button
-                    onClick={fetchWeather}
-                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
-                  >
-                    {weatherLoading ? "..." : "REFRESH"}
-                  </button>
-                </div>
-                {weatherError && <div style={{ fontSize: 12, color: C.red }}>{weatherError}</div>}
-                {!weatherError && weatherData && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface }}>
-                      <div style={{ fontSize: 12, color: C.textDim }}>{weatherData.location}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 800, color: C.text }}>{weatherData.temp.toFixed(0)}°F</div>
-                      <div style={{ fontSize: 12, color: C.textSec }}>{weatherCodeLabel(weatherData.code)}</div>
-                    </div>
-                    <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, padding: 8, background: C.surface }}>
-                      <div style={{ fontSize: 12, color: C.textDim }}>High / Low</div>
-                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700 }}>{weatherData.high.toFixed(0)}° / {weatherData.low.toFixed(0)}°</div>
-                      <div style={{ fontSize: 12, color: C.textDim }}>Wind {weatherData.wind.toFixed(0)} mph</div>
-                    </div>
-                  </div>
-                )}
-                {!weatherError && !weatherData && <div style={{ fontSize: 12, color: C.textDim }}>Loading weather...</div>}
-              </div>
-
-              {/* Sector Heatmap */}
-              <div>
-                <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 8 }}>
-                  SECTOR HEATMAP
-                </div>
-                <SectorHeatmap data={sectorData} />
-              </div>
-
-              {/* Top Movers */}
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
-                {(() => {
-                  const isPreMkt = marketSession === "PREMARKET";
-                  const isPostMkt = marketSession === "AFTERMARKET";
-                  const isExt = isPreMkt || isPostMkt;
-                  const extLabel = isPreMkt ? "PRE" : "POST";
-                  const extColor = isPreMkt ? C.accent : C.amber;
-                  const getChg = (q) => isExt
-                    ? Number(isPreMkt ? q.preMarketChangePercent : q.postMarketChangePercent) || 0
-                    : (q.changesPercentage || 0);
-                  return (
-                    <>
-                      <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                        WATCHLIST MOVERS
-                        {isExt && <span style={{ fontSize: 12, fontFamily: MONO, color: extColor, fontWeight: 700, border: `1px solid ${extColor}44`, padding: "2px 6px", borderRadius: 5 }}>{extLabel}</span>}
-                      </div>
-                      {[...watchlistData]
-                        .sort((a, b) => Math.abs(getChg(b)) - Math.abs(getChg(a)))
-                        .slice(0, 5)
-                        .map(q => {
-                          const chg = getChg(q);
-                          const isUp = chg >= 0;
-                          return (
-                            <div key={q.symbol} onClick={() => setSelectedStock(q)} style={{
-                              display: "flex", justifyContent: "space-between", padding: "4px 0",
-                              borderBottom: `1px solid ${C.border}`, cursor: "pointer",
-                            }}>
-                              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{q.symbol}</span>
-                              <span style={{
-                                fontFamily: MONO, fontSize: 12, fontWeight: 700,
-                                color: isUp ? C.green : C.red,
-                                padding: "1px 6px", borderRadius: 2,
-                                background: isUp ? C.greenBg : C.redBg,
-                              }}>
-                                {isUp ? "+" : ""}{chg.toFixed(2)}%
-                              </span>
-                            </div>
-                          );
-                        })}
-                    </>
-                  );
-                })()}
-              </div>
-
-              {/* Portfolio Mini Widget */}
-              {portfolioSummary.totalCost > 0 && portfolioSummary.totalValue > 0 && (
-                <div
-                  onClick={() => setActiveTab("portfolio")}
-                  style={{ background: C.card, border: `1px solid ${portfolioSummary.totalPnl >= 0 ? `${C.green}55` : `${C.red}55`}`, borderRadius: 5, padding: 14, cursor: "pointer" }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em" }}>PORTFOLIO</div>
-                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red }}>
-                      {portfolioSummary.totalPnl >= 0 ? "+" : ""}{portfolioSummary.totalPnlPct.toFixed(2)}%
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.text, fontWeight: 700 }}>{formatNum(portfolioSummary.totalValue)}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 12, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red, fontWeight: 700 }}>
-                      {portfolioSummary.totalPnl >= 0 ? "+" : ""}{formatNum(portfolioSummary.totalPnl)}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim }}>
-                    {portfolioSummary.winners}W / {portfolioSummary.losers}L · {portfolioRows.length} positions · click to expand
-                  </div>
-                </div>
-              )}
-
-              {/* News Wire */}
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14 }}>
-                <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 10 }}>
-                  NEWS WIRE
-                </div>
-                {newsData.slice(0, 4).map((n, i) => (
-                  <a key={`${n.ticker}-${i}`} href={n.link} target="_blank" rel="noreferrer" style={{
-                    display: "block", textDecoration: "none", color: C.text, padding: "6px 0",
-                    borderBottom: `1px solid ${C.border}`,
-                  }}>
-                    <div style={{ fontSize: 12, fontFamily: MONO, color: C.accent, marginBottom: 2 }}>
-                      {n.ticker} · {n.publisher}
-                    </div>
-                    <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, lineHeight: 1.35 }}>
-                      {n.title}
-                    </div>
-                  </a>
-                ))}
-                {!newsData.length && <div style={{ fontSize: 12, color: C.textDim }}>No headlines yet.</div>}
-              </div>
-
-              {/* Daily P/L Tracker */}
-              {(() => {
-                const todayStr = new Date().toISOString().slice(0, 10);
-                const todayTrades = journalEntries.filter(e => e.status === "closed" && e.pnl != null && String(e.closedAt || "").startsWith(todayStr));
-                const todayPnl = todayTrades.reduce((s, e) => s + e.pnl, 0);
-                const todayWins = todayTrades.filter(e => e.pnl > 0).length;
-                const todayLosses = todayTrades.filter(e => e.pnl <= 0).length;
-                const openCount = Object.keys(liveJournalPnl).length;
-                const liveTotalPnl = Object.values(liveJournalPnl).reduce((s, d) => s + d.livePnl, 0);
-                if (todayTrades.length === 0 && openCount === 0) return null;
-                const pnlColor = todayPnl >= 0 ? C.green : C.red;
-                return (
-                  <div onClick={() => setActiveTab("journal")}
-                    style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 5, padding: 14, cursor: "pointer" }}>
-                    <div style={{ fontSize: 12, fontFamily: SANS, color: C.textSec, fontWeight: 600, letterSpacing: "0.01em", marginBottom: 10 }}>
-                      TODAY&apos;S P/L
-                    </div>
-                    {todayTrades.length > 0 && (
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>Realized ({todayTrades.length})</span>
-                        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: pnlColor }}>{todayPnl >= 0 ? "+" : ""}${todayPnl.toFixed(2)}</span>
-                      </div>
-                    )}
-                    {openCount > 0 && (
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>Unrealized ({openCount})</span>
-                        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: liveTotalPnl >= 0 ? C.green : C.red }}>{liveTotalPnl >= 0 ? "+" : ""}${liveTotalPnl.toFixed(2)}</span>
-                      </div>
-                    )}
-                    {todayTrades.length > 0 && (
-                      <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim }}>{todayWins}W / {todayLosses}L · click for full journal</div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
           </div>
         )}
 
