@@ -23302,55 +23302,70 @@ export default function App() {
                                               ))}
                                             </div>
                                           )}
-                                          {/* ── POSITION CALCULATOR ── */}
+                                          {/* ── POSITION CALCULATOR (direction-aware) ── */}
                                           {(() => {
                                             const px5   = Number(livePrice || row.quote?.price || 0);
                                             const ma505 = Number(row.quote?.priceAvg50 || 0);
-                                            // Stop must ALWAYS be below current price
-                                            const rawStop = ma505 > 0 && ma505 < px5 ? ma505 * 0.97 : px5 * 0.97;
-                                            const stop5 = Math.min(rawStop, px5 * 0.97); // cap at 3% below price
                                             const acct  = Number(riskAccount || 10000);
                                             const pct   = Number(riskPct || 1) / 100;
                                             const riskAmt = acct * pct;
-                                            const riskPerShare = Math.max(px5 * 0.01, px5 - stop5); // min 1% per share
-                                            const shares = px5 > 0 ? Math.floor(riskAmt / riskPerShare) : 0;
+                                            if (!px5) return null;
+                                            const isShort = /SHORT|SELL/i.test(vLabel);
+                                            const isAvoid = !isShort && /AVOID|WAIT|NEUTRAL/i.test(vLabel);
+
+                                            // No actionable trade → show a wait notice instead of a misleading BUY plan.
+                                            if (isAvoid) {
+                                              return (
+                                                <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 10, background: `${C.amber}12`, border: `1px solid ${C.amber}44` }}>
+                                                  <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.amber }}>⏸ NO TRADE — verdict is {vLabel}</div>
+                                                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 3 }}>The trend is against a long here. Wait for a reversal/confirmation signal before sizing a position.</div>
+                                                </div>
+                                              );
+                                            }
+
+                                            // Long: stop below, targets above. Short: stop above, targets below.
+                                            const stop5 = isShort
+                                              ? Math.max(ma505 > px5 ? ma505 * 1.03 : px5 * 1.03, px5 * 1.03)
+                                              : Math.min(ma505 > 0 && ma505 < px5 ? ma505 * 0.97 : px5 * 0.97, px5 * 0.97);
+                                            const riskPerShare = Math.max(px5 * 0.01, Math.abs(px5 - stop5));
+                                            const shares = Math.floor(riskAmt / riskPerShare);
                                             const cost   = shares * px5;
-                                            const t1     = px5 * 1.08;
-                                            const t2     = px5 * 1.15;
-                                            const profitT1 = shares * (t1 - px5);
-                                            const stopPct  = px5 > 0 ? ((px5 - stop5) / px5 * 100).toFixed(1) : 0;
-                                            if (!px5 || shares <= 0) return null;
+                                            const t1     = isShort ? px5 * 0.92 : px5 * 1.08;
+                                            const t2     = isShort ? px5 * 0.85 : px5 * 1.15;
+                                            const profitT1 = shares * Math.abs(t1 - px5);
+                                            const stopPct  = (Math.abs(px5 - stop5) / px5 * 100).toFixed(1);
+                                            if (shares <= 0) return null;
+                                            const dirLabel = isShort ? "SHORT" : "BUY";
+                                            const tgtSign  = isShort ? "-" : "+";
                                             return (
                                               <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 10,
-                                                background: `${C.accent}08`, border: `1px solid ${C.accent}22` }}>
+                                                background: isShort ? `${C.red}08` : `${C.accent}08`, border: `1px solid ${isShort ? C.red : C.accent}22` }}>
                                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                                                   <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em" }}>
-                                                    💰 POSITION SIZING
+                                                    💰 POSITION SIZING {isShort ? "· SHORT" : ""}
                                                   </div>
                                                   <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>
                                                     ${acct.toLocaleString()} acct · {(pct*100).toFixed(1)}% risk = <strong style={{ color: C.red }}>${riskAmt.toFixed(0)} max loss</strong>
                                                   </div>
                                                 </div>
-                                                {/* Main numbers — big and clear */}
                                                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                                                   <div style={{ background: C.surface, borderRadius: 8, padding: "10px 12px" }}>
-                                                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 3 }}>BUY</div>
-                                                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>{shares} shares</div>
+                                                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 3 }}>{dirLabel}</div>
+                                                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: isShort ? C.red : C.text }}>{shares} shares</div>
                                                     <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>@ ${px5.toFixed(2)} = ${cost >= 1000 ? (cost/1000).toFixed(1)+"k" : cost.toFixed(0)}</div>
                                                   </div>
                                                   <div style={{ background: C.surface, borderRadius: 8, padding: "10px 12px" }}>
-                                                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 3 }}>IF TARGET HIT (+8%)</div>
+                                                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 3 }}>IF TARGET HIT ({tgtSign}8%)</div>
                                                     <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.green }}>+${profitT1.toFixed(0)}</div>
                                                     <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>@ ${t1.toFixed(2)} · T2 ${t2.toFixed(2)}</div>
                                                   </div>
                                                 </div>
-                                                {/* Stop loss — clear */}
-                                                <div style={{ display: "flex", gap: 6, fontSize: 11 }}>
-                                                  <span style={{ fontFamily: MONO, color: C.red, fontWeight: 700 }}>🛑 Stop ${stop5.toFixed(2)} (-{stopPct}%)</span>
+                                                <div style={{ display: "flex", gap: 6, fontSize: 11, flexWrap: "wrap" }}>
+                                                  <span style={{ fontFamily: MONO, color: C.red, fontWeight: 700 }}>🛑 Stop ${stop5.toFixed(2)} ({isShort ? "+" : "-"}{stopPct}%)</span>
                                                   <span style={{ color: C.textDim }}>·</span>
                                                   <span style={{ fontFamily: MONO, color: C.textDim }}>Max loss ${riskAmt.toFixed(0)}</span>
                                                   <span style={{ color: C.textDim }}>·</span>
-                                                  <span style={{ fontFamily: MONO, color: C.green }}>T1 +8% · T2 +15%</span>
+                                                  <span style={{ fontFamily: MONO, color: C.green }}>T1 {tgtSign}8% · T2 {tgtSign}15%</span>
                                                 </div>
                                               </div>
                                             );
@@ -23360,12 +23375,21 @@ export default function App() {
                                           <button onClick={() => {
                                             const px4 = Number(livePrice || row.quote?.price || 0);
                                             const ma504 = Number(row.quote?.priceAvg50 || 0);
-                                            const s4 = ma504 > 0 ? (ma504*0.97).toFixed(2) : (px4*0.92).toFixed(2);
-                                            const plan = [
+                                            const short4 = /SHORT|SELL/i.test(vLabel);
+                                            const avoid4 = !short4 && /AVOID|WAIT|NEUTRAL/i.test(vLabel);
+                                            const s4 = short4 ? (px4*1.03).toFixed(2) : (ma504 > 0 ? (ma504*0.97).toFixed(2) : (px4*0.92).toFixed(2));
+                                            const sign4 = short4 ? "-" : "+";
+                                            const t1m = short4 ? 0.92 : 1.08, t2m = short4 ? 0.85 : 1.15;
+                                            const plan = avoid4 ? [
                                               "TRADE PLAN — " + row.ticker,
+                                              "Verdict: " + vLabel + " — NO TRADE (trend against a long)",
+                                              "Wait for a reversal/confirmation signal before entering.",
+                                              "Score: " + row.score + "/100  Generated: " + new Date().toLocaleString()
+                                            ].join("\n") : [
+                                              "TRADE PLAN — " + row.ticker + (short4 ? " (SHORT)" : ""),
                                               "Verdict: " + vLabel + "  Alignment: " + composite + "/100",
-                                              "Entry: $" + px4.toFixed(2) + "  Stop: $" + s4,
-                                              "T1: $" + (px4*1.08).toFixed(2) + " (+8%)  T2: $" + (px4*1.15).toFixed(2) + " (+15%)",
+                                              (short4 ? "Short: $" : "Entry: $") + px4.toFixed(2) + "  Stop: $" + s4,
+                                              "T1: $" + (px4*t1m).toFixed(2) + " (" + sign4 + "8%)  T2: $" + (px4*t2m).toFixed(2) + " (" + sign4 + "15%)",
                                               vWarnings.length ? "Warnings: " + vWarnings.join(" | ") : "No warnings",
                                               "Score: " + row.score + "/100  Generated: " + new Date().toLocaleString()
                                             ].join("\n");
