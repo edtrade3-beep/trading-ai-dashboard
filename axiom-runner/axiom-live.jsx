@@ -2470,6 +2470,45 @@ const MACRO_WHISPERS = {
 
 const MOVERS_UNIVERSE = "AAPL,MSFT,NVDA,AMZN,META,GOOGL,TSLA,AMD,AVGO,NFLX,JPM,BAC,XOM,WMT,UNH,LLY,COST,CRM,ORCL,ADBE,INTC,MU,PLTR,COIN,SMCI,MRVL,QCOM,UBER,DIS,BA";
 
+// Classify a scan row into a zone by its composite score.
+const scanZoneOf = (score) => score >= 70 ? "BUY" : score >= 50 ? "WATCH" : "SELL";
+
+// Generate a PDF report of scan rows for one zone (client-side, via jsPDF CDN).
+function exportScanZonePDF(rows, zone) {
+  try {
+    const JsPDF = window.jspdf && window.jspdf.jsPDF;
+    if (!JsPDF) { alert("PDF engine still loading — try again in a second."); return; }
+    const doc = new JsPDF();
+    const now = new Date();
+    const zc = zone === "BUY" ? [22, 163, 74] : zone === "SELL" ? [220, 38, 38] : [217, 119, 6];
+    doc.setFontSize(17); doc.setTextColor(zc[0], zc[1], zc[2]);
+    doc.text(`Smart Scan — ${zone} ZONE`, 14, 18);
+    doc.setFontSize(9); doc.setTextColor(120, 120, 120);
+    doc.text(`${rows.length} symbol${rows.length !== 1 ? "s" : ""} · generated ${now.toLocaleString()}`, 14, 25);
+    let y = 36;
+    const cols = [["Symbol", 14], ["Price", 50], ["Chg%", 80], ["RVOL", 112], ["Score", 142], ["Sector", 170]];
+    doc.setFontSize(10); doc.setTextColor(0, 0, 0); doc.setFont(undefined, "bold");
+    cols.forEach(([h, x]) => doc.text(h, x, y));
+    doc.setFont(undefined, "normal"); doc.setDrawColor(200, 200, 200); doc.line(14, y + 2, 196, y + 2);
+    y += 8;
+    if (!rows.length) { doc.setTextColor(120, 120, 120); doc.text("No symbols in this zone right now.", 14, y); }
+    rows.forEach((q) => {
+      if (y > 282) { doc.addPage(); y = 20; }
+      const chg = Number(q.changesPercentage || 0);
+      doc.setTextColor(0, 0, 0); doc.text(String(q.symbol || ""), 14, y);
+      doc.text("$" + Number(q.price || 0).toFixed(2), 50, y);
+      doc.setTextColor(chg >= 0 ? 22 : 220, chg >= 0 ? 163 : 38, chg >= 0 ? 74 : 38);
+      doc.text((chg >= 0 ? "+" : "") + chg.toFixed(2) + "%", 80, y);
+      doc.setTextColor(0, 0, 0);
+      doc.text(Number(q.rvol || 0).toFixed(2) + "x", 112, y);
+      doc.text(String(Math.round(q.scannerScore || 0)), 142, y);
+      doc.text(String(q.sectorEtf || "-"), 170, y);
+      y += 6.5;
+    });
+    doc.save(`smartscan-${zone.toLowerCase()}-zone-${now.toISOString().slice(0, 10)}.pdf`);
+  } catch (e) { alert("PDF export failed: " + e.message); }
+}
+
 function MacroEventsWidget({ C, MONO, SANS }) {
   const [live, setLive] = React.useState(null);   // FMP events with real numbers (when key set)
   const [cal, setCal]   = React.useState(null);   // fallback upcoming events (dates only)
@@ -25969,8 +26008,20 @@ export default function App() {
               )}
             </div>
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 12, color: C.textDim }}>
-                MATCHES: {scannerRows.length}
+              <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 12, color: C.textDim, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span>MATCHES: {scannerRows.length}</span>
+                <span style={{ marginLeft: "auto", fontSize: 10, color: C.textDim }}>📄 EXPORT PDF:</span>
+                {[["BUY", C.green], ["WATCH", "#d97706"], ["SELL", C.red]].map(([z, col]) => {
+                  const n = scannerRows.filter(q => scanZoneOf(q.scannerScore) === z).length;
+                  return (
+                    <button key={z} onClick={() => exportScanZonePDF(scannerRows.filter(q => scanZoneOf(q.scannerScore) === z), z)}
+                      title={`Export the ${n} ${z}-zone symbols to a PDF`}
+                      style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6,
+                        border: `1px solid ${col}`, background: `${col}14`, color: col, cursor: "pointer" }}>
+                      {z} ({n})
+                    </button>
+                  );
+                })}
               </div>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
