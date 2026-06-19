@@ -6457,7 +6457,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
   // Keep a live count of Alpaca open positions (for the max-positions cap)
   useEffect(() => {
     const poll = () => {
-      if (localStorage.getItem("axiom_autopilot_broker") !== "alpaca") return;
+      if (!["alpaca","both"].includes(localStorage.getItem("axiom_autopilot_broker"))) return;
       fetch("/api/alpaca/positions").then(r => r.json()).then(d => { if (d?.ok) alpacaPosRef.current = (d.positions || []).length; }).catch(() => {});
     };
     poll();
@@ -6476,7 +6476,8 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       const doOptions = localStorage.getItem("axiom_autopilot_opts") === "on";      // independent toggle, default OFF
       const doShort   = localStorage.getItem("axiom_autopilot_short") === "on";      // short selling, default OFF
       if (!doShares && !doOptions && !doShort) return;  // nothing enabled
-      const broker = localStorage.getItem("axiom_autopilot_broker") || "sim";  // sim | alpaca
+      const brokerSel = localStorage.getItem("axiom_autopilot_broker") || "sim";  // sim | alpaca | both
+      const brokers = brokerSel === "both" ? ["sim", "alpaca"] : [brokerSel];
       const acct = Number(localStorage.getItem("axiom_acct_size")) || 10000;
       const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
       const maxPos = Number(localStorage.getItem("axiom_autopilot_maxpos")) || 12;  // cap concurrent positions
@@ -6500,6 +6501,8 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       });
       candidates.sort((a, b) => b.quality - a.quality);
 
+      // For each selected broker, count free slots and place the best setups.
+      for (const broker of brokers) {
       // How many slots are free (cap minus what's already open / placed today)
       let openCount = 0;
       if (broker === "sim") {
@@ -6586,6 +6589,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
           }
         }
       });
+      } // end for each broker
     };
     tick();
     const t = setInterval(tick, 15000);
@@ -6750,7 +6754,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
   useEffect(() => {
     const t = setInterval(async () => {
       if (localStorage.getItem("axiom_autopilot") !== "on") return;
-      if (localStorage.getItem("axiom_autopilot_broker") !== "alpaca") return;
+      if (!["alpaca","both"].includes(localStorage.getItem("axiom_autopilot_broker"))) return;
       if ((localStorage.getItem("axiom_autopilot_exit") || "trail") !== "trend") return;
       try {
         const r = await fetch("/api/alpaca/positions").then(x => x.json());
@@ -7598,9 +7602,9 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
           <Setting label="HOW TO EXIT" hint="TRAIL = the backtest-validated exit (+1.70R). Let winners run." value={exitMode}
             onPick={val => { setExitMode(val); localStorage.setItem("axiom_autopilot_exit", val); }}
             options={[["TRAIL ✓", "trail"], ["TARGETS", "targets"], ["TREND", "trend"]]} />
-          <Setting label="BROKER" hint="SIM = in-browser paper. ALPACA = your Alpaca paper account (shares only)." value={broker}
+          <Setting label="BROKER" hint="SIM = in-browser paper. ALPACA = your Alpaca paper account. BOTH = place every setup on both at once." value={broker}
             onPick={val => { setBroker(val); localStorage.setItem("axiom_autopilot_broker", val); }}
-            options={[["SIM", "sim"], ["ALPACA", "alpaca", "#10b981"]]} />
+            options={[["SIM", "sim"], ["ALPACA", "alpaca", "#10b981"], ["BOTH", "both", "#6366f1"]]} />
         </div>
       </div>
 
