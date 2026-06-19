@@ -5488,6 +5488,212 @@ const COACH_BAD_HABITS = [
   { id:"bad_gossip",   label:"🗣️ الكلام فيما لا يعني",     color:"#7c3aed" },
 ];
 
+const ACADEMY_COURSES = [
+  { title: "Course 1 — The Full Markets Trader", icon: "📘",
+    intro: "Your universal foundation: read any market, understand what moves it, and trade it with strict risk control and discipline.",
+    modules: [
+      { title: "Module 1 — Foundations: How Markets Work", lessons: [
+        { t: "1.1 What a market is", b: "A market is where buyers and sellers agree on a price. Price isn't a fact — it's the live result of supply and demand. Your job is to judge that balance and position before it shifts.", p: ["Price = the current buyer/seller agreement", "Liquidity = how easily you trade without moving price", "You profit by anticipating the shift, not predicting the future"] },
+        { t: "1.2 The major asset classes", b: "Everything tradable is a stock, currency, commodity, index, bond, or crypto. Each behaves differently, but reading price and managing risk transfers across all of them.", p: ["Pick markets that fit your schedule and temperament", "The same chart skill works everywhere", "Classes hedge and rotate against each other"] },
+        { t: "1.3 Who moves markets", b: "Markets are a tug-of-war between retail, institutions, market makers, and central banks. Institutions leave footprints — follow the smart money, don't fight it.", p: ["Ride institutional flow, don't fight it", "Volume reveals where big money is active", "Central banks set the macro tide"] },
+        { t: "1.4 Exchanges, brokers, and costs", b: "Spreads, commissions, and slippage are small per trade but compound over hundreds. Choose a good broker and trade liquid instruments.", p: ["Costs compound — protect them like profits", "Trade liquid instruments for tight spreads", "Know exactly what your broker charges"] },
+        { t: "1.5 The order book and fills", b: "The order book lists all waiting buy/sell orders. Market orders fill now at the best price; limit orders wait for your level. This prevents chasing into thin liquidity.", p: ["Market order = speed; limit = price control", "Thin books = wide spreads and slippage", "The book shows where supply/demand stack up"] },
+      ]},
+      { title: "Module 2 — The Language of Price", lessons: [
+        { t: "2.1 Candlesticks", b: "A candle shows open, high, low, close. The body is conviction; the wicks are rejection. A close near the high is strength; near the low is weakness.", p: ["Body = conviction, wick = rejection", "Close near high = strength", "Engulfing/doji patterns flag turns"] },
+        { t: "2.2 Timeframes", b: "Higher timeframes set the trend; lower ones time the entry. Only take lower-timeframe trades in the direction of the higher-timeframe trend.", p: ["Higher = direction; lower = timing", "Trade with the higher-timeframe trend", "More timeframes agreeing = higher probability"] },
+        { t: "2.3 Trend, range, and stages", b: "Markets cycle: accumulation, markup, distribution, markdown. Most money is made in markup, most lost buying markdown.", p: ["Buy markup, avoid markdown", "Higher highs + higher lows = uptrend", "Stage analysis keeps you on the right side"] },
+        { t: "2.4 Support, resistance, zones", b: "Support is where buyers step in; resistance where sellers do. They're zones, not lines. Broken resistance often becomes support.", p: ["Levels are zones, not exact lines", "More tests + volume = stronger level", "Broken resistance flips to support"] },
+        { t: "2.5 Volume", b: "Volume is the fuel behind a move. Breakouts on high volume are believable; on low volume they're suspect. Price up on falling volume warns of exhaustion.", p: ["Volume confirms or denies a move", "Breakouts need volume to trust", "Price up + volume down = warning"] },
+      ]},
+      { title: "Module 3 — Technical Analysis Toolkit", lessons: [
+        { t: "3.1 Moving averages", b: "Averages smooth price into a trend line. Price above a rising 200-day is a long-term uptrend; stacked rising averages define the strongest trends.", p: ["Above rising 200-day = uptrend", "Stacked rising averages = strongest trends", "Averages act as dynamic support/resistance"] },
+        { t: "3.2 Momentum indicators", b: "RSI, MACD, stochastics measure speed and strength, and flag divergences. They confirm; price and volume lead.", p: ["Use momentum to confirm, not trigger", "Divergence warns of a fading move", "Pick two indicators, not ten"] },
+        { t: "3.3 Volatility tools", b: "ATR sizes stops to real movement; Bollinger Bands show stretch; the VIX is the fear gauge. Contraction often precedes a big move.", p: ["Use ATR to size stops", "Tight volatility precedes breakouts", "High VIX = fear = reduce size"] },
+        { t: "3.4 Chart patterns", b: "Flags, triangles, head-and-shoulders reflect repeating crowd psychology. Trade them with volume confirmation and a defined invalidation.", p: ["Patterns = repeating crowd psychology", "Always confirm with volume", "Every pattern has an invalidation level"] },
+        { t: "3.5 Fibonacci, pivots, levels", b: "Fib retracements project pullback zones; pivots give intraday levels. They work partly because everyone watches them.", p: ["Fib levels mark likely pullbacks", "They're partly self-fulfilling", "Combine for confluence"] },
+      ]},
+      { title: "Module 4 — Fundamentals & Macro", lessons: [
+        { t: "4.1 What drives value", b: "Beneath every chart is real value: earnings, rates, supply/demand. Technicals tell when, fundamentals tell why. The best trades have both.", p: ["Technicals = when; fundamentals = why", "Sustainable trends have a real driver", "Best setups align both"] },
+        { t: "4.2 The economic calendar", b: "CPI, jobs, GDP, PMIs move markets sharply. Check the calendar daily and either trade the reaction with a plan or step aside.", p: ["Check the calendar daily", "Volatility spikes around data", "Plan or stand aside for big releases"] },
+        { t: "4.3 Central banks and rates", b: "Central banks set the price of money. Cuts are risk-on, hikes risk-off. Markets move on the change in expectations and the tone, not just the number.", p: ["Cuts = risk-on; hikes = risk-off", "Markets price expectations", "Tone matters more than the number"] },
+        { t: "4.4 Risk-on vs risk-off", b: "Markets swing between greed (money to stocks/crypto) and fear (money to cash/bonds/gold). SPY, VIX, and bonds reveal the regime.", p: ["Risk-on: press; risk-off: defend", "VIX and bonds reveal the regime", "Trade with the mood, not against it"] },
+        { t: "4.5 Reading the macro backdrop", b: "Before any trade, check the market trend, upcoming events, and risk flow. This filters out low-quality trades that fight the tide.", p: ["Always check macro first", "The tide overwhelms setups", "Filter trades that fight the backdrop"] },
+      ]},
+      { title: "Module 5 — Trading the Different Markets", lessons: [
+        { t: "5.1 Forex", b: "Currencies trade in pairs, 24 hours, with high leverage, driven by rate differentials and data. Leverage magnifies losses — size small.", p: ["Pairs, 24 hours", "Driven by rates and data", "Leverage magnifies losses"] },
+        { t: "5.2 Commodities", b: "Gold and oil are driven by supply/demand, geopolitics, and the dollar. Gold is a fear/inflation hedge; oil reflects growth and shocks.", p: ["Supply/demand and geopolitics", "Gold = fear/inflation hedge", "Oil = growth and supply shocks"] },
+        { t: "5.3 Indices and futures", b: "Indices let you trade the whole market at once, often via futures. Highly liquid — best for broad-market views.", p: ["Trade the whole market at once", "Highly liquid", "Best for broad-market views"] },
+        { t: "5.4 Crypto", b: "24/7 and extremely volatile, with its own drivers. Huge upside and huge ruin risk — apply risk rules even more strictly.", p: ["24/7, extreme volatility", "Huge upside and ruin risk", "Apply risk rules more strictly"] },
+        { t: "5.5 Choosing your market and style", b: "Match a market and style (scalp/day/swing/position) to your personality and schedule. Depth in one beats dabbling in all.", p: ["Match style to your life", "Depth beats dabbling", "Most working people fit swing trading"] },
+      ]},
+      { title: "Module 6 — Risk Management", lessons: [
+        { t: "6.1 Position sizing", b: "Never risk more than a fixed 0.5–1% per trade. Size is calculated from your stop distance, not a round number. No single trade can blow you up.", p: ["Risk a fixed 0.5–1% per trade", "Size from stop distance", "No trade can ruin you"] },
+        { t: "6.2 Stops, targets, R:R", b: "Define stop and target before entering. Aim for 2:1+ reward-to-risk. Never widen a stop to avoid a loss — the cardinal sin.", p: ["Define stop/target before entry", "Target 2:1+ reward-to-risk", "Never widen a stop"] },
+        { t: "6.3 Expectancy", b: "Profit isn't win rate — it's (win% × avg win) − (loss% × avg loss). Big wins and small losses beat a high win rate. You can be wrong often and win.", p: ["Expectancy defines edge", "Big wins + small losses win", "You can be wrong often"] },
+        { t: "6.4 Drawdown and ruin", b: "A 50% loss needs a 100% gain to recover. This math is why pros cut losses fast and small. Survival is the prerequisite for success.", p: ["50% loss needs 100% gain back", "Cut losses fast and small", "Survival comes first"] },
+        { t: "6.5 Building a risk plan", b: "Write your rules: max risk per trade, max daily/weekly loss, what to do after a streak. A pre-committed plan removes emotion at the moment of pain.", p: ["Pre-commit rules in writing", "Set daily/weekly loss limits", "Rules protect you from yourself"] },
+      ]},
+      { title: "Module 7 — Psychology & Discipline", lessons: [
+        { t: "7.1 The four enemies", b: "Fear, greed, FOMO, and revenge destroy traders. Naming them is the first step to controlling them.", p: ["Fear, greed, FOMO, revenge", "They cause every mistake", "Awareness is the first defense"] },
+        { t: "7.2 Process over outcome", b: "A good trade can lose and a bad one win. Judge yourself on following your process, not single results. Edge plays out over many trades.", p: ["Judge process, not outcomes", "Good trades can lose", "Edge plays out over many trades"] },
+        { t: "7.3 The trading journal", b: "Record every trade, your reasoning, result, and feelings. Weekly review reveals your real patterns. You can't improve what you don't measure.", p: ["Journal every trade and emotion", "Review weekly for patterns", "Data, not memory, drives growth"] },
+        { t: "7.4 Tilt control", b: "After losses the brain seeks to 'get even' — revenge trading. The fix is mechanical: stop for the day after a set loss limit.", p: ["Stop after a loss limit", "Revenge trading destroys accounts", "Walking away is a winning move"] },
+        { t: "7.5 Habits of a professional", b: "Consistency comes from routine: same prep, trade the plan, journal nightly, review weekly. Pros are boring on purpose.", p: ["Build a repeatable routine", "Remove decisions through habit", "Boring and consistent wins"] },
+      ]},
+      { title: "Module 8 — Building Your System", lessons: [
+        { t: "8.1 Defining your edge", b: "An edge is a specific, repeatable pattern that with your risk rules makes positive expectancy. Write it as concrete rules — if you can't write it, you don't have it.", p: ["An edge is specific and repeatable", "Write entry, stop, target, size", "If you can't write it, you don't have it"] },
+        { t: "8.2 Back/forward-testing", b: "Test your rules on history, then live in demo or tiny size before scaling. Confidence comes from evidence, not hope.", p: ["Backtest, then forward-test small", "Prove the edge before sizing", "Confidence from evidence"] },
+        { t: "8.3 Routine and watchlist", b: "Scan daily for setups, build a focused watchlist, plan exact levels in advance. Preparation is where money is made.", p: ["Scan and build a watchlist daily", "Plan exact levels before open", "Preparation beats reaction"] },
+        { t: "8.4 Metrics that matter", b: "Track win rate, avg win/loss, expectancy, drawdown, rule-adherence. Numbers reveal what to fix. Run trading like a business.", p: ["Track expectancy and drawdown", "Numbers reveal what to fix", "Run trading like a business"] },
+      ]},
+    ]},
+  { title: "Course 2 — Full US Stock Mastery", icon: "📗",
+    intro: "Apply your foundation to the deepest market in the world: US equities. Find, time, buy, manage, and sell winning stocks with a rules-based method.",
+    modules: [
+      { title: "Module 1 — The US Market Landscape", lessons: [
+        { t: "1.1 NYSE, Nasdaq, hours", b: "US stocks trade 9:30–4:00 ET on NYSE/Nasdaq, plus pre/post-market. The first and last hour see the most volume and opportunity.", p: ["Regular hours 9:30–4:00 ET", "First/last hour = most action", "Pre/post-market is thin"] },
+        { t: "1.2 The major indices", b: "S&P 500, Nasdaq-100, Dow, Russell 2000 are the market's vital signs. Stocks mostly follow the index — don't fight the tape.", p: ["Indices = vital signs", "Stocks follow the index", "Check the market first"] },
+        { t: "1.3 Sectors and rotation", b: "11 sectors; money rotates with the cycle. Trade leaders in leading sectors and avoid the weakest — strength clusters.", p: ["11 sectors; money rotates", "Trade leaders in leading sectors", "Strength clusters"] },
+        { t: "1.4 Market cap tiers", b: "Mega/large caps are stable and liquid; small/micro caps move faster but are riskier. Match the tier to your experience.", p: ["Large = stable; small = volatile", "Liquidity falls with cap", "Beginners start with large caps"] },
+        { t: "1.5 Reading a stock quote", b: "Beyond price, read float, relative volume, and short interest. Low float + buying + high short interest can move explosively.", p: ["Float, rel-volume, short interest", "Low float + buying = explosive", "Rel-volume shows unusual activity"] },
+      ]},
+      { title: "Module 2 — Fundamentals for Stocks", lessons: [
+        { t: "2.1 The three statements", b: "Income (profit), balance sheet (owns/owes), cash flow (real cash). Spot growing revenue, healthy margins, and real cash — you needn't be an accountant.", p: ["Income, balance sheet, cash flow", "Look for growth, margins, cash", "Spot red flags, not every detail"] },
+        { t: "2.2 Key metrics", b: "EPS, revenue growth, margins, P/E, ROE. The market pays up for accelerating earnings — the most powerful driver of big moves.", p: ["EPS, growth, margins, P/E, ROE", "Accelerating earnings drive moves", "Momentum matters more than valuation"] },
+        { t: "2.3 Earnings season", b: "Quarterly reports move on results vs expectations and guidance, not the raw number. Big moves and big risk — have a plan or avoid holding through.", p: ["Reaction = results vs expectations", "Big moves and big risk", "Plan or avoid holding through"] },
+        { t: "2.4 Catalysts", b: "Products, FDA approvals, M&A, upgrades spark moves. A catalyst behind a setup gives the move a reason to continue.", p: ["Products, FDA, M&A, upgrades", "Catalysts give staying power", "Setup + catalyst = best trades"] },
+        { t: "2.5 Growth vs value vs dividend", b: "Growth = biggest moves and risk; value = stability; dividends = income. Know which you're trading to set the right strategy.", p: ["Growth = biggest moves/risk", "Value = stability; dividends = income", "Match strategy to stock type"] },
+      ]},
+      { title: "Module 3 — Technical Mastery for Stocks", lessons: [
+        { t: "3.1 Stage analysis", b: "Only buy Stage 2 (uptrend) stocks — above a rising long-term average, making higher highs. Avoid Stage 4 falling knives.", p: ["Only buy Stage 2 stocks", "Above a rising long-term average", "Avoid falling knives"] },
+        { t: "3.2 Relative strength", b: "The biggest winners show high relative strength before breaking out. Hunt the strongest stocks, not the cheapest.", p: ["Buy leaders, not laggards", "Strong stocks resist pullbacks", "RS precedes big moves"] },
+        { t: "3.3 Bases and the VCP", b: "Stocks base before big advances. The VCP is the best base: each pullback tighter, volume drying — a coiled spring.", p: ["Stocks base before advances", "VCP: tighter pullbacks, drying volume", "A coiled spring"] },
+        { t: "3.4 Pivots and breakouts", b: "The pivot is the base's high — the buy point. Buy the break above it on a volume surge (40%+). No volume = a trap.", p: ["Pivot = buy point", "Buy the break on volume", "No volume = no trust"] },
+        { t: "3.5 Distribution days", b: "Institutional selling shows as down days on higher volume. A cluster warns the market is topping — raise cash, tighten stops.", p: ["Distribution = institutional selling", "Down day on higher volume", "Clusters warn of a top"] },
+      ]},
+      { title: "Module 4 — The SEPA / Minervini Method", lessons: [
+        { t: "4.1 The 8-point Trend Template", b: "8 conditions (price above 50/150/200-day, stacked rising, 30%+ off lows, within 25% of highs, strong RS). A stock must pass all 8 to qualify.", p: ["8 conditions to pass", "Filters true Stage 2 leaders", "Removes most weak setups"] },
+        { t: "4.2 Spotting a proper base", b: "Wait for a tight VCP: 2–4 progressively smaller pullbacks with drying volume. A loose base fails; a tight, quiet one is ready.", p: ["Wait for a tight VCP", "2–4 shrinking pullbacks", "Grade base quality"] },
+        { t: "4.3 The exact buy point", b: "Buy the breakout above the pivot on a volume surge — not before (anticipating fails), not far after (chasing). Precision separates great from poor.", p: ["Buy the pivot breakout on volume", "Don't anticipate or chase", "Precision is everything"] },
+        { t: "4.4 Stop and sizing", b: "Stop just below the pivot/base low, risking ~7–8% max (often tighter). Size so the stop costs a fixed small % of the account.", p: ["Stop below pivot, max ~7–8%", "Size so stop costs a fixed %", "The stop defines the size"] },
+        { t: "4.5 Selling rules", b: "Sell into strength (2–3x risk) or on a breakdown through key averages on volume. Most traders nail the buy and ruin it on the sell.", p: ["Sell into strength at 2–3x risk", "Or sell on a breakdown", "Selling matters as much as buying"] },
+      ]},
+      { title: "Module 5 — Options on US Stocks", lessons: [
+        { t: "5.1 Calls and puts", b: "Calls = right to buy, puts = right to sell. Control 100 shares for the premium, with defined risk. Powerful leverage and powerful destroyer.", p: ["Calls = buy; puts = sell", "Leverage with defined risk", "Powerful but unforgiving"] },
+        { t: "5.2 The Greeks", b: "Delta = directional exposure; theta = daily time decay against you; vega = volatility risk. Options lose value daily even if you're right on direction.", p: ["Delta = direction", "Theta = time decay", "Vega = volatility risk"] },
+        { t: "5.3 Basic strategies", b: "Start with long calls/puts, covered calls for income, and vertical spreads to define risk. Avoid exotics until basics are second nature.", p: ["Calls/puts, covered calls, spreads", "Spreads cap cost and risk", "Master basics first"] },
+        { t: "5.4 Options with a stock view", b: "Use options to leverage a high-conviction breakout or hedge a position. Surgical use amplifies edge; lottery-ticket use drains accounts.", p: ["Leverage breakouts or hedge", "Surgical use amplifies edge", "Lottery tickets drain accounts"] },
+        { t: "5.5 Options risk warnings", b: "Most retail options traders lose to time decay, over-sizing, and earnings gambling. If you can't trade stocks profitably, you're not ready for options.", p: ["Most retail options traders lose", "Time decay and over-sizing kill", "Master stocks first"] },
+      ]},
+      { title: "Module 6 — Market Timing & Risk Context", lessons: [
+        { t: "6.1 Follow the general market", b: "Three of four stocks follow the market. Press in confirmed uptrends; raise cash in downtrends. Market direction trumps stock picks.", p: ["Most stocks follow the market", "Press up, hide down", "Direction trumps picks"] },
+        { t: "6.2 Breadth and the VIX", b: "Breadth and the VIX reveal internal health. Narrowing breadth and a rising VIX warn of weakness before the index turns.", p: ["Breadth = internal health", "Rising VIX = fear", "Divergences warn early"] },
+        { t: "6.3 Fed days, CPI, earnings", b: "Known high-impact events create violent moves. Plan the reaction or step aside — getting blindsided is an unforced error.", p: ["Know the event calendar", "Plan or stand aside", "Never get blindsided"] },
+        { t: "6.4 Aggressive vs cash", b: "Deploy aggressively only when market trend, breadth, and setups align. Otherwise cash is a position. Pros make most gains in a few windows.", p: ["Press only when aligned", "Cash is a position", "Most gains in a few windows"] },
+      ]},
+      { title: "Module 7 — Managing a Portfolio", lessons: [
+        { t: "7.1 Concentration vs diversification", b: "A focused portfolio of your best 4–8 ideas captures big winners while controlling risk. Quality of ideas beats quantity.", p: ["Focus on 4–8 best ideas", "Over-diversification = mediocrity", "Quality beats quantity"] },
+        { t: "7.2 Pyramiding and cutting", b: "Add to winners as they prove themselves; cut losers fast and small. This asymmetry is the math of profitable trading.", p: ["Add to winners, cut losers", "Let winners run, kill losers small", "Amateurs do the reverse"] },
+        { t: "7.3 Sector and correlation", b: "If all positions are one sector, you have one big bet. Watch correlation and spread risk across uncorrelated leaders.", p: ["Correlated = one big bet", "Watch sector concentration", "Spread across uncorrelated leaders"] },
+        { t: "7.4 Performance and taxes", b: "Track returns, drawdown, per-trade stats, and know US short- vs long-term capital-gains basics. Treat it like a business.", p: ["Track returns and drawdown", "Short vs long-term gains", "Keep business records"] },
+      ]},
+      { title: "Module 8 — Putting It Together (Capstone)", lessons: [
+        { t: "8.1 Your full playbook", b: "Combine everything into one written playbook: Trend Template, VCP base, pivot entry, stop/size, sell rules, market timing. Your edge made concrete.", p: ["One written playbook", "Filter, entry, stop, size, sell, timing", "Edge made concrete"] },
+        { t: "8.2 Watchlist routine", b: "Scan daily for Trend-Template stocks in tight bases; maintain a watchlist with pivot, stop, target pre-planned. Opportunity organized into action.", p: ["Scan daily for template + base", "Pre-plan pivot, stop, target", "Organize opportunity into action"] },
+        { t: "8.3 A week in the life", b: "Plan on the weekend, refine each morning, execute only planned setups, journal nightly, review weekly. This loop is the professional's whole game.", p: ["Plan, execute, journal, review", "Most work before the open", "Consistency is the game"] },
+        { t: "8.4 Your 30-day action plan", b: "Trade your playbook small for 30 days, journal everything, review weekly, scale up only when metrics prove positive expectancy.", p: ["Trade small 30 days", "Scale up when metrics prove edge", "Mastery = disciplined repetition"] },
+      ]},
+    ]},
+];
+
+function CoursesTab({ C, MONO, SANS }) {
+  const allLessonIds = React.useMemo(() => {
+    const ids = [];
+    ACADEMY_COURSES.forEach((c, ci) => c.modules.forEach((m, mi) => m.lessons.forEach((l, li) => ids.push(`${ci}-${mi}-${li}`))));
+    return ids;
+  }, []);
+  const [done, setDone] = React.useState(() => { try { return JSON.parse(localStorage.getItem("academy_done")) || {}; } catch { return {}; } });
+  const [openMod, setOpenMod] = React.useState({});
+  const [openLesson, setOpenLesson] = React.useState({});
+  const toggleDone = (id, e) => { e.stopPropagation(); const n = { ...done, [id]: !done[id] }; setDone(n); localStorage.setItem("academy_done", JSON.stringify(n)); };
+  const doneCount = allLessonIds.filter(id => done[id]).length;
+  const pct = Math.round(doneCount / allLessonIds.length * 100);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 920 }}>
+      <div>
+        <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.text }}>🎓 ACADEMY — COMPLETE MASTERY</div>
+        <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 2 }}>Markets Trader & US Stock Mastery · 2 courses · 16 modules · {allLessonIds.length} lessons</div>
+      </div>
+      <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12, marginBottom: 6 }}>
+          <span style={{ color: C.textDim }}>Your progress</span>
+          <span style={{ color: C.green, fontWeight: 800 }}>{doneCount}/{allLessonIds.length} · {pct}%</span>
+        </div>
+        <div style={{ height: 8, borderRadius: 4, background: `${C.textDim}22` }}>
+          <div style={{ height: 8, borderRadius: 4, width: pct + "%", background: C.green, transition: "width .3s" }} />
+        </div>
+      </div>
+
+      {ACADEMY_COURSES.map((course, ci) => (
+        <div key={ci} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
+          <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>{course.icon} {course.title}</div>
+            <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 3 }}>{course.intro}</div>
+          </div>
+          {course.modules.map((mod, mi) => {
+            const modKey = `${ci}-${mi}`;
+            const modOpen = openMod[modKey];
+            const modLessonIds = mod.lessons.map((_, li) => `${ci}-${mi}-${li}`);
+            const modDone = modLessonIds.filter(id => done[id]).length;
+            return (
+              <div key={mi} style={{ borderTop: `1px solid ${C.border}` }}>
+                <div onClick={() => setOpenMod(p => ({ ...p, [modKey]: !p[modKey] }))}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", cursor: "pointer", background: modOpen ? `${C.accent}08` : "transparent" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{modOpen ? "▼" : "▸"}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text, flex: 1 }}>{mod.title}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: modDone === mod.lessons.length ? C.green : C.textDim }}>{modDone}/{mod.lessons.length}</span>
+                </div>
+                {modOpen && mod.lessons.map((ls, li) => {
+                  const id = `${ci}-${mi}-${li}`;
+                  const lOpen = openLesson[id];
+                  const isDone = done[id];
+                  return (
+                    <div key={li} style={{ borderTop: `1px solid ${C.border}22`, padding: "0 16px" }}>
+                      <div onClick={() => setOpenLesson(p => ({ ...p, [id]: !p[id] }))} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", cursor: "pointer" }}>
+                        <div onClick={(e) => toggleDone(id, e)} title="Mark complete"
+                          style={{ width: 20, height: 20, borderRadius: 5, flex: "0 0 20px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+                            border: `1.5px solid ${isDone ? C.green : C.border}`, background: isDone ? `${C.green}22` : "transparent", color: C.green, fontSize: 13, fontWeight: 800 }}>{isDone ? "✓" : ""}</div>
+                        <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600, color: isDone ? C.textDim : C.text, flex: 1, textDecoration: isDone ? "line-through" : "none" }}>{ls.t}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{lOpen ? "−" : "+"}</span>
+                      </div>
+                      {lOpen && (
+                        <div style={{ padding: "0 0 12px 30px" }}>
+                          <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.65, marginBottom: 8 }}>{ls.b}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginBottom: 4 }}>KEY TAKEAWAYS</div>
+                          {ls.p.map((pt, pi) => (
+                            <div key={pi} style={{ display: "flex", gap: 8, fontFamily: SANS, fontSize: 12, color: C.text, padding: "2px 0" }}>
+                              <span style={{ color: C.accent }}>•</span><span>{pt}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>
+        Educational content — not financial advice. Tick each lesson as you complete it; your progress saves automatically.
+      </div>
+    </div>
+  );
+}
+
 function CoachTab({ C, MONO, SANS }) {
   const [section, setSection] = useState("today"); // today | program | habits | reflect
   const [form, setForm] = useState({
@@ -19176,7 +19382,7 @@ export default function App() {
               { id: "terminal",   label: "📈 CHART",      tabs: ["multitf", "tv"] },
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy", "trendtemplate", "outlook", "predictions", "morning-routine", "mytrades", "holdings", "gl-backtest"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
-              { id: "education",  label: "🎓 LEARN",      tabs: ["education", "options-edu", "notes"] },
+              { id: "education",  label: "🎓 LEARN",      tabs: ["courses", "education", "options-edu", "notes"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools"] },
               { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih", "halal"] },
             ];
@@ -19547,6 +19753,7 @@ export default function App() {
             { id: "coach",        label: "🧭 المدرّب اليومي" },
           ],
           education: [
+            { id: "courses",         label: "🎓 ACADEMY" },
             { id: "education",       label: "🎓 EDUCATION" },
             { id: "options-edu",     label: "📈 OPTIONS 101" },
             { id: "notes",           label: "📝 NOTES" },
@@ -31672,6 +31879,7 @@ export default function App() {
       {activeTab === "adol22"          && <Adol22Tab          C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "notes"           && <NotesTab           C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "education"       && <EducationTab        C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "courses"         && <CoursesTab          C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "options-edu"     && <OptionsEduTab       C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "recap"           && <RecapTab           C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "morning-routine" && <MorningRoutineTab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} macroData={macroData} distData={distData} fearGreedData={fearGreedData} />}
