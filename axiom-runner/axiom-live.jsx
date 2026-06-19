@@ -2509,6 +2509,45 @@ function exportScanZonePDF(rows, zone) {
   } catch (e) { alert("PDF export failed: " + e.message); }
 }
 
+// Map a Smart Scan signal to a BUY / WATCH / SELL zone.
+const smartScanZoneOf = (signal) =>
+  (signal === "STRONG BUY" || signal === "BUY") ? "BUY" : signal === "WATCH" ? "WATCH" : signal === "AVOID" ? "SELL" : null;
+
+// PDF for a Smart Scan zone (uses scanResults rows: ticker, quote, score, signal).
+function exportSmartScanZonePDF(rows, zone) {
+  try {
+    const JsPDF = window.jspdf && window.jspdf.jsPDF;
+    if (!JsPDF) { alert("PDF engine still loading — try again in a second."); return; }
+    const doc = new JsPDF();
+    const now = new Date();
+    const zc = zone === "BUY" ? [22, 163, 74] : zone === "SELL" ? [220, 38, 38] : [217, 119, 6];
+    doc.setFontSize(17); doc.setTextColor(zc[0], zc[1], zc[2]);
+    doc.text(`Smart Scan — ${zone} ZONE`, 14, 18);
+    doc.setFontSize(9); doc.setTextColor(120, 120, 120);
+    doc.text(`${rows.length} symbol${rows.length !== 1 ? "s" : ""} · generated ${now.toLocaleString()}`, 14, 25);
+    let y = 36;
+    const cols = [["Symbol", 14], ["Price", 52], ["Chg%", 86], ["Score", 122], ["Signal", 152]];
+    doc.setFontSize(10); doc.setTextColor(0, 0, 0); doc.setFont(undefined, "bold");
+    cols.forEach(([h, x]) => doc.text(h, x, y));
+    doc.setFont(undefined, "normal"); doc.setDrawColor(200, 200, 200); doc.line(14, y + 2, 196, y + 2);
+    y += 8;
+    if (!rows.length) { doc.setTextColor(120, 120, 120); doc.text("No symbols in this zone right now.", 14, y); }
+    rows.forEach((r) => {
+      if (y > 282) { doc.addPage(); y = 20; }
+      const px = Number(r.quote?.price || 0), chg = Number(r.quote?.changePercent || 0);
+      doc.setTextColor(0, 0, 0); doc.text(String(r.ticker || ""), 14, y);
+      doc.text("$" + px.toFixed(2), 52, y);
+      doc.setTextColor(chg >= 0 ? 22 : 220, chg >= 0 ? 163 : 38, chg >= 0 ? 74 : 38);
+      doc.text((chg >= 0 ? "+" : "") + chg.toFixed(2) + "%", 86, y);
+      doc.setTextColor(0, 0, 0);
+      doc.text(String(Math.round(r.score || 0)), 122, y);
+      doc.text(String(r.signal || ""), 152, y);
+      y += 6.5;
+    });
+    doc.save(`smartscan-${zone.toLowerCase()}-zone-${now.toISOString().slice(0, 10)}.pdf`);
+  } catch (e) { alert("PDF export failed: " + e.message); }
+}
+
 function MacroEventsWidget({ C, MONO, SANS }) {
   const [live, setLive] = React.useState(null);   // FMP events with real numbers (when key set)
   const [cal, setCal]   = React.useState(null);   // fallback upcoming events (dates only)
@@ -22267,6 +22306,22 @@ export default function App() {
 
           return (
             <div style={{ padding: "0 2px" }}>
+
+              {/* ── PDF zone export ── */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.textDim }}>📄 EXPORT PDF:</span>
+                {[["BUY", C.green], ["WATCH", "#d97706"], ["SELL", C.red]].map(([z, col]) => {
+                  const zoneRows = scanResults.filter(r => smartScanZoneOf(r.signal) === z);
+                  return (
+                    <button key={z} onClick={() => exportSmartScanZonePDF(zoneRows, z)}
+                      title={`Export the ${zoneRows.length} ${z}-zone symbols to a PDF`}
+                      style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 12px", borderRadius: 6,
+                        border: `1px solid ${col}`, background: `${col}14`, color: col, cursor: "pointer" }}>
+                      {z} ({zoneRows.length})
+                    </button>
+                  );
+                })}
+              </div>
 
               {/* ── Header ── */}
               <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12,
