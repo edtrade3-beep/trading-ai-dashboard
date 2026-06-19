@@ -5607,6 +5607,25 @@ const ACADEMY_COURSES = [
     ]},
 ];
 
+const ACADEMY_QUIZ = {
+  "0-0": { q: "What is price, fundamentally?", o: ["A fixed value set by the exchange", "The live result of supply and demand", "Always equal to a company's true worth", "Set by the government"], a: 1, why: "Price is the live agreement between buyers and sellers — supply and demand." },
+  "0-1": { q: "Which skill transfers across all asset classes?", o: ["Knowing one company's CEO", "Reading price and managing risk", "Memorizing ticker symbols", "Predicting the news"], a: 1, why: "Chart-reading and risk control work in stocks, forex, commodities, and crypto alike." },
+  "0-2": { q: "A breakout on what kind of volume is most believable?", o: ["Low volume", "No volume", "High volume", "Volume doesn't matter"], a: 2, why: "Volume is the fuel — a breakout on high volume signals real institutional demand." },
+  "0-3": { q: "Cutting interest rates is generally…", o: ["Risk-off (bad for stocks)", "Risk-on (supportive for stocks)", "Neutral", "Only relevant to bonds"], a: 1, why: "Cheaper money is stimulative — risk-on, generally supportive for stocks." },
+  "0-4": { q: "Leverage in forex…", o: ["Removes all risk", "Magnifies both gains and losses", "Only magnifies gains", "Is illegal"], a: 1, why: "Leverage is double-edged — it amplifies losses just as much as gains, so size small." },
+  "0-5": { q: "How much should you typically risk per trade?", o: ["25% of the account", "A fixed 0.5–1%", "Whatever feels right", "100% on the best idea"], a: 1, why: "Risking a fixed small % ensures no single trade or streak can blow you up." },
+  "0-6": { q: "After several losses, the disciplined move is to…", o: ["Double your size to get even", "Stop for the day at your loss limit", "Remove your stops", "Trade bigger and faster"], a: 1, why: "Revenge trading destroys accounts — a hard daily loss limit protects capital and judgment." },
+  "0-7": { q: "A real trading edge must be…", o: ["A secret indicator", "Specific, written, and repeatable", "Based on gut feeling", "Different every day"], a: 1, why: "If you can't write your edge as concrete rules, you don't actually have one." },
+  "1-0": { q: "The first hour and last hour of US trading are…", o: ["The quietest", "The highest-volume, most active", "Closed", "Only for institutions"], a: 1, why: "The open and close see the most volume and opportunity." },
+  "1-1": { q: "The market pays the biggest premium for…", o: ["Low prices", "Accelerating earnings and revenue", "Old, stable companies only", "High share counts"], a: 1, why: "Accelerating earnings is the most powerful driver of big stock moves." },
+  "1-2": { q: "Which stocks should you buy in stage analysis?", o: ["Stage 1 (basing)", "Stage 2 (uptrend)", "Stage 4 (downtrend)", "Any stage"], a: 1, why: "Only Stage 2 keeps you in uptrends and out of falling knives." },
+  "1-3": { q: "In a VCP base, each pullback should be…", o: ["Deeper than the last", "Shallower, with drying volume", "Random", "On rising volume"], a: 1, why: "Progressively tighter pullbacks with drying volume — a coiled spring before breakout." },
+  "1-4": { q: "Which 'Greek' works against option buyers every day?", o: ["Delta", "Theta (time decay)", "Vega", "None"], a: 1, why: "Theta is daily time decay — options lose value even if you're right on direction." },
+  "1-5": { q: "When the general market is in a confirmed downtrend, you should…", o: ["Press aggressively", "Raise cash and play defense", "Ignore the market", "Buy every dip"], a: 1, why: "Most stocks follow the market — in downtrends, cash is a position." },
+  "1-6": { q: "The asymmetry that makes trading profitable is…", o: ["Add to losers, cut winners", "Add to winners, cut losers fast", "Hold everything forever", "Never use stops"], a: 1, why: "Let winners run and kill losers small — amateurs do the reverse." },
+  "1-7": { q: "Your 30-day action plan should start by…", o: ["Going all-in immediately", "Trading small and journaling everything", "Copying others", "Skipping the journal"], a: 1, why: "Trade small, journal every trade, scale up only when metrics prove a positive edge." },
+};
+
 function CoursesTab({ C, MONO, SANS }) {
   const allLessonIds = React.useMemo(() => {
     const ids = [];
@@ -5616,6 +5635,7 @@ function CoursesTab({ C, MONO, SANS }) {
   const [done, setDone] = React.useState(() => { try { return JSON.parse(localStorage.getItem("academy_done")) || {}; } catch { return {}; } });
   const [openMod, setOpenMod] = React.useState({});
   const [openLesson, setOpenLesson] = React.useState({});
+  const [quizPick, setQuizPick] = React.useState({});
   const toggleDone = (id, e) => { e.stopPropagation(); const n = { ...done, [id]: !done[id] }; setDone(n); localStorage.setItem("academy_done", JSON.stringify(n)); };
   const doneCount = allLessonIds.filter(id => done[id]).length;
   const pct = Math.round(doneCount / allLessonIds.length * 100);
@@ -5682,6 +5702,36 @@ function CoursesTab({ C, MONO, SANS }) {
                     </div>
                   );
                 })}
+                {modOpen && ACADEMY_QUIZ[modKey] && (() => {
+                  const qz = ACADEMY_QUIZ[modKey]; const picked = quizPick[modKey];
+                  return (
+                    <div style={{ margin: "4px 16px 14px", padding: "12px 14px", background: `${C.accent}0a`, border: `1px solid ${C.border}`, borderRadius: 10 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, marginBottom: 6 }}>📝 QUICK CHECK</div>
+                      <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 8 }}>{qz.q}</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {qz.o.map((opt, oi) => {
+                          const isPicked = picked != null;
+                          const correct = oi === qz.a;
+                          const col = !isPicked ? C.border : correct ? C.green : (picked === oi ? C.red : C.border);
+                          return (
+                            <div key={oi} onClick={() => { if (picked == null) setQuizPick(p => ({ ...p, [modKey]: oi })); }}
+                              style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 7, cursor: isPicked ? "default" : "pointer",
+                                border: `1px solid ${col}`, background: isPicked && (correct || picked === oi) ? `${col}14` : "transparent",
+                                fontFamily: SANS, fontSize: 12.5, color: C.text }}>
+                              <span style={{ color: col, fontWeight: 800 }}>{isPicked ? (correct ? "✓" : picked === oi ? "✕" : "○") : "○"}</span>
+                              <span>{opt}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {picked != null && (
+                        <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 12, color: picked === qz.a ? C.green : C.textDim }}>
+                          {picked === qz.a ? "✓ Correct! " : "✕ Not quite. "}{qz.why}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
