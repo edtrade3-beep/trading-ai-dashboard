@@ -12563,18 +12563,27 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
     setTimeout(() => setAlertMsg(""), 4000);
   }, []);
 
-  const load = React.useCallback((s) => {
+  const load = React.useCallback((s, silent) => {
     const symbol = (s || sym || "ARM").trim().toUpperCase();
     if (!symbol) return;
-    setLoading(true); setErr(null);
+    if (!silent) { setLoading(true); setErr(null); }
     fetch("/api/market/trend-template?symbol=" + encodeURIComponent(symbol))
       .then(r => r.json())
-      .then(d => { if (d.error) { setErr(d.error); setData(null); } else { setData(d); } })
-      .catch(e => { setErr(e.message); setData(null); })
-      .finally(() => setLoading(false));
+      .then(d => { if (d.error) { if (!silent) { setErr(d.error); setData(null); } } else { setData(d); } })
+      .catch(e => { if (!silent) { setErr(e.message); setData(null); } })
+      .finally(() => { if (!silent) setLoading(false); });
   }, [sym]);
 
   React.useEffect(() => { load("ARM"); }, []); // eslint-disable-line
+
+  // ── Live auto-refresh: silently re-pull the current symbol every 30s ──
+  const [live, setLive] = React.useState(true);
+  const liveSym = data && data.symbol;
+  React.useEffect(() => {
+    if (!live || !liveSym) return;
+    const t = setInterval(() => load(liveSym, true), 30000);
+    return () => clearInterval(t);
+  }, [live, liveSym, load]);
 
   const stageColor = !data ? C.textDim : data.qualifies ? C.green : data.passCount >= 4 ? "#d6a312" : C.red;
   const chip = (k, v, col) => (
@@ -12610,8 +12619,13 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
         <button onClick={() => setShowHelp(h => !h)} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "7px 12px",
           borderRadius: 6, border: `1px solid ${C.border}`, background: showHelp ? `${C.accent}18` : "transparent", color: showHelp ? C.accent : C.textDim, cursor: "pointer" }}>
           {showHelp ? "✕ Close" : "❔ How to use"}</button>
+        <button onClick={() => setLive(v => !v)} title="Auto-refresh the chart every 30s"
+          style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "7px 12px",
+            borderRadius: 6, border: `1px solid ${live ? C.green : C.border}`, background: live ? `${C.green}18` : "transparent", color: live ? C.green : C.textDim, cursor: "pointer" }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: live ? C.green : C.textDim, animation: live ? "pulse 1.4s infinite" : "none" }} />
+          {live ? "LIVE" : "PAUSED"}</button>
         <div style={{ marginLeft: "auto", fontFamily: SANS, fontSize: 11, color: C.textDim }}>
-          Live · Yahoo daily · Minervini SEPA criteria</div>
+          {live ? "🟢 Live · auto-refresh 30s" : "Yahoo daily · Minervini SEPA criteria"}</div>
       </div>
 
       {showHelp && (
