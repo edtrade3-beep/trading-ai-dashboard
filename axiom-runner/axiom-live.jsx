@@ -12387,127 +12387,76 @@ function MarketOutlookTab({ C, MONO, SANS }) {
   );
 }
 
+// Interactive live chart (TradingView lightweight-charts) with the Trend-Template
+// overlays: MA50/150/200, pivot/stop/target price lines, VCP, BUY/EXIT markers.
 function TrendChart({ data, C, MONO, SANS, height }) {
-  const canvasRef = React.useRef(null);
+  const elRef = React.useRef(null);
+  const chartRef = React.useRef(null);
+  const seriesRef = React.useRef(null);
+  const symRef = React.useRef(null);
   const H = height || 520;
+  const toTime = (ms) => { const d = new Date(ms); return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() }; };
+
+  // Create the chart + series once per symbol / theme / size.
   React.useEffect(() => {
-    const cv = canvasRef.current;
-    if (!cv || !data || !data.bars) return;
-    const ctx = cv.getContext("2d");
-    const W = cv.clientWidth || 820, dpr = window.devicePixelRatio || 1;
-    cv.width = W * dpr; cv.height = H * dpr; cv.style.height = H + "px";
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+    const LC = window.LightweightCharts, el = elRef.current;
+    if (!LC || !el) return;
+    el.innerHTML = "";
+    const chart = LC.createChart(el, {
+      width: el.clientWidth || 800, height: H,
+      layout: { background: { color: "transparent" }, textColor: C.textDim || "#888", fontFamily: SANS },
+      grid: { vertLines: { color: (C.border || "#cccccc") + "44" }, horzLines: { color: (C.border || "#cccccc") + "44" } },
+      rightPriceScale: { borderColor: C.border || "#ccc" },
+      timeScale: { borderColor: C.border || "#ccc" },
+      crosshair: { mode: LC.CrosshairMode ? LC.CrosshairMode.Normal : 1 },
+    });
+    const candle = chart.addCandlestickSeries({ upColor: C.green, downColor: C.red, borderUpColor: C.green, borderDownColor: C.red, wickUpColor: C.green, wickDownColor: C.red });
+    const vol = chart.addHistogramSeries({ priceScaleId: "vol", priceFormat: { type: "volume" } });
+    chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.84, bottom: 0 } });
+    const mk = (color, w) => chart.addLineSeries({ color, lineWidth: w, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    const ma200 = mk("#c94440", 1), ma150 = mk("#d6a312", 1), ma50 = mk(C.accent, 2);
+    chartRef.current = chart;
+    seriesRef.current = { candle, vol, ma50, ma150, ma200, priceLines: [] };
+    symRef.current = null; // force a fitContent on next data fill
+    const onResize = () => chart.applyOptions({ width: el.clientWidth || 800 });
+    window.addEventListener("resize", onResize);
+    return () => { window.removeEventListener("resize", onResize); chart.remove(); chartRef.current = null; seriesRef.current = null; };
+  }, [data && data.symbol, C, H, SANS]);
 
+  // Push data + overlays whenever `data` changes (keeps zoom on live refresh).
+  React.useEffect(() => {
+    const s = seriesRef.current, chart = chartRef.current;
+    if (!s || !chart || !data || !data.bars) return;
     const bars = data.bars, n = bars.length;
-    const padL = 8, padR = 60, plotW = W - padL - padR;
-    const bw = plotW / n, x = i => padL + i * bw + bw / 2;
-    const pTop = 30, vH = Math.round(H * 0.18), pH = H - pTop - 20 - vH - 24, pBot = pTop + pH;
-    const vTop = pBot + 20, vBot = vTop + vH;
+    s.candle.setData(bars.map(b => ({ time: toTime(b.time), open: b.open, high: b.high, low: b.low, close: b.close })));
+    s.vol.setData(bars.map(b => ({ time: toTime(b.time), value: b.volume, color: (b.close >= b.open ? C.green : C.red) + "55" })));
+    const setMA = (series, arr) => series.setData(bars.map((b, i) => arr[i] == null ? null : ({ time: toTime(b.time), value: arr[i] })).filter(Boolean));
+    setMA(s.ma200, data.series.ma200); setMA(s.ma150, data.series.ma150); setMA(s.ma50, data.series.ma50);
 
-    let hi = -1e9, lo = 1e9;
-    bars.forEach(b => { hi = Math.max(hi, b.high); lo = Math.min(lo, b.low); });
-    ["ma50","ma150","ma200"].forEach(k => data.series[k].forEach(v => { if (v != null) { hi = Math.max(hi, v); lo = Math.min(lo, v); } }));
-    hi *= 1.03; lo *= 0.97;
-    const py = v => pTop + (1 - (v - lo) / (hi - lo)) * pH;
-
-    ctx.font = "11px " + SANS; ctx.textAlign = "left";
-    const raw = Math.max(1, Math.ceil((hi - lo) / 8));
-    const stepV = [1,2,5,10,20,25,50,100,200,500].find(s => s >= raw) || raw;
-    for (let v = Math.ceil(lo / stepV) * stepV; v < hi; v += stepV) {
-      const y = py(v); ctx.strokeStyle = C.border; ctx.globalAlpha = .35;
-      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke(); ctx.globalAlpha = 1;
-      ctx.fillStyle = C.textDim; ctx.fillText(v.toFixed(0), padL + plotW + 6, y + 3);
-    }
-    const drawMA = (arr, color, w) => { ctx.strokeStyle = color; ctx.lineWidth = w; ctx.beginPath(); let st = false;
-      for (let i = 0; i < n; i++) { if (arr[i] == null) continue; const yy = py(arr[i]); st ? ctx.lineTo(x(i), yy) : ctx.moveTo(x(i), yy); st = true; } ctx.stroke(); };
-    drawMA(data.series.ma200, "#c94440", 1.5);
-    drawMA(data.series.ma150, "#d6a312", 1.3);
-    drawMA(data.series.ma50, C.accent, 1.5);
-
-    const cw = Math.max(1.5, bw * 0.62);
-    for (let i = 0; i < n; i++) { const d = bars[i], up = d.close >= d.open;
-      ctx.strokeStyle = up ? C.green : C.red; ctx.fillStyle = up ? C.green : C.red;
-      ctx.beginPath(); ctx.moveTo(x(i), py(d.high)); ctx.lineTo(x(i), py(d.low)); ctx.stroke();
-      const yo = py(d.open), yc = py(d.close); ctx.fillRect(x(i) - cw / 2, Math.min(yo, yc), cw, Math.max(1, Math.abs(yc - yo))); }
-
-    const last = bars[n - 1];
-    ctx.fillStyle = last.close >= last.open ? C.green : C.red; ctx.fillRect(padL + plotW, py(last.close) - 9, padR - 2, 18);
-    ctx.fillStyle = "#0a0a0a"; ctx.textAlign = "right"; ctx.font = "bold 11px " + MONO;
-    ctx.fillText(last.close.toFixed(2), W - 4, py(last.close) + 4); ctx.textAlign = "left";
-
-    const su = data.setup;
+    s.priceLines.forEach(pl => { try { s.candle.removePriceLine(pl); } catch {} }); s.priceLines = [];
+    const su = data.setup, LS = window.LightweightCharts.LineStyle || {};
     if (su) {
-      const line = (val, color, label, dash) => {
-        if (val == null || val < lo || val > hi) return;
-        const y = py(val);
-        ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash(dash || [5, 4]);
-        ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke(); ctx.setLineDash([]);
-        ctx.fillStyle = color; ctx.font = "bold 10px " + MONO; ctx.textAlign = "left";
-        ctx.fillText(label, padL + 4, y - 3);
-      };
-      line(su.entry, C.accent, "PIVOT " + su.entry, [6, 3]);
-      if (su.actionable) {
-        line(su.target3, C.green, "T3 " + su.target3);
-        line(su.target2, C.green, "T2 " + su.target2);
-        line(su.stop, C.red, "STOP " + su.stop);
-      }
-      // VCP base footprint: connect swing points and label each contraction depth.
-      const vc = su.vcp;
-      if (vc && vc.points && vc.points.length > 1) {
-        ctx.strokeStyle = C.accent; ctx.globalAlpha = .55; ctx.lineWidth = 1.3; ctx.setLineDash([3, 2]);
-        ctx.beginPath();
-        vc.points.forEach((p, k) => { const xx = x(p.i), yy = py(p.price); k ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); });
-        ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
-        vc.points.forEach(p => { const xx = x(p.i), yy = py(p.price);
-          ctx.fillStyle = p.type === "H" ? C.red : C.green; ctx.beginPath(); ctx.arc(xx, yy, 2.6, 0, 7); ctx.fill(); });
-        ctx.font = "bold 9px " + MONO; ctx.fillStyle = C.text; ctx.textAlign = "center";
-        vc.contractions.forEach(c => { ctx.fillText("-" + c.depth + "%", x(c.lowIdx), py(c.low) + 13); });
-        ctx.textAlign = "left";
-      }
-
-      // ── BUY / EXIT point markers ──
-      // Buy = the bar that started the current up-leg — the most recent reclaim of
-      // the rising 50-day MA. Exit = first bar after that which closed back below it.
-      const ma50s = data.series.ma50 || [];
-      let buyIdx = -1;
-      for (let i = n - 1; i >= 1; i--) {
-        if (ma50s[i] != null && ma50s[i - 1] != null && bars[i].close > ma50s[i] && bars[i - 1].close <= ma50s[i - 1]) { buyIdx = i; break; }
-      }
-      // Fallback: if price has been above the 50-day the whole window, mark the first such bar.
-      if (buyIdx === -1) for (let i = 1; i < n; i++) { if (ma50s[i] != null && bars[i].close > ma50s[i]) { buyIdx = i; break; } }
-      let exitIdx = -1;
-      if (buyIdx >= 0) for (let i = buyIdx + 2; i < n; i++) { if (ma50s[i] != null && bars[i].close < ma50s[i]) { exitIdx = i; break; } }
-      const marker = (i, color, label, up) => {
-        const xx = x(i);
-        const yy = up ? py(bars[i].low) + 16 : py(bars[i].high) - 16;
-        ctx.fillStyle = color; ctx.beginPath();
-        if (up) { ctx.moveTo(xx, yy - 9); ctx.lineTo(xx - 5, yy + 2); ctx.lineTo(xx + 5, yy + 2); }
-        else { ctx.moveTo(xx, yy + 9); ctx.lineTo(xx - 5, yy - 2); ctx.lineTo(xx + 5, yy - 2); }
-        ctx.closePath(); ctx.fill();
-        ctx.font = "bold 9px " + MONO; ctx.textAlign = "center";
-        ctx.fillText(label, xx, up ? yy + 14 : yy - 8);
-        ctx.textAlign = "left";
-      };
-      if (buyIdx >= 0) marker(buyIdx, C.green, "BUY", true);
-      if (exitIdx >= 0) marker(exitIdx, C.red, "EXIT", false);
+      const pl = (price, color, title, style) => s.priceLines.push(s.candle.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }));
+      pl(su.entry, C.accent, "PIVOT", LS.Dashed ?? 2);
+      if (su.actionable) { pl(su.stop, C.red, "STOP", LS.Dashed ?? 2); pl(su.target2, C.green, "T2", LS.Dashed ?? 2); pl(su.target3, C.green, "T3", LS.Dotted ?? 1); }
     }
+    // BUY = most recent reclaim of the rising 50-day MA; EXIT = first close back below it.
+    const ma50s = data.series.ma50 || []; let buyIdx = -1;
+    for (let i = n - 1; i >= 1; i--) { if (ma50s[i] != null && ma50s[i - 1] != null && bars[i].close > ma50s[i] && bars[i - 1].close <= ma50s[i - 1]) { buyIdx = i; break; } }
+    if (buyIdx === -1) for (let i = 1; i < n; i++) { if (ma50s[i] != null && bars[i].close > ma50s[i]) { buyIdx = i; break; } }
+    let exitIdx = -1; if (buyIdx >= 0) for (let i = buyIdx + 2; i < n; i++) { if (ma50s[i] != null && bars[i].close < ma50s[i]) { exitIdx = i; break; } }
+    const markers = [];
+    if (buyIdx >= 0) markers.push({ time: toTime(bars[buyIdx].time), position: "belowBar", color: C.green, shape: "arrowUp", text: "BUY" });
+    if (exitIdx >= 0) markers.push({ time: toTime(bars[exitIdx].time), position: "aboveBar", color: C.red, shape: "arrowDown", text: "EXIT" });
+    s.candle.setMarkers(markers);
 
-    ctx.font = "11px " + MONO;
-    ctx.fillStyle = C.accent; ctx.fillText("MA50", padL + plotW - 150, pTop - 12);
-    ctx.fillStyle = "#d6a312"; ctx.fillText("MA150", padL + plotW - 105, pTop - 12);
-    ctx.fillStyle = "#c94440"; ctx.fillText("MA200", padL + plotW - 55, pTop - 12);
+    if (symRef.current !== data.symbol) { chart.timeScale().fitContent(); symRef.current = data.symbol; }
+  }, [data, C]);
 
-    let vhi = 0; bars.forEach(b => vhi = Math.max(vhi, b.volume));
-    for (let i = 0; i < n; i++) { const d = bars[i], up = d.close >= d.open; const h = (d.volume / vhi) * vH;
-      ctx.globalAlpha = .5; ctx.fillStyle = up ? C.green : C.red;
-      ctx.fillRect(padL + i * bw + bw * 0.2, vBot - h, Math.max(1, bw * 0.6), h); ctx.globalAlpha = 1; }
-    ctx.fillStyle = C.textDim; ctx.font = "12px " + SANS; ctx.fillText("Volume", padL + 8, vTop + 14);
-
-    ctx.fillStyle = C.textDim; ctx.font = "11px " + SANS;
-    [0, Math.floor(n*0.25), Math.floor(n*0.5), Math.floor(n*0.75), n-1].forEach(i => {
-      const dt = new Date(bars[i].time); ctx.fillText((dt.getMonth()+1)+"/"+dt.getDate(), x(i)-10, H-4); });
-  }, [data, C, MONO, SANS, H]);
-  return <canvas ref={canvasRef} style={{ display: "block", width: "100%" }} />;
+  if (typeof window !== "undefined" && !window.LightweightCharts) {
+    return <div style={{ height: H, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: SANS, fontSize: 12, color: C.textDim }}>Loading interactive chart…</div>;
+  }
+  return <div ref={elRef} style={{ width: "100%", height: H }} />;
 }
 
 function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
