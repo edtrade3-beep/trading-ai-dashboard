@@ -12576,6 +12576,8 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
 
   React.useEffect(() => { load("ARM"); }, []); // eslint-disable-line
 
+  const [chartView, setChartView] = React.useState("analysis"); // analysis | tv
+  const tvTheme = (C.bg && /^#0|^#1/i.test(C.bg)) ? "dark" : "light";
   // ── Live auto-refresh: silently re-pull the current symbol every 30s ──
   const [live, setLive] = React.useState(true);
   const liveSym = data && data.symbol;
@@ -12962,7 +12964,22 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 12 }}>
         <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
-          <TrendChart data={data} C={C} MONO={MONO} SANS={SANS} />
+          <div style={{ display: "flex", gap: 6, padding: "8px 10px", borderBottom: `1px solid ${C.border}` }}>
+            {[["analysis", "📊 Analysis"], ["tv", "📺 TradingView (live)"]].map(([v, l]) => (
+              <button key={v} onClick={() => setChartView(v)}
+                style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 6, cursor: "pointer",
+                  border: `1px solid ${chartView === v ? C.accent : C.border}`, background: chartView === v ? `${C.accent}18` : "transparent",
+                  color: chartView === v ? C.accent : C.textDim }}>{l}</button>
+            ))}
+            {chartView === "analysis" && <span style={{ marginLeft: "auto", fontFamily: SANS, fontSize: 10, color: C.textDim, alignSelf: "center" }}>pivot · BUY/EXIT · VCP overlay</span>}
+          </div>
+          {chartView === "tv" && data ? (
+            <iframe key={`tt-tv-${data.symbol}`} title="TradingView chart"
+              src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(data.symbol)}&t=${tvTheme}&h=520&iv=D`}
+              style={{ width: "100%", height: 520, border: "none", display: "block" }} />
+          ) : (
+            <TrendChart data={data} C={C} MONO={MONO} SANS={SANS} />
+          )}
         </div>
         <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
           {data && (<>
