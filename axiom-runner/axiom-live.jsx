@@ -14186,18 +14186,23 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
       {soccerView === "table" && (
         <div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 10 }}>
-            Group standings · top <b style={{ color: C.green }}>2 advance</b> (predicted) · auto-refresh 15 min
+            48-team format · top <b style={{ color: C.green }}>2 advance</b> + the <b style={{ color: "#d97706" }}>8 best 3rd-place</b> teams (32 to Round of 32) · auto-refresh 15 min
           </div>
           {groupsLoad && !groups.length && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading standings…</div>}
           {!groupsLoad && !groups.length && <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim }}>No group standings available for this competition right now.</div>}
+          {(() => {
+          // 2026 format: top 2 of each group + the 8 best 3rd-place teams advance.
+          const projOf = (tm) => tm.pts + Math.max(0, 3 - tm.gp) * (tm.gp > 0 ? tm.pts / tm.gp : 1.2) + Math.max(0, tm.gd) * 0.05;
+          const thirds = groups.map(g => g.teams[2]).filter(Boolean);
+          const qualThirds = new Set([...thirds].sort((a, b) => (b.pts - a.pts) || (b.gd - a.gd)).slice(0, 8).map(t => t.team));
+          const thirdsProj = thirds.map(projOf).sort((a, b) => b - a);
+          const thirdLine = thirdsProj.length >= 9 ? (thirdsProj[7] + thirdsProj[8]) / 2 : (thirdsProj[thirdsProj.length - 1] ?? 0);
+          const logit = (x, mid) => Math.max(1, Math.min(99, Math.round(100 / (1 + Math.exp(-(x - mid) / 1.6)))));
+          return (
           <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "1fr 1fr", gap: 12 }}>
             {groups.map((g, gi) => {
-              // Advance probability: project final points (games left × current ppg),
-              // then a logistic around the 2nd/3rd-place cut line. Top 2 advance.
-              const projOf = (tm) => tm.pts + Math.max(0, 3 - tm.gp) * (tm.gp > 0 ? tm.pts / tm.gp : 1.2) + Math.max(0, tm.gd) * 0.05;
               const projs = g.teams.map(projOf).sort((a, b) => b - a);
               const line = projs.length >= 3 ? (projs[1] + projs[2]) / 2 : (projs[1] ?? projs[0] ?? 0);
-              const advPctOf = (tm) => tm.advanced ? 99 : Math.max(1, Math.min(99, Math.round(100 / (1 + Math.exp(-(projOf(tm) - line) / 1.6)))));
               return (
               <div key={gi} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
                 <div style={{ padding: "8px 14px", background: C.surface, borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{g.name}</div>
@@ -14209,10 +14214,15 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
                   </tr></thead>
                   <tbody>
                     {g.teams.map((t, ti) => {
-                      const advPct = advPctOf(t);
                       const pos = ti + 1;
-                      const advances = pos <= 2; // predicted: top 2 of the group advance
-                      const posCol = advances ? C.green : C.red;
+                      const isThird = pos === 3;
+                      const thirdQual = isThird && qualThirds.has(t.team);
+                      const advances = pos <= 2 || thirdQual;
+                      const advPct = t.advanced ? 99
+                        : pos <= 2 ? Math.max(50, logit(projOf(t), line))
+                        : isThird ? logit(projOf(t), thirdLine)
+                        : logit(projOf(t), line);
+                      const posCol = pos <= 2 ? C.green : isThird ? (thirdQual ? "#d97706" : C.textDim) : C.red;
                       return (
                         <tr key={ti} style={{ background: advances ? `${C.green}0c` : "transparent" }}>
                           <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 800, color: posCol }}>{pos}</td>
@@ -14227,7 +14237,7 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
                           <td style={{ padding: "6px 8px", textAlign: "center", color: t.gd >= 0 ? C.green : C.red }}>{t.gd >= 0 ? "+" : ""}{t.gd}</td>
                           <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 800, color: C.text }}>{t.pts}</td>
                           <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 800, color: advPct >= 60 ? C.green : advPct >= 35 ? "#d97706" : C.red }}>{advPct}%</td>
-                          <td style={{ padding: "6px 8px", textAlign: "center", fontSize: 9, fontWeight: 800, color: posCol }}>{t.advanced ? "✓ IN" : advances ? "ADV" : "OUT"}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "center", fontSize: 9, fontWeight: 800, color: posCol }}>{t.advanced ? "✓ IN" : pos <= 2 ? "ADV" : thirdQual ? "3rd ✓" : isThird ? "3rd?" : "OUT"}</td>
                         </tr>
                       );
                     })}
@@ -14237,6 +14247,7 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
               );
             })}
           </div>
+          ); })()}
         </div>
       )}
 
