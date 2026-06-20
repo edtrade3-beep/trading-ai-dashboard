@@ -13913,6 +13913,8 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
   const [soccerView, setSoccerView] = React.useState("iptv");
 
   const LEAGUES = [
+    { id: "fifa.world",      name: "World Cup",         flag: "🏆" },
+    { id: "fifa.friendly",   name: "Intl Friendlies",   flag: "🌍" },
     { id: "eng.1",           name: "Premier League",    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", },
     { id: "esp.1",           name: "La Liga",           flag: "🇪🇸" },
     { id: "ger.1",           name: "Bundesliga",        flag: "🇩🇪" },
@@ -13940,7 +13942,7 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
     { name: "FlashScore",     url: "https://www.flashscore.com",                icon: "⚡", desc: "Live scores, text commentary & stream finder" },
   ];
 
-  const [soccerLeague, setSoccerLeague] = useState("eng.1");
+  const [soccerLeague, setSoccerLeague] = useState("fifa.world");
   const [soccerGames, setSoccerGames] = useState([]);
   const [soccerLoading, setSoccerLoading] = useState(false);
   const [soccerFetched, setSoccerFetched] = useState(false);
@@ -13953,25 +13955,32 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
     try {
       const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueId}/scoreboard`);
       const d = await r.json();
+      // Moneyline (American odds) → implied win probability.
+      const impl = (ml) => { const v = Number(ml); if (!Number.isFinite(v) || v === 0) return null; return v > 0 ? 100 / (v + 100) : (-v) / ((-v) + 100); };
       const games = (d.events || []).map(ev => {
         const comp = ev.competitions?.[0] || {};
         const home = comp.competitors?.find(c => c.homeAway === "home") || {};
         const away = comp.competitors?.find(c => c.homeAway === "away") || {};
         const status = comp.status?.type;
+        // Prediction from ESPN odds (when available)
+        const o = comp.odds?.[0];
+        let prediction = null;
+        if (o) {
+          const hP = impl(o.homeTeamOdds?.moneyLine), aP = impl(o.awayTeamOdds?.moneyLine), dP = impl(o.drawOdds?.moneyLine);
+          if (hP || aP || dP) {
+            const tot = (hP || 0) + (aP || 0) + (dP || 0) || 1;
+            const homePct = Math.round((hP || 0) / tot * 100), awayPct = Math.round((aP || 0) / tot * 100), drawPct = Math.round((dP || 0) / tot * 100);
+            const favName = (homePct >= awayPct && homePct >= drawPct) ? (home.team?.abbreviation || "Home")
+              : (awayPct >= drawPct) ? (away.team?.abbreviation || "Away") : "Draw";
+            prediction = { homePct, awayPct, drawPct, favName, detail: o.details || "" };
+          } else if (o.details) prediction = { detail: o.details, favName: null };
+        }
         return {
-          id: ev.id,
-          date: ev.date,
-          home: home.team?.displayName || "Home",
-          homeLogo: home.team?.logo || null,
-          homeScore: home.score || "—",
-          away: away.team?.displayName || "Away",
-          awayLogo: away.team?.logo || null,
-          awayScore: away.score || "—",
-          inProgress: status?.state === "in",
-          finished:   status?.state === "post",
-          upcoming:   status?.state === "pre",
-          clock: status?.displayClock || "",
-          shortDetail: status?.shortDetail || "",
+          id: ev.id, date: ev.date,
+          home: home.team?.displayName || "Home", homeLogo: home.team?.logo || null, homeScore: home.score || "—",
+          away: away.team?.displayName || "Away", awayLogo: away.team?.logo || null, awayScore: away.score || "—",
+          inProgress: status?.state === "in", finished: status?.state === "post", upcoming: status?.state === "pre",
+          clock: status?.displayClock || "", shortDetail: status?.shortDetail || "", prediction,
         };
       });
       setSoccerGames(games);
@@ -13983,7 +13992,11 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
     }
   }, []);
 
-  useEffect(() => { fetchLeague(soccerLeague); }, [soccerLeague, fetchLeague]);
+  useEffect(() => {
+    fetchLeague(soccerLeague);
+    const t = setInterval(() => fetchLeague(soccerLeague), 15 * 60 * 1000); // auto-refresh every 15 min
+    return () => clearInterval(t);
+  }, [soccerLeague, fetchLeague]);
 
   const live     = soccerGames.filter(g => g.inProgress);
   const upcoming = soccerGames.filter(g => g.upcoming);
@@ -14014,6 +14027,28 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
             <span style={{ fontFamily: SANS, fontSize: 13, color: C.text, fontWeight: 600 }}>{g.away}</span>
           </div>
         </div>
+        {g.prediction && (g.prediction.homePct != null || g.prediction.detail) && (
+          <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+            {g.prediction.homePct != null ? (<>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: ".06em" }}>🔮 PREDICTION</span>
+                {g.prediction.favName && <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.green }}>{g.prediction.favName} favored</span>}
+              </div>
+              <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", background: C.border }}>
+                <div style={{ width: g.prediction.homePct + "%", background: C.accent }} title={`${g.home} ${g.prediction.homePct}%`} />
+                <div style={{ width: g.prediction.drawPct + "%", background: C.textDim }} title={`Draw ${g.prediction.drawPct}%`} />
+                <div style={{ width: g.prediction.awayPct + "%", background: "#d97706" }} title={`${g.away} ${g.prediction.awayPct}%`} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 10, marginTop: 3 }}>
+                <span style={{ color: C.accent }}>{g.prediction.homePct}% W</span>
+                <span style={{ color: C.textDim }}>{g.prediction.drawPct}% D</span>
+                <span style={{ color: "#d97706" }}>{g.prediction.awayPct}% W</span>
+              </div>
+            </>) : (
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>🔮 Odds: {g.prediction.detail}</div>
+            )}
+          </div>
+        )}
       </div>
     );
   };
