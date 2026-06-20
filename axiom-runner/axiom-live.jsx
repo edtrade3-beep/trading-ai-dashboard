@@ -12464,6 +12464,29 @@ function TrendChart({ data, C, MONO, SANS, height }) {
         vc.contractions.forEach(c => { ctx.fillText("-" + c.depth + "%", x(c.lowIdx), py(c.low) + 13); });
         ctx.textAlign = "left";
       }
+
+      // ── BUY / EXIT point markers ──
+      // Buy = the bar where price first closed above the pivot (breakout).
+      // Exit = first bar after that which lost the 50-day MA (trend break).
+      const pivot = su.entry;
+      const ma50s = data.series.ma50 || [];
+      let buyIdx = -1;
+      if (pivot > 0) for (let i = 1; i < n; i++) { if (bars[i].close > pivot && bars[i - 1].close <= pivot) { buyIdx = i; break; } }
+      let exitIdx = -1;
+      if (buyIdx >= 0) for (let i = buyIdx + 2; i < n; i++) { if (ma50s[i] != null && bars[i].close < ma50s[i]) { exitIdx = i; break; } }
+      const marker = (i, color, label, up) => {
+        const xx = x(i);
+        const yy = up ? py(bars[i].low) + 16 : py(bars[i].high) - 16;
+        ctx.fillStyle = color; ctx.beginPath();
+        if (up) { ctx.moveTo(xx, yy - 9); ctx.lineTo(xx - 5, yy + 2); ctx.lineTo(xx + 5, yy + 2); }
+        else { ctx.moveTo(xx, yy + 9); ctx.lineTo(xx - 5, yy - 2); ctx.lineTo(xx + 5, yy - 2); }
+        ctx.closePath(); ctx.fill();
+        ctx.font = "bold 9px " + MONO; ctx.textAlign = "center";
+        ctx.fillText(label, xx, up ? yy + 14 : yy - 8);
+        ctx.textAlign = "left";
+      };
+      if (buyIdx >= 0) marker(buyIdx, C.green, "BUY", true);
+      if (exitIdx >= 0) marker(exitIdx, C.red, "EXIT", false);
     }
 
     ctx.font = "11px " + MONO;
