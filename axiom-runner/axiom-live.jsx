@@ -19588,7 +19588,7 @@ export default function App() {
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["courses", "education", "options-edu", "notes"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools"] },
-              { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih", "halal"] },
+              { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih", "halal", "soccer"] },
             ];
             const scannerBadge = scannerRows.filter(r => r.scannerScore >= 70).length || null;
             return (
@@ -19971,6 +19971,7 @@ export default function App() {
             { id: "athkar", label: "أذكار" },
             { id: "tasbih", label: "تسبيح" },
             { id: "halal",  label: "☪ HALAL" },
+            { id: "soccer", label: "⚽ SOCCER" },
           ],
         };
         const activeGroup = Object.entries(SUB_GROUPS).find(([, tabs]) =>
