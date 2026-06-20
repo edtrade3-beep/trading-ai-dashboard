@@ -14191,17 +14191,25 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
           {groupsLoad && !groups.length && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading standings…</div>}
           {!groupsLoad && !groups.length && <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim }}>No group standings available for this competition right now.</div>}
           <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "1fr 1fr", gap: 12 }}>
-            {groups.map((g, gi) => (
+            {groups.map((g, gi) => {
+              // Advance probability: project final points (games left × current ppg),
+              // then a logistic around the 2nd/3rd-place cut line. Top 2 advance.
+              const projOf = (tm) => tm.pts + Math.max(0, 3 - tm.gp) * (tm.gp > 0 ? tm.pts / tm.gp : 1.2) + Math.max(0, tm.gd) * 0.05;
+              const projs = g.teams.map(projOf).sort((a, b) => b - a);
+              const line = projs.length >= 3 ? (projs[1] + projs[2]) / 2 : (projs[1] ?? projs[0] ?? 0);
+              const advPctOf = (tm) => tm.advanced ? 99 : Math.max(1, Math.min(99, Math.round(100 / (1 + Math.exp(-(projOf(tm) - line) / 1.6)))));
+              return (
               <div key={gi} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
                 <div style={{ padding: "8px 14px", background: C.surface, borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{g.name}</div>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12 }}>
                   <thead><tr style={{ color: C.textDim }}>
-                    {["#", "Team", "P", "W", "D", "L", "GD", "Pts", ""].map((h, i) => (
+                    {["#", "Team", "P", "W", "D", "L", "GD", "Pts", "Adv%", ""].map((h, i) => (
                       <th key={i} style={{ padding: "5px 8px", textAlign: i === 1 ? "left" : "center", fontSize: 10, fontWeight: 700, borderBottom: `1px solid ${C.border}` }}>{h}</th>
                     ))}
                   </tr></thead>
                   <tbody>
                     {g.teams.map((t, ti) => {
+                      const advPct = advPctOf(t);
                       const pos = ti + 1;
                       const advances = pos <= 2; // predicted: top 2 of the group advance
                       const posCol = advances ? C.green : C.red;
@@ -14218,6 +14226,7 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
                           <td style={{ padding: "6px 8px", textAlign: "center", color: C.red }}>{t.l}</td>
                           <td style={{ padding: "6px 8px", textAlign: "center", color: t.gd >= 0 ? C.green : C.red }}>{t.gd >= 0 ? "+" : ""}{t.gd}</td>
                           <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 800, color: C.text }}>{t.pts}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 800, color: advPct >= 60 ? C.green : advPct >= 35 ? "#d97706" : C.red }}>{advPct}%</td>
                           <td style={{ padding: "6px 8px", textAlign: "center", fontSize: 9, fontWeight: 800, color: posCol }}>{t.advanced ? "✓ IN" : advances ? "ADV" : "OUT"}</td>
                         </tr>
                       );
@@ -14225,7 +14234,8 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
                   </tbody>
                 </table>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
