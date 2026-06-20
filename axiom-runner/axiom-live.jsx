@@ -12466,12 +12466,15 @@ function TrendChart({ data, C, MONO, SANS, height }) {
       }
 
       // ── BUY / EXIT point markers ──
-      // Buy = the bar where price first closed above the pivot (breakout).
-      // Exit = first bar after that which lost the 50-day MA (trend break).
-      const pivot = su.entry;
+      // Buy = the bar that started the current up-leg — the most recent reclaim of
+      // the rising 50-day MA. Exit = first bar after that which closed back below it.
       const ma50s = data.series.ma50 || [];
       let buyIdx = -1;
-      if (pivot > 0) for (let i = 1; i < n; i++) { if (bars[i].close > pivot && bars[i - 1].close <= pivot) { buyIdx = i; break; } }
+      for (let i = n - 1; i >= 1; i--) {
+        if (ma50s[i] != null && ma50s[i - 1] != null && bars[i].close > ma50s[i] && bars[i - 1].close <= ma50s[i - 1]) { buyIdx = i; break; }
+      }
+      // Fallback: if price has been above the 50-day the whole window, mark the first such bar.
+      if (buyIdx === -1) for (let i = 1; i < n; i++) { if (ma50s[i] != null && bars[i].close > ma50s[i]) { buyIdx = i; break; } }
       let exitIdx = -1;
       if (buyIdx >= 0) for (let i = buyIdx + 2; i < n; i++) { if (ma50s[i] != null && bars[i].close < ma50s[i]) { exitIdx = i; break; } }
       const marker = (i, color, label, up) => {
