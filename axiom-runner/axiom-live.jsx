@@ -14002,6 +14002,41 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
   const upcoming = soccerGames.filter(g => g.upcoming);
   const finished = soccerGames.filter(g => g.finished);
 
+  // ── Predicted group standings (1-2-3-4) for the World Cup ──
+  const [groups, setGroups] = useState([]);
+  const [groupsLoad, setGroupsLoad] = useState(false);
+  const fetchStandings = useCallback(async (leagueId) => {
+    setGroupsLoad(true);
+    try {
+      const r = await fetch(`https://site.api.espn.com/apis/v2/sports/soccer/${leagueId}/standings`);
+      const d = await r.json();
+      const stat = (entry, name) => { const s = (entry.stats || []).find(x => x.name === name); return s ? (s.value != null ? s.value : s.displayValue) : null; };
+      const gs = (d.children || []).map(g => ({
+        name: g.name || g.abbreviation || "Group",
+        teams: (g.standings?.entries || []).map(e => ({
+          team: e.team?.displayName || e.team?.name || "—",
+          logo: e.team?.logos?.[0]?.href || null,
+          rank: Number(stat(e, "rank")) || 99,
+          gp: Number(stat(e, "gamesPlayed")) || 0,
+          w: Number(stat(e, "wins")) || 0,
+          d: Number(stat(e, "ties")) || 0,
+          l: Number(stat(e, "losses")) || 0,
+          gd: Number(stat(e, "pointDifferential")) || 0,
+          pts: Number(stat(e, "points")) || 0,
+          advanced: Number(stat(e, "advanced")) === 1,
+        })).sort((a, b) => a.rank - b.rank),
+      })).filter(g => g.teams.length);
+      setGroups(gs);
+    } catch { setGroups([]); }
+    finally { setGroupsLoad(false); }
+  }, []);
+  useEffect(() => {
+    if (soccerView !== "table") return;
+    fetchStandings(soccerLeague);
+    const t = setInterval(() => fetchStandings(soccerLeague), 15 * 60 * 1000);
+    return () => clearInterval(t);
+  }, [soccerView, soccerLeague, fetchStandings]);
+
   const GameCard = ({ g }) => {
     const stColor = g.inProgress ? C.green : g.finished ? C.textDim : C.amber;
     const stLabel = g.inProgress
@@ -14077,6 +14112,7 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
         <div style={{ display: "flex", gap: 6 }}>
           {tabBtn("iptv",   "📺 IPTV")}
           {tabBtn("scores", "📅 SCORES")}
+          {tabBtn("table",  "🏆 PREDICTED TABLE")}
           {tabBtn("sites",  "🆓 FREE SITES")}
         </div>
       </div>
@@ -14142,6 +14178,54 @@ function SoccerWatchTab({ C, MONO, SANS, isTablet }) {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── PREDICTED TABLE TAB ──────────────────────────────────────────────── */}
+      {soccerView === "table" && (
+        <div>
+          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 10 }}>
+            Group standings · top <b style={{ color: C.green }}>2 advance</b> (predicted) · auto-refresh 15 min
+          </div>
+          {groupsLoad && !groups.length && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading standings…</div>}
+          {!groupsLoad && !groups.length && <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim }}>No group standings available for this competition right now.</div>}
+          <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "1fr 1fr", gap: 12 }}>
+            {groups.map((g, gi) => (
+              <div key={gi} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+                <div style={{ padding: "8px 14px", background: C.surface, borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{g.name}</div>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12 }}>
+                  <thead><tr style={{ color: C.textDim }}>
+                    {["#", "Team", "P", "W", "D", "L", "GD", "Pts", ""].map((h, i) => (
+                      <th key={i} style={{ padding: "5px 8px", textAlign: i === 1 ? "left" : "center", fontSize: 10, fontWeight: 700, borderBottom: `1px solid ${C.border}` }}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {g.teams.map((t, ti) => {
+                      const pos = ti + 1;
+                      const advances = pos <= 2; // predicted: top 2 of the group advance
+                      const posCol = advances ? C.green : C.red;
+                      return (
+                        <tr key={ti} style={{ background: advances ? `${C.green}0c` : "transparent" }}>
+                          <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 800, color: posCol }}>{pos}</td>
+                          <td style={{ padding: "6px 8px", display: "flex", alignItems: "center", gap: 6, color: C.text, fontWeight: 600 }}>
+                            {t.logo && <img src={t.logo} alt="" style={{ width: 16, height: 16, objectFit: "contain" }} onError={e => { e.target.style.display = "none"; }} />}
+                            {t.team}
+                          </td>
+                          <td style={{ padding: "6px 8px", textAlign: "center", color: C.textDim }}>{t.gp}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "center", color: C.green }}>{t.w}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "center", color: C.textDim }}>{t.d}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "center", color: C.red }}>{t.l}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "center", color: t.gd >= 0 ? C.green : C.red }}>{t.gd >= 0 ? "+" : ""}{t.gd}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: 800, color: C.text }}>{t.pts}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "center", fontSize: 9, fontWeight: 800, color: posCol }}>{t.advanced ? "✓ IN" : advances ? "ADV" : "OUT"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ))}
           </div>
         </div>
       )}
