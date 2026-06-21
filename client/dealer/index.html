@@ -141,6 +141,16 @@
       <div class="grid g4" id="marketStats"><div class="empty">Enter market prices above.</div></div>
       <div id="marketVerdict" style="margin-top:14px"></div>
     </div>
+    <div class="card">
+      <h2>🔎 Price Beater — cheapest comp near you</h2>
+      <div class="row" style="margin-bottom:12px">
+        <div style="max-width:140px"><label>My ZIP</label><input id="pb_zip" value="45014" maxlength="5" /></div>
+        <div style="max-width:140px"><label>Radius (mi)</label><input id="pb_radius" type="number" value="200" /></div>
+        <button class="btn" onclick="findCheapest()" id="pbBtn" style="align-self:flex-end">Find Cheapest</button>
+        <span class="muted" id="pbMsg" style="font-size:13px"></span>
+      </div>
+      <div id="pbResult"></div>
+    </div>
   </div>
 
   <div class="tab" id="t-ad">
@@ -389,6 +399,43 @@ function findFlags(text){
   FB_FLAGGED.forEach(function(w){ if(t.indexOf(w)>=0 && hits.indexOf(w)<0) hits.push(w); });
   return hits;
 }
+function findCheapest(){
+  var v=vehicle;
+  if(!v.make || !v.model){ $("pbMsg").textContent="Decode or load a vehicle first."; return; }
+  var zip=($("pb_zip").value||"45014").replace(/[^0-9]/g,"").slice(0,5)||"45014";
+  var radius=num($("pb_radius").value)||200;
+  $("pbBtn").disabled=true; $("pbMsg").textContent="Scanning "+zip+" within "+radius+" mi…"; $("pbResult").innerHTML="";
+  fetch("/api/dealer/price-beat",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ year:num(v.year), make:v.make, model:v.model, trim:v.trim||"", zip:zip, radius:radius, myPrice:num(v.price), myMiles:num(v.mileage) })})
+   .then(function(r){return r.json();})
+   .then(function(d){
+     $("pbMsg").textContent="";
+     if(d.error){ $("pbResult").innerHTML='<div class="muted">'+d.error+'</div>'; return; }
+     if(!d.found){ $("pbResult").innerHTML='<div class="empty">No comparable listing found within '+radius+' mi.</div>'; return; }
+     var cheap=num(d.cheapestPrice), mine=num(v.price);
+     var statusPill = d.status==="cheapest"?'<span class="pill green">YOU\'RE CHEAPEST ✓</span>'
+       : d.status==="close"?'<span class="pill yellow">CLOSE</span>'
+       : d.status==="not_cheapest"?'<span class="pill red">NOT CHEAPEST</span>':'<span class="pill yellow">'+(d.status||"")+'</span>';
+     var rows=[
+       ["Cheapest comp", money(cheap)],
+       ["Dealer", d.dealer||"—"],
+       d.location?["Location", d.location+(d.distance?(" · "+Math.round(d.distance)+" mi away"):"")]:null,
+       d.compMiles?["Their mileage", num(d.compMiles).toLocaleString()+" mi"]:null,
+       d.marketLow?["Market low", money(d.marketLow)]:null,
+       d.marketAvg?["Market avg", money(d.marketAvg)]:null,
+       ["Your price", mine?money(mine):"—"],
+       d.gap!=null?["You vs cheapest", (d.gap>=0?"+":"")+money(Math.abs(d.gap)).replace("$","$")+(d.gap>=0?" cheaper":" higher")]:null,
+       d.suggested?["Suggested reprice", money(d.suggested)]:null
+     ].filter(Boolean);
+     var html='<div style="margin-bottom:10px">'+statusPill+' <span class="muted" style="font-size:12px">via '+(d.engine||"scan")+'</span></div>';
+     html+=rows.map(function(p){return '<div class="spec"><span class="k">'+p[0]+'</span><span class="val">'+p[1]+'</span></div>';}).join("");
+     if(d.link) html+='<div style="margin-top:10px"><a class="btn sm" href="'+d.link+'" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block">View the cheapest listing →</a></div>';
+     $("pbResult").innerHTML=html;
+   })
+   .catch(function(e){ $("pbMsg").textContent="Scan failed: "+e.message; })
+   .then(function(){ $("pbBtn").disabled=false; });
+}
+
 function genAd(){
   var v=vehicle;
   var title=[v.year,v.make,v.model,v.trim].filter(Boolean).join(" ")||"[Vehicle]";
