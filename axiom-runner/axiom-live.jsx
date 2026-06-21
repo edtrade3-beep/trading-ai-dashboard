@@ -5735,6 +5735,122 @@ const ACADEMY_QUIZ = {
   "1-7": { q: "Your 30-day action plan should start by…", o: ["Going all-in immediately", "Trading small and journaling everything", "Copying others", "Skipping the journal"], a: 1, why: "Trade small, journal every trade, scale up only when metrics prove a positive edge." },
 };
 
+const PRO_PATH = [
+  { stage: "1 · Foundation — learn the game", icon: "📚", goto: "courses",
+    steps: [
+      "Read the Academy intro + Course 1 Module 1 (how markets work)",
+      "Finish Course 1 Module 2 (reading price: candles, trend, volume)",
+      "Finish Course 1 Module 6 — RISK MANAGEMENT (the most important module)",
+      "Finish Course 1 Module 7 (psychology & discipline)",
+      "Pass the quiz at the end of each module you complete",
+    ] },
+  { stage: "2 · Pick ONE edge & master it", icon: "🏆", goto: "trendtemplate",
+    steps: [
+      "Learn the 8-point Trend Template (only buy real Stage-2 uptrends)",
+      "Learn the VCP base + pivot buy point",
+      "Open the Trend Template tab and scan 20+ stocks until you can read it fast",
+      "Write your edge as concrete rules: setup, entry, stop, target, size",
+      "Commit to trading ONLY this one setup for now",
+    ] },
+  { stage: "3 · Paper trade — 30+ days", icon: "🧪", goto: "mytrades",
+    steps: [
+      "Set the AUTO-TRADE broker to SIM (paper) — never real money yet",
+      "Take only A+ setups that pass your written rules",
+      "Risk a fixed 0.5–1% per trade (let the platform size it)",
+      "Always set the stop BEFORE entering",
+      "Log every trade: why you entered, the stop, the result, how you felt",
+      "Do this for at least 30 trading days — no shortcuts",
+    ] },
+  { stage: "4 · Prove a real edge", icon: "📊", goto: "journal-stats",
+    steps: [
+      "Review your journal weekly — find your patterns",
+      "Track win rate, average win vs loss, and expectancy",
+      "Confirm POSITIVE expectancy over 30+ paper trades",
+      "Confirm you followed your rules ≥90% of the time",
+      "Fix the one biggest leak before risking real money",
+    ] },
+  { stage: "5 · Go live — small, then scale", icon: "🚀", goto: "trendtemplate",
+    steps: [
+      "Start with REAL money at tiny size (a fraction of your plan)",
+      "Keep the exact same rules and risk % as paper",
+      "Survive 20+ live trades without breaking a rule",
+      "Scale size up ONLY after live metrics match your paper edge",
+      "Never risk money you can't afford to lose",
+    ] },
+  { stage: "6 · Master your mind (ongoing)", icon: "🧘", goto: "coach",
+    steps: [
+      "Use the Coach tab daily — discipline, pressure, tilt control",
+      "Set a hard daily loss limit and ALWAYS honor it",
+      "No revenge trading — walk away after your limit",
+      "Process over outcome: judge yourself on following rules, not P&L",
+      "Build the routine: plan the trade, trade the plan, journal it",
+    ] },
+];
+
+function ProPathTab({ C, MONO, SANS, setActiveTab }) {
+  const allKeys = React.useMemo(() => PRO_PATH.flatMap((s, si) => s.steps.map((_, i) => `${si}-${i}`)), []);
+  const [done, setDone] = React.useState(() => { try { return JSON.parse(localStorage.getItem("propath_done")) || {}; } catch { return {}; } });
+  const toggle = (k) => { const n = { ...done, [k]: !done[k] }; setDone(n); localStorage.setItem("propath_done", JSON.stringify(n)); };
+  const doneCount = allKeys.filter(k => done[k]).length;
+  const pct = Math.round(doneCount / allKeys.length * 100);
+  // First incomplete stage = your current stage
+  let currentStage = PRO_PATH.length - 1;
+  for (let si = 0; si < PRO_PATH.length; si++) { if (PRO_PATH[si].steps.some((_, i) => !done[`${si}-${i}`])) { currentStage = si; break; } }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 820 }}>
+      <div>
+        <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.text }}>🎯 PRO PATH — your road to professional trading</div>
+        <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 2 }}>Work through it in order. Tick each step as you complete it — your progress saves automatically.</div>
+      </div>
+      <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12, marginBottom: 6 }}>
+          <span style={{ color: C.textDim }}>Overall progress · you're on <b style={{ color: C.accent }}>Stage {currentStage + 1}</b></span>
+          <span style={{ color: C.green, fontWeight: 800 }}>{doneCount}/{allKeys.length} · {pct}%</span>
+        </div>
+        <div style={{ height: 8, borderRadius: 4, background: `${C.textDim}22` }}>
+          <div style={{ height: 8, borderRadius: 4, width: pct + "%", background: C.green, transition: "width .3s" }} />
+        </div>
+      </div>
+
+      {PRO_PATH.map((s, si) => {
+        const stepsDone = s.steps.filter((_, i) => done[`${si}-${i}`]).length;
+        const complete = stepsDone === s.steps.length;
+        const isCurrent = si === currentStage;
+        return (
+          <div key={si} style={{ background: C.bg, border: `1px solid ${isCurrent ? C.accent : C.border}`, borderRadius: 12, padding: 14,
+            boxShadow: isCurrent ? `0 0 0 1px ${C.accent}` : "none", opacity: si > currentStage && !complete ? 0.7 : 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <span style={{ fontSize: 18 }}>{s.icon}</span>
+              <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: complete ? C.green : C.text, flex: 1 }}>{s.stage}</span>
+              {isCurrent && <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, background: `${C.accent}18`, borderRadius: 5, padding: "2px 8px" }}>YOU ARE HERE</span>}
+              <span style={{ fontFamily: MONO, fontSize: 11, color: complete ? C.green : C.textDim }}>{stepsDone}/{s.steps.length}</span>
+            </div>
+            {s.steps.map((step, i) => {
+              const k = `${si}-${i}`; const isDone = done[k];
+              return (
+                <div key={i} onClick={() => toggle(k)} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "6px 0", cursor: "pointer",
+                  borderTop: i ? `1px solid ${C.border}22` : "none" }}>
+                  <div style={{ width: 19, height: 19, borderRadius: 5, flex: "0 0 19px", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 1,
+                    fontSize: 12, fontWeight: 800, border: `1.5px solid ${isDone ? C.green : C.border}`, background: isDone ? `${C.green}22` : "transparent", color: C.green }}>{isDone ? "✓" : ""}</div>
+                  <span style={{ fontFamily: SANS, fontSize: 13, color: isDone ? C.textDim : C.text, textDecoration: isDone ? "line-through" : "none", lineHeight: 1.5 }}>{step}</span>
+                </div>
+              );
+            })}
+            {s.goto && setActiveTab && (
+              <button onClick={() => setActiveTab(s.goto)} style={{ marginTop: 10, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 12px", borderRadius: 6,
+                border: `1px solid ${C.accent}`, background: `${C.accent}12`, color: C.accent, cursor: "pointer" }}>Open the tool for this stage →</button>
+            )}
+          </div>
+        );
+      })}
+      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, lineHeight: 1.6 }}>
+        Educational roadmap — not financial advice. There are no shortcuts: most who skip the paper-trading and risk-management stages blow up. Survive cheaply while you learn, prove an edge, then scale slowly.
+      </div>
+    </div>
+  );
+}
+
 function CoursesTab({ C, MONO, SANS }) {
   const allLessonIds = React.useMemo(() => {
     const ids = [];
@@ -19691,7 +19807,7 @@ export default function App() {
               { id: "terminal",   label: "📈 CHART",      tabs: ["multitf", "tv"] },
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy", "trendtemplate", "outlook", "predictions", "morning-routine", "mytrades", "holdings", "gl-backtest"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
-              { id: "education",  label: "🎓 LEARN",      tabs: ["courses", "education", "options-edu", "notes"] },
+              { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "courses", "education", "options-edu", "notes"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools"] },
               { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih", "halal", "soccer"] },
             ];
@@ -20062,6 +20178,7 @@ export default function App() {
             { id: "coach",        label: "🧭 المدرّب اليومي" },
           ],
           education: [
+            { id: "propath",         label: "🎯 PRO PATH" },
             { id: "courses",         label: "🎓 ACADEMY" },
             { id: "education",       label: "🎓 EDUCATION" },
             { id: "options-edu",     label: "📈 OPTIONS 101" },
@@ -32242,6 +32359,7 @@ export default function App() {
       {activeTab === "notes"           && <NotesTab           C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "education"       && <EducationTab        C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "courses"         && <CoursesTab          C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "propath"         && <ProPathTab          C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
       {activeTab === "options-edu"     && <OptionsEduTab       C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "recap"           && <RecapTab           C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "morning-routine" && <MorningRoutineTab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} macroData={macroData} distData={distData} fearGreedData={fearGreedData} />}
