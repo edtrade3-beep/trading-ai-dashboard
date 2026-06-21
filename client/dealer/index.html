@@ -147,11 +147,16 @@
     <div class="card">
       <h2>📣 Facebook Ad Generator</h2>
       <div><label>Short vehicle description (optional)</label><textarea id="ad_desc" placeholder="e.g. Clean, runs great, ice cold AC, new tires"></textarea></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;text-transform:none;letter-spacing:0;color:var(--text);margin-top:12px;cursor:pointer">
+        <input type="checkbox" id="ad_boostsafe" checked onchange="genAd()" style="width:auto" />
+        🛡 Boost-Safe — remove Facebook-flagged credit/financing words (free to boost)
+      </label>
       <div class="row" style="margin-top:12px">
         <button class="btn" onclick="genAd()">Generate</button>
         <button class="btn ghost" onclick="copyText('adOut')">Copy</button>
       </div>
-      <div class="out" id="adOut" style="margin-top:14px">Decode or load a vehicle, then click Generate.</div>
+      <div id="adFlag" style="margin-top:12px"></div>
+      <div class="out" id="adOut" style="margin-top:12px">Decode or load a vehicle, then click Generate.</div>
     </div>
   </div>
 
@@ -373,21 +378,52 @@ function calcMarket(){
   }
 }
 
+var FB_FLAGGED = [
+  "all credit","bad credit","no credit","good credit","credit accepted","credit approved",
+  "guaranteed approval","approved","itin","ssn","low down","no down","money down","down payment",
+  "financing","finance","loan","buy here pay here","bhph","repo","bankruptcy","first time buyer",
+  "weekly payment","monthly payment","apr","interest"
+];
+function findFlags(text){
+  var t=(text||"").toLowerCase(); var hits=[];
+  FB_FLAGGED.forEach(function(w){ if(t.indexOf(w)>=0 && hits.indexOf(w)<0) hits.push(w); });
+  return hits;
+}
 function genAd(){
   var v=vehicle;
   var title=[v.year,v.make,v.model,v.trim].filter(Boolean).join(" ")||"[Vehicle]";
   var miles=v.mileage?num(v.mileage).toLocaleString():"[mileage]";
   var desc=($("ad_desc").value||"").trim();
-  $("adOut").textContent=[
-    title,"",
-    "✅ Clean title","✅ Ready to drive","",
-    "🟢 Fast & Easy Financing – All Credit Accepted",
-    "🟢 ITIN Accepted – Low Down Payment Options",
-    "🟢 Trade-Ins Welcome","",
-    miles+" miles","",
-    desc||"Well-maintained and ready for its next owner.","",
-    "📩 Message us now."
-  ].join("\n");
+  var safe=$("ad_boostsafe").checked;
+  var ad, note="";
+  if(safe){
+    // Boost-safe: vehicle-focused, NO credit/financing terms that Facebook rejects on boosted ads.
+    ad=[
+      title,"",
+      "✅ Clean title","✅ Ready to drive","✅ Well maintained","✅ Trade-ins welcome","",
+      miles+" miles","",
+      desc||"Runs and drives great — a reliable, well-kept vehicle ready for its next owner.","",
+      "📩 Message us for photos, details, and to schedule a test drive."
+    ].join("\n");
+    var descFlags=findFlags(desc);
+    note='<span class="pill green">🛡 BOOST-SAFE</span> <span class="muted" style="font-size:12px">No flagged credit/financing words — free to boost on Facebook.</span>';
+    if(descFlags.length) note+='<div class="muted" style="font-size:12px;margin-top:6px">⚠ Your description still contains flagged words: <b style="color:var(--warning)">'+descFlags.join(", ")+'</b> — remove them to keep it boostable.</div>';
+  } else {
+    ad=[
+      title,"",
+      "✅ Clean title","✅ Ready to drive","",
+      "🟢 Fast & Easy Financing – All Credit Accepted",
+      "🟢 ITIN Accepted – Low Down Payment Options",
+      "🟢 Trade-Ins Welcome","",
+      miles+" miles","",
+      desc||"Well-maintained and ready for its next owner.","",
+      "📩 Message us now."
+    ].join("\n");
+    var flags=findFlags(ad);
+    note='<span class="pill red">⚠ NOT BOOSTABLE</span> <span class="muted" style="font-size:12px">Contains Facebook-flagged words: <b style="color:var(--danger)">'+flags.join(", ")+'</b>. Fine as a free post, but turn on Boost-Safe to run paid ads.</span>';
+  }
+  $("adOut").textContent=ad;
+  $("adFlag").innerHTML=note;
 }
 
 function genDesc(){
