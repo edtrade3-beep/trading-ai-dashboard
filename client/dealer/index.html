@@ -1,68 +1,525 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dixie Motors – Dealer Portal</title>
-  <style>
-    html, body, #root { height: 100%; margin: 0; }
-    body { background: #f1f5f9; font-family: Inter, Arial, sans-serif; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .boot { display: grid; place-items: center; min-height: 100%; color: #0f172a; font: 14px/1.5 system-ui, sans-serif; }
-    .boot-card { max-width: 480px; padding: 28px; border: 1px solid rgba(100,116,139,0.15); border-radius: 16px; background: #ffffff; box-shadow: 0 4px 24px rgba(15,23,42,0.10); }
-    .boot-card h2 { margin: 0 0 8px; font-size: 18px; font-weight: 700; color: #0f172a; }
-    .boot-card p { margin: 0; color: #64748b; }
-    .boot-card pre { margin: 16px 0 0; white-space: pre-wrap; color: #dc2626; font: 12px/1.5 Consolas, monospace; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dealer AI Manager</title>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --card2:#162033; --primary:#2563eb;
+    --success:#22c55e; --warning:#f59e0b; --danger:#ef4444;
+    --text:#e2e8f0; --muted:#94a3b8; --border:#334155;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1100px;margin:0 auto;padding:16px}
+  header{display:flex;align-items:center;gap:12px;padding:14px 0;flex-wrap:wrap}
+  header .logo{width:42px;height:42px;border-radius:12px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:22px}
+  header h1{font-size:20px;margin:0;font-weight:800}
+  header .sub{color:var(--muted);font-size:12px}
+  nav{display:flex;gap:6px;overflow-x:auto;padding:8px 0;scrollbar-width:thin}
+  nav button{flex:0 0 auto;background:var(--card);border:1px solid var(--border);color:var(--muted);
+    border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.15s}
+  nav button:hover{color:var(--text)}
+  nav button.active{background:var(--primary);border-color:var(--primary);color:#fff}
+  .tab{display:none}
+  .tab.active{display:block;animation:fade .2s}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px}
+  .card h2{margin:0 0 14px;font-size:16px;font-weight:800}
+  .grid{display:grid;gap:12px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:1fr 1fr 1fr}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:640px){.g2,.g3,.g4{grid-template-columns:1fr 1fr}}
+  label{display:block;font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:5px}
+  input,textarea,select{width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);
+    border-radius:10px;padding:10px 12px;font-size:14px;outline:none;font-family:inherit}
+  input:focus,textarea:focus,select:focus{border-color:var(--primary)}
+  textarea{resize:vertical;min-height:90px;line-height:1.55}
+  .btn{background:var(--primary);border:none;color:#fff;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer;transition:.15s}
+  .btn:hover{filter:brightness(1.1)}
+  .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .btn.success{background:var(--success)} .btn.warn{background:var(--warning);color:#1a1304} .btn.danger{background:var(--danger)}
+  .btn.sm{padding:7px 12px;font-size:12px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .stat{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:14px}
+  .stat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+  .stat .v{font-size:22px;font-weight:900;margin-top:4px}
+  .spec{display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--border);font-size:14px}
+  .spec:first-child{border-top:none}
+  .spec .k{color:var(--muted)}
+  .spec .val{font-weight:700}
+  .pill{display:inline-block;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:800}
+  .pill.green{background:rgba(34,197,94,.18);color:var(--success)}
+  .pill.yellow{background:rgba(245,158,11,.18);color:var(--warning)}
+  .pill.red{background:rgba(239,68,68,.18);color:var(--danger)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+  th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;user-select:none}
+  th:hover{color:var(--text)}
+  tbody tr:hover{background:var(--card2)}
+  .muted{color:var(--muted)}
+  .out{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:14px;white-space:pre-wrap;font-size:14px;line-height:1.6;min-height:120px}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--success);color:#04210f;
+    padding:10px 18px;border-radius:10px;font-weight:800;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:50}
+  .toast.show{opacity:1}
+  .empty{color:var(--muted);text-align:center;padding:30px;font-size:14px}
+  @media print{
+    body{background:#fff;color:#000}
+    .wrap{max-width:none}
+    header,nav,.noprint{display:none!important}
+    .tab{display:none!important} #printArea{display:block!important;color:#000}
+    #printArea h1{font-size:20px} #printArea h2{font-size:16px}
+    #printArea .spec{border-color:#999}
+    table,th,td{color:#000;border-color:#999}
+  }
+</style>
 </head>
 <body>
-  <div id="root">
-    <div class="boot">
-      <div class="boot-card">
-        <h2>Loading Dealer Portal</h2>
-        <p>Starting up the Dixie Motors command center…</p>
+<div class="wrap">
+  <header>
+    <div class="logo">🚗</div>
+    <div style="flex:1">
+      <h1>Dealer AI Manager</h1>
+      <div class="sub">VIN decode · profit · ads · inventory · print — all data saved on this device</div>
+    </div>
+  </header>
+
+  <nav id="nav"></nav>
+
+  <div class="tab active" id="t-decoder">
+    <div class="card">
+      <h2>🔍 VIN Decoder</h2>
+      <div class="grid g2">
+        <div><label>VIN</label><input id="d_vin" maxlength="17" placeholder="17-character VIN" style="text-transform:uppercase" /></div>
+        <div><label>Mileage</label><input id="d_mileage" type="number" placeholder="e.g. 45000" /></div>
+        <div><label>Cost</label><input id="d_cost" type="number" placeholder="your cost" /></div>
+        <div><label>Asking Price</label><input id="d_price" type="number" placeholder="asking price" /></div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn" onclick="decodeVin()" id="decodeBtn">Decode VIN</button>
+        <button class="btn ghost" onclick="clearVehicle()">Clear</button>
+        <span id="decodeMsg" class="muted" style="font-size:13px"></span>
+      </div>
+    </div>
+    <div class="card" id="decodeCard" style="display:none">
+      <h2 id="vehTitle">Vehicle</h2>
+      <div class="grid g2">
+        <div id="specsA"></div>
+        <div id="specsB"></div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn success" onclick="saveToInventory()">＋ Save to Inventory</button>
       </div>
     </div>
   </div>
 
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <!-- Pinned to Babel 7 — Babel 8 (always-latest) rejects bare > / < in JSX text and breaks the app -->
-  <script src="https://unpkg.com/@babel/standalone@7.29.7/babel.min.js"></script>
+  <div class="tab" id="t-profit">
+    <div class="card">
+      <h2>💵 Vehicle Profit Center</h2>
+      <div id="profitVeh" class="muted" style="margin-bottom:14px"></div>
+      <div class="grid g4" id="profitStats"></div>
+    </div>
+    <div class="card">
+      <h2>Suggested Pricing</h2>
+      <div class="grid g3" id="suggestStats"></div>
+    </div>
+  </div>
 
-  <script>
-    // Boot the React dealer portal using the same fetch+compile pattern as axiom-runner
-    const root = ReactDOM.createRoot(document.getElementById("root"));
+  <div class="tab" id="t-market">
+    <div class="card">
+      <h2>📊 Market Center</h2>
+      <div class="grid g3">
+        <div><label>Lowest Market Price</label><input id="m_low" type="number" oninput="calcMarket()" placeholder="lowest comp" /></div>
+        <div><label>Average Market Price</label><input id="m_avg" type="number" oninput="calcMarket()" placeholder="average comp" /></div>
+        <div><label>Highest Market Price</label><input id="m_high" type="number" oninput="calcMarket()" placeholder="highest comp" /></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Suggested Market Pricing</h2>
+      <div class="grid g4" id="marketStats"><div class="empty">Enter market prices above.</div></div>
+      <div id="marketVerdict" style="margin-top:14px"></div>
+    </div>
+  </div>
 
-    function renderError(message) {
-      root.render(
-        React.createElement("div", { className: "boot" },
-          React.createElement("div", { className: "boot-card" },
-            React.createElement("h2", null, "Dealer Portal failed to start"),
-            React.createElement("p", null, "The app loaded but the JSX could not be compiled."),
-            React.createElement("pre", null, String(message || "Unknown error"))
-          )
-        )
-      );
-    }
+  <div class="tab" id="t-ad">
+    <div class="card">
+      <h2>📣 Facebook Ad Generator</h2>
+      <div><label>Short vehicle description (optional)</label><textarea id="ad_desc" placeholder="e.g. Clean, runs great, ice cold AC, new tires"></textarea></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" onclick="genAd()">Generate</button>
+        <button class="btn ghost" onclick="copyText('adOut')">Copy</button>
+      </div>
+      <div class="out" id="adOut" style="margin-top:14px">Decode or load a vehicle, then click Generate.</div>
+    </div>
+  </div>
 
-    async function boot() {
-      try {
-        const response = await fetch(`/client/dealer/app.jsx?v=${Date.now()}`, { cache: "no-store" });
-        if (!response.ok) throw new Error("Unable to load app.jsx (" + response.status + ")");
-        const source = await response.text();
-        const prepared = source.concat("\nwindow.__DEALER_APP__ = App;\n");
-        const compiled = Babel.transform(prepared, { presets: ["react"], filename: "app.jsx" }).code;
-        new Function(compiled)();
-        const App = window.__DEALER_APP__;
-        if (typeof App !== "function") throw new Error("Compiled app did not expose a React component.");
-        root.render(React.createElement(App));
-      } catch (error) {
-        renderError(error && error.stack ? error.stack : String(error));
-      }
-    }
+  <div class="tab" id="t-desc">
+    <div class="card">
+      <h2>📝 Vehicle Description Generator</h2>
+      <div class="grid g2">
+        <div><label>Features (comma separated)</label><input id="ds_features" placeholder="Backup camera, Bluetooth, Leather, Sunroof" /></div>
+        <div><label>Condition notes</label><input id="ds_cond" placeholder="Clean title, well maintained, no accidents" /></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" onclick="genDesc()">Generate</button>
+        <button class="btn ghost" onclick="copyText('descOut')">Copy</button>
+      </div>
+      <div class="out" id="descOut" style="margin-top:14px">Decode or load a vehicle, then click Generate.</div>
+    </div>
+  </div>
 
-    boot();
-  </script>
+  <div class="tab" id="t-inventory">
+    <div class="card">
+      <h2>📦 Inventory Manager</h2>
+      <div class="row" style="margin-bottom:12px">
+        <input id="inv_search" placeholder="Search VIN / make / model…" oninput="renderInventory()" style="max-width:300px" />
+        <button class="btn" onclick="newVehicleForm()">＋ Add Vehicle</button>
+        <span class="muted" id="invCount" style="font-size:13px"></span>
+      </div>
+      <div style="overflow-x:auto">
+        <table id="invTable">
+          <thead><tr id="invHead"></tr></thead>
+          <tbody id="invBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card noprint" id="invForm" style="display:none">
+      <h2 id="invFormTitle">Add Vehicle</h2>
+      <div class="grid g4">
+        <div><label>VIN</label><input id="f_vin" style="text-transform:uppercase" /></div>
+        <div><label>Year</label><input id="f_year" /></div>
+        <div><label>Make</label><input id="f_make" /></div>
+        <div><label>Model</label><input id="f_model" /></div>
+        <div><label>Trim</label><input id="f_trim" /></div>
+        <div><label>Mileage</label><input id="f_mileage" type="number" /></div>
+        <div><label>Cost</label><input id="f_cost" type="number" /></div>
+        <div><label>Price</label><input id="f_price" type="number" /></div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn success" onclick="saveVehicleForm()">Save</button>
+        <button class="btn ghost" onclick="hideForm()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab" id="t-print">
+    <div class="card noprint">
+      <h2>🖨 Print Center</h2>
+      <div class="grid g3">
+        <button class="btn" onclick="buildPrint('worksheet')">Vehicle Worksheet</button>
+        <button class="btn" onclick="buildPrint('inventory')">Inventory Sheet</button>
+        <button class="btn" onclick="buildPrint('summary')">Vehicle Summary</button>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn warn" onclick="window.print()">🖨 Print / Save as PDF</button>
+        <span class="muted" style="font-size:13px">Pick a document above, then print.</span>
+      </div>
+    </div>
+    <div class="card" id="printPreview"><div class="empty">Choose a document to preview.</div></div>
+  </div>
+
+  <div class="tab" id="t-dash">
+    <div class="grid g4" id="dashStats"></div>
+    <div class="card">
+      <h2>Most Recent Vehicles</h2>
+      <div id="dashRecent"></div>
+    </div>
+    <div class="card">
+      <h2>Inventory Summary</h2>
+      <div class="grid g3" id="dashCards"></div>
+    </div>
+  </div>
+</div>
+
+<div id="printArea" style="display:none"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+var TABS = [
+  ["decoder","🔍 VIN Decoder"],["profit","💵 Profit Center"],["market","📊 Market"],
+  ["ad","📣 FB Ad"],["desc","📝 Description"],["inventory","📦 Inventory"],
+  ["print","🖨 Print"],["dash","📈 Dashboard"]
+];
+var INV_COLS = [["vin","VIN"],["year","Year"],["make","Make"],["model","Model"],["trim","Trim"],["mileage","Mileage"],["cost","Cost"],["price","Price"],["profit","Profit"]];
+var INV_KEY = "dam_inventory_v1", CUR_KEY = "dam_current_v1";
+var sortCol = "year", sortDir = -1, editId = null;
+var vehicle = load(CUR_KEY, {});
+var inventory = load(INV_KEY, []);
+
+function load(k,d){ try{ var v=JSON.parse(localStorage.getItem(k)); return v==null?d:v; }catch(e){ return d; } }
+function save(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+function $(id){ return document.getElementById(id); }
+function num(v){ var n=parseFloat(v); return isFinite(n)?n:0; }
+function money(v){ return "$"+Math.round(num(v)).toLocaleString(); }
+function toast(m){ var t=$("toast"); t.textContent=m; t.classList.add("show"); setTimeout(function(){t.classList.remove("show");},1600); }
+
+function buildNav(){
+  var nav=$("nav"); nav.innerHTML="";
+  TABS.forEach(function(t,i){
+    var b=document.createElement("button"); b.textContent=t[1]; b.id="nav-"+t[0];
+    if(i===0) b.className="active";
+    b.onclick=function(){ showTab(t[0]); };
+    nav.appendChild(b);
+  });
+}
+function showTab(id){
+  TABS.forEach(function(t){
+    $("t-"+t[0]).classList.toggle("active", t[0]===id);
+    $("nav-"+t[0]).classList.toggle("active", t[0]===id);
+  });
+  if(id==="profit") renderProfit();
+  if(id==="market") calcMarket();
+  if(id==="ad") genAd();
+  if(id==="desc") genDesc();
+  if(id==="inventory") renderInventory();
+  if(id==="dash") renderDash();
+  window.scrollTo(0,0);
+}
+
+function pick(rows, variable){
+  var r=rows.find(function(x){ return (x.Variable||"").trim()===variable; });
+  var v=r?String(r.Value||"").trim():"";
+  return (v && v!=="Not Applicable" && v!=="0")?v:"";
+}
+function decodeVin(){
+  var vin=($("d_vin").value||"").trim().toUpperCase();
+  vehicle.vin=vin; vehicle.mileage=num($("d_mileage").value);
+  vehicle.cost=num($("d_cost").value); vehicle.price=num($("d_price").value);
+  if(vin.length!==17){ $("decodeMsg").textContent="Enter a full 17-character VIN."; return; }
+  $("decodeBtn").disabled=true; $("decodeMsg").textContent="Decoding…";
+  fetch("https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/"+encodeURIComponent(vin)+"?format=json")
+   .then(function(r){return r.json();})
+   .then(function(d){
+     var rows=(d&&d.Results)||[];
+     vehicle.year=pick(rows,"Model Year");
+     vehicle.make=pick(rows,"Make");
+     vehicle.model=pick(rows,"Model");
+     vehicle.trim=pick(rows,"Series")||pick(rows,"Trim");
+     var displ=pick(rows,"Displacement (L)"), cyl=pick(rows,"Engine Number of Cylinders"), conf=pick(rows,"Engine Configuration");
+     vehicle.engine=[displ?(parseFloat(displ).toFixed(1)+"L"):"", cyl?(cyl+" Cyl"):"", (conf&&conf!=="In-Line")?conf:""].filter(Boolean).join(" ")||"—";
+     vehicle.body=pick(rows,"Body Class")||"—";
+     vehicle.fuel=pick(rows,"Fuel Type - Primary")||"—";
+     var dr=pick(rows,"Drive Type"); var dm={"FWD/Front-Wheel Drive":"FWD","RWD/Rear-Wheel Drive":"RWD","AWD/All-Wheel Drive":"AWD","4WD/4-Wheel Drive/4x4":"4WD"};
+     vehicle.drive=dm[dr]||dr||"—";
+     save(CUR_KEY,vehicle);
+     if(!vehicle.make){ $("decodeMsg").textContent="Could not decode this VIN — you can still enter details manually in Inventory."; }
+     else $("decodeMsg").textContent="Decoded ✓";
+     renderVehicleCard();
+   })
+   .catch(function(){ $("decodeMsg").textContent="Decode failed — check your connection."; })
+   .then(function(){ $("decodeBtn").disabled=false; });
+}
+function renderVehicleCard(){
+  if(!vehicle.vin && !vehicle.make){ $("decodeCard").style.display="none"; return; }
+  $("decodeCard").style.display="";
+  $("vehTitle").textContent=[vehicle.year,vehicle.make,vehicle.model,vehicle.trim].filter(Boolean).join(" ")||"Vehicle";
+  var a=[["Year",vehicle.year],["Make",vehicle.make],["Model",vehicle.model],["Trim",vehicle.trim||"—"]];
+  var b=[["Engine",vehicle.engine||"—"],["Body Style",vehicle.body||"—"],["Fuel Type",vehicle.fuel||"—"],["Drive Type",vehicle.drive||"—"]];
+  $("specsA").innerHTML=a.map(specRow).join("");
+  $("specsB").innerHTML=b.map(specRow).join("");
+}
+function specRow(p){ return '<div class="spec"><span class="k">'+p[0]+'</span><span class="val">'+(p[1]||"—")+'</span></div>'; }
+function clearVehicle(){
+  vehicle={}; save(CUR_KEY,vehicle);
+  ["d_vin","d_mileage","d_cost","d_price"].forEach(function(id){$(id).value="";});
+  $("decodeCard").style.display="none"; $("decodeMsg").textContent="";
+}
+
+function renderProfit(){
+  var v=vehicle;
+  $("profitVeh").innerHTML = (v.vin||v.make)
+    ? "<b>"+[v.year,v.make,v.model,v.trim].filter(Boolean).join(" ")+"</b> · VIN "+(v.vin||"—")+" · "+(num(v.mileage).toLocaleString())+" mi"
+    : "No vehicle loaded — decode a VIN first (or pick one from Inventory).";
+  var cost=num(v.cost), price=num(v.price);
+  var gross=price-cost, pctProfit=cost>0?(gross/cost*100):0;
+  $("profitStats").innerHTML=[
+    ["Cost",money(cost),""],["Asking Price",money(price),""],
+    ["Front-End Gross",money(gross),gross>=0?"success":"danger"],
+    ["Profit %",pctProfit.toFixed(1)+"%",pctProfit>=0?"success":"danger"]
+  ].map(statBox).join("");
+  $("suggestStats").innerHTML=[
+    ["Suggested Retail",money(Math.round(price)),""],
+    ["Suggested Internet",money(Math.round(price*0.97)),"warning"],
+    ["Suggested Cash Price",money(Math.round(price*0.95)),"success"]
+  ].map(statBox).join("");
+}
+function statBox(s){
+  var col = s[2]==="success"?"var(--success)":s[2]==="danger"?"var(--danger)":s[2]==="warning"?"var(--warning)":"var(--text)";
+  return '<div class="stat"><div class="l">'+s[0]+'</div><div class="v" style="color:'+col+'">'+s[1]+'</div></div>';
+}
+
+function calcMarket(){
+  var low=num($("m_low").value), avg=num($("m_avg").value), high=num($("m_high").value);
+  if(!low && !avg && !high){ $("marketStats").innerHTML='<div class="empty">Enter market prices above.</div>'; $("marketVerdict").innerHTML=""; return; }
+  var base=avg||((low+high)/2)||low||high;
+  $("marketStats").innerHTML=[
+    ["Competitive Price",money(Math.round(base*0.97)),"success"],
+    ["Retail Price",money(Math.round(base*1.02)),""],
+    ["Internet Price",money(Math.round(base*0.99)),"warning"],
+    ["Cash Price",money(Math.round(base*0.94)),"success"]
+  ].map(statBox).join("");
+  var competitive=Math.round(base*0.97), retail=Math.round(base*1.02), price=num(vehicle.price);
+  if(price>0){
+    var pill,note;
+    if(price<=competitive){ pill='<span class="pill green">GREEN · COMPETITIVE</span>'; note="At/below the competitive market — priced to move."; }
+    else if(price<=retail){ pill='<span class="pill yellow">YELLOW · FAIR</span>'; note="Within fair market range."; }
+    else { pill='<span class="pill red">RED · OVERPRICED</span>'; note="Above the market — consider lowering."; }
+    $("marketVerdict").innerHTML=pill+' <span class="muted" style="font-size:13px">'+note+' (asking '+money(price)+')</span>';
+  } else {
+    $("marketVerdict").innerHTML='<span class="muted" style="font-size:13px">Set an asking price on a vehicle to see a competitiveness rating.</span>';
+  }
+}
+
+function genAd(){
+  var v=vehicle;
+  var title=[v.year,v.make,v.model,v.trim].filter(Boolean).join(" ")||"[Vehicle]";
+  var miles=v.mileage?num(v.mileage).toLocaleString():"[mileage]";
+  var desc=($("ad_desc").value||"").trim();
+  $("adOut").textContent=[
+    title,"",
+    "✅ Clean title","✅ Ready to drive","",
+    "🟢 Fast & Easy Financing – All Credit Accepted",
+    "🟢 ITIN Accepted – Low Down Payment Options",
+    "🟢 Trade-Ins Welcome","",
+    miles+" miles","",
+    desc||"Well-maintained and ready for its next owner.","",
+    "📩 Message us now."
+  ].join("\n");
+}
+
+function genDesc(){
+  var v=vehicle;
+  var title=[v.year,v.make,v.model,v.trim].filter(Boolean).join(" ")||"[Vehicle]";
+  var feats=($("ds_features").value||"").split(",").map(function(s){return s.trim();}).filter(Boolean);
+  var cond=($("ds_cond").value||"").trim();
+  var miles=v.mileage?num(v.mileage).toLocaleString()+" miles":"low miles";
+  var lines=[];
+  lines.push("Take a look at this "+title+" — "+miles+", "+(v.engine&&v.engine!=="—"?v.engine+" engine, ":"")+(v.drive&&v.drive!=="—"?v.drive+", ":"")+(v.fuel&&v.fuel!=="—"?v.fuel.toLowerCase()+".":"a great daily driver."));
+  if(feats.length) lines.push("\nKey features: "+feats.join(", ")+".");
+  lines.push("\nCondition: "+(cond||"Inspected and in solid mechanical condition.")+" Body style: "+(v.body||"—")+".");
+  lines.push("\nThis "+(v.make||"vehicle")+" is priced to sell and won't last long. Financing available for all credit types, ITIN welcome, trade-ins accepted. Contact us today to schedule a test drive!");
+  $("descOut").textContent=lines.join("\n");
+}
+
+function copyText(id){
+  var t=$(id).textContent;
+  if(navigator.clipboard) navigator.clipboard.writeText(t).then(function(){toast("Copied!");},function(){fallbackCopy(t);});
+  else fallbackCopy(t);
+}
+function fallbackCopy(t){ var ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand("copy");toast("Copied!");}catch(e){} document.body.removeChild(ta); }
+
+function vehProfit(x){ return num(x.price)-num(x.cost); }
+function saveToInventory(){
+  if(!vehicle.vin && !vehicle.make){ toast("Decode a vehicle first."); return; }
+  inventory.unshift({ id:Date.now(), vin:vehicle.vin||"", year:vehicle.year||"", make:vehicle.make||"", model:vehicle.model||"",
+    trim:vehicle.trim||"", mileage:num(vehicle.mileage), cost:num(vehicle.cost), price:num(vehicle.price),
+    engine:vehicle.engine||"", body:vehicle.body||"", fuel:vehicle.fuel||"", drive:vehicle.drive||"" });
+  save(INV_KEY,inventory); toast("Saved to inventory ✓");
+}
+function renderInventory(){
+  $("invHead").innerHTML=INV_COLS.map(function(c){
+    var arrow = sortCol===c[0]?(sortDir>0?" ▲":" ▼"):"";
+    return '<th onclick="sortInv(\''+c[0]+'\')">'+c[1]+arrow+'</th>';
+  }).join("")+'<th class="noprint"></th>';
+  var q=($("inv_search").value||"").toLowerCase();
+  var rows=inventory.filter(function(x){ return !q || [x.vin,x.make,x.model,x.trim,x.year].join(" ").toLowerCase().indexOf(q)>=0; });
+  rows.sort(function(a,b){
+    var va=a[sortCol], vb=b[sortCol];
+    if(["mileage","cost","price","year"].indexOf(sortCol)>=0){ va=num(va); vb=num(vb); }
+    if(sortCol==="profit"){ va=vehProfit(a); vb=vehProfit(b); }
+    if(va<vb) return -1*sortDir; if(va>vb) return 1*sortDir; return 0;
+  });
+  $("invCount").textContent=rows.length+" vehicle"+(rows.length!==1?"s":"");
+  if(!rows.length){ $("invBody").innerHTML='<tr><td colspan="10" class="empty">No vehicles yet. Decode a VIN and save it, or click Add Vehicle.</td></tr>'; return; }
+  $("invBody").innerHTML=rows.map(function(x){
+    var p=vehProfit(x), pc=p>=0?"var(--success)":"var(--danger)";
+    return '<tr>'
+      +'<td>'+(x.vin||"—")+'</td><td>'+(x.year||"—")+'</td><td>'+(x.make||"—")+'</td><td>'+(x.model||"—")+'</td><td>'+(x.trim||"—")+'</td>'
+      +'<td>'+num(x.mileage).toLocaleString()+'</td><td>'+money(x.cost)+'</td><td>'+money(x.price)+'</td>'
+      +'<td style="color:'+pc+';font-weight:700">'+money(p)+'</td>'
+      +'<td class="noprint" style="white-space:nowrap">'
+        +'<button class="btn ghost sm" onclick="loadVehicle('+x.id+')">Load</button> '
+        +'<button class="btn ghost sm" onclick="editVehicle('+x.id+')">Edit</button> '
+        +'<button class="btn danger sm" onclick="delVehicle('+x.id+')">✕</button>'
+      +'</td></tr>';
+  }).join("");
+}
+function sortInv(c){ if(sortCol===c) sortDir*=-1; else { sortCol=c; sortDir=1; } renderInventory(); }
+function loadVehicle(id){
+  var x=inventory.find(function(v){return v.id===id;}); if(!x) return;
+  vehicle=JSON.parse(JSON.stringify(x)); save(CUR_KEY,vehicle);
+  $("d_vin").value=x.vin||""; $("d_mileage").value=x.mileage||""; $("d_cost").value=x.cost||""; $("d_price").value=x.price||"";
+  renderVehicleCard(); toast("Loaded into workspace"); showTab("decoder");
+}
+function newVehicleForm(){ editId=null; $("invFormTitle").textContent="Add Vehicle"; ["vin","year","make","model","trim","mileage","cost","price"].forEach(function(f){$("f_"+f).value="";}); $("invForm").style.display=""; $("invForm").scrollIntoView({behavior:"smooth"}); }
+function editVehicle(id){
+  var x=inventory.find(function(v){return v.id===id;}); if(!x) return;
+  editId=id; $("invFormTitle").textContent="Edit Vehicle";
+  ["vin","year","make","model","trim","mileage","cost","price"].forEach(function(f){$("f_"+f).value=x[f]!=null?x[f]:"";});
+  $("invForm").style.display=""; $("invForm").scrollIntoView({behavior:"smooth"});
+}
+function saveVehicleForm(){
+  var rec={ vin:($("f_vin").value||"").toUpperCase(), year:$("f_year").value, make:$("f_make").value, model:$("f_model").value,
+    trim:$("f_trim").value, mileage:num($("f_mileage").value), cost:num($("f_cost").value), price:num($("f_price").value) };
+  if(!rec.vin && !rec.make){ toast("Enter at least a VIN or make."); return; }
+  if(editId){ var i=inventory.findIndex(function(v){return v.id===editId;}); if(i>=0) inventory[i]=Object.assign({},inventory[i],rec); }
+  else { rec.id=Date.now(); inventory.unshift(rec); }
+  save(INV_KEY,inventory); hideForm(); renderInventory(); toast("Saved ✓");
+}
+function delVehicle(id){ if(!confirm("Delete this vehicle?")) return; inventory=inventory.filter(function(v){return v.id!==id;}); save(INV_KEY,inventory); renderInventory(); }
+function hideForm(){ $("invForm").style.display="none"; editId=null; }
+
+function buildPrint(kind){
+  var html="";
+  if(kind==="worksheet"){
+    var v=vehicle;
+    html='<h1>Vehicle Worksheet</h1><h2>'+([v.year,v.make,v.model,v.trim].filter(Boolean).join(" ")||"Vehicle")+'</h2>'
+      +prow("VIN",v.vin)+prow("Year",v.year)+prow("Make",v.make)+prow("Model",v.model)+prow("Trim",v.trim)
+      +prow("Engine",v.engine)+prow("Body",v.body)+prow("Fuel",v.fuel)+prow("Drive",v.drive)
+      +prow("Mileage",num(v.mileage).toLocaleString())+prow("Cost",money(v.cost))+prow("Asking Price",money(v.price))
+      +prow("Front-End Gross",money(num(v.price)-num(v.cost)));
+  } else if(kind==="inventory"){
+    html='<h1>Inventory Sheet</h1><table><thead><tr>'+INV_COLS.map(function(c){return "<th>"+c[1]+"</th>";}).join("")+'</tr></thead><tbody>'
+      +inventory.map(function(x){return "<tr><td>"+(x.vin||"")+"</td><td>"+(x.year||"")+"</td><td>"+(x.make||"")+"</td><td>"+(x.model||"")+"</td><td>"+(x.trim||"")+"</td><td>"+num(x.mileage).toLocaleString()+"</td><td>"+money(x.cost)+"</td><td>"+money(x.price)+"</td><td>"+money(vehProfit(x))+"</td></tr>";}).join("")
+      +'</tbody></table>';
+  } else {
+    var tv=inventory.length, tc=inventory.reduce(function(s,x){return s+num(x.cost);},0), tp=inventory.reduce(function(s,x){return s+num(x.price);},0);
+    html='<h1>Vehicle Summary</h1>'+prow("Total Vehicles",tv)+prow("Total Cost",money(tc))+prow("Total Asking",money(tp))+prow("Total Potential Profit",money(tp-tc));
+  }
+  $("printPreview").innerHTML=html;
+  $("printArea").innerHTML=html;
+}
+function prow(k,v){ return '<div class="spec"><span class="k">'+k+'</span><span class="val">'+(v||"—")+'</span></div>'; }
+
+function renderDash(){
+  var n=inventory.length;
+  var tc=inventory.reduce(function(s,x){return s+num(x.cost);},0);
+  var tp=inventory.reduce(function(s,x){return s+num(x.price);},0);
+  var profit=tp-tc;
+  $("dashStats").innerHTML=[
+    ["Total Vehicles",String(n),""],
+    ["Average Cost",money(n?tc/n:0),""],
+    ["Average Price",money(n?tp/n:0),"warning"],
+    ["Total Potential Profit",money(profit),profit>=0?"success":"danger"]
+  ].map(statBox).join("");
+  var recent=inventory.slice(0,5);
+  $("dashRecent").innerHTML = recent.length ? recent.map(function(x){
+    return '<div class="spec"><span class="k">'+([x.year,x.make,x.model,x.trim].filter(Boolean).join(" ")||"Vehicle")+'</span><span class="val">'+money(x.price)+' · <span style="color:'+(vehProfit(x)>=0?"var(--success)":"var(--danger)")+'">'+money(vehProfit(x))+'</span></span></div>';
+  }).join("") : '<div class="empty">No vehicles yet.</div>';
+  var byMake={};
+  inventory.forEach(function(x){ var m=x.make||"Other"; (byMake[m]=byMake[m]||{n:0,p:0}); byMake[m].n++; byMake[m].p+=vehProfit(x); });
+  var keys=Object.keys(byMake).sort(function(a,b){return byMake[b].n-byMake[a].n;});
+  $("dashCards").innerHTML = keys.length ? keys.map(function(m){
+    return '<div class="stat"><div class="l">'+m+'</div><div class="v">'+byMake[m].n+' <span style="font-size:13px;color:var(--muted)">units</span></div><div class="muted" style="font-size:12px;margin-top:4px">Profit '+money(byMake[m].p)+'</div></div>';
+  }).join("") : '<div class="empty">Add vehicles to see a summary.</div>';
+}
+
+buildNav();
+$("d_vin").value=vehicle.vin||""; $("d_mileage").value=vehicle.mileage||""; $("d_cost").value=vehicle.cost||""; $("d_price").value=vehicle.price||"";
+renderVehicleCard();
+</script>
 </body>
 </html>
