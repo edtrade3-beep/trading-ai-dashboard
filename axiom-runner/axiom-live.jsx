@@ -6503,6 +6503,11 @@ function logTradeNote(type, text) {
     notes.unshift({ id: Date.now() + Math.floor(Math.random() * 9999), type, text, ts: new Date().toISOString(), auto: true });
     localStorage.setItem("axiom_notes_v1", JSON.stringify(notes.slice(0, 200)));
     window.dispatchEvent(new Event("notes-changed"));
+    // Ping Telegram on auto-pilot trades (toggle: axiom_autopilot_tg, default on).
+    if (localStorage.getItem("axiom_autopilot_tg") !== "off" && (type === "buy" || type === "exit")) {
+      const icon = type === "buy" ? "🤖 AUTO-TRADE" : "🤖 AUTO-EXIT";
+      fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: icon + "\n\n" + text }) }).catch(() => {});
+    }
   } catch {}
 }
 
@@ -7123,6 +7128,11 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   const totalPnl = closed.reduce((s, t) => s + pnlOf(t), 0);
   const avgWin = wins.length ? wins.reduce((s,t) => s + pnlOf(t), 0) / wins.length : 0;
   const avgLoss = losses.length ? Math.abs(losses.reduce((s,t) => s + pnlOf(t), 0) / losses.length) : 0;
+  // Expectancy per trade = (win% × avg win) − (loss% × avg loss). The number that says "is my edge real?"
+  const lossRate = closed.length ? losses.length / closed.length : 0;
+  const expectancy = closed.length ? ((winRate / 100) * avgWin - lossRate * avgLoss) : 0;
+  const profitFactor = avgLoss > 0 && losses.length ? (avgWin * wins.length) / (avgLoss * losses.length) : (wins.length ? Infinity : 0);
+  const edgeReady = closed.length >= 20 && expectancy > 0; // 20+ trades with positive expectancy
 
   // Win rate by Green Light score (4/5 vs 5/5) for comparison
   const byScore = sc => {
@@ -7149,6 +7159,35 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
 
   return (
     <div style={{ marginBottom: 20 }}>
+      {/* ── PERFORMANCE / EXPECTANCY ── */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em" }}>📊 PERFORMANCE ({mode})</span>
+          {closed.length < 20
+            ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.amber, background: `${C.amber}18`, borderRadius: 5, padding: "3px 8px" }}>⏳ {closed.length}/20 trades — keep going</span>
+            : edgeReady
+              ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.green, background: `${C.green}18`, borderRadius: 5, padding: "3px 8px" }}>✓ POSITIVE EDGE — you may be ready to scale</span>
+              : <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.red, background: `${C.red}18`, borderRadius: 5, padding: "3px 8px" }}>✕ NO EDGE YET — refine before going live</span>}
+        </div>
+        <div style={{ display: "flex", gap: 22, rowGap: 12, flexWrap: "wrap" }}>
+          {[
+            ["TRADES", String(closed.length), C.text],
+            ["WIN RATE", winRate + "%", winRate >= 50 ? C.green : C.amber],
+            ["AVG WIN", "$" + Math.round(avgWin), C.green],
+            ["AVG LOSS", "$" + Math.round(avgLoss), C.red],
+            ["EXPECTANCY/TRADE", (expectancy >= 0 ? "+" : "") + "$" + expectancy.toFixed(0), expectancy >= 0 ? C.green : C.red],
+            ["PROFIT FACTOR", profitFactor === Infinity ? "∞" : profitFactor.toFixed(2), profitFactor >= 1.5 ? C.green : profitFactor >= 1 ? C.amber : C.red],
+            ["TOTAL P&L", (totalPnl >= 0 ? "+" : "") + "$" + Math.round(totalPnl), totalPnl >= 0 ? C.green : C.red],
+          ].map(([l, v, col]) => (
+            <div key={l}><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.04em" }}>{l}</div>
+              <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 800, color: col }}>{v}</div></div>
+          ))}
+        </div>
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 8 }}>
+          Expectancy = (win% × avg win) − (loss% × avg loss) — the average you make per trade. Positive over 20+ trades = a real edge.
+        </div>
+      </div>
+
       {/* ── TODAY'S SESSION P&L ── */}
       <div style={{ background: `${realizedToday >= 0 ? C.green : C.red}0e`, border: `1px solid ${realizedToday >= 0 ? C.green : C.red}44`, borderRadius: 10, padding: "12px 16px", marginBottom: 12, display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
         <div>
