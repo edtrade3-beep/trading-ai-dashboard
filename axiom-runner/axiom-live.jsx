@@ -7844,7 +7844,7 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
         </div>
       </div>
 
-      {broker === "alpaca" && <AlpacaPanel C={C} MONO={MONO} SANS={SANS} />}
+      {(broker === "alpaca" || broker === "both") && <AlpacaPanel C={C} MONO={MONO} SANS={SANS} />}
 
       <TradeTracker C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} />
     </div>
