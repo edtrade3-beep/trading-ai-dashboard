@@ -7725,14 +7725,22 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
     window.addEventListener("autopilot-tick", onTick);
     return () => window.removeEventListener("autopilot-tick", onTick);
   }, []);
-  // Shares-only mode: force shares ON, options & short OFF so the auto-pilot always has something to trade
-  useEffect(() => {
-    localStorage.setItem("axiom_autopilot_shares", "on");
-    localStorage.setItem("axiom_autopilot_opts", "off");
-    localStorage.setItem("axiom_autopilot_short", "off");
-    setSharesOn(true); setOptsOn(false); setShortOn(false);
-  }, []);
   const toggleAuto = () => { const v = !autoPilot; setAutoPilot(v); localStorage.setItem("axiom_autopilot", v ? "on" : "off"); };
+  // ── One-click preset modes — set every toggle at once ──
+  const applyPreset = (p) => {
+    var cfg = {
+      simple:  { shares:"on", opts:"off", short:"off", min:5 },
+      calls:   { shares:"on", opts:"on",  short:"off", min:5 },
+      full:    { shares:"on", opts:"on",  short:"on",  min:4 },
+    }[p];
+    if (!cfg) return;
+    localStorage.setItem("axiom_autopilot_shares", cfg.shares);
+    localStorage.setItem("axiom_autopilot_opts", cfg.opts);
+    localStorage.setItem("axiom_autopilot_short", cfg.short);
+    localStorage.setItem("axiom_autopilot_min", String(cfg.min));
+    setSharesOn(cfg.shares === "on"); setOptsOn(cfg.opts === "on"); setShortOn(cfg.short === "on"); setAutoThreshold(cfg.min);
+  };
+  const activeMode = (sharesOn && optsOn && shortOn) ? "full" : (sharesOn && optsOn) ? "calls" : "simple";
   const flattenAll = async () => {
     if (!window.confirm("Close ALL open paper positions now?")) return;
     setClosing(true);
@@ -7824,9 +7832,33 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
         </button>
       </div>
 
+      {/* ── Quick Modes — one-click presets ── */}
+      <div style={{ marginBottom: 14, padding: "14px 18px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em", marginBottom: 4 }}>⚡ QUICK MODE — one click sets everything</div>
+        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 12 }}>Don't want to fiddle with toggles? Pick a mode and the auto-pilot configures itself.</div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {[
+            ["simple", "🟢 Simple", "Long stocks only", "Buys shares on green setups. Safest, easiest."],
+            ["calls", "📈 Long + Calls", "Stocks + call options", "Adds call options on bullish setups for more upside."],
+            ["full", "🔥 Full Auto", "Long & short, calls & puts", "Trades both directions: calls on longs, puts on shorts."],
+          ].map(([id, label, sub, desc]) => {
+            const on = activeMode === id;
+            return (
+              <button key={id} onClick={() => applyPreset(id)} title={desc}
+                style={{ flex: "1 1 180px", textAlign: "left", cursor: "pointer", borderRadius: 10, padding: "12px 14px",
+                  border: `1px solid ${on ? C.accent : C.border}`, background: on ? `${C.accent}14` : "transparent" }}>
+                <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: on ? C.accent : C.text }}>{label}{on ? " ✓" : ""}</div>
+                <div style={{ fontFamily: SANS, fontSize: 12, color: C.text, marginTop: 3 }}>{sub}</div>
+                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 2 }}>{desc}</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* ── 2. Settings ── */}
       <div style={{ marginBottom: 14, padding: "14px 18px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
-        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em", marginBottom: 12 }}>⚙️ SETTINGS</div>
+        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em", marginBottom: 12 }}>⚙️ FINE-TUNE (optional)</div>
         <div style={{ display: "flex", gap: 22, rowGap: 16, flexWrap: "wrap" }}>
           <Setting label="WHEN TO BUY" hint="How strict the entry is. 5/5 = fewer, perfect setups." value={autoThreshold}
             onPick={n => { setAutoThreshold(n); localStorage.setItem("axiom_autopilot_min", n); }}
