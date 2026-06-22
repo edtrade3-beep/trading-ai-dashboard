@@ -126,6 +126,7 @@
     </div>
     <div class="card">
       <h2>🔎 Price Beater — cheapest comp near you</h2>
+      <div id="pbApi" style="margin-bottom:10px"></div>
       <div class="row" style="margin-bottom:12px">
         <div style="max-width:140px"><label>My ZIP</label><input id="pb_zip" value="45014" maxlength="5" /></div>
         <div style="max-width:140px"><label>Radius (mi)</label><input id="pb_radius" type="number" value="200" /></div>
@@ -391,6 +392,18 @@ function findFlags(text){
   FB_FLAGGED.forEach(function(w){ if(t.indexOf(w)>=0 && hits.indexOf(w)<0) hits.push(w); });
   return hits;
 }
+function fetchApiStatus(){
+  fetch("/api/dealer/ai-key").then(function(r){return r.json();}).then(function(d){
+    var engine = d.engine; // marketcheck | autodev | brave | null
+    var html;
+    if(engine==="autodev") html='<span class="pill green">● LIVE · Auto.dev</span> <span class="muted" style="font-size:12px">Real dealer listings active.</span>';
+    else if(engine==="marketcheck") html='<span class="pill green">● LIVE · MarketCheck</span> <span class="muted" style="font-size:12px">Real dealer listings active.</span>';
+    else if(engine==="brave") html='<span class="pill yellow">● Brave search</span> <span class="muted" style="font-size:12px">Web-search comps (less precise).</span>';
+    else html='<span class="pill yellow">○ Estimate mode</span> <span class="muted" style="font-size:12px">No live API key set — using a market estimate. Add <b>AUTODEV_API_KEY</b> in Render for real listings.</span>';
+    $("pbApi").innerHTML=html;
+  }).catch(function(){ $("pbApi").innerHTML=""; });
+}
+
 function findCheapest(){
   var v=vehicle;
   if(!v.make || !v.model){ $("pbMsg").textContent="Decode or load a vehicle first."; return; }
@@ -596,6 +609,7 @@ buildNav();
 $("d_vin").value=vehicle.vin||""; $("d_mileage").value=vehicle.mileage||""; $("d_cost").value=vehicle.cost||""; $("d_price").value=vehicle.price||"";
 renderVehicleCard();
 renderInventory();
+fetchApiStatus();
 </script>
 </body>
 </html>

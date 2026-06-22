@@ -44,3 +44,7 @@ services:
         sync: false
       - key: BRAVE_API_KEY
         sync: false
+      - key: AUTODEV_API_KEY
+        sync: false
+      - key: MARKETCHECK_API_KEY
+        sync: false
