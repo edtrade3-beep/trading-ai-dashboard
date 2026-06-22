@@ -7531,6 +7531,10 @@ function AlpacaPanel({ C, MONO, SANS }) {
         <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>BUYING POWER</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{fmt(acct.buyingPower)}</div></div>
         <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>CASH</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{fmt(acct.cash)}</div></div>
         <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>POSITIONS</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{positions.length}</div></div>
+        <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>OPTIONS</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: acct.optionsApprovedLevel >= 2 ? C.green : acct.optionsApprovedLevel != null ? C.amber : C.textDim }}>
+          {acct.optionsApprovedLevel != null ? ("Level " + acct.optionsApprovedLevel + (acct.optionsApprovedLevel >= 2 ? " ✓" : "")) : "—"}
+        </div></div>
+        {acct.optionsApprovedLevel >= 2 && <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#d97706", background: "#d9770618", border: "1px solid #d9770644", borderRadius: 5, padding: "3px 8px" }} title="Short setups trade via defined-risk PUT options on Alpaca">📉 SHORT via PUTS</span>}
       </div>
       {positions.length > 0 && (
         <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
