@@ -50,6 +50,9 @@ async function handleAlpaca(req, res, requestUrl) {
         status: d.status, equity: Number(d.equity), cash: Number(d.cash),
         buyingPower: Number(d.buying_power), portfolioValue: Number(d.portfolio_value),
         currency: d.currency, paper: true,
+        optionsApprovedLevel: d.options_approved_level != null ? Number(d.options_approved_level) : null,
+        optionsTradingLevel: d.options_trading_level != null ? Number(d.options_trading_level) : null,
+        optionsBuyingPower: d.options_buying_power != null ? Number(d.options_buying_power) : null,
       } });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }

@@ -6748,7 +6748,14 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
         if (doShort && shortSetup) {
           const key = `${today}:${q.symbol}:SH:${broker}`;
           if (!autoBoughtRef.current.has(key)) {
-            if (broker === "alpaca") {
+            if (broker === "alpaca" && doOptions) {
+              // Short via a PUT option (defined risk) — Alpaca only.
+              autoBoughtRef.current.add(key); slots--;
+              alpacaOption(q.symbol, "put", 1, gl.px).then(rr => {
+                if (rr?.ok) logTradeNote("buy", `📉 ALPACA SHORT (PUT) — ${q.symbol} (${gl.shortPassed}/5)\n1 contract · strike $${rr.order?.strike} · exp ${rr.order?.expiry} (paper)`);
+                else { autoBoughtRef.current.delete(key); }
+              });
+            } else if (broker === "alpaca") {
               const entry = gl.px;
               const atr = Math.min(0.05, Math.max(0.01, Number(gl.atrPct) || 0.025));
               const stop = +(entry * (1 + atr * 1.5)).toFixed(2);   // stop above
