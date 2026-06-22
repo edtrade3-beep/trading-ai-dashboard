@@ -6767,6 +6767,11 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
                 if (r?.ok) logTradeNote("buy", `🔻 ALPACA SHORT — ${q.symbol} (${gl.shortPassed}/5)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} (above) · Target $${take} (below)`);
                 else { autoBoughtRef.current.delete(key); }
               });
+            } else if (doOptions) {
+              // SIM short via a PUT option (defined risk).
+              const res = addPaperOption(q.symbol, gl.px, "PUT", { glScore: gl.shortPassed });
+              if (res === "OK") { autoBoughtRef.current.add(key); slots--; }
+              else if (res === "DUP") autoBoughtRef.current.add(key);
             } else {
               const res = addPaperShort(q.symbol, gl.px, { atrPct: gl.atrPct, glScore: gl.shortPassed });
               if (res === "OK") { autoBoughtRef.current.add(key); slots--; }
