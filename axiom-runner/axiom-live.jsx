@@ -7134,6 +7134,20 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   const profitFactor = avgLoss > 0 && losses.length ? (avgWin * wins.length) / (avgLoss * losses.length) : (wins.length ? Infinity : 0);
   const edgeReady = closed.length >= 20 && expectancy > 0; // 20+ trades with positive expectancy
 
+  // Equity curve: cumulative P&L through the closed trades, in time order.
+  const closedChrono = [...closed].sort((a, b) => new Date(a.closedAt || 0) - new Date(b.closedAt || 0));
+  let _cum = 0; const equityPts = closedChrono.map(t => { _cum += pnlOf(t); return _cum; });
+
+  // "Which setups make money" — win rate + P&L by direction and by Green Light score.
+  const breakdown = (label, set) => { if (!set.length) return null; const w = set.filter(t => pnlOf(t) > 0).length; return { label, n: set.length, wr: Math.round(w / set.length * 100), pnl: set.reduce((s, t) => s + pnlOf(t), 0) }; };
+  const setupRows = [
+    breakdown("Longs", closed.filter(t => t.side !== "SHORT")),
+    breakdown("Shorts", closed.filter(t => t.side === "SHORT")),
+    breakdown("Options", closed.filter(t => t.kind || t.optionType)),
+    breakdown("Green Light 5/5", closed.filter(t => Number(t.glScore) === 5)),
+    breakdown("Green Light 4/5", closed.filter(t => Number(t.glScore) === 4)),
+  ].filter(Boolean);
+
   // Win rate by Green Light score (4/5 vs 5/5) for comparison
   const byScore = sc => {
     const set = closed.filter(t => Number(t.glScore) === sc);
@@ -7186,6 +7200,47 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
         <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 8 }}>
           Expectancy = (win% × avg win) − (loss% × avg loss) — the average you make per trade. Positive over 20+ trades = a real edge.
         </div>
+
+        {/* Equity curve */}
+        {equityPts.length >= 2 && (() => {
+          const w = 100, h = 36, n = equityPts.length;
+          const lo = Math.min(0, ...equityPts), hi = Math.max(0, ...equityPts), span = (hi - lo) || 1;
+          const x = i => (i / (n - 1)) * w;
+          const y = v => h - ((v - lo) / span) * h;
+          const path = equityPts.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join(" ");
+          const up = equityPts[n - 1] >= 0;
+          return (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>📈 EQUITY CURVE — cumulative P&L over {n} closed trades</div>
+              <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ width: "100%", height: 60, display: "block" }}>
+                <line x1="0" y1={y(0).toFixed(1)} x2={w} y2={y(0).toFixed(1)} stroke={C.border} strokeWidth="0.4" strokeDasharray="1 1" />
+                <path d={path} fill="none" stroke={up ? C.green : C.red} strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
+              </svg>
+            </div>
+          );
+        })()}
+
+        {/* Which setups make money */}
+        {setupRows.length > 0 && (
+          <div style={{ marginTop: 12, overflowX: "auto" }}>
+            <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 6 }}>🎯 WHICH SETUPS MAKE MONEY</div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12 }}>
+              <thead><tr style={{ color: C.textDim }}>
+                {["Setup", "Trades", "Win %", "P&L"].map((hh, i) => <th key={i} style={{ textAlign: i ? "right" : "left", padding: "4px 8px", fontSize: 10, fontWeight: 700, borderBottom: `1px solid ${C.border}` }}>{hh}</th>)}
+              </tr></thead>
+              <tbody>
+                {setupRows.map(r => (
+                  <tr key={r.label}>
+                    <td style={{ padding: "5px 8px", color: C.text }}>{r.label}</td>
+                    <td style={{ padding: "5px 8px", textAlign: "right", color: C.textDim }}>{r.n}</td>
+                    <td style={{ padding: "5px 8px", textAlign: "right", color: r.wr >= 50 ? C.green : C.amber }}>{r.wr}%</td>
+                    <td style={{ padding: "5px 8px", textAlign: "right", fontWeight: 700, color: r.pnl >= 0 ? C.green : C.red }}>{r.pnl >= 0 ? "+" : ""}${Math.round(r.pnl)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* ── TODAY'S SESSION P&L ── */}

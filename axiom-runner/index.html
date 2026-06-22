@@ -49,6 +49,20 @@
       color: #c7254e;
       font: 12px/1.5 Consolas, monospace;
     }
+
+    /* ── Mobile safety net (phones ≤ 767px) ──
+       The app sets most layout via inline styles + an isMobile flag, but a few
+       dense fixed-column grids and wide tables can still overflow on a phone.
+       These rules stop horizontal scroll and keep media/tables inside the viewport
+       without touching the React component. */
+    @media (max-width: 767px) {
+      html, body { overflow-x: hidden; -webkit-text-size-adjust: 100%; }
+      #root { max-width: 100vw; }
+      img, svg, canvas, video, iframe { max-width: 100%; }
+      table { max-width: 100%; }
+      /* let any element that declares a fixed pixel width shrink to fit */
+      .mobile-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    }
   </style>
 </head>
 <body>
