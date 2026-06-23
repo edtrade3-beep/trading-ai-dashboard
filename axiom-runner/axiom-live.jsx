@@ -7177,7 +7177,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
   return null;
 }
 
-function TradeTracker({ C, MONO, SANS, watchlistData }) {
+function TradeTracker({ C, MONO, SANS, watchlistData, view = "all" }) {
   const [trades, setTrades] = useState(() => { try { return JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []; } catch { return []; } });
   const [form, setForm] = useState({ ticker: "", entry: "", shares: "" });
   // ── PAPER vs LIVE mode ──
@@ -7401,6 +7401,7 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
         </div>
       )}
 
+      {view !== "trades" && <>
       {/* ── PERFORMANCE / EXPECTANCY ── */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
@@ -7573,7 +7574,9 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
           <div><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>DAY TOTAL</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: (realizedToday + unrealOpen) >= 0 ? C.green : C.red }}>{(realizedToday + unrealOpen) >= 0 ? "+" : ""}${(realizedToday + unrealOpen).toFixed(0)}</div></div>
         </div>
       </div>
+      </>}
 
+      {view !== "stats" && <>
       {/* PAPER / LIVE mode toggle */}
       <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>📋 MY TRADES</span>
@@ -7898,6 +7901,7 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
           })}
         </div>
       )}
+      </>}
     </div>
   );
 }
@@ -8128,6 +8132,7 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [lastCheck, setLastCheck] = useState(() => Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
   const [closing, setClosing] = useState(false);
   const [showSetup, setShowSetup] = useState(() => localStorage.getItem("axiom_autopilot") !== "on"); // collapsed once running
+  const [mtView, setMtView] = useState("trades"); // trades | stats | autopilot
   // Live status inputs (recomputed each render; the tick re-renders this via setLastCheck every 15s).
   const maxLoss = Number(localStorage.getItem("axiom_autopilot_maxloss")) || 0;
   const halted = maxLoss > 0 && localStorage.getItem("axiom_autopilot_halt_date") === new Date().toISOString().slice(0, 10);
@@ -8217,6 +8222,16 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
         </button>
       </div>
 
+      {/* ── Sub-tabs ── */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 14, background: C.surface, borderRadius: 10, padding: 4, border: `1px solid ${C.border}` }}>
+        {[["trades", "📋 Trades"], ["stats", "📊 Stats"], ["autopilot", `🤖 Autopilot${autoPilot ? " ●" : ""}`]].map(([id, l]) => (
+          <button key={id} onClick={() => setMtView(id)}
+            style={{ flex: 1, fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "9px 8px", borderRadius: 7, cursor: "pointer", border: "none",
+              background: mtView === id ? C.accent : "transparent", color: mtView === id ? "#fff" : (id === "autopilot" && autoPilot ? "#22c55e" : C.textSec) }}>{l}</button>
+        ))}
+      </div>
+
+      {mtView === "autopilot" && <>
       {/* ── 1. Master switch ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12, padding: "16px 18px",
         background: autoPilot ? "#16a34a14" : C.card, border: `2px solid ${autoPilot ? "#16a34a" : C.border}`, borderRadius: 12, flexWrap: "wrap" }}>
@@ -8322,8 +8337,9 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
 
       {(broker === "alpaca" || broker === "both") && <AlpacaPanel C={C} MONO={MONO} SANS={SANS} />}
       </>}
+      </>}
 
-      <TradeTracker C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} />
+      {mtView !== "autopilot" && <TradeTracker C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} view={mtView} />}
     </div>
   );
 }
