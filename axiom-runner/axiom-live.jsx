@@ -6845,6 +6845,31 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       const spyChg = Number(spyQ?.changesPercentage || 0);
       const today = new Date().toISOString().slice(0, 10);
 
+      // ── Circuit breaker: once today's realized loss hits the daily limit, stop opening NEW trades. ──
+      // Open positions are still managed/closed by the exit engine — we only halt fresh risk.
+      const maxLoss = Number(localStorage.getItem("axiom_autopilot_maxloss")) || 0;  // 0 = off
+      if (maxLoss > 0) {
+        let dayPnl = 0;
+        try {
+          (JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []).forEach(t => {
+            if (t.status === "CLOSED" && t.mode === "PAPER" && String(t.closedAt || "").slice(0, 10) === today) {
+              dayPnl += (Number(t.exit) - Number(t.entry)) * Number(t.shares) * (t.side === "SHORT" ? -1 : 1);
+            }
+          });
+        } catch {}
+        if (dayPnl <= -maxLoss) {
+          if (localStorage.getItem("axiom_autopilot_halt_date") !== today) {
+            localStorage.setItem("axiom_autopilot_halt_date", today);
+            window.dispatchEvent(new Event("autopilot-tick"));
+            if (localStorage.getItem("axiom_autopilot_tg") !== "off") {
+              fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: `🛑 CIRCUIT BREAKER TRIPPED\n\nDaily loss limit reached ($${Math.round(dayPnl)} ≤ -$${maxLoss}).\nAutopilot has paused NEW trades for the rest of today. Open positions are still being managed.\n\nStep away, reset, come back tomorrow.` }) }).catch(() => {});
+            }
+          }
+          return;  // halted for today — open no new positions
+        }
+      }
+
       // Rank all qualifying setups by quality; only take the BEST up to the cap.
       const candidates = [];
       (watchlistData || []).forEach(q => {
@@ -7163,6 +7188,17 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   const exitMode = localStorage.getItem("axiom_autopilot_exit") || "trail";
   const saveAcct = v => { setAcct(v); localStorage.setItem("axiom_acct_size", v); };
   const saveRisk = v => { setRiskPct(v); localStorage.setItem("axiom_risk_pct", v); };
+  // Daily loss limit (circuit breaker). 0 = off. Default = 3× the per-trade risk target.
+  const [maxLoss, setMaxLoss] = useState(() => Number(localStorage.getItem("axiom_autopilot_maxloss")) || 0);
+  const saveMaxLoss = v => { const n = Math.max(0, Math.round(Number(v) || 0)); setMaxLoss(n); localStorage.setItem("axiom_autopilot_maxloss", String(n)); };
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [haltDate, setHaltDate] = useState(() => localStorage.getItem("axiom_autopilot_halt_date") || "");
+  useEffect(() => {
+    const onTick = () => setHaltDate(localStorage.getItem("axiom_autopilot_halt_date") || "");
+    window.addEventListener("autopilot-tick", onTick);
+    return () => window.removeEventListener("autopilot-tick", onTick);
+  }, []);
+  const halted = haltDate === todayStr && maxLoss > 0;
   // Performance broker view: "sim" = local paper journal, "alpaca" = real Alpaca paper account.
   const [perfBroker, setPerfBroker] = useState(() => localStorage.getItem("axiom_perf_broker") || "sim");
   const [alpacaPerf, setAlpacaPerf] = useState(null);
@@ -7319,6 +7355,49 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
 
   return (
     <div style={{ marginBottom: 20 }}>
+      {/* ── RISK CONTROLS — account size, risk %, daily loss limit (always visible) ── */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", marginBottom: 12, display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em" }}>🛡️ RISK</span>
+        <label style={{ display: "flex", gap: 6, alignItems: "center", fontFamily: MONO, fontSize: 10, color: C.textDim }}>ACCOUNT $
+          <input value={acct} onChange={e => saveAcct(Number(e.target.value) || 0)} type="number"
+            style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: MONO, fontSize: 12, color: C.text, padding: "4px 8px", width: 90, outline: "none" }} />
+        </label>
+        <label style={{ display: "flex", gap: 6, alignItems: "center", fontFamily: MONO, fontSize: 10, color: C.textDim }}>RISK %
+          <div style={{ display: "flex", gap: 4 }}>
+            {[0.5, 1, 2].map(r => (
+              <button key={r} onClick={() => saveRisk(r)}
+                style={{ background: riskPct === r ? C.accent : C.surface, color: riskPct === r ? "#fff" : C.textSec,
+                  border: `1px solid ${riskPct === r ? C.accent : C.border}`, borderRadius: 5, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 9px", cursor: "pointer" }}>{r}%</button>
+            ))}
+          </div>
+        </label>
+        <label style={{ display: "flex", gap: 6, alignItems: "center", fontFamily: MONO, fontSize: 10, color: C.textDim }}>🛑 STOP/DAY $
+          <input value={maxLoss || ""} placeholder="off" onChange={e => saveMaxLoss(e.target.value)} type="number"
+            style={{ background: C.surface, border: `1px solid ${maxLoss ? C.red + "66" : C.border}`, borderRadius: 5, fontFamily: MONO, fontSize: 12, color: C.text, padding: "4px 8px", width: 80, outline: "none" }} />
+        </label>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+          Risk/trade ≈ <strong style={{ color: C.amber }}>${(acct * riskPct / 100).toFixed(0)}</strong>
+          {maxLoss > 0 && <> · breaker after <strong style={{ color: C.red }}>−${maxLoss}</strong> (≈{(maxLoss / Math.max(1, acct * riskPct / 100)).toFixed(0)} losing trades)</>}
+        </span>
+        {maxLoss === 0 && <button onClick={() => saveMaxLoss(Math.max(1, Math.round(acct * riskPct / 100 * 3)))}
+          style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "4px 9px", borderRadius: 5, cursor: "pointer", border: `1px solid ${C.accent}55`, background: `${C.accent}14`, color: C.accent }}>set 3-loss limit</button>}
+      </div>
+
+      {/* ── CIRCUIT BREAKER TRIPPED banner ── */}
+      {halted && (
+        <div style={{ background: `${C.red}14`, border: `1px solid ${C.red}`, borderRadius: 10, padding: "12px 16px", marginBottom: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 22 }}>🛑</span>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.red }}>CIRCUIT BREAKER TRIPPED — autopilot paused for today</div>
+            <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.45, marginTop: 2 }}>
+              You hit your ${maxLoss} daily loss limit. No new trades will open until tomorrow (open positions are still managed). This is the rule working — step away and reset.
+            </div>
+          </div>
+          <button onClick={() => { localStorage.removeItem("axiom_autopilot_halt_date"); setHaltDate(""); }}
+            style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "6px 11px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.border}`, background: C.surface, color: C.textSec }}>override (not advised)</button>
+        </div>
+      )}
+
       {/* ── PERFORMANCE / EXPECTANCY ── */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
@@ -23318,6 +23397,20 @@ export default function App() {
                         const isExpanded = scanExpanded === row.ticker;
                         const ref = FIVEX_REF[row.ticker];
                         const livePrice = Number(row.quote?.price || 0);
+                        // ── Master verdict (composite) — computed once so the score bar AND the badge agree. ──
+                        const _px2 = Number(livePrice || row.quote?.price || 0);
+                        const _hi = Number(row.quote?.yearHigh || 0), _lo = Number(row.quote?.yearLow || 0);
+                        const _ma50 = Number(row.quote?.priceAvg50 || 0), _ma200 = Number(row.quote?.priceAvg200 || 0);
+                        const _ttChecks = [
+                          _ma200 > 0 && _px2 > _ma200, _ma50 > 0 && _ma200 > 0 && _ma50 > _ma200, _ma50 > 0 && _px2 > _ma50,
+                          _lo > 0 && _px2 >= _lo * 1.30, _hi > 0 && _px2 >= _hi * 0.75,
+                          (row.rsiVal || 50) >= 55, !!(row.ema9v && row.ema21v && row.ema9v > row.ema21v),
+                        ].filter(Boolean).length;
+                        const _ttScore = Math.round(_ttChecks / 7 * 100);
+                        const _macdScore = row.macdBull === true ? 72 : row.macdBull === false ? 30 : 50;
+                        const composite = (row.score || 50) * 0.35 + _ttScore * 0.35 + _macdScore * 0.15 + 50 * 0.15;
+                        const verdictColor = composite >= 72 ? "#00e676" : composite >= 62 ? C.green : composite >= 53 ? C.amber : composite >= 40 ? C.red : "#ff2244";
+                        const verdictLabel = composite >= 72 ? "STRONG BUY" : composite >= 62 ? "BUY" : composite >= 53 ? "WATCH" : composite >= 40 ? "AVOID" : "SELL/SHORT";
                         const liveChg   = Number(row.quote?.changePercent || 0);
                         const yH = Number(row.quote?.yearHigh || 0);
                         const yL = Number(row.quote?.yearLow  || 0);
@@ -23420,55 +23513,20 @@ export default function App() {
                                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                   <div style={{ flex: 1, height: 6, background: C.border, borderRadius: 5,
                                     overflow: "hidden", minWidth: 50 }}>
+                                    {/* Bar is colored by the FINAL verdict so it never looks green next to an AVOID badge */}
                                     <div style={{ width: `${row.score}%`, height: "100%",
-                                      background: row.sColor, borderRadius: 5, transition: "width 0.4s" }} />
+                                      background: verdictColor, borderRadius: 5, transition: "width 0.4s" }} />
                                   </div>
                                   <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800,
-                                    color: row.sColor, minWidth: 22, textAlign: "right" }}>
+                                    color: verdictColor, minWidth: 22, textAlign: "right" }}>
                                     {row.score}
                                   </span>
                                 </div>
                               </td>
 
-                              {/* Signal badge — computed from scan data only, NEVER changes after click */}
+                              {/* Signal badge — uses the hoisted verdict so bar + badge always agree */}
                               <td style={{ padding: "12px 10px", borderBottom: `1px solid ${C.border}22` }}>
-                                {(() => {
-                                  // Master Verdict using ONLY scan data (no deep dive needed)
-                                  // This means the signal is stable from the moment scan runs
-                                  const px2    = Number(livePrice || row.quote?.price || 0);
-                                  const hi52v  = Number(row.quote?.yearHigh || 0);
-                                  const lo52v  = Number(row.quote?.yearLow  || 0);
-                                  const ma50v  = Number(row.quote?.priceAvg50  || 0);
-                                  const ma200v = Number(row.quote?.priceAvg200 || 0);
-
-                                  // Trend Template score from scan data (MA50/MA200/52w)
-                                  const ttChecks = [
-                                    ma200v > 0 && px2 > ma200v,             // price > MA200
-                                    ma50v > 0 && ma200v > 0 && ma50v > ma200v, // MA50 > MA200
-                                    ma50v > 0 && px2 > ma50v,               // price > MA50
-                                    lo52v > 0 && px2 >= lo52v * 1.30,       // 30%+ above 52w low
-                                    hi52v > 0 && px2 >= hi52v * 0.75,       // within 25% of 52w high
-                                    (row.rsiVal || 50) >= 55,               // RSI momentum
-                                    !!(row.ema9v && row.ema21v && row.ema9v > row.ema21v), // EMA aligned
-                                  ].filter(Boolean).length;
-                                  const ttScore = Math.round(ttChecks / 7 * 100);
-                                  const macdScore = row.macdBull === true ? 72 : row.macdBull === false ? 30 : 50;
-
-                                  // 4-signal weighted composite (all from scan — no deep dive needed)
-                                  const composite = (
-                                    (row.score || 50) * 0.35 +  // tech momentum (primary)
-                                    ttScore           * 0.35 +  // trend template
-                                    macdScore         * 0.15 +  // MACD
-                                    50                * 0.15    // sentiment default neutral
-                                  );
-
-                                  const sigColor = composite >= 72 ? "#00e676" : composite >= 62 ? C.green :
-                                                   composite >= 53 ? C.amber   : composite >= 40 ? C.red : "#ff2244";
-                                  const sigLabel = composite >= 72 ? "STRONG BUY" : composite >= 62 ? "BUY" :
-                                                   composite >= 53 ? "WATCH"      : composite >= 40 ? "AVOID" : "SELL/SHORT";
-
-                                  return (<div><span style={{ ...SIG_STYLE(sigColor), background: `${sigColor}22`, borderColor: `${sigColor}55`, fontSize: 12 }}>{sigLabel}</span><div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: sigColor, marginTop: 2 }}>{composite.toFixed(0)}/100</div></div>);
-                                })()}
+                                <div><span style={{ ...SIG_STYLE(verdictColor), background: `${verdictColor}22`, borderColor: `${verdictColor}55`, fontSize: 12 }}>{verdictLabel}</span><div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: verdictColor, marginTop: 2 }}>{composite.toFixed(0)}/100</div></div>
                               </td>
 
                               {/* Ticker + Quick Read */}
