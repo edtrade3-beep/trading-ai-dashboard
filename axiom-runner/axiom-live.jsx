@@ -6849,11 +6849,24 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       // Open positions are still managed/closed by the exit engine — we only halt fresh risk.
       const maxLoss = Number(localStorage.getItem("axiom_autopilot_maxloss")) || 0;  // 0 = off
       if (maxLoss > 0) {
+        // Realized (closed today) + unrealized (current open positions) so a big open drawdown can also trip it.
+        const priceMap = {};
+        (watchlistData || []).forEach(q => { priceMap[q.symbol] = Number(q.price || q.quote?.price || 0); });
+        (macroData || []).forEach(m => { if (!priceMap[m.symbol]) priceMap[m.symbol] = Number(m.price || 0); });
         let dayPnl = 0;
         try {
           (JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []).forEach(t => {
-            if (t.status === "CLOSED" && t.mode === "PAPER" && String(t.closedAt || "").slice(0, 10) === today) {
+            if (t.mode !== "PAPER") return;
+            if (t.status === "CLOSED" && String(t.closedAt || "").slice(0, 10) === today) {
               dayPnl += (Number(t.exit) - Number(t.entry)) * Number(t.shares) * (t.side === "SHORT" ? -1 : 1);
+            } else if (t.status === "OPEN") {
+              const cur = priceMap[t.ticker];
+              if (cur > 0) {
+                const rem = Number(t.remaining || t.shares) || 0;
+                dayPnl += t.instrument === "OPTION"
+                  ? (optionValue(t, cur) - Number(t.entry)) * rem
+                  : (cur - Number(t.entry)) * rem * (t.side === "SHORT" ? -1 : 1);
+              }
             }
           });
         } catch {}
@@ -6863,7 +6876,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
             window.dispatchEvent(new Event("autopilot-tick"));
             if (localStorage.getItem("axiom_autopilot_tg") !== "off") {
               fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: `🛑 CIRCUIT BREAKER TRIPPED\n\nDaily loss limit reached ($${Math.round(dayPnl)} ≤ -$${maxLoss}).\nAutopilot has paused NEW trades for the rest of today. Open positions are still being managed.\n\nStep away, reset, come back tomorrow.` }) }).catch(() => {});
+                body: JSON.stringify({ text: `🛑 CIRCUIT BREAKER TRIPPED\n\nDaily loss limit reached — realized + open P&L $${Math.round(dayPnl)} ≤ -$${maxLoss}.\nAutopilot has paused NEW trades for the rest of today. Open positions are still being managed.\n\nStep away, reset, come back tomorrow.` }) }).catch(() => {});
             }
           }
           return;  // halted for today — open no new positions
@@ -8209,12 +8222,26 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
               ? `Buying the best ${autoThreshold === 5 ? "5/5" : "4/5+"} setups (up to ${maxPos}), auto-exiting via ${exitMode === "trail" ? "trailing stop" : exitMode === "trend" ? "trend turn" : "price targets"}${broker === "alpaca" ? ", through Alpaca paper" : ""}. Runs in the background on every tab — hands-off.`
               : "Turn on to let the system auto-buy and auto-exit paper trades for you, 100% hands-free."}
           </div>
-          {autoPilot && (
-            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#22c55e", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", display: "inline-block", boxShadow: "0 0 6px #22c55e" }} />
-              ACTIVE · last check {lastCheck ? new Date(lastCheck).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "starting…"}
-            </div>
-          )}
+          {autoPilot && (() => {
+            const openCount = open.length;
+            const slotsFree = Math.max(0, maxPos - openCount);
+            const secsAgo = lastCheck ? Math.round((Date.now() - lastCheck) / 1000) : null;
+            const dot = halted ? C.red : "#22c55e";
+            const state = halted ? "PAUSED — circuit breaker" : slotsFree > 0 ? "SCANNING for setups" : "FULL — holding best positions";
+            const chip = (txt, col) => <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: col, background: `${col}18`, borderRadius: 5, padding: "2px 7px" }}>{txt}</span>;
+            return (
+              <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginTop: 7 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: dot, display: "inline-block", boxShadow: `0 0 6px ${dot}`, animation: halted ? "none" : "pulse 1.5s infinite" }} />
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: dot }}>{state}</span>
+                {chip(`${openCount}/${maxPos} open`, C.textSec)}
+                {!halted && chip(`${slotsFree} slot${slotsFree === 1 ? "" : "s"} free`, slotsFree > 0 ? C.green : C.amber)}
+                {maxLoss > 0 && chip(halted ? `stopped at −$${maxLoss}` : `breaker −$${maxLoss}`, halted ? C.red : C.textDim)}
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+                  · checked {secsAgo == null ? "starting…" : secsAgo < 60 ? `${secsAgo}s ago` : `${Math.round(secsAgo / 60)}m ago`} (every 15s)
+                </span>
+              </div>
+            );
+          })()}
         </div>
         <button onClick={toggleAuto}
           style={{ background: autoPilot ? "#16a34a" : C.surface, color: autoPilot ? "#fff" : C.textSec,
