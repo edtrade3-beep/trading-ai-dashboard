@@ -8125,6 +8125,11 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [maxPos, setMaxPos] = useState(() => Number(localStorage.getItem("axiom_autopilot_maxpos")) || 12);
   const [lastCheck, setLastCheck] = useState(() => Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
   const [closing, setClosing] = useState(false);
+  // Live status inputs (recomputed each render; the tick re-renders this via setLastCheck every 15s).
+  const maxLoss = Number(localStorage.getItem("axiom_autopilot_maxloss")) || 0;
+  const halted = maxLoss > 0 && localStorage.getItem("axiom_autopilot_halt_date") === new Date().toISOString().slice(0, 10);
+  let open = [];
+  try { open = (JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []).filter(t => t.status === "OPEN" && t.mode === "PAPER"); } catch {}
   useEffect(() => {
     const onTick = () => setLastCheck(Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
     window.addEventListener("autopilot-tick", onTick);
