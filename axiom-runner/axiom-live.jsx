@@ -7212,6 +7212,27 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
           Expectancy = (win% × avg win) − (loss% × avg loss) — the average you make per trade. Positive over 20+ trades = a real edge.
         </div>
 
+        {/* Risk context — is the loss size healthy? */}
+        {avgLoss > 0 && (() => {
+          const acctSize = Number(localStorage.getItem("axiom_acct_size")) || 10000;
+          const target = acctSize * riskPct / 100;            // dollars you mean to risk per trade
+          const lossPct = avgLoss / acctSize * 100;           // what your avg loss actually was
+          const ratio = target > 0 ? avgLoss / target : 0;    // 1.0 = exactly on plan
+          const ok = ratio <= 1.25;                            // within 25% of target = healthy
+          const col = ratio <= 1.25 ? C.green : ratio <= 2 ? C.amber : C.red;
+          return (
+            <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 11, color: C.textSec, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: col, background: `${col}18`, borderRadius: 5, padding: "3px 8px" }}>
+                {ok ? "✓ SIZED RIGHT" : ratio <= 2 ? "⚠ A BIT BIG" : "✕ TOO BIG"}
+              </span>
+              <span>
+                Avg loss <strong style={{ color: C.text }}>${Math.round(avgLoss)}</strong> = <strong style={{ color: col }}>{lossPct.toFixed(1)}%</strong> of your ${acctSize.toLocaleString()} account
+                {" "}(target {riskPct}% ≈ ${Math.round(target)}/trade). {ok ? "Losses this size are exactly how it should work." : "Trim position size in autopilot settings so a loss ≈ 1% of the account."}
+              </span>
+            </div>
+          );
+        })()}
+
         {/* Equity curve */}
         {equityPts.length >= 2 && (() => {
           const w = 100, h = 36, n = equityPts.length;
