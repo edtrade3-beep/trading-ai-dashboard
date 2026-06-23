@@ -6646,6 +6646,7 @@ function logTradeNote(type, text) {
 // the user has Dynamic mode on (localStorage axiom_autopilot_atr !== "off").
 function addPaperTrade(sym, entry, opts = {}) {
   if (!sym || !entry || entry <= 0) return;
+  entry = +(entry * (1 + SLIP)).toFixed(2);  // slippage: a long fills slightly ABOVE the quoted price
   const acct    = Number(localStorage.getItem("axiom_acct_size")) || 10000;
   const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
 
@@ -6693,6 +6694,7 @@ function addPaperTrade(sym, entry, opts = {}) {
 // Shared: create a SHORT paper trade (sell to open). Stop ABOVE entry, targets BELOW. P&L = (entry − price).
 function addPaperShort(sym, entry, opts = {}) {
   if (!sym || !entry || entry <= 0) return;
+  entry = +(entry * (1 - SLIP)).toFixed(2);  // slippage: a short sells slightly BELOW the quoted price
   const acct    = Number(localStorage.getItem("axiom_acct_size")) || 10000;
   const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
   const useAtr = localStorage.getItem("axiom_autopilot_atr") !== "off" && Number(opts.atrPct) > 0;
@@ -6731,12 +6733,23 @@ function addPaperShort(sym, entry, opts = {}) {
 }
 
 const OPT_LEVERAGE = 5;  // a near-dated ATM option moves ~5× the underlying %, modeled simply
-// Current simulated per-share option premium from the underlying price.
+// Realism knobs — friction that makes the SIM honest instead of flattering.
+const SLIP = 0.001;      // 0.1% round-trip slippage on share/short fills (spread + market impact)
+const OPT_SLIP = 0.02;   // 2% spread paid on option premium at entry
+// Current simulated per-share option premium from the underlying price — now with THETA decay.
 function optionValue(t, underlyingPx) {
   const u = Number(underlyingPx) || t.uEntry;
   const dir = t.optType === "PUT" ? -1 : 1;
   const move = (u - t.uEntry) / t.uEntry * dir;            // signed % move in the option's favor
-  return Math.max(0.01, +(t.entry * (1 + (t.lev || OPT_LEVERAGE) * move)).toFixed(2));
+  const raw = t.entry * (1 + (t.lev || OPT_LEVERAGE) * move); // leveraged value before time decay
+  // Theta: a near-dated (~35 DTE) option bleeds its TIME value as days pass. Intrinsic value never decays.
+  const DTE0 = t.dte0 || 35;
+  const held = t.openedAt ? (Date.now() - new Date(t.openedAt).getTime()) / 86400000 : 0;
+  const timeLeft = Math.max(0, (DTE0 - held) / DTE0);
+  const decay = Math.sqrt(timeLeft);                       // sqrt-of-time: slow at first, fast near expiry
+  const intrinsic = t.strike ? Math.max(0, dir === 1 ? (u - t.strike) : (t.strike - u)) : 0;
+  const extrinsic = Math.max(0, raw - intrinsic);
+  return Math.max(0.01, +(intrinsic + extrinsic * decay).toFixed(2));
 }
 
 // Shared: create a SIMULATED paper option (CALL/PUT). Stored as a synthetic position whose
@@ -6745,7 +6758,7 @@ function addPaperOption(sym, uPrice, kind, opts = {}) {
   if (!sym || !uPrice || uPrice <= 0) return;
   const acct    = Number(localStorage.getItem("axiom_acct_size")) || 10000;
   const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
-  const premium = +(uPrice * 0.04).toFixed(2);             // ATM near-dated premium ≈ 4% of underlying
+  const premium = +(uPrice * 0.04 * (1 + OPT_SLIP)).toFixed(2);  // ATM near-dated premium ≈ 4% of underlying + spread paid at entry
   if (premium <= 0.02) return;
   // Option-value levels: stop −50%, T1 +50%, T2 +100%, T3 +150%
   const stop = +(premium * 0.5).toFixed(2);
@@ -6760,7 +6773,7 @@ function addPaperOption(sym, uPrice, kind, opts = {}) {
   const atm = uPrice >= 200 ? Math.round(uPrice / 5) * 5 : uPrice >= 50 ? Math.round(uPrice) : Math.round(uPrice * 2) / 2;
   const t = {
     id: Date.now() + Math.floor(Math.random() * 999),
-    ticker: sym, instrument: "OPTION", optType: kind, uEntry: uPrice, strike: atm, lev: OPT_LEVERAGE, contracts,
+    ticker: sym, instrument: "OPTION", optType: kind, uEntry: uPrice, strike: atm, lev: OPT_LEVERAGE, contracts, dte0: 35,
     entry: premium, shares, remaining: shares, realized: 0,
     stop, t1, t2, t3, basis: `${kind} sim`, risk0: +riskPerShare.toFixed(2),
     glScore: Number(opts.glScore) || null,
