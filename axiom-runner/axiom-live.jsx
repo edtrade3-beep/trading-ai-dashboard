@@ -7214,6 +7214,7 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   const halted = haltDate === todayStr && maxLoss > 0;
   // Performance broker view: "sim" = local paper journal, "alpaca" = real Alpaca paper account.
   const [perfBroker, setPerfBroker] = useState(() => localStorage.getItem("axiom_perf_broker") || "sim");
+  const [showPerfDetails, setShowPerfDetails] = useState(false); // equity curve + setup breakdown, collapsed by default
   const [alpacaPerf, setAlpacaPerf] = useState(null);
   useEffect(() => {
     if (perfBroker !== "alpaca") return;
@@ -7511,8 +7512,17 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
           );
         })()}
 
+        {/* Details toggle — equity curve + setup breakdown */}
+        {(equityPts.length >= 2 || setupRows.length > 0) && (
+          <button onClick={() => setShowPerfDetails(s => !s)}
+            style={{ marginTop: 10, background: "transparent", border: "none", cursor: "pointer", fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, padding: 0, display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ transform: showPerfDetails ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▸</span>
+            {showPerfDetails ? "hide" : "show"} equity curve & setup breakdown
+          </button>
+        )}
+
         {/* Equity curve */}
-        {equityPts.length >= 2 && (() => {
+        {showPerfDetails && equityPts.length >= 2 && (() => {
           const w = 100, h = 36, n = equityPts.length;
           const lo = Math.min(0, ...equityPts), hi = Math.max(0, ...equityPts), span = (hi - lo) || 1;
           const x = i => (i / (n - 1)) * w;
@@ -7531,7 +7541,7 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
         })()}
 
         {/* Which setups make money */}
-        {setupRows.length > 0 && (
+        {showPerfDetails && setupRows.length > 0 && (
           <div style={{ marginTop: 12, overflowX: "auto" }}>
             <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 6 }}>🎯 WHICH SETUPS MAKE MONEY</div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12 }}>
