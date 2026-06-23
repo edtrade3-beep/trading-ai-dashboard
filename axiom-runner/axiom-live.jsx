@@ -16533,7 +16533,14 @@ export default function App() {
   const [briefAt, setBriefAt] = useState("");
   const [briefExpanded, setBriefExpanded] = useState(false);
   // Always open on the Monitor dashboard, regardless of the last tab used.
-  const [activeTab, setActiveTab] = useState("dashboard");
+  // First visit lands on the Start Here guide; afterwards opens to the Monitor as usual.
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== "undefined" && !localStorage.getItem("axiom_seen_start")) {
+      localStorage.setItem("axiom_seen_start", "1");
+      return "start";
+    }
+    return "dashboard";
+  });
   // Save tab on change
   React.useEffect(() => { try { localStorage.setItem("last_tab", activeTab); } catch {} }, [activeTab]);
   const [loading, setLoading] = useState(false);
