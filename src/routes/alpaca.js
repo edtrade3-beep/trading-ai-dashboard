@@ -57,6 +57,26 @@ async function handleAlpaca(req, res, requestUrl) {
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  // Portfolio history — equity curve + P&L for the Alpaca paper account.
+  // Query: period (default 1M), timeframe (default 1D). Used by the My Trades performance split.
+  if (pathname === "/api/alpaca/history" && req.method === "GET") {
+    if (!configured) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key" });
+    const period = (searchParams.get("period") || "1M").replace(/[^0-9A-Za-z]/g, "");
+    const timeframe = (searchParams.get("timeframe") || "1D").replace(/[^0-9A-Za-z]/g, "");
+    const a = await alpaca(`/v2/account/portfolio/history?period=${period}&timeframe=${timeframe}&extended_hours=false`);
+    if (!a._ok) return writeJson(res, 200, { ok: false, error: a.data?.message || "history error", status: a._status });
+    const d = a.data || {};
+    const equity = (d.equity || []).filter(v => v != null);
+    const base = Number(d.base_value) || (equity.length ? equity[0] : 0);
+    const last = equity.length ? equity[equity.length - 1] : base;
+    const totalPL = last - base;
+    return writeJson(res, 200, { ok: true,
+      base, equity, timestamps: d.timestamp || [],
+      profitLoss: d.profit_loss || [], totalPL,
+      totalPLpc: base ? (totalPL / base) * 100 : 0,
+    });
+  }
+
   if (pathname === "/api/alpaca/positions" && req.method === "GET") {
     if (!configured) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key", positions: [] });
     const a = await alpaca("/v2/positions");

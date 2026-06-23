@@ -7044,6 +7044,22 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
   const exitMode = localStorage.getItem("axiom_autopilot_exit") || "trail";
   const saveAcct = v => { setAcct(v); localStorage.setItem("axiom_acct_size", v); };
   const saveRisk = v => { setRiskPct(v); localStorage.setItem("axiom_risk_pct", v); };
+  // Performance broker view: "sim" = local paper journal, "alpaca" = real Alpaca paper account.
+  const [perfBroker, setPerfBroker] = useState(() => localStorage.getItem("axiom_perf_broker") || "sim");
+  const [alpacaPerf, setAlpacaPerf] = useState(null);
+  useEffect(() => {
+    if (perfBroker !== "alpaca") return;
+    let alive = true;
+    const load = () => {
+      Promise.all([
+        fetch("/api/alpaca/history?period=1M&timeframe=1D").then(r => r.json()).catch(() => null),
+        fetch("/api/alpaca/account").then(r => r.json()).catch(() => null),
+      ]).then(([hist, acctR]) => { if (alive) setAlpacaPerf({ hist, acct: acctR }); });
+    };
+    load();
+    const t = setInterval(load, 60000);
+    return () => { alive = false; clearInterval(t); };
+  }, [perfBroker]);
   const resetPaper = () => {
     const inp = window.prompt("Fund paper account with how much? (this clears all paper trades)", "5000");
     if (inp === null) return;
@@ -7187,13 +7203,64 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
       {/* ── PERFORMANCE / EXPECTANCY ── */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
-          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em" }}>📊 PERFORMANCE ({mode})</span>
-          {closed.length < 20
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em" }}>📊 PERFORMANCE</span>
+          <div style={{ display: "flex", gap: 2, background: C.surface, borderRadius: 7, padding: 2, border: `1px solid ${C.border}` }}>
+            {[["sim", "🎮 SIM"], ["alpaca", "🅰 ALPACA"]].map(([id, l]) => (
+              <button key={id} onClick={() => { setPerfBroker(id); localStorage.setItem("axiom_perf_broker", id); }}
+                style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "3px 9px", borderRadius: 5, cursor: "pointer", border: "none",
+                  background: perfBroker === id ? C.accent : "transparent", color: perfBroker === id ? "#fff" : C.textDim }}>{l}</button>
+            ))}
+          </div>
+          {perfBroker === "sim" && (closed.length < 20
             ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.amber, background: `${C.amber}18`, borderRadius: 5, padding: "3px 8px" }}>⏳ {closed.length}/20 trades — keep going</span>
             : edgeReady
               ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.green, background: `${C.green}18`, borderRadius: 5, padding: "3px 8px" }}>✓ POSITIVE EDGE — you may be ready to scale</span>
-              : <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.red, background: `${C.red}18`, borderRadius: 5, padding: "3px 8px" }}>✕ NO EDGE YET — refine before going live</span>}
+              : <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.red, background: `${C.red}18`, borderRadius: 5, padding: "3px 8px" }}>✕ NO EDGE YET — refine before going live</span>)}
+          {perfBroker === "alpaca" && <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim }}>real Alpaca paper account · last 1M</span>}
         </div>
+
+        {/* ── ALPACA broker view (real paper account) ── */}
+        {perfBroker === "alpaca" ? (() => {
+          if (!alpacaPerf) return <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "12px 0" }}>Loading Alpaca account…</div>;
+          const h = alpacaPerf.hist, ac = alpacaPerf.acct;
+          if (h && h.reason === "no-alpaca-key") return <div style={{ fontFamily: SANS, fontSize: 12, color: C.amber, padding: "12px 0" }}>Alpaca isn't connected. Add ALPACA_KEY_ID and ALPACA_SECRET_KEY (paper keys) in Render to see live broker performance here.</div>;
+          if (!h || !h.ok) return <div style={{ fontFamily: SANS, fontSize: 12, color: C.red, padding: "12px 0" }}>Couldn't load Alpaca history{h && h.error ? ` — ${h.error}` : ""}.</div>;
+          const eq = h.equity || [];
+          const stats = [
+            ["EQUITY", ac?.ok ? "$" + Math.round(ac.account.equity).toLocaleString() : "—", C.text],
+            ["TOTAL P&L (1M)", (h.totalPL >= 0 ? "+" : "") + "$" + Math.round(h.totalPL).toLocaleString(), h.totalPL >= 0 ? C.green : C.red],
+            ["RETURN (1M)", (h.totalPLpc >= 0 ? "+" : "") + h.totalPLpc.toFixed(2) + "%", h.totalPLpc >= 0 ? C.green : C.red],
+            ["BUYING POWER", ac?.ok ? "$" + Math.round(ac.account.buyingPower).toLocaleString() : "—", C.textSec],
+          ];
+          return (
+            <div>
+              <div style={{ display: "flex", gap: 22, rowGap: 12, flexWrap: "wrap" }}>
+                {stats.map(([l, v, col]) => (
+                  <div key={l}><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.04em" }}>{l}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 800, color: col }}>{v}</div></div>
+                ))}
+              </div>
+              {eq.length >= 2 && (() => {
+                const w = 100, ht = 36, n = eq.length;
+                const lo = Math.min(...eq), hi = Math.max(...eq), span = (hi - lo) || 1;
+                const x = i => (i / (n - 1)) * w, y = val => ht - ((val - lo) / span) * ht;
+                const path = eq.map((val, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(val).toFixed(1)).join(" ");
+                const up = eq[n - 1] >= (h.base || eq[0]);
+                return (
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>📈 ACCOUNT EQUITY — last month (daily)</div>
+                    <svg viewBox={`0 0 ${w} ${ht}`} preserveAspectRatio="none" style={{ width: "100%", height: 60, display: "block" }}>
+                      <path d={path} fill="none" stroke={up ? C.green : C.red} strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
+                    </svg>
+                  </div>
+                );
+              })()}
+              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 8 }}>
+                Live from your Alpaca paper account (auto-refresh every 60s). Per-trade win rate / setup analytics are tracked on the SIM tab.
+              </div>
+            </div>
+          );
+        })() : <>
         <div style={{ display: "flex", gap: 22, rowGap: 12, flexWrap: "wrap" }}>
           {[
             ["TRADES", String(closed.length), C.text],
@@ -7273,6 +7340,7 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
             </table>
           </div>
         )}
+        </>}
       </div>
 
       {/* ── TODAY'S SESSION P&L ── */}
