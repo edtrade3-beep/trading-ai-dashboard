@@ -7446,6 +7446,9 @@ function TradeTracker({ C, MONO, SANS, watchlistData }) {
           ];
           return (
             <div>
+              <div style={{ fontFamily: SANS, fontSize: 11, color: C.amber, background: `${C.amber}12`, border: `1px solid ${C.amber}40`, borderRadius: 7, padding: "8px 11px", marginBottom: 12, lineHeight: 1.5 }}>
+                ⚠ Not directly comparable to SIM. This is account equity over the last <strong>1 month</strong> and <strong>includes open positions</strong>; the SIM tab shows all-time <strong>closed</strong> trades only. They also hold different trades unless your autopilot broker is set to <strong>BOTH</strong>.
+              </div>
               <div style={{ display: "flex", gap: 22, rowGap: 12, flexWrap: "wrap" }}>
                 {stats.map(([l, v, col]) => (
                   <div key={l}><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.04em" }}>{l}</div>
