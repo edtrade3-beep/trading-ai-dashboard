@@ -20164,11 +20164,11 @@ export default function App() {
           {/* Nav tabs — grouped */}
           {(() => {
             const NAV_GROUPS = [
-              { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard", "quotes", "crypto", "news", "econ-cal", "macro"] },
+              { id: "dashboard",  label: "📊 MONITOR",    tabs: ["start", "dashboard", "quotes", "crypto", "news", "econ-cal", "macro"] },
               { id: "terminal",   label: "📈 CHART",      tabs: ["multitf", "tv"] },
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy", "trendtemplate", "outlook", "predictions", "morning-routine", "mytrades", "holdings", "gl-backtest"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
-              { id: "education",  label: "🎓 LEARN",      tabs: ["start", "propath", "courses", "education", "options-edu", "notes"] },
+              { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "courses", "education", "options-edu", "notes"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools"] },
               { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih", "halal", "soccer"] },
             ];
@@ -20512,6 +20512,7 @@ export default function App() {
       {(() => {
         const SUB_GROUPS = {
           dashboard: [
+            { id: "start",      label: "🚀 START HERE" },
             { id: "dashboard",  label: "📊 MONITOR" },
             { id: "quotes",     label: "📋 QUOTES" },
             { id: "crypto",     label: "🪙 CRYPTO" },
@@ -20539,7 +20540,6 @@ export default function App() {
             { id: "coach",        label: "🧭 المدرّب اليومي" },
           ],
           education: [
-            { id: "start",           label: "🚀 START HERE" },
             { id: "propath",         label: "🎯 PRO PATH" },
             { id: "courses",         label: "🎓 ACADEMY" },
             { id: "education",       label: "🎓 EDUCATION" },
