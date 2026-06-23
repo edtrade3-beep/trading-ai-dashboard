@@ -7008,6 +7008,37 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
     return () => clearInterval(t);
   }, [watchlistData, macroData, scanResults]);
 
+  // ── DAILY SUMMARY — once per weekday after the close (ET), Telegram your day + edge progress ──
+  useEffect(() => {
+    const dtf = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false, weekday: "short" });
+    const partsOf = d => { try { return Object.fromEntries(dtf.formatToParts(new Date(d)).map(x => [x.type, x.value])); } catch { return {}; } };
+    const dateKey = p => `${p.year}-${p.month}-${p.day}`;
+    const check = () => {
+      if (localStorage.getItem("axiom_autopilot_tg") === "off") return;        // respect the Telegram master toggle
+      if (localStorage.getItem("axiom_daily_summary") === "off") return;        // optional opt-out
+      const now = partsOf(new Date());
+      if (now.weekday === "Sat" || now.weekday === "Sun") return;               // skip weekends
+      if (Number(now.hour) < 16) return;                                        // wait for the 4pm ET close
+      const today = dateKey(now);
+      if (localStorage.getItem("axiom_daily_summary_date") === today) return;   // already sent today
+      let trades = []; try { trades = JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []; } catch {}
+      const paper = trades.filter(t => t.mode === "PAPER");
+      const pnlOf = t => (t.exit - t.entry) * t.shares * (t.side === "SHORT" ? -1 : 1);
+      const closedToday = paper.filter(t => t.status === "CLOSED" && dateKey(partsOf(t.closedAt)) === today);
+      const wins = closedToday.filter(t => pnlOf(t) > 0).length;
+      const dayPnl = closedToday.reduce((s, t) => s + pnlOf(t), 0);
+      const openNow = paper.filter(t => t.status === "OPEN").length;
+      const totalClosed = paper.filter(t => t.status === "CLOSED").length;
+      const edgeLine = totalClosed >= 20 ? `${totalClosed}/20 ✓ — read your edge in the Stats tab` : `${totalClosed}/20 — keep going`;
+      localStorage.setItem("axiom_daily_summary_date", today);
+      const text = `📊 DAILY SUMMARY — ${today}\n\nToday: ${closedToday.length} closed · ${wins}W/${closedToday.length - wins}L · P&L ${dayPnl >= 0 ? "+" : ""}$${Math.round(dayPnl)}\nOpen now: ${openNow}\nEdge check: ${edgeLine}`;
+      fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) }).catch(() => {});
+    };
+    check();
+    const id = setInterval(check, 60000);
+    return () => clearInterval(id);
+  }, []);
+
   // AUTO-EXIT: every 15s, scale out auto paper trades at T1/T2/T3 or dump at stop
   useEffect(() => {
     const priceOf = sym => Number((watchlistData || []).find(q => q.symbol === sym)?.price || 0);
