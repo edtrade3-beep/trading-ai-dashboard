@@ -8125,6 +8125,7 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [maxPos, setMaxPos] = useState(() => Number(localStorage.getItem("axiom_autopilot_maxpos")) || 12);
   const [lastCheck, setLastCheck] = useState(() => Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
   const [closing, setClosing] = useState(false);
+  const [showSetup, setShowSetup] = useState(() => localStorage.getItem("axiom_autopilot") !== "on"); // collapsed once running
   // Live status inputs (recomputed each render; the tick re-renders this via setLastCheck every 15s).
   const maxLoss = Number(localStorage.getItem("axiom_autopilot_maxloss")) || 0;
   const halted = maxLoss > 0 && localStorage.getItem("axiom_autopilot_halt_date") === new Date().toISOString().slice(0, 10);
@@ -8256,6 +8257,18 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
         </button>
       </div>
 
+      {/* ── Setup (collapsible) — quick modes + fine-tune + broker panel ── */}
+      <button onClick={() => setShowSetup(s => !s)}
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, marginBottom: showSetup ? 14 : 12, padding: "10px 16px",
+          background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, cursor: "pointer", fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textSec }}>
+        <span style={{ transform: showSetup ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▸</span>
+        ⚙️ AUTOPILOT SETUP
+        <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: C.textDim }}>
+          {showSetup ? "— quick modes, fine-tune, broker" : `— ${activeMode === "simple" ? "Simple" : activeMode === "calls" ? "Long + Calls" : activeMode === "full" ? "Full Auto" : "Custom"} · ${broker.toUpperCase()} · tap to change`}
+        </span>
+      </button>
+
+      {showSetup && <>
       {/* ── Quick Modes — one-click presets ── */}
       <div style={{ marginBottom: 14, padding: "14px 18px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
         <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em", marginBottom: 4 }}>⚡ QUICK MODE — one click sets everything</div>
@@ -8306,6 +8319,7 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
       </div>
 
       {(broker === "alpaca" || broker === "both") && <AlpacaPanel C={C} MONO={MONO} SANS={SANS} />}
+      </>}
 
       <TradeTracker C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} />
     </div>
