@@ -6849,8 +6849,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       const doOptions = localStorage.getItem("axiom_autopilot_opts") === "on";      // independent toggle, default OFF
       const doShort   = localStorage.getItem("axiom_autopilot_short") === "on";      // short selling, default OFF
       if (!doShares && !doOptions && !doShort) return;  // nothing enabled
-      const brokerSel = localStorage.getItem("axiom_autopilot_broker") || "sim";  // sim | alpaca | both
-      const brokers = brokerSel === "both" ? ["sim", "alpaca"] : [brokerSel];
+      const brokers = ["alpaca"];  // SIM removed — autopilot is Alpaca-only
       const acct = Number(localStorage.getItem("axiom_acct_size")) || 10000;
       const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
       const maxPos = Number(localStorage.getItem("axiom_autopilot_maxpos")) || 12;  // cap concurrent positions
@@ -7008,36 +7007,6 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
     return () => clearInterval(t);
   }, [watchlistData, macroData, scanResults]);
 
-  // ── DAILY SUMMARY — once per weekday after the close (ET), Telegram your day + edge progress ──
-  useEffect(() => {
-    const dtf = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false, weekday: "short" });
-    const partsOf = d => { try { return Object.fromEntries(dtf.formatToParts(new Date(d)).map(x => [x.type, x.value])); } catch { return {}; } };
-    const dateKey = p => `${p.year}-${p.month}-${p.day}`;
-    const check = () => {
-      if (localStorage.getItem("axiom_autopilot_tg") === "off") return;        // respect the Telegram master toggle
-      if (localStorage.getItem("axiom_daily_summary") === "off") return;        // optional opt-out
-      const now = partsOf(new Date());
-      if (now.weekday === "Sat" || now.weekday === "Sun") return;               // skip weekends
-      if (Number(now.hour) < 16) return;                                        // wait for the 4pm ET close
-      const today = dateKey(now);
-      if (localStorage.getItem("axiom_daily_summary_date") === today) return;   // already sent today
-      let trades = []; try { trades = JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []; } catch {}
-      const paper = trades.filter(t => t.mode === "PAPER");
-      const pnlOf = t => (t.exit - t.entry) * t.shares * (t.side === "SHORT" ? -1 : 1);
-      const closedToday = paper.filter(t => t.status === "CLOSED" && dateKey(partsOf(t.closedAt)) === today);
-      const wins = closedToday.filter(t => pnlOf(t) > 0).length;
-      const dayPnl = closedToday.reduce((s, t) => s + pnlOf(t), 0);
-      const openNow = paper.filter(t => t.status === "OPEN").length;
-      const totalClosed = paper.filter(t => t.status === "CLOSED").length;
-      const edgeLine = totalClosed >= 20 ? `${totalClosed}/20 ✓ — read your edge in the Stats tab` : `${totalClosed}/20 — keep going`;
-      localStorage.setItem("axiom_daily_summary_date", today);
-      const text = `📊 DAILY SUMMARY — ${today}\n\nToday: ${closedToday.length} closed · ${wins}W/${closedToday.length - wins}L · P&L ${dayPnl >= 0 ? "+" : ""}$${Math.round(dayPnl)}\nOpen now: ${openNow}\nEdge check: ${edgeLine}`;
-      fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) }).catch(() => {});
-    };
-    check();
-    const id = setInterval(check, 60000);
-    return () => clearInterval(id);
-  }, []);
 
   // AUTO-EXIT: every 15s, scale out auto paper trades at T1/T2/T3 or dump at stop
   useEffect(() => {
@@ -8174,12 +8143,22 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [shortOn, setShortOn] = useState(() => localStorage.getItem("axiom_autopilot_short") === "on");      // default OFF
   const [trailMode, setTrailMode] = useState(() => localStorage.getItem("axiom_autopilot_trail") !== "off");
   const [exitMode, setExitMode] = useState(() => localStorage.getItem("axiom_autopilot_exit") || "trail");
-  const [broker, setBroker] = useState(() => localStorage.getItem("axiom_autopilot_broker") || "sim");
+  const broker = "alpaca";  // SIM removed — Alpaca-only
   const [maxPos, setMaxPos] = useState(() => Number(localStorage.getItem("axiom_autopilot_maxpos")) || 12);
   const [lastCheck, setLastCheck] = useState(() => Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
   const [closing, setClosing] = useState(false);
   const [showSetup, setShowSetup] = useState(() => localStorage.getItem("axiom_autopilot") !== "on"); // collapsed once running
-  const [mtView, setMtView] = useState("trades"); // trades | stats | autopilot
+  // ── SIM fully removed: migrate broker to Alpaca and wipe any old SIM paper-trade data (one-time). ──
+  useEffect(() => {
+    localStorage.setItem("axiom_autopilot_broker", "alpaca");
+    if (!localStorage.getItem("axiom_sim_purged")) {
+      localStorage.removeItem(GL_TRADES_KEY);
+      localStorage.removeItem("axiom_perf_broker");
+      localStorage.removeItem("axiom_daily_summary_date");
+      localStorage.setItem("axiom_sim_purged", "1");
+      window.dispatchEvent(new Event("gl-trades-changed"));
+    }
+  }, []);
   // Live status inputs (recomputed each render; the tick re-renders this via setLastCheck every 15s).
   const maxLoss = Number(localStorage.getItem("axiom_autopilot_maxloss")) || 0;
   const halted = maxLoss > 0 && localStorage.getItem("axiom_autopilot_halt_date") === new Date().toISOString().slice(0, 10);
@@ -8261,7 +8240,7 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
       {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
         <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>📋 MY TRADES</div>
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim, padding: "3px 8px", borderRadius: 6, border: `1px solid ${C.border}` }}>PAPER · SHARES ONLY</span>
+        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#10b981", padding: "3px 8px", borderRadius: 6, border: `1px solid #10b98155`, background: "#10b98114" }}>🅰 ALPACA PAPER</span>
         <button onClick={flattenAll} disabled={closing}
           style={{ marginLeft: "auto", background: closing ? C.surface : `${C.red}15`, color: C.red, border: `1px solid ${C.red}55`, borderRadius: 10,
             fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "10px 18px", cursor: closing ? "default" : "pointer" }}>
@@ -8269,16 +8248,7 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
         </button>
       </div>
 
-      {/* ── Sub-tabs ── */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 14, background: C.surface, borderRadius: 10, padding: 4, border: `1px solid ${C.border}` }}>
-        {[["trades", "📋 Trades"], ["stats", "📊 Stats"], ["autopilot", `🤖 Autopilot${autoPilot ? " ●" : ""}`]].map(([id, l]) => (
-          <button key={id} onClick={() => setMtView(id)}
-            style={{ flex: 1, fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "9px 8px", borderRadius: 7, cursor: "pointer", border: "none",
-              background: mtView === id ? C.accent : "transparent", color: mtView === id ? "#fff" : (id === "autopilot" && autoPilot ? "#22c55e" : C.textSec) }}>{l}</button>
-        ))}
-      </div>
-
-      {mtView === "autopilot" && <>
+      <>
       {/* ── 1. Master switch ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12, padding: "16px 18px",
         background: autoPilot ? "#16a34a14" : C.card, border: `2px solid ${autoPilot ? "#16a34a" : C.border}`, borderRadius: 12, flexWrap: "wrap" }}>
@@ -8376,17 +8346,17 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
           <Setting label="HOW TO EXIT" hint="TRAIL = the backtest-validated exit (+1.70R). Let winners run." value={exitMode}
             onPick={val => { setExitMode(val); localStorage.setItem("axiom_autopilot_exit", val); }}
             options={[["TRAIL ✓", "trail"], ["TARGETS", "targets"], ["TREND", "trend"]]} />
-          <Setting label="BROKER" hint="SIM = in-browser paper. ALPACA = your Alpaca paper account. BOTH = place every setup on both at once." value={broker}
-            onPick={val => { setBroker(val); localStorage.setItem("axiom_autopilot_broker", val); }}
-            options={[["SIM", "sim"], ["ALPACA", "alpaca", "#10b981"], ["BOTH", "both", "#6366f1"]]} />
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 6 }}>BROKER</div>
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: "#10b981", background: "#10b98118", border: "1px solid #10b98144", borderRadius: 6, padding: "5px 10px" }}>🅰 ALPACA PAPER</span>
+            <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 4, maxWidth: 200, lineHeight: 1.4 }}>All trades run through your Alpaca paper account.</div>
+          </div>
         </div>
       </div>
-
-      {(broker === "alpaca" || broker === "both") && <AlpacaPanel C={C} MONO={MONO} SANS={SANS} />}
-      </>}
       </>}
 
-      {mtView !== "autopilot" && <TradeTracker C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} view={mtView} />}
+      <AlpacaPanel C={C} MONO={MONO} SANS={SANS} />
+      </>
     </div>
   );
 }
