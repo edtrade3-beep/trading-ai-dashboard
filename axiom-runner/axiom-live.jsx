@@ -7437,7 +7437,7 @@ function TradeTracker({ C, MONO, SANS, watchlistData, view = "all" }) {
           return (
             <div>
               <div style={{ fontFamily: SANS, fontSize: 11, color: C.amber, background: `${C.amber}12`, border: `1px solid ${C.amber}40`, borderRadius: 7, padding: "8px 11px", marginBottom: 12, lineHeight: 1.5 }}>
-                ⚠ Not directly comparable to SIM. This is account equity over the last <strong>1 month</strong> and <strong>includes open positions</strong>; the SIM tab shows all-time <strong>closed</strong> trades only. They also hold different trades unless your autopilot broker is set to <strong>BOTH</strong>.
+                🪞 <strong>Reality check, not your scorecard.</strong> This is real-fill account equity over the last <strong>1 month</strong> (includes open positions). It will differ from SIM — different trades, fills, and timeframe — and that's normal. To judge your actual edge (win rate, expectancy), use the <strong>🎮 SIM</strong> tab.
               </div>
               <div style={{ display: "flex", gap: 22, rowGap: 12, flexWrap: "wrap" }}>
                 {stats.map(([l, v, col]) => (
@@ -7466,6 +7466,9 @@ function TradeTracker({ C, MONO, SANS, watchlistData, view = "all" }) {
             </div>
           );
         })() : <>
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.accent, background: `${C.accent}10`, border: `1px solid ${C.accent}33`, borderRadius: 7, padding: "8px 11px", marginBottom: 12, lineHeight: 1.5 }}>
+          🎯 <strong>This is your report card.</strong> Judge your skill here — win rate, expectancy, and whether you have a real edge over 20+ trades. The 🅰 Alpaca tab is just a real-fill reality check; it will differ, and that's expected.
+        </div>
         <div style={{ display: "flex", gap: 22, rowGap: 12, flexWrap: "wrap" }}>
           {[
             ["TRADES", String(closed.length), C.text],
