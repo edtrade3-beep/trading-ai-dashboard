@@ -6890,9 +6890,9 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
         const gl = computeGreenLight(q, spyChg, scanRow);
         if (!(gl.px > 0)) return;
         const bullish = gl.signal === "GREEN" && gl.passed >= threshold;
-        const bearishPut = gl.signal === "RED" && gl.chg < -1;
+        const bearishPut = false;  // puts disabled — no bearish option buys
         const shortSetup = doShort && gl.shortSignal === "SHORT" && gl.shortPassed >= threshold;
-        if (!bullish && !bearishPut && !shortSetup) return;
+        if (!bullish && !shortSetup) return;
         // quality: checks passed dominate, then relative strength + leadership
         const quality = Math.max(gl.passed, shortSetup ? gl.shortPassed : 0) * 10 + Math.abs(Number(gl.relStrength) || 0) + (gl.isLeader ? 5 : 0);
         candidates.push({ q, gl, bullish, bearishPut, shortSetup, quality });
@@ -6921,14 +6921,8 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
         if (doShort && shortSetup) {
           const key = `${today}:${q.symbol}:SH:${broker}`;
           if (!autoBoughtRef.current.has(key)) {
-            if (broker === "alpaca" && doOptions) {
-              // Short via a PUT option (defined risk) — Alpaca only.
-              autoBoughtRef.current.add(key); slots--;
-              alpacaOption(q.symbol, "put", 1, gl.px).then(rr => {
-                if (rr?.ok) logTradeNote("buy", `📉 ALPACA SHORT (PUT) — ${q.symbol} (${gl.shortPassed}/5)\n1 contract · strike $${rr.order?.strike} · exp ${rr.order?.expiry} (paper)`);
-                else { autoBoughtRef.current.delete(key); }
-              });
-            } else if (broker === "alpaca") {
+            // Puts are disabled — short setups use share-shorting only (no put options).
+            if (broker === "alpaca") {
               const entry = gl.px;
               const atr = Math.min(0.05, Math.max(0.01, Number(gl.atrPct) || 0.025));
               const stop = +(entry * (1 + atr * 1.5)).toFixed(2);   // stop above
@@ -6940,11 +6934,6 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
                 if (r?.ok) logTradeNote("buy", `🔻 ALPACA SHORT — ${q.symbol} (${gl.shortPassed}/5)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} (above) · Target $${take} (below)`);
                 else { autoBoughtRef.current.delete(key); }
               });
-            } else if (doOptions) {
-              // SIM short via a PUT option (defined risk).
-              const res = addPaperOption(q.symbol, gl.px, "PUT", { glScore: gl.shortPassed });
-              if (res === "OK") { autoBoughtRef.current.add(key); slots--; }
-              else if (res === "DUP") autoBoughtRef.current.add(key);
             } else {
               const res = addPaperShort(q.symbol, gl.px, { atrPct: gl.atrPct, glScore: gl.shortPassed });
               if (res === "OK") { autoBoughtRef.current.add(key); slots--; }
@@ -6980,15 +6969,15 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
 
         if (slots <= 0) return;
 
-        // ── OPTIONS (call on bullish, put on clear bearish) ──
-        if (doOptions && (bullish || bearishPut)) {
-          const kind = bullish ? "CALL" : "PUT";
-          const key = `${today}:${q.symbol}:${bullish ? "C" : "P"}:${broker}`;
+        // ── OPTIONS (CALLS only — puts are disabled) ──
+        if (doOptions && bullish) {
+          const kind = "CALL";
+          const key = `${today}:${q.symbol}:C:${broker}`;
           if (!autoBoughtRef.current.has(key)) {
             if (broker === "alpaca") {
               autoBoughtRef.current.add(key); slots--;
-              alpacaOption(q.symbol, kind.toLowerCase(), 1, gl.px).then(rr => {
-                if (rr?.ok) logTradeNote("buy", `${bullish ? "📈" : "📉"} ALPACA ${kind} — ${q.symbol} (${gl.passed}/5)\n1 contract · strike $${rr.order.strike} · exp ${rr.order.expiry}`);
+              alpacaOption(q.symbol, "call", 1, gl.px).then(rr => {
+                if (rr?.ok) logTradeNote("buy", `📈 ALPACA CALL — ${q.symbol} (${gl.passed}/5)\n1 contract · strike $${rr.order.strike} · exp ${rr.order.expiry}`);
                 else { autoBoughtRef.current.delete(key); }
               });
             } else {
@@ -7957,7 +7946,7 @@ function AlpacaPanel({ C, MONO, SANS }) {
         <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>OPTIONS</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: acct.optionsApprovedLevel >= 2 ? C.green : acct.optionsApprovedLevel != null ? C.amber : C.textDim }}>
           {acct.optionsApprovedLevel != null ? ("Level " + acct.optionsApprovedLevel + (acct.optionsApprovedLevel >= 2 ? " ✓" : "")) : "—"}
         </div></div>
-        {acct.optionsApprovedLevel >= 2 && <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#d97706", background: "#d9770618", border: "1px solid #d9770644", borderRadius: 5, padding: "3px 8px" }} title="Short setups trade via defined-risk PUT options on Alpaca">📉 SHORT via PUTS</span>}
+        {acct.optionsApprovedLevel >= 2 && <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#16a34a", background: "#16a34a18", border: "1px solid #16a34a44", borderRadius: 5, padding: "3px 8px" }} title="Autopilot buys CALL options on bullish setups (puts disabled)">📈 CALLS only</span>}
       </div>
       {positions.length > 0 && (
         <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -8290,7 +8279,7 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
           {[
             ["simple", "🟢 Simple", "Long stocks only", "Buys shares on green setups. Safest, easiest."],
             ["calls", "📈 Long + Calls", "Stocks + call options", "Adds call options on bullish setups for more upside."],
-            ["full", "🔥 Full Auto", "Long & short, calls & puts", "Trades both directions: calls on longs, puts on shorts."],
+            ["full", "🔥 Full Auto", "Long + calls, short weak stocks", "Calls on bullish setups, short-sells weak stocks (shares). No puts."],
           ].map(([id, label, sub, desc]) => {
             const on = activeMode === id;
             return (
