@@ -5333,7 +5333,7 @@ function CryptoTab({ C, MONO, SANS }) {
 // ─── DIP BUY TAB ─────────────────────────────────────────────────────────────
 // Shows best stocks to buy during market sell-offs / red days
 // ── Green Light scoring (used in both tab and smart scan) ─────────────────────
-function computeGreenLight(q, spyChg, scanRow) {
+function computeGreenLight(q, spyChg, scanRow, regime = null) {
   const px     = Number(q?.price || q?.regularMarketPrice || 0);
   const ma50   = Number(q?.priceAvg50 || q?.fiftyDayAverage || 0);
   const ma200  = Number(q?.priceAvg200 || q?.twoHundredDayAverage || 0);
@@ -5364,17 +5364,22 @@ function computeGreenLight(q, spyChg, scanRow) {
       tip: (ma50 > 0 && ma200 > 0) ? `Price > MA50 $${ma50.toFixed(2)} > MA200 $${ma200.toFixed(2)} (aligned)` : (ma50 > 0 ? `Price > MA50 $${ma50.toFixed(2)}` : "No MA data") },
     { label: rsiKnown ? `Momentum · RSI ${rsi.toFixed(0)}` : "Momentum",  pass: momentumPass,
       tip: rsiKnown ? `RSI ${rsi.toFixed(0)} (>50 = bullish momentum)` : `Up ${chg >= 0 ? "+" : ""}${chg.toFixed(1)}% today` },
-    { label: rvol > 0 ? `Volume ${rvol.toFixed(1)}x` : "Volume active",  pass: rvol >= 1.2 || vol === 0,
-      tip: rvol > 0 ? `RVOL ${rvol.toFixed(1)}x (≥1.2x = real participation)` : "No volume data" },
+    { label: rvol > 0 ? `Volume ${rvol.toFixed(1)}x` : "Volume active",  pass: rvol >= 1.5 || vol === 0,
+      tip: rvol > 0 ? `RVOL ${rvol.toFixed(1)}x (≥1.5x min · 2.0x preferred for clean breakouts)` : "No volume data" },
     { label: "Good entry",   pass: ema21 > 0 ? (px <= ema21 * 1.08 && px >= ema21 * 0.94) : (ma50 > 0 && px <= ma50 * 1.10 && px >= ma50 * 0.92),
       tip: ema21 > 0 ? `Within reach of EMA21 $${ema21.toFixed(2)} — not over-extended` : `Near MA50 $${ma50.toFixed(2)}` },
   ];
 
   const passed = checks.filter(c => c.pass).length;
   const signal = passed >= 4 ? "GREEN" : passed >= 3 ? "YELLOW" : "RED";
-  const stop   = px > 0 ? (px * 0.97).toFixed(2) : 0;
+  // ── ATR-based stop (volatility-sized, not flat 3%) with +5% / +10% targets ──
+  const stop   = px > 0 ? (px * (1 - atrPct * 1.5)).toFixed(2) : 0;
   const t1     = px > 0 ? (px * 1.05).toFixed(2) : 0;
   const t2     = px > 0 ? (px * 1.10).toFixed(2) : 0;
+  // ── Reward / Risk to the +10% target (stop is ATR-sized, so R:R varies with volatility) ──
+  const riskDist = px > 0 ? px - Number(stop) : 0;
+  const rr = riskDist > 0 ? (Number(t2) - px) / riskDist : 0;
+  const rrPass = rr >= 2.5;   // hard filter: skip mediocre risk/reward
 
   // ── BEST ENTRY price ──
   // Ideal entry = at the support (EMA21 or MA50), capped just below current price.
@@ -5394,6 +5399,17 @@ function computeGreenLight(q, spyChg, scanRow) {
   // ── Relative strength vs market (SPY) ──
   const relStrength = chg - spyChg;  // how much it's beating/lagging the market today
   const isLeader = relStrength > 1.0; // outperforming SPY by 1%+
+  const atEntry = entryNote.includes("support");  // price is at the buy zone (not "wait for pullback")
+
+  // ── A+ SCORE — weighted 100-pt grade across the factors that matter ──
+  const sMarket = regime != null ? Math.round(regime / 100 * 20) : (spyChg > 0 ? 20 : spyChg > -0.5 ? 12 : 0);
+  const sTrend  = (ma50 > 0 && px > ma50 && ma200 > 0 && ma50 > ma200) ? 20 : (ma50 > 0 && px > ma50) ? 12 : 0;
+  const sVol    = rvol >= 2 ? 15 : rvol >= 1.5 ? 11 : rvol >= 1.2 ? 6 : (vol === 0 ? 8 : 0);
+  const sRS     = relStrength >= 2 ? 15 : relStrength >= 1 ? 12 : relStrength > 0 ? 8 : 0;
+  const sSetup  = atEntry ? 15 : (entryNote === "wait for pullback" ? 9 : 5);
+  const sRR     = rr >= 2.5 ? 15 : rr >= 2 ? 11 : rr >= 1.5 ? 6 : 0;
+  const aScore  = sMarket + sTrend + sVol + sRS + sSetup + sRR;
+  const grade   = aScore >= 85 ? "A+" : aScore >= 75 ? "A" : aScore >= 65 ? "B" : "SKIP";
 
   // ── SHORT setup: mirror checks (weak market · downtrend · bearish momentum · volume · entry near resistance) ──
   const shortChecks = [
@@ -5415,7 +5431,32 @@ function computeGreenLight(q, spyChg, scanRow) {
     checks, passed, signal, px, chg, stop, t1, t2, rvol, rsi, atrPct,
     shortChecks, shortPassed, shortSignal,
     bestEntry: +bestEntry.toFixed(2), entryNote, relStrength: +relStrength.toFixed(2), isLeader,
+    rr: +rr.toFixed(1), rrPass, atEntry,
+    aScore, grade, scoreParts: { market: sMarket, trend: sTrend, volume: sVol, rs: sRS, setup: sSetup, rr: sRR },
   };
+}
+
+// ── MARKET REGIME SCORE — 0-100 across SPY/QQQ/VIX (avoids trading weak tape). ──
+// Pass the macro quotes array; returns { score, label, color, factors }.
+function computeRegime(macroData) {
+  const find = s => (macroData || []).find(m => (m.symbol || "").toUpperCase() === s);
+  const spy = find("SPY"), qqq = find("QQQ"), vix = find("VIX") || find("^VIX") || find("VIXY");
+  const chg = q => Number(q?.changesPercentage || 0);
+  const factors = [];
+  // SPY / QQQ trending up today (proxy for above 21-EMA when we lack the EMA client-side)
+  factors.push({ label: "SPY up", pass: spy ? chg(spy) > -0.1 : false, pts: 20 });
+  factors.push({ label: "QQQ up", pass: qqq ? chg(qqq) > -0.1 : false, pts: 20 });
+  // VIX calm
+  const vixVal = Number(vix?.price || vix?.regularMarketPrice || 0);
+  factors.push({ label: "VIX < 20", pass: vixVal > 0 ? vixVal < 20 : (spy ? chg(spy) > -0.3 : false), pts: 20 });
+  // Breadth proxy: both SPY and QQQ green = broad participation
+  factors.push({ label: "Breadth +", pass: spy && qqq ? (chg(spy) > 0 && chg(qqq) > 0) : false, pts: 20 });
+  // Trend day proxy: SPY moving decisively (|chg| > 0.4%) in the up direction
+  factors.push({ label: "Trend day", pass: spy ? chg(spy) > 0.4 : false, pts: 20 });
+  const score = factors.reduce((s, f) => s + (f.pass ? f.pts : 0), 0);
+  const label = score >= 80 ? "GREEN" : score >= 60 ? "YELLOW" : "RED";
+  const color = score >= 80 ? "#22c55e" : score >= 60 ? "#d6a312" : "#ef4444";
+  return { score, label, color, factors, vixVal };
 }
 
 // ── Trade Tracker — logs Green Light trades, manages exits, tracks stats ──────
@@ -8703,12 +8744,15 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
     }).catch(() => setGlDeepLoad(false));
   }, [glExpanded]);
 
+  // Market regime score (0-100) — feeds the banner and each name's A+ score.
+  const regime = computeRegime(macroData);
+
   // Build results from watchlist + scan data
   const results = (watchlistData || []).map(q => {
     const scanRow = (scanResults || []).find(r => r.ticker === q.symbol);
-    const gl = computeGreenLight(q, spyChg, scanRow);
+    const gl = computeGreenLight(q, spyChg, scanRow, regime.score);
     return { ...gl, symbol: q.symbol, name: q.name, q };
-  }).filter(r => r.px > 0).sort((a, b) => b.passed - a.passed || b.relStrength - a.relStrength);
+  }).filter(r => r.px > 0).sort((a, b) => b.aScore - a.aScore || b.passed - a.passed);
 
   const green  = results.filter(r => r.signal === "GREEN");
   const yellow = results.filter(r => r.signal === "YELLOW");
@@ -8751,6 +8795,12 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
             </span>
             {r.rvol > 1.5 && <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber, background: `${C.amber}18`, borderRadius: 4, padding: "1px 6px" }}>VOL {r.rvol.toFixed(1)}x</span>}
             {r.isLeader && <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: "#fff", background: C.green, borderRadius: 4, padding: "1px 7px" }}>💪 LEADER +{r.relStrength}% vs SPY</span>}
+            {(() => { const gc = r.grade === "A+" ? "#16a34a" : r.grade === "A" ? C.green : r.grade === "B" ? C.amber : C.red;
+              return <span title={`Market ${r.scoreParts.market} · Trend ${r.scoreParts.trend} · Volume ${r.scoreParts.volume} · RS ${r.scoreParts.rs} · Setup ${r.scoreParts.setup} · R:R ${r.scoreParts.rr}`}
+                style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: "#fff", background: gc, borderRadius: 4, padding: "1px 7px" }}>{r.grade} {r.aScore}</span>; })()}
+            {r.signal !== "RED" && (r.atEntry
+              ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.green, background: `${C.green}18`, border: `1px solid ${C.green}44`, borderRadius: 4, padding: "1px 7px" }}>🎯 at buy zone</span>
+              : <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.amber, background: `${C.amber}18`, border: `1px solid ${C.amber}44`, borderRadius: 4, padding: "1px 7px" }}>⏳ wait for pullback ${r.bestEntry}</span>)}
           </div>
           {/* Checklist */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -8781,8 +8831,8 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
                   {bullish ? "📈" : "📉"} {kind} ${atm} · ~${premium} · BE ${be}{optGain > 0 ? ` · ≈+${optGain}% if T2` : ""}
                 </span>
                 <span style={{ color: C.green }}>🎯 Target ${r.t2} (+10%)</span>
-                <span style={{ color: C.red }}>🛑 Stop ${r.stop}</span>
-                <span style={{ color: C.amber }}>⏹ Exit on bearish</span>
+                <span style={{ color: C.red }}>🛑 Stop ${r.stop} (ATR)</span>
+                <span style={{ color: r.rrPass ? C.green : C.amber, fontWeight: 700 }}>⚖️ R:R {r.rr}:1{r.rrPass ? " ✓" : " (thin)"}</span>
               </div>
             );
           })()}
@@ -9053,19 +9103,28 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
 
       {/* Auto-pilot + paper trades now live in their own 📋 MY TRADES tab */}
 
-      {/* Market check */}
+      {/* Market regime score (0-100 across SPY/QQQ/VIX/breadth/trend) */}
       <div style={{ padding: "10px 16px", marginBottom: 16, borderRadius: 8,
-        background: spyChg > -1 ? `${C.green}12` : `${C.red}12`,
-        border: `1px solid ${spyChg > -1 ? C.green : C.red}44`,
-        display: "flex", alignItems: "center", gap: 12 }}>
-        <span style={{ fontSize: 20 }}>{spyChg > -1 ? "✅" : "🚨"}</span>
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: spyChg > -1 ? C.green : C.red }}>
-            {spyChg > -1 ? "MARKET SAFE — GREEN LIGHT TRADES ALLOWED" : "MARKET DANGER — AVOID ALL TRADES TODAY"}
+        background: `${regime.color}14`, border: `1px solid ${regime.color}55`,
+        display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 22 }}>{regime.label === "GREEN" ? "✅" : regime.label === "YELLOW" ? "⚠️" : "🚨"}</span>
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: regime.color }}>
+              MARKET {regime.label} — {regime.label === "GREEN" ? "trade freely" : regime.label === "YELLOW" ? "trade smaller / be selective" : "sit out — weak tape"}
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+              Regime score <strong style={{ color: regime.color }}>{regime.score}/100</strong> · SPY {spyChg >= 0 ? "+" : ""}{spyChg.toFixed(2)}%{regime.vixVal ? ` · VIX ${regime.vixVal.toFixed(1)}` : ""}
+            </div>
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
-            SPY {spyChg >= 0 ? "+" : ""}{spyChg.toFixed(2)}% — {spyChg > -1 ? "Rule #1 passed ✓" : "Rule #1 FAILED — sit out regardless of other signals"}
-          </div>
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginLeft: "auto" }}>
+          {regime.factors.map(f => (
+            <span key={f.label} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "3px 7px", borderRadius: 5,
+              color: f.pass ? regime.color : C.textDim, background: f.pass ? `${regime.color}18` : C.surface, border: `1px solid ${f.pass ? regime.color + "44" : C.border}` }}>
+              {f.pass ? "✓" : "○"} {f.label}
+            </span>
+          ))}
         </div>
       </div>
 
