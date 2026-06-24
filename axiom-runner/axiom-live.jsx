@@ -7007,6 +7007,37 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
     return () => clearInterval(t);
   }, [watchlistData, macroData, scanResults]);
 
+  // ── DAILY SUMMARY (Alpaca) — once per weekday after the close (ET), Telegram your day + edge progress ──
+  useEffect(() => {
+    const dtf = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false, weekday: "short" });
+    const partsOf = d => { try { return Object.fromEntries(dtf.formatToParts(new Date(d)).map(x => [x.type, x.value])); } catch { return {}; } };
+    const dateKey = p => `${p.year}-${p.month}-${p.day}`;
+    const check = () => {
+      if (localStorage.getItem("axiom_autopilot_tg") === "off") return;
+      if (localStorage.getItem("axiom_daily_summary") === "off") return;
+      const now = partsOf(new Date());
+      if (now.weekday === "Sat" || now.weekday === "Sun") return;
+      if (Number(now.hour) < 16) return;
+      const today = dateKey(now);
+      if (localStorage.getItem("axiom_daily_summary_date") === today) return;
+      localStorage.setItem("axiom_daily_summary_date", today);  // claim early to avoid double-send
+      fetch("/api/alpaca/closed-trades").then(r => r.json()).then(d => {
+        if (!d.ok) return;
+        const closed = d.trades || [];
+        const todayT = closed.filter(t => dateKey(partsOf(t.closedAt)) === today);
+        const wins = todayT.filter(t => t.pnl > 0).length;
+        const dayPnl = todayT.reduce((s, t) => s + t.pnl, 0);
+        const total = closed.length;
+        const edge = total >= 20 ? `${total}/20 ✓ — check your edge in My Trades` : `${total}/20 — keep going`;
+        const text = `📊 DAILY SUMMARY — ${today}\n\nToday: ${todayT.length} closed · ${wins}W/${todayT.length - wins}L · P&L ${dayPnl >= 0 ? "+" : ""}$${Math.round(dayPnl)}\nEdge check: ${edge}`;
+        fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) }).catch(() => {});
+      }).catch(() => {});
+    };
+    check();
+    const id = setInterval(check, 60000);
+    return () => clearInterval(id);
+  }, []);
+
 
   // AUTO-EXIT: every 15s, scale out auto paper trades at T1/T2/T3 or dump at stop
   useEffect(() => {
