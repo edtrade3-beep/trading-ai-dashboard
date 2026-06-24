@@ -136,10 +136,22 @@ async function handleAlpaca(req, res, requestUrl) {
     if (!configured) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key", positions: [] });
     const a = await alpaca("/v2/positions");
     if (!a._ok) return writeJson(res, 200, { ok: false, positions: [], error: a.data?.message });
+    // Positions don't carry an open time — derive it from the most recent OPENING fill per symbol.
+    const openedAt = {};
+    try {
+      const act = await alpaca("/v2/account/activities?activity_types=FILL&page_size=100&direction=desc");
+      if (act._ok && Array.isArray(act.data)) {
+        for (const f of act.data) {                       // newest first → first match = latest entry
+          const sym = f.symbol; if (!sym || openedAt[sym]) continue;
+          openedAt[sym] = f.transaction_time;
+        }
+      }
+    } catch { /* best-effort */ }
     const positions = (a.data || []).map(p => ({
       symbol: p.symbol, qty: Number(p.qty), avgEntry: Number(p.avg_entry_price),
       current: Number(p.current_price), marketValue: Number(p.market_value),
       unrealizedPL: Number(p.unrealized_pl), unrealizedPLpc: Number(p.unrealized_plpc) * 100, side: p.side,
+      openedAt: openedAt[p.symbol] || null,
     }));
     return writeJson(res, 200, { ok: true, positions });
   }

@@ -8153,9 +8153,12 @@ function AlpacaPanel({ C, MONO, SANS }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
             {positions.map(p => (
               <div key={p.symbol} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", background: C.surface, borderRadius: 8 }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.accent }}>{p.symbol}</span>
                   <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{p.qty} sh @ ${Number(p.avgEntry).toFixed(2)}</span>
+                  {p.openedAt && <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }} title={`Opened ${new Date(p.openedAt).toLocaleString()}`}>
+                    🕒 {new Date(p.openedAt).toLocaleDateString([], { month: "short", day: "numeric" })} {new Date(p.openedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>}
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: p.unrealizedPL >= 0 ? C.green : C.red }}>{p.unrealizedPL >= 0 ? "+" : ""}${p.unrealizedPL.toFixed(0)}</span>
@@ -8399,6 +8402,29 @@ function AlpacaReportCard({ C, MONO, SANS }) {
             </div>
           );
         })()}
+        {/* Recent closed trades with open → close times */}
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>RECENT CLOSED</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            {closed.slice(0, 12).map((t, i) => {
+              const ft = d => { try { const x = new Date(d); return x.toLocaleDateString([], { month: "short", day: "numeric" }) + " " + x.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); } catch { return "—"; } };
+              const held = (t.openedAt && t.closedAt) ? Math.max(0, Math.round((new Date(t.closedAt) - new Date(t.openedAt)) / 60000)) : null;
+              const heldStr = held == null ? "" : held < 60 ? `${held}m` : held < 1440 ? `${Math.round(held / 60)}h` : `${Math.round(held / 1440)}d`;
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "7px 10px", background: C.surface, borderRadius: 8, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 150 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent }}>{t.symbol}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{t.side === "short" ? "SHORT " : ""}{t.qty} @ ${Number(t.entry).toFixed(2)}→${Number(t.exit).toFixed(2)}</span>
+                  </div>
+                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, flex: 1, textAlign: "center", minWidth: 160 }}>
+                    🕒 {ft(t.openedAt)} → {ft(t.closedAt)}{heldStr ? ` · ${heldStr}` : ""}
+                  </span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: t.pnl >= 0 ? C.green : C.red, minWidth: 60, textAlign: "right" }}>{t.pnl >= 0 ? "+" : ""}${Math.round(t.pnl)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </>}
   </>);
 }
