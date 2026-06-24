@@ -8780,6 +8780,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const spyQ   = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
   const spyChg = Number(spyQ?.changesPercentage || 0);
   const [glExpanded, setGlExpanded] = useState(null); // ticker whose details are shown
+  const [candOpen, setCandOpen] = useState(null);     // candidate (calls/puts/watch) expanded to full card
   // Deep-dive data (analyst targets, fundamentals, news) — same sources as Smart Scan
   const [glDeep, setGlDeep] = useState({});
   const [glDeepLoad, setGlDeepLoad] = useState(false);
@@ -9341,8 +9342,14 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
       {/* ── CANDIDATES — Calls / Puts / Watch in 3 compact columns ── */}
       {(() => {
         const tag = (txt, col, on) => <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, padding: "1px 5px", borderRadius: 3, whiteSpace: "nowrap", color: on ? "#fff" : C.textDim, background: on ? col : "transparent", border: `1px solid ${on ? col : C.border}` }}>{txt}</span>;
-        const card = (r, { score, sc, ok, checks, rr, tint, badge, lvls }) => (
-          <div key={r.symbol} style={{ padding: "6px 8px", borderRadius: 7, marginBottom: 5, background: ok ? `${tint}12` : C.surface, border: `1px solid ${ok ? tint + "55" : C.border}` }}>
+        const card = (r, { score, sc, ok, checks, rr, tint, badge, lvls }) => candOpen === r.symbol ? (
+          <div key={r.symbol} style={{ marginBottom: 5 }}>
+            <Row r={r} />
+            <button onClick={() => setCandOpen(null)} style={{ width: "100%", marginTop: -8, fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, background: "transparent", border: "none", cursor: "pointer", padding: "2px 0" }}>▲ collapse</button>
+          </div>
+        ) : (
+          <div key={r.symbol} onClick={() => setCandOpen(r.symbol)} title="Click to expand full setup"
+            style={{ padding: "6px 8px", borderRadius: 7, marginBottom: 5, cursor: "pointer", background: ok ? `${tint}12` : C.surface, border: `1px solid ${ok ? tint + "55" : C.border}` }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 5, minWidth: 0, overflow: "hidden" }}>
                 <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: sc }}>{score}</span>
