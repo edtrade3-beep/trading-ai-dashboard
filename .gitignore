@@ -7,3 +7,7 @@ port-pid.txt
 lt-pid.txt
 .env
 data/
+
+# build artifacts
+node_modules/
+axiom-runner/axiom-live.compiled.js

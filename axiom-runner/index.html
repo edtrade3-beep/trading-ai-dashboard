@@ -77,8 +77,6 @@
 
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <!-- Pinned to Babel 7 — Babel 8 (always-latest) rejects bare > / < in JSX text and breaks the app -->
-  <script src="https://unpkg.com/@babel/standalone@7.29.7/babel.min.js"></script>
   <!-- jsPDF for client-side PDF export (scan zone reports) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <!-- TradingView lightweight-charts — interactive live candlestick charts with overlays -->
@@ -98,43 +96,50 @@
       );
     }
 
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = src; s.onload = resolve; s.onerror = () => reject(new Error("failed to load " + src));
+        document.head.appendChild(s);
+      });
+    }
+
+    // Fast path: load the PRECOMPILED JS (build step) — no in-browser Babel on ~2 MB.
     async function boot() {
       try {
-        const response = await fetch(`/axiom-runner/axiom-live.jsx?v=${Date.now()}`, { cache: "no-store" });
-        if (!response.ok) {
-          throw new Error("Unable to read axiom-live.jsx (" + response.status + ")");
+        const r = await fetch(`/axiom-runner/axiom-live.compiled.js?v=${Date.now()}`, { cache: "no-store" });
+        if (r.ok) {
+          new Function(await r.text())();
+          const App = window.__AXIOM_APP__;
+          if (typeof App === "function") { root.render(React.createElement(App)); return; }
         }
-
-        const source = await response.text();
-        const prepared = source
-          .replace(
-            /import\s+\{\s*useState,\s*useEffect,\s*useCallback,\s*useMemo,\s*useRef\s*\}\s+from\s+["']react["'];?/,
-            "const { useState, useEffect, useCallback, useMemo, useRef } = React;"
-          )
-          .replace(/export\s+default\s+function\s+App\s*\(/, "function App(")
-          .concat("\nwindow.__AXIOM_APP__ = App;\n");
-
-        Babel.transform(prepared, {
-          presets: ["react"],
-          filename: "axiom-live.jsx"
-        });
-
-        const compiled = Babel.transform(prepared, {
-          presets: ["react"],
-          filename: "axiom-live.jsx"
-        }).code;
-
-        new Function(compiled)();
-        const App = window.__AXIOM_APP__;
-
-        if (typeof App !== "function") {
-          throw new Error("Compiled app did not expose a React component.");
-        }
-
-        root.render(React.createElement(App));
+        await bootBabelFallback();   // compiled file missing/stale → transpile in-browser
       } catch (error) {
-        renderError(error && error.stack ? error.stack : error);
+        try { await bootBabelFallback(); }
+        catch (e2) { renderError(e2 && e2.stack ? e2.stack : e2); }
       }
+    }
+
+    // Fallback: original in-browser Babel transpile of the raw .jsx (Babel loaded lazily, only if needed).
+    async function bootBabelFallback() {
+      if (typeof Babel === "undefined") {
+        await loadScript("https://unpkg.com/@babel/standalone@7.29.7/babel.min.js");
+      }
+      const response = await fetch(`/axiom-runner/axiom-live.jsx?v=${Date.now()}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Unable to read axiom-live.jsx (" + response.status + ")");
+      const source = await response.text();
+      const prepared = source
+        .replace(
+          /import\s+\{\s*useState,\s*useEffect,\s*useCallback,\s*useMemo,\s*useRef\s*\}\s+from\s+["']react["'];?/,
+          "const { useState, useEffect, useCallback, useMemo, useRef } = React;"
+        )
+        .replace(/export\s+default\s+function\s+App\s*\(/, "function App(")
+        .concat("\nwindow.__AXIOM_APP__ = App;\n");
+      const compiled = Babel.transform(prepared, { presets: ["react"], filename: "axiom-live.jsx" }).code;
+      new Function(compiled)();
+      const App = window.__AXIOM_APP__;
+      if (typeof App !== "function") throw new Error("Compiled app did not expose a React component.");
+      root.render(React.createElement(App));
     }
 
     boot();
