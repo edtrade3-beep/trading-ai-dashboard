@@ -13476,7 +13476,13 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                     <tr onClick={() => toggleRow(r.symbol)}
                       style={{ cursor: "pointer", background: open ? `${C.accent}12` : r.atBuyPoint ? `${C.green}12` : "transparent" }}>
                       <td style={{ padding: "7px 10px" }}>{open ? "▼" : r.atBuyPoint ? "🟢" : r.extended ? "⚠" : "▸"}</td>
-                      <td style={{ padding: "7px 10px", fontWeight: 800, color: C.text }}>{r.symbol}</td>
+                      <td style={{ padding: "7px 10px", fontWeight: 800, color: C.text }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                          {r.symbol}
+                          {r.earningsSoon && <span title={`Reports earnings in ${r.earningsDte} day${r.earningsDte === 1 ? "" : "s"} — breakout risk.`} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: "#d97706", background: "#d9770618", borderRadius: 4, padding: "1px 4px" }}>⚠ER {r.earningsDte}d</span>}
+                          {typeof r.epsGrowth === "number" && <span title="Forward EPS vs trailing EPS — the fundamental half of SEPA." style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: r.epsGrowth > 0 ? C.green : C.textDim }}>{r.epsGrowth > 0 ? "📈" : "📉"}{r.epsGrowth > 0 ? "+" : ""}{r.epsGrowth}%</span>}
+                        </span>
+                      </td>
                       <td style={{ padding: "7px 10px", color: sCol, fontWeight: 800 }}>{r.passCount}/8</td>
                       <td style={{ padding: "7px 10px", color: r.rsRating >= 70 ? C.green : C.textDim }}>{r.rsRating ?? "—"}</td>
                       <td style={{ padding: "7px 10px" }}>{(() => { const g = r.vcpGrade; const gc = g === "A" ? C.green : g === "B" ? "#5ab552" : g === "C" ? "#d6a312" : C.textDim;

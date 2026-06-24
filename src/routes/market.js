@@ -1076,6 +1076,26 @@ async function screenTrendTemplate(symbols) {
     delete x._passExclRS; delete x.momentum;
   }
 
+  // ── Fundamentals overlay (one batched quote call): next earnings date + EPS growth. ──
+  try {
+    const syms = out.filter((x) => !x.error).map((x) => x.symbol);
+    const qmap = {};
+    for (let i = 0; i < syms.length; i += 20) {
+      const qs = await fetchYahooQuoteBatch(syms.slice(i, i + 20)).catch(() => []);
+      (qs || []).forEach((q) => { qmap[String(q.symbol || "").toUpperCase()] = q; });
+    }
+    const now = Date.now();
+    for (const x of out) {
+      if (x.error) continue;
+      const q = qmap[x.symbol]; if (!q) continue;
+      const ts = Number((Array.isArray(q.earningsTimestamp) ? q.earningsTimestamp[0] : q.earningsTimestamp) || 0);
+      x.earningsDte = ts ? Math.round((ts * 1000 - now) / 86400000) : null;
+      x.earningsSoon = x.earningsDte != null && x.earningsDte >= 0 && x.earningsDte <= 10;
+      const epsTTM = Number(q.epsTrailingTwelveMonths || 0), epsFwd = Number(q.epsForward || 0);
+      x.epsGrowth = (epsTTM > 0 && epsFwd > 0) ? Math.round((epsFwd / epsTTM - 1) * 100) : null;
+    }
+  } catch { /* fundamentals are best-effort */ }
+
   const rank = (x) => x.error ? -1 : (x.atBuyPoint ? 1000 : 0) + x.passCount * 100 + (x.rsRating || 0);
   out.sort((a, b) => rank(b) - rank(a));
   return out;
