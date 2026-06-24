@@ -6933,8 +6933,16 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
         if (doShort && shortSetup) {
           const key = `${today}:${q.symbol}:SH:${broker}`;
           if (!autoBoughtRef.current.has(key)) {
-            // Puts are disabled — short setups use share-shorting only (no put options).
-            if (broker === "alpaca") {
+            // Conservative PUTS: only the STRONGEST bearish setups (5/5) express as a single
+            // defined-risk PUT (max loss = premium). Weaker shorts use shares. Requires options on.
+            const conservativePut = doOptions && gl.shortPassed >= 5;
+            if (broker === "alpaca" && conservativePut) {
+              autoBoughtRef.current.add(key); slots--;
+              alpacaOption(q.symbol, "put", 1, gl.px).then(rr => {
+                if (rr?.ok) logTradeNote("buy", `📉 ALPACA PUT (conservative) — ${q.symbol} (${gl.shortPassed}/5)\n1 contract · strike $${rr.order?.strike} · exp ${rr.order?.expiry} · defined risk`);
+                else { autoBoughtRef.current.delete(key); }
+              });
+            } else if (broker === "alpaca") {
               const entry = gl.px;
               const atr = Math.min(0.05, Math.max(0.01, Number(gl.atrPct) || 0.025));
               const stop = +(entry * (1 + atr * 1.5)).toFixed(2);   // stop above
@@ -7997,7 +8005,7 @@ function AlpacaPanel({ C, MONO, SANS }) {
         <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>OPTIONS</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: acct.optionsApprovedLevel >= 2 ? C.green : acct.optionsApprovedLevel != null ? C.amber : C.textDim }}>
           {acct.optionsApprovedLevel != null ? ("Level " + acct.optionsApprovedLevel + (acct.optionsApprovedLevel >= 2 ? " ✓" : "")) : "—"}
         </div></div>
-        {acct.optionsApprovedLevel >= 2 && <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#16a34a", background: "#16a34a18", border: "1px solid #16a34a44", borderRadius: 5, padding: "3px 8px" }} title="Autopilot buys CALL options on bullish setups (puts disabled)">📈 CALLS only</span>}
+        {acct.optionsApprovedLevel >= 2 && <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#16a34a", background: "#16a34a18", border: "1px solid #16a34a44", borderRadius: 5, padding: "3px 8px" }} title="Calls on bullish setups; conservative single puts only on 5/5 bearish setups (defined risk).">📈 CALLS + cautious PUTS</span>}
       </div>
       {positions.length > 0 && (
         <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -8426,7 +8434,7 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
           {[
             ["simple", "🟢 Simple", "Long stocks only", "Buys shares on green setups. Safest, easiest."],
             ["calls", "📈 Long + Calls", "Stocks + call options", "Adds call options on bullish setups for more upside."],
-            ["full", "🔥 Full Auto", "Long + calls, short weak stocks", "Calls on bullish setups, short-sells weak stocks (shares). No puts."],
+            ["full", "🔥 Full Auto", "Long + calls, short + conservative puts", "Calls on bullish setups; shorts weak stocks (shares); only 5/5 bearish setups buy a single defined-risk put."],
           ].map(([id, label, sub, desc]) => {
             const on = activeMode === id;
             return (
