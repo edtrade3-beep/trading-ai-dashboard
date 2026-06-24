@@ -8534,7 +8534,7 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
     <div style={{ padding: "16px 20px", maxWidth: 980, margin: "0 auto" }}>
       {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
-        <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>📋 MY TRADES</div>
+        <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>🤖 AUTO-PILOT</div>
         <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#10b981", padding: "3px 8px", borderRadius: 6, border: `1px solid #10b98155`, background: "#10b98114" }}>🅰 ALPACA PAPER</span>
         <button onClick={flattenAll} disabled={closing}
           style={{ marginLeft: "auto", background: closing ? C.surface : `${C.red}15`, color: C.red, border: `1px solid ${C.red}55`, borderRadius: 10,
@@ -8543,11 +8543,8 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
         </button>
       </div>
 
-      {/* ── Account hero (equity, today, positions) — first thing you see ── */}
-      <AlpacaPanel C={C} MONO={MONO} SANS={SANS} />
-
       <>
-      {/* ── 1. Master switch ── */}
+      {/* ── 1. Master switch (top) ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12, padding: "16px 18px",
         background: autoPilot ? "#16a34a14" : C.card, border: `2px solid ${autoPilot ? "#16a34a" : C.border}`, borderRadius: 12, flexWrap: "wrap" }}>
         <span style={{ fontSize: 30 }}>🤖</span>
@@ -8588,6 +8585,9 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
           {autoPilot ? "⏹ TURN OFF" : "▶ TURN ON"}
         </button>
       </div>
+
+      {/* ── Account hero (equity, today, positions) ── */}
+      <AlpacaPanel C={C} MONO={MONO} SANS={SANS} />
 
       {/* ── Setup (collapsible) — quick modes + fine-tune + broker panel ── */}
       <button onClick={() => setShowSetup(s => !s)}
