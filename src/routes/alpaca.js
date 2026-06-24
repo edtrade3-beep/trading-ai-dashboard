@@ -82,9 +82,22 @@ async function handleAlpaca(req, res, requestUrl) {
   // Powers the My Trades "report card" (win rate, expectancy, edge check) on real Alpaca fills.
   if (pathname === "/api/alpaca/closed-trades" && req.method === "GET") {
     if (!configured) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key", trades: [] });
-    const a = await alpaca("/v2/account/activities?activity_types=FILL&page_size=500");
-    if (!a._ok) return writeJson(res, 200, { ok: false, trades: [], error: a.data?.message || "activities error" });
-    const fills = (Array.isArray(a.data) ? a.data : [])
+    // Alpaca caps the activities endpoint at 100 per page — page through (newest first) up to ~500 fills.
+    let raw = [];
+    let pageToken = null;
+    for (let page = 0; page < 5; page++) {
+      const qs = `/v2/account/activities?activity_types=FILL&page_size=100&direction=desc${pageToken ? `&page_token=${encodeURIComponent(pageToken)}` : ""}`;
+      const a = await alpaca(qs);
+      if (!a._ok) {
+        if (page === 0) return writeJson(res, 200, { ok: false, trades: [], error: a.data?.message || "activities error" });
+        break; // keep what we have if a later page fails
+      }
+      const batch = Array.isArray(a.data) ? a.data : [];
+      raw = raw.concat(batch);
+      if (batch.length < 100) break;          // last page
+      pageToken = batch[batch.length - 1].id;  // next page starts after the last id
+    }
+    const fills = raw
       .map(f => ({ symbol: f.symbol, side: f.side, qty: Math.abs(Number(f.qty) || 0), price: Number(f.price) || 0, at: f.transaction_time }))
       .filter(f => f.symbol && f.qty > 0 && f.price > 0)
       .sort((x, y) => new Date(x.at) - new Date(y.at)); // oldest first
