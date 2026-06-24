@@ -5411,6 +5411,29 @@ function computeGreenLight(q, spyChg, scanRow, regime = null) {
   const aScore  = sMarket + sTrend + sVol + sRS + sSetup + sRR;
   const grade   = aScore >= 85 ? "A+" : aScore >= 75 ? "A" : aScore >= 65 ? "B" : "SKIP";
 
+  // ── BEAR SCORE — put-candidate quality (5 × 20). For momentum breakdowns on red days. ──
+  // VWAP isn't available client-side, so EMA21 is used as the intraday-mean proxy; 50-MA = support.
+  const belowMean   = ema21 > 0 ? px < ema21 : (ma50 > 0 ? px < ma50 : chg < 0);   // "below VWAP"
+  const supportBreak = ma50 > 0 ? px < ma50 : chg < -1;                            // broke the 50-day
+  const bMarket = regime != null ? (regime < 60 ? 20 : regime < 80 ? 10 : 0) : (spyChg < -0.3 ? 20 : spyChg < 0.2 ? 10 : 0);
+  const bVwap   = belowMean ? 20 : 0;
+  const bWeak   = relStrength <= -2 ? 20 : relStrength < 0 ? 12 : 0;
+  const bVol    = rvol >= 1.5 ? 20 : rvol >= 1.2 ? 10 : 0;
+  const bBreak  = supportBreak ? 20 : 0;
+  const bearScore = bMarket + bVwap + bWeak + bVol + bBreak;
+  // Put levels: ATR stop ABOVE, target −10% BELOW; R:R = reward/risk.
+  const putStop   = px > 0 ? +(px * (1 + atrPct * 1.5)).toFixed(2) : 0;
+  const putTarget = px > 0 ? +(px * 0.90).toFixed(2) : 0;
+  const putRR     = (putStop - px) > 0 ? +((px - putTarget) / (putStop - px)).toFixed(1) : 0;
+  const bearTradeable = bearScore > 80 && putRR >= 2;
+  const bearChecks = [
+    { label: "Market red", pass: bMarket >= 20 },
+    { label: "Below VWAP", pass: belowMean },
+    { label: "Rel. weakness", pass: relStrength < 0 },
+    { label: "Volume 1.5x", pass: rvol >= 1.5 },
+    { label: "Support break", pass: supportBreak },
+  ];
+
   // ── SHORT setup: mirror checks (weak market · downtrend · bearish momentum · volume · entry near resistance) ──
   const shortChecks = [
     { label: "Tape ok to short", pass: spyChg < 0.5,
@@ -5433,6 +5456,7 @@ function computeGreenLight(q, spyChg, scanRow, regime = null) {
     bestEntry: +bestEntry.toFixed(2), entryNote, relStrength: +relStrength.toFixed(2), isLeader,
     rr: +rr.toFixed(1), rrPass, atEntry,
     aScore, grade, scoreParts: { market: sMarket, trend: sTrend, volume: sVol, rs: sRS, setup: sSetup, rr: sRR },
+    bearScore, bearChecks, putStop, putTarget, putRR, bearTradeable,
   };
 }
 
@@ -8757,6 +8781,8 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const green  = results.filter(r => r.signal === "GREEN");
   const yellow = results.filter(r => r.signal === "YELLOW");
   const red    = results.filter(r => r.signal === "RED");
+  // Put candidates — momentum breakdowns, ranked by Bear Score (only meaningful on red/weak tape).
+  const puts   = results.filter(r => r.bearScore >= 60).sort((a, b) => b.bearScore - a.bearScore).slice(0, 12);
 
   // Auto-buy is handled globally by <AutoPilotEngine> so it runs on every tab.
 
@@ -9202,6 +9228,49 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
           {green.map(r => <Row key={r.symbol} r={r} />)}
         </div>
       )}
+
+      {/* 🔻 PUT CANDIDATES — bearish momentum breakdowns, ranked by Bear Score */}
+      <div style={{ marginBottom: 20, border: `1px solid ${C.red}33`, borderRadius: 10, padding: "12px 14px", background: `${C.red}06` }}>
+        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.red, marginBottom: 4, letterSpacing: "0.06em" }}>
+          🔻 PUT CANDIDATES ({puts.filter(p => p.bearTradeable).length} tradeable)
+        </div>
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 10, lineHeight: 1.5 }}>
+          Only trade <strong style={{ color: C.text }}>Bear Score &gt; 80</strong> and <strong style={{ color: C.text }}>R:R ≥ 2:1</strong>. Puts are harder than calls — markets drift up, so on red days <strong style={{ color: C.amber }}>trade smaller, take profits faster, and sit in cash if nothing scores high.</strong>
+        </div>
+        {puts.length === 0
+          ? <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>No put candidates right now — nothing's breaking down. Stay in cash. ✅</div>
+          : puts.map(r => {
+            const ok = r.bearTradeable;
+            const bc = r.bearScore >= 80 ? C.red : r.bearScore >= 70 ? "#d6a312" : C.textDim;
+            return (
+              <div key={r.symbol} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 10px", borderRadius: 8, marginBottom: 4,
+                background: ok ? `${C.red}10` : C.surface, border: `1px solid ${ok ? C.red + "44" : C.border}`, flexWrap: "wrap" }}>
+                <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: bc, minWidth: 40 }}>{r.bearScore}</span>
+                <div style={{ minWidth: 110 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>{r.symbol}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.text, marginLeft: 6 }}>${r.px.toFixed(2)}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: r.chg >= 0 ? C.green : C.red, marginLeft: 6 }}>{r.chg >= 0 ? "+" : ""}{r.chg.toFixed(2)}%</span>
+                </div>
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap", flex: 1 }}>
+                  {r.bearChecks.map((c, i) => (
+                    <span key={i} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: c.pass ? C.red : C.textDim,
+                      background: c.pass ? `${C.red}15` : "transparent", border: `1px solid ${c.pass ? C.red + "33" : C.border}`, borderRadius: 4, padding: "1px 6px" }}>
+                      {c.pass ? "✓" : "○"} {c.label}
+                    </span>
+                  ))}
+                </div>
+                <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 10 }}>
+                  <div style={{ color: r.putRR >= 2 ? C.green : C.amber, fontWeight: 700 }}>R:R {r.putRR}:1{r.putRR >= 2 ? " ✓" : ""}</div>
+                  <div style={{ color: C.textDim }}>🛑 ${r.putStop} · 🎯 ${r.putTarget}</div>
+                </div>
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 4,
+                  color: ok ? "#fff" : C.textDim, background: ok ? C.red : "transparent", border: `1px solid ${ok ? C.red : C.border}` }}>
+                  {ok ? "TRADEABLE" : "watch"}
+                </span>
+              </div>
+            );
+          })}
+      </div>
 
       {/* YELLOW results */}
       {yellow.length > 0 && (
