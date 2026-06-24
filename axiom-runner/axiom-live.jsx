@@ -17003,6 +17003,8 @@ export default function App() {
   const [customAlertMin, setCustomAlertMin] = useState("70");
   const [customAlerts, setCustomAlerts] = useState([]);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [pageZoom, setPageZoom] = useState(() => Number(localStorage.getItem("axiom_page_zoom")) || 1);
+  const cycleZoom = () => { const next = pageZoom >= 1.5 ? 1 : pageZoom >= 1.25 ? 1.5 : pageZoom >= 1 ? 1.25 : 1; setPageZoom(next); localStorage.setItem("axiom_page_zoom", String(next)); };
   const [providerKeys, setProviderKeys] = useState(DEFAULT_SETTINGS.providerKeys);
   const [flowFilters, setFlowFilters] = useState(DEFAULT_SETTINGS.flowFilters);
   const [riskAccount, setRiskAccount] = useState(() => {
@@ -20685,7 +20687,7 @@ export default function App() {
   );
 
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: SANS, zoom: isMobile ? 1 : isTablet ? UI_ZOOM_TABLET : UI_ZOOM, lineHeight: 1.5, width: "100%", maxWidth: "100vw", overflowX: "hidden", filter: brightness < 100 ? `brightness(${brightness}%)` : "none", transition: "filter 0.2s" }}>
+    <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: SANS, zoom: (isMobile ? 1 : isTablet ? UI_ZOOM_TABLET : UI_ZOOM) * pageZoom, lineHeight: 1.5, width: "100%", maxWidth: "100vw", overflowX: "hidden", filter: brightness < 100 ? `brightness(${brightness}%)` : "none", transition: "filter 0.2s" }}>
       {/* Google Fonts — Inter (UI) + JetBrains Mono (data/numbers) */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -20911,6 +20913,14 @@ export default function App() {
               />
               <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, minWidth: 26 }}>{brightness}%</span>
             </div>
+
+            {/* ── Page zoom (100 → 125 → 150) ── */}
+            <button onClick={cycleZoom} title="Zoom the whole page (100 → 125 → 150 → 100)"
+              style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 8px", height: 24, cursor: "pointer",
+                background: pageZoom > 1 ? `${C.accent}18` : C.card, border: `1px solid ${pageZoom > 1 ? C.accent : C.border}`, borderRadius: 6,
+                fontFamily: MONO, fontSize: 12, fontWeight: 700, color: pageZoom > 1 ? C.accent : C.textDim }}>
+              🔍 {Math.round(pageZoom * 100)}%
+            </button>
 
             {/* ── Status chips (inline after ● button) ── */}
             <span style={{ width: 1, height: 14, background: C.border, flexShrink: 0, marginLeft: 2 }} />
