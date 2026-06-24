@@ -9338,102 +9338,49 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
         </div>
       )}
 
-      {/* 🟢 CALL CANDIDATES — bullish setups, ranked by Bull Score */}
-      <div style={{ marginBottom: 20, border: `1px solid ${C.green}33`, borderRadius: 10, padding: "12px 14px", background: `${C.green}06` }}>
-        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.green, marginBottom: 4, letterSpacing: "0.06em" }}>
-          🟢 CALL CANDIDATES ({calls.filter(c => c.passed >= 4 && c.rr >= 2).length} tradeable)
-        </div>
-        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 10, lineHeight: 1.5 }}>
-          Only trade <strong style={{ color: C.text }}>Bull Score ≥ 80</strong> (4–5/5) and <strong style={{ color: C.text }}>R:R ≥ 2:1</strong>, at the buy zone (not extended). The market drifts up — calls are your bread and butter.
-        </div>
-        {calls.length === 0
-          ? <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>No call candidates right now — nothing's set up. Be patient. ⏳</div>
-          : calls.map(r => {
-            const score = r.passed * 20;
-            const ok = r.passed >= 4 && r.rr >= 2 && r.atEntry;
-            const sc = score >= 80 ? C.green : score >= 70 ? "#5ab552" : C.textDim;
-            return (
-              <div key={r.symbol} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 10px", borderRadius: 8, marginBottom: 4,
-                background: ok ? `${C.green}10` : C.surface, border: `1px solid ${ok ? C.green + "44" : C.border}`, flexWrap: "wrap" }}>
-                <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: sc, minWidth: 40 }}>{score}</span>
-                <div style={{ minWidth: 110 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>{r.symbol}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.text, marginLeft: 6 }}>${r.px.toFixed(2)}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: r.chg >= 0 ? C.green : C.red, marginLeft: 6 }}>{r.chg >= 0 ? "+" : ""}{r.chg.toFixed(2)}%</span>
-                </div>
-                <div style={{ display: "flex", gap: 5, flexWrap: "wrap", flex: 1 }}>
-                  {r.checks.map((c, i) => (
-                    <span key={i} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: c.pass ? C.green : C.textDim,
-                      background: c.pass ? `${C.green}15` : "transparent", border: `1px solid ${c.pass ? C.green + "33" : C.border}`, borderRadius: 4, padding: "1px 6px" }}>
-                      {c.pass ? "✓" : "○"} {c.label.replace(/ · RSI.*/, "").replace(/ \d.*x$/, "")}
-                    </span>
-                  ))}
-                </div>
-                <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 10 }}>
-                  <div style={{ color: r.rr >= 2 ? C.green : C.amber, fontWeight: 700 }}>R:R {r.rr}:1{r.rr >= 2 ? " ✓" : ""}</div>
-                  <div style={{ color: C.textDim }}>🎯 ${r.bestEntry} · 🛑 ${r.stop}</div>
-                </div>
-                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 4,
-                  color: ok ? "#fff" : C.textDim, background: ok ? C.green : "transparent", border: `1px solid ${ok ? C.green : C.border}` }}>
-                  {ok ? "TRADEABLE" : r.atEntry ? "watch" : "wait entry"}
-                </span>
+      {/* ── CANDIDATES — Calls / Puts / Watch in 3 compact columns ── */}
+      {(() => {
+        const tag = (txt, col, on) => <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, padding: "1px 5px", borderRadius: 3, whiteSpace: "nowrap", color: on ? "#fff" : C.textDim, background: on ? col : "transparent", border: `1px solid ${on ? col : C.border}` }}>{txt}</span>;
+        const card = (r, { score, sc, ok, checks, rr, tint, badge, lvls }) => (
+          <div key={r.symbol} style={{ padding: "6px 8px", borderRadius: 7, marginBottom: 5, background: ok ? `${tint}12` : C.surface, border: `1px solid ${ok ? tint + "55" : C.border}` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 5, minWidth: 0, overflow: "hidden" }}>
+                <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: sc }}>{score}</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent }}>{r.symbol}</span>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, whiteSpace: "nowrap" }}>${r.px.toFixed(2)}</span>
               </div>
-            );
-          })}
-      </div>
-
-      {/* 🔻 PUT CANDIDATES — bearish momentum breakdowns, ranked by Bear Score */}
-      <div style={{ marginBottom: 20, border: `1px solid ${C.red}33`, borderRadius: 10, padding: "12px 14px", background: `${C.red}06` }}>
-        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.red, marginBottom: 4, letterSpacing: "0.06em" }}>
-          🔻 PUT CANDIDATES ({puts.filter(p => p.bearTradeable).length} tradeable)
-        </div>
-        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 10, lineHeight: 1.5 }}>
-          Only trade <strong style={{ color: C.text }}>Bear Score &gt; 80</strong> and <strong style={{ color: C.text }}>R:R ≥ 2:1</strong>. Puts are harder than calls — markets drift up, so on red days <strong style={{ color: C.amber }}>trade smaller, take profits faster, and sit in cash if nothing scores high.</strong>
-        </div>
-        {puts.length === 0
-          ? <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>No put candidates right now — nothing's breaking down. Stay in cash. ✅</div>
-          : puts.map(r => {
-            const ok = r.bearTradeable;
-            const bc = r.bearScore >= 80 ? C.red : r.bearScore >= 70 ? "#d6a312" : C.textDim;
-            return (
-              <div key={r.symbol} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 10px", borderRadius: 8, marginBottom: 4,
-                background: ok ? `${C.red}10` : C.surface, border: `1px solid ${ok ? C.red + "44" : C.border}`, flexWrap: "wrap" }}>
-                <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: bc, minWidth: 40 }}>{r.bearScore}</span>
-                <div style={{ minWidth: 110 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>{r.symbol}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.text, marginLeft: 6 }}>${r.px.toFixed(2)}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: r.chg >= 0 ? C.green : C.red, marginLeft: 6 }}>{r.chg >= 0 ? "+" : ""}{r.chg.toFixed(2)}%</span>
-                </div>
-                <div style={{ display: "flex", gap: 5, flexWrap: "wrap", flex: 1 }}>
-                  {r.bearChecks.map((c, i) => (
-                    <span key={i} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: c.pass ? C.red : C.textDim,
-                      background: c.pass ? `${C.red}15` : "transparent", border: `1px solid ${c.pass ? C.red + "33" : C.border}`, borderRadius: 4, padding: "1px 6px" }}>
-                      {c.pass ? "✓" : "○"} {c.label}
-                    </span>
-                  ))}
-                </div>
-                <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 10 }}>
-                  <div style={{ color: r.putRR >= 2 ? C.green : C.amber, fontWeight: 700 }}>R:R {r.putRR}:1{r.putRR >= 2 ? " ✓" : ""}</div>
-                  <div style={{ color: C.textDim }}>🛑 ${r.putStop} · 🎯 ${r.putTarget}</div>
-                </div>
-                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 4,
-                  color: ok ? "#fff" : C.textDim, background: ok ? C.red : "transparent", border: `1px solid ${ok ? C.red : C.border}` }}>
-                  {ok ? "TRADEABLE" : "watch"}
-                </span>
-              </div>
-            );
-          })}
-      </div>
-
-      {/* YELLOW results */}
-      {yellow.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.amber, marginBottom: 10, letterSpacing: "0.06em" }}>
-            🟡 WATCH LIST — ALMOST READY ({yellow.length})
+              {badge}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginTop: 4 }}>
+              <span style={{ letterSpacing: 1.5, lineHeight: 1 }}>{checks.map((c, i) => <span key={i} style={{ fontSize: 10, color: c.pass ? tint : C.border }}>●</span>)}</span>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: rr >= 2 ? C.green : C.amber, fontWeight: 700, whiteSpace: "nowrap" }}>
+                R:R {rr}:1 · <span style={{ color: r.chg >= 0 ? C.green : C.red }}>{r.chg >= 0 ? "+" : ""}{r.chg.toFixed(1)}%</span>
+              </span>
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 8.5, color: C.textDim, marginTop: 2 }}>{lvls}</div>
           </div>
-          {yellow.map(r => <Row key={r.symbol} r={r} />)}
-        </div>
-      )}
+        );
+        const colWrap = (accent, head, count, sub, body) => (
+          <div style={{ border: `1px solid ${accent}33`, borderRadius: 10, padding: "10px 11px", background: `${accent}06` }}>
+            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: accent, letterSpacing: "0.04em" }}>{head} ({count})</div>
+            <div style={{ fontFamily: SANS, fontSize: 9.5, color: C.textDim, margin: "3px 0 9px", lineHeight: 1.4 }}>{sub}</div>
+            {body}
+          </div>
+        );
+        return (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 12, marginBottom: 20, alignItems: "start" }}>
+            {colWrap(C.green, "🟢 CALLS", calls.filter(c => c.passed >= 4 && c.rr >= 2 && c.atEntry).length, "Bull Score ≥80 · R:R ≥2 · at buy zone.",
+              calls.length === 0 ? <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>nothing set up ⏳</div>
+                : calls.map(r => { const ok = r.passed >= 4 && r.rr >= 2 && r.atEntry; return card(r, { score: r.passed * 20, sc: r.passed >= 4 ? C.green : C.textDim, ok, checks: r.checks, rr: r.rr, tint: C.green, badge: tag(ok ? "TRADE" : r.atEntry ? "watch" : "wait entry", C.green, ok), lvls: `🎯 $${r.bestEntry} · 🛑 $${r.stop}` }); }))}
+            {colWrap(C.red, "🔻 PUTS", puts.filter(p => p.bearTradeable).length, "Bear Score >80 · R:R ≥2. Trade small, sit in cash if none.",
+              puts.length === 0 ? <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>nothing breaking down ✅</div>
+                : puts.map(r => { const ok = r.bearTradeable; return card(r, { score: r.bearScore, sc: r.bearScore >= 80 ? C.red : "#d6a312", ok, checks: r.bearChecks, rr: r.putRR, tint: C.red, badge: tag(ok ? "TRADE" : "watch", C.red, ok), lvls: `🛑 $${r.putStop} · 🎯 $${r.putTarget}` }); }))}
+            {colWrap(C.amber, "🟡 WATCH", yellow.length, "Almost ready (3/5) — wait for the 4th–5th check.",
+              yellow.length === 0 ? <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>nothing on watch</div>
+                : yellow.slice(0, 12).map(r => card(r, { score: r.passed * 20, sc: C.amber, ok: false, checks: r.checks, rr: r.rr, tint: C.amber, badge: tag("watch", C.amber, false), lvls: `🎯 $${r.bestEntry} · 🛑 $${r.stop}` })))}
+          </div>
+        );
+      })()}
 
       {/* RED — collapsed */}
       {red.length > 0 && (
