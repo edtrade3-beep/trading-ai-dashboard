@@ -6227,6 +6227,30 @@ function CoachTab({ C, MONO, SANS }) {
   const [pillarTab, setPillarTab] = useState("الكل");
   const toggleLesson = (i) => { const n = { ...lessonDone, [i]: !lessonDone[i] }; setLessonDone(n); localStorage.setItem("coach_lessons_done", JSON.stringify(n)); };
 
+  // ── Audio: read the lesson aloud (male Arabic voice) and auto-advance to the next ──
+  const [audioIdx, setAudioIdx] = useState(null);   // lesson index currently being spoken
+  const speakLesson = (idx) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    const l = COACH_LESSONS[idx];
+    if (!l) { setAudioIdx(null); return; }
+    const ss = window.speechSynthesis;
+    ss.cancel();
+    setOpenLesson(idx);
+    setCollapsedCats(p => ({ ...p, [l.pillar]: false }));  // make sure the lesson is visible
+    setAudioIdx(idx);
+    const text = [l.title, l.teach, l.deep || "", "التمرين: " + l.practice, l.mantra || ""].filter(Boolean).join("، ");
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "ar-SA"; u.rate = 0.95; u.pitch = 0.8;   // lower pitch = more male tone
+    const vs = ss.getVoices();
+    const ar = vs.filter(v => /^ar/i.test(v.lang));
+    u.voice = ar.find(v => /male|majed|na?yf|hamed|tarik|fahad/i.test(v.name)) || ar[0] || null;
+    u.onend = () => { if (idx + 1 < COACH_LESSONS.length) speakLesson(idx + 1); else setAudioIdx(null); };  // auto-next
+    u.onerror = () => setAudioIdx(null);
+    ss.speak(u);
+  };
+  const stopSpeak = () => { if (window.speechSynthesis) window.speechSynthesis.cancel(); setAudioIdx(null); };
+  useEffect(() => () => { if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel(); }, []); // stop on unmount
+
   // Habits (per day)
   const todayKey = new Date().toISOString().slice(0,10);
   const [habits, setHabits] = useState(() => { try { return JSON.parse(localStorage.getItem("coach_habits")) || {}; } catch { return {}; } });
@@ -6536,6 +6560,11 @@ function CoachTab({ C, MONO, SANS }) {
                     </div>
                     {openLesson === i && (
                       <div style={{ padding: "0 44px 14px 14px" }}>
+                        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+                          {audioIdx === i
+                            ? <button onClick={e => { e.stopPropagation(); stopSpeak(); }} style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer", border: `1px solid ${C.red}55`, background: `${C.red}14`, color: C.red }}>⏹ إيقاف</button>
+                            : <button onClick={e => { e.stopPropagation(); speakLesson(i); }} title="استمع للدرس بصوتٍ ثم ينتقل تلقائياً للدرس التالي" style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer", border: `1px solid ${l.color}55`, background: `${l.color}14`, color: l.color }}>🔊 استمع</button>}
+                        </div>
                         <div style={{ fontFamily: SANS, fontSize: 15, color: C.text, lineHeight: 1.8, marginBottom: 12 }}>{l.teach}</div>
                         {l.deep && (
                           <div style={{ background: `${l.color}0a`, borderRight: `3px solid ${l.color}66`, borderRadius: 8, padding: "12px 14px", marginBottom: 12, direction: "rtl" }}>
