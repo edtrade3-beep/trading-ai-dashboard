@@ -77,6 +77,47 @@ async function handleAlpaca(req, res, requestUrl) {
     });
   }
 
+  // Closed round-trip trades with realized P&L — built from FILL activities via FIFO matching.
+  // Powers the My Trades "report card" (win rate, expectancy, edge check) on real Alpaca fills.
+  if (pathname === "/api/alpaca/closed-trades" && req.method === "GET") {
+    if (!configured) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key", trades: [] });
+    const a = await alpaca("/v2/account/activities?activity_types=FILL&page_size=500");
+    if (!a._ok) return writeJson(res, 200, { ok: false, trades: [], error: a.data?.message || "activities error" });
+    const fills = (Array.isArray(a.data) ? a.data : [])
+      .map(f => ({ symbol: f.symbol, side: f.side, qty: Math.abs(Number(f.qty) || 0), price: Number(f.price) || 0, at: f.transaction_time }))
+      .filter(f => f.symbol && f.qty > 0 && f.price > 0)
+      .sort((x, y) => new Date(x.at) - new Date(y.at)); // oldest first
+
+    // FIFO match: opens (buy for long, sell_short for short) vs closes. Produce realized round trips.
+    const lots = {};   // symbol -> array of open lots { qty, price, side:'long'|'short', at }
+    const trades = [];
+    for (const f of fills) {
+      const sym = f.symbol;
+      lots[sym] = lots[sym] || [];
+      const open = lots[sym];
+      const isBuy = f.side === "buy";
+      // Determine if this fill opens or closes against existing inventory.
+      const opposite = open.length && ((isBuy && open[0].side === "short") || (!isBuy && open[0].side === "long"));
+      if (!open.length || !opposite) {
+        open.push({ qty: f.qty, price: f.price, side: isBuy ? "long" : "short", at: f.at });
+        continue;
+      }
+      let remaining = f.qty;
+      while (remaining > 0 && open.length && ((isBuy && open[0].side === "short") || (!isBuy && open[0].side === "long"))) {
+        const lot = open[0];
+        const matched = Math.min(remaining, lot.qty);
+        const entry = lot.price, exit = f.price;
+        const pnl = lot.side === "long" ? (exit - entry) * matched : (entry - exit) * matched;
+        trades.push({ symbol: sym, side: lot.side, qty: matched, entry, exit, pnl, openedAt: lot.at, closedAt: f.at });
+        lot.qty -= matched; remaining -= matched;
+        if (lot.qty <= 1e-9) open.shift();
+      }
+      if (remaining > 0) open.push({ qty: remaining, price: f.price, side: isBuy ? "long" : "short", at: f.at });
+    }
+    trades.sort((x, y) => new Date(y.closedAt) - new Date(x.closedAt)); // newest first
+    return writeJson(res, 200, { ok: true, trades });
+  }
+
   if (pathname === "/api/alpaca/positions" && req.method === "GET") {
     if (!configured) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key", positions: [] });
     const a = await alpaca("/v2/positions");

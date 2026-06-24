@@ -8134,6 +8134,90 @@ function HoldingsTab({ C, MONO, SANS, macroData }) {
   );
 }
 
+// ── 📊 REPORT CARD — win rate / expectancy / edge check from real Alpaca closed trades ──
+function AlpacaReportCard({ C, MONO, SANS }) {
+  const [trades, setTrades] = useState(null);
+  const [err, setErr] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch("/api/alpaca/closed-trades").then(r => r.json())
+      .then(d => { if (!alive) return; if (d.ok) setTrades(d.trades || []); else setErr(d.reason === "no-alpaca-key" ? "nokey" : (d.error || "error")); })
+      .catch(() => alive && setErr("error"));
+    load();
+    const id = setInterval(load, 60000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+
+  if (err === "nokey") return null;
+  const wrap = (inner) => <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", marginBottom: 12 }}>{inner}</div>;
+  if (trades === null && !err) return wrap(<div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading report card…</div>);
+  if (err) return wrap(<div style={{ fontFamily: SANS, fontSize: 12, color: C.red }}>Couldn't load closed trades — {err}.</div>);
+
+  const closed = trades;
+  const wins = closed.filter(t => t.pnl > 0), losses = closed.filter(t => t.pnl <= 0);
+  const n = closed.length;
+  const winRate = n ? Math.round(wins.length / n * 100) : 0;
+  const totalPnl = closed.reduce((s, t) => s + t.pnl, 0);
+  const avgWin = wins.length ? wins.reduce((s, t) => s + t.pnl, 0) / wins.length : 0;
+  const avgLoss = losses.length ? Math.abs(losses.reduce((s, t) => s + t.pnl, 0) / losses.length) : 0;
+  const lossRate = n ? losses.length / n : 0;
+  const expectancy = n ? ((winRate / 100) * avgWin - lossRate * avgLoss) : 0;
+  const profitFactor = avgLoss > 0 && losses.length ? (avgWin * wins.length) / (avgLoss * losses.length) : (wins.length ? Infinity : 0);
+  const edgeReady = n >= 20 && expectancy > 0;
+  const chrono = [...closed].sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt));
+  let cum = 0; const eq = chrono.map(t => (cum += t.pnl));
+
+  const stats = [
+    ["TRADES", String(n), C.text],
+    ["WIN RATE", winRate + "%", winRate >= 50 ? C.green : C.amber],
+    ["AVG WIN", "$" + Math.round(avgWin), C.green],
+    ["AVG LOSS", "$" + Math.round(avgLoss), C.red],
+    ["EXPECTANCY/TRADE", (expectancy >= 0 ? "+" : "") + "$" + expectancy.toFixed(0), expectancy >= 0 ? C.green : C.red],
+    ["PROFIT FACTOR", profitFactor === Infinity ? "∞" : profitFactor.toFixed(2), profitFactor >= 1.5 ? C.green : profitFactor >= 1 ? C.amber : C.red],
+    ["TOTAL P&L", (totalPnl >= 0 ? "+" : "") + "$" + Math.round(totalPnl), totalPnl >= 0 ? C.green : C.red],
+  ];
+  return wrap(<>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em" }}>📊 REPORT CARD</span>
+      <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>real Alpaca closed trades</span>
+      {n < 20
+        ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.amber, background: `${C.amber}18`, borderRadius: 5, padding: "3px 8px" }}>⏳ {n}/20 trades — keep going</span>
+        : edgeReady
+          ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.green, background: `${C.green}18`, borderRadius: 5, padding: "3px 8px" }}>✓ POSITIVE EDGE — you may be ready to scale</span>
+          : <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.red, background: `${C.red}18`, borderRadius: 5, padding: "3px 8px" }}>✕ NO EDGE YET — refine before sizing up</span>}
+    </div>
+    {n === 0
+      ? <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No closed trades yet. Once the autopilot opens and closes round-trips on Alpaca, your win rate and edge will appear here.</div>
+      : <>
+        <div style={{ display: "flex", gap: 22, rowGap: 12, flexWrap: "wrap" }}>
+          {stats.map(([l, v, col]) => (
+            <div key={l}><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.04em" }}>{l}</div>
+              <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 800, color: col }}>{v}</div></div>
+          ))}
+        </div>
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 8 }}>
+          Expectancy = (win% × avg win) − (loss% × avg loss) — the average you make per trade. Positive over 20+ trades = a real edge.
+        </div>
+        {eq.length >= 2 && (() => {
+          const w = 100, h = 36, m = eq.length;
+          const lo = Math.min(0, ...eq), hi = Math.max(0, ...eq), span = (hi - lo) || 1;
+          const x = i => (i / (m - 1)) * w, y = v => h - ((v - lo) / span) * h;
+          const path = eq.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join(" ");
+          const up = eq[m - 1] >= 0;
+          return (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>📈 EQUITY CURVE — cumulative realized P&L over {m} closed trades</div>
+              <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ width: "100%", height: 60, display: "block" }}>
+                <line x1="0" y1={y(0).toFixed(1)} x2={w} y2={y(0).toFixed(1)} stroke={C.border} strokeWidth="0.4" strokeDasharray="1 1" />
+                <path d={path} fill="none" stroke={up ? C.green : C.red} strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
+              </svg>
+            </div>
+          );
+        })()}
+      </>}
+  </>);
+}
+
 function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [autoPilot, setAutoPilot] = useState(() => localStorage.getItem("axiom_autopilot") === "on");
   const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 5);
@@ -8355,6 +8439,7 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
       </div>
       </>}
 
+      <AlpacaReportCard C={C} MONO={MONO} SANS={SANS} />
       <AlpacaPanel C={C} MONO={MONO} SANS={SANS} />
       </>
     </div>
