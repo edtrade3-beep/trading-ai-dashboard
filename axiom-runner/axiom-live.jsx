@@ -7994,30 +7994,59 @@ function AlpacaPanel({ C, MONO, SANS }) {
   if (state === "error") return <div style={wrap}><div style={{ fontFamily: MONO, fontSize: 12, color: C.amber }}>🦙 Alpaca: couldn't reach account (check keys / try again).</div></div>;
   if (state === "loading" || !acct) return <div style={wrap}><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>🦙 Connecting to Alpaca paper…</div></div>;
   const fmt = v => `$${Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  const dayChg = (Number(acct.equity) || 0) - (Number(acct.lastEquity) || Number(acct.equity) || 0);
+  const dayPct = acct.lastEquity ? (dayChg / acct.lastEquity) * 100 : 0;
+  const openPL = positions.reduce((s, p) => s + (Number(p.unrealizedPL) || 0), 0);
+  const stat = (label, value, color) => (
+    <div style={{ flex: "1 1 110px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px" }}>
+      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.05em", marginBottom: 3 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: color || C.text }}>{value}</div>
+    </div>
+  );
   return (
-    <div style={wrap}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#10b981" }}>🦙 ALPACA PAPER <span style={{ color: "#22c55e" }}>● {acct.status}</span></span>
-        <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>EQUITY</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{fmt(acct.equity)}</div></div>
-        <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>BUYING POWER</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{fmt(acct.buyingPower)}</div></div>
-        <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>CASH</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{fmt(acct.cash)}</div></div>
-        <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>POSITIONS</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{positions.length}</div></div>
-        <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>OPTIONS</div><div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: acct.optionsApprovedLevel >= 2 ? C.green : acct.optionsApprovedLevel != null ? C.amber : C.textDim }}>
-          {acct.optionsApprovedLevel != null ? ("Level " + acct.optionsApprovedLevel + (acct.optionsApprovedLevel >= 2 ? " ✓" : "")) : "—"}
-        </div></div>
-        {acct.optionsApprovedLevel >= 2 && <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#16a34a", background: "#16a34a18", border: "1px solid #16a34a44", borderRadius: 5, padding: "3px 8px" }} title="Calls on bullish setups; conservative single puts only on 5/5 bearish setups (defined risk).">📈 CALLS + cautious PUTS</span>}
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16, marginBottom: 14 }}>
+      {/* Hero: equity + today's change */}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#10b981", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 6 }}>
+            🦙 ALPACA PAPER <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} /> <span style={{ color: C.textDim, fontWeight: 500 }}>{acct.status}</span>
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 34, fontWeight: 900, color: C.text, lineHeight: 1.1, marginTop: 4 }}>{fmt(acct.equity)}</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 2 }}>account equity</div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.05em" }}>TODAY</div>
+          <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: dayChg >= 0 ? C.green : C.red }}>
+            {dayChg >= 0 ? "+" : ""}{fmt(Math.abs(dayChg)).replace("$", dayChg < 0 ? "-$" : "$")} <span style={{ fontSize: 13 }}>({dayPct >= 0 ? "+" : ""}{dayPct.toFixed(2)}%)</span>
+          </div>
+          {positions.length > 0 && <div style={{ fontFamily: MONO, fontSize: 10, color: openPL >= 0 ? C.green : C.red, marginTop: 2 }}>open P&L {openPL >= 0 ? "+" : ""}${Math.round(openPL)}</div>}
+        </div>
       </div>
+      {/* Stat row */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {stat("BUYING POWER", fmt(acct.buyingPower))}
+        {stat("CASH", fmt(acct.cash))}
+        {stat("POSITIONS", String(positions.length))}
+        {stat("OPTIONS", acct.optionsApprovedLevel != null ? ("Lvl " + acct.optionsApprovedLevel + (acct.optionsApprovedLevel >= 2 ? " ✓" : "")) : "—", acct.optionsApprovedLevel >= 2 ? C.green : acct.optionsApprovedLevel != null ? C.amber : C.textDim)}
+      </div>
+      {/* Open positions */}
       {positions.length > 0 && (
-        <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {positions.map(p => (
-            <div key={p.symbol} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: "5px 10px" }}>
-              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent }}>{p.symbol}</span>
-              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: 6 }}>{p.qty}sh</span>
-              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: p.unrealizedPL >= 0 ? C.green : C.red, marginLeft: 6 }}>
-                {p.unrealizedPL >= 0 ? "+" : ""}${p.unrealizedPL.toFixed(0)} ({p.unrealizedPLpc >= 0 ? "+" : ""}{p.unrealizedPLpc.toFixed(1)}%)
-              </span>
-            </div>
-          ))}
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>OPEN POSITIONS</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            {positions.map(p => (
+              <div key={p.symbol} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", background: C.surface, borderRadius: 8 }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.accent }}>{p.symbol}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{p.qty} sh @ ${Number(p.avgEntry).toFixed(2)}</span>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: p.unrealizedPL >= 0 ? C.green : C.red }}>{p.unrealizedPL >= 0 ? "+" : ""}${p.unrealizedPL.toFixed(0)}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: p.unrealizedPL >= 0 ? C.green : C.red, marginLeft: 6 }}>({p.unrealizedPLpc >= 0 ? "+" : ""}{p.unrealizedPLpc.toFixed(1)}%)</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -8371,6 +8400,9 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
         </button>
       </div>
 
+      {/* ── Account hero (equity, today, positions) — first thing you see ── */}
+      <AlpacaPanel C={C} MONO={MONO} SANS={SANS} />
+
       <>
       {/* ── 1. Master switch ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12, padding: "16px 18px",
@@ -8477,10 +8509,9 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
         </div>
       </div>
       </>}
+      </>
 
       <AlpacaReportCard C={C} MONO={MONO} SANS={SANS} />
-      <AlpacaPanel C={C} MONO={MONO} SANS={SANS} />
-      </>
     </div>
   );
 }

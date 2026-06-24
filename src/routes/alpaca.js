@@ -48,6 +48,7 @@ async function handleAlpaca(req, res, requestUrl) {
       const d = a.data;
       return writeJson(res, 200, { ok: true, configured: true, account: {
         status: d.status, equity: Number(d.equity), cash: Number(d.cash),
+        lastEquity: Number(d.last_equity),  // prior close — for today's change
         buyingPower: Number(d.buying_power), portfolioValue: Number(d.portfolio_value),
         currency: d.currency, paper: true,
         optionsApprovedLevel: d.options_approved_level != null ? Number(d.options_approved_level) : null,
