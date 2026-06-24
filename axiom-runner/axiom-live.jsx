@@ -13149,6 +13149,27 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
     setTimeout(() => setAlertMsg(""), 4000);
   }, []);
 
+  // Auto-arm: when ON, every screener refresh arms pivot alerts for any NEW buy points (deduped).
+  const [autoAlert, setAutoAlert] = React.useState(() => localStorage.getItem("axiom_tt_autoalert") === "on");
+  const armedRef = React.useRef(new Set());
+  const armNewPivotAlerts = React.useCallback((results) => {
+    const fresh = (results || []).filter(r => !r.error && !r.extended && Number(r.pivot) > 0 && !armedRef.current.has(`${r.symbol}:${r.pivot}`));
+    if (!fresh.length) return;
+    fresh.forEach(r => armedRef.current.add(`${r.symbol}:${r.pivot}`));
+    Promise.all(fresh.map(r =>
+      fetch("/api/price-alerts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol: r.symbol, targetPrice: Number(r.pivot), direction: "above", note: "Minervini buy point (auto)" }),
+      }).then(res => res.json()).catch(() => ({ error: 1 }))
+    )).then(res => {
+      const ok = res.filter(d => d && !d.error).length;
+      if (ok) { setAlertMsg(`🔔 Auto-armed ${ok} new buy-point alert${ok === 1 ? "" : "s"}`); setTimeout(() => setAlertMsg(""), 5000); }
+    });
+  }, []);
+  React.useEffect(() => {
+    if (autoAlert && screen?.results) armNewPivotAlerts(screen.results);
+  }, [screen, autoAlert, armNewPivotAlerts]);
+
   // Arm a pivot-breakout alert on EVERY watch name at once, so you get pinged the moment each buy point triggers.
   const armAllPivotAlerts = React.useCallback((results) => {
     const targets = (results || []).filter(r => !r.error && !r.extended && Number(r.pivot) > 0);
@@ -13334,10 +13355,16 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                   {lbl} <span style={{ opacity: .7 }}>({counts[k]})</span>
                 </button>
               ))}
-              <button onClick={() => armAllPivotAlerts(screen.results)} title="Telegram-pings you the moment each name crosses its pivot (buy point)."
+              <button onClick={() => armAllPivotAlerts(screen.results)} title="Arm a pivot alert on every name in this screen right now."
                 style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 6,
                   border: `1px solid ${C.green}66`, background: `${C.green}14`, color: C.green, cursor: "pointer" }}>
-                🔔 Alert me on all buy points
+                🔔 Alert all now
+              </button>
+              <button onClick={() => { const v = !autoAlert; setAutoAlert(v); localStorage.setItem("axiom_tt_autoalert", v ? "on" : "off"); if (v && screen?.results) armNewPivotAlerts(screen.results); }}
+                title="When ON, every screener refresh auto-arms alerts for any new buy points — hands-off."
+                style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 6, cursor: "pointer",
+                  border: `1px solid ${autoAlert ? C.green : C.border}`, background: autoAlert ? C.green : "transparent", color: autoAlert ? "#fff" : C.textDim }}>
+                {autoAlert ? "🔔 Auto-alert: ON" : "🔕 Auto-alert: OFF"}
               </button>
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12 }}>
