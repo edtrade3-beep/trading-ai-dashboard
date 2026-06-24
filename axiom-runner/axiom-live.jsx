@@ -8837,6 +8837,12 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const puts   = results.filter(r => r.bearScore >= 60).sort((a, b) => b.bearScore - a.bearScore).slice(0, 12);
   // Call candidates — bullish setups, ranked by Bull Score (passed × 20).
   const calls  = results.filter(r => r.passed >= 3).sort((a, b) => b.passed - a.passed || b.aScore - a.aScore).slice(0, 12);
+  // ── MODE: Bull (tradeable calls) · Bear (tradeable puts) · Cash (nothing qualifies) ──
+  const tradeableCalls = results.filter(r => r.passed >= 4 && r.rr >= 2 && r.atEntry).length;   // Bull Score ≥ 80
+  const tradeablePuts  = results.filter(r => r.bearTradeable).length;                            // Bear Score > 80
+  const mode = (tradeableCalls === 0 && tradeablePuts === 0) ? "CASH"
+    : tradeableCalls >= tradeablePuts ? "BULL" : "BEAR";
+  const modeColor = mode === "BULL" ? C.green : mode === "BEAR" ? C.red : C.textDim;
 
   // Auto-buy is handled globally by <AutoPilotEngine> so it runs on every tab.
 
@@ -9280,6 +9286,29 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
             🟢 READY TO TRADE ({green.length})
           </div>
           {green.map(r => <Row key={r.symbol} r={r} />)}
+        </div>
+      )}
+
+      {/* ── MODE: Bull / Bear / Cash ── */}
+      {mode === "CASH" ? (
+        <div style={{ marginBottom: 16, padding: "18px 20px", borderRadius: 12, textAlign: "center",
+          background: `${C.textDim}10`, border: `2px dashed ${C.textDim}66` }}>
+          <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.textSec, letterSpacing: "0.08em" }}>⚪ CASH MODE</div>
+          <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 6, lineHeight: 1.6 }}>
+            No setups meet criteria. <strong style={{ color: C.text }}>Protect capital. Wait.</strong><br/>
+            The best traders sit in cash more than they trade. No A+ setup = no trade.
+          </div>
+        </div>
+      ) : (
+        <div style={{ marginBottom: 16, padding: "10px 16px", borderRadius: 10, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+          background: `${modeColor}12`, border: `1px solid ${modeColor}55` }}>
+          <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: modeColor }}>
+            {mode === "BULL" ? "🟢 BULL MODE" : "🔴 BEAR MODE"}
+          </span>
+          <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>
+            {mode === "BULL" ? "favor calls" : "favor puts"} · Calls <strong style={{ color: C.green }}>{tradeableCalls}</strong> · Puts <strong style={{ color: C.red }}>{tradeablePuts}</strong> tradeable
+          </span>
+          <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginLeft: "auto" }}>trade with the mode, not against it</span>
         </div>
       )}
 
