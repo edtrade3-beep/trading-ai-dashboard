@@ -21133,9 +21133,8 @@ export default function App() {
             { id: "tv",         label: "📺 TV LIVE" },
           ],
           scanner: [
-            { id: "greenlight",   label: "🟢 GREEN LIGHT" },
+            { id: "greenlight",   label: "🟢 GREEN LIGHT + TRADES" },
             { id: "gl-backtest",  label: "🔬 BACKTEST" },
-            { id: "mytrades",     label: "📋 MY TRADES" },
             { id: "holdings",     label: "📊 MY HOLDINGS" },
             { id: "smartscan",    label: "🧠 SMART SCAN" },
             { id: "trendtemplate", label: "🏆 TREND TEMPLATE" },
@@ -30924,8 +30923,10 @@ export default function App() {
       {/* ── CUSTOM SCREENER ──────────────────────────────────────────────── */}
       {activeTab === "tradeplanner" && <TradePlannerTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "dipbuy" && <DipBuyTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} />}
-      {activeTab === "greenlight" && <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} />}
-      {activeTab === "mytrades" && <MyTradesTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} />}
+      {(activeTab === "greenlight" || activeTab === "mytrades") && <>
+        <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} />
+        <MyTradesTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} />
+      </>}
       {activeTab === "trendtemplate" && <TrendTemplateTab C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "outlook" && <MarketOutlookTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "holdings" && <HoldingsTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} />}
