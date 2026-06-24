@@ -13149,6 +13149,22 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
     setTimeout(() => setAlertMsg(""), 4000);
   }, []);
 
+  // Arm a pivot-breakout alert on EVERY watch name at once, so you get pinged the moment each buy point triggers.
+  const armAllPivotAlerts = React.useCallback((results) => {
+    const targets = (results || []).filter(r => !r.error && !r.extended && Number(r.pivot) > 0);
+    if (!targets.length) { setAlertMsg("No names with a valid pivot to arm."); setTimeout(() => setAlertMsg(""), 4000); return; }
+    Promise.all(targets.map(r =>
+      fetch("/api/price-alerts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol: r.symbol, targetPrice: Number(r.pivot), direction: "above", note: "Minervini buy point (auto-armed)" }),
+      }).then(res => res.json()).catch(() => ({ error: 1 }))
+    )).then(res => {
+      const ok = res.filter(d => d && !d.error).length;
+      setAlertMsg(`🔔 Armed ${ok} buy-point alerts — you'll be pinged the moment each crosses its pivot.`);
+      setTimeout(() => setAlertMsg(""), 6000);
+    });
+  }, []);
+
   const load = React.useCallback((s, silent) => {
     const symbol = (s || sym || "ARM").trim().toUpperCase();
     if (!symbol) return;
@@ -13308,7 +13324,7 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
             const filters = [["ALL", "All"], ["BUY", "🟢 Buy point"], ["8", "8/8"], ["7", "≥7/8"], ["6", "≥6/8"]];
             return (
             <>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "10px 10px 6px" }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "10px 10px 6px", alignItems: "center" }}>
               {filters.map(([k, lbl]) => (
                 <button key={k} onClick={() => setScoreFilter(k)}
                   style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 11px", borderRadius: 6,
@@ -13318,6 +13334,11 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                   {lbl} <span style={{ opacity: .7 }}>({counts[k]})</span>
                 </button>
               ))}
+              <button onClick={() => armAllPivotAlerts(screen.results)} title="Telegram-pings you the moment each name crosses its pivot (buy point)."
+                style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 6,
+                  border: `1px solid ${C.green}66`, background: `${C.green}14`, color: C.green, cursor: "pointer" }}>
+                🔔 Alert me on all buy points
+              </button>
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12 }}>
               <thead><tr style={{ color: C.textDim, textAlign: "left" }}>
