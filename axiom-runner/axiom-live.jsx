@@ -13142,7 +13142,7 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
   const armPivotAlert = React.useCallback((symbol, pivot) => {
     fetch("/api/price-alerts", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ symbol, targetPrice: pivot, direction: "above", note: "Minervini pivot breakout" }),
+      body: JSON.stringify({ symbol, targetPrice: pivot, direction: "above", requireVolume: true, note: "Minervini pivot breakout" }),
     }).then(r => r.json())
       .then(d => setAlertMsg(d.error ? `${symbol}: ${d.error}` : `🔔 Alert armed — ${symbol} above ${pivot}`))
       .catch(e => setAlertMsg(symbol + ": " + e.message));
@@ -13159,7 +13159,7 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
     Promise.all(fresh.map(r =>
       fetch("/api/price-alerts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol: r.symbol, targetPrice: Number(r.pivot), direction: "above", note: "Minervini buy point (auto)" }),
+        body: JSON.stringify({ symbol: r.symbol, targetPrice: Number(r.pivot), direction: "above", requireVolume: true, note: "Minervini buy point (auto)" }),
       }).then(res => res.json()).catch(() => ({ error: 1 }))
     )).then(res => {
       const ok = res.filter(d => d && !d.error).length;
@@ -13177,7 +13177,7 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
     Promise.all(targets.map(r =>
       fetch("/api/price-alerts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol: r.symbol, targetPrice: Number(r.pivot), direction: "above", note: "Minervini buy point (auto-armed)" }),
+        body: JSON.stringify({ symbol: r.symbol, targetPrice: Number(r.pivot), direction: "above", requireVolume: true, note: "Minervini buy point (auto-armed)" }),
       }).then(res => res.json()).catch(() => ({ error: 1 }))
     )).then(res => {
       const ok = res.filter(d => d && !d.error).length;

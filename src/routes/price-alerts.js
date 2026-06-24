@@ -40,6 +40,7 @@ async function handlePriceAlerts(req, res, requestUrl) {
       targetPrice,
       direction,
       note: String(body.note || "").slice(0, 200).trim(),
+      requireVolume: body.requireVolume === true,  // only fire on a volume-confirmed breakout
       status: "active",
       createdAt: new Date().toISOString(),
       triggeredAt: null,

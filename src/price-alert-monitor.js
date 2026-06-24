@@ -4,16 +4,25 @@ const { fetchJsonSafe, withTimeout } = require("./utils");
 
 const CHECK_INTERVAL_MS = 90_000; // every 90 seconds
 
-async function fetchLivePrice(symbol) {
+// Returns { price, volRatio } — volRatio = today's volume vs the prior ~50-day average.
+async function fetchQuote(symbol) {
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=3mo`;
     const data = await withTimeout(fetchJsonSafe(url), 8000, null);
-    const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
-    return Number.isFinite(price) ? price : null;
+    const r = data?.chart?.result?.[0];
+    const price = r?.meta?.regularMarketPrice;
+    const vols = (r?.indicators?.quote?.[0]?.volume || []).filter((v) => Number.isFinite(v) && v > 0);
+    const today = vols.length ? vols[vols.length - 1] : 0;
+    const prior = vols.slice(0, -1).slice(-50);
+    const avg = prior.length ? prior.reduce((a, b) => a + b, 0) / prior.length : 0;
+    const volRatio = avg > 0 && today ? today / avg : 0;
+    return { price: Number.isFinite(price) ? price : null, volRatio };
   } catch {
-    return null;
+    return { price: null, volRatio: 0 };
   }
 }
+
+const VOL_CONFIRM = 1.4; // today's volume must be ≥1.4× the 50-day average to confirm a breakout
 
 async function checkPriceAlerts() {
   const alerts = loadPriceAlerts();
@@ -21,20 +30,25 @@ async function checkPriceAlerts() {
   if (!active.length) return;
 
   const symbols = [...new Set(active.map(a => a.symbol))];
-  const prices = {};
+  const quotes = {};
   for (const sym of symbols) {
-    prices[sym] = await fetchLivePrice(sym);
+    quotes[sym] = await fetchQuote(sym);
   }
 
   let changed = false;
   for (const alert of alerts) {
     if (alert.status !== "active") continue;
-    const price = prices[alert.symbol];
+    const q = quotes[alert.symbol];
+    const price = q?.price;
     if (!price) continue;
 
-    const triggered =
+    const priceCross =
       (alert.direction === "above" && price >= alert.targetPrice) ||
       (alert.direction === "below" && price <= alert.targetPrice);
+    // Volume gate: if the alert requires confirmation, hold off until volume is heavy.
+    // The alert stays active and re-checks next cycle until both conditions co-occur.
+    const volOk = !alert.requireVolume || (q.volRatio || 0) >= VOL_CONFIRM;
+    const triggered = priceCross && volOk;
 
     if (triggered) {
       alert.status = "triggered";
@@ -47,7 +61,7 @@ async function checkPriceAlerts() {
           side: alert.direction === "above" ? "BUY" : "SELL",
           price,
           score: 85,
-          message: `Price Alert: ${alert.symbol} ${alert.direction} $${alert.targetPrice} — now $${price.toFixed(2)}${alert.note ? " · " + alert.note : ""}`,
+          message: `Price Alert: ${alert.symbol} ${alert.direction} $${alert.targetPrice} — now $${price.toFixed(2)}${alert.requireVolume ? ` · vol ${q.volRatio.toFixed(1)}× avg ✅` : ""}${alert.note ? " · " + alert.note : ""}`,
           at: alert.triggeredAt,
         });
       }
