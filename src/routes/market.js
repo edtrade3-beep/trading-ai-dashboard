@@ -840,16 +840,17 @@ async function buildTrendTemplate(symbol, opts = {}) {
   const pctFromHigh = round2((price / hi52 - 1) * 100);
   const pctFromLow = round2((price / lo52 - 1) * 100);
 
-  // Relative Strength vs SPY (approximate — no full-universe percentile available)
-  let rsRating = null;
+  // Relative Strength vs SPY. In a screen, screenTrendTemplate overwrites rsRating with a true
+  // cross-universe percentile; the standalone value here stays an approximation vs SPY.
+  let rsRating = null, momentum = null;
   try {
     let spyMom = opts.spyMom;
     if (spyMom == null) {
       const spy = await fetchYahooBars("SPY", "1y", "1d");
       spyMom = ttWeightedMomentum(spy.map((b) => b.close));
     }
-    const stockMom = ttWeightedMomentum(closes);
-    rsRating = Math.max(1, Math.min(99, Math.round(50 + 50 * Math.tanh(2 * (stockMom - spyMom)))));
+    momentum = ttWeightedMomentum(closes);
+    rsRating = Math.max(1, Math.min(99, Math.round(50 + 50 * Math.tanh(2 * (momentum - spyMom)))));
   } catch {
     rsRating = null;
   }
@@ -993,6 +994,8 @@ async function buildTrendTemplate(symbol, opts = {}) {
     stage,
     rsRating,
     rsApprox: true,
+    momentum,
+    volRatio: round2(volSurge),
     ma: { ma50: round2(ma50), ma150: round2(ma150), ma200: round2(ma200) },
     hi52: round2(hi52),
     lo52: round2(lo52),
@@ -1030,6 +1033,8 @@ async function screenTrendTemplate(symbols) {
       const sym = queue.shift();
       try {
         const r = await buildTrendTemplate(sym, { light: true, spyMom });
+        const passExclRS = r.criteria.filter((c) => c.id !== 8 && c.pass).length; // template passes without the RS rule
+        const volConfirmed = (r.volRatio || 0) >= 1.4;  // breakout-day volume ≥40% above the 50-day average
         out.push({
           symbol: r.symbol, price: r.price, passCount: r.passCount, qualifies: r.qualifies,
           stage: r.stage, rsRating: r.rsRating, pctFromHigh: r.pctFromHigh,
@@ -1041,6 +1046,8 @@ async function screenTrendTemplate(symbols) {
           vcpGrade: r.setup.vcp ? r.setup.vcp.grade : "-", tCount: r.setup.vcp ? r.setup.vcp.footprint : "-",
           state: r.setup.breakout.state, signal: r.setup.breakout.signal, confidence: r.setup.breakout.confidence,
           vcpScore: r.setup.report.score, vcpVerdict: r.setup.report.verdict, riskState: r.setup.report.riskState,
+          momentum: r.momentum, volRatio: r.volRatio, volConfirmed,
+          _passExclRS: passExclRS,
           atBuyPoint: r.passCount >= 7 && r.setup.actionable && !r.setup.extended,
         });
       } catch (err) {
@@ -1049,6 +1056,25 @@ async function screenTrendTemplate(symbols) {
     }
   };
   await Promise.all(Array.from({ length: Math.min(6, symbols.length) }, worker));
+
+  // ── Real RS rating: percentile-rank each name's weighted momentum across the screened universe (1–99). ──
+  const scored = out.filter((x) => !x.error && x.momentum != null);
+  const moms = scored.map((x) => x.momentum).sort((a, b) => a - b);
+  const pctile = (m) => {
+    if (moms.length < 2) return 50;
+    let below = 0; for (const v of moms) { if (v < m) below++; }
+    return Math.max(1, Math.min(99, Math.round((below / (moms.length - 1)) * 100)));
+  };
+  for (const x of scored) {
+    x.rsRating = pctile(x.momentum);            // overwrite SPY-approx with a true percentile
+    x.rsApprox = false;
+    const rsPass = x.rsRating >= 70;            // Minervini RS rule, now percentile-based
+    x.passCount = x._passExclRS + (rsPass ? 1 : 0);
+    x.qualifies = x.passCount === 8;
+    // Buy point now requires a volume-confirmed breakout — no more low-volume fakeouts.
+    x.atBuyPoint = x.passCount >= 7 && x.actionable && !x.extended && x.volConfirmed;
+    delete x._passExclRS; delete x.momentum;
+  }
 
   const rank = (x) => x.error ? -1 : (x.atBuyPoint ? 1000 : 0) + x.passCount * 100 + (x.rsRating || 0);
   out.sort((a, b) => rank(b) - rank(a));

@@ -13317,7 +13317,7 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
             <li>Manage: take partials into strength at 2R–3R; exit if it closes below the 50-day MA.</li>
           </ol>
           <div style={{ color: C.textDim, fontSize: 11.5, marginTop: 12 }}>
-            ⚠ The RS rating is approximate (momentum vs SPY, not a true full-market percentile). Pivot/VCP detection is automated and not perfect — always confirm against the chart before acting.</div>
+            ⚠ RS is a true percentile (1–99) ranked across the names you screen — bigger lists give a more accurate rating. Buy points now require a volume-confirmed breakout (≥1.4× the 50-day average). Pivot/VCP detection is automated and not perfect — always confirm against the chart before acting.</div>
         </div>
       )}
 
@@ -13404,7 +13404,11 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                       <td style={{ padding: "7px 10px", color: C.textDim }}>{r.riskPct}%</td>
                       <td style={{ padding: "7px 10px" }}>{(() => { const st = r.state || "WATCH";
                         const col = st === "CONFIRMED" ? C.green : st === "BREAKOUT_ACTIVE" ? C.accent : st === "SETUP_READY" ? "#d6a312" : st === "FAILED" ? C.red : C.textDim;
-                        return <span style={{ color: col, fontWeight: 800, fontSize: 11 }} title={`signal ${r.signal} · ${r.confidence}%`}>{st.replace("_", " ")}{r.signal && r.signal !== "NONE" ? " ●" : ""}</span>; })()}</td>
+                        const vr = Number(r.volRatio) || 0;
+                        return <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ color: col, fontWeight: 800, fontSize: 11 }} title={`signal ${r.signal} · ${r.confidence}%`}>{st.replace("_", " ")}{r.signal && r.signal !== "NONE" ? " ●" : ""}</span>
+                          {vr > 0 && <span title={`Today's volume vs 50-day average. ≥1.4× confirms a real breakout.`} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: r.volConfirmed ? C.green : C.textDim }}>🔊{vr.toFixed(1)}×</span>}
+                        </span>; })()}</td>
                     </tr>
                     {open && (
                       <tr>
