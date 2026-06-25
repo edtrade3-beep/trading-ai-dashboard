@@ -1,7 +1,0 @@
-{
-  "name": "price-beater",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Standalone Price Beater — am I the cheapest dealer?",
-  "engines": { "node": ">=18" }
-}

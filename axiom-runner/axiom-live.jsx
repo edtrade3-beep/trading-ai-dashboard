@@ -30434,15 +30434,15 @@ export default function App() {
                   {/* Challenge bar */}
                   <div style={{ background: `${gold}10`, border: `1px solid ${gold}33`, borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
-                      <span style={{ fontFamily: SANS, fontSize: 12, color: C.textSec }}>هذه السورة: <strong style={{ color: gold }}>{letters.toLocaleString("ar-EG")}</strong> حرف = <strong style={{ color: gold }}>{reward.toLocaleString("ar-EG")}</strong> حسنة بإذن الله</span>
+                      <span style={{ fontFamily: SANS, fontSize: 12, color: C.textSec }}>هذه السورة: <strong style={{ color: gold }}>{letters.toLocaleString("en-US")}</strong> حرف = <strong style={{ color: gold }}>{reward.toLocaleString("en-US")}</strong> حسنة بإذن الله</span>
                       <button onClick={() => creditSurah(surahNum, letters)} disabled={credited}
                         style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: credited ? "default" : "pointer",
                           border: `1px solid ${credited ? C.green : gold}`, background: credited ? `${C.green}1a` : `${gold}1a`, color: credited ? C.green : gold }}>
-                        {credited ? "✓ سُجّلت اليوم" : `✅ أنهيت التلاوة (+${reward.toLocaleString("ar-EG")})`}
+                        {credited ? "✓ سُجّلت اليوم" : `✅ أنهيت التلاوة (+${reward.toLocaleString("en-US")})`}
                       </button>
                     </div>
                     <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 6 }}>
-                      🏆 تحدّي اليوم: <strong style={{ color: C.text }}>{hasanat.today.toLocaleString("ar-EG")}</strong> / {HASANAT_GOAL.toLocaleString("ar-EG")} حسنة · الإجمالي <strong style={{ color: C.text }}>{hasanat.total.toLocaleString("ar-EG")}</strong>
+                      🏆 تحدّي اليوم: <strong style={{ color: C.text }}>{hasanat.today.toLocaleString("en-US")}</strong> / {HASANAT_GOAL.toLocaleString("en-US")} حسنة · الإجمالي <strong style={{ color: C.text }}>{hasanat.total.toLocaleString("en-US")}</strong>
                     </div>
                     <div style={{ height: 7, background: C.border, borderRadius: 4, overflow: "hidden" }}>
                       <div style={{ width: `${pct}%`, height: "100%", background: gold, borderRadius: 4, transition: "width 0.4s" }} />
