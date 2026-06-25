@@ -21622,6 +21622,17 @@ export default function App() {
             {/* ── 2. CATALYSTS — Fed + scheduled economic events ── */}
             <MonitorSection C={C} MONO={MONO} label="🏛 CATALYSTS & EVENTS" storeKey="mon_catalysts">
               <FedInterpreter C={C} MONO={MONO} SANS={SANS} />
+              {/* CME FedWatch — rate-cut probabilities (opens at CME; can't be embedded) */}
+              <a href="https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html" target="_blank" rel="noopener noreferrer"
+                style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", margin: "8px 0",
+                  padding: "10px 14px", background: `${C.accent}0c`, border: `1px solid ${C.accent}44`, borderRadius: 8 }}>
+                <span style={{ fontSize: 18 }}>🏛️</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent }}>CME FedWatch Tool ↗</div>
+                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Market-implied odds of the Fed's next rate move (from fed funds futures).</div>
+                </div>
+                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, border: `1px solid ${C.accent}55`, borderRadius: 5, padding: "4px 9px" }}>OPEN</span>
+              </a>
               <MacroEventsWidget C={C} MONO={MONO} SANS={SANS} />
             </MonitorSection>
 
