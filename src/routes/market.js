@@ -1115,6 +1115,29 @@ async function handleMarket(req, res, requestUrl) {
     }
   }
 
+  // Market-implied Fed rate read from 30-day fed funds futures (ZQ). Implied rate = 100 − price.
+  // Falling implied rate over recent weeks = market pricing CUTS; rising = HIKES.
+  if (pathname === "/api/market/fedwatch" && req.method === "GET") {
+    const _fw = handleMarket._fwCache || (handleMarket._fwCache = { data: null, ts: 0 });
+    if (_fw.data && Date.now() - _fw.ts < 15 * 60 * 1000) return writeJson(res, 200, _fw.data);
+    try {
+      const bars = await fetchYahooBars("ZQ=F", "3mo", "1d");
+      const closes = (bars || []).map(b => b.close).filter(v => v > 0);
+      if (closes.length < 5) return writeJson(res, 200, { ok: false, error: "no futures data" });
+      const last = closes[closes.length - 1];
+      const ago = closes[Math.max(0, closes.length - 22)];      // ~1 month ago
+      const impliedRate = round2(100 - last);
+      const prevRate = round2(100 - ago);
+      const delta = round2(impliedRate - prevRate);             // negative = market moved toward cuts
+      const lean = delta <= -0.04 ? "CUTS" : delta >= 0.04 ? "HIKES" : "STEADY";
+      // Rough probability of a 25bp move priced over the month (|delta| toward 0.25 = one cut/hike).
+      const moveProb = Math.max(0, Math.min(100, Math.round(Math.abs(delta) / 0.25 * 100)));
+      const payload = { ok: true, impliedRate, prevRate, delta, lean, moveProb, asOf: new Date().toISOString() };
+      _fw.data = payload; _fw.ts = Date.now();
+      return writeJson(res, 200, payload);
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e instanceof Error ? e.message : "fedwatch failed" }); }
+  }
+
   if (pathname === "/api/market/outlook" && req.method === "GET") {
     try {
       const payload = await buildMarketOutlook();
