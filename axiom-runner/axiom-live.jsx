@@ -17517,6 +17517,23 @@ export default function App() {
   // ── Quran text reader (read along) ──
   const [quranShowText, setQuranShowText] = useState(() => localStorage.getItem("quran_show_text") !== "off");
   const [quranText, setQuranText] = useState(null);   // { ayahs:[{n,ar}] } | { loading } | { error }
+  // ── حسنات challenge — every letter = 10 hasanat (الم حرف...بكل حرف عشر حسنات) ──
+  const HASANAT_GOAL = 100000; // daily challenge target
+  const [hasanat, setHasanat] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("quran_hasanat")) || { total: 0, today: 0, date: "", done: [] }; }
+    catch { return { total: 0, today: 0, date: "", done: [] }; }
+  });
+  const creditSurah = (num, letters) => {
+    const today = new Date().toDateString();
+    setHasanat(h => {
+      let { total, today: t, date, done } = h;
+      if (date !== today) { t = 0; done = []; date = today; }
+      if (done.includes(num)) return { total, today: t, date, done };
+      const next = { total: total + letters * 10, today: t + letters * 10, date, done: [...done, num] };
+      localStorage.setItem("quran_hasanat", JSON.stringify(next));
+      return next;
+    });
+  };
   useEffect(() => {
     if (!quranShowText) return;
     let alive = true;
@@ -30406,14 +30423,40 @@ export default function App() {
               {quranShowText && (
                 quranText?.loading ? <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center", padding: 16 }}>… جارٍ تحميل النص</div>
                 : quranText?.error ? <div style={{ fontFamily: SANS, fontSize: 12, color: C.amber, textAlign: "center", padding: 12 }}>تعذّر تحميل النص — تحقّق من الاتصال.</div>
-                : quranText?.ayahs ? (
+                : quranText?.ayahs ? (() => {
+                  const letters = (quranText.ayahs.map(a => a.ar).join(" ")
+                    .replace(/[ً-ْٰٓ-ٟۖ-ۭ]/g, "")  // strip tashkeel
+                    .match(/[ء-يٱ]/g) || []).length;
+                  const reward = letters * 10;
+                  const credited = hasanat.date === new Date().toDateString() && hasanat.done.includes(surahNum);
+                  const pct = Math.min(100, Math.round((hasanat.today / HASANAT_GOAL) * 100));
+                  return <>
+                  {/* Challenge bar */}
+                  <div style={{ background: `${gold}10`, border: `1px solid ${gold}33`, borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                      <span style={{ fontFamily: SANS, fontSize: 12, color: C.textSec }}>هذه السورة: <strong style={{ color: gold }}>{letters.toLocaleString("ar-EG")}</strong> حرف = <strong style={{ color: gold }}>{reward.toLocaleString("ar-EG")}</strong> حسنة بإذن الله</span>
+                      <button onClick={() => creditSurah(surahNum, letters)} disabled={credited}
+                        style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: credited ? "default" : "pointer",
+                          border: `1px solid ${credited ? C.green : gold}`, background: credited ? `${C.green}1a` : `${gold}1a`, color: credited ? C.green : gold }}>
+                        {credited ? "✓ سُجّلت اليوم" : `✅ أنهيت التلاوة (+${reward.toLocaleString("ar-EG")})`}
+                      </button>
+                    </div>
+                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 6 }}>
+                      🏆 تحدّي اليوم: <strong style={{ color: C.text }}>{hasanat.today.toLocaleString("ar-EG")}</strong> / {HASANAT_GOAL.toLocaleString("ar-EG")} حسنة · الإجمالي <strong style={{ color: C.text }}>{hasanat.total.toLocaleString("ar-EG")}</strong>
+                    </div>
+                    <div style={{ height: 7, background: C.border, borderRadius: 4, overflow: "hidden" }}>
+                      <div style={{ width: `${pct}%`, height: "100%", background: gold, borderRadius: 4, transition: "width 0.4s" }} />
+                    </div>
+                    {hasanat.today >= HASANAT_GOAL && <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.green, marginTop: 6, textAlign: "center" }}>🎉 أكملت تحدّي اليوم — تقبّل الله! واصل للأجر.</div>}
+                  </div>
                   <div dir="rtl" style={{ fontFamily: "'Amiri', 'Scheherazade New', 'Traditional Arabic', Georgia, serif", fontSize: 24, lineHeight: 2.2, color: C.text, textAlign: "right" }}>
                     {surahNum !== 1 && surahNum !== 9 && <div style={{ textAlign: "center", color: gold, fontSize: 22, marginBottom: 10 }}>بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</div>}
                     {quranText.ayahs.map(a => (
                       <span key={a.n}>{a.ar} <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 26, height: 26, fontFamily: MONO, fontSize: 12, color: gold, border: `1px solid ${gold}66`, borderRadius: "50%", margin: "0 4px", verticalAlign: "middle" }}>{a.n}</span> </span>
                     ))}
                   </div>
-                ) : null
+                  </>;
+                })() : null
               )}
             </div>
 
