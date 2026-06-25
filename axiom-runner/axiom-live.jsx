@@ -17514,6 +17514,18 @@ export default function App() {
   });
   const [quranPlaying, setQuranPlaying] = useState(false);
   const [quranAutoNext, setQuranAutoNext] = useState(true);
+  // ── Quran text reader (read along) ──
+  const [quranShowText, setQuranShowText] = useState(() => localStorage.getItem("quran_show_text") !== "off");
+  const [quranText, setQuranText] = useState(null);   // { ayahs:[{n,ar}] } | { loading } | { error }
+  useEffect(() => {
+    if (!quranShowText) return;
+    let alive = true;
+    setQuranText({ loading: true });
+    fetch(`https://api.alquran.cloud/v1/surah/${quranSurah}`).then(r => r.json())
+      .then(d => { if (!alive) return; const ay = d?.data?.ayahs; if (ay) setQuranText({ ayahs: ay.map(a => ({ n: a.numberInSurah, ar: a.text })) }); else setQuranText({ error: true }); })
+      .catch(() => { if (alive) setQuranText({ error: true }); });
+    return () => { alive = false; };
+  }, [quranSurah, quranShowText]);
   const [quranRepeat, setQuranRepeat] = useState(false);
   const [quranAudioError, setQuranAudioError] = useState(false);
   const [quranLoading, setQuranLoading] = useState(false);
@@ -30379,6 +30391,30 @@ export default function App() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* ── 📖 READ — Arabic text of the current surah ── */}
+            <div style={{ background: C.card, border: `1px solid ${goldDim}`, borderRadius: 14, padding: "14px 16px", marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: gold, letterSpacing: "0.1em" }}>📖 اقرأ — {surahInfo?.[1]}</div>
+                <button onClick={() => { const v = !quranShowText; setQuranShowText(v); localStorage.setItem("quran_show_text", v ? "on" : "off"); }}
+                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6, cursor: "pointer",
+                    border: `1px solid ${quranShowText ? gold : C.border}`, background: quranShowText ? `${gold}1a` : C.surface, color: quranShowText ? gold : C.textDim }}>
+                  {quranShowText ? "إخفاء النص" : "إظهار النص"}
+                </button>
+              </div>
+              {quranShowText && (
+                quranText?.loading ? <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center", padding: 16 }}>… جارٍ تحميل النص</div>
+                : quranText?.error ? <div style={{ fontFamily: SANS, fontSize: 12, color: C.amber, textAlign: "center", padding: 12 }}>تعذّر تحميل النص — تحقّق من الاتصال.</div>
+                : quranText?.ayahs ? (
+                  <div dir="rtl" style={{ fontFamily: "'Amiri', 'Scheherazade New', 'Traditional Arabic', Georgia, serif", fontSize: 24, lineHeight: 2.2, color: C.text, textAlign: "right" }}>
+                    {surahNum !== 1 && surahNum !== 9 && <div style={{ textAlign: "center", color: gold, fontSize: 22, marginBottom: 10 }}>بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</div>}
+                    {quranText.ayahs.map(a => (
+                      <span key={a.n}>{a.ar} <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 26, height: 26, fontFamily: MONO, fontSize: 12, color: gold, border: `1px solid ${gold}66`, borderRadius: "50%", margin: "0 4px", verticalAlign: "middle" }}>{a.n}</span> </span>
+                    ))}
+                  </div>
+                ) : null
+              )}
             </div>
 
             {/* ── Surah list (all 114, searchable) ── */}
