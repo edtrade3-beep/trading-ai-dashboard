@@ -6227,8 +6227,25 @@ function CoachTab({ C, MONO, SANS }) {
   const [pillarTab, setPillarTab] = useState("الكل");
   const toggleLesson = (i) => { const n = { ...lessonDone, [i]: !lessonDone[i] }; setLessonDone(n); localStorage.setItem("coach_lessons_done", JSON.stringify(n)); };
 
-  // ── Audio: read the lesson aloud (male Arabic voice) and auto-advance to the next ──
+  // ── Audio: read the lesson aloud and auto-advance to the next ──
   const [audioIdx, setAudioIdx] = useState(null);   // lesson index currently being spoken
+  const [voices, setVoices] = useState([]);
+  const [voiceURI, setVoiceURI] = useState(() => (typeof localStorage !== "undefined" && localStorage.getItem("coach_voice")) || "");
+  const [rate, setRate] = useState(() => Number(typeof localStorage !== "undefined" && localStorage.getItem("coach_rate")) || 0.95);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    const load = () => setVoices(window.speechSynthesis.getVoices() || []);
+    load();
+    window.speechSynthesis.onvoiceschanged = load;
+  }, []);
+  // Prefer the user's pick; else the most natural Arabic voice (online/network voices are far less robotic than local ones).
+  const pickVoice = () => {
+    if (voiceURI) { const v = voices.find(x => x.voiceURI === voiceURI); if (v) return v; }
+    const ar = voices.filter(v => /^ar/i.test(v.lang));
+    const online = ar.filter(v => v.localService === false);   // network voices sound much better
+    return online.find(v => /male|majed|na?yf|hamed|tarik|fahad/i.test(v.name)) || online[0]
+        || ar.find(v => /male|majed|na?yf|hamed|tarik|fahad/i.test(v.name)) || ar[0] || null;
+  };
   const speakLesson = (idx) => {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
     const l = COACH_LESSONS[idx];
@@ -6236,20 +6253,21 @@ function CoachTab({ C, MONO, SANS }) {
     const ss = window.speechSynthesis;
     ss.cancel();
     setOpenLesson(idx);
-    setCollapsedCats(p => ({ ...p, [l.pillar]: false }));  // make sure the lesson is visible
+    setCollapsedCats(p => ({ ...p, [l.pillar]: false }));
     setAudioIdx(idx);
     const text = [l.title, l.teach, l.deep || "", "التمرين: " + l.practice, l.mantra || ""].filter(Boolean).join("، ");
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = "ar-SA"; u.rate = 0.95; u.pitch = 0.8;   // lower pitch = more male tone
-    const vs = ss.getVoices();
-    const ar = vs.filter(v => /^ar/i.test(v.lang));
-    u.voice = ar.find(v => /male|majed|na?yf|hamed|tarik|fahad/i.test(v.name)) || ar[0] || null;
-    u.onend = () => { if (idx + 1 < COACH_LESSONS.length) speakLesson(idx + 1); else setAudioIdx(null); };  // auto-next
+    const v = pickVoice();
+    if (v) u.voice = v;
+    u.lang = v ? v.lang : "ar-SA";
+    u.rate = rate; u.pitch = 0.9;
+    u.onend = () => { if (idx + 1 < COACH_LESSONS.length) speakLesson(idx + 1); else setAudioIdx(null); };
     u.onerror = () => setAudioIdx(null);
     ss.speak(u);
   };
   const stopSpeak = () => { if (window.speechSynthesis) window.speechSynthesis.cancel(); setAudioIdx(null); };
-  useEffect(() => () => { if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel(); }, []); // stop on unmount
+  useEffect(() => () => { if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel(); }, []);
+  const arVoices = voices.filter(v => /^ar/i.test(v.lang));
 
   // Habits (per day)
   const todayKey = new Date().toISOString().slice(0,10);
@@ -6560,7 +6578,18 @@ function CoachTab({ C, MONO, SANS }) {
                     </div>
                     {openLesson === i && (
                       <div style={{ padding: "0 44px 14px 14px" }}>
-                        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+                        <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                          {(arVoices.length > 1 || voices.length > 0) && (
+                            <select value={voiceURI} onClick={e => e.stopPropagation()} onChange={e => { e.stopPropagation(); setVoiceURI(e.target.value); localStorage.setItem("coach_voice", e.target.value); }}
+                              title="اختر صوتاً — الأصوات أونلاين أوضح من الأصوات المحلية" style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 6px", maxWidth: 160 }}>
+                              <option value="">الصوت التلقائي</option>
+                              {(arVoices.length ? arVoices : voices).map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name}{v.localService === false ? " ☁" : ""}</option>)}
+                            </select>
+                          )}
+                          <select value={String(rate)} onClick={e => e.stopPropagation()} onChange={e => { e.stopPropagation(); const r = Number(e.target.value); setRate(r); localStorage.setItem("coach_rate", String(r)); }}
+                            title="السرعة" style={{ fontFamily: MONO, fontSize: 11, color: C.textSec, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 6px" }}>
+                            {[["0.8","0.8×"],["0.95","1×"],["1.15","1.15×"],["1.3","1.3×"]].map(([v,lbl]) => <option key={v} value={v}>{lbl}</option>)}
+                          </select>
                           {audioIdx === i
                             ? <button onClick={e => { e.stopPropagation(); stopSpeak(); }} style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer", border: `1px solid ${C.red}55`, background: `${C.red}14`, color: C.red }}>⏹ إيقاف</button>
                             : <button onClick={e => { e.stopPropagation(); speakLesson(i); }} title="استمع للدرس بصوتٍ ثم ينتقل تلقائياً للدرس التالي" style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer", border: `1px solid ${l.color}55`, background: `${l.color}14`, color: l.color }}>🔊 استمع</button>}
