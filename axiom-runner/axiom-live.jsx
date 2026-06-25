@@ -30441,8 +30441,12 @@ export default function App() {
                         {credited ? "✓ سُجّلت اليوم" : `✅ أنهيت التلاوة (+${reward.toLocaleString("en-US")})`}
                       </button>
                     </div>
-                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 6 }}>
-                      🏆 تحدّي اليوم: <strong style={{ color: C.text }}>{hasanat.today.toLocaleString("en-US")}</strong> / {HASANAT_GOAL.toLocaleString("en-US")} حسنة · الإجمالي <strong style={{ color: C.text }}>{hasanat.total.toLocaleString("en-US")}</strong>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+                      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>
+                        🏆 تحدّي اليوم: <strong style={{ color: C.text }}>{hasanat.today.toLocaleString("en-US")}</strong> / {HASANAT_GOAL.toLocaleString("en-US")} حسنة · الإجمالي <strong style={{ color: C.text }}>{hasanat.total.toLocaleString("en-US")}</strong>
+                      </div>
+                      <button onClick={() => { if (window.confirm("تصفير العدّاد (اليوم والإجمالي)؟")) { const z = { total: 0, today: 0, date: "", done: [] }; setHasanat(z); localStorage.setItem("quran_hasanat", JSON.stringify(z)); } }}
+                        style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, padding: "3px 9px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.border}`, background: C.surface, color: C.textDim, whiteSpace: "nowrap" }}>↺ تصفير</button>
                     </div>
                     <div style={{ height: 7, background: C.border, borderRadius: 4, overflow: "hidden" }}>
                       <div style={{ width: `${pct}%`, height: "100%", background: gold, borderRadius: 4, transition: "width 0.4s" }} />
