@@ -8978,6 +8978,9 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const strongSectors = new Set(sectorsRanked.slice(0, Math.ceil(sectorsRanked.length / 2)).map(s => s.sym));
   const [glExpanded, setGlExpanded] = useState(null); // ticker whose details are shown
   const [candOpen, setCandOpen] = useState(null);     // candidate (calls/puts/watch) expanded to full card
+  const [aiScan, setAiScan] = useState(null);         // null | "loading" | text | {error}
+  const [aiScanAuto, setAiScanAuto] = useState(() => localStorage.getItem("gl_aiscan_auto") === "on");
+  const aiScanRef = useRef(0);
   // Deep-dive data (analyst targets, fundamentals, news) — same sources as Smart Scan
   const [glDeep, setGlDeep] = useState({});
   const [glDeepLoad, setGlDeepLoad] = useState(false);
@@ -9068,6 +9071,23 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const mode = (tradeableCalls === 0 && tradeablePuts === 0) ? "CASH"
     : tradeableCalls >= tradeablePuts ? "BULL" : "BEAR";
   const modeColor = mode === "BULL" ? C.green : mode === "BEAR" ? C.red : C.textDim;
+
+  // ── AI Scan: one batched Claude call to triage today's setups (cheap) ──
+  const runAiScan = () => {
+    const top = results.filter(r => r.aScore >= 80).sort((a, b) => b.aScore - a.aScore).slice(0, 12);
+    setAiScan("loading");
+    fetch("/api/market/ai-scan", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ regime: regime.score, setups: top.map(r => ({ symbol: r.symbol, aScore: r.aScore, grade: r.grade, rr: r.rr, rvol: Number(r.rvol || 0).toFixed(1), relStrength: r.relStrength, sector: r.sector, atEntry: r.atEntry })) }) })
+      .then(res => res.json()).then(d => setAiScan(d && d.ok ? d.analysis : { error: (d && d.error) || "no response" })).catch(e => setAiScan({ error: e.message }));
+  };
+  // Auto-run while toggled on: every 30 min (and once on enable), only if there are setups to look at.
+  useEffect(() => {
+    if (!aiScanAuto) return;
+    const tick = () => { if (Date.now() - aiScanRef.current > 25 * 60 * 1000) { aiScanRef.current = Date.now(); runAiScan(); } };
+    tick();
+    const t = setInterval(tick, 5 * 60 * 1000);
+    return () => clearInterval(t);
+  }, [aiScanAuto]); // eslint-disable-line
 
   // Auto-buy is handled globally by <AutoPilotEngine> so it runs on every tab.
 
@@ -9555,6 +9575,28 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
           {green.map(r => <Row key={r.symbol} r={r} />)}
         </div>
       )}
+
+      {/* ── 🤖 AI SCAN — batched Claude triage of today's setups ── */}
+      <div style={{ marginBottom: 16, padding: "12px 14px", borderRadius: 10, background: `${C.accent}08`, border: `1px solid ${C.accent}33` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.accent }}>🤖 AI SCAN</span>
+          <button onClick={runAiScan} disabled={aiScan === "loading"}
+            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 14px", borderRadius: 7, cursor: "pointer", border: `1px solid ${C.accent}`, background: `${C.accent}18`, color: C.accent }}>
+            {aiScan === "loading" ? "⏳ analyzing…" : "▶ ANALYZE SETUPS"}
+          </button>
+          <button onClick={() => { const v = !aiScanAuto; setAiScanAuto(v); localStorage.setItem("gl_aiscan_auto", v ? "on" : "off"); }}
+            title="Auto-run the AI scan every ~30 min (cheap — one batched call)"
+            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer",
+              border: `1px solid ${aiScanAuto ? C.green : C.border}`, background: aiScanAuto ? C.green : "transparent", color: aiScanAuto ? "#fff" : C.textDim }}>
+            {aiScanAuto ? "🔁 AUTO: ON" : "AUTO: OFF"}
+          </button>
+          <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginLeft: "auto" }}>one batched call · ranks your A+ names + market read</span>
+        </div>
+        {aiScan && aiScan.error && <div style={{ fontFamily: SANS, fontSize: 11, color: C.amber, marginTop: 8 }}>AI scan unavailable — {aiScan.error}</div>}
+        {typeof aiScan === "string" && aiScan !== "loading" && (
+          <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.6, whiteSpace: "pre-line", marginTop: 10, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>{aiScan}</div>
+        )}
+      </div>
 
       {/* ── Sector strength (Step 2: trade leaders in strong sectors) ── */}
       {sectorsRanked.length > 0 && (

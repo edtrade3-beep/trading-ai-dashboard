@@ -1155,6 +1155,23 @@ async function handleMarket(req, res, requestUrl) {
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  // AI SCAN — one cheap batched call: rank the day's setups + a market read. Far cheaper than per-stock.
+  if (pathname === "/api/market/ai-scan" && req.method === "POST") {
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
+    const setups = Array.isArray(b.setups) ? b.setups.slice(0, 12) : [];
+    const regime = Number(b.regime) || 0;
+    if (!setups.length) return writeJson(res, 200, { ok: true, analysis: "No setups to analyze — stay in cash." });
+    const SYSTEM = `You are a disciplined institutional swing-trader doing a quick scan triage. Be concise and honest — your job is to focus the trader on the best 1-3 names and warn off weak ones. Rules: only A+ (score ≥90) in a green market, strong sector, at the buy zone, reward:risk ≥2:1; cut losers fast, let winners run; cash is a position. Format:\nMARKET: one short line on whether to be aggressive, selective, or in cash given the regime.\nTOP PICKS: up to 3 tickers, one tight reason each (best first).\nAVOID: any names that look weak/extended, one phrase each (or "none").\nKeep the whole thing under 120 words. No preamble.`;
+    const rows = setups.map(s => `${s.symbol}: A+${s.aScore}/100 (${s.grade}), R:R ${s.rr}:1, RVOL ${s.rvol}x, RS ${s.relStrength}% vs SPY, sector ${s.sector || "?"}, ${s.atEntry ? "at entry" : "extended"}`).join("\n");
+    const prompt = `Market regime ${regime}/100. Today's scanned setups:\n${rows}\n\nTriage them.`;
+    try {
+      const analysis = await callAnthropicApi(prompt, key, { model: MODELS.haiku, maxTokens: 350, system: SYSTEM, cache: true });
+      return writeJson(res, 200, { ok: true, analysis: (analysis || "").trim() });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   if (pathname === "/api/market/outlook" && req.method === "GET") {
     try {
       const payload = await buildMarketOutlook();
