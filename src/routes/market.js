@@ -1172,6 +1172,16 @@ async function handleMarket(req, res, requestUrl) {
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  // Manually fire the server-side AI game plan / trade coach (for testing or off-hours).
+  if (pathname === "/api/market/ai-trigger" && req.method === "POST") {
+    const type = (searchParams.get("type") || "gameplan").toLowerCase();
+    try {
+      const { runMorningGamePlan, runTradeCoach } = require("../ai-coach");
+      (type === "coach" ? runTradeCoach() : runMorningGamePlan()).catch(() => {});
+      return writeJson(res, 200, { ok: true, fired: type, note: "Running — check Telegram in a few seconds (needs ANTHROPIC_API_KEY + Telegram + data)." });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   // AI MORNING GAME PLAN — one batched call: regime + top setups → a 1-paragraph plan.
   if (pathname === "/api/market/ai-gameplan" && req.method === "POST") {
     const key = (process.env.ANTHROPIC_API_KEY || "").trim();
