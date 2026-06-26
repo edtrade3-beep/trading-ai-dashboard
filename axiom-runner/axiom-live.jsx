@@ -5479,6 +5479,19 @@ function computeGreenLight(q, spyChg, scanRow, regime = null) {
   const putTarget = px > 0 ? +(px * 0.90).toFixed(2) : 0;
   const putRR     = (putStop - px) > 0 ? +((px - putTarget) / (putStop - px)).toFixed(1) : 0;
   const bearTradeable = bearScore > 80 && putRR >= 2;
+  // ── BOTTOM / REVERSAL score — capitulation + washout (oversold bounce candidates). ──
+  const offHigh = hi52 > 0 ? (px / hi52 - 1) * 100 : 0;   // negative = below the 52w high
+  const nearLow = lo52 > 0 ? (px / lo52 - 1) * 100 : 999; // small = near the 52w low
+  const bottomChecks = [
+    { label: "Oversold (RSI<35)", pass: rsiKnown ? rsi < 35 : chg < -3 },
+    { label: "Washed out (−25%+ off high)", pass: offHigh <= -25 },
+    { label: "Near 52w low", pass: nearLow <= 15 },
+    { label: "Capitulation volume (>2x)", pass: rvol >= 2 },
+    { label: "Stabilizing (selling slowing)", pass: chg >= -1 },
+  ];
+  const bottomScore = bottomChecks.filter(c => c.pass).length * 20;
+  const reversal = bottomScore >= 60;   // multiple capitulation signs = a reversal candidate
+
   const bearChecks = [
     { label: "Market red", pass: bMarket >= 20 },
     { label: "Below VWAP", pass: belowMean },
@@ -5511,6 +5524,7 @@ function computeGreenLight(q, spyChg, scanRow, regime = null) {
     aScore, grade, confRisk, aPlus, marketPass,
     scoreParts: { trend: pTrend, momentum: pMom, volume: pVol, structure: pStruct, risk: pRisk },
     bearScore, bearChecks, putStop, putTarget, putRR, bearTradeable,
+    bottomScore, bottomChecks, reversal, offHigh: +offHigh.toFixed(1),
   };
 }
 
@@ -9047,6 +9061,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const [aiScan, setAiScan] = useState(null);         // null | "loading" | text | {error}
   const [aiAsk, setAiAsk] = useState({});             // symbol → "loading" | review text | {error}
   const [aiTrig, setAiTrig] = useState("");           // game-plan / coach trigger status
+  const [aiBottom, setAiBottom] = useState(null);     // null | "loading" | text | {error}
   const setAiAskFor = (sym, v) => setAiAsk(p => ({ ...p, [sym]: v }));
   const [aiScanAuto, setAiScanAuto] = useState(() => localStorage.getItem("gl_aiscan_auto") === "on");
   const aiScanRef = useRef(0);
@@ -9134,6 +9149,8 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const puts   = results.filter(r => r.bearScore >= 60).sort((a, b) => b.bearScore - a.bearScore).slice(0, 12);
   // Call candidates — ranked by A+ Institutional Score.
   const calls  = results.filter(r => r.aScore >= 80).sort((a, b) => b.aScore - a.aScore).slice(0, 12);
+  // Bottom / reversal candidates — capitulation washouts.
+  const bottoms = results.filter(r => r.bottomScore >= 60).sort((a, b) => b.bottomScore - a.bottomScore).slice(0, 10);
   // ── MODE: Bull (tradeable calls) · Bear (tradeable puts) · Cash (nothing qualifies) ──
   const tradeableCalls = results.filter(r => r.aPlus).length;   // A+ (≥90) + market pass + at entry
   const tradeablePuts  = results.filter(r => r.bearTradeable).length;                            // Bear Score > 80
@@ -9693,6 +9710,42 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* ── 🩸 BOTTOM SPOTTER — capitulation reversal candidates + AI knife-check ── */}
+      {bottoms.length > 0 && (
+        <div style={{ marginBottom: 16, padding: "12px 14px", borderRadius: 10, background: "#0891b208", border: "1px solid #0891b233" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#0891b2" }}>🩸 BOTTOM SPOTTER ({bottoms.length})</span>
+            <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>oversold washouts — possible reversals</span>
+            <button onClick={() => {
+              setAiBottom("loading");
+              const spyQ2 = (macroData || []).find(m => m.symbol === "SPY");
+              const vix = (macroData || []).find(m => (m.symbol || "").toUpperCase().includes("VIX"));
+              fetch("/api/market/ai-bottom", { method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ market: { regime: regime.score, vix: Number(vix?.price || 0) || null, spyChg: Number(spyQ2?.changesPercentage || 0) },
+                  candidates: bottoms.map(r => ({ symbol: r.symbol, bottomScore: r.bottomScore, offHigh: r.offHigh, rvol: Number(r.rvol || 0).toFixed(1), chg: r.chg.toFixed(1) })) }) })
+                .then(res => res.json()).then(d => setAiBottom(d && d.ok ? d.analysis : { error: (d && d.error) || "no response" })).catch(e => setAiBottom({ error: e.message }));
+            }} disabled={aiBottom === "loading"}
+              style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer", border: "1px solid #0891b2", background: "#0891b218", color: "#0891b2" }}>
+              {aiBottom === "loading" ? "⏳ checking news…" : "🤖 IS THIS A BOTTOM?"}
+            </button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 6 }}>
+            {bottoms.map(r => (
+              <div key={r.symbol} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 9px", borderRadius: 7, background: C.surface, border: `1px solid ${C.border}` }}>
+                <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: "#0891b2", minWidth: 30 }}>{r.bottomScore}</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent }}>{r.symbol}</span>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.red }}>{r.offHigh}% off high</span>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: r.chg >= 0 ? C.green : C.red, marginLeft: "auto" }}>{r.chg >= 0 ? "+" : ""}{r.chg.toFixed(1)}%</span>
+              </div>
+            ))}
+          </div>
+          {aiBottom && aiBottom.error && <div style={{ fontFamily: SANS, fontSize: 11, color: C.amber, marginTop: 8 }}>AI check unavailable — {aiBottom.error}</div>}
+          {typeof aiBottom === "string" && aiBottom !== "loading" && (
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.6, whiteSpace: "pre-line", marginTop: 10, background: C.card, border: "1px solid #0891b233", borderRadius: 8, padding: "10px 12px" }}>{aiBottom}</div>
+          )}
         </div>
       )}
 

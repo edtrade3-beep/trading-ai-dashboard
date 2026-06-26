@@ -1172,6 +1172,32 @@ async function handleMarket(req, res, requestUrl) {
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  // 🩸 AI BOTTOM SPOTTER — capitulation candidates + live news → "real bottom or falling knife?"
+  if (pathname === "/api/market/ai-bottom" && req.method === "POST") {
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
+    const cands = (Array.isArray(b.candidates) ? b.candidates : []).slice(0, 8);
+    const market = b.market || {};
+    const system = `You are a contrarian trader hunting capitulation bottoms — but disciplined, never a knife-catcher. Use web_search for the latest news on the names and the overall tape. For each candidate decide: REAL REVERSAL SETUP vs FALLING KNIFE (avoid), and state the ONE thing that would confirm a bottom (e.g., reclaim of a level, volume reversal, news resolving). Format:\nTAPE: one line — is the broad market washing out or still falling?\nBEST BOTTOM PLAY: 1-2 names with the cleanest reversal setup + why.\nKNIVES: names to avoid + the red flag (bad news, no support).\nCONFIRM: what to wait for before buying any bottom.\nUnder 130 words. Bottoms are dangerous — be honest about risk.`;
+    const rows = cands.length ? cands.map(c => `${c.symbol}: bottom score ${c.bottomScore}/100, ${c.offHigh}% off high, RVOL ${c.rvol}x, today ${c.chg}%`).join("\n") : "no strong capitulation candidates";
+    const prompt = `Market: regime ${market.regime}/100${market.vix ? `, VIX ${market.vix}` : ""}${market.spyChg != null ? `, SPY ${market.spyChg}% today` : ""}.\nCapitulation candidates:\n${rows}\n\nAre we near a bottom? Which are real reversals vs falling knives?`;
+    const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }];
+    try {
+      const messages = [{ role: "user", content: prompt }];
+      let text = "";
+      for (let i = 0; i < 4; i++) {
+        const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 600, system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools }, key, 60000);
+        const content = resp.content || [];
+        const t = content.filter(c => c.type === "text").map(c => c.text).join("");
+        if (t) text = t;
+        if (resp.stop_reason === "pause_turn") { messages.push({ role: "assistant", content }); continue; }
+        break;
+      }
+      return writeJson(res, 200, { ok: true, analysis: (text || "").trim() || "(no answer)" });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   // 🗣️ TRADING COPILOT — chat that knows your context and can search live news.
   if (pathname === "/api/market/ai-copilot" && req.method === "POST") {
     const key = (process.env.ANTHROPIC_API_KEY || "").trim();
