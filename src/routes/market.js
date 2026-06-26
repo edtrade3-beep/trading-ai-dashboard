@@ -1,5 +1,5 @@
 const { writeJson, readRequestBody, withTimeout, round2, average, trimText } = require("../utils");
-const { callAnthropicApi, MODELS } = require("../anthropic");
+const { callAnthropicApi, MODELS, anthropicRequest } = require("../anthropic");
 const { MARKET_QUOTE_TIMEOUT_MS, MACRO_SYMBOLS, TIMEFRAME_CONFIG, resolveProviderKeys } = require("../config");
 const {
   computeEMA, computeRSI, computeVWAP,
@@ -1169,6 +1169,46 @@ async function handleMarket(req, res, requestUrl) {
     try {
       const analysis = await callAnthropicApi(prompt, key, { model: MODELS.haiku, maxTokens: 350, system: SYSTEM, cache: true });
       return writeJson(res, 200, { ok: true, analysis: (analysis || "").trim() });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
+  // 🗣️ TRADING COPILOT — chat that knows your context and can search live news.
+  if (pathname === "/api/market/ai-copilot" && req.method === "POST") {
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
+    const ctx = b.context || {};
+    const history = (Array.isArray(b.messages) ? b.messages : []).slice(-8)
+      .map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content || "").slice(0, 2000) }))
+      .filter(m => m.content);
+    if (!history.length) return writeJson(res, 400, { ok: false, error: "no message" });
+    const wl = (ctx.watchlist || []).slice(0, 40).join(", ");
+    const pos = (ctx.positions || []).slice(0, 30).map(p => `${p.symbol} ${p.qty}@${p.avgEntry} (${p.unrealizedPL >= 0 ? "+" : ""}${Math.round(p.unrealizedPL)})`).join(", ");
+    const setups = (ctx.setups || []).slice(0, 10).map(s => `${s.symbol} A+${s.aScore}`).join(", ");
+    const system = `You are the user's trading copilot inside their platform. Be concise, direct, and practical — like a sharp trading desk colleague, not a chatbot. You can use web_search for anything time-sensitive (why a stock is moving today, latest news, earnings reactions). Always tie answers to their actual context below.
+
+THEIR CONTEXT:
+- Account: $${ctx.account || "?"} · risk ${ctx.riskPct || 1}% per trade
+- Market regime: ${ctx.regime != null ? ctx.regime + "/100" : "?"}
+- Watchlist: ${wl || "—"}
+- Open positions: ${pos || "none"}
+- Today's A+ setups: ${setups || "none"}
+
+RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at the buy zone; reward:risk ≥2:1; risk 1% per trade; cut losers fast, let winners run; cash is a position. If asked to plan a trade, give entry / stop / target / share size for their account & risk. You are not a licensed advisor — frame trade ideas as educational, not personalized financial advice. Keep most answers under 150 words unless they ask for depth.`;
+    const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }];
+    try {
+      const messages = history.slice();
+      let text = "";
+      for (let i = 0; i < 4; i++) {
+        const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 700,
+          system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools }, key, 60000);
+        const content = resp.content || [];
+        const t = content.filter(c => c.type === "text").map(c => c.text).join("");
+        if (t) text = t;
+        if (resp.stop_reason === "pause_turn") { messages.push({ role: "assistant", content }); continue; }
+        break;
+      }
+      return writeJson(res, 200, { ok: true, reply: (text || "").trim() || "(no answer)" });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
