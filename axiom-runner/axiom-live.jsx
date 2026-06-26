@@ -8922,6 +8922,34 @@ function GLBacktestTab({ C, MONO, SANS, watchlistSymbols }) {
   );
 }
 
+// ── 🤖 Ask Claude — real AI second-opinion on a setup (cheap Haiku call) ──
+function AISetupReview({ r, regimeScore, C, MONO, SANS }) {
+  const [out, setOut] = useState(null);   // null | "loading" | text | {error}
+  const ask = () => {
+    setOut("loading");
+    fetch("/api/market/ai-setup-review", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ setup: {
+        symbol: r.symbol, px: r.px.toFixed(2), chg: r.chg.toFixed(2), aScore: r.aScore, grade: r.grade,
+        marketScore: regimeScore, marketPass: r.marketPass, sector: r.sector, strongSector: r.strongSector,
+        relStrength: r.relStrength, rvol: r.rvol.toFixed(1), bestEntry: r.bestEntry, stop: r.stop, rr: r.rr, atEntry: r.atEntry,
+      } }),
+    }).then(res => res.json()).then(d => setOut(d.ok ? d.review : { error: d.error || "failed" })).catch(e => setOut({ error: e.message }));
+  };
+  return (
+    <div style={{ marginTop: 8 }}>
+      {out === null && <button onClick={ask} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "4px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.accent}55`, background: `${C.accent}14`, color: C.accent }}>🤖 ASK CLAUDE</button>}
+      {out === "loading" && <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>🤖 Claude is reviewing…</div>}
+      {out && out.error && <div style={{ fontFamily: SANS, fontSize: 11, color: C.amber }}>AI review unavailable — {out.error}</div>}
+      {typeof out === "string" && out !== "loading" && (
+        <div style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.55, whiteSpace: "pre-line", background: `${C.accent}08`, border: `1px solid ${C.accent}33`, borderRadius: 8, padding: "8px 11px" }}>
+          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.accent }}>🤖 CLAUDE'S TAKE</span>{"\n"}{out}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFor, scanResults, sectorData }) {
   const spyQ   = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
   const spyChg = Number(spyQ?.changesPercentage || 0);
@@ -9112,6 +9140,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
                 {decision !== "BUY" && <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 5 }}>
                   {decision === "WAIT" ? "Setup is forming but not yet A+ (≥90) with a green market — wait." : "Below A+ threshold or not at entry — skip per the rules."}
                 </div>}
+                <AISetupReview r={r} regimeScore={regime.score} C={C} MONO={MONO} SANS={SANS} />
               </div>
             );
           })()}

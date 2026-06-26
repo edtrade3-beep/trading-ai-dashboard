@@ -1,4 +1,5 @@
 const { writeJson, readRequestBody, withTimeout, round2, average, trimText } = require("../utils");
+const { callAnthropicApi, MODELS } = require("../anthropic");
 const { MARKET_QUOTE_TIMEOUT_MS, MACRO_SYMBOLS, TIMEFRAME_CONFIG, resolveProviderKeys } = require("../config");
 const {
   computeEMA, computeRSI, computeVWAP,
@@ -1136,6 +1137,22 @@ async function handleMarket(req, res, requestUrl) {
       _fw.data = payload; _fw.ts = Date.now();
       return writeJson(res, 200, payload);
     } catch (e) { return writeJson(res, 200, { ok: false, error: e instanceof Error ? e.message : "fedwatch failed" }); }
+  }
+
+  // AI second-opinion on a Green Light setup — cheap (Haiku) + cached trader persona.
+  if (pathname === "/api/market/ai-setup-review" && req.method === "POST") {
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
+    const s = b.setup || {};
+    const sym = String(s.symbol || "").toUpperCase().replace(/[^A-Z.]/g, "").slice(0, 8);
+    if (!sym) return writeJson(res, 400, { ok: false, error: "symbol required" });
+    const SYSTEM = `You are a disciplined institutional swing-trader reviewing a long setup from a rules-based scanner. Be concise and honest — your job is to critique, not cheerlead. Rules you trade by: trade only A+ setups (score ≥90) in a green market regime, in strong sectors, at the buy zone (not extended); risk 1% per trade; reward:risk must be ≥2:1; cut losers fast, let winners run; when in doubt, stay in cash. Respond in 3 short parts:\nVERDICT: BUY / WAIT / PASS (one word)\nWHY: one tight sentence.\nRISKS: 1-2 specific risks to watch.\nNo preamble, no disclaimers, under 70 words total.`;
+    const prompt = `Setup for ${sym}:\n- Price $${s.px} (${s.chg >= 0 ? "+" : ""}${s.chg}% today)\n- A+ Score ${s.aScore}/100 (grade ${s.grade})\n- Market regime ${s.marketScore}/100 ${s.marketPass ? "(green)" : "(not green)"}\n- Sector ${s.sector || "?"} ${s.strongSector ? "(strong)" : "(weak/unknown)"}\n- Relative strength vs SPY: ${s.relStrength}%\n- RVOL ${s.rvol}x\n- Entry $${s.bestEntry}, stop $${s.stop}, R:R ${s.rr}:1\n- At buy zone: ${s.atEntry ? "yes" : "no (extended/pullback)"}\nGive your review.`;
+    try {
+      const review = await callAnthropicApi(prompt, key, { model: MODELS.haiku, maxTokens: 220, system: SYSTEM, cache: true });
+      return writeJson(res, 200, { ok: true, review: (review || "").trim() });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
   if (pathname === "/api/market/outlook" && req.method === "GET") {
