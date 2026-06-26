@@ -7055,15 +7055,29 @@ async function alpacaOption(underlying, type, qty, underlyingPx) {
 function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
   const autoBoughtRef = useRef(new Set());
   const alpacaPosRef = useRef(0);
+  const apStatsRef = useRef({ dayPnl: 0, lossStreak: 0, equity: 0 }); // Alpaca risk stats for the circuit breaker
 
-  // Keep a live count of Alpaca open positions (for the max-positions cap)
+  // Poll Alpaca: open-position count + today's realized P&L, equity, and the consecutive-loss streak.
   useEffect(() => {
+    const etDate = d => { try { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(d)); } catch { return ""; } };
     const poll = () => {
       if (!["alpaca","both"].includes(localStorage.getItem("axiom_autopilot_broker"))) return;
       fetch("/api/alpaca/positions").then(r => r.json()).then(d => { if (d?.ok) alpacaPosRef.current = (d.positions || []).length; }).catch(() => {});
+      Promise.all([
+        fetch("/api/alpaca/closed-trades").then(r => r.json()).catch(() => null),
+        fetch("/api/alpaca/account").then(r => r.json()).catch(() => null),
+      ]).then(([ct, acct]) => {
+        const eq = acct?.ok ? Number(acct.account.equity) : apStatsRef.current.equity;
+        const trades = ct?.ok ? (ct.trades || []) : [];
+        const todayStr = etDate(new Date());
+        const dayPnl = trades.filter(t => etDate(t.closedAt) === todayStr).reduce((s, t) => s + (Number(t.pnl) || 0), 0);
+        let lossStreak = 0;                                // newest first → count leading losers
+        for (const t of trades) { if (Number(t.pnl) <= 0) lossStreak++; else break; }
+        apStatsRef.current = { dayPnl, lossStreak, equity: eq };
+      }).catch(() => {});
     };
     poll();
-    const t = setInterval(poll, 30000);
+    const t = setInterval(poll, 60000);
     return () => clearInterval(t);
   }, []);
 
@@ -7086,38 +7100,25 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       const spyChg = Number(spyQ?.changesPercentage || 0);
       const today = new Date().toISOString().slice(0, 10);
 
-      // ── Circuit breaker: once today's realized loss hits the daily limit, stop opening NEW trades. ──
+      // ── Circuit breaker (Alpaca): −2% daily loss OR 3 consecutive losses = stop opening NEW trades today. ──
       // Open positions are still managed/closed by the exit engine — we only halt fresh risk.
-      const maxLoss = Number(localStorage.getItem("axiom_autopilot_maxloss")) || 0;  // 0 = off
-      if (maxLoss > 0) {
-        // Realized (closed today) + unrealized (current open positions) so a big open drawdown can also trip it.
-        const priceMap = {};
-        (watchlistData || []).forEach(q => { priceMap[q.symbol] = Number(q.price || q.quote?.price || 0); });
-        (macroData || []).forEach(m => { if (!priceMap[m.symbol]) priceMap[m.symbol] = Number(m.price || 0); });
-        let dayPnl = 0;
-        try {
-          (JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []).forEach(t => {
-            if (t.mode !== "PAPER") return;
-            if (t.status === "CLOSED" && String(t.closedAt || "").slice(0, 10) === today) {
-              dayPnl += (Number(t.exit) - Number(t.entry)) * Number(t.shares) * (t.side === "SHORT" ? -1 : 1);
-            } else if (t.status === "OPEN") {
-              const cur = priceMap[t.ticker];
-              if (cur > 0) {
-                const rem = Number(t.remaining || t.shares) || 0;
-                dayPnl += t.instrument === "OPTION"
-                  ? (optionValue(t, cur) - Number(t.entry)) * rem
-                  : (cur - Number(t.entry)) * rem * (t.side === "SHORT" ? -1 : 1);
-              }
-            }
-          });
-        } catch {}
-        if (dayPnl <= -maxLoss) {
+      {
+        const aplus = localStorage.getItem("axiom_autopilot_aplus") !== "off";
+        const { dayPnl, lossStreak, equity } = apStatsRef.current;
+        const manualMax = Number(localStorage.getItem("axiom_autopilot_maxloss")) || 0;  // optional fixed $ limit
+        const pctLimit = aplus && equity > 0 ? equity * 0.02 : 0;                          // A+ spec: 2% of equity
+        const lossLimit = Math.max(manualMax, pctLimit);
+        const tripLoss = lossLimit > 0 && dayPnl <= -lossLimit;
+        const tripStreak = aplus && lossStreak >= 3;                                       // 3 consecutive losses
+        if (tripLoss || tripStreak) {
           if (localStorage.getItem("axiom_autopilot_halt_date") !== today) {
             localStorage.setItem("axiom_autopilot_halt_date", today);
+            localStorage.setItem("axiom_autopilot_halt_reason", tripStreak ? "3 consecutive losses" : `daily loss $${Math.round(dayPnl)}`);
             window.dispatchEvent(new Event("autopilot-tick"));
             if (localStorage.getItem("axiom_autopilot_tg") !== "off") {
+              const why = tripStreak ? `3 consecutive losses` : `daily loss ${Math.round(dayPnl)} ≤ -${Math.round(lossLimit)} (2% of equity)`;
               fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: `🛑 CIRCUIT BREAKER TRIPPED\n\nDaily loss limit reached — realized + open P&L $${Math.round(dayPnl)} ≤ -$${maxLoss}.\nAutopilot has paused NEW trades for the rest of today. Open positions are still being managed.\n\nStep away, reset, come back tomorrow.` }) }).catch(() => {});
+                body: JSON.stringify({ text: `🛑 CIRCUIT BREAKER TRIPPED\n\n${why}.\nAutopilot has paused NEW trades for the rest of today. Open positions are still being managed.\n\nStep away, reset, come back tomorrow. No revenge trading.` }) }).catch(() => {});
             }
           }
           return;  // halted for today — open no new positions
