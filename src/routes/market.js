@@ -1172,6 +1172,38 @@ async function handleMarket(req, res, requestUrl) {
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  // AI MORNING GAME PLAN — one batched call: regime + top setups → a 1-paragraph plan.
+  if (pathname === "/api/market/ai-gameplan" && req.method === "POST") {
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
+    const regime = Number(b.regime) || 0;
+    const setups = (Array.isArray(b.setups) ? b.setups : []).slice(0, 10);
+    const SYSTEM = `You are a head trader writing the team's morning game plan in ONE short paragraph (max 60 words). Be direct and actionable. Cover: today's stance (aggressive long / selective / cash) given the regime, the 1-3 best tickers to focus on, and one risk to respect. No fluff, no disclaimers.`;
+    const rows = setups.length ? setups.map(s => `${s.symbol} (A+${s.aScore}, ${s.sector || "?"}, ${s.atEntry ? "at entry" : "extended"})`).join(", ") : "none qualify";
+    const prompt = `Date: ${new Date().toDateString()}. Market regime ${regime}/100. Top A+ setups today: ${rows}. Write the morning game plan.`;
+    try {
+      const plan = await callAnthropicApi(prompt, key, { model: MODELS.haiku, maxTokens: 200, system: SYSTEM, cache: true });
+      return writeJson(res, 200, { ok: true, plan: (plan || "").trim() });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
+  // AI TRADE COACH — one batched call: review today's closed trades → honest feedback.
+  if (pathname === "/api/market/ai-coach" && req.method === "POST") {
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
+    const trades = (Array.isArray(b.trades) ? b.trades : []).slice(0, 25);
+    if (!trades.length) return writeJson(res, 200, { ok: true, coach: "No closed trades today — nothing to review. Discipline (sitting out) is a valid result." });
+    const SYSTEM = `You are a tough-but-fair trading coach reviewing a trader's CLOSED trades for the day. Be specific and honest — praise good discipline, call out mistakes (cutting winners early, holding losers, oversizing, revenge trades). Max 80 words. Format:\nWENT WELL: one line.\nFIX: 1-2 specific things.\nTOMORROW: one focus.`;
+    const rows = trades.map(t => `${t.symbol} ${t.side || "long"}: entry $${t.entry} → exit $${t.exit}, P&L $${Math.round(t.pnl)}, held ${t.held || "?"}`).join("\n");
+    const prompt = `Today's closed trades:\n${rows}\n\nCoach me.`;
+    try {
+      const coach = await callAnthropicApi(prompt, key, { model: MODELS.haiku, maxTokens: 250, system: SYSTEM, cache: true });
+      return writeJson(res, 200, { ok: true, coach: (coach || "").trim() });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   if (pathname === "/api/market/outlook" && req.method === "GET") {
     try {
       const payload = await buildMarketOutlook();

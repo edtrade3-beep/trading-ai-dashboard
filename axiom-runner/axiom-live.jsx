@@ -7294,6 +7294,12 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
         const edge = total >= 20 ? `${total}/20 ✓ — check your edge in My Trades` : `${total}/20 — keep going`;
         const text = `📊 DAILY SUMMARY — ${today}\n\nToday: ${todayT.length} closed · ${wins}W/${todayT.length - wins}L · P&L ${dayPnl >= 0 ? "+" : ""}$${Math.round(dayPnl)}\nEdge check: ${edge}`;
         fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) }).catch(() => {});
+        // AI Trade Coach — Claude reviews today's closed trades, sends feedback.
+        if (todayT.length) {
+          fetch("/api/market/ai-coach", { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ trades: todayT.map(t => ({ symbol: t.symbol, side: t.side, entry: t.entry, exit: t.exit, pnl: t.pnl })) }) })
+            .then(r => r.json()).then(cd => { if (cd.ok && cd.coach) fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `🎯 AI TRADE COACH — ${today}\n\n${cd.coach}` }) }); }).catch(() => {});
+        }
       }).catch(() => {});
     };
     check();
@@ -9090,6 +9096,29 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
     const t = setInterval(tick, 5 * 60 * 1000);
     return () => clearInterval(t);
   }, [aiScanAuto]); // eslint-disable-line
+
+  // ── Morning Game Plan — once per weekday after the open, Claude → Telegram ──
+  const gpRef = useRef({ regime: 0, setups: [] });
+  gpRef.current = { regime: regime.score, setups: results.filter(r => r.aScore >= 80).sort((a, b) => b.aScore - a.aScore).slice(0, 10).map(r => ({ symbol: r.symbol, aScore: r.aScore, sector: r.sector, atEntry: r.atEntry })) };
+  useEffect(() => {
+    const dtf = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false, weekday: "short" });
+    const p = () => Object.fromEntries(dtf.formatToParts(new Date()).map(x => [x.type, x.value]));
+    const check = () => {
+      if (localStorage.getItem("axiom_autopilot_tg") === "off") return;
+      const n = p();
+      if (n.weekday === "Sat" || n.weekday === "Sun") return;
+      const hh = Number(n.hour), mm = Number(n.minute);
+      if (hh < 9 || (hh === 9 && mm < 35) || hh >= 11) return;   // ~9:35–11:00 ET window
+      const day = `${n.year}-${n.month}-${n.day}`;
+      if (localStorage.getItem("gl_gameplan_date") === day) return;
+      localStorage.setItem("gl_gameplan_date", day);
+      fetch("/api/market/ai-gameplan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(gpRef.current) })
+        .then(r => r.json()).then(d => { if (d.ok && d.plan) fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: `🌅 MORNING GAME PLAN\n\n${d.plan}` }) }); }).catch(() => {});
+    };
+    check();
+    const t = setInterval(check, 5 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []); // eslint-disable-line
 
   // Auto-buy is handled globally by <AutoPilotEngine> so it runs on every tab.
 
