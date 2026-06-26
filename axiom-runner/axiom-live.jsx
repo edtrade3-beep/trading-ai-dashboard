@@ -9059,6 +9059,40 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
               </span>
             ))}
           </div>
+          {/* ── 🤖 AI REVIEW — deterministic verdict before you act ── */}
+          {(() => {
+            const decision = r.aPlus ? "BUY" : (r.atEntry ? "WAIT" : "SKIP");
+            const dCol = decision === "BUY" ? C.green : decision === "WAIT" ? C.amber : C.red;
+            const risk = r.aScore >= 95 ? "Very Low" : r.aScore >= 90 ? "Low" : r.aScore >= 85 ? "Medium" : "High";
+            const reasons = [
+              [r.marketPass, "Market regime green"],
+              [r.scoreParts.trend >= 20, "EMA / trend alignment"],
+              [r.rvol >= 1.5, "High relative volume"],
+              [r.relStrength >= 1, "Outperforming SPY"],
+              [r.rr >= 2.5, "Excellent risk/reward"],
+              [r.atEntry, "At the buy zone (not extended)"],
+            ];
+            return (
+              <div style={{ marginTop: 10, background: `${dCol}0c`, border: `1px solid ${dCol}44`, borderRadius: 8, padding: "10px 12px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em" }}>🤖 AI REVIEW</span>
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: dCol }}>{decision}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Confidence <strong style={{ color: dCol }}>{r.aScore}%</strong></span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Grade <strong style={{ color: dCol }}>{r.grade}</strong></span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Risk <strong style={{ color: risk === "Very Low" || risk === "Low" ? C.green : risk === "Medium" ? C.amber : C.red }}>{risk}</strong></span>
+                  {r.confRisk > 0 && <span style={{ fontFamily: MONO, fontSize: 11, color: C.accent }}>Size <strong>{r.confRisk}%</strong></span>}
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {reasons.map(([ok, txt], i) => (
+                    <span key={i} style={{ fontFamily: SANS, fontSize: 10, color: ok ? C.green : C.textDim }}>{ok ? "✓" : "✗"} {txt}</span>
+                  ))}
+                </div>
+                {decision !== "BUY" && <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 5 }}>
+                  {decision === "WAIT" ? "Setup is forming but not yet A+ (≥90) with a green market — wait." : "Below A+ threshold or not at entry — skip per the rules."}
+                </div>}
+              </div>
+            );
+          })()}
           {/* ── Potential strip: options · target · exit ── */}
           {(() => {
             const bullish = r.signal !== "RED";
