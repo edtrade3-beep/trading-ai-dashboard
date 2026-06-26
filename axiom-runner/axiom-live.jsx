@@ -8942,16 +8942,19 @@ function GLBacktestTab({ C, MONO, SANS, watchlistSymbols }) {
 // ── 🤖 Ask Claude — real AI second-opinion on a setup (cheap Haiku call) ──
 function AISetupReview({ r, regimeScore, C, MONO, SANS }) {
   const [out, setOut] = useState(null);   // null | "loading" | text | {error}
+  const num = (v, d = 2) => Number(v || 0).toFixed(d);
   const ask = () => {
     setOut("loading");
-    fetch("/api/market/ai-setup-review", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ setup: {
-        symbol: r.symbol, px: r.px.toFixed(2), chg: r.chg.toFixed(2), aScore: r.aScore, grade: r.grade,
-        marketScore: regimeScore, marketPass: r.marketPass, sector: r.sector, strongSector: r.strongSector,
-        relStrength: r.relStrength, rvol: r.rvol.toFixed(1), bestEntry: r.bestEntry, stop: r.stop, rr: r.rr, atEntry: r.atEntry,
-      } }),
-    }).then(res => res.json()).then(d => setOut(d.ok ? d.review : { error: d.error || "failed" })).catch(e => setOut({ error: e.message }));
+    try {
+      fetch("/api/market/ai-setup-review", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ setup: {
+          symbol: r.symbol, px: num(r.px), chg: num(r.chg), aScore: r.aScore, grade: r.grade,
+          marketScore: regimeScore, marketPass: r.marketPass, sector: r.sector || null, strongSector: r.strongSector,
+          relStrength: r.relStrength, rvol: num(r.rvol, 1), bestEntry: r.bestEntry, stop: r.stop, rr: r.rr, atEntry: r.atEntry,
+        } }),
+      }).then(res => res.json()).then(d => setOut(d && d.ok ? d.review : { error: (d && d.error) || "no response" })).catch(e => setOut({ error: e.message }));
+    } catch (e) { setOut({ error: e.message }); }
   };
   return (
     <div style={{ marginTop: 8 }}>
