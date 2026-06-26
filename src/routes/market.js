@@ -1194,7 +1194,7 @@ async function handleMarket(req, res, requestUrl) {
         if (resp.stop_reason === "pause_turn") { messages.push({ role: "assistant", content }); continue; }
         break;
       }
-      return writeJson(res, 200, { ok: true, deals: (text || "").trim() || "(no results)" });
+      return writeJson(res, 200, { ok: true, deals: (text || "").replace(/<\/?cite[^>]*>/g, "").trim() || "(no results)" });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
