@@ -8940,11 +8940,11 @@ function GLBacktestTab({ C, MONO, SANS, watchlistSymbols }) {
 }
 
 // ── 🤖 Ask Claude — real AI second-opinion on a setup (cheap Haiku call) ──
-function AISetupReview({ r, regimeScore, C, MONO, SANS }) {
-  const [out, setOut] = useState(null);   // null | "loading" | text | {error}
+// State lives in the parent (out/setOut props) so it survives card remounts.
+function AISetupReview({ r, regimeScore, C, MONO, SANS, out, setOut }) {
   const num = (v, d = 2) => Number(v || 0).toFixed(d);
   const ask = () => {
-    setOut("loading");
+    setOut(r.symbol, "loading");
     try {
       fetch("/api/market/ai-setup-review", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -8953,12 +8953,12 @@ function AISetupReview({ r, regimeScore, C, MONO, SANS }) {
           marketScore: regimeScore, marketPass: r.marketPass, sector: r.sector || null, strongSector: r.strongSector,
           relStrength: r.relStrength, rvol: num(r.rvol, 1), bestEntry: r.bestEntry, stop: r.stop, rr: r.rr, atEntry: r.atEntry,
         } }),
-      }).then(res => res.json()).then(d => setOut(d && d.ok ? d.review : { error: (d && d.error) || "no response" })).catch(e => setOut({ error: e.message }));
-    } catch (e) { setOut({ error: e.message }); }
+      }).then(res => res.json()).then(d => setOut(r.symbol, d && d.ok ? d.review : { error: (d && d.error) || "no response" })).catch(e => setOut(r.symbol, { error: e.message }));
+    } catch (e) { setOut(r.symbol, { error: e.message }); }
   };
   return (
     <div style={{ marginTop: 8 }}>
-      {out === null && <button onClick={ask} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 16px", borderRadius: 8, cursor: "pointer", border: `1px solid ${C.accent}`, background: `${C.accent}18`, color: C.accent }}>🤖 ASK CLAUDE — get an AI second opinion</button>}
+      {out == null && <button onClick={ask} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 16px", borderRadius: 8, cursor: "pointer", border: `1px solid ${C.accent}`, background: `${C.accent}18`, color: C.accent }}>🤖 ASK CLAUDE — get an AI second opinion</button>}
       {out === "loading" && <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>🤖 Claude is reviewing…</div>}
       {out && out.error && <div style={{ fontFamily: SANS, fontSize: 11, color: C.amber }}>AI review unavailable — {out.error}</div>}
       {typeof out === "string" && out !== "loading" && (
@@ -8979,6 +8979,8 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const [glExpanded, setGlExpanded] = useState(null); // ticker whose details are shown
   const [candOpen, setCandOpen] = useState(null);     // candidate (calls/puts/watch) expanded to full card
   const [aiScan, setAiScan] = useState(null);         // null | "loading" | text | {error}
+  const [aiAsk, setAiAsk] = useState({});             // symbol → "loading" | review text | {error}
+  const setAiAskFor = (sym, v) => setAiAsk(p => ({ ...p, [sym]: v }));
   const [aiScanAuto, setAiScanAuto] = useState(() => localStorage.getItem("gl_aiscan_auto") === "on");
   const aiScanRef = useRef(0);
   // Deep-dive data (analyst targets, fundamentals, news) — same sources as Smart Scan
@@ -9286,7 +9288,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
 
       {/* 🤖 Ask Claude — full width, prominent */}
       <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
-        <AISetupReview r={r} regimeScore={regime.score} C={C} MONO={MONO} SANS={SANS} />
+        <AISetupReview r={r} regimeScore={regime.score} C={C} MONO={MONO} SANS={SANS} out={aiAsk[r.symbol]} setOut={setAiAskFor} />
       </div>
 
       {/* ── Expandable ticker details ── */}
