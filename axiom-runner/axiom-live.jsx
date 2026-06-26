@@ -8922,9 +8922,12 @@ function GLBacktestTab({ C, MONO, SANS, watchlistSymbols }) {
   );
 }
 
-function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFor, scanResults }) {
+function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFor, scanResults, sectorData }) {
   const spyQ   = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
   const spyChg = Number(spyQ?.changesPercentage || 0);
+  // Sector strength: rank the 11 SPDR sector ETFs by today's move; top half = "strong" (Step 2 of the A+ spec).
+  const sectorsRanked = [...(sectorData || [])].map(s => ({ sym: s.symbol, name: s._sectorName || s.symbol, chg: Number(s.changesPercentage || 0) })).sort((a, b) => b.chg - a.chg);
+  const strongSectors = new Set(sectorsRanked.slice(0, Math.ceil(sectorsRanked.length / 2)).map(s => s.sym));
   const [glExpanded, setGlExpanded] = useState(null); // ticker whose details are shown
   const [candOpen, setCandOpen] = useState(null);     // candidate (calls/puts/watch) expanded to full card
   // Deep-dive data (analyst targets, fundamentals, news) — same sources as Smart Scan
@@ -9000,7 +9003,8 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const results = (watchlistData || []).map(q => {
     const scanRow = (scanResults || []).find(r => r.ticker === q.symbol);
     const gl = computeGreenLight(q, spyChg, scanRow, regime.score);
-    return { ...gl, symbol: q.symbol, name: q.name, q };
+    const sec = STOCK_TO_SECTOR[q.symbol];
+    return { ...gl, symbol: q.symbol, name: q.name, q, sector: sec || null, strongSector: sec ? strongSectors.has(sec) : null };
   }).filter(r => r.px > 0).sort((a, b) => b.aScore - a.aScore || b.passed - a.passed);
 
   const green  = results.filter(r => r.signal === "GREEN");
@@ -9083,6 +9087,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
             const risk = r.aScore >= 95 ? "Very Low" : r.aScore >= 90 ? "Low" : r.aScore >= 85 ? "Medium" : "High";
             const reasons = [
               [r.marketPass, "Market regime green"],
+              ...(r.strongSector != null ? [[r.strongSector, `Strong sector (${r.sector})`]] : []),
               [r.scoreParts.trend >= 20, "EMA / trend alignment"],
               [r.rvol >= 1.5, "High relative volume"],
               [r.relStrength >= 1, "Outperforming SPY"],
@@ -9495,6 +9500,25 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
             🟢 READY TO TRADE ({green.length})
           </div>
           {green.map(r => <Row key={r.symbol} r={r} />)}
+        </div>
+      )}
+
+      {/* ── Sector strength (Step 2: trade leaders in strong sectors) ── */}
+      {sectorsRanked.length > 0 && (
+        <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}` }}>
+          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textSec, letterSpacing: "0.05em", marginBottom: 8 }}>🧭 SECTOR STRENGTH TODAY <span style={{ fontWeight: 500, color: C.textDim }}>— favor leaders in the green half</span></div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {sectorsRanked.map((s, i) => {
+              const strong = i < Math.ceil(sectorsRanked.length / 2);
+              const col = s.chg >= 0 ? C.green : C.red;
+              return (
+                <span key={s.sym} title={s.name} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 5,
+                  color: col, background: `${col}${strong ? "1a" : "0a"}`, border: `1px solid ${col}${strong ? "55" : "22"}`, opacity: strong ? 1 : 0.6 }}>
+                  {strong ? "🟢" : "🔴"} {s.sym} {s.chg >= 0 ? "+" : ""}{s.chg.toFixed(2)}%
+                </span>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -31207,7 +31231,7 @@ export default function App() {
       {activeTab === "tradeplanner" && <TradePlannerTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "dipbuy" && <DipBuyTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} />}
       {(activeTab === "greenlight" || activeTab === "mytrades") && <>
-        <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} />
+        <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} sectorData={sectorData} />
         <MyTradesTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} />
       </>}
       {activeTab === "trendtemplate" && <TrendTemplateTab C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />}
