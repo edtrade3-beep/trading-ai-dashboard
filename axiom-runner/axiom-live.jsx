@@ -9681,11 +9681,24 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
               border: `1px solid ${aiScanAuto ? C.green : C.border}`, background: aiScanAuto ? C.green : "transparent", color: aiScanAuto ? "#fff" : C.textDim }}>
             {aiScanAuto ? "🔁 AUTO: ON" : "AUTO: OFF"}
           </button>
-          <button onClick={() => { setAiTrig("🌅 Game plan sent to Telegram…"); fetch("/api/market/ai-trigger?type=gameplan", { method: "POST" }).then(() => setTimeout(() => setAiTrig(""), 5000)).catch(() => setAiTrig("failed")); }}
-            title="Send today's morning game plan to Telegram now"
+          <button onClick={() => {
+            setAiScan("loading");
+            const top = results.filter(r => r.aScore >= 80).sort((a, b) => b.aScore - a.aScore).slice(0, 10).map(r => ({ symbol: r.symbol, aScore: r.aScore, sector: r.sector, atEntry: r.atEntry }));
+            fetch("/api/market/ai-gameplan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ regime: regime.score, setups: top }) })
+              .then(res => res.json()).then(d => setAiScan(d && d.ok ? `🌅 MORNING GAME PLAN\n\n${d.plan}` : { error: (d && d.error) || "no response" })).catch(e => setAiScan({ error: e.message }));
+          }} title="Generate today's morning game plan and show it here"
             style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 11px", borderRadius: 7, cursor: "pointer", border: `1px solid ${C.border}`, background: C.surface, color: C.textSec }}>🌅 Game plan</button>
-          <button onClick={() => { setAiTrig("🎯 Coach review sent to Telegram (if you closed trades today)…"); fetch("/api/market/ai-trigger?type=coach", { method: "POST" }).then(() => setTimeout(() => setAiTrig(""), 6000)).catch(() => setAiTrig("failed")); }}
-            title="Send the AI trade-coach review of today's closed trades to Telegram now"
+          <button onClick={() => {
+            setAiScan("loading");
+            const etd = d => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(d));
+            fetch("/api/alpaca/closed-trades").then(r => r.json()).then(ct => {
+              const today = etd(new Date());
+              const todayT = (ct && ct.ok ? ct.trades || [] : []).filter(t => etd(t.closedAt) === today);
+              if (!todayT.length) { setAiScan("🎯 AI TRADE COACH\n\nNo closed trades today — nothing to review. Sitting out is a valid result."); return; }
+              fetch("/api/market/ai-coach", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trades: todayT.map(t => ({ symbol: t.symbol, side: t.side, entry: t.entry, exit: t.exit, pnl: t.pnl })) }) })
+                .then(res => res.json()).then(d => setAiScan(d && d.ok ? `🎯 AI TRADE COACH\n\n${d.coach}` : { error: (d && d.error) || "no response" }));
+            }).catch(e => setAiScan({ error: e.message }));
+          }} title="Review today's closed trades and show the coaching here"
             style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 11px", borderRadius: 7, cursor: "pointer", border: `1px solid ${C.border}`, background: C.surface, color: C.textSec }}>🎯 Coach</button>
           <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginLeft: "auto" }}>one batched call · ranks your A+ names + market read</span>
         </div>
