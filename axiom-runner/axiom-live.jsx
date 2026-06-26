@@ -5371,6 +5371,8 @@ function computeGreenLight(q, spyChg, scanRow, regime = null) {
   const ma50   = Number(q?.priceAvg50 || q?.fiftyDayAverage || 0);
   const ma200  = Number(q?.priceAvg200 || q?.twoHundredDayAverage || 0);
   const ema21  = Number(scanRow?.ema21v || 0);
+  const ema9   = Number(scanRow?.ema9v || 0);
+  const macdBull = scanRow?.macdBull;
   const rsi    = Number(scanRow?.rsiVal || 0) || 50;
   const vol    = Number(q?.volume || 0);
   const avgVol = Number(q?.avgVolume || 0);
@@ -5434,15 +5436,33 @@ function computeGreenLight(q, spyChg, scanRow, regime = null) {
   const isLeader = relStrength > 1.0; // outperforming SPY by 1%+
   const atEntry = entryNote.includes("support");  // price is at the buy zone (not "wait for pullback")
 
-  // ── A+ SCORE — weighted 100-pt grade across the factors that matter ──
-  const sMarket = regime != null ? Math.round(regime / 100 * 20) : (spyChg > 0 ? 20 : spyChg > -0.5 ? 12 : 0);
-  const sTrend  = (ma50 > 0 && px > ma50 && ma200 > 0 && ma50 > ma200) ? 20 : (ma50 > 0 && px > ma50) ? 12 : 0;
-  const sVol    = rvol >= 2 ? 15 : rvol >= 1.5 ? 11 : rvol >= 1.2 ? 6 : (vol === 0 ? 8 : 0);
-  const sRS     = relStrength >= 2 ? 15 : relStrength >= 1 ? 12 : relStrength > 0 ? 8 : 0;
-  const sSetup  = atEntry ? 15 : (entryNote === "wait for pullback" ? 9 : 5);
-  const sRR     = rr >= 2.5 ? 15 : rr >= 2 ? 11 : rr >= 1.5 ? 6 : 0;
-  const aScore  = sMarket + sTrend + sVol + sRS + sSetup + sRR;
-  const grade   = aScore >= 85 ? "A+" : aScore >= 75 ? "A" : aScore >= 65 ? "B" : "SKIP";
+  // ── A+ INSTITUTIONAL SCORE (0-100): Trend 30 · Momentum 20 · Volume 15 · Structure 20 · Risk 15 ──
+  // Trend (30)
+  let pTrend = 0;
+  if (ma200 > 0 && px > ma200) pTrend += 10;                       // above 200 EMA/MA
+  if (ma50 > 0 && ma200 > 0 && ma50 > ma200) pTrend += 10;         // 50 > 200
+  if (ema9 > 0 && ema21 > 0 && ema9 > ema21) pTrend += 10;         // 9 > 21
+  // Momentum (20)
+  let pMom = 0;
+  if (rsi >= 50 && rsi <= 65) pMom += 5;                           // RSI sweet spot
+  if (macdBull === true) pMom += 5;                               // MACD bullish
+  const trendingStrong = px > ma50 && ma50 > ma200 && ema9 > 0 && ema9 > ema21;
+  if (trendingStrong) pMom += 5;                                  // ADX>25 proxy (clean aligned trend)
+  if (relStrength >= 1) pMom += 5;                                // relative strength high
+  // Volume (15)
+  const pVol = (rvol >= 2 ? 10 : 0) + (rvol >= 1 ? 5 : 0);
+  // Structure (20) — EMA21 pullback / tight consolidation proxy
+  const pStruct = atEntry ? 20 : (entryNote === "wait for pullback" ? 12 : 6);
+  // Risk (15)
+  const pRisk = (rr >= 2.5 ? 10 : 0) + (atrPct >= 0.015 && atrPct <= 0.05 ? 5 : 0);
+  const aScore = pTrend + pMom + pVol + pStruct + pRisk;
+  const grade  = aScore >= 95 ? "ELITE" : aScore >= 90 ? "A+" : aScore >= 85 ? "GOOD" : aScore >= 80 ? "WATCH" : "IGNORE";
+  // Confidence-based position size (% of account) per the A+ Institutional spec
+  const confRisk = aScore >= 95 ? 1.0 : aScore >= 90 ? 0.75 : aScore >= 85 ? 0.5 : 0;
+  // Market filter: regime ≥ 80 (SPY/QQQ/VIX/breadth folded into the regime score)
+  const marketPass = regime == null ? spyChg > -0.3 : regime >= 80;
+  // Institutional tradeable: A+ (≥90) AND market passes AND at the buy zone
+  const aPlus = aScore >= 90 && marketPass && atEntry;
 
   // ── BEAR SCORE — put-candidate quality (5 × 20). For momentum breakdowns on red days. ──
   // VWAP isn't available client-side, so EMA21 is used as the intraday-mean proxy; 50-MA = support.
@@ -5488,7 +5508,8 @@ function computeGreenLight(q, spyChg, scanRow, regime = null) {
     shortChecks, shortPassed, shortSignal,
     bestEntry: +bestEntry.toFixed(2), entryNote, relStrength: +relStrength.toFixed(2), isLeader,
     rr: +rr.toFixed(1), rrPass, atEntry,
-    aScore, grade, scoreParts: { market: sMarket, trend: sTrend, volume: sVol, rs: sRS, setup: sSetup, rr: sRR },
+    aScore, grade, confRisk, aPlus, marketPass,
+    scoreParts: { trend: pTrend, momentum: pMom, volume: pVol, structure: pStruct, risk: pRisk },
     bearScore, bearChecks, putStop, putTarget, putRR, bearTradeable,
   };
 }
@@ -8953,10 +8974,10 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const red    = results.filter(r => r.signal === "RED");
   // Put candidates — momentum breakdowns, ranked by Bear Score (only meaningful on red/weak tape).
   const puts   = results.filter(r => r.bearScore >= 60).sort((a, b) => b.bearScore - a.bearScore).slice(0, 12);
-  // Call candidates — bullish setups, ranked by Bull Score (passed × 20).
-  const calls  = results.filter(r => r.passed >= 3).sort((a, b) => b.passed - a.passed || b.aScore - a.aScore).slice(0, 12);
+  // Call candidates — ranked by A+ Institutional Score.
+  const calls  = results.filter(r => r.aScore >= 80).sort((a, b) => b.aScore - a.aScore).slice(0, 12);
   // ── MODE: Bull (tradeable calls) · Bear (tradeable puts) · Cash (nothing qualifies) ──
-  const tradeableCalls = results.filter(r => r.passed >= 4 && r.rr >= 2 && r.atEntry).length;   // Bull Score ≥ 80
+  const tradeableCalls = results.filter(r => r.aPlus).length;   // A+ (≥90) + market pass + at entry
   const tradeablePuts  = results.filter(r => r.bearTradeable).length;                            // Bear Score > 80
   const mode = (tradeableCalls === 0 && tradeablePuts === 0) ? "CASH"
     : tradeableCalls >= tradeablePuts ? "BULL" : "BEAR";
@@ -8999,9 +9020,11 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
             </span>
             {r.rvol > 1.5 && <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber, background: `${C.amber}18`, borderRadius: 4, padding: "1px 6px" }}>VOL {r.rvol.toFixed(1)}x</span>}
             {r.isLeader && <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: "#fff", background: C.green, borderRadius: 4, padding: "1px 7px" }}>💪 LEADER +{r.relStrength}% vs SPY</span>}
-            {(() => { const gc = r.grade === "A+" ? "#16a34a" : r.grade === "A" ? C.green : r.grade === "B" ? C.amber : C.red;
-              return <span title={`Market ${r.scoreParts.market} · Trend ${r.scoreParts.trend} · Volume ${r.scoreParts.volume} · RS ${r.scoreParts.rs} · Setup ${r.scoreParts.setup} · R:R ${r.scoreParts.rr}`}
-                style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: "#fff", background: gc, borderRadius: 4, padding: "1px 7px" }}>{r.grade} {r.aScore}</span>; })()}
+            {(() => { const gc = r.grade === "ELITE" ? "#7c3aed" : r.grade === "A+" ? "#16a34a" : r.grade === "GOOD" ? C.green : r.grade === "WATCH" ? C.amber : C.red;
+              const sp = r.scoreParts;
+              return <span title={`Trend ${sp.trend}/30 · Momentum ${sp.momentum}/20 · Volume ${sp.volume}/15 · Structure ${sp.structure}/20 · Risk ${sp.risk}/15${r.confRisk ? ` · size ${r.confRisk}%` : ""}`}
+                style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: "#fff", background: gc, borderRadius: 4, padding: "1px 7px" }}>{r.grade === "ELITE" ? "⭐" : ""}{r.grade} {r.aScore}</span>; })()}
+            {r.confRisk > 0 && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.accent, background: `${C.accent}14`, border: `1px solid ${C.accent}44`, borderRadius: 4, padding: "1px 6px" }}>size {r.confRisk}%</span>}
             {r.signal !== "RED" && (r.atEntry
               ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.green, background: `${C.green}18`, border: `1px solid ${C.green}44`, borderRadius: 4, padding: "1px 7px" }}>🎯 at buy zone</span>
               : <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.amber, background: `${C.amber}18`, border: `1px solid ${C.amber}44`, borderRadius: 4, padding: "1px 7px" }}>⏳ wait for pullback ${r.bestEntry}</span>)}
@@ -9467,9 +9490,9 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
         );
         return (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 12, marginBottom: 20, alignItems: "start" }}>
-            {colWrap(C.green, "🟢 CALLS", calls.filter(c => c.passed >= 4 && c.rr >= 2 && c.atEntry).length, "Bull Score ≥80 · R:R ≥2 · at buy zone.",
+            {colWrap(C.green, "🟢 CALLS", calls.filter(c => c.aPlus).length, "A+ Score ≥90 · market green · at buy zone.",
               calls.length === 0 ? <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>nothing set up ⏳</div>
-                : calls.map(r => { const ok = r.passed >= 4 && r.rr >= 2 && r.atEntry; return card(r, { score: r.passed * 20, sc: r.passed >= 4 ? C.green : C.textDim, ok, checks: r.checks, rr: r.rr, tint: C.green, badge: tag(ok ? "TRADE" : r.atEntry ? "watch" : "wait entry", C.green, ok), lvls: `🎯 $${r.bestEntry} · 🛑 $${r.stop}` }); }))}
+                : calls.map(r => { const ok = r.aPlus; return card(r, { score: r.aScore, sc: r.aScore >= 90 ? C.green : r.aScore >= 85 ? "#5ab552" : C.textDim, ok, checks: r.checks, rr: r.rr, tint: C.green, badge: tag(ok ? `BUY ${r.confRisk}%` : r.atEntry ? "watch" : "wait entry", C.green, ok), lvls: `🎯 $${r.bestEntry} · 🛑 $${r.stop}` }); }))}
             {colWrap(C.red, "🔻 PUTS", puts.filter(p => p.bearTradeable).length, "Bear Score >80 · R:R ≥2. Trade small, sit in cash if none.",
               puts.length === 0 ? <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>nothing breaking down ✅</div>
                 : puts.map(r => { const ok = r.bearTradeable; return card(r, { score: r.bearScore, sc: r.bearScore >= 80 ? C.red : "#d6a312", ok, checks: r.bearChecks, rr: r.putRR, tint: C.red, badge: tag(ok ? "TRADE" : "watch", C.red, ok), lvls: `🛑 $${r.putStop} · 🎯 $${r.putTarget}` }); }))}
