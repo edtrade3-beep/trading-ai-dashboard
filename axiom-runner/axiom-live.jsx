@@ -8981,6 +8981,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
   const [candOpen, setCandOpen] = useState(null);     // candidate (calls/puts/watch) expanded to full card
   const [aiScan, setAiScan] = useState(null);         // null | "loading" | text | {error}
   const [aiAsk, setAiAsk] = useState({});             // symbol → "loading" | review text | {error}
+  const [aiTrig, setAiTrig] = useState("");           // game-plan / coach trigger status
   const setAiAskFor = (sym, v) => setAiAsk(p => ({ ...p, [sym]: v }));
   const [aiScanAuto, setAiScanAuto] = useState(() => localStorage.getItem("gl_aiscan_auto") === "on");
   const aiScanRef = useRef(0);
@@ -9596,8 +9597,15 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
               border: `1px solid ${aiScanAuto ? C.green : C.border}`, background: aiScanAuto ? C.green : "transparent", color: aiScanAuto ? "#fff" : C.textDim }}>
             {aiScanAuto ? "🔁 AUTO: ON" : "AUTO: OFF"}
           </button>
+          <button onClick={() => { setAiTrig("🌅 Game plan sent to Telegram…"); fetch("/api/market/ai-trigger?type=gameplan", { method: "POST" }).then(() => setTimeout(() => setAiTrig(""), 5000)).catch(() => setAiTrig("failed")); }}
+            title="Send today's morning game plan to Telegram now"
+            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 11px", borderRadius: 7, cursor: "pointer", border: `1px solid ${C.border}`, background: C.surface, color: C.textSec }}>🌅 Game plan</button>
+          <button onClick={() => { setAiTrig("🎯 Coach review sent to Telegram (if you closed trades today)…"); fetch("/api/market/ai-trigger?type=coach", { method: "POST" }).then(() => setTimeout(() => setAiTrig(""), 6000)).catch(() => setAiTrig("failed")); }}
+            title="Send the AI trade-coach review of today's closed trades to Telegram now"
+            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 11px", borderRadius: 7, cursor: "pointer", border: `1px solid ${C.border}`, background: C.surface, color: C.textSec }}>🎯 Coach</button>
           <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginLeft: "auto" }}>one batched call · ranks your A+ names + market read</span>
         </div>
+        {aiTrig && <div style={{ fontFamily: SANS, fontSize: 11, color: C.accent, marginTop: 8 }}>{aiTrig}</div>}
         {aiScan && aiScan.error && <div style={{ fontFamily: SANS, fontSize: 11, color: C.amber, marginTop: 8 }}>AI scan unavailable — {aiScan.error}</div>}
         {typeof aiScan === "string" && aiScan !== "loading" && (
           <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.6, whiteSpace: "pre-line", marginTop: 10, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>{aiScan}</div>
