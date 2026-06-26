@@ -1173,7 +1173,7 @@ async function handleMarket(req, res, requestUrl) {
   }
 
   // 🛒 AI DEAL FINDER — searches the live web for the best deals on a product within budget.
-  if (pathname === "/api/deals/find" && req.method === "POST") {
+  if (pathname === "/api/market/deal-find" && req.method === "POST") {
     const key = (process.env.ANTHROPIC_API_KEY || "").trim();
     if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
     let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }

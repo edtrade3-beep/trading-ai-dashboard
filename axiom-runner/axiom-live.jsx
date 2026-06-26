@@ -8964,7 +8964,7 @@ function DealFinderTab({ C, MONO, SANS }) {
   const [out, setOut] = useState(null);  // null | "loading" | text | {error}
   const find = () => {
     setOut("loading");
-    fetch("/api/deals/find", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query, budget, useCase: use }) })
+    fetch("/api/market/deal-find", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query, budget, useCase: use }) })
       .then(r => r.json()).then(d => setOut(d && d.ok ? d.deals : { error: (d && d.error) || "no response" })).catch(e => setOut({ error: e.message }));
   };
   const presets = [["💻 Laptop", "laptop"], ["📱 Phone", "phone"], ["🎧 Headphones", "headphones"], ["📺 TV", "TV"], ["⌚ Smartwatch", "smartwatch"], ["🎮 Console", "game console"]];
