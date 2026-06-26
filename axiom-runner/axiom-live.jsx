@@ -5491,6 +5491,8 @@ function computeGreenLight(q, spyChg, scanRow, regime = null) {
   ];
   const bottomScore = bottomChecks.filter(c => c.pass).length * 20;
   const reversal = bottomScore >= 60;   // multiple capitulation signs = a reversal candidate
+  // READY only when the bottom is CONFIRMING: washed out + bouncing green + reclaiming the EMA21 (short-term mean).
+  const bottomReady = reversal && chg >= 0.5 && (ema21 > 0 ? px >= ema21 * 0.97 : true);
 
   const bearChecks = [
     { label: "Market red", pass: bMarket >= 20 },
@@ -5524,7 +5526,7 @@ function computeGreenLight(q, spyChg, scanRow, regime = null) {
     aScore, grade, confRisk, aPlus, marketPass,
     scoreParts: { trend: pTrend, momentum: pMom, volume: pVol, structure: pStruct, risk: pRisk },
     bearScore, bearChecks, putStop, putTarget, putRR, bearTradeable,
-    bottomScore, bottomChecks, reversal, offHigh: +offHigh.toFixed(1),
+    bottomScore, bottomChecks, reversal, bottomReady, offHigh: +offHigh.toFixed(1),
   };
 }
 
@@ -9717,8 +9719,8 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
       {bottoms.length > 0 && (
         <div style={{ marginBottom: 16, padding: "12px 14px", borderRadius: 10, background: "#0891b208", border: "1px solid #0891b233" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
-            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#0891b2" }}>🩸 BOTTOM SPOTTER ({bottoms.length})</span>
-            <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>oversold washouts — possible reversals</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#0891b2" }}>🩸 BOTTOM SPOTTER ({bottoms.filter(b => b.bottomReady).length} ready)</span>
+            <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>✅ READY = washout bouncing & reclaiming · ⏳ WAIT = still falling</span>
             <button onClick={() => {
               setAiBottom("loading");
               const spyQ2 = (macroData || []).find(m => m.symbol === "SPY");
@@ -9734,11 +9736,16 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 6 }}>
             {bottoms.map(r => (
-              <div key={r.symbol} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 9px", borderRadius: 7, background: C.surface, border: `1px solid ${C.border}` }}>
+              <div key={r.symbol} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 9px", borderRadius: 7,
+                background: r.bottomReady ? `${C.green}10` : C.surface, border: `1px solid ${r.bottomReady ? C.green + "55" : C.border}` }}>
                 <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: "#0891b2", minWidth: 30 }}>{r.bottomScore}</span>
                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent }}>{r.symbol}</span>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.red }}>{r.offHigh}% off high</span>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: r.chg >= 0 ? C.green : C.red, marginLeft: "auto" }}>{r.chg >= 0 ? "+" : ""}{r.chg.toFixed(1)}%</span>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.red }}>{r.offHigh}%</span>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: r.chg >= 0 ? C.green : C.red }}>{r.chg >= 0 ? "+" : ""}{r.chg.toFixed(1)}%</span>
+                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 8.5, fontWeight: 800, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap",
+                  color: r.bottomReady ? "#fff" : C.amber, background: r.bottomReady ? C.green : `${C.amber}18`, border: `1px solid ${r.bottomReady ? C.green : C.amber + "55"}` }}>
+                  {r.bottomReady ? "✅ READY" : "⏳ WAIT"}
+                </span>
               </div>
             ))}
           </div>
