@@ -7216,11 +7216,24 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
               const riskFrac = (aPlusMode && gl.confRisk > 0 ? gl.confRisk : riskPct) / 100;
               const qty = Math.max(1, Math.min(Math.floor((acct * riskFrac) / riskPerShare), Math.floor(acct / entry)));
               autoBoughtRef.current.add(key); slots--;
-              localStorage.setItem(tdayKey, String(tradesToday + 1));  // count toward the daily cap
-              alpacaPlace(q.symbol, qty, stop, take).then(r => {
-                if (r?.ok) logTradeNote("buy", `🟢 ALPACA BUY — ${q.symbol} (A+ ${gl.aScore}, ${(riskFrac * 100).toFixed(2)}% risk)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${take}`);
-                else { autoBoughtRef.current.delete(key); }
-              });
+              // Optional AI gate: ask Claude before placing; only proceed on a BUY verdict (fail-open on error).
+              const aiGate = localStorage.getItem("axiom_autopilot_aigate") === "on";
+              const place = () => {
+                localStorage.setItem(tdayKey, String((Number(localStorage.getItem(tdayKey)) || 0) + 1));
+                return alpacaPlace(q.symbol, qty, stop, take).then(r => {
+                  if (r?.ok) logTradeNote("buy", `🟢 ALPACA BUY — ${q.symbol} (A+ ${gl.aScore}, ${(riskFrac * 100).toFixed(2)}% risk)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${take}`);
+                  else { autoBoughtRef.current.delete(key); }
+                });
+              };
+              if (aiGate) {
+                fetch("/api/market/ai-setup-review", { method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ setup: { symbol: q.symbol, px: gl.px.toFixed(2), chg: gl.chg.toFixed(2), aScore: gl.aScore, grade: gl.grade, marketScore: regimeScore, marketPass: gl.marketPass, sector: STOCK_TO_SECTOR[q.symbol] || null, strongSector: null, relStrength: gl.relStrength, rvol: gl.rvol.toFixed(1), bestEntry: gl.bestEntry, stop, rr: gl.rr, atEntry: gl.atEntry } }) })
+                  .then(r => r.json()).then(d => {
+                    if (d.ok && /VERDICT:\s*BUY/i.test(d.review)) { place(); }
+                    else if (d.ok) { autoBoughtRef.current.delete(key); logTradeNote("note", `🤖 AI vetoed ${q.symbol} — ${String(d.review).split("\n")[0]}`); }
+                    else { place(); }  // API error → fall through to the rules (don't freeze trading)
+                  }).catch(() => place());
+              } else { place(); }
             } else {
               const res = addPaperTrade(q.symbol, gl.bestEntry || gl.px, { atrPct: gl.atrPct, glScore: gl.passed });
               if (res === "OK") { autoBoughtRef.current.add(key); slots--; }
@@ -8558,6 +8571,7 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [autoPilot, setAutoPilot] = useState(() => localStorage.getItem("axiom_autopilot") === "on");
   const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 5);
   const [aPlusOn, setAPlusOn] = useState(() => localStorage.getItem("axiom_autopilot_aplus") !== "off");
+  const [aiGateOn, setAiGateOn] = useState(() => localStorage.getItem("axiom_autopilot_aigate") === "on");
   const [atrMode, setAtrMode] = useState(() => localStorage.getItem("axiom_autopilot_atr") !== "off");
   const [sharesOn, setSharesOn] = useState(() => localStorage.getItem("axiom_autopilot_shares") !== "off"); // default ON
   const [optsOn, setOptsOn] = useState(() => localStorage.getItem("axiom_autopilot_opts") === "on");        // default OFF
@@ -8758,6 +8772,9 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
           <Setting label="A+ MODE" hint="ON = only buys A+ Institutional setups (score ≥90, market green), sized by confidence (1% / 0.75% / 0.5%), max 5 trades/day." value={aPlusOn}
             onPick={on => { setAPlusOn(on); localStorage.setItem("axiom_autopilot_aplus", on ? "on" : "off"); }}
             options={[["A+ ✓", true], ["BASIC", false]]} />
+          <Setting label="🤖 AI GATE" hint="ON = Claude reviews every trade before it's placed and can veto it (only proceeds on a BUY verdict). Adds ~1 cheap Haiku call per trade. Fails open if the API is down." value={aiGateOn}
+            onPick={on => { setAiGateOn(on); localStorage.setItem("axiom_autopilot_aigate", on ? "on" : "off"); }}
+            options={[["ON", true], ["OFF", false]]} />
           <Setting label="WHEN TO BUY" hint="(Basic mode) How strict the entry is. 5/5 = fewer, perfect setups." value={autoThreshold}
             onPick={n => { setAutoThreshold(n); localStorage.setItem("axiom_autopilot_min", n); }}
             options={[["4/5+", 4], ["5/5 only", 5]]} />
