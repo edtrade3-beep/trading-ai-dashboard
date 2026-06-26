@@ -8955,7 +8955,7 @@ function AISetupReview({ r, regimeScore, C, MONO, SANS }) {
   };
   return (
     <div style={{ marginTop: 8 }}>
-      {out === null && <button onClick={ask} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "4px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.accent}55`, background: `${C.accent}14`, color: C.accent }}>🤖 ASK CLAUDE</button>}
+      {out === null && <button onClick={ask} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 16px", borderRadius: 8, cursor: "pointer", border: `1px solid ${C.accent}`, background: `${C.accent}18`, color: C.accent }}>🤖 ASK CLAUDE — get an AI second opinion</button>}
       {out === "loading" && <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>🤖 Claude is reviewing…</div>}
       {out && out.error && <div style={{ fontFamily: SANS, fontSize: 11, color: C.amber }}>AI review unavailable — {out.error}</div>}
       {typeof out === "string" && out !== "loading" && (
@@ -9157,7 +9157,6 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
                 {decision !== "BUY" && <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 5 }}>
                   {decision === "WAIT" ? "Setup is forming but not yet A+ (≥90) with a green market — wait." : "Below A+ threshold or not at entry — skip per the rules."}
                 </div>}
-                <AISetupReview r={r} regimeScore={regime.score} C={C} MONO={MONO} SANS={SANS} />
               </div>
             );
           })()}
@@ -9260,6 +9259,11 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
             {glExpanded === r.symbol ? "▲ CLOSE" : "🔬 DEEP DIVE"}
           </button>
         </div>
+      </div>
+
+      {/* 🤖 Ask Claude — full width, prominent */}
+      <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
+        <AISetupReview r={r} regimeScore={regime.score} C={C} MONO={MONO} SANS={SANS} />
       </div>
 
       {/* ── Expandable ticker details ── */}
