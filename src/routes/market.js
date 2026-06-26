@@ -1172,6 +1172,33 @@ async function handleMarket(req, res, requestUrl) {
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  // ✈️ AI FLIGHT FINDER — cheapest flights + best dates to fly/book (live web search).
+  if (pathname === "/api/market/flight-find" && req.method === "POST") {
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
+    const from = String(b.from || "").slice(0, 60), to = String(b.to || "").slice(0, 60);
+    const when = String(b.when || "").slice(0, 80), trip = b.roundTrip === false ? "one-way" : "round-trip";
+    const flexible = b.flexible !== false;
+    if (!from || !to) return writeJson(res, 400, { ok: false, error: "from and to required" });
+    const system = `You are an expert flight deal hunter. Use web_search (Google Flights, Skyscanner, Kayak, airline sites) to find the CHEAPEST real flights for the route and timeframe. Be specific and current. Return:\nCHEAPEST OPTIONS: 3-4 with price, airline, exact dates, stops, and a booking LINK (full https URL — a Google Flights or Skyscanner search link for the route/dates is fine).\nBEST DATES: the cheapest days to depart/return for this route (e.g., "fly out Tue Jan 14, back Tue Jan 21 — ~$120 cheaper than the weekend").\nWHEN TO BOOK: how far ahead is ideal for this route + any price trend.\nTIP: one money-saving move (nearby airport, flexible dates, etc.).\nUse real current prices/links from your searches — never invent. Under 260 words.`;
+    const prompt = `Find me the cheapest ${trip} flights from ${from} to ${to}${when ? `, around ${when}` : ""}.${flexible ? " My dates are flexible — find the cheapest days." : ""} Give current real options and the best dates to fly and book.`;
+    const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }];
+    try {
+      const messages = [{ role: "user", content: prompt }];
+      let text = "";
+      for (let i = 0; i < 5; i++) {
+        const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 1000, system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools }, key, 90000);
+        const content = resp.content || [];
+        const t = content.filter(c => c.type === "text").map(c => c.text).join("");
+        if (t) text = t;
+        if (resp.stop_reason === "pause_turn") { messages.push({ role: "assistant", content }); continue; }
+        break;
+      }
+      return writeJson(res, 200, { ok: true, flights: (text || "").replace(/<\/?cite[^>]*>/g, "").trim() || "(no results)" });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   // 🛒 AI DEAL FINDER — searches the live web for the best deals on a product within budget.
   if (pathname === "/api/market/deal-find" && req.method === "POST") {
     const key = (process.env.ANTHROPIC_API_KEY || "").trim();
