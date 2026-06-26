@@ -3,7 +3,7 @@
 // Runs at 3:45 PM ET weekdays via server.js scheduler
 
 const { sendTelegramMessage, isConfigured } = require("./telegram");
-const { callAnthropicApi }                  = require("./anthropic");
+const { callAnthropicApi, MODELS }          = require("./anthropic");
 const { ANTHROPIC_API_KEY }                 = require("./config");
 const { fetchJsonSafe, withTimeout }        = require("./utils");
 
@@ -114,7 +114,7 @@ DESCRIPTION: [2-3 sentence YouTube description]`;
       // Fallback: template-based script without AI
       return buildTemplateScript(data);
     }
-    const text = await callAnthropicApi(prompt, ANTHROPIC_API_KEY, { maxTokens: 600 });
+    const text = await callAnthropicApi(prompt, ANTHROPIC_API_KEY, { model: MODELS.haiku, maxTokens: 600 });
     return text;
   } catch {
     return buildTemplateScript(data);

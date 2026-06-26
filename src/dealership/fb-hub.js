@@ -8,7 +8,7 @@ const fs   = require("fs");
 const path = require("path");
 const https = require("https");
 const { writeJson } = require("../utils");
-const { callAnthropicApi } = require("../anthropic");
+const { callAnthropicApi, MODELS } = require("../anthropic");
 
 const DATA_DIR   = path.join(__dirname, "../../data");
 const MSG_FILE   = path.join(DATA_DIR, "fb-messages.json");
@@ -121,9 +121,20 @@ async function generateAiReply(customerMsg, conversationHistory) {
   // Recent conversation for context
   const history = (conversationHistory || []).slice(-6).map(m => `${m.from === "customer" ? "Customer" : "You"}: ${m.text}`).join("\n");
 
-  const prompt = `You are a friendly, professional sales assistant for ${dealerName}, a used car dealership. A customer messaged on Facebook. Reply naturally and helpfully — like a real salesperson, not a robot.
+  // Stable instruction block — cached so repeated replies read it at ~10% input cost.
+  const system = `You are a friendly, professional sales assistant for ${dealerName}, a used car dealership. A customer messaged on Facebook. Reply naturally and helpfully — like a real salesperson, not a robot.
 
-DEALERSHIP INFO:
+RULES:
+- Keep it SHORT (1-3 sentences), warm, and conversational
+- If they ask about a car, use the inventory provided
+- If they want to buy/test drive, encourage booking and ask for a good time
+- If they ask price, give the price from inventory if available
+- If you don't know something specific, offer to have someone call them
+- Never make up cars or prices not in inventory
+- End buying-intent messages by inviting them to come in or schedule
+- Write ONLY the reply text, nothing else.`;
+
+  const prompt = `DEALERSHIP INFO:
 - Hours: ${hours}
 ${phone ? `- Phone: ${phone}` : ""}
 ${address ? `- Address: ${address}` : ""}
@@ -136,21 +147,10 @@ ${customNote ? `SPECIAL INSTRUCTIONS:\n${customNote}\n` : ""}
 CONVERSATION SO FAR:
 ${history || "(this is the first message)"}
 
-NEW CUSTOMER MESSAGE: "${customerMsg}"
-
-RULES:
-- Keep it SHORT (1-3 sentences), warm, and conversational
-- If they ask about a car, use real inventory above
-- If they want to buy/test drive, encourage booking and ask for a good time
-- If they ask price, give the price from inventory if available
-- If you don't know something specific, offer to have someone call them
-- Never make up cars or prices not in inventory
-- End buying-intent messages by inviting them to come in or schedule
-
-Write ONLY the reply text, nothing else.`;
+NEW CUSTOMER MESSAGE: "${customerMsg}"`;
 
   try {
-    const reply = await callAnthropicApi(prompt, apiKey, { model: "claude-sonnet-4-6", maxTokens: 400 });
+    const reply = await callAnthropicApi(prompt, apiKey, { model: MODELS.haiku, maxTokens: 400, system, cache: true });
     return (reply || "").trim() || null;
   } catch (e) {
     console.error("[FB Hub] AI reply failed:", e.message);
@@ -260,7 +260,7 @@ STRICT RULES:
 Write ONLY the reply text.`;
 
   try {
-    const reply = await callAnthropicApi(prompt, apiKey, { model: "claude-sonnet-4-6", maxTokens: 300 });
+    const reply = await callAnthropicApi(prompt, apiKey, { model: MODELS.haiku, maxTokens: 300 });
     return { ok: true, intent, language: lang, humanTakeover: false, reply: (reply || "").trim(), source: "ai" };
   } catch (e) {
     return { ok: false, intent, language: lang, humanTakeover: false, reply: "", error: e.message };

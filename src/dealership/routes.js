@@ -1,5 +1,5 @@
 const { writeJson, fetchJsonSafe, withTimeout, readRequestBody } = require("../utils");
-const { callAnthropicApi, callAnthropicWithSearch } = require("../anthropic");
+const { callAnthropicApi, callAnthropicWithSearch, MODELS } = require("../anthropic");
 const { ANTHROPIC_API_KEY } = require("../config");
 const { getKey, setKey } = require("../runtime-keys");
 
@@ -529,7 +529,7 @@ PLATFORM / STYLE: ${styleInstructions[style] || styleInstructions.facebook}
 Do not invent features not listed above. Do not use all-caps except for the vehicle name. No emojis unless writing for Facebook.`;
 
     try {
-      const text = await callAnthropicApi(prompt, anthropicKey(), { maxTokens: 600 });
+      const text = await callAnthropicApi(prompt, anthropicKey(), { model: MODELS.haiku, maxTokens: 600 });
       return writeJson(res, 200, { description: text, style, generatedAt: new Date().toISOString() });
     } catch (err) {
       return writeJson(res, 422, { error: err instanceof Error ? err.message : "AI description failed" });
