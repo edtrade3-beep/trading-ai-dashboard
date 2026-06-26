@@ -17355,7 +17355,7 @@ export default function App() {
       localStorage.setItem("axiom_seen_start", "1");
       return "start";
     }
-    return "dashboard";
+    return "greenlight";  // default landing: A+ Green Light + Auto-Pilot
   });
   // Save tab on change
   React.useEffect(() => { try { localStorage.setItem("last_tab", activeTab); } catch {} }, [activeTab]);
