@@ -1172,6 +1172,32 @@ async function handleMarket(req, res, requestUrl) {
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  // 🛒 AI DEAL FINDER — searches the live web for the best deals on a product within budget.
+  if (pathname === "/api/deals/find" && req.method === "POST") {
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
+    const what = String(b.query || "laptop").slice(0, 120);
+    const budget = String(b.budget || "").replace(/[^0-9]/g, "").slice(0, 7);
+    const use = String(b.useCase || "").slice(0, 200);
+    const system = `You are a savvy deal-hunting expert. Use web_search to find the BEST current real deals for what the user wants within their budget. Search retailers (Amazon, Best Buy, Walmart, Newegg, manufacturer sites) and deal sites. Return 3-5 concrete options. For each: model name, current price, retailer, and one line on why it's a good value (specs vs price). Then a "BEST VALUE" pick and one money-saving tip. Use real, current prices and models from your searches — never invent. Format clearly with the price up front. Under 220 words.`;
+    const prompt = `Find me the best ${what}${budget ? ` under $${budget}` : ""}${use ? ` for: ${use}` : ""}. Prioritize cheap but good — best bang for the buck. Give current real options.`;
+    const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }];
+    try {
+      const messages = [{ role: "user", content: prompt }];
+      let text = "";
+      for (let i = 0; i < 5; i++) {
+        const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 1000, system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools }, key, 90000);
+        const content = resp.content || [];
+        const t = content.filter(c => c.type === "text").map(c => c.text).join("");
+        if (t) text = t;
+        if (resp.stop_reason === "pause_turn") { messages.push({ role: "assistant", content }); continue; }
+        break;
+      }
+      return writeJson(res, 200, { ok: true, deals: (text || "").trim() || "(no results)" });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   // 🩸 AI BOTTOM SPOTTER — capitulation candidates + live news → "real bottom or falling knife?"
   if (pathname === "/api/market/ai-bottom" && req.method === "POST") {
     const key = (process.env.ANTHROPIC_API_KEY || "").trim();
