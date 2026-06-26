@@ -7124,21 +7124,30 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
         }
       }
 
+      // A+ Institutional mode (default ON): only trade aPlus setups, sized by confidence.
+      const aPlusMode = localStorage.getItem("axiom_autopilot_aplus") !== "off";
+      const regimeScore = computeRegime(macroData).score;
+      // A+ daily trade cap (max 5/day).
+      const tdayKey = "axiom_ap_trades_" + today;
+      const tradesToday = Number(localStorage.getItem(tdayKey)) || 0;
+      const maxTradesDay = 5;
+
       // Rank all qualifying setups by quality; only take the BEST up to the cap.
       const candidates = [];
       (watchlistData || []).forEach(q => {
         const scanRow = (scanResults || []).find(r => r.ticker === q.symbol);
-        const gl = computeGreenLight(q, spyChg, scanRow);
+        const gl = computeGreenLight(q, spyChg, scanRow, regimeScore);
         if (!(gl.px > 0)) return;
-        const bullish = gl.signal === "GREEN" && gl.passed >= threshold;
+        const bullish = aPlusMode ? gl.aPlus : (gl.signal === "GREEN" && gl.passed >= threshold);
         const bearishPut = false;  // puts disabled — no bearish option buys
         const shortSetup = doShort && gl.shortSignal === "SHORT" && gl.shortPassed >= threshold;
         if (!bullish && !shortSetup) return;
-        // quality: checks passed dominate, then relative strength + leadership
-        const quality = Math.max(gl.passed, shortSetup ? gl.shortPassed : 0) * 10 + Math.abs(Number(gl.relStrength) || 0) + (gl.isLeader ? 5 : 0);
+        // quality: A+ score (institutional) leads; else checks + relative strength.
+        const quality = aPlusMode ? gl.aScore : (Math.max(gl.passed, shortSetup ? gl.shortPassed : 0) * 10 + Math.abs(Number(gl.relStrength) || 0) + (gl.isLeader ? 5 : 0));
         candidates.push({ q, gl, bullish, bearishPut, shortSetup, quality });
       });
       candidates.sort((a, b) => b.quality - a.quality);
+      if (aPlusMode && tradesToday >= maxTradesDay) return;  // daily trade cap reached
 
       // For each selected broker, count free slots and place the best setups.
       for (const broker of brokers) {
@@ -7202,10 +7211,13 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
               const stop = +(entry * (1 - atr * 1.5)).toFixed(2);
               const take = +(entry * (1 + atr * 3)).toFixed(2);
               const riskPerShare = Math.max(0.01, entry - stop);
-              const qty = Math.max(1, Math.min(Math.floor((acct * (riskPct / 100)) / riskPerShare), Math.floor(acct / entry)));
+              // Confidence-based size: A+ mode uses the per-setup risk % (1% / 0.75% / 0.5%); else fixed risk %.
+              const riskFrac = (aPlusMode && gl.confRisk > 0 ? gl.confRisk : riskPct) / 100;
+              const qty = Math.max(1, Math.min(Math.floor((acct * riskFrac) / riskPerShare), Math.floor(acct / entry)));
               autoBoughtRef.current.add(key); slots--;
+              localStorage.setItem(tdayKey, String(tradesToday + 1));  // count toward the daily cap
               alpacaPlace(q.symbol, qty, stop, take).then(r => {
-                if (r?.ok) logTradeNote("buy", `🟢 ALPACA BUY — ${q.symbol} (${gl.passed}/5)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${take}`);
+                if (r?.ok) logTradeNote("buy", `🟢 ALPACA BUY — ${q.symbol} (A+ ${gl.aScore}, ${(riskFrac * 100).toFixed(2)}% risk)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${take}`);
                 else { autoBoughtRef.current.delete(key); }
               });
             } else {
@@ -8544,6 +8556,7 @@ function AlpacaReportCard({ C, MONO, SANS }) {
 function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [autoPilot, setAutoPilot] = useState(() => localStorage.getItem("axiom_autopilot") === "on");
   const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 5);
+  const [aPlusOn, setAPlusOn] = useState(() => localStorage.getItem("axiom_autopilot_aplus") !== "off");
   const [atrMode, setAtrMode] = useState(() => localStorage.getItem("axiom_autopilot_atr") !== "off");
   const [sharesOn, setSharesOn] = useState(() => localStorage.getItem("axiom_autopilot_shares") !== "off"); // default ON
   const [optsOn, setOptsOn] = useState(() => localStorage.getItem("axiom_autopilot_opts") === "on");        // default OFF
@@ -8741,7 +8754,10 @@ function MyTradesTab({ C, MONO, SANS, watchlistData }) {
       <div style={{ marginBottom: 14, padding: "14px 18px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
         <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em", marginBottom: 12 }}>⚙️ FINE-TUNE (optional)</div>
         <div style={{ display: "flex", gap: 22, rowGap: 16, flexWrap: "wrap" }}>
-          <Setting label="WHEN TO BUY" hint="How strict the entry is. 5/5 = fewer, perfect setups." value={autoThreshold}
+          <Setting label="A+ MODE" hint="ON = only buys A+ Institutional setups (score ≥90, market green), sized by confidence (1% / 0.75% / 0.5%), max 5 trades/day." value={aPlusOn}
+            onPick={on => { setAPlusOn(on); localStorage.setItem("axiom_autopilot_aplus", on ? "on" : "off"); }}
+            options={[["A+ ✓", true], ["BASIC", false]]} />
+          <Setting label="WHEN TO BUY" hint="(Basic mode) How strict the entry is. 5/5 = fewer, perfect setups." value={autoThreshold}
             onPick={n => { setAutoThreshold(n); localStorage.setItem("axiom_autopilot_min", n); }}
             options={[["4/5+", 4], ["5/5 only", 5]]} />
           <Setting label="MAX POSITIONS" hint="Holds only the best-ranked setups, up to this many at once." value={maxPos}
