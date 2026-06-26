@@ -8990,7 +8990,11 @@ function DealFinderTab({ C, MONO, SANS }) {
       </button>
       {out && out.error && <div style={{ fontFamily: SANS, fontSize: 13, color: C.amber, marginTop: 14 }}>Couldn't search — {out.error}</div>}
       {typeof out === "string" && out !== "loading" && (
-        <div style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.7, whiteSpace: "pre-line", marginTop: 16, background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 18px" }}>{out}</div>
+        <div style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.7, whiteSpace: "pre-line", marginTop: 16, background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 18px" }}>
+          {out.split(/(https?:\/\/[^\s)]+)/g).map((part, i) => /^https?:\/\//.test(part)
+            ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: C.accent, wordBreak: "break-all" }}>{part}</a>
+            : part)}
+        </div>
       )}
       <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 12 }}>Prices are pulled live from the web and can change — always verify on the retailer's site before buying.</div>
     </div>
