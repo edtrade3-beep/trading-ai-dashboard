@@ -103,7 +103,16 @@ async function testGmailConnection() {
     await client.logout();
     return { ok: true, configured: true, connected: true, autoSend: (process.env.GMAIL_AUTO_SEND || "").toLowerCase() === "on", foundLast7d: total, sample: leads };
   } catch (e) {
-    return { ok: false, configured: true, connected: false, error: e.message };
+    let hint = "";
+    const detail = (e.responseText || e.response || e.message || "").toLowerCase();
+    if (e.authenticationFailed || detail.includes("auth") || detail.includes("credentials") || detail.includes("username and password")) {
+      hint = "Login rejected — (1) make sure IMAP is ENABLED in Gmail (Settings → Forwarding and POP/IMAP → Enable IMAP → Save), and (2) GMAIL_APP_PASSWORD must be a 16-char App Password (not your normal Gmail password), generated for THIS account.";
+    } else if (detail.includes("timeout") || detail.includes("etimedout")) {
+      hint = "Connection timed out reaching imap.gmail.com.";
+    } else {
+      hint = "Usually means IMAP is not enabled in Gmail, or the App Password is wrong. Enable IMAP in Gmail settings and re-check the App Password.";
+    }
+    return { ok: false, configured: true, connected: false, error: e.message, detail: e.responseText || null, hint };
   }
 }
 
