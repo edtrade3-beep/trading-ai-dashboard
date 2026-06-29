@@ -48,3 +48,15 @@ services:
         sync: false
       - key: MARKETCHECK_API_KEY
         sync: false
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      - key: GMAIL_AUTO_SEND
+        sync: false
+      - key: DEALER_NAME
+        sync: false
+      - key: DEALER_ADDR
+        sync: false
+      - key: DEALER_PHONE
+        sync: false

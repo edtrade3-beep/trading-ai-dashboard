@@ -30,6 +30,7 @@ const { startCOTScheduler }  = require("./src/cot/scheduler");
 const { startPreMarketAlerts } = require("./src/premarket-alerts");
 const { runMarketRecap }       = require("./src/market-recap");
 const { runMorningGamePlan, runTradeCoach } = require("./src/ai-coach");
+const { pollGmailLeads } = require("./src/gmail-leads");
 const { runAdol22, handleAdol22Api } = require("./src/adol22-scanner");
 const { updateCOTData, isDataFresh } = require("./src/cot/cotService");
 
@@ -123,6 +124,13 @@ server.listen(PORT, HOST, () => {
     if (h === 16 && m >= 15 && m < 21 && _coachSent !== today) { _coachSent = today; runTradeCoach().catch(() => {}); }
   }, 60_000);
   console.log("[AI] Morning game plan 9:40 AM + trade coach 4:15 PM scheduled — weekdays only");
+
+  // CarGurus lead auto-reply — poll Gmail every 3 min (only if GMAIL_USER/APP_PASSWORD set).
+  if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+    pollGmailLeads().catch(() => {});
+    setInterval(() => pollGmailLeads().catch(() => {}), 3 * 60_000);
+    console.log("[Leads] CarGurus Gmail auto-reply active — polling every 3 min");
+  }
 
   // ADOL22 — scan every 15 min during market hours (9:30 AM – 4:00 PM ET)
   setInterval(() => {
