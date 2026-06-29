@@ -1172,6 +1172,37 @@ async function handleMarket(req, res, requestUrl) {
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  // 📧 CARGURUS LEAD RESPONDER — parse a lead email + draft the dealer reply.
+  if (pathname === "/api/market/lead-reply" && req.method === "POST") {
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
+    const email = String(b.email || "").slice(0, 6000);
+    if (!email.trim()) return writeJson(res, 400, { ok: false, error: "lead email text required" });
+    const dealer = b.dealer || { name: "Dixie Motors", address: "6416 Dixie Highway, Fairfield, OH 45014", phone: "513-874-4999" };
+    const system = `You are the sales assistant for ${dealer.name}, a used-car dealership. You receive a CarGurus lead email. Extract the customer's FIRST name, their email, their phone, and the vehicle they're asking about (year make model trim) plus the LISTED price (use "Listed Price", not the market value). Then write a short, warm reply email.
+Reply template (follow it closely):
+Subject: <Year Make Model Trim> – Still Available
+Body:
+Hi <FirstName>,
+
+Thank you for your interest in our <Year Make Model Trim>.
+
+The vehicle is still available at the listed price of $<ListedPrice>. What day and time would you like to come in and take a look at it?
+
+Please let me know the best way to reach you, or feel free to call us at ${dealer.phone}.
+
+${dealer.name}
+${dealer.address}
+
+Return ONLY valid JSON, no markdown: {"firstName":"","customerEmail":"","customerPhone":"","vehicle":"","price":"","subject":"","body":""}. The body must be the full email text with real line breaks as \\n.`;
+    try {
+      const raw = await callAnthropicApi(`Lead email:\n${email}`, key, { model: MODELS.haiku, maxTokens: 600, system, cache: true });
+      let data; try { data = JSON.parse(raw.replace(/^```json\s*|\s*```$/g, "").trim()); } catch { data = { body: raw, subject: "Vehicle – Still Available" }; }
+      return writeJson(res, 200, { ok: true, ...data });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   // ✈️ AI FLIGHT FINDER — cheapest flights + best dates to fly/book (live web search).
   if (pathname === "/api/market/flight-find" && req.method === "POST") {
     const key = (process.env.ANTHROPIC_API_KEY || "").trim();
