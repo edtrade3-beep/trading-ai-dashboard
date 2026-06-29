@@ -1172,6 +1172,12 @@ async function handleMarket(req, res, requestUrl) {
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  // Diagnostic: test the Gmail lead connection (connect + find leads, no send).
+  if (pathname === "/api/market/leads-status" && req.method === "GET") {
+    try { const { testGmailConnection } = require("../gmail-leads"); return writeJson(res, 200, await testGmailConnection()); }
+    catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   // 📧 CARGURUS LEAD RESPONDER — parse a lead email + draft the dealer reply.
   if (pathname === "/api/market/lead-reply" && req.method === "POST") {
     const key = (process.env.ANTHROPIC_API_KEY || "").trim();

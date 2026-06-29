@@ -76,4 +76,35 @@ async function pollGmailLeads() {
   if (handled) console.log(`[Gmail leads] handled ${handled} CarGurus lead(s)`);
 }
 
-module.exports = { pollGmailLeads };
+// Diagnostic: connect, search for CarGurus leads, return what it sees — WITHOUT sending or marking read.
+async function testGmailConnection() {
+  const user = (process.env.GMAIL_USER || "").trim();
+  const pass = (process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
+  if (!user || !pass) return { ok: false, configured: false, error: "GMAIL_USER / GMAIL_APP_PASSWORD not set in Render" };
+  const client = new ImapFlow({ host: "imap.gmail.com", port: 993, secure: true, auth: { user, pass }, logger: false });
+  try {
+    await client.connect();
+    const lock = await client.getMailboxLock("INBOX");
+    let leads = [];
+    try {
+      const since = new Date(Date.now() - 7 * 86400000);
+      const uids = await client.search({ since, from: "cargurus.com" });
+      const take = (uids || []).slice(-5);
+      for (const uid of take) {
+        const msg = await client.fetchOne(uid, { source: true });
+        if (!msg || !msg.source) continue;
+        const parsed = await simpleParser(msg.source);
+        const text = parsed.text || (parsed.html || "").replace(/<[^>]+>/g, " ");
+        const lead = parseLead(text);
+        leads.push({ firstName: lead.firstName, email: lead.email, vehicle: lead.vehicle, price: lead.price });
+      }
+      var total = (uids || []).length;
+    } finally { lock.release(); }
+    await client.logout();
+    return { ok: true, configured: true, connected: true, autoSend: (process.env.GMAIL_AUTO_SEND || "").toLowerCase() === "on", foundLast7d: total, sample: leads };
+  } catch (e) {
+    return { ok: false, configured: true, connected: false, error: e.message };
+  }
+}
+
+module.exports = { pollGmailLeads, testGmailConnection };
