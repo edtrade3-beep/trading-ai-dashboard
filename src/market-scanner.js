@@ -144,6 +144,28 @@ const smcCooldown   = new Map(); // "NVDA:SMC" → timestamp — module-level so
 // alert → Telegram spam. We snapshot dedup + regime state to disk and reload on
 // startup so cooldowns survive restarts.
 const STATE_PATH = path.join(ROOT, "data", "scanner-state.json");
+// Content-signature dedup for the scan SUMMARY messages (PATH A + PATH B).
+// The same strong names (AMD 100, BTC/BNB) stay fire-level all day, so the
+// summary repeats the same content every scan. We skip a summary whose exact
+// symbol+direction set was already sent within SUMMARY_DEDUP_MS. Persisted so
+// restarts don't re-send it.
+const summarySent = new Map(); // signature → timestamp
+const SUMMARY_DEDUP_MS = 4 * 3600_000; // don't repeat an identical summary within 4h
+function summaryAlreadySent(sig) {
+  const ts = summarySent.get(sig);
+  return !!ts && (Date.now() - ts) < SUMMARY_DEDUP_MS;
+}
+function markSummarySent(sig) {
+  summarySent.set(sig, Date.now());
+  for (const [k, t] of summarySent) {
+    if (Date.now() - t > SUMMARY_DEDUP_MS) summarySent.delete(k);
+  }
+  saveScannerState();
+}
+function summarySignature(buys, sells) {
+  const k = (arr) => arr.map(h => `${h.symbol}:${h.signal}`).sort().join(",");
+  return `B[${k(buys)}]S[${k(sells)}]`;
+}
 let _saveStateTimer = null;
 function saveScannerState() {
   // Debounce: many recordSignal calls happen in one scan; write at most once/2s.
@@ -154,6 +176,7 @@ function saveScannerState() {
       const snapshot = {
         cooldownMap:   Array.from(cooldownMap.entries()),
         lastSignalMap: Array.from(lastSignalMap.entries()),
+        summarySent:   Array.from(summarySent.entries()),
         lastMacroRegime,
         lastMacroAlertedAt,
         savedAt: Date.now(),
@@ -174,6 +197,10 @@ function loadScannerState() {
       if (typeof ts === "number" && ts > cutoff) cooldownMap.set(k, ts);
     }
     for (const [k, v] of (s.lastSignalMap || [])) lastSignalMap.set(k, v);
+    const sumCutoff = Date.now() - SUMMARY_DEDUP_MS;
+    for (const [k, ts] of (s.summarySent || [])) {
+      if (typeof ts === "number" && ts > sumCutoff) summarySent.set(k, ts);
+    }
     if (s.lastMacroRegime)   lastMacroRegime    = s.lastMacroRegime;
     if (s.lastMacroAlertedAt) lastMacroAlertedAt = s.lastMacroAlertedAt;
   } catch {}
@@ -774,7 +801,9 @@ async function runScan(options = {}) {
       const sells = hits.filter(h => h.signal === "SELL")
                         .sort((a,b) => a.composite - b.composite).slice(0, 2);
 
-      if ((buys.length || sells.length) && telegramConfigured()) {
+      const sigA = summarySignature(buys, sells);
+      if ((buys.length || sells.length) && telegramConfigured() && !summaryAlreadySent(sigA)) {
+        markSummarySent(sigA);
         let msg = `📡 ${scheduledLabel.toUpperCase()}\n`;
         msg    += `⏰ ${time} ET  •  ${symbols.length} symbols\n`;
         msg    += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
@@ -830,7 +859,9 @@ async function runScan(options = {}) {
         // PATH B only fires when at least one signal is fire-level (🔥)
         const hasFireBuy  = buys.some(h  => h.composite >= FIRE_BUY_SCORE);
         const hasFireSell = sells.some(h => h.composite <= FIRE_SELL_SCORE);
-        if ((buys.length || sells.length) && (hasFireBuy || hasFireSell)) {
+        const sigB = summarySignature(buys, sells);
+        if ((buys.length || sells.length) && (hasFireBuy || hasFireSell) && !summaryAlreadySent(sigB)) {
+          markSummarySent(sigB);
           const time = new Date().toLocaleTimeString("en-US", {
             timeZone: "America/New_York", hour: "2-digit", minute: "2-digit",
           });
