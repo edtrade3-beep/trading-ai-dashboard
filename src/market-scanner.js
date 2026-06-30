@@ -151,8 +151,8 @@ const STATE_PATH = path.join(ROOT, "data", "scanner-state.json");
 // restarts don't re-send it.
 const summarySent = new Map(); // signature → timestamp
 const SUMMARY_DEDUP_MS = 4 * 3600_000; // don't repeat an identical summary within 4h
-let lastIntervalSummaryAt = 0;          // hard 15-min throttle on the interval summary
-const MIN_SUMMARY_GAP_MS  = 15 * 60_000;
+const SUMMARY_SLOT_MS = 15 * 60_000;    // interval summary fires at most once per 15-min wall-clock slot
+let lastSummarySlot   = -1;             // Math.floor(now / SUMMARY_SLOT_MS) of the last interval summary
 function summaryAlreadySent(sig) {
   const ts = summarySent.get(sig);
   return !!ts && (Date.now() - ts) < SUMMARY_DEDUP_MS;
@@ -179,7 +179,7 @@ function saveScannerState() {
         cooldownMap:   Array.from(cooldownMap.entries()),
         lastSignalMap: Array.from(lastSignalMap.entries()),
         summarySent:   Array.from(summarySent.entries()),
-        lastIntervalSummaryAt,
+        lastSummarySlot,
         lastMacroRegime,
         lastMacroAlertedAt,
         savedAt: Date.now(),
@@ -204,7 +204,7 @@ function loadScannerState() {
     for (const [k, ts] of (s.summarySent || [])) {
       if (typeof ts === "number" && ts > sumCutoff) summarySent.set(k, ts);
     }
-    if (typeof s.lastIntervalSummaryAt === "number") lastIntervalSummaryAt = s.lastIntervalSummaryAt;
+    if (typeof s.lastSummarySlot === "number") lastSummarySlot = s.lastSummarySlot;
     if (s.lastMacroRegime)   lastMacroRegime    = s.lastMacroRegime;
     if (s.lastMacroAlertedAt) lastMacroAlertedAt = s.lastMacroAlertedAt;
   } catch {}
@@ -864,9 +864,17 @@ async function runScan(options = {}) {
         const hasFireBuy  = buys.some(h  => h.composite >= FIRE_BUY_SCORE);
         const hasFireSell = sells.some(h => h.composite <= FIRE_SELL_SCORE);
         const sigB = summarySignature(buys, sells);
-        const gapOk = Date.now() - lastIntervalSummaryAt >= MIN_SUMMARY_GAP_MS;
-        if ((buys.length || sells.length) && (hasFireBuy || hasFireSell) && gapOk && !summaryAlreadySent(sigB)) {
-          lastIntervalSummaryAt = Date.now();
+        // Wall-clock gate: at most ONE interval summary per 15-min slot
+        // (:00/:15/:30/:45), and only within the first 6 min of a slot so a
+        // process restart can't fire one off-cadence. Restart-proof — no reliance
+        // on an elapsed timer that resets to zero on boot.
+        const nowMs   = Date.now();
+        const slot    = Math.floor(nowMs / SUMMARY_SLOT_MS);
+        const etMin   = parseInt(new Date(nowMs).toLocaleString("en-US", { timeZone: "America/New_York", minute: "numeric" }), 10);
+        const onQuarter = (etMin % 15) < 6;
+        if ((buys.length || sells.length) && (hasFireBuy || hasFireSell) &&
+            onQuarter && slot !== lastSummarySlot && !summaryAlreadySent(sigB)) {
+          lastSummarySlot = slot;
           markSummarySent(sigB);
           const time = new Date().toLocaleTimeString("en-US", {
             timeZone: "America/New_York", hour: "2-digit", minute: "2-digit",
