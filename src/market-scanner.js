@@ -138,6 +138,47 @@ const cooldownMap   = new Map(); // "NVDA:BUY" → timestamp
 const lastSignalMap = new Map(); // "NVDA"     → "BUY"|"SELL"
 const smcCooldown   = new Map(); // "NVDA:SMC" → timestamp — module-level so persists between scans
 
+// ── Persistent dedup state ────────────────────────────────────────────────────
+// Render restarts the process (deploys, idle cold-starts) which wipes the
+// in-memory dedup Maps above. Without persistence, every restart re-fires every
+// alert → Telegram spam. We snapshot dedup + regime state to disk and reload on
+// startup so cooldowns survive restarts.
+const STATE_PATH = path.join(ROOT, "data", "scanner-state.json");
+let _saveStateTimer = null;
+function saveScannerState() {
+  // Debounce: many recordSignal calls happen in one scan; write at most once/2s.
+  if (_saveStateTimer) return;
+  _saveStateTimer = setTimeout(() => {
+    _saveStateTimer = null;
+    try {
+      const snapshot = {
+        cooldownMap:   Array.from(cooldownMap.entries()),
+        lastSignalMap: Array.from(lastSignalMap.entries()),
+        lastMacroRegime,
+        lastMacroAlertedAt,
+        savedAt: Date.now(),
+      };
+      fs.mkdirSync(path.dirname(STATE_PATH), { recursive: true });
+      fs.writeFileSync(STATE_PATH, JSON.stringify(snapshot), "utf8");
+    } catch {}
+  }, 2000);
+  if (_saveStateTimer.unref) _saveStateTimer.unref();
+}
+function loadScannerState() {
+  try {
+    if (!fs.existsSync(STATE_PATH)) return;
+    const s = JSON.parse(fs.readFileSync(STATE_PATH, "utf8"));
+    // Drop entries older than 24h so stale cooldowns don't suppress fresh signals forever.
+    const cutoff = Date.now() - 24 * 3600_000;
+    for (const [k, ts] of (s.cooldownMap || [])) {
+      if (typeof ts === "number" && ts > cutoff) cooldownMap.set(k, ts);
+    }
+    for (const [k, v] of (s.lastSignalMap || [])) lastSignalMap.set(k, v);
+    if (s.lastMacroRegime)   lastMacroRegime    = s.lastMacroRegime;
+    if (s.lastMacroAlertedAt) lastMacroAlertedAt = s.lastMacroAlertedAt;
+  } catch {}
+}
+
 // Hard minimum gap between alerts for the same symbol:signal
 const MIN_ALERT_GAP_MS = 120 * 60_000; // 120 minutes hard floor between any alert for same symbol
 
@@ -407,6 +448,7 @@ function recordSignal(symbol, signal) {
   cooldownMap.set(`${symbol}:${signal}`, Date.now());
   lastSignalMap.set(symbol, signal);
   cooldownMap.delete(`${symbol}:${signal === "BUY" ? "SELL" : "BUY"}`);
+  saveScannerState();
 }
 
 // ── Telegram alert formatter ──────────────────────────────────────────────────
@@ -521,10 +563,20 @@ async function runScan(options = {}) {
     // Skipped on weekends — stock indices are closed, regime is meaningless.
     if (telegramConfigured() && !weekend) {
       const macro = computeMacroRegime(analysisMap);
-      if (macro.regime !== lastMacroRegime) {
-        const prev = lastMacroRegime || "UNKNOWN";
+      const firstObservation = !lastMacroRegime;          // fresh start / no prior regime known
+      const changed          = macro.regime !== lastMacroRegime;
+      const cooledDown       = Date.now() - lastMacroAlertedAt >= MACRO_COOLDOWN_MS;
+      // Only alert on a REAL change between two known regimes, and not more than
+      // once per cooldown window. The first observation after a restart is just
+      // recorded silently (so we never spam "UNKNOWN → RISK-ON" on every boot).
+      if (firstObservation) {
+        lastMacroRegime = macro.regime;
+        saveScannerState();
+      } else if (changed && cooledDown) {
+        const prev = lastMacroRegime;
         lastMacroRegime    = macro.regime;
         lastMacroAlertedAt = Date.now();
+        saveScannerState();
 
         const e    = macro.regime === "RISK-ON" ? "🟢" : macro.regime === "RISK-OFF" ? "🔴" : "⚪";
         const time = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
@@ -549,9 +601,11 @@ async function runScan(options = {}) {
           (macro.bearFactors.length ? `📉 ${macro.bearFactors.slice(0,3).join("  •  ")}\n` : "") +
           `\n⏰ ${time} ET`
         ).catch(() => {});
-      } else {
-        // Regime unchanged — just update in memory silently
+      } else if (changed) {
+        // Regime flipped but still inside the cooldown window — update silently,
+        // don't spam. The next genuine change after cooldown will alert.
         lastMacroRegime = macro.regime;
+        saveScannerState();
       }
     }
 
@@ -1488,6 +1542,7 @@ let lastScheduledRunAt = 0;
 let lastScheduledTimeLabel = "";  // prevents double-firing within the same minute
 
 function startMarketScanner() {
+  loadScannerState();   // restore dedup + regime state so a restart doesn't re-spam
   const cfg = loadConfig();
 
   // First scan 90s after startup (let server settle)
