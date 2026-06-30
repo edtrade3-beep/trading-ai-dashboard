@@ -1370,6 +1370,30 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  // LEARN SOMETHING NEW — generate one fresh Arabic lesson for the Coach.
+  // Topics rotate across trading, money, discipline, psychology, faith, family.
+  if (pathname === "/api/market/ai-lesson" && req.method === "POST") {
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { b = {}; }
+    const recent = (Array.isArray(b.recentTitles) ? b.recentTitles : []).slice(0, 20);
+    const topics = ["تداول وأسواق", "إدارة المال والمخاطر", "الانضباط والعادات",
+      "علم النفس وضبط العواطف", "الحكمة والإيمان", "القيادة والشخصية القوية", "الأب والزوج"];
+    const topic = topics[Math.floor(Math.random() * topics.length)];
+    const SYSTEM = `أنت مدرّب نخبة يكتب درساً واحداً جديداً ومفيداً باللغة العربية الفصحى. الدرس قصير وعميق وعملي. أعِد JSON فقط بهذا الشكل بالضبط، بلا أي نص خارج الـ JSON:
+{"title":"عنوان قصير","teach":"شرح من 2-3 جمل يعلّم الفكرة بعمق","deep":"جملة أو جملتان تضيفان بُعداً أعمق أو مثالاً","practice":"تمرين عملي واحد يُطبَّق اليوم","mantra":"جملة واحدة تُحفظ وتُردَّد"}`;
+    const prompt = `اكتب درساً جديداً في موضوع: ${topic}.${recent.length ? ` تجنّب تكرار هذه العناوين السابقة: ${recent.join("، ")}.` : ""} أعِد JSON فقط.`;
+    try {
+      const raw = await callAnthropicApi(prompt, key, { model: MODELS.haiku, maxTokens: 500, system: SYSTEM, cache: true });
+      let lesson;
+      try {
+        const m = (raw || "").match(/\{[\s\S]*\}/);
+        lesson = JSON.parse(m ? m[0] : raw);
+      } catch { return writeJson(res, 200, { ok: false, error: "could not parse lesson" }); }
+      return writeJson(res, 200, { ok: true, lesson, topic });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   if (pathname === "/api/market/outlook" && req.method === "GET") {
     try {
       const payload = await buildMarketOutlook();

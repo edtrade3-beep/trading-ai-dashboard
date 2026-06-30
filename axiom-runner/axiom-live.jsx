@@ -6367,6 +6367,34 @@ function CoachTab({ C, MONO, SANS }) {
     setReflections(n); localStorage.setItem("coach_reflect", JSON.stringify(n)); setReflectText("");
   };
 
+  // ── Learn Something New: AI-generated fresh lessons ──
+  const [learned, setLearned] = useState(() => { try { return JSON.parse(localStorage.getItem("coach_learned")) || []; } catch { return []; } });
+  const [learnLoading, setLearnLoading] = useState(false);
+  const [learnErr, setLearnErr] = useState("");
+  const learnNew = async () => {
+    setLearnLoading(true); setLearnErr("");
+    try {
+      const recentTitles = learned.slice(0, 20).map(x => x.title);
+      const r = await fetch("/api/market/ai-lesson", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recentTitles }) });
+      const d = await r.json();
+      if (!d.ok || !d.lesson || !d.lesson.title) throw new Error(d.error || "تعذّر توليد الدرس");
+      const item = { id: Date.now(), topic: d.topic || "", ...d.lesson };
+      const n = [item, ...learned].slice(0, 100);
+      setLearned(n); localStorage.setItem("coach_learned", JSON.stringify(n));
+    } catch (e) { setLearnErr(e.message || "خطأ"); }
+    finally { setLearnLoading(false); }
+  };
+  const speakLearned = (item) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    const ss = window.speechSynthesis; ss.cancel();
+    const text = [item.title, item.teach, item.deep || "", "التمرين: " + (item.practice || ""), item.mantra || ""].filter(Boolean).join("، ");
+    const u = new SpeechSynthesisUtterance(text);
+    const v = pickVoice(); if (v) u.voice = v;
+    u.lang = v ? v.lang : "ar-SA"; u.rate = rate; u.pitch = 0.9;
+    ss.speak(u);
+  };
+  const deleteLearned = (id) => { const n = learned.filter(x => x.id !== id); setLearned(n); localStorage.setItem("coach_learned", JSON.stringify(n)); };
+
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const generate = async () => {
@@ -6517,7 +6545,7 @@ function CoachTab({ C, MONO, SANS }) {
 
       {/* Section tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {[["today","☀️ اليوم"],["program",`📚 البرنامج (${doneCount}/${COACH_LESSONS.length})`],["habits",`✅ العادات (${habitsDoneToday}/${COACH_HABITS.length})`],["reflect","🧘 تأمّل"]].map(([id,l]) => (
+        {[["today","☀️ اليوم"],["program",`📚 البرنامج (${doneCount}/${COACH_LESSONS.length})`],["learn","🎓 تعلّم جديد"],["habits",`✅ العادات (${habitsDoneToday}/${COACH_HABITS.length})`],["reflect","🧘 تأمّل"]].map(([id,l]) => (
           <button key={id} onClick={() => setSection(id)}
             style={{ background: section===id ? C.accent : C.surface, color: section===id ? "#fff" : C.textSec,
               border: `1px solid ${section===id ? C.accent : C.border}`, borderRadius: 8,
@@ -6691,6 +6719,51 @@ function CoachTab({ C, MONO, SANS }) {
         </div>
         );
       })()}
+
+      {/* ═══ LEARN SOMETHING NEW ═══ */}
+      {section === "learn" && (
+        <div style={{ direction: "rtl" }}>
+          <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginBottom: 14, lineHeight: 1.7 }}>
+            درس جديد في كل ضغطة — تداول، مال، انضباط، حكمة، أو حياة. اضغط الزر ليولّد الذكاء درساً جديداً، ثم استمع إليه بصوتٍ عربي.
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
+            <button onClick={learnNew} disabled={learnLoading}
+              style={{ background: learnLoading ? C.surface : "#a855f7", color: learnLoading ? C.textDim : "#fff",
+                border: "none", borderRadius: 9, fontFamily: SANS, fontSize: 14, fontWeight: 800,
+                padding: "11px 22px", cursor: learnLoading ? "default" : "pointer" }}>
+              {learnLoading ? "⏳ يولّد درساً…" : "🎓 تعلّم شيئاً جديداً"}
+            </button>
+            {learned.length > 0 && <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{learned.length} درس محفوظ</span>}
+          </div>
+          {learnErr && <div style={{ fontFamily: SANS, fontSize: 12, color: "#ef4444", marginBottom: 12 }}>⚠ {learnErr}</div>}
+          {learned.length === 0 && !learnLoading && (
+            <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, padding: "30px 0", textAlign: "center" }}>
+              لا دروس بعد — اضغط الزر أعلاه لأول درس.
+            </div>
+          )}
+          {learned.map(item => (
+            <div key={item.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRight: "3px solid #a855f7",
+              borderRadius: 10, padding: 16, marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
+                <div style={{ fontFamily: SANS, fontSize: 16, fontWeight: 800, color: C.text }}>{item.title}</div>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => speakLearned(item)} title="استمع"
+                    style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, padding: "5px 11px", borderRadius: 7, cursor: "pointer",
+                      border: "1px solid #a855f755", background: "#a855f714", color: "#a855f7" }}>🔊 استمع</button>
+                  <button onClick={() => deleteLearned(item.id)} title="حذف"
+                    style={{ fontFamily: SANS, fontSize: 12, padding: "5px 9px", borderRadius: 7, cursor: "pointer",
+                      border: `1px solid ${C.border}`, background: C.surface, color: C.textDim }}>🗑</button>
+                </div>
+              </div>
+              {item.topic && <div style={{ fontFamily: SANS, fontSize: 11, color: "#a855f7", marginBottom: 8, fontWeight: 700 }}>{item.topic}</div>}
+              <div style={{ fontFamily: SANS, fontSize: 14, color: C.textSec, lineHeight: 1.8, marginBottom: item.deep ? 8 : 10 }}>{item.teach}</div>
+              {item.deep && <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, lineHeight: 1.8, marginBottom: 10 }}>{item.deep}</div>}
+              {item.practice && <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, background: C.surface, borderRadius: 8, padding: "9px 12px", marginBottom: 10, lineHeight: 1.7 }}>🎯 <b>التمرين:</b> {item.practice}</div>}
+              {item.mantra && <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: "#a855f7", fontStyle: "italic" }}>“{item.mantra}”</div>}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ═══ HABITS ═══ */}
       {section === "habits" && (
