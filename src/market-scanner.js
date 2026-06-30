@@ -151,6 +151,8 @@ const STATE_PATH = path.join(ROOT, "data", "scanner-state.json");
 // restarts don't re-send it.
 const summarySent = new Map(); // signature → timestamp
 const SUMMARY_DEDUP_MS = 4 * 3600_000; // don't repeat an identical summary within 4h
+let lastIntervalSummaryAt = 0;          // hard 15-min throttle on the interval summary
+const MIN_SUMMARY_GAP_MS  = 15 * 60_000;
 function summaryAlreadySent(sig) {
   const ts = summarySent.get(sig);
   return !!ts && (Date.now() - ts) < SUMMARY_DEDUP_MS;
@@ -177,6 +179,7 @@ function saveScannerState() {
         cooldownMap:   Array.from(cooldownMap.entries()),
         lastSignalMap: Array.from(lastSignalMap.entries()),
         summarySent:   Array.from(summarySent.entries()),
+        lastIntervalSummaryAt,
         lastMacroRegime,
         lastMacroAlertedAt,
         savedAt: Date.now(),
@@ -201,6 +204,7 @@ function loadScannerState() {
     for (const [k, ts] of (s.summarySent || [])) {
       if (typeof ts === "number" && ts > sumCutoff) summarySent.set(k, ts);
     }
+    if (typeof s.lastIntervalSummaryAt === "number") lastIntervalSummaryAt = s.lastIntervalSummaryAt;
     if (s.lastMacroRegime)   lastMacroRegime    = s.lastMacroRegime;
     if (s.lastMacroAlertedAt) lastMacroAlertedAt = s.lastMacroAlertedAt;
   } catch {}
@@ -860,7 +864,9 @@ async function runScan(options = {}) {
         const hasFireBuy  = buys.some(h  => h.composite >= FIRE_BUY_SCORE);
         const hasFireSell = sells.some(h => h.composite <= FIRE_SELL_SCORE);
         const sigB = summarySignature(buys, sells);
-        if ((buys.length || sells.length) && (hasFireBuy || hasFireSell) && !summaryAlreadySent(sigB)) {
+        const gapOk = Date.now() - lastIntervalSummaryAt >= MIN_SUMMARY_GAP_MS;
+        if ((buys.length || sells.length) && (hasFireBuy || hasFireSell) && gapOk && !summaryAlreadySent(sigB)) {
+          lastIntervalSummaryAt = Date.now();
           markSummarySent(sigB);
           const time = new Date().toLocaleTimeString("en-US", {
             timeZone: "America/New_York", hour: "2-digit", minute: "2-digit",
