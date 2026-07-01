@@ -856,14 +856,15 @@ async function buildTrendTemplate(symbol, opts = {}) {
     rsRating = null;
   }
 
+  const f = (n) => (n != null && isFinite(n)) ? `$${Number(n).toFixed(2)}` : "—";
   const criteria = [
-    { id: 1, label: "Price above 150-day & 200-day MA", pass: price > ma150 && price > ma200 },
-    { id: 2, label: "150-day MA above 200-day MA", pass: ma150 > ma200 },
-    { id: 3, label: "200-day MA trending up (≥1 month)", pass: ma200Prev != null && ma200 > ma200Prev },
-    { id: 4, label: "50-day MA above 150-day & 200-day MA", pass: ma50 > ma150 && ma50 > ma200 },
-    { id: 5, label: "Price above 50-day MA", pass: price > ma50 },
-    { id: 6, label: "Price ≥30% above 52-week low", pass: price >= lo52 * 1.30 },
-    { id: 7, label: "Price within 25% of 52-week high", pass: price >= hi52 * 0.75 },
+    { id: 1, label: "Price above 150-day & 200-day MA", pass: price > ma150 && price > ma200, value: `price ${f(price)} · 150d ${f(ma150)} · 200d ${f(ma200)}` },
+    { id: 2, label: "150-day MA above 200-day MA", pass: ma150 > ma200, value: `150d ${f(ma150)} · 200d ${f(ma200)}` },
+    { id: 3, label: "200-day MA trending up (≥1 month)", pass: ma200Prev != null && ma200 > ma200Prev, value: `now ${f(ma200)} · 1mo ago ${f(ma200Prev)}` },
+    { id: 4, label: "50-day MA above 150-day & 200-day MA", pass: ma50 > ma150 && ma50 > ma200, value: `50d ${f(ma50)} · 150d ${f(ma150)} · 200d ${f(ma200)}` },
+    { id: 5, label: "Price above 50-day MA", pass: price > ma50, value: `price ${f(price)} · 50d ${f(ma50)}` },
+    { id: 6, label: "Price ≥30% above 52-week low", pass: price >= lo52 * 1.30, value: `low ${f(lo52)} · price +${pctFromLow}%` },
+    { id: 7, label: "Price within 25% of 52-week high", pass: price >= hi52 * 0.75, value: `high ${f(hi52)} · price ${pctFromHigh}%` },
     { id: 8, label: "Relative Strength rating ≥70", pass: rsRating != null && rsRating >= 70, value: rsRating },
   ];
   const passCount = criteria.filter((c) => c.pass).length;
