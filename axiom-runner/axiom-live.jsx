@@ -9191,7 +9191,14 @@ function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymbols }) {
       positions,
     };
     fetch("/api/market/ai-copilot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next, context: ctx }) })
-      .then(r => r.json()).then(d => setMsgs(m => [...m, { role: "assistant", content: d.ok ? d.reply : `⚠ ${d.error || "error"}` }]))
+      .then(async r => {
+        const ct = r.headers.get("content-type") || "";
+        if (!ct.includes("application/json")) {
+          return { ok: false, error: (r.status === 502 || r.status === 503) ? "Server is waking up / redeploying — try again in a moment." : `Server not ready (HTTP ${r.status}).` };
+        }
+        return r.json();
+      })
+      .then(d => setMsgs(m => [...m, { role: "assistant", content: d.ok ? d.reply : `⚠ ${d.error === "invalid x-api-key" ? "AI key rejected — update ANTHROPIC_API_KEY in Render." : (d.error || "error")}` }]))
       .catch(e => setMsgs(m => [...m, { role: "assistant", content: `⚠ ${e.message}` }]))
       .finally(() => setBusy(false));
   };
