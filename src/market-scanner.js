@@ -178,6 +178,7 @@ function saveScannerState() {
       const snapshot = {
         cooldownMap:   Array.from(cooldownMap.entries()),
         lastSignalMap: Array.from(lastSignalMap.entries()),
+        smcCooldown:   Array.from(smcCooldown.entries()),
         summarySent:   Array.from(summarySent.entries()),
         lastSummarySlot,
         lastMacroRegime,
@@ -200,6 +201,9 @@ function loadScannerState() {
       if (typeof ts === "number" && ts > cutoff) cooldownMap.set(k, ts);
     }
     for (const [k, v] of (s.lastSignalMap || [])) lastSignalMap.set(k, v);
+    for (const [k, ts] of (s.smcCooldown || [])) {
+      if (typeof ts === "number" && ts > cutoff) smcCooldown.set(k, ts);
+    }
     const sumCutoff = Date.now() - SUMMARY_DEDUP_MS;
     for (const [k, ts] of (s.summarySent || [])) {
       if (typeof ts === "number" && ts > sumCutoff) summarySent.set(k, ts);
@@ -748,6 +752,7 @@ async function runScan(options = {}) {
             if (v.label !== "A+ LONG" && v.label !== "LONG") continue;
 
             smcCooldown.set(smcKey, Date.now());
+            saveScannerState();
             if (incCount) incCount();
 
             // Entry/stop/targets
