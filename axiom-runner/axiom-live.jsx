@@ -7282,8 +7282,16 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       candidates.forEach(({ q, gl, bullish, bearishPut, shortSetup }) => {
         if (slots <= 0) return;  // cap reached — skip the rest (lower-ranked setups)
 
-        // ── SHORT (sell to open on strong bearish setups) ──
+        // ── SHORT (sell to open — conservative: strong setups only, half size, few per day) ──
         if (doShort && shortSetup) {
+          // Slowly + low risk: only the STRONGEST bearish setups, and no more than
+          // maxShorts new shorts per day (default 2).
+          const strongBear = gl.shortPassed >= 4 && gl.bearScore >= 60;
+          if (!strongBear) return;
+          const maxShorts = Number(localStorage.getItem("axiom_autopilot_maxshorts")) || 2;
+          let shortsToday = 0;
+          autoBoughtRef.current.forEach(k => { if (k.startsWith(today) && k.includes(":SH:")) shortsToday++; });
+          if (shortsToday >= maxShorts) return;
           const key = `${today}:${q.symbol}:SH:${broker}`;
           if (!autoBoughtRef.current.has(key)) {
             // Conservative PUTS: only the STRONGEST bearish setups (5/5) express as a single
@@ -7301,10 +7309,12 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
               const stop = +(entry * (1 + atr * 1.5)).toFixed(2);   // stop above
               const take = +(entry * (1 - atr * 3)).toFixed(2);     // target below
               const riskPerShare = Math.max(0.01, stop - entry);
-              const qty = Math.max(1, Math.min(Math.floor((acct * (riskPct / 100)) / riskPerShare), Math.floor(acct / entry)));
+              // Half the normal per-trade risk, capped at 0.5% — small, low-risk shorts.
+              const shortRiskFrac = Math.min(0.005, (riskPct / 100) * 0.5);
+              const qty = Math.max(1, Math.min(Math.floor((acct * shortRiskFrac) / riskPerShare), Math.floor(acct / entry)));
               autoBoughtRef.current.add(key); slots--;
               alpacaShort(q.symbol, qty, stop, take).then(r => {
-                if (r?.ok) logTradeNote("buy", `🔻 ALPACA SHORT — ${q.symbol} (${gl.shortPassed}/5)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} (above) · Target $${take} (below)`);
+                if (r?.ok) logTradeNote("buy", `🔻 ALPACA SHORT (small · ${(shortRiskFrac * 100).toFixed(2)}% risk) — ${q.symbol} (${gl.shortPassed}/5)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} (above) · Target $${take} (below)`);
                 else { autoBoughtRef.current.delete(key); }
               });
             } else {
@@ -17676,6 +17686,9 @@ export default function App() {
     if (typeof window === "undefined") return null;
     if (localStorage.getItem("axiom_autopilot_broker") == null) localStorage.setItem("axiom_autopilot_broker", "alpaca");
     if (localStorage.getItem("axiom_autopilot") == null) localStorage.setItem("axiom_autopilot", "on");
+    // Conservative shorts on by default: strong bear setups only, half size, max 2/day.
+    if (localStorage.getItem("axiom_autopilot_short") == null) localStorage.setItem("axiom_autopilot_short", "on");
+    if (localStorage.getItem("axiom_autopilot_maxshorts") == null) localStorage.setItem("axiom_autopilot_maxshorts", "2");
     return null;
   });
   const [appUnlocked, setAppUnlocked] = useState(true);
