@@ -30,6 +30,7 @@ const { startCOTScheduler }  = require("./src/cot/scheduler");
 const { startPreMarketAlerts } = require("./src/premarket-alerts");
 const { runMarketRecap }       = require("./src/market-recap");
 const { runMorningGamePlan, runTradeCoach } = require("./src/ai-coach");
+const { runAutopilotRecap } = require("./src/alpaca-recap");
 const { pollGmailLeads } = require("./src/gmail-leads");
 const { runAdol22, handleAdol22Api } = require("./src/adol22-scanner");
 const { updateCOTData, isDataFresh } = require("./src/cot/cotService");
@@ -114,16 +115,18 @@ server.listen(PORT, HOST, () => {
   console.log("[Recap] 3:45 PM market recap scheduled — weekdays only");
 
   // AI Morning Game Plan (~9:40 AM ET) + AI Trade Coach (~4:15 PM ET) — weekdays, server-side.
-  let _gpSent = null, _coachSent = null;
+  // Autopilot recap (~4:05 PM ET) — what the Alpaca paper autopilot did today.
+  let _gpSent = null, _coachSent = null, _recapAP = null;
   setInterval(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
     const today = `${et.getFullYear()}-${et.getMonth()}-${et.getDate()}`;
     if (day < 1 || day > 5) return;
     if (h === 9 && m >= 40 && m < 46 && _gpSent !== today) { _gpSent = today; runMorningGamePlan().catch(() => {}); }
+    if (h === 16 && m >= 5 && m < 11 && _recapAP !== today) { _recapAP = today; runAutopilotRecap().catch(() => {}); }
     if (h === 16 && m >= 15 && m < 21 && _coachSent !== today) { _coachSent = today; runTradeCoach().catch(() => {}); }
   }, 60_000);
-  console.log("[AI] Morning game plan 9:40 AM + trade coach 4:15 PM scheduled — weekdays only");
+  console.log("[AI] Game plan 9:40 · autopilot recap 4:05 · trade coach 4:15 PM — weekdays only");
 
   // CarGurus lead auto-reply — poll Gmail every 3 min (only if GMAIL_USER/APP_PASSWORD set).
   if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {

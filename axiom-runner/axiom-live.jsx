@@ -7134,6 +7134,59 @@ function addPaperOption(sym, uPrice, kind, opts = {}) {
   return "OK";
 }
 
+// ── Autopilot status card — live glance + PAUSE button (top of Green Light) ──
+function AutopilotStatusCard({ C, MONO, SANS }) {
+  const [acct, setAcct] = React.useState(null);
+  const [positions, setPositions] = React.useState([]);
+  const [tick, setTick] = React.useState(0);   // bump to re-read localStorage after toggle
+  React.useEffect(() => {
+    const load = () => {
+      fetch("/api/alpaca/account").then(r => r.json()).then(d => { if (d?.ok) setAcct(d.account); }).catch(() => {});
+      fetch("/api/alpaca/positions").then(r => r.json()).then(d => { if (d?.ok) setPositions(d.positions || []); }).catch(() => {});
+    };
+    load();
+    const iv = setInterval(load, 30_000);
+    return () => clearInterval(iv);
+  }, []);
+  const on      = localStorage.getItem("axiom_autopilot") === "on";
+  const broker  = localStorage.getItem("axiom_autopilot_broker") || "alpaca";
+  const today   = (() => { const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" })); return `${et.getFullYear()}-${et.getMonth()}-${et.getDate()}`; })();
+  const halted  = localStorage.getItem("axiom_autopilot_halt_date") === today;
+  const haltReason = localStorage.getItem("axiom_autopilot_halt_reason") || "";
+  const longs   = positions.filter(p => Number(p.qty) > 0).length;
+  const shorts  = positions.filter(p => Number(p.qty) < 0).length;
+  const dayPnl  = acct ? (Number(acct.equity) - Number(acct.lastEquity || acct.equity)) : 0;
+  const money   = n => `${n < 0 ? "-" : "+"}$${Math.abs(Math.round(n)).toLocaleString()}`;
+  const toggle  = () => { localStorage.setItem("axiom_autopilot", on ? "off" : "on"); setTick(t => t + 1); };
+  const statusCol = halted ? C.red : on ? C.green : C.textDim;
+  const cell = (label, val, col) => (
+    <div style={{ textAlign: "center", minWidth: 74 }}>
+      <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: col || C.text }}>{val}</div>
+      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{label}</div>
+    </div>
+  );
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", padding: "10px 14px", marginBottom: 12,
+      borderRadius: 10, background: `${statusCol}10`, border: `1px solid ${statusCol}55` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 18 }}>{halted ? "🛑" : on ? "🤖" : "⏸️"}</span>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: statusCol }}>
+            AUTOPILOT {halted ? "HALTED" : on ? "ON" : "OFF"}</div>
+          <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{broker} · paper{halted && haltReason ? ` · ${haltReason}` : ""}</div>
+        </div>
+      </div>
+      {cell("TODAY", money(dayPnl), dayPnl > 0 ? C.green : dayPnl < 0 ? C.red : C.text)}
+      {cell("OPEN", positions.length, C.text)}
+      {cell("LONG / SHORT", `${longs} / ${shorts}`, C.text)}
+      {acct && cell("EQUITY", `$${Math.round(Number(acct.equity)).toLocaleString()}`, C.text)}
+      <button onClick={toggle} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer",
+        padding: "9px 18px", borderRadius: 8, border: "none", color: "#fff",
+        background: on ? C.red : C.green }}>{on ? "⏸ PAUSE" : "▶ RESUME"}</button>
+    </div>
+  );
+}
+
 // ── Alpaca PAPER order helpers (orders routed server-side; keys never in browser) ──
 async function alpacaPlace(sym, qty, stop, take) {
   try {
@@ -9827,6 +9880,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
       </div>
 
       {/* Auto-pilot + paper trades now live in their own 📋 MY TRADES tab */}
+      <AutopilotStatusCard C={C} MONO={MONO} SANS={SANS} />
 
       {/* Market regime score (0-100 across SPY/QQQ/VIX/breadth/trend) */}
       <div style={{ padding: "10px 16px", marginBottom: 16, borderRadius: 8,
