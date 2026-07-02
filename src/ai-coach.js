@@ -46,4 +46,25 @@ async function runTradeCoach() {
   if (coach) sendTelegramMessage(`🎯 *AI TRADE COACH* — ${today}\n\n${coach.trim()}`).catch(() => {});
 }
 
-module.exports = { runMorningGamePlan, runTradeCoach };
+// ── Weekly AI Review — Friday after close: name the #1 recurring mistake. ────
+async function runWeeklyReview() {
+  if (!KEY() || !isConfigured()) return;
+  const ct = await getJson("/api/alpaca/closed-trades");
+  if (!ct || !ct.ok) return;
+  const weekAgo = Date.now() - 7 * 86400000;
+  const week = (ct.trades || []).filter(t => new Date(t.closedAt).getTime() >= weekAgo).slice(0, 60);
+  if (!week.length) return;
+  const wins = week.filter(t => Number(t.pnl) > 0);
+  const losses = week.filter(t => Number(t.pnl) <= 0);
+  const net = week.reduce((s, t) => s + (Number(t.pnl) || 0), 0);
+  const winRate = Math.round((wins.length / week.length) * 100);
+  const avgWin = wins.length ? wins.reduce((s, t) => s + Number(t.pnl), 0) / wins.length : 0;
+  const avgLoss = losses.length ? losses.reduce((s, t) => s + Number(t.pnl), 0) / losses.length : 0;
+  const SYSTEM = `You are a seasoned trading coach reviewing a full WEEK of a trader's closed trades. Find the ONE recurring pattern that's costing them the most, and one concrete change for next week. Be specific and honest — no generic advice. Max 110 words. Format:\nWEEK: one-line verdict.\n#1 MISTAKE: the single most costly recurring pattern, with evidence from the trades.\nNEXT WEEK: one concrete rule to fix it.`;
+  const rows = week.map(t => `${t.symbol} ${t.side || "long"}: $${t.entry}→$${t.exit}, P&L $${Math.round(t.pnl)}`).join("\n");
+  const stats = `${week.length} trades · ${winRate}% win · net $${Math.round(net)} · avg win $${Math.round(avgWin)} · avg loss $${Math.round(avgLoss)}`;
+  const review = await callAnthropicApi(`This week's stats: ${stats}\n\nClosed trades:\n${rows}\n\nWhat's my #1 recurring mistake?`, KEY(), { model: MODELS.haiku, maxTokens: 350, system: SYSTEM, cache: true }).catch(() => "");
+  if (review) sendTelegramMessage(`📅 *WEEKLY REVIEW*\n${stats}\n\n${review.trim()}`).catch(() => {});
+}
+
+module.exports = { runMorningGamePlan, runTradeCoach, runWeeklyReview };

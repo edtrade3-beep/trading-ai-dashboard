@@ -7157,6 +7157,10 @@ function AutopilotStatusCard({ C, MONO, SANS }) {
   const shorts  = positions.filter(p => Number(p.qty) < 0).length;
   const dayPnl  = acct ? (Number(acct.equity) - Number(acct.lastEquity || acct.equity)) : 0;
   const money   = n => `${n < 0 ? "-" : "+"}$${Math.abs(Math.round(n)).toLocaleString()}`;
+  const maxRisk = Number(localStorage.getItem("axiom_autopilot_maxrisk")) || 6;
+  const eqNow   = acct ? Number(acct.equity) : 0;
+  const riskDlr = positions.reduce((s, p) => s + Math.abs(Number(p.qty) || 0) * (Number(p.avgEntry) || 0) * 0.05, 0);
+  const riskPct = eqNow > 0 ? (riskDlr / eqNow) * 100 : 0;
   const toggle  = () => { localStorage.setItem("axiom_autopilot", on ? "off" : "on"); setTick(t => t + 1); };
   const statusCol = halted ? C.red : on ? C.green : C.textDim;
   const cell = (label, val, col) => (
@@ -7179,6 +7183,7 @@ function AutopilotStatusCard({ C, MONO, SANS }) {
       {cell("TODAY", money(dayPnl), dayPnl > 0 ? C.green : dayPnl < 0 ? C.red : C.text)}
       {cell("OPEN", positions.length, C.text)}
       {cell("LONG / SHORT", `${longs} / ${shorts}`, C.text)}
+      {cell(`RISK / ${maxRisk}%`, `${riskPct.toFixed(1)}%`, riskPct >= maxRisk ? C.red : riskPct >= maxRisk * 0.75 ? C.amber : C.green)}
       {acct && cell("EQUITY", `$${Math.round(Number(acct.equity)).toLocaleString()}`, C.text)}
       <button onClick={toggle} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer",
         padding: "9px 18px", borderRadius: 8, border: "none", color: "#fff",
@@ -7229,7 +7234,15 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
     const etDate = d => { try { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(d)); } catch { return ""; } };
     const poll = () => {
       if (!["alpaca","both"].includes(localStorage.getItem("axiom_autopilot_broker"))) return;
-      fetch("/api/alpaca/positions").then(r => r.json()).then(d => { if (d?.ok) alpacaPosRef.current = (d.positions || []).length; }).catch(() => {});
+      fetch("/api/alpaca/positions").then(r => r.json()).then(d => {
+        if (!d?.ok) return;
+        const pos = d.positions || [];
+        alpacaPosRef.current = pos.length;
+        // Estimate total open risk = Σ |qty| × entry × assumed 5% stop (autopilot uses ATR≈1.5×).
+        const eq = apStatsRef.current.equity || 0;
+        const riskDollars = pos.reduce((s, p) => s + Math.abs(Number(p.qty) || 0) * (Number(p.avgEntry) || 0) * 0.05, 0);
+        apStatsRef.current.openRiskPct = eq > 0 ? (riskDollars / eq) * 100 : 0;
+      }).catch(() => {});
       Promise.all([
         fetch("/api/alpaca/closed-trades").then(r => r.json()).catch(() => null),
         fetch("/api/alpaca/account").then(r => r.json()).catch(() => null),
@@ -7240,7 +7253,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
         const dayPnl = trades.filter(t => etDate(t.closedAt) === todayStr).reduce((s, t) => s + (Number(t.pnl) || 0), 0);
         let lossStreak = 0;                                // newest first → count leading losers
         for (const t of trades) { if (Number(t.pnl) <= 0) lossStreak++; else break; }
-        apStatsRef.current = { dayPnl, lossStreak, equity: eq };
+        apStatsRef.current = { ...apStatsRef.current, dayPnl, lossStreak, equity: eq };
       }).catch(() => {});
     };
     poll();
@@ -7259,6 +7272,16 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       const doOptions = localStorage.getItem("axiom_autopilot_opts") === "on";      // independent toggle, default OFF
       const doShort   = localStorage.getItem("axiom_autopilot_short") === "on";      // short selling, default OFF
       if (!doShares && !doOptions && !doShort) return;  // nothing enabled
+      // ── Total open-risk guard: stop opening NEW trades once combined open risk hits the ceiling. ──
+      const maxRiskPct = Number(localStorage.getItem("axiom_autopilot_maxrisk")) || 6;  // % of equity
+      const openRiskPct = Number(apStatsRef.current.openRiskPct) || 0;
+      if (openRiskPct >= maxRiskPct) {
+        if (localStorage.getItem("axiom_autopilot_risk_note") !== today) {
+          localStorage.setItem("axiom_autopilot_risk_note", today);
+          logTradeNote("buy", `⚖️ RISK CEILING — open risk ~${openRiskPct.toFixed(1)}% ≥ ${maxRiskPct}% cap. Pausing NEW entries until risk drops.`);
+        }
+        return;
+      }
       const brokers = ["alpaca"];  // SIM removed — autopilot is Alpaca-only
       const acct = Number(localStorage.getItem("axiom_acct_size")) || 10000;
       const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
