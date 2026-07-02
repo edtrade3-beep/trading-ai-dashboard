@@ -5459,8 +5459,8 @@ function computeGreenLight(q, spyChg, scanRow, regime = null) {
   const grade  = aScore >= 95 ? "ELITE" : aScore >= 90 ? "A+" : aScore >= 85 ? "GOOD" : aScore >= 80 ? "WATCH" : "IGNORE";
   // Confidence-based position size (% of account) per the A+ Institutional spec
   const confRisk = aScore >= 95 ? 1.0 : aScore >= 90 ? 0.75 : aScore >= 85 ? 0.5 : 0;
-  // Market filter: regime ≥ 80 (SPY/QQQ/VIX/breadth folded into the regime score)
-  const marketPass = regime == null ? spyChg > -0.3 : regime >= 80;
+  // Market filter: regime ≥ 75 (SPY/QQQ/VIX/breadth folded into the regime score)
+  const marketPass = regime == null ? spyChg > -0.3 : regime >= 75;
   // Institutional tradeable: A+ (≥90) AND market passes AND at the buy zone
   const aPlus = aScore >= 90 && marketPass && atEntry;
 
@@ -5548,8 +5548,8 @@ function computeRegime(macroData) {
   // Trend day proxy: SPY moving decisively (|chg| > 0.4%) in the up direction
   factors.push({ label: "Trend day", pass: spy ? chg(spy) > 0.4 : false, pts: 20 });
   const score = factors.reduce((s, f) => s + (f.pass ? f.pts : 0), 0);
-  const label = score >= 80 ? "GREEN" : score >= 60 ? "YELLOW" : "RED";
-  const color = score >= 80 ? "#22c55e" : score >= 60 ? "#d6a312" : "#ef4444";
+  const label = score >= 75 ? "GREEN" : score >= 55 ? "YELLOW" : "RED";
+  const color = score >= 75 ? "#22c55e" : score >= 55 ? "#d6a312" : "#ef4444";
   return { score, label, color, factors, vixVal };
 }
 
