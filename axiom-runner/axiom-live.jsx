@@ -17674,6 +17674,20 @@ export default function App() {
     window.addEventListener("resize", fn);
     return () => window.removeEventListener("resize", fn);
   }, []);
+  // Size everything off the REAL Alpaca paper account: pull live equity → axiom_acct_size
+  // so every position-size calc across the app uses your actual balance, not a manual number.
+  useEffect(() => {
+    const sync = () => fetch("/api/alpaca/account").then(r => r.json()).then(d => {
+      if (d?.ok && d.account && Number(d.account.equity) > 0) {
+        localStorage.setItem("axiom_acct_size", String(Math.round(Number(d.account.equity))));
+        localStorage.setItem("axiom_alpaca_bp", String(Math.round(Number(d.account.buyingPower) || 0)));
+        localStorage.setItem("axiom_acct_source", "alpaca");
+      }
+    }).catch(() => {});
+    sync();
+    const iv = setInterval(sync, 5 * 60_000);
+    return () => clearInterval(iv);
+  }, []);
   const [unlockInput, setUnlockInput] = useState("");
   const [unlockError, setUnlockError] = useState("");
   const [apiKey, setApiKey] = useState("YAHOO_LOCAL");
