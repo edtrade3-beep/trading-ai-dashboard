@@ -5461,8 +5461,9 @@ function computeGreenLight(q, spyChg, scanRow, regime = null) {
   const confRisk = aScore >= 95 ? 1.0 : aScore >= 90 ? 0.75 : aScore >= 85 ? 0.5 : 0;
   // Market filter: regime ≥ 75 (SPY/QQQ/VIX/breadth folded into the regime score)
   const marketPass = regime == null ? spyChg > -0.3 : regime >= 75;
-  // Institutional tradeable: A+ (≥90) AND market passes AND at the buy zone
-  const aPlus = aScore >= 90 && marketPass && atEntry;
+  // Tradeable (Balanced Flex): score ≥85 AND market passes AND at the buy zone.
+  // 85–89 "GOOD" setups qualify but confRisk sizes them at HALF (0.5×) — more trades, less risk each.
+  const aPlus = aScore >= 85 && marketPass && atEntry;
 
   // ── BEAR SCORE — put-candidate quality (5 × 20). For momentum breakdowns on red days. ──
   // VWAP isn't available client-side, so EMA21 is used as the intraday-mean proxy; 50-MA = support.
@@ -10073,7 +10074,7 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
         );
         return (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 12, marginBottom: 20, alignItems: "start" }}>
-            {colWrap(C.green, "🟢 CALLS", calls.filter(c => c.aPlus).length, "A+ Score ≥90 · market green · at buy zone.",
+            {colWrap(C.green, "🟢 CALLS", calls.filter(c => c.aPlus).length, "Score ≥85 · market green · at buy zone (85–89 = half size).",
               calls.length === 0 ? <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>nothing set up ⏳</div>
                 : calls.map(r => { const ok = r.aPlus; return card(r, { score: r.aScore, sc: r.aScore >= 90 ? C.green : r.aScore >= 85 ? "#5ab552" : C.textDim, ok, checks: r.checks, rr: r.rr, tint: C.green, badge: tag(ok ? `BUY ${r.confRisk}%` : r.atEntry ? "watch" : "wait entry", C.green, ok), lvls: `🎯 $${r.bestEntry} · 🛑 $${r.stop}` }); }))}
             {colWrap(C.red, "🔻 PUTS", puts.filter(p => p.bearTradeable).length, "Bear Score >80 · R:R ≥2. Trade small, sit in cash if none.",
