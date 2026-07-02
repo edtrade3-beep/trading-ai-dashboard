@@ -8095,6 +8095,12 @@ function TradeTracker({ C, MONO, SANS, watchlistData, view = "all" }) {
             <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>💰 ACCOUNT</span>
             <input value={acct} onChange={e => saveAcct(Number(e.target.value) || 0)} type="number"
               style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 5, fontFamily: MONO, fontSize: 12, color: C.text, padding: "5px 9px", width: 100, outline: "none" }} />
+            {localStorage.getItem("axiom_acct_source") === "alpaca" && (
+              <span title="Auto-synced from your live Alpaca paper balance every 5 min"
+                style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.green, background: `${C.green}14`, border: `1px solid ${C.green}44`, borderRadius: 4, padding: "2px 7px" }}>
+                🔗 synced from Alpaca
+              </span>
+            )}
             <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>RISK %</span>
             <div style={{ display: "flex", gap: 4 }}>
               {[0.5, 1, 2].map(r => (
@@ -17664,6 +17670,14 @@ Risk small and follow the stop.`
 // MAIN APP
 // ═══════════════════════════════════════════════════════════════
 export default function App() {
+  // First-run defaults: route autopilot to the Alpaca paper account and turn it ON.
+  // Only sets when unset, so it never overrides a choice you've made. (Paper only — no real money.)
+  useState(() => {
+    if (typeof window === "undefined") return null;
+    if (localStorage.getItem("axiom_autopilot_broker") == null) localStorage.setItem("axiom_autopilot_broker", "alpaca");
+    if (localStorage.getItem("axiom_autopilot") == null) localStorage.setItem("axiom_autopilot", "on");
+    return null;
+  });
   const [appUnlocked, setAppUnlocked] = useState(true);
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
   const [isTablet, setIsTablet] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768 && window.innerWidth <= 1100);
