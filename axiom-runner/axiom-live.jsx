@@ -12849,26 +12849,69 @@ const OPTIONS_QUIZ_ADV = [
 ];
 
 function OptionsQuiz({ C, MONO, SANS }) {
+  const POOL = [...OPTIONS_QUIZ, ...OPTIONS_QUIZ_ADV];
   const shuffle = (arr) => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-  // Build a fresh shuffled deck: random question order + shuffled answer options (correct index re-tracked).
-  const buildDeck = () => shuffle([...OPTIONS_QUIZ, ...OPTIONS_QUIZ_ADV]).slice(0, 12).map(item => {
-    const correctVal = item.opts[item.correct];
-    const opts = shuffle(item.opts);
-    return { q: item.q, opts, correct: opts.indexOf(correctVal), explain: item.explain };
-  });
+  const loadStats = () => { try { return JSON.parse(localStorage.getItem("options_quiz_stats")) || {}; } catch { return {}; } };
+  const [stats, setStats] = useState(loadStats);   // { [q]: { miss, correct } }
+  const [best, setBest] = useState(() => Number(localStorage.getItem("options_quiz_best")) || 0);
+  // Bias the deck toward your weak spots: questions you've missed come first, then random fill.
+  const buildDeck = () => {
+    const s = loadStats();
+    const weak = POOL.filter(i => (s[i.q]?.miss || 0) > (s[i.q]?.correct || 0));
+    const rest = POOL.filter(i => !weak.includes(i));
+    const ordered = [...shuffle(weak), ...shuffle(rest)].slice(0, 12);
+    return shuffle(ordered).map(item => {
+      const correctVal = item.opts[item.correct];
+      const opts = shuffle(item.opts);
+      return { q: item.q, opts, correct: opts.indexOf(correctVal), explain: item.explain };
+    });
+  };
   const [deck, setDeck] = useState(buildDeck);
   const [ans, setAns] = useState({});   // qIndex -> chosen option index
   const reset = () => { setDeck(buildDeck()); setAns({}); };
   const answeredCount = Object.keys(ans).length;
   const score = Object.entries(ans).filter(([i, o]) => deck[i].correct === o).length;
+
+  // Record a result for a question (persist miss/correct tallies).
+  const record = (qText, correct) => {
+    setStats(prev => {
+      const cur = prev[qText] || { miss: 0, correct: 0 };
+      const next = { ...prev, [qText]: { miss: cur.miss + (correct ? 0 : 1), correct: cur.correct + (correct ? 1 : 0) } };
+      try { localStorage.setItem("options_quiz_stats", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+  // Update best score once the whole deck is answered.
+  React.useEffect(() => {
+    if (answeredCount === deck.length && deck.length && score > best) {
+      setBest(score); try { localStorage.setItem("options_quiz_best", String(score)); } catch {}
+    }
+  }, [answeredCount, score, deck.length]);
+
+  const weakSpots = Object.entries(stats)
+    .filter(([, v]) => (v.miss || 0) > 0)
+    .sort((a, b) => (b[1].miss - b[1].correct) - (a[1].miss - a[1].correct))
+    .slice(0, 3)
+    .map(([q]) => POOL.find(i => i.q === q)).filter(Boolean);
+  const attempted = Object.values(stats).reduce((s, v) => s + (v.miss || 0) + (v.correct || 0), 0);
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginTop: 20 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexWrap: "wrap", gap: 8 }}>
         <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text }}>✅ QUIZ — tap an answer</div>
         <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: answeredCount ? (score === answeredCount ? C.green : C.amber) : C.textDim }}>
-          Score {score}/{deck.length}</div>
+          Score {score}/{deck.length}{best ? ` · best ${best}/12` : ""}</div>
       </div>
-      <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 12 }}>Tap a box — you get the answer and why, instantly.</div>
+      <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 12 }}>Tap a box — you get the answer and why, instantly. Weak spots come back more often until you nail them.</div>
+      {weakSpots.length > 0 && (
+        <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 10, background: `${C.amber}0d`, border: `1px solid ${C.amber}44` }}>
+          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.amber, marginBottom: 6 }}>🎯 YOUR WEAK SPOTS ({attempted} answered)</div>
+          {weakSpots.map((w, i) => (
+            <div key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.6, marginBottom: i < weakSpots.length - 1 ? 6 : 0 }}>
+              • <b>{w.q}</b> — {w.explain}
+            </div>
+          ))}
+        </div>
+      )}
       {deck.map((item, qi) => {
         const chosen = ans[qi];
         const done = chosen != null;
@@ -12885,7 +12928,7 @@ function OptionsQuiz({ C, MONO, SANS }) {
                   else if (isChosen) { bg = `${C.red}18`; bd = C.red; col = C.red; mark = " ✗"; }
                 }
                 return (
-                  <button key={oi} onClick={() => { if (!done) setAns(a => ({ ...a, [qi]: oi })); }} disabled={done}
+                  <button key={oi} onClick={() => { if (!done) { setAns(a => ({ ...a, [qi]: oi })); record(item.q, oi === item.correct); } }} disabled={done}
                     style={{ textAlign: "left", fontFamily: SANS, fontSize: 13.5, fontWeight: 600, padding: "11px 14px", borderRadius: 9,
                       border: `1.5px solid ${bd}`, background: bg, color: col, cursor: done ? "default" : "pointer" }}>
                     {opt}{mark}
