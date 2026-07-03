@@ -7,7 +7,8 @@ const BUILD = process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || "local"
 const STARTED_AT = new Date().toISOString();
 
 async function handleHealth(req, res) {
-  return writeJson(res, 200, { ok: true, version: "market-v2", build: BUILD, startedAt: STARTED_AT, telegram: telegramConfigured() });
+  const serverAutopilot = (process.env.SERVER_AUTOPILOT || "").toLowerCase() === "on";
+  return writeJson(res, 200, { ok: true, version: "market-v2", build: BUILD, startedAt: STARTED_AT, telegram: telegramConfigured(), serverAutopilot });
 }
 
 module.exports = handleHealth;

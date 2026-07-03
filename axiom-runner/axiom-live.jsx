@@ -7138,11 +7138,13 @@ function addPaperOption(sym, uPrice, kind, opts = {}) {
 function AutopilotStatusCard({ C, MONO, SANS }) {
   const [acct, setAcct] = React.useState(null);
   const [positions, setPositions] = React.useState([]);
+  const [serverMode, setServerMode] = React.useState(false);
   const [tick, setTick] = React.useState(0);   // bump to re-read localStorage after toggle
   React.useEffect(() => {
     const load = () => {
       fetch("/api/alpaca/account").then(r => r.json()).then(d => { if (d?.ok) setAcct(d.account); }).catch(() => {});
       fetch("/api/alpaca/positions").then(r => r.json()).then(d => { if (d?.ok) setPositions(d.positions || []); }).catch(() => {});
+      fetch("/api/health").then(r => r.json()).then(d => setServerMode(!!d?.serverAutopilot)).catch(() => {});
     };
     load();
     const iv = setInterval(load, 30_000);
@@ -7177,7 +7179,7 @@ function AutopilotStatusCard({ C, MONO, SANS }) {
         <div>
           <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: statusCol }}>
             AUTOPILOT {halted ? "HALTED" : on ? "ON" : "OFF"}</div>
-          <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{broker} · paper{halted && haltReason ? ` · ${haltReason}` : ""}</div>
+          <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{serverMode ? "🖥️ server mode · trades 24/7 (no browser needed)" : `${broker} · paper`}{halted && haltReason ? ` · ${haltReason}` : ""}</div>
         </div>
       </div>
       {cell("TODAY", money(dayPnl), dayPnl > 0 ? C.green : dayPnl < 0 ? C.red : C.text)}
@@ -7227,6 +7229,14 @@ async function alpacaOption(underlying, type, qty, underlyingPx) {
 function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
   const autoBoughtRef = useRef(new Set());
   const alpacaPosRef = useRef(0);
+  const serverAutoRef = useRef(false);   // true when the SERVER autopilot is trading (browser stands down)
+  // Detect server-side autopilot so the browser engine doesn't double-trade the same account.
+  useEffect(() => {
+    const check = () => fetch("/api/health").then(r => r.json()).then(d => { serverAutoRef.current = !!d?.serverAutopilot; }).catch(() => {});
+    check();
+    const iv = setInterval(check, 5 * 60_000);
+    return () => clearInterval(iv);
+  }, []);
   const apStatsRef = useRef({ dayPnl: 0, lossStreak: 0, equity: 0 }); // Alpaca risk stats for the circuit breaker
 
   // Keep the screen/tab awake while autopilot is ON so a laptop sleeping doesn't
@@ -7283,6 +7293,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
   useEffect(() => {
     const tick = () => {
       if (localStorage.getItem("axiom_autopilot") !== "on") return;
+      if (serverAutoRef.current) return;   // server autopilot is trading — don't double up from the browser
       localStorage.setItem("axiom_autopilot_lastcheck", String(Date.now()));
       window.dispatchEvent(new Event("autopilot-tick"));
       const threshold = Number(localStorage.getItem("axiom_autopilot_min")) || 5;
