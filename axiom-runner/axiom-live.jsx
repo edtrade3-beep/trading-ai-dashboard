@@ -12825,23 +12825,55 @@ const OPTIONS_QUIZ = [
     explain:"A spread (buy one call, sell a higher one) lowers cost and caps max loss — but also caps max gain. It's the disciplined, defined-risk way to bet direction." },
 ];
 
+const OPTIONS_QUIZ_ADV = [
+  { q:"An IV Rank above 50 tells you options are…", opts:["Cheap — favor buying","Expensive — favor selling premium","About to expire","Guaranteed to profit"], correct:1,
+    explain:"IV Rank > 50 means implied volatility is high vs the stock's own past year → options are expensive → favor SELLING premium (it deflates in your favor)." },
+  { q:"You sold a cash-secured put and got assigned 100 shares. The next Wheel step is…", opts:["Sell a covered call against the shares","Buy another put","Short the stock","Do nothing and hope"], correct:0,
+    explain:"After assignment you own 100 shares, so you sell a COVERED CALL against them to collect more premium. If called away at a profit, you restart the Wheel." },
+  { q:"An iron condor makes its maximum profit when the stock…", opts:["Rockets up","Crashes down","Stays between the two short strikes","Pays a dividend"], correct:2,
+    explain:"An iron condor sells a put spread + a call spread. Max profit = both credits, earned when the stock stays in the range between your short strikes at expiration." },
+  { q:"Rolling an option 'for a credit' means…", opts:["Paying extra to extend it","The new position pays more than it costs to close the old one","Converting it to shares","Doubling your size"], correct:1,
+    explain:"A credit roll collects net money: the new (further-out) position brings in more than you pay to close the current one. Never pay to enlarge a losing bet." },
+  { q:"Vega measures an option's sensitivity to…", opts:["Time passing","Interest rates","Implied volatility","The dividend"], correct:2,
+    explain:"Vega = $ change per 1% change in implied volatility. Long options are long vega (IV crush hurts); short options are short vega (crush helps)." },
+  { q:"The maximum loss on a bull put (credit) spread is…", opts:["Unlimited","The credit received","Strike width minus the credit received","Zero"], correct:2,
+    explain:"Max loss = (distance between the two strikes) − (credit collected), all ×100. That's why credit spreads are 'defined risk' — you know the worst case up front." },
+  { q:"Selling premium (as a strategy) typically has…", opts:["Low win rate, huge wins","High win rate, small wins, rare big losses","Guaranteed profit","No risk"], correct:1,
+    explain:"Sellers win often (≈70–85%) with small steady gains, but the occasional loss is bigger — which is why defined-risk structures, sizing, and taking profits early matter." },
+  { q:"To avoid 'pin risk' at expiration you should…", opts:["Hold to the last second","Close or roll the position before expiration","Always exercise","Buy more"], correct:1,
+    explain:"Pin risk = the stock closing right at your strike, leaving assignment uncertain. Close or roll short options before expiration day to avoid it." },
+  { q:"Buying a deep-ITM LEAPS call instead of 100 shares is called…", opts:["A straddle","Stock replacement","Naked selling","A dividend capture"], correct:1,
+    explain:"A ~0.70–0.80 delta LEAPS call behaves like the stock with far less capital and defined max loss — 'stock replacement'. Base of the Poor Man's Covered Call." },
+  { q:"A sound options position-sizing rule is…", opts:["Go all-in on high conviction","Risk ≤ 1–2% of your account per trade","Always use max margin","Size by gut feel"], correct:1,
+    explain:"Risk no more than 1–2% of the account per position. For a buyer, premium = max loss, so size = (account × 1%) ÷ premium per contract. Size protects you from one bad trade." },
+];
+
 function OptionsQuiz({ C, MONO, SANS }) {
+  const shuffle = (arr) => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  // Build a fresh shuffled deck: random question order + shuffled answer options (correct index re-tracked).
+  const buildDeck = () => shuffle([...OPTIONS_QUIZ, ...OPTIONS_QUIZ_ADV]).slice(0, 12).map(item => {
+    const correctVal = item.opts[item.correct];
+    const opts = shuffle(item.opts);
+    return { q: item.q, opts, correct: opts.indexOf(correctVal), explain: item.explain };
+  });
+  const [deck, setDeck] = useState(buildDeck);
   const [ans, setAns] = useState({});   // qIndex -> chosen option index
+  const reset = () => { setDeck(buildDeck()); setAns({}); };
   const answeredCount = Object.keys(ans).length;
-  const score = Object.entries(ans).filter(([i, o]) => OPTIONS_QUIZ[i].correct === o).length;
+  const score = Object.entries(ans).filter(([i, o]) => deck[i].correct === o).length;
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginTop: 20 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexWrap: "wrap", gap: 8 }}>
         <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text }}>✅ QUIZ — tap an answer</div>
         <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: answeredCount ? (score === answeredCount ? C.green : C.amber) : C.textDim }}>
-          Score {score}/{OPTIONS_QUIZ.length}</div>
+          Score {score}/{deck.length}</div>
       </div>
       <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 12 }}>Tap a box — you get the answer and why, instantly.</div>
-      {OPTIONS_QUIZ.map((item, qi) => {
+      {deck.map((item, qi) => {
         const chosen = ans[qi];
         const done = chosen != null;
         return (
-          <div key={qi} style={{ marginBottom: 16, paddingBottom: 14, borderBottom: qi < OPTIONS_QUIZ.length - 1 ? `1px solid ${C.border}` : "none" }}>
+          <div key={qi} style={{ marginBottom: 16, paddingBottom: 14, borderBottom: qi < deck.length - 1 ? `1px solid ${C.border}` : "none" }}>
             <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 8 }}>{qi + 1}. {item.q}</div>
             <div style={{ display: "grid", gap: 6 }}>
               {item.opts.map((opt, oi) => {
@@ -12870,9 +12902,9 @@ function OptionsQuiz({ C, MONO, SANS }) {
           </div>
         );
       })}
-      {answeredCount === OPTIONS_QUIZ.length && (
-        <button onClick={() => setAns({})} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "9px 16px", borderRadius: 8,
-          border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, cursor: "pointer" }}>🔄 Reset quiz</button>
+      {answeredCount === deck.length && (
+        <button onClick={reset} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "9px 16px", borderRadius: 8,
+          border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, cursor: "pointer" }}>🔄 New questions (shuffle)</button>
       )}
     </div>
   );
