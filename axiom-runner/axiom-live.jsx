@@ -7229,6 +7229,24 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
   const alpacaPosRef = useRef(0);
   const apStatsRef = useRef({ dayPnl: 0, lossStreak: 0, equity: 0 }); // Alpaca risk stats for the circuit breaker
 
+  // Keep the screen/tab awake while autopilot is ON so a laptop sleeping doesn't
+  // pause trading. Re-acquires the lock when the tab becomes visible again.
+  useEffect(() => {
+    let lock = null;
+    const acquire = async () => {
+      try {
+        if (localStorage.getItem("axiom_autopilot") === "on" && navigator.wakeLock && document.visibilityState === "visible") {
+          lock = await navigator.wakeLock.request("screen");
+        }
+      } catch {}
+    };
+    const onVis = () => { if (document.visibilityState === "visible") acquire(); };
+    acquire();
+    document.addEventListener("visibilitychange", onVis);
+    const iv = setInterval(acquire, 60_000);   // re-check in case autopilot was toggled on
+    return () => { document.removeEventListener("visibilitychange", onVis); clearInterval(iv); try { lock && lock.release(); } catch {} };
+  }, []);
+
   // Poll Alpaca: open-position count + today's realized P&L, equity, and the consecutive-loss streak.
   useEffect(() => {
     const etDate = d => { try { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(d)); } catch { return ""; } };

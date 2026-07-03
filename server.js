@@ -31,6 +31,7 @@ const { startPreMarketAlerts } = require("./src/premarket-alerts");
 const { runMarketRecap }       = require("./src/market-recap");
 const { runMorningGamePlan, runTradeCoach, runWeeklyReview } = require("./src/ai-coach");
 const { runAutopilotRecap } = require("./src/alpaca-recap");
+const { runServerAutopilot } = require("./src/server-autopilot");
 const { pollGmailLeads } = require("./src/gmail-leads");
 const { runAdol22, handleAdol22Api } = require("./src/adol22-scanner");
 const { updateCOTData, isDataFresh } = require("./src/cot/cotService");
@@ -135,6 +136,13 @@ server.listen(PORT, HOST, () => {
     pollGmailLeads().catch(() => {});
     setInterval(() => pollGmailLeads().catch(() => {}), 3 * 60_000);
     console.log("[Leads] CarGurus Gmail auto-reply active — polling every 3 min");
+  }
+
+  // Server-side autopilot — trades A+ buy-points on Alpaca paper with NO browser
+  // open. Only runs when SERVER_AUTOPILOT="on". Every 5 min (market-hours gated inside).
+  if ((process.env.SERVER_AUTOPILOT || "").toLowerCase() === "on") {
+    setInterval(() => runServerAutopilot().catch(() => {}), 5 * 60_000);
+    console.log("[Server autopilot] ACTIVE — trades A+ buy-points on Alpaca paper, no browser needed");
   }
 
   // ADOL22 — scan every 15 min during market hours (9:30 AM – 4:00 PM ET)
