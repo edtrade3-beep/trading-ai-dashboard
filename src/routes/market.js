@@ -1395,6 +1395,27 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  // DEEP STRATEGY REVIEW — top-tier Fable model reads your real track record and
+  // judges whether the autopilot actually has an edge + what to change. On-demand.
+  if (pathname === "/api/market/ai-deep-review" && req.method === "POST") {
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { b = {}; }
+    const trades = (Array.isArray(b.trades) ? b.trades : []).slice(0, 120);
+    if (!trades.length) return writeJson(res, 200, { ok: true, review: "No closed trades yet — let the autopilot run a few weeks on paper first, then I can judge whether it has a real edge." });
+    const wins = trades.filter(t => Number(t.pnl) > 0), losses = trades.filter(t => Number(t.pnl) <= 0);
+    const net = trades.reduce((s, t) => s + (Number(t.pnl) || 0), 0);
+    const gp = wins.reduce((s, t) => s + Number(t.pnl), 0), gl = Math.abs(losses.reduce((s, t) => s + Number(t.pnl), 0));
+    const pf = gl > 0 ? (gp / gl) : (gp > 0 ? 99 : 0);
+    const stats = `${trades.length} trades · ${Math.round(wins.length / trades.length * 100)}% win · net $${Math.round(net)} · profit factor ${pf.toFixed(2)} · avg win $${wins.length ? Math.round(gp / wins.length) : 0} · avg loss $${losses.length ? Math.round(gl / losses.length) : 0}`;
+    const SYSTEM = `You are a hedge-fund risk manager doing a rigorous, skeptical review of an automated trading strategy's REAL track record. Be brutally honest — most retail strategies have no edge. Assess: (1) is there a statistically meaningful edge yet, or is the sample too small? (2) what's the biggest weakness in the numbers? (3) 2-3 concrete parameter changes to test. Do NOT be encouraging for its own sake. Max 220 words. End with a one-line verdict: KEEP / TUNE / STOP.`;
+    const rows = trades.map(t => `${t.symbol} ${t.side || "long"}: $${t.entry}→$${t.exit}, P&L $${Math.round(t.pnl)}`).join("\n");
+    try {
+      const review = await callAnthropicApi(`Track record: ${stats}\n\nTrades:\n${rows}\n\nDoes this strategy have a real edge? Be honest.`, key, { model: MODELS.fable, maxTokens: 700, system: SYSTEM, cache: true, timeout: 150000 });
+      return writeJson(res, 200, { ok: true, review: (review || "").trim(), stats });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   if (pathname === "/api/market/outlook" && req.method === "GET") {
     try {
       const payload = await buildMarketOutlook();

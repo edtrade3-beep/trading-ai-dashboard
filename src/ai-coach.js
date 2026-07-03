@@ -63,7 +63,7 @@ async function runWeeklyReview() {
   const SYSTEM = `You are a seasoned trading coach reviewing a full WEEK of a trader's closed trades. Find the ONE recurring pattern that's costing them the most, and one concrete change for next week. Be specific and honest — no generic advice. Max 110 words. Format:\nWEEK: one-line verdict.\n#1 MISTAKE: the single most costly recurring pattern, with evidence from the trades.\nNEXT WEEK: one concrete rule to fix it.`;
   const rows = week.map(t => `${t.symbol} ${t.side || "long"}: $${t.entry}→$${t.exit}, P&L $${Math.round(t.pnl)}`).join("\n");
   const stats = `${week.length} trades · ${winRate}% win · net $${Math.round(net)} · avg win $${Math.round(avgWin)} · avg loss $${Math.round(avgLoss)}`;
-  const review = await callAnthropicApi(`This week's stats: ${stats}\n\nClosed trades:\n${rows}\n\nWhat's my #1 recurring mistake?`, KEY(), { model: MODELS.haiku, maxTokens: 350, system: SYSTEM, cache: true }).catch(() => "");
+  const review = await callAnthropicApi(`This week's stats: ${stats}\n\nClosed trades:\n${rows}\n\nWhat's my #1 recurring mistake?`, KEY(), { model: MODELS.fable, maxTokens: 500, system: SYSTEM, cache: true, timeout: 120000 }).catch(() => "");
   if (review) sendTelegramMessage(`📅 *WEEKLY REVIEW*\n${stats}\n\n${review.trim()}`).catch(() => {});
 }
 

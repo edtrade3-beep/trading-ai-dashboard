@@ -7164,6 +7164,19 @@ function AutopilotStatusCard({ C, MONO, SANS }) {
   const riskDlr = positions.reduce((s, p) => s + Math.abs(Number(p.qty) || 0) * (Number(p.avgEntry) || 0) * 0.05, 0);
   const riskPct = eqNow > 0 ? (riskDlr / eqNow) * 100 : 0;
   const toggle  = () => { localStorage.setItem("axiom_autopilot", on ? "off" : "on"); setTick(t => t + 1); };
+  const [review, setReview] = React.useState("");
+  const [reviewing, setReviewing] = React.useState(false);
+  const deepReview = async () => {
+    setReviewing(true); setReview("");
+    try {
+      const ct = await fetch("/api/alpaca/closed-trades").then(r => r.json()).catch(() => null);
+      const trades = (ct?.ok ? ct.trades : []).map(t => ({ symbol: t.symbol, side: t.side, entry: t.entry, exit: t.exit, pnl: t.pnl }));
+      const r = await fetch("/api/market/ai-deep-review", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trades }) });
+      const d = await r.json();
+      setReview(d.ok ? d.review : `⚠ ${d.error || "error"}`);
+    } catch (e) { setReview(`⚠ ${e.message}`); }
+    finally { setReviewing(false); }
+  };
   const statusCol = halted ? C.red : on ? C.green : C.textDim;
   const cell = (label, val, col) => (
     <div style={{ textAlign: "center", minWidth: 74 }}>
@@ -7172,6 +7185,7 @@ function AutopilotStatusCard({ C, MONO, SANS }) {
     </div>
   );
   return (
+    <>
     <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", padding: "10px 14px", marginBottom: 12,
       borderRadius: 10, background: `${statusCol}10`, border: `1px solid ${statusCol}55` }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -7187,10 +7201,23 @@ function AutopilotStatusCard({ C, MONO, SANS }) {
       {cell("LONG / SHORT", `${longs} / ${shorts}`, C.text)}
       {cell(`RISK / ${maxRisk}%`, `${riskPct.toFixed(1)}%`, riskPct >= maxRisk ? C.red : riskPct >= maxRisk * 0.75 ? C.amber : C.green)}
       {acct && cell("EQUITY", `$${Math.round(Number(acct.equity)).toLocaleString()}`, C.text)}
-      <button onClick={toggle} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer",
+      <button onClick={deepReview} disabled={reviewing} title="Top-tier Fable model judges whether the autopilot has a real edge"
+        style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 800, cursor: reviewing ? "default" : "pointer",
+          padding: "9px 14px", borderRadius: 8, border: `1px solid #a855f7`, color: "#a855f7", background: `#a855f714` }}>
+        {reviewing ? "⏳ analyzing…" : "🔬 Deep Review"}</button>
+      <button onClick={toggle} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer",
         padding: "9px 18px", borderRadius: 8, border: "none", color: "#fff",
         background: on ? C.red : C.green }}>{on ? "⏸ PAUSE" : "▶ RESUME"}</button>
-    </div>
+      </div>
+      {review && (
+        <div style={{ marginTop: -4, marginBottom: 12, padding: "12px 14px", borderRadius: 10,
+          background: "#a855f70d", border: "1px solid #a855f744", fontFamily: SANS, fontSize: 13,
+          color: C.text, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: "#a855f7", marginBottom: 6 }}>🔬 DEEP STRATEGY REVIEW · Fable</div>
+          {review}
+        </div>
+      )}
+    </>
   );
 }
 

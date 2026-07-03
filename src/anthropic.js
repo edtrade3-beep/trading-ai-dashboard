@@ -2,23 +2,24 @@ const https = require("node:https");
 
 // Pick the cheapest model that fits the task — Haiku is 5× cheaper than Opus.
 const MODELS = {
-  haiku: "claude-haiku-4-5",     // $1 / $5  — classification, extraction, short replies
-  sonnet: "claude-sonnet-4-6",   // $3 / $15 — most analysis & summaries
-  opus: "claude-opus-4-8",       // $5 / $25 — only the hardest reasoning
+  haiku: "claude-haiku-4-5",     // $1 / $5   — classification, extraction, short replies
+  sonnet: "claude-sonnet-4-6",   // $3 / $15  — most analysis & summaries
+  opus: "claude-opus-4-8",       // $5 / $25  — only the hardest reasoning
+  fable: "claude-fable-5",       // $10 / $50 — top-tier reasoning; use sparingly (weekly/on-demand)
 };
 
 // callAnthropicApi(prompt, key, { model, maxTokens, system, cache })
 // - system: a stable instruction block; pass it once and reuse it across calls.
 // - cache: true → mark the system block cache_control:ephemeral so repeated calls
 //   read it at ~10% of input price (big savings when the same instructions repeat).
-function callAnthropicApi(prompt, apiKey, { model = MODELS.sonnet, maxTokens = 1024, system = null, cache = false } = {}) {
+function callAnthropicApi(prompt, apiKey, { model = MODELS.sonnet, maxTokens = 1024, system = null, cache = false, timeout = 30000 } = {}) {
   const payload = { model, max_tokens: maxTokens, messages: [{ role: "user", content: prompt }] };
   if (system) {
     payload.system = cache
       ? [{ type: "text", text: String(system), cache_control: { type: "ephemeral" } }]
       : String(system);
   }
-  return anthropicRequest(payload, apiKey, 30000).then(p => p.content?.[0]?.text || "");
+  return anthropicRequest(payload, apiKey, timeout).then(p => (p.content || []).filter(b => b.type === "text").map(b => b.text).join("") || "");
 }
 
 // Low-level request that returns the full parsed response (for tool-use flows).
