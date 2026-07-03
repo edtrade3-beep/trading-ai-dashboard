@@ -21687,7 +21687,7 @@ export default function App() {
               { id: "terminal",   label: "📈 CHART",      tabs: ["multitf", "tv"] },
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy", "trendtemplate", "outlook", "predictions", "morning-routine", "mytrades", "holdings", "gl-backtest"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
-              { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "courses", "education", "options-edu", "notes"] },
+              { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools", "dealfinder", "flightfinder", "leadresponder"] },
               { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih", "halal", "soccer"] },
             ];
@@ -22067,8 +22067,6 @@ export default function App() {
           ],
           education: [
             { id: "propath",         label: "🎯 PRO PATH" },
-            { id: "courses",         label: "🎓 ACADEMY" },
-            { id: "education",       label: "🎓 EDUCATION" },
             { id: "options-edu",     label: "📈 OPTIONS 101" },
             { id: "notes",           label: "📝 NOTES" },
           ],
