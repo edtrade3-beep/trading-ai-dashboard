@@ -12802,6 +12802,82 @@ function OptionsPayoffTool({ C, MONO, SANS }) {
   );
 }
 
+const OPTIONS_QUIZ = [
+  { q:"A CALL option gives you the right to…", opts:["Buy 100 shares at the strike","Sell 100 shares at the strike","Collect a dividend","Short the stock for free"], correct:0,
+    explain:"A call = the right to BUY 100 shares at the strike price. You buy calls when you expect the stock to rise." },
+  { q:"1 option contract controls how many shares?", opts:["1","10","100","1000"], correct:2,
+    explain:"1 contract = 100 shares. So a $2.00 premium costs $200 (2 × 100)." },
+  { q:"Which Greek measures daily TIME DECAY?", opts:["Delta","Theta","Vega","Gamma"], correct:1,
+    explain:"Theta = how much value the option loses each day just from time passing. It accelerates near expiration." },
+  { q:"AAPL is $205. You own the $200 call for $8. Your breakeven at expiration is…", opts:["$200","$205","$208","$213"], correct:2,
+    explain:"Breakeven = strike + premium = $200 + $8 = $208. The stock must be above $208 at expiration for you to profit." },
+  { q:"When implied volatility (IV) is HIGH, you should generally…", opts:["Buy options — they'll move more","Sell premium — it's expensive and will deflate","Avoid the market entirely","Only buy weekly options"], correct:1,
+    explain:"High IV = expensive options. Pros SELL premium when IV is high (it deflates in your favor). Buying high-IV options invites IV crush." },
+  { q:"An out-of-the-money (OTM) option's premium is made of…", opts:["100% intrinsic value","100% extrinsic (time/hope) value","Half dividends","Pure delta"], correct:1,
+    explain:"OTM options have zero intrinsic value — you're paying 100% extrinsic value, which decays to $0 by expiration. Buying OTM = buying melting ice." },
+  { q:"Which strategy gets you PAID to potentially buy a stock at a discount?", opts:["Long put","Cash-secured put","Long call","Iron condor"], correct:1,
+    explain:"Selling a cash-secured put collects premium; if assigned, you buy the stock at the strike minus the premium — a discount. It's step 1 of the Wheel." },
+  { q:"A 0.30 delta option roughly means…", opts:["30% chance it finishes in-the-money","It costs $30","It expires in 30 days","30% time decay per day"], correct:0,
+    explain:"Delta ≈ the probability of finishing ITM. A 0.30 delta ≈ 30% chance ITM — which is why sellers like selling ~0.16–0.30 delta (70–84% win odds)." },
+  { q:"The maximum you can lose buying a long call is…", opts:["Unlimited","The premium you paid","The strike price","100 × the stock price"], correct:1,
+    explain:"A long call's max loss is the premium paid — that's it. The max GAIN is unlimited, but you must overcome decay and be right in time." },
+  { q:"Compared to a naked long call, a BULL CALL SPREAD…", opts:["Has unlimited risk","Costs more and decays faster","Caps both your risk and your reward","Requires owning 100 shares"], correct:2,
+    explain:"A spread (buy one call, sell a higher one) lowers cost and caps max loss — but also caps max gain. It's the disciplined, defined-risk way to bet direction." },
+];
+
+function OptionsQuiz({ C, MONO, SANS }) {
+  const [ans, setAns] = useState({});   // qIndex -> chosen option index
+  const answeredCount = Object.keys(ans).length;
+  const score = Object.entries(ans).filter(([i, o]) => OPTIONS_QUIZ[i].correct === o).length;
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginTop: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.text }}>✅ QUIZ — tap an answer</div>
+        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: answeredCount ? (score === answeredCount ? C.green : C.amber) : C.textDim }}>
+          Score {score}/{OPTIONS_QUIZ.length}</div>
+      </div>
+      <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 12 }}>Tap a box — you get the answer and why, instantly.</div>
+      {OPTIONS_QUIZ.map((item, qi) => {
+        const chosen = ans[qi];
+        const done = chosen != null;
+        return (
+          <div key={qi} style={{ marginBottom: 16, paddingBottom: 14, borderBottom: qi < OPTIONS_QUIZ.length - 1 ? `1px solid ${C.border}` : "none" }}>
+            <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 8 }}>{qi + 1}. {item.q}</div>
+            <div style={{ display: "grid", gap: 6 }}>
+              {item.opts.map((opt, oi) => {
+                const isCorrect = oi === item.correct;
+                const isChosen = chosen === oi;
+                let bg = C.surface, bd = C.border, col = C.text, mark = "";
+                if (done) {
+                  if (isCorrect) { bg = `${C.green}18`; bd = C.green; col = C.green; mark = " ✓"; }
+                  else if (isChosen) { bg = `${C.red}18`; bd = C.red; col = C.red; mark = " ✗"; }
+                }
+                return (
+                  <button key={oi} onClick={() => { if (!done) setAns(a => ({ ...a, [qi]: oi })); }} disabled={done}
+                    style={{ textAlign: "left", fontFamily: SANS, fontSize: 13.5, fontWeight: 600, padding: "11px 14px", borderRadius: 9,
+                      border: `1.5px solid ${bd}`, background: bg, color: col, cursor: done ? "default" : "pointer" }}>
+                    {opt}{mark}
+                  </button>
+                );
+              })}
+            </div>
+            {done && (
+              <div style={{ marginTop: 8, padding: "9px 12px", borderRadius: 8, background: `${(chosen === item.correct ? C.green : C.amber)}12`,
+                border: `1px solid ${(chosen === item.correct ? C.green : C.amber)}44`, fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.6 }}>
+                {chosen === item.correct ? "✅ Correct! " : "💡 "}{item.explain}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {answeredCount === OPTIONS_QUIZ.length && (
+        <button onClick={() => setAns({})} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "9px 16px", borderRadius: 8,
+          border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, cursor: "pointer" }}>🔄 Reset quiz</button>
+      )}
+    </div>
+  );
+}
+
 function OptionsEduTab({ C, MONO, SANS }) {
   const [open, setOpen] = useState(0);
   return (
@@ -12826,6 +12902,7 @@ function OptionsEduTab({ C, MONO, SANS }) {
           )}
         </div>
       ))}
+      <OptionsQuiz C={C} MONO={MONO} SANS={SANS} />
       <div style={{ marginTop: 14, padding: "12px 16px", background: `${C.amber}10`, border: `1px solid ${C.amber}44`, borderRadius: 10, fontFamily: SANS, fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>
         ⚠️ Educational only — not financial advice. Options carry real risk of total loss. Practice on paper before risking real money, and consult a licensed advisor for your situation.
       </div>
