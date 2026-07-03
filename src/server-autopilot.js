@@ -6,6 +6,15 @@
 const { sendTelegramMessage, isConfigured } = require("./telegram");
 const { PORT } = require("./config");
 
+// Curated liquid market leaders — the kind of names the Trend Template works best
+// on. Added to your watchlist so there are always candidates to find trades.
+const LEADERS = [
+  "NVDA","MSFT","AAPL","AMZN","META","GOOGL","AVGO","TSLA","AMD","NFLX",
+  "CRM","ORCL","ADBE","NOW","PANW","CRWD","PLTR","SNOW","MU","QCOM",
+  "ANET","MRVL","SMCI","ARM","COIN","HOOD","UBER","ABNB","SHOP","INTU",
+  "LLY","V","MA","JPM","COST","WMT","HD","AXP","GE","CAT",
+];
+
 const BASE = () => process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
 const APCA = "https://paper-api.alpaca.markets";
 function keys() {
@@ -65,26 +74,36 @@ async function runServerAutopilot() {
   const maxRiskPct = Number(process.env.SERVER_AUTOPILOT_MAXRISK) || 6;
   if ((openRisk / equity) * 100 >= maxRiskPct) return;
 
-  // Find A+ buy-points from the watchlist screen.
+  // Universe = your watchlist + a curated set of liquid market leaders, so there
+  // are always enough candidates to find trades (more opportunities = more trades).
   let syms = [];
   try { syms = (require("./settings-store").loadSettings() || {}).watchlistSymbols || []; } catch {}
-  syms = syms.filter(Boolean).slice(0, 40);
+  syms = [...new Set([...syms, ...LEADERS].filter(Boolean))].slice(0, 60);
   if (!syms.length) return;
   const screen = await getJson(`/api/market/trend-screen?symbols=${encodeURIComponent(syms.join(","))}`);
-  const rows = ((screen && screen.results) || [])
-    .filter(r => !r.error && r.atBuyPoint && r.volConfirmed && !held.has(r.symbol) && Number(r.entry) > 0 && Number(r.stop) > 0 && Number(r.entry) > Number(r.stop))
-    .sort((a, b) => (b.passCount - a.passCount) || ((b.rsRating || 0) - (a.rsRating || 0)));
-  if (!rows.length) return;
+  const eligible = ((screen && screen.results) || [])
+    .filter(r => !r.error && !held.has(r.symbol) && Number(r.entry) > 0 && Number(r.stop) > 0 && Number(r.entry) > Number(r.stop))
+    // Tier A = strong buy-point with volume confirmation (full size).
+    // Tier B = A+ trend, actionable, not extended — a good setup (half size). More trades.
+    .map(r => {
+      const tierA = r.atBuyPoint && r.volConfirmed;
+      const tierB = (r.passCount >= 7 && r.actionable && !r.extended) || r.atBuyPoint;
+      return { ...r, tier: tierA ? "A" : (tierB ? "B" : null) };
+    })
+    .filter(r => r.tier)
+    .sort((a, b) => (a.tier === b.tier ? 0 : a.tier === "A" ? -1 : 1) || (b.passCount - a.passCount) || ((b.rsRating || 0) - (a.rsRating || 0)));
+  if (!eligible.length) return;
 
-  const riskPct = Number(process.env.SERVER_AUTOPILOT_RISK) || 1;   // % of equity per trade
+  const riskPct = Number(process.env.SERVER_AUTOPILOT_RISK) || 1;   // % of equity per FULL-size trade
   let slots = maxPos - positions.length;
   let placed = 0;
-  for (const r of rows) {
+  for (const r of eligible) {
     if (slots <= 0) break;
     const entry = Number(r.entry), stop = Number(r.stop);
     const target = Number(r.target2) > entry ? Number(r.target2) : +(entry + (entry - stop) * 2).toFixed(2);
     const riskPerShare = Math.max(0.01, entry - stop);
-    let qty = Math.floor((equity * (riskPct / 100)) / riskPerShare);
+    const riskFrac = (r.tier === "A" ? riskPct : riskPct * 0.5) / 100;   // Tier B trades at half size
+    let qty = Math.floor((equity * riskFrac) / riskPerShare);
     qty = Math.min(qty, Math.floor(buyPower / entry));      // don't exceed buying power
     if (qty < 1) continue;
     const order = {
@@ -97,7 +116,7 @@ async function runServerAutopilot() {
     if (res && res.ok) {
       slots--; placed++;
       if (isConfigured()) sendTelegramMessage(
-        `🤖 SERVER AUTOPILOT — BUY ${r.symbol}\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${target}\n(placed with no browser open · ${riskPct}% risk)`
+        `🤖 SERVER AUTOPILOT — BUY ${r.symbol} (Tier ${r.tier})\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${target}\n(no browser needed · ${(riskFrac * 100).toFixed(2)}% risk)`
       ).catch(() => {});
     }
   }
