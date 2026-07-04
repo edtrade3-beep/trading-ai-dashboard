@@ -29,9 +29,10 @@ const { checkDealWatches }   = require("./src/routes/deals");
 const { startCOTScheduler }  = require("./src/cot/scheduler");
 const { startPreMarketAlerts } = require("./src/premarket-alerts");
 const { runMarketRecap }       = require("./src/market-recap");
-const { runMorningGamePlan, runTradeCoach, runWeeklyReview } = require("./src/ai-coach");
+const { runMorningGamePlan, runTradeCoach, runWeeklyReview, runMonthlyDeepReview } = require("./src/ai-coach");
 const { runAutopilotRecap } = require("./src/alpaca-recap");
 const { runServerAutopilot } = require("./src/server-autopilot");
+const { runTrailingStops } = require("./src/trailing-stops");
 const { pollGmailLeads } = require("./src/gmail-leads");
 const { runAdol22, handleAdol22Api } = require("./src/adol22-scanner");
 const { updateCOTData, isDataFresh } = require("./src/cot/cotService");
@@ -117,7 +118,7 @@ server.listen(PORT, HOST, () => {
 
   // AI Morning Game Plan (~9:40 AM ET) + AI Trade Coach (~4:15 PM ET) — weekdays, server-side.
   // Autopilot recap (~4:05 PM ET) — what the Alpaca paper autopilot did today.
-  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null;
+  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null;
   setInterval(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
@@ -128,6 +129,8 @@ server.listen(PORT, HOST, () => {
     if (h === 16 && m >= 15 && m < 21 && _coachSent !== today) { _coachSent = today; runTradeCoach().catch(() => {}); }
     // Weekly review — Friday (day 5) ~4:30 PM ET
     if (day === 5 && h === 16 && m >= 30 && m < 36 && _weeklySent !== today) { _weeklySent = today; runWeeklyReview().catch(() => {}); }
+    // Monthly Deep Review (Fable) — 1st of the month ~4:35 PM ET
+    if (et.getDate() === 1 && h === 16 && m >= 35 && m < 41 && _monthlyReview !== today) { _monthlyReview = today; runMonthlyDeepReview().catch(() => {}); }
   }, 60_000);
   console.log("[AI] Game plan 9:40 · autopilot recap 4:05 · trade coach 4:15 PM — weekdays only");
 
@@ -142,7 +145,8 @@ server.listen(PORT, HOST, () => {
   // open. Only runs when SERVER_AUTOPILOT="on". Every 5 min (market-hours gated inside).
   if ((process.env.SERVER_AUTOPILOT || "").toLowerCase() === "on") {
     setInterval(() => runServerAutopilot().catch(() => {}), 5 * 60_000);
-    console.log("[Server autopilot] ACTIVE — trades A+ buy-points on Alpaca paper, no browser needed");
+    setInterval(() => runTrailingStops().catch(() => {}), 5 * 60_000);   // ratchet stops up on winners
+    console.log("[Server autopilot] ACTIVE — trades + trailing stops on Alpaca paper, no browser needed");
   }
 
   // ADOL22 — scan every 15 min during market hours (9:30 AM – 4:00 PM ET)

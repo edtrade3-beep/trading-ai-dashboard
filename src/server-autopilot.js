@@ -5,6 +5,7 @@
 // symbol already held. PAPER only — never live.
 const { sendTelegramMessage, isConfigured } = require("./telegram");
 const { PORT } = require("./config");
+const { appendJournal } = require("./autopilot-journal");
 
 // Curated liquid market leaders — the kind of names the Trend Template works best
 // on. Added to your watchlist so there are always candidates to find trades.
@@ -115,6 +116,9 @@ async function runServerAutopilot() {
     const res = await apca("/v2/orders", "POST", order);
     if (res && res.ok) {
       slots--; placed++;
+      // Journal the setup tags so we can later see which setups actually win.
+      appendJournal({ ts: Date.now(), symbol: r.symbol, tier: r.tier, side: "long", qty,
+        entry, stop, target, passCount: r.passCount, rsRating: r.rsRating || null, source: "server" });
       if (isConfigured()) sendTelegramMessage(
         `🤖 SERVER AUTOPILOT — BUY ${r.symbol} (Tier ${r.tier})\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${target}\n(no browser needed · ${(riskFrac * 100).toFixed(2)}% risk)`
       ).catch(() => {});
