@@ -32,8 +32,11 @@ function serveStatic(pathname, res, req) {
       "Cache-Control": "public, max-age=0, must-revalidate",
     };
 
-    // Conditional request: unchanged → 304, no body.
-    if (req && req.headers && req.headers["if-none-match"] === etag) {
+    // Conditional request: unchanged → 304, no body. A gzipping proxy (Render/
+    // Cloudflare) rewrites our strong ETag to a weak one (W/"…"), so strip the
+    // W/ prefix on the incoming value before comparing, or we'd never 304.
+    const inm = (req && req.headers && req.headers["if-none-match"] || "").replace(/^W\//, "").trim();
+    if (inm && inm === etag) {
       res.writeHead(304, headers);
       res.end();
       return;
