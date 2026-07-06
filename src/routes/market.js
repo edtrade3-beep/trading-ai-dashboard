@@ -1416,6 +1416,22 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  // ROBINHOOD PRO — grade ONE manual trade (A+ to F) with specific feedback.
+  if (pathname === "/api/market/ai-grade" && req.method === "POST") {
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
+    const t = b.trade || {};
+    if (!t.symbol) return writeJson(res, 200, { ok: false, error: "no trade" });
+    const SYSTEM = `You are a tough, specific trading coach grading a SINGLE completed trade. Assign one letter grade (A+, A, B, C, D, or F). Judge: entry quality, exit quality, risk management (was size/stop sane?), timing, and emotional discipline. Reward process over outcome — a small planned loss can be an A; a lucky oversized win can be a C. Be concise and concrete. Format EXACTLY:\nGRADE: <letter>\nENTRY: <one line>\nEXIT: <one line>\nRISK: <one line>\nEMOTION: <one line>\nFIX: <one specific improvement>`;
+    const prompt = `Trade: ${t.symbol} ${t.side || "long"} · ${t.shares} sh · entry $${t.entry} → exit $${t.exit} · P&L $${Math.round(Number(t.pnl) || 0)}${t.aiScore ? ` · AI setup score ${t.aiScore}` : ""}\nTrader notes: ${t.notes || "none"}\nMistakes noted: ${t.mistakes || "none"}\nEmotional state: ${t.emotion || "not recorded"}\n\nGrade this trade.`;
+    try {
+      const out = await callAnthropicApi(prompt, key, { model: MODELS.haiku, maxTokens: 300, system: SYSTEM, cache: true });
+      const m = (out || "").match(/GRADE:\s*([A-F][+-]?)/i);
+      return writeJson(res, 200, { ok: true, grade: m ? m[1].toUpperCase() : "?", feedback: (out || "").trim() });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   if (pathname === "/api/market/meanrev-paper" && req.method === "GET") {
     try { const { summaryLine } = require("../meanrev-paper"); return writeJson(res, 200, { ok: true, summary: summaryLine() }); }
     catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
