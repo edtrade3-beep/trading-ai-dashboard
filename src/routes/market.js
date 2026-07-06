@@ -85,7 +85,13 @@ function mergeQuoteRows(primaryRows, overlayRows) {
 }
 
 async function fetchMarketQuotes(symbols, keys) {
-  // Primary: v7 batch (1 HTTP call, 90s cached) — fast when Yahoo allows it
+  // Primary: REAL Alpaca snapshots (free, real-time IEX) — works when Yahoo is
+  // IP-blocked from the cloud and no Finnhub/FMP key is set. Equities only;
+  // crypto/indices fall through to Yahoo below and are merged in.
+  let alpacaRows = [];
+  try { const { fetchAlpacaQuotes } = require("../providers/alpaca-data"); alpacaRows = await withTimeout(fetchAlpacaQuotes(symbols), 6000, []); } catch { alpacaRows = []; }
+
+  // Yahoo v7 batch (1 HTTP call, 90s cached) — covers crypto/indices + fills gaps
   const liveBatch = await withTimeout(fetchYahooQuoteBatch(symbols), 8000, []);
   const quoteFirstRows = normalizeQuoteBatchToRows(symbols, Array.isArray(liveBatch) ? liveBatch : []);
   // Fallback: per-symbol chart calls — slower but works when v7 is blocked
@@ -120,6 +126,19 @@ async function fetchMarketQuotes(symbols, keys) {
   if (!resolvedYahoo.length && keys.polygon) {
     const pgRows = await fetchPolygonQuotes(symbols, keys.polygon);
     if (pgRows.length) return pgRows;
+  }
+
+  // Merge: Alpaca real-time quotes win for equities; Yahoo/other fills the rest
+  // (crypto/indices). Preserves request order.
+  if (alpacaRows.length) {
+    const bySym = new Map();
+    for (const r of resolvedYahoo) bySym.set(String(r.symbol).toUpperCase(), r);
+    for (const r of alpacaRows) {
+      const k = String(r.symbol).toUpperCase();
+      bySym.set(k, { ...(bySym.get(k) || {}), ...r, delta1d: round2(r.changesPercentage || 0), delta1w: 0, delta5m: 0, delta30m: 0 });
+    }
+    const merged = symbols.map((s) => bySym.get(String(s).toUpperCase())).filter(Boolean);
+    if (merged.length) return merged;
   }
 
   return resolvedYahoo;

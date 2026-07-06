@@ -39,4 +39,41 @@ async function fetchAlpacaBars(symbol, range, interval) {
   } catch { return bars.length ? bars : null; }
 }
 
-module.exports = { fetchAlpacaBars };
+// Real-time-ish quotes via Alpaca snapshots (free IEX feed). Returns rows shaped
+// like the other providers: { symbol, price, changesPercentage, ... }. Equities only.
+async function fetchAlpacaQuotes(symbols) {
+  const { id, secret } = KEYS();
+  if (!id || !secret) return [];
+  const eq = (symbols || []).map(s => String(s || "").trim().toUpperCase()).filter(s => s && !/[-^=/]/.test(s));
+  if (!eq.length) return [];
+  const headers = { "APCA-API-KEY-ID": id, "APCA-API-SECRET-KEY": secret };
+  const rows = [];
+  for (let i = 0; i < eq.length; i += 100) {
+    const chunk = eq.slice(i, i + 100);
+    try {
+      const url = `https://data.alpaca.markets/v2/stocks/snapshots?symbols=${encodeURIComponent(chunk.join(","))}&feed=iex`;
+      const r = await fetch(url, { headers });
+      if (!r.ok) continue;
+      const j = await r.json();
+      const map = j.snapshots || j;
+      for (const sym of chunk) {
+        const s = map[sym]; if (!s) continue;
+        const day = s.dailyBar || {}, prev = s.prevDailyBar || {}, trade = s.latestTrade || {};
+        const price = Number(trade.p || day.c || prev.c || 0);
+        const prevC = Number(prev.c || day.o || price);
+        if (!price) continue;
+        const chg = prevC > 0 ? ((price - prevC) / prevC) * 100 : 0;
+        rows.push({
+          symbol: sym, name: sym, price,
+          changesPercentage: Math.round(chg * 100) / 100,
+          previousClose: prevC, open: Number(day.o || 0),
+          dayHigh: Number(day.h || 0), dayLow: Number(day.l || 0),
+          volume: Number(day.v || 0), avgVolume: 0, marketCap: 0,
+        });
+      }
+    } catch { /* skip chunk */ }
+  }
+  return rows;
+}
+
+module.exports = { fetchAlpacaBars, fetchAlpacaQuotes };
