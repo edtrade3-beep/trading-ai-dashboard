@@ -16,6 +16,26 @@ if (typeof window !== "undefined" && !window.__dmFetchWrapped) {
   };
 }
 
+// Error boundary — a runtime crash in any component shows a recovery screen
+// (with the error, so it can be diagnosed) instead of a blank white page.
+class RhErrorBoundary extends React.Component {
+  constructor(p) { super(p); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  componentDidCatch(err, info) { try { console.error("[AM Platform crash]", err, info && info.componentStack); } catch {} }
+  render() {
+    if (!this.state.err) return this.props.children;
+    const msg = String(this.state.err && (this.state.err.stack || this.state.err.message) || this.state.err);
+    return React.createElement("div", { style: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0b1220", color: "#e6edf6", fontFamily: "ui-monospace, Menlo, monospace", padding: 24 } },
+      React.createElement("div", { style: { maxWidth: 640, background: "#111a2b", border: "1px solid #24324a", borderRadius: 14, padding: 24 } },
+        React.createElement("div", { style: { fontSize: 20, fontWeight: 900, marginBottom: 8 } }, "⚠️ Something hit an error"),
+        React.createElement("div", { style: { fontSize: 13, color: "#9fb0c7", marginBottom: 14, lineHeight: 1.6 } }, "The app caught a crash and stopped this view instead of going blank. Reloading usually fixes it. If it keeps happening, copy the message below and send it over."),
+        React.createElement("button", { onClick: () => location.reload(), style: { fontFamily: "inherit", fontWeight: 800, fontSize: 14, padding: "10px 22px", borderRadius: 9, border: "none", background: "#3b82f6", color: "#fff", cursor: "pointer", marginBottom: 16 } }, "↻ Reload the app"),
+        React.createElement("pre", { style: { fontSize: 11, color: "#c66", background: "#0b1220", border: "1px solid #24324a", borderRadius: 8, padding: 12, overflow: "auto", maxHeight: 220, whiteSpace: "pre-wrap" } }, msg.slice(0, 1500))
+      )
+    );
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // AXIOM — Professional Market Intelligence Platform
 // Real Data Edition — multi-provider (Finnhub + FMP + Yahoo fallback)

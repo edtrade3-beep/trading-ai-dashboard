@@ -16,7 +16,9 @@ function build() {
       "const { useState, useEffect, useCallback, useMemo, useRef } = React;"
     )
     .replace(/export\s+default\s+function\s+App\s*\(/, "function App(")
-    .concat("\nwindow.__AXIOM_APP__ = App;\n");
+    // Expose App wrapped in the error boundary so a runtime crash shows a recovery
+    // screen instead of a blank page.
+    .concat("\nwindow.__AXIOM_APP__ = function AppRoot(){ return React.createElement(RhErrorBoundary, null, React.createElement(App)); };\n");
 
   // Classic JSX runtime → React.createElement (React is a global from the CDN script).
   const result = esbuild.transformSync(src, {
