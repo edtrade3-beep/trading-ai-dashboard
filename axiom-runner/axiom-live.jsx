@@ -21735,10 +21735,10 @@ export default function App() {
     setLastUpdate(new Date());
     if (Array.isArray(wl) && wl.length > 0) {
       setDataSourceStatus(hardError ? "degraded" : "live");
-      if (hardError) setError(hardError);
+      setError(hardError || "");   // clear any stale warning once quotes succeed
     } else {
       setDataSourceStatus("degraded");
-      setError(hardError || "Data fetch warning: no live quotes returned (use Finnhub/FMP keys in Tools).");
+      setError(hardError || "Data fetch warning: no live quotes returned (add ALPACA/FINNHUB keys, or retry).");
     }
   }, [watchlistSymbols, providerKeys, flowFilters]);
 
