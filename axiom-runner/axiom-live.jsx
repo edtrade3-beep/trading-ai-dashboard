@@ -18605,6 +18605,68 @@ function RhProHeatMap({ C, MONO, SANS, sectorData, macroData }) {
   );
 }
 
+// Robinhood Pro AI — Feature 6: Position Size Calculator (standalone, no orders).
+function RhProCalc({ C, MONO, SANS }) {
+  const [account, setAccount] = useState(() => Number(localStorage.getItem("axiom_acct_size")) || 10000);
+  const [riskPct, setRiskPct] = useState(() => Number(localStorage.getItem("axiom_risk_pct")) || 1);
+  const [entry, setEntry] = useState(100);
+  const [stop, setStop] = useState(97);
+  const saveAcct = v => { setAccount(v); localStorage.setItem("axiom_acct_size", String(v)); };
+  const saveRisk = v => { setRiskPct(v); localStorage.setItem("axiom_risk_pct", String(v)); };
+
+  const riskPerShare = Math.max(0, Number(entry) - Number(stop));
+  const riskBudget = account * riskPct / 100;
+  const rawShares = riskPerShare > 0 ? Math.floor(riskBudget / riskPerShare) : 0;
+  const affordable = entry > 0 ? Math.floor(account / entry) : 0;
+  const shares = Math.min(rawShares, affordable);
+  const capped = rawShares > affordable && affordable > 0;
+  const dollarRisk = +(shares * riskPerShare).toFixed(2);
+  const capital = +(shares * entry).toFixed(2);
+  const stopPct = entry > 0 ? ((Number(stop) - entry) / entry * 100) : 0;
+  const t2 = +(Number(entry) + riskPerShare * 2).toFixed(2), t3 = +(Number(entry) + riskPerShare * 3).toFixed(2);
+
+  const inp = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, fontFamily: MONO, fontSize: 15, color: C.text, padding: "9px 11px", outline: "none", width: "100%" };
+  const Lbl = ({ t }) => <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginBottom: 4, letterSpacing: "0.05em" }}>{t}</div>;
+  const Out = ({ k, v, c, big }) => <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderBottom: `1px solid ${C.border}` }}><span style={{ fontFamily: SANS, fontSize: 13, color: C.textDim }}>{k}</span><span style={{ fontFamily: MONO, fontWeight: 900, fontSize: big ? 22 : 15, color: c || C.text }}>{v}</span></div>;
+
+  return (
+    <div style={{ padding: "8px 4px", maxWidth: 760 }}>
+      <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 4 }}>📐 POSITION SIZE CALCULATOR</div>
+      <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 16 }}>The single most important trading skill — risk a fixed, small amount every time. Synced to your account across the app.</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }}>
+        <div><Lbl t="ACCOUNT BALANCE $" /><input type="number" value={account} onChange={e => saveAcct(Number(e.target.value) || 0)} style={inp} /></div>
+        <div><Lbl t="MAX RISK PER TRADE %" />
+          <div style={{ display: "flex", gap: 6 }}>
+            {[0.5, 1, 2].map(r => <button key={r} onClick={() => saveRisk(r)} style={{ flex: 1, fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "9px 0", borderRadius: 8, cursor: "pointer", border: `1px solid ${riskPct === r ? C.accent : C.border}`, background: riskPct === r ? C.accent : C.surface, color: riskPct === r ? "#fff" : C.textSec }}>{r}%</button>)}
+            <input type="number" step="0.1" value={riskPct} onChange={e => saveRisk(Number(e.target.value) || 0)} style={{ ...inp, width: 70 }} />
+          </div>
+        </div>
+        <div><Lbl t="ENTRY PRICE $" /><input type="number" step="0.01" value={entry} onChange={e => setEntry(Number(e.target.value) || 0)} style={inp} /></div>
+        <div><Lbl t="STOP LOSS $" /><input type="number" step="0.01" value={stop} onChange={e => setStop(Number(e.target.value) || 0)} style={inp} /></div>
+      </div>
+
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 }}>
+        {riskPerShare <= 0
+          ? <div style={{ fontFamily: SANS, fontSize: 13, color: C.amber }}>⚠ Stop must be below entry for a long trade.</div>
+          : <>
+            <Out k="Suggested shares" v={shares.toLocaleString()} c={C.accent} big />
+            <Out k="Risk per share" v={`$${riskPerShare.toFixed(2)}`} />
+            <Out k="Dollar risk (max loss)" v={`$${dollarRisk.toLocaleString()}`} c={C.red} />
+            <Out k="% of account at risk" v={`${(dollarRisk / account * 100).toFixed(2)}%`} c={dollarRisk / account * 100 <= riskPct + 0.01 ? C.green : C.amber} />
+            <Out k="Capital deployed" v={`$${capital.toLocaleString()}`} />
+            <Out k="% of account deployed" v={`${(capital / account * 100).toFixed(1)}%`} />
+            <Out k="Stop distance" v={`${stopPct.toFixed(2)}%`} />
+            <Out k="Target 2R / 3R" v={`$${t2} / $${t3}`} c={C.green} />
+            {capped && <div style={{ fontFamily: SANS, fontSize: 12, color: C.amber, marginTop: 8 }}>⚠ Capped by account size — you can't afford the full risk-based size, so you're risking less than {riskPct}%. That's fine (safer).</div>}
+          </>}
+      </div>
+      <div style={{ marginTop: 12, padding: "10px 14px", background: `${C.accent}0a`, border: `1px solid ${C.accent}33`, borderRadius: 10, fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.6 }}>
+        💡 <b>The rule:</b> shares = (account × risk%) ÷ (entry − stop). If the stop hits, you lose exactly your {riskPct}% — no more. Wider stops = fewer shares (same dollar risk). This is what keeps you alive through losing streaks.
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   // First-run defaults: route autopilot to the Alpaca paper account and turn it ON.
   // Only sets when unset, so it never overrides a choice you've made. (Paper only — no real money.)
@@ -22478,7 +22540,7 @@ export default function App() {
             const NAV_GROUPS = [
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["start", "dashboard", "quotes", "crypto", "news", "econ-cal", "macro"] },
               { id: "terminal",   label: "📈 CHART",      tabs: ["multitf", "tv"] },
-              { id: "rhpro",      label: "🎯 PRO",        tabs: ["rhpro", "rhpro-scan", "rhpro-analyze", "rhpro-lists", "rhpro-heat"] },
+              { id: "rhpro",      label: "🎯 PRO",        tabs: ["rhpro", "rhpro-scan", "rhpro-analyze", "rhpro-lists", "rhpro-heat", "rhpro-calc"] },
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy", "trendtemplate", "outlook", "predictions", "morning-routine", "mytrades", "holdings", "gl-backtest"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes"] },
@@ -22851,6 +22913,7 @@ export default function App() {
             { id: "rhpro-analyze", label: "🔬 TRADE ANALYZER" },
             { id: "rhpro-lists", label: "📋 WATCHLISTS" },
             { id: "rhpro-heat", label: "🗺 HEAT MAP" },
+            { id: "rhpro-calc", label: "📐 SIZE CALC" },
           ],
           scanner: [
             { id: "greenlight",   label: "🟢 GREEN LIGHT + TRADES" },
@@ -32714,6 +32777,7 @@ export default function App() {
       {activeTab === "rhpro-analyze" && <RhProAnalyzer C={C} MONO={MONO} SANS={SANS} macroData={macroData} />}
       {activeTab === "rhpro-lists" && <RhProWatchlists C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
       {activeTab === "rhpro-heat" && <RhProHeatMap C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} />}
+      {activeTab === "rhpro-calc" && <RhProCalc C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "start" && <StartHereTab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
       {activeTab === "dealfinder" && <DealFinderTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "flightfinder" && <FlightFinderTab C={C} MONO={MONO} SANS={SANS} />}
