@@ -58,14 +58,22 @@ server.listen(PORT, HOST, () => {
   startPreMarketAlerts(); // ONE gap scan alert at 9:00 AM ET only
   try { require("./src/dealership/fb-hub").startCrmScheduler(); } catch (e) { console.error("CRM scheduler failed:", e.message); }
 
+  // Persistent default watchlist — baked into code so buy-point ALERTS survive
+  // Render free-tier restarts (which wipe the settings file). Merged with whatever
+  // the app has saved in settings.
+  const DEFAULT_WATCHLIST = [
+    "MU","TSM","VRT","NEE","WMB","CCJ","CEG","DELL","AVGO","SMCI",       // AI infrastructure
+    "MARA","RIOT","CLSK","CIFR","WULF","IREN","CORZ","HUT",              // Bitcoin miners
+  ];
   // Watchlist alerts — scan every 15 min for Bull BOS + high score
   // Entry zone alerts — scan every 15 min for price entering buy zones
   setInterval(() => {
     try {
       const { loadSettings } = require("./src/settings-store");
       const settings = loadSettings() || {};
-      const wl = Array.isArray(settings.watchlistSymbols) ? settings.watchlistSymbols :
+      const saved = Array.isArray(settings.watchlistSymbols) ? settings.watchlistSymbols :
                  Array.isArray(settings.watchlists?.[0]?.symbols) ? settings.watchlists[0].symbols : [];
+      const wl = [...new Set([...saved, ...DEFAULT_WATCHLIST])];   // always includes the defaults
       if (wl.length > 0) {
         scanWatchlistAlerts(wl).catch(() => {});
         scanEntryZoneAlerts(wl, {}).catch(() => {}); // {} = no 5X ref, uses 52w range
