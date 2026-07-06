@@ -1,6 +1,7 @@
 // Server-side trailing stops for Alpaca PAPER longs. Once a position is up enough,
 // ratchet its stop UP as price rises so winners that run get protected — the stop
 // only ever moves up, never down. Runs even with no browser open. PAPER only.
+const { isOn } = require("./utils");
 const ACTIVATE_PCT = Number(process.env.TRAIL_ACTIVATE_PCT) || 4;   // start trailing after +4%
 const TRAIL_PCT    = Number(process.env.TRAIL_PCT) || 3;           // keep stop 3% below the high price
 
@@ -32,7 +33,7 @@ function isMarketHoursET() {
 }
 
 async function runTrailingStops() {
-  if ((process.env.SERVER_AUTOPILOT || "").toLowerCase() !== "on") return;   // tied to server autopilot
+  if (!isOn(process.env.SERVER_AUTOPILOT)) return;   // tied to server autopilot
   const { id, secret } = keys();
   if (!id || !secret || !isMarketHoursET()) return;
 

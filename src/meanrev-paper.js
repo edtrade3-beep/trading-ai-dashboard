@@ -6,6 +6,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { sendTelegramMessage, isConfigured } = require("./telegram");
+const { isOn } = require("./utils");
 
 const STATE_PATH = path.join(__dirname, "..", "data", "meanrev-paper.json");
 const UNIVERSE = [
@@ -36,7 +37,7 @@ function load() { try { return JSON.parse(fs.readFileSync(STATE_PATH, "utf8")); 
 function save(st) { try { fs.mkdirSync(path.dirname(STATE_PATH), { recursive: true }); fs.writeFileSync(STATE_PATH, JSON.stringify(st)); } catch {} }
 
 async function runMeanrevPaper() {
-  if ((process.env.MEANREV_PAPER || "").toLowerCase() !== "on") return;
+  if (!isOn(process.env.MEANREV_PAPER)) return;
   const st = load();
   let opened = 0, closedNow = 0;
   for (const sym of UNIVERSE) {
@@ -83,7 +84,7 @@ function summaryLine() {
   return `📄 MEAN-REV PAPER (forward test, no real orders)\n${c.length} closed · ${Math.round(wins.length / c.length * 100)}% win · ${(net / c.length).toFixed(2)}R avg · PF ${pf.toFixed(2)} · net ${net.toFixed(1)}R\nOpen now: ${Object.keys(st.open).length}\n\n(Watching whether the audited edge holds. Not tradeable until PF≥1.3 & +0.1R hold forward.)`;
 }
 async function sendMeanrevSummary() {
-  if ((process.env.MEANREV_PAPER || "").toLowerCase() !== "on" || !isConfigured()) return;
+  if (!isOn(process.env.MEANREV_PAPER) || !isConfigured()) return;
   await sendTelegramMessage(summaryLine()).catch(() => {});
 }
 

@@ -147,7 +147,7 @@ server.listen(PORT, HOST, () => {
 
   // Server-side autopilot — trades A+ buy-points on Alpaca paper with NO browser
   // open. Only runs when SERVER_AUTOPILOT="on". Every 5 min (market-hours gated inside).
-  if ((process.env.SERVER_AUTOPILOT || "").toLowerCase() === "on") {
+  if (require("./src/utils").isOn(process.env.SERVER_AUTOPILOT)) {
     setInterval(() => runServerAutopilot().catch(() => {}), 5 * 60_000);
     setInterval(() => runTrailingStops().catch(() => {}), 5 * 60_000);   // ratchet stops up on winners
     console.log("[Server autopilot] ACTIVE — trades + trailing stops on Alpaca paper, no browser needed");

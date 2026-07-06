@@ -6,6 +6,7 @@
 const { sendTelegramMessage, isConfigured } = require("./telegram");
 const { PORT } = require("./config");
 const { appendJournal } = require("./autopilot-journal");
+const { isOn } = require("./utils");
 
 // Curated liquid market leaders — the kind of names the Trend Template works best
 // on. Added to your watchlist so there are always candidates to find trades.
@@ -58,7 +59,7 @@ function isMarketHoursET() {
 }
 
 async function runServerAutopilot() {
-  if ((process.env.SERVER_AUTOPILOT || "").toLowerCase() !== "on") return;
+  if (!isOn(process.env.SERVER_AUTOPILOT)) return;
   const { id, secret } = keys();
   if (!id || !secret) return;
   if (!isMarketHoursET()) return;

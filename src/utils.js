@@ -84,7 +84,10 @@ function writeJson(res, statusCode, payload) {
   res.end(JSON.stringify(payload));
 }
 
+// Forgiving env-flag check: on/true/1/yes/enabled (trimmed, case-insensitive).
+function isOn(v) { return ["on", "true", "1", "yes", "enabled"].includes(String(v || "").trim().toLowerCase()); }
+
 module.exports = {
   round2, average, trimText, stripHtml, decodeXmlEntities, extractXmlTag,
-  withTimeout, fetchJsonSafe, readRequestBody, readRequestBodyBuffer, writeJson
+  withTimeout, fetchJsonSafe, readRequestBody, readRequestBodyBuffer, writeJson, isOn
 };
