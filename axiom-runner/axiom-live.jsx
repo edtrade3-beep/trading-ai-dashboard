@@ -18865,6 +18865,80 @@ function RhProCoach({ C, MONO, SANS }) {
   );
 }
 
+// Robinhood Pro AI — Feature 10: Performance Dashboard. Reads the journal.
+function RhProPerf({ C, MONO, SANS }) {
+  const trades = rhLoadJournal();
+  const ordered = [...trades].sort((a, b) => (a.date || "").localeCompare(b.date || "") || a.id - b.id);
+  const wins = trades.filter(t => Number(t.pnl) > 0), losses = trades.filter(t => Number(t.pnl) <= 0);
+  const gp = wins.reduce((s, t) => s + Number(t.pnl), 0), gl = Math.abs(losses.reduce((s, t) => s + Number(t.pnl), 0));
+  const net = gp - gl, n = trades.length;
+  const winRate = n ? Math.round(wins.length / n * 100) : 0;
+  const pf = gl > 0 ? gp / gl : (gp > 0 ? Infinity : 0);
+  const avgWin = wins.length ? gp / wins.length : 0, avgLoss = losses.length ? gl / losses.length : 0;
+  const rr = avgLoss > 0 ? avgWin / avgLoss : 0;
+  const expectancy = n ? net / n : 0;
+  const best = trades.reduce((a, t) => (!a || Number(t.pnl) > Number(a.pnl)) ? t : a, null);
+  const worst = trades.reduce((a, t) => (!a || Number(t.pnl) < Number(a.pnl)) ? t : a, null);
+  let cum = 0; const eq = ordered.map(t => { cum += Number(t.pnl) || 0; return cum; });
+  const eqMax = Math.max(0, ...eq), eqMin = Math.min(0, ...eq), span = (eqMax - eqMin) || 1;
+  const W = 700, H = 180, PADX = 8, PADY = 12;
+  const xOf = i => PADX + (ordered.length <= 1 ? 0 : i / (ordered.length - 1) * (W - PADX * 2));
+  const yOf = v => PADY + (eqMax - v) / span * (H - PADY * 2);
+  const byMonth = {}; ordered.forEach(t => { const m = (t.date || "").slice(0, 7); byMonth[m] = (byMonth[m] || 0) + (Number(t.pnl) || 0); });
+  const months = Object.entries(byMonth).sort();
+
+  const Stat = ({ k, v, c }) => <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}><div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim }}>{k}</div><div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: c || C.text, marginTop: 4 }}>{v}</div></div>;
+
+  if (!n) return <div style={{ padding: 20, fontFamily: SANS, fontSize: 13, color: C.textDim }}>No trades logged yet — the Performance dashboard fills in as you journal trades.</div>;
+
+  return (
+    <div style={{ padding: "8px 4px" }}>
+      <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 12 }}>📊 PERFORMANCE</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 12, marginBottom: 14 }}>
+        <Stat k="NET P&L" v={`$${Math.round(net).toLocaleString()}`} c={net >= 0 ? C.green : C.red} />
+        <Stat k="WIN RATE" v={`${winRate}%`} c={winRate >= 50 ? C.green : C.amber} />
+        <Stat k="PROFIT FACTOR" v={pf === Infinity ? "∞" : pf.toFixed(2)} c={pf >= 1.3 ? C.green : pf >= 1 ? C.amber : C.red} />
+        <Stat k="EXPECTANCY / TRADE" v={`$${expectancy.toFixed(0)}`} c={expectancy >= 0 ? C.green : C.red} />
+        <Stat k="AVG WINNER" v={`$${Math.round(avgWin).toLocaleString()}`} c={C.green} />
+        <Stat k="AVG LOSER" v={`$${Math.round(avgLoss).toLocaleString()}`} c={C.red} />
+        <Stat k="AVG R:R (win/loss)" v={`${rr.toFixed(2)}`} c={rr >= 2 ? C.green : C.amber} />
+        <Stat k="TRADES" v={n} />
+      </div>
+
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginBottom: 8 }}>EQUITY CURVE (cumulative P&L)</div>
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
+          <line x1={PADX} y1={yOf(0)} x2={W - PADX} y2={yOf(0)} stroke={C.textDim} strokeDasharray="3 3" strokeWidth="1" />
+          {eq.length > 1 && <polyline points={eq.map((v, i) => `${xOf(i)},${yOf(v)}`).join(" ")} fill="none" stroke={net >= 0 ? C.green : C.red} strokeWidth="2.5" />}
+          {eq.map((v, i) => <circle key={i} cx={xOf(i)} cy={yOf(v)} r="2.5" fill={v >= 0 ? C.green : C.red} />)}
+          <text x={PADX} y={yOf(eqMax) + 10} fontSize="9" fill={C.textDim} fontFamily={MONO}>+${Math.round(eqMax)}</text>
+          <text x={PADX} y={yOf(eqMin)} fontSize="9" fill={C.textDim} fontFamily={MONO}>${Math.round(eqMin)}</text>
+        </svg>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginBottom: 8 }}>MONTHLY RETURNS</div>
+          {months.map(([m, v]) => (
+            <div key={m} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 13 }}>
+              <span style={{ color: C.textSec }}>{m}</span><span style={{ fontWeight: 800, color: v >= 0 ? C.green : C.red }}>{v >= 0 ? "+" : ""}${Math.round(v).toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginBottom: 8 }}>BEST / WORST</div>
+          {best && <div style={{ fontFamily: MONO, fontSize: 13, padding: "5px 0" }}><span style={{ color: C.green }}>🏆 {best.symbol}</span> <span style={{ color: C.green, fontWeight: 800 }}>+${Number(best.pnl).toLocaleString()}</span> <span style={{ color: C.textDim, fontSize: 11 }}>{best.date}</span></div>}
+          {worst && <div style={{ fontFamily: MONO, fontSize: 13, padding: "5px 0" }}><span style={{ color: C.red }}>💀 {worst.symbol}</span> <span style={{ color: C.red, fontWeight: 800 }}>${Number(worst.pnl).toLocaleString()}</span> <span style={{ color: C.textDim, fontSize: 11 }}>{worst.date}</span></div>}
+          <div style={{ marginTop: 10, fontFamily: SANS, fontSize: 11, color: C.textDim, lineHeight: 1.6 }}>
+            {pf >= 1.3 && expectancy > 0 ? "✅ Positive expectancy with a healthy profit factor — keep doing what works." : expectancy > 0 ? "🟡 Slightly positive — tighten losers or let winners run to lift the profit factor above 1.3." : "🔴 Negative expectancy — you're losing more than winning. Review the Coach's feedback on your losing trades."}
+          </div>
+        </div>
+      </div>
+      <div style={{ marginTop: 10, fontFamily: SANS, fontSize: 10, color: C.textDim }}>All from your manual journal. Profit factor ≥1.3 and positive expectancy = a real, tradeable edge.</div>
+    </div>
+  );
+}
+
 export default function App() {
   // First-run defaults: route autopilot to the Alpaca paper account and turn it ON.
   // Only sets when unset, so it never overrides a choice you've made. (Paper only — no real money.)
@@ -22738,7 +22812,7 @@ export default function App() {
             const NAV_GROUPS = [
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["start", "dashboard", "quotes", "crypto", "news", "econ-cal", "macro"] },
               { id: "terminal",   label: "📈 CHART",      tabs: ["multitf", "tv"] },
-              { id: "rhpro",      label: "🎯 PRO",        tabs: ["rhpro", "rhpro-scan", "rhpro-analyze", "rhpro-lists", "rhpro-heat", "rhpro-calc", "rhpro-options", "rhpro-journal", "rhpro-coach"] },
+              { id: "rhpro",      label: "🎯 PRO",        tabs: ["rhpro", "rhpro-scan", "rhpro-analyze", "rhpro-lists", "rhpro-heat", "rhpro-calc", "rhpro-options", "rhpro-journal", "rhpro-coach", "rhpro-perf"] },
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy", "trendtemplate", "outlook", "predictions", "morning-routine", "mytrades", "holdings", "gl-backtest"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes"] },
@@ -23115,6 +23189,7 @@ export default function App() {
             { id: "rhpro-options", label: "🎲 OPTIONS" },
             { id: "rhpro-journal", label: "📓 JOURNAL" },
             { id: "rhpro-coach", label: "🎓 AI COACH" },
+            { id: "rhpro-perf", label: "📊 PERFORMANCE" },
           ],
           scanner: [
             { id: "greenlight",   label: "🟢 GREEN LIGHT + TRADES" },
@@ -32982,6 +33057,7 @@ export default function App() {
       {activeTab === "rhpro-options" && <RhProOptions C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "rhpro-journal" && <RhProJournal C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "rhpro-coach" && <RhProCoach C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "rhpro-perf" && <RhProPerf C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "start" && <StartHereTab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
       {activeTab === "dealfinder" && <DealFinderTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "flightfinder" && <FlightFinderTab C={C} MONO={MONO} SANS={SANS} />}
