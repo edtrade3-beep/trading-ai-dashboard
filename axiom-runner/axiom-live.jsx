@@ -18130,6 +18130,11 @@ function RhProDashboard({ C, MONO, SANS, macroData, sectorData }) {
   const [movers, setMovers] = useState(null), [news, setNews] = useState([]);
   const [updated, setUpdated] = useState(null);
   const [guide, setGuide] = useState(() => localStorage.getItem("rhpro_guide_hide") !== "1");
+  const [idxSym, setIdxSym] = useState("SPY"); const [idxTf, setIdxTf] = useState("1H"); const [idxBars, setIdxBars] = useState([]);
+  useEffect(() => {
+    fetch(`/api/market/candles?ticker=${idxSym}&timeframe=${idxTf}`).then(r => r.json())
+      .then(d => setIdxBars(d.ok ? (d.bars || []) : [])).catch(() => setIdxBars([]));
+  }, [idxSym, idxTf]);
   useEffect(() => {
     const j = (p, set, pick) => fetch(p).then(r => r.json()).then(d => set(pick ? pick(d) : d)).catch(() => {});
     const moversList = "AAPL,MSFT,NVDA,AMZN,META,GOOGL,AVGO,TSLA,AMD,NFLX,MU,QCOM,SMCI,ARM,COIN,PLTR,CRWD,PANW,UBER,SHOP,MARA,RIOT,HUT,TSM,DELL,VRT,CEG,LLY,JPM,COST,XOM,BA,DIS,NKE,HOOD,NET,APP,CVNA,RDDT,SNOW";
@@ -18236,6 +18241,25 @@ function RhProDashboard({ C, MONO, SANS, macroData, sectorData }) {
         <Card title="IWM (small caps)"><Big v={trendTxt(iwm)} c={trendCol(iwm)} /></Card>
         <Card title="FEAR & GREED"><Big v={fg?.value ?? fg?.score ?? "—"} c={C.amber} /><Sub v={fg?.label || fg?.rating || fg?.classification || ""} /></Card>
         <Card title="MARKET BREADTH"><Big v={breadth?.advancers != null ? `${breadth.advancers}/${breadth.decliners}` : (breadth?.breadth ?? "—")} c={C.text} /><Sub v="advancers / decliners" /></Card>
+      </div>
+
+      {/* Intraday index chart (real Alpaca data) */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim }}>MARKET · INTRADAY</div>
+          <div style={{ display: "flex", gap: 4 }}>{["SPY", "QQQ", "IWM"].map(x => <button key={x} onClick={() => setIdxSym(x)} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "4px 9px", borderRadius: 6, cursor: "pointer", border: `1px solid ${idxSym === x ? C.accent : C.border}`, background: idxSym === x ? C.accent : C.surface, color: idxSym === x ? "#fff" : C.textSec }}>{x}</button>)}</div>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>{["5M", "1H", "1D"].map(x => <button key={x} onClick={() => setIdxTf(x)} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "4px 9px", borderRadius: 6, cursor: "pointer", border: `1px solid ${idxTf === x ? C.accent : C.border}`, background: idxTf === x ? C.accent : C.surface, color: idxTf === x ? "#fff" : C.textSec }}>{x}</button>)}</div>
+        </div>
+        {idxBars.length > 1 ? (() => {
+          const cl = idxBars.map(b => b.close); const hi = Math.max(...cl), lo = Math.min(...cl), sp = (hi - lo) || 1;
+          const W = 720, H = 140, P = 6; const xf = i => P + i / (idxBars.length - 1) * (W - P * 2); const yf = v => P + (hi - v) / sp * (H - P * 2);
+          const up = cl[cl.length - 1] >= cl[0];
+          return <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
+            <polyline points={cl.map((v, i) => `${xf(i)},${yf(v)}`).join(" ")} fill="none" stroke={up ? C.green : C.red} strokeWidth="2" />
+            <text x={P} y={yf(hi) + 9} fontSize="9" fill={C.textDim} fontFamily={MONO}>${hi.toFixed(2)}</text>
+            <text x={P} y={yf(lo)} fontSize="9" fill={C.textDim} fontFamily={MONO}>${lo.toFixed(2)}</text>
+          </svg>;
+        })() : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, padding: "16px 0", textAlign: "center" }}>Loading intraday…</div>}
       </div>
 
       {/* Row 3 — sectors + movers + news */}
