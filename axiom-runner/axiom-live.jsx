@@ -18129,6 +18129,7 @@ function RhProDashboard({ C, MONO, SANS, macroData, sectorData }) {
   const [fg, setFg] = useState(null), [breadth, setBreadth] = useState(null);
   const [movers, setMovers] = useState(null), [news, setNews] = useState([]);
   const [updated, setUpdated] = useState(null);
+  const [guide, setGuide] = useState(() => localStorage.getItem("rhpro_guide_hide") !== "1");
   useEffect(() => {
     const j = (p, set, pick) => fetch(p).then(r => r.json()).then(d => set(pick ? pick(d) : d)).catch(() => {});
     const load = () => {
@@ -18175,8 +18176,44 @@ function RhProDashboard({ C, MONO, SANS, macroData, sectorData }) {
     <div style={{ padding: "8px 4px" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 4, flexWrap: "wrap" }}>
         <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>🎯 ROBINHOOD PRO — COMMAND DECK</div>
+        <button onClick={() => setGuide(g => !g)} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.border}`, background: C.surface, color: C.textSec }}>{guide ? "✕ hide guide" : "❔ how to use"}</button>
         <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Manual-trading intelligence · places no orders · {updated ? `updated ${updated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "loading…"}</div>
       </div>
+
+      {/* How-to-use guide */}
+      {guide && (
+        <div style={{ background: C.card, border: `1px solid ${C.accent}44`, borderLeft: `3px solid ${C.accent}`, borderRadius: 12, padding: 16, marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent }}>📘 HOW TO USE ROBINHOOD PRO AI</div>
+            <button onClick={() => { setGuide(false); localStorage.setItem("rhpro_guide_hide", "1"); }} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "4px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.border}`, background: C.surface, color: C.textSec }}>got it — don't show again</button>
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.7 }}>
+            This module <b>finds and analyzes opportunities</b> so you can execute manually in Robinhood. It <b>never places orders</b> and is fully separate from your Alpaca autopilot.
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, margin: "12px 0 6px", letterSpacing: "0.05em" }}>THE DAILY WORKFLOW ↓</div>
+            <div style={{ display: "grid", gap: 6 }}>
+              {[
+                ["1. 🎯 COMMAND DECK", "Start here. Is the market safe? Check bias, risk level, cash rec. Red day → don't trade."],
+                ["2. 🎯 SNIPER SCANNER", "See the whole market ranked 0–100. Filter to ≥75 or 'at buy point'."],
+                ["3. 📋 WATCHLISTS", "Or browse by type (breakout, momentum, pullback). Tap any ticker → jumps to Analyzer."],
+                ["4. 🗺 HEAT MAP", "Only hunt longs in Leading/Improving sectors. Avoid Lagging."],
+                ["5. 🔬 TRADE ANALYZER", "Full report + verdict (STRONG BUY→AVOID), entry, stop, 3 targets, and reasons NOT to trade."],
+                ["6. 📐 SIZE CALC", "Get exact shares so you risk only 1%. Never skip this."],
+                ["7. 🎲 OPTIONS", "Optional — check call/put flow bias + expected move."],
+                ["— execute in Robinhood —", "Place the trade yourself, with the levels the Analyzer gave you."],
+                ["8. 📓 JOURNAL", "Log every trade — including the mistake and the emotion."],
+                ["9. 🎓 AI COACH", "Grade each trade A+ to F. It rewards discipline, not luck."],
+                ["10. 📊 PERFORMANCE", "Track win rate, profit factor, expectancy, equity curve over time."],
+              ].map(([a, b], i) => (
+                <div key={i} style={{ display: "flex", gap: 10 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: a.startsWith("—") ? C.amber : C.text, minWidth: 168 }}>{a}</span>
+                  <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{b}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 10, fontFamily: SANS, fontSize: 11.5, color: C.textSec }}>💡 <b>The one rule that matters:</b> a green market + a high-score stock + at its buy zone + sized to 1% risk = a real trade. Miss any of those and it's a WAIT, not a trade.</div>
+          </div>
+        </div>
+      )}
 
       {/* Row 1 — the read */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 12 }}>
