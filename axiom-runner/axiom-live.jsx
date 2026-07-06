@@ -7372,6 +7372,7 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       const doOptions = localStorage.getItem("axiom_autopilot_opts") === "on";      // independent toggle, default OFF
       const doShort   = localStorage.getItem("axiom_autopilot_short") === "on";      // short selling, default OFF
       if (!doShares && !doOptions && !doShort) return;  // nothing enabled
+      const today = new Date().toISOString().slice(0, 10);
       // ── Total open-risk guard: stop opening NEW trades once combined open risk hits the ceiling. ──
       const maxRiskPct = Number(localStorage.getItem("axiom_autopilot_maxrisk")) || 6;  // % of equity
       const openRiskPct = Number(apStatsRef.current.openRiskPct) || 0;
@@ -7388,7 +7389,6 @@ function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
       const maxPos = Number(localStorage.getItem("axiom_autopilot_maxpos")) || 12;  // cap concurrent positions
       const spyQ = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
       const spyChg = Number(spyQ?.changesPercentage || 0);
-      const today = new Date().toISOString().slice(0, 10);
 
       // ── Circuit breaker (Alpaca): −2% daily loss OR 3 consecutive losses = stop opening NEW trades today. ──
       // Open positions are still managed/closed by the exit engine — we only halt fresh risk.
