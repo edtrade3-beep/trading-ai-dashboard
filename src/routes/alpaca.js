@@ -181,6 +181,10 @@ async function handleAlpaca(req, res, requestUrl) {
       symbol, qty: String(qty), side,
       type: b.type || "market",
       time_in_force: b.time_in_force || "day",
+      // Idempotency: Alpaca rejects a duplicate client_order_id, so a retry or a
+      // double-fire can't place the same order twice. Caller may pass one; else
+      // derive a stable id from symbol+side+qty+minute.
+      client_order_id: String(b.client_order_id || `dm-${symbol}-${side}-${qty}-${Math.floor(Date.now() / 60000)}`).slice(0, 128),
     };
     if (b.limit_price) order.limit_price = String(b.limit_price);
     // Bracket order: attach stop loss + take profit if provided (works for long buys and short sells)

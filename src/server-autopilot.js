@@ -16,6 +16,16 @@ const LEADERS = [
   "LLY","V","MA","JPM","COST","WMT","HD","AXP","GE","CAT",
 ];
 
+// Sector map for correlation control — don't load up on highly-correlated names.
+const SECTORS = {
+  NVDA:"semi",AMD:"semi",AVGO:"semi",MU:"semi",QCOM:"semi",ANET:"semi",MRVL:"semi",SMCI:"semi",ARM:"semi",TXN:"semi",LRCX:"semi",
+  MSFT:"software",ORCL:"software",CRM:"software",ADBE:"software",NOW:"software",PANW:"software",CRWD:"software",PLTR:"software",SNOW:"software",INTU:"software",
+  AAPL:"tech-hw",AMZN:"internet",META:"internet",GOOGL:"internet",NFLX:"internet",UBER:"internet",ABNB:"internet",SHOP:"internet",COIN:"crypto",TSLA:"auto",
+  LLY:"health",UNH:"health",V:"fintech",MA:"fintech",AXP:"fintech",JPM:"bank",
+  COST:"retail",WMT:"retail",HD:"retail",NKE:"retail",MCD:"retail",PEP:"staples",KO:"staples",
+  XOM:"energy",CVX:"energy",GE:"industrial",CAT:"industrial",BA:"industrial",DIS:"media",
+};
+
 const BASE = () => process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
 const APCA = "https://paper-api.alpaca.markets";
 function keys() {
@@ -96,10 +106,16 @@ async function runServerAutopilot() {
   if (!eligible.length) return;
 
   const riskPct = Number(process.env.SERVER_AUTOPILOT_RISK) || 1;   // % of equity per FULL-size trade
+  // Sector-correlation cap: don't hold more than N positions in one sector.
+  const maxPerSector = Number(process.env.SERVER_AUTOPILOT_MAXSECTOR) || 3;
+  const sectorCount = {};
+  for (const p of positions) { const s = SECTORS[p.symbol] || "other"; sectorCount[s] = (sectorCount[s] || 0) + 1; }
   let slots = maxPos - positions.length;
   let placed = 0;
   for (const r of eligible) {
     if (slots <= 0) break;
+    const sec = SECTORS[r.symbol] || "other";
+    if ((sectorCount[sec] || 0) >= maxPerSector) continue;   // already too concentrated in this sector
     const entry = Number(r.entry), stop = Number(r.stop);
     const target = Number(r.target2) > entry ? Number(r.target2) : +(entry + (entry - stop) * 2).toFixed(2);
     const riskPerShare = Math.max(0.01, entry - stop);
@@ -112,10 +128,12 @@ async function runServerAutopilot() {
       order_class: "bracket",
       take_profit: { limit_price: String(target) },
       stop_loss: { stop_price: String(+stop.toFixed(2)) },
+      // Idempotency: one buy per symbol per day — a retry can't duplicate it.
+      client_order_id: `sap-${r.symbol}-${new Date().toISOString().slice(0, 10)}`,
     };
     const res = await apca("/v2/orders", "POST", order);
     if (res && res.ok) {
-      slots--; placed++;
+      slots--; placed++; sectorCount[sec] = (sectorCount[sec] || 0) + 1;
       // Journal the setup tags so we can later see which setups actually win.
       appendJournal({ ts: Date.now(), symbol: r.symbol, tier: r.tier, side: "long", qty,
         entry, stop, target, passCount: r.passCount, rsRating: r.rsRating || null, source: "server" });
