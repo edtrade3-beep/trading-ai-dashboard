@@ -18329,20 +18329,34 @@ async function rhScreen(symbols) {
   ));
   return parts.flat().filter(x => x && !x.error);
 }
+// Progressive screen: fires each batch and calls onBatch(results) as it returns,
+// so the UI fills in as data arrives instead of blocking on the whole universe.
+function rhScreenProgressive(symbols, onBatch, onDone) {
+  const chunks = [];
+  for (let i = 0; i < symbols.length; i += 10) chunks.push(symbols.slice(i, i + 10));
+  let done = 0;
+  chunks.forEach(c => {
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(c.join(","))}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => onBatch(((d && d.results) || []).filter(x => x && !x.error)))
+      .catch(() => {})
+      .finally(() => { if (++done === chunks.length) onDone(); });
+  });
+}
 function RhProScanner({ C, MONO, SANS }) {
   const [rows, setRows] = useState([]); const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(""); const [filter, setFilter] = useState(60); const [ranAt, setRanAt] = useState(null);
   const scan = () => {
-    setLoading(true); setErr("");
-    rhScreen(RH_UNIVERSE)
-      .then(results => {
-        const out = results.map(x => ({ ...x, score: rhScore(x) }))
+    setLoading(true); setErr(""); setRows([]);
+    let all = [];
+    rhScreenProgressive(RH_UNIVERSE,
+      (part) => {
+        all = [...all, ...part.map(x => ({ ...x, score: rhScore(x) }))]
           .sort((a, b) => (b.score - a.score) || ((b.rsRating || 0) - (a.rsRating || 0)));
-        setRows(out); setRanAt(new Date());
-        if (!out.length) setErr("No data returned — try RESCAN in a moment.");
-      })
-      .catch(e => setErr(e.message))
-      .finally(() => setLoading(false));
+        setRows(all); setRanAt(new Date());   // render as batches arrive
+      },
+      () => { setLoading(false); if (!all.length) setErr("No data returned — try RESCAN in a moment."); }
+    );
   };
   useEffect(() => { scan(); }, []);
   const shown = rows.filter(r => filter === "buy" ? r.atBuyPoint : r.score >= filter);
@@ -18578,10 +18592,12 @@ function RhProAnalyzer({ C, MONO, SANS, macroData }) {
 function RhProWatchlists({ C, MONO, SANS, setActiveTab }) {
   const [rows, setRows] = useState([]); const [loading, setLoading] = useState(false); const [ranAt, setRanAt] = useState(null);
   const scan = () => {
-    setLoading(true);
-    rhScreen(RH_UNIVERSE)
-      .then(results => { setRows(results.map(x => ({ ...x, score: rhScore(x) }))); setRanAt(new Date()); })
-      .catch(() => {}).finally(() => setLoading(false));
+    setLoading(true); setRows([]);
+    let all = [];
+    rhScreenProgressive(RH_UNIVERSE,
+      (part) => { all = [...all, ...part.map(x => ({ ...x, score: rhScore(x) }))]; setRows(all); setRanAt(new Date()); },
+      () => setLoading(false)
+    );
   };
   useEffect(() => { scan(); }, []);
   const analyze = (sym) => { try { localStorage.setItem("rhpro_analyze_sym", sym); } catch {} setActiveTab && setActiveTab("rhpro-analyze"); };
