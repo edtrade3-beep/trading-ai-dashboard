@@ -18120,6 +18120,123 @@ Risk small and follow the stop.`
 // ═══════════════════════════════════════════════════════════════
 // MAIN APP
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// ROBINHOOD PRO AI — isolated MANUAL-trading assistant. Places NO orders and
+// never touches Alpaca/autopilot/execution. Reuses only market data + AI.
+// Feature 1: Main Dashboard.
+// ═══════════════════════════════════════════════════════════════════════════
+function RhProDashboard({ C, MONO, SANS, macroData, sectorData }) {
+  const [fg, setFg] = useState(null), [breadth, setBreadth] = useState(null);
+  const [movers, setMovers] = useState(null), [news, setNews] = useState([]);
+  const [updated, setUpdated] = useState(null);
+  useEffect(() => {
+    const j = (p, set, pick) => fetch(p).then(r => r.json()).then(d => set(pick ? pick(d) : d)).catch(() => {});
+    const load = () => {
+      j("/api/market/feargreed", setFg);
+      j("/api/market/breadth", setBreadth);
+      j("/api/market/movers", setMovers);
+      j("/api/market/news", setNews, d => Array.isArray(d) ? d : (d.news || d.articles || d.items || []));
+      setUpdated(new Date());
+    };
+    load(); const iv = setInterval(load, 60000); return () => clearInterval(iv);
+  }, []);
+
+  const regime = computeRegime(macroData);
+  const qOf = s => (macroData || []).find(m => (m.symbol || "").toUpperCase() === s);
+  const chg = x => Number(x?.changesPercentage ?? x?.changePercent ?? 0);
+  const spy = qOf("SPY"), qqq = qOf("QQQ"), iwm = qOf("IWM");
+  const vix = Number(regime.vixVal || 0);
+  const bias = regime.label === "GREEN" ? "BULLISH" : regime.label === "YELLOW" ? "NEUTRAL / MIXED" : "BEARISH / DEFENSIVE";
+  const confidence = regime.score;
+  const cashRec = regime.score >= 75 ? "0–25% cash · deploy into strength"
+    : regime.score >= 55 ? "40–60% cash · be selective" : "70–100% cash · protect capital";
+  const risk = vix >= 28 ? { t: "HIGH", c: C.red } : vix >= 20 ? { t: "ELEVATED", c: C.amber } : vix > 0 ? { t: "NORMAL", c: C.green } : { t: "—", c: C.textDim };
+
+  const sectors = SECTOR_ETFS.map(se => {
+    const sd = (sectorData || []).find(x => (x.symbol || "").toUpperCase() === se.symbol);
+    return { ...se, chg: chg(sd), has: !!sd };
+  }).filter(s => s.has).sort((a, b) => b.chg - a.chg);
+
+  const gainers = (movers?.gainers || movers?.topGainers || []).slice(0, 6);
+  const losers = (movers?.losers || movers?.topLosers || []).slice(0, 6);
+  const trendTxt = q => !q ? "—" : `${chg(q) >= 0 ? "▲" : "▼"} ${chg(q).toFixed(2)}%`;
+  const trendCol = q => !q ? C.textDim : chg(q) >= 0 ? C.green : C.red;
+
+  const Card = ({ title, children, span }) => (
+    <div style={{ gridColumn: span ? `span ${span}` : "auto", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
+      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>{title}</div>
+      {children}
+    </div>
+  );
+  const Big = ({ v, c }) => <div style={{ fontFamily: MONO, fontSize: 26, fontWeight: 900, color: c || C.text, lineHeight: 1 }}>{v}</div>;
+  const Sub = ({ v }) => <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 6 }}>{v}</div>;
+
+  return (
+    <div style={{ padding: "8px 4px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 4, flexWrap: "wrap" }}>
+        <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>🎯 ROBINHOOD PRO — COMMAND DECK</div>
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Manual-trading intelligence · places no orders · {updated ? `updated ${updated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "loading…"}</div>
+      </div>
+
+      {/* Row 1 — the read */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 12 }}>
+        <Card title="MARKET BIAS"><Big v={bias} c={regime.color} /><Sub v={`Regime ${regime.score}/100`} /></Card>
+        <Card title="AI CONFIDENCE">
+          <Big v={`${confidence}%`} c={confidence >= 75 ? C.green : confidence >= 55 ? C.amber : C.red} />
+          <div style={{ height: 6, borderRadius: 3, background: C.surface, marginTop: 8, overflow: "hidden" }}>
+            <div style={{ width: `${confidence}%`, height: "100%", background: regime.color }} /></div>
+        </Card>
+        <Card title="CASH RECOMMENDATION"><Big v={cashRec.split(" · ")[0]} c={C.text} /><Sub v={cashRec.split(" · ")[1] || ""} /></Card>
+        <Card title="RISK LEVEL"><Big v={risk.t} c={risk.c} /><Sub v={vix ? `VIX ${vix.toFixed(1)}` : "VIX n/a"} /></Card>
+      </div>
+
+      {/* Row 2 — indices + fear/greed + breadth */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12, marginBottom: 12 }}>
+        <Card title="SPY"><Big v={trendTxt(spy)} c={trendCol(spy)} /><Sub v={spy ? `$${Number(spy.price || spy.regularMarketPrice || 0).toFixed(2)}` : ""} /></Card>
+        <Card title="QQQ"><Big v={trendTxt(qqq)} c={trendCol(qqq)} /><Sub v={qqq ? `$${Number(qqq.price || qqq.regularMarketPrice || 0).toFixed(2)}` : ""} /></Card>
+        <Card title="IWM (small caps)"><Big v={trendTxt(iwm)} c={trendCol(iwm)} /></Card>
+        <Card title="FEAR & GREED"><Big v={fg?.value ?? fg?.score ?? "—"} c={C.amber} /><Sub v={fg?.label || fg?.rating || fg?.classification || ""} /></Card>
+        <Card title="MARKET BREADTH"><Big v={breadth?.advancers != null ? `${breadth.advancers}/${breadth.decliners}` : (breadth?.breadth ?? "—")} c={C.text} /><Sub v="advancers / decliners" /></Card>
+      </div>
+
+      {/* Row 3 — sectors + movers + news */}
+      <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr 1.2fr", gap: 12, alignItems: "start" }}>
+        <Card title="SECTOR STRENGTH (today)">
+          {sectors.length ? sectors.map(s => (
+            <div key={s.symbol} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontFamily: SANS, fontSize: 12.5 }}>
+              <span style={{ color: C.text }}>{s.name}</span>
+              <span style={{ fontFamily: MONO, fontWeight: 700, color: s.chg >= 0 ? C.green : C.red }}>{s.chg >= 0 ? "+" : ""}{s.chg.toFixed(2)}%</span>
+            </div>
+          )) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Sector data loading…</div>}
+        </Card>
+        <Card title="TOP MOVERS">
+          <div style={{ fontFamily: MONO, fontSize: 9, color: C.green, marginBottom: 4 }}>GAINERS</div>
+          {gainers.length ? gainers.map((m, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12, padding: "2px 0" }}>
+              <span style={{ color: C.text }}>{m.symbol || m.ticker}</span><span style={{ color: C.green }}>+{Number(m.changesPercentage ?? m.changePercent ?? 0).toFixed(1)}%</span></div>
+          )) : <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>—</div>}
+          <div style={{ fontFamily: MONO, fontSize: 9, color: C.red, margin: "8px 0 4px" }}>LOSERS</div>
+          {losers.map((m, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12, padding: "2px 0" }}>
+              <span style={{ color: C.text }}>{m.symbol || m.ticker}</span><span style={{ color: C.red }}>{Number(m.changesPercentage ?? m.changePercent ?? 0).toFixed(1)}%</span></div>
+          ))}
+        </Card>
+        <Card title="BREAKING NEWS">
+          {(news || []).slice(0, 7).map((n, i) => (
+            <a key={i} href={n.url || n.link || "#"} target="_blank" rel="noreferrer" style={{ display: "block", fontFamily: SANS, fontSize: 12, color: C.text, textDecoration: "none", padding: "5px 0", borderBottom: `1px solid ${C.border}`, lineHeight: 1.4 }}>
+              {(n.title || n.headline || "").slice(0, 110)}</a>
+          ))}
+          {!news.length && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>News loading…</div>}
+        </Card>
+      </div>
+
+      <div style={{ marginTop: 12, fontFamily: SANS, fontSize: 10, color: C.textDim }}>
+        ⚠️ Educational — analysis only. Places no orders and is fully isolated from the Alpaca autopilot. You execute manually in Robinhood.
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   // First-run defaults: route autopilot to the Alpaca paper account and turn it ON.
   // Only sets when unset, so it never overrides a choice you've made. (Paper only — no real money.)
@@ -21993,6 +22110,7 @@ export default function App() {
             const NAV_GROUPS = [
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["start", "dashboard", "quotes", "crypto", "news", "econ-cal", "macro"] },
               { id: "terminal",   label: "📈 CHART",      tabs: ["multitf", "tv"] },
+              { id: "rhpro",      label: "🎯 PRO",        tabs: ["rhpro"] },
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy", "trendtemplate", "outlook", "predictions", "morning-routine", "mytrades", "holdings", "gl-backtest"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes"] },
@@ -22358,6 +22476,9 @@ export default function App() {
           terminal: [
             { id: "multitf",    label: "📈 CHART" },
             { id: "tv",         label: "📺 TV LIVE" },
+          ],
+          rhpro: [
+            { id: "rhpro",      label: "🎯 COMMAND DECK" },
           ],
           scanner: [
             { id: "greenlight",   label: "🟢 GREEN LIGHT + TRADES" },
@@ -32216,6 +32337,7 @@ export default function App() {
       {activeTab === "gl-backtest" && <GLBacktestTab C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "predictions" && <PredictionsTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} />}
       {activeTab === "coach" && <CoachTab C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "rhpro" && <RhProDashboard C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} />}
       {activeTab === "start" && <StartHereTab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
       {activeTab === "dealfinder" && <DealFinderTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "flightfinder" && <FlightFinderTab C={C} MONO={MONO} SANS={SANS} />}
