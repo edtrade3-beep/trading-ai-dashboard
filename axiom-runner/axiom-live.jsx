@@ -18292,18 +18292,30 @@ function rhScore(r) {
   const rs = Math.max(1, Math.min(99, Number(r.rsRating) || 1));
   return Math.round(pass / 8 * 50 + rs / 99 * 25 + (r.atBuyPoint ? 15 : 0) + (r.volConfirmed ? 10 : 0));
 }
+// Screen a big universe in small parallel batches — one 60-symbol call times out
+// (each symbol fetches Yahoo). Batches of 12 finish fast; failures are tolerated.
+async function rhScreen(symbols) {
+  const chunks = [];
+  for (let i = 0; i < symbols.length; i += 12) chunks.push(symbols.slice(i, i + 12));
+  const parts = await Promise.all(chunks.map(c =>
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(c.join(","))}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => (d && d.results) || [])
+      .catch(() => [])
+  ));
+  return parts.flat().filter(x => x && !x.error);
+}
 function RhProScanner({ C, MONO, SANS }) {
   const [rows, setRows] = useState([]); const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(""); const [filter, setFilter] = useState(60); const [ranAt, setRanAt] = useState(null);
   const scan = () => {
     setLoading(true); setErr("");
-    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(RH_UNIVERSE.join(","))}`)
-      .then(r => r.json())
-      .then(d => {
-        const out = (d.results || []).filter(x => !x.error).map(x => ({ ...x, score: rhScore(x) }))
+    rhScreen(RH_UNIVERSE)
+      .then(results => {
+        const out = results.map(x => ({ ...x, score: rhScore(x) }))
           .sort((a, b) => (b.score - a.score) || ((b.rsRating || 0) - (a.rsRating || 0)));
         setRows(out); setRanAt(new Date());
-        if (!out.length) setErr("No data returned — try again in a moment.");
+        if (!out.length) setErr("No data returned — try RESCAN in a moment.");
       })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
@@ -18507,9 +18519,8 @@ function RhProWatchlists({ C, MONO, SANS, setActiveTab }) {
   const [rows, setRows] = useState([]); const [loading, setLoading] = useState(false); const [ranAt, setRanAt] = useState(null);
   const scan = () => {
     setLoading(true);
-    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(RH_UNIVERSE.join(","))}`)
-      .then(r => r.json())
-      .then(d => { setRows((d.results || []).filter(x => !x.error).map(x => ({ ...x, score: rhScore(x) }))); setRanAt(new Date()); })
+    rhScreen(RH_UNIVERSE)
+      .then(results => { setRows(results.map(x => ({ ...x, score: rhScore(x) }))); setRanAt(new Date()); })
       .catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { scan(); }, []);
