@@ -91,14 +91,26 @@ async function fetchMarketQuotes(symbols, keys) {
   let alpacaRows = [];
   try { const { fetchAlpacaQuotes } = require("../providers/alpaca-data"); alpacaRows = await withTimeout(fetchAlpacaQuotes(symbols), 6000, []); } catch { alpacaRows = []; }
 
+  const addDeltas = (row) => ({ ...row, delta1d: round2(row.changesPercentage || 0), delta1w: 0, delta5m: 0, delta30m: 0 });
+  // FAST PATH: if Alpaca covered every requested symbol, return now. Yahoo is
+  // IP-blocked from the cloud and its per-symbol fallback takes ~15-23s, which
+  // times out the client — so don't wait for it when we already have the data.
+  const covered = new Set(alpacaRows.map((r) => String(r.symbol).toUpperCase()));
+  const uncovered = symbols.map((s) => String(s).toUpperCase()).filter((s) => !covered.has(s));
+  if (alpacaRows.length && uncovered.length === 0) {
+    return symbols.map((s) => alpacaRows.find((r) => String(r.symbol).toUpperCase() === String(s).toUpperCase())).filter(Boolean).map(addDeltas);
+  }
+
+  // Only ask Yahoo for what Alpaca didn't cover (crypto/indices) — keeps it fast.
+  const yTargets = alpacaRows.length ? uncovered : symbols;
   // Yahoo v7 batch (1 HTTP call, 90s cached) — covers crypto/indices + fills gaps
-  const liveBatch = await withTimeout(fetchYahooQuoteBatch(symbols), 8000, []);
-  const quoteFirstRows = normalizeQuoteBatchToRows(symbols, Array.isArray(liveBatch) ? liveBatch : []);
+  const liveBatch = await withTimeout(fetchYahooQuoteBatch(yTargets), 8000, []);
+  const quoteFirstRows = normalizeQuoteBatchToRows(yTargets, Array.isArray(liveBatch) ? liveBatch : []);
   // Fallback: per-symbol chart calls — slower but works when v7 is blocked
   // Cap at 15s total so we never hang the server
   const yahooRows = quoteFirstRows.length
     ? quoteFirstRows
-    : await withTimeout(fetchYahooQuotes(symbols), Math.min(MARKET_QUOTE_TIMEOUT_MS, 15000), []);
+    : await withTimeout(fetchYahooQuotes(yTargets), Math.min(MARKET_QUOTE_TIMEOUT_MS, 15000), []);
   const resolvedYahoo = Array.isArray(yahooRows) ? yahooRows : [];
   const hasGaps = resolvedYahoo.some((row) => !Number.isFinite(Number(row.marketCap)) || Number(row.marketCap) <= 0);
 
