@@ -1416,6 +1416,11 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  if (pathname === "/api/market/meanrev-paper" && req.method === "GET") {
+    try { const { summaryLine } = require("../meanrev-paper"); return writeJson(res, 200, { ok: true, summary: summaryLine() }); }
+    catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   if (pathname === "/api/market/outlook" && req.method === "GET") {
     try {
       const payload = await buildMarketOutlook();

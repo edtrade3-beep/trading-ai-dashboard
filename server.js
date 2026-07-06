@@ -33,6 +33,7 @@ const { runMorningGamePlan, runTradeCoach, runWeeklyReview, runMonthlyDeepReview
 const { runAutopilotRecap } = require("./src/alpaca-recap");
 const { runServerAutopilot } = require("./src/server-autopilot");
 const { runTrailingStops } = require("./src/trailing-stops");
+const { runMeanrevPaper, sendMeanrevSummary } = require("./src/meanrev-paper");
 const { pollGmailLeads } = require("./src/gmail-leads");
 const { runAdol22, handleAdol22Api } = require("./src/adol22-scanner");
 const { updateCOTData, isDataFresh } = require("./src/cot/cotService");
@@ -118,7 +119,7 @@ server.listen(PORT, HOST, () => {
 
   // AI Morning Game Plan (~9:40 AM ET) + AI Trade Coach (~4:15 PM ET) — weekdays, server-side.
   // Autopilot recap (~4:05 PM ET) — what the Alpaca paper autopilot did today.
-  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null;
+  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null;
   setInterval(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
@@ -131,6 +132,9 @@ server.listen(PORT, HOST, () => {
     if (day === 5 && h === 16 && m >= 30 && m < 36 && _weeklySent !== today) { _weeklySent = today; runWeeklyReview().catch(() => {}); }
     // Monthly Deep Review (Fable) — 1st of the month ~4:35 PM ET
     if (et.getDate() === 1 && h === 16 && m >= 35 && m < 41 && _monthlyReview !== today) { _monthlyReview = today; runMonthlyDeepReview().catch(() => {}); }
+    // Mean-rev paper tracker — update after close (~4:20 PM ET), weekly summary Friday (~4:25)
+    if (h === 16 && m >= 20 && m < 26 && _mrvPaper !== today) { _mrvPaper = today; runMeanrevPaper().catch(() => {}); }
+    if (day === 5 && h === 16 && m >= 25 && m < 31 && _mrvSummary !== today) { _mrvSummary = today; sendMeanrevSummary().catch(() => {}); }
   }, 60_000);
   console.log("[AI] Game plan 9:40 · autopilot recap 4:05 · trade coach 4:15 PM — weekdays only");
 
