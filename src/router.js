@@ -41,6 +41,20 @@ async function handleRequest(req, res) {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
     const { pathname } = requestUrl;
 
+    // ── API auth gate for money-moving routes ──────────────────────────────────
+    // OFF unless API_AUTH_TOKEN is set (so it can never lock you out by default).
+    // When set, these POST routes require header x-api-token === the token.
+    // Read-only data + the app itself stay open, so you can always load and fix it.
+    const AUTH_TOKEN = (process.env.API_AUTH_TOKEN || "").trim();
+    if (AUTH_TOKEN && req.method === "POST" && (
+      pathname === "/api/alpaca/order" || pathname === "/api/alpaca/close" ||
+      pathname === "/api/alpaca/option-order" || pathname === "/api/alpaca/liquidate-options" ||
+      pathname === "/api/notify"
+    )) {
+      const tok = req.headers["x-api-token"] || "";
+      if (tok !== AUTH_TOKEN) return writeJson(res, 401, { ok: false, error: "unauthorized — set your API token in Settings" });
+    }
+
     if (pathname === "/api/auth/check") {
       return handleAuth(req, res, requestUrl);
     }

@@ -1,5 +1,21 @@
 ﻿import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
+// Attach the API token (if the user set one) to every same-origin /api request,
+// so money-moving routes work when server-side API_AUTH_TOKEN auth is enabled.
+if (typeof window !== "undefined" && !window.__dmFetchWrapped) {
+  window.__dmFetchWrapped = true;
+  const _origFetch = window.fetch.bind(window);
+  window.fetch = (url, opts = {}) => {
+    try {
+      if (typeof url === "string" && url.startsWith("/api/")) {
+        const tok = localStorage.getItem("axiom_api_token");
+        if (tok) opts = { ...opts, headers: { ...(opts.headers || {}), "x-api-token": tok } };
+      }
+    } catch {}
+    return _origFetch(url, opts);
+  };
+}
+
 // ═══════════════════════════════════════════════════════════════
 // AXIOM — Professional Market Intelligence Platform
 // Real Data Edition — multi-provider (Finnhub + FMP + Yahoo fallback)
@@ -7217,6 +7233,14 @@ function AutopilotStatusCard({ C, MONO, SANS }) {
           {review}
         </div>
       )}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>🔒 API TOKEN</span>
+        <input type="password" defaultValue={localStorage.getItem("axiom_api_token") || ""}
+          onBlur={e => localStorage.setItem("axiom_api_token", e.target.value.trim())}
+          placeholder="only if API_AUTH_TOKEN set in Render"
+          style={{ flex: 1, maxWidth: 320, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, fontFamily: MONO, fontSize: 11, color: C.text, padding: "5px 8px", outline: "none" }} />
+        <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>must match Render</span>
+      </div>
     </>
   );
 }
