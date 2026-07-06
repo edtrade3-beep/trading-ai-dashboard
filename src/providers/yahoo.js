@@ -101,6 +101,14 @@ function parseYahooChartBars(payload) {
 }
 
 async function fetchYahooBars(symbol, range, interval) {
+  // Prefer REAL Alpaca data (free, intraday-capable) when keys are set; fall back
+  // to Yahoo for crypto/indices or if Alpaca returns nothing. Same bar shape.
+  try {
+    const { fetchAlpacaBars } = require("./alpaca-data");
+    const a = await fetchAlpacaBars(symbol, range, interval);
+    if (a && a.length > 0) return a;
+  } catch { /* fall through to Yahoo */ }
+
   // Try query1 first, fall back to query2 (different rate-limit pool)
   const path = `/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false&events=div%2Csplits`;
   const urls = [
