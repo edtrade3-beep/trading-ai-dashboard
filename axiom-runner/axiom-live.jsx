@@ -18373,9 +18373,15 @@ function RhProAnalyzer({ C, MONO, SANS, macroData }) {
   const [sym, setSym] = useState(""); const [data, setData] = useState(null);
   const [quote, setQuote] = useState(null); const [loading, setLoading] = useState(false); const [err, setErr] = useState("");
   const [ai, setAi] = useState(""); const [aiLoading, setAiLoading] = useState(false);
+  const [tf, setTf] = useState("1D"); const [bars, setBars] = useState([]);   // intraday chart
+  const loadChart = (t, timeframe) => {
+    fetch(`/api/market/candles?ticker=${t}&timeframe=${timeframe}`).then(r => r.json())
+      .then(d => setBars(d.ok ? (d.bars || []) : [])).catch(() => setBars([]));
+  };
   const run = (s) => {
     const t = (s || sym).trim().toUpperCase(); if (!t) return;
-    setLoading(true); setErr(""); setData(null); setQuote(null); setAi("");
+    setLoading(true); setErr(""); setData(null); setQuote(null); setAi(""); setBars([]);
+    loadChart(t, tf);
     Promise.all([
       fetch(`/api/market/trend-template?symbol=${t}`).then(r => r.json()).catch(() => null),
       fetch(`/api/market/quote?symbols=${t}`).then(r => r.json()).catch(() => null),
@@ -18384,6 +18390,7 @@ function RhProAnalyzer({ C, MONO, SANS, macroData }) {
       else { setData(tt); setQuote(Array.isArray(q) ? q[0] : (q?.quotes?.[0] || q?.quote || q)); }
     }).finally(() => setLoading(false));
   };
+  const pickTf = (timeframe) => { setTf(timeframe); if (data) loadChart(data.symbol, timeframe); };
   const askAi = () => {
     if (!data) return; setAiLoading(true);
     const s = data.setup || {};
@@ -18458,6 +18465,35 @@ function RhProAnalyzer({ C, MONO, SANS, macroData }) {
             <div style={{ fontFamily: MONO, fontSize: 30, fontWeight: 900, color: vcol }}>{verdict}</div>
             <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>AI Score <b style={{ color: C.text }}>{score}/100</b> · Bullish <b style={{ color: bullProb >= 55 ? C.green : C.red }}>{bullProb}%</b></div>
           </div>
+        </div>
+
+        {/* Intraday chart (real Alpaca bars) */}
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim }}>PRICE · {tf}</div>
+            <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+              {["5M", "15M", "1H", "1D", "1W"].map(x => (
+                <button key={x} onClick={() => pickTf(x)} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "4px 9px", borderRadius: 6, cursor: "pointer", border: `1px solid ${tf === x ? C.accent : C.border}`, background: tf === x ? C.accent : C.surface, color: tf === x ? "#fff" : C.textSec }}>{x}</button>
+              ))}
+            </div>
+          </div>
+          {bars.length > 1 ? (() => {
+            const closes = bars.map(b => b.close);
+            const hi = Math.max(...closes), lo = Math.min(...closes), sp = (hi - lo) || 1;
+            const W = 720, H = 160, P = 6;
+            const xf = i => P + i / (bars.length - 1) * (W - P * 2);
+            const yf = v => P + (hi - v) / sp * (H - P * 2);
+            const up = closes[closes.length - 1] >= closes[0];
+            return (
+              <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
+                <polyline points={closes.map((v, i) => `${xf(i)},${yf(v)}`).join(" ")} fill="none" stroke={up ? C.green : C.red} strokeWidth="2" />
+                {data?.setup?.entry && Number(data.setup.entry) <= hi && Number(data.setup.entry) >= lo && <line x1={P} y1={yf(Number(data.setup.entry))} x2={W - P} y2={yf(Number(data.setup.entry))} stroke={C.accent} strokeDasharray="4 4" strokeWidth="1" />}
+                {data?.setup?.stop && Number(data.setup.stop) <= hi && Number(data.setup.stop) >= lo && <line x1={P} y1={yf(Number(data.setup.stop))} x2={W - P} y2={yf(Number(data.setup.stop))} stroke={C.red} strokeDasharray="4 4" strokeWidth="1" />}
+                <text x={P} y={yf(hi) + 9} fontSize="9" fill={C.textDim} fontFamily={MONO}>${hi.toFixed(2)}</text>
+                <text x={P} y={yf(lo)} fontSize="9" fill={C.textDim} fontFamily={MONO}>${lo.toFixed(2)}</text>
+              </svg>
+            );
+          })() : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, padding: "20px 0", textAlign: "center" }}>Chart loading… (intraday from real Alpaca data)</div>}
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>

@@ -9,7 +9,7 @@ const TF = {
   "1m": "1Min", "2m": "2Min", "5m": "5Min", "15m": "15Min", "30m": "30Min",
   "60m": "1Hour", "1h": "1Hour", "1d": "1Day", "1day": "1Day", "1wk": "1Week", "1w": "1Week",
 };
-const DAYS = { "5d": 7, "1mo": 33, "3mo": 95, "6mo": 190, "1y": 375, "2y": 740, "3y": 1105, "5y": 1835 };
+const DAYS = { "1d": 4, "5d": 8, "1mo": 33, "3mo": 95, "6mo": 190, "1y": 375, "2y": 740, "3y": 1105, "5y": 1835 };
 function startISO(range) {
   const days = DAYS[range] || 375;
   return new Date(Date.now() - days * 86400000).toISOString();
