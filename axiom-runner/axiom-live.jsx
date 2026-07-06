@@ -18316,6 +18316,148 @@ function RhProScanner({ C, MONO, SANS }) {
   );
 }
 
+// Robinhood Pro AI — Feature 3: Trade Analyzer. Full institutional report + verdict.
+// Reuses trend-template + quote. Analysis only — no orders.
+function RhProAnalyzer({ C, MONO, SANS, macroData }) {
+  const [sym, setSym] = useState(""); const [data, setData] = useState(null);
+  const [quote, setQuote] = useState(null); const [loading, setLoading] = useState(false); const [err, setErr] = useState("");
+  const [ai, setAi] = useState(""); const [aiLoading, setAiLoading] = useState(false);
+  const run = (s) => {
+    const t = (s || sym).trim().toUpperCase(); if (!t) return;
+    setLoading(true); setErr(""); setData(null); setQuote(null); setAi("");
+    Promise.all([
+      fetch(`/api/market/trend-template?symbol=${t}`).then(r => r.json()).catch(() => null),
+      fetch(`/api/market/quote?symbol=${t}`).then(r => r.json()).catch(() => null),
+    ]).then(([tt, q]) => {
+      if (!tt || tt.error || !tt.price) { setErr(tt?.error || "No data for " + t); }
+      else { setData(tt); setQuote(Array.isArray(q) ? q[0] : (q?.quote || q)); }
+    }).finally(() => setLoading(false));
+  };
+  const askAi = () => {
+    if (!data) return; setAiLoading(true);
+    const s = data.setup || {};
+    fetch("/api/market/ai-setup-review", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ setup: { symbol: data.symbol, px: data.price, chg: Number(quote?.changesPercentage || 0), aScore: score, grade: verdict, marketScore: regime.score, marketPass: regime.score >= 75, sector: null, relStrength: null, rvol: (data.volRatio || 0).toFixed(1), bestEntry: s.ema21 || s.entry, stop: s.stop, rr: rr.toFixed(1), atEntry: buyPoint } }) })
+      .then(r => r.json()).then(d => setAi(d.ok ? d.review : `⚠ ${d.error || "AI unavailable"}`))
+      .catch(e => setAi("⚠ " + e.message)).finally(() => setAiLoading(false));
+  };
+
+  const regime = computeRegime(macroData);
+  const s = data?.setup || {};
+  const price = Number(data?.price || 0);
+  const entry = Number(s.entry || price), stop = Number(s.stop || 0), pivot = Number(s.pivot || 0);
+  const riskPS = Math.max(0.01, entry - stop);
+  const tp1 = +(entry + riskPS * 2).toFixed(2), tp2 = +(entry + riskPS * 3).toFixed(2), tp3 = +(entry + riskPS * 4).toFixed(2);
+  const rr = riskPS > 0 ? (tp2 - entry) / riskPS : 0;
+  const passCount = Number(data?.passCount || 0), rsR = Number(data?.rsRating || 0);
+  const buyPoint = !!(s.actionable && !s.extended);
+  const score = data ? Math.round(Math.min(8, passCount) / 8 * 50 + Math.min(99, Math.max(1, rsR)) / 99 * 25 + (buyPoint ? 15 : 0) + ((data.volRatio || 0) >= 1.4 ? 10 : 0)) : 0;
+  const atr = +(riskPS / 1.5).toFixed(2);
+  const rvol = quote && quote.avgVolume ? (Number(quote.volume) / Number(quote.avgVolume)) : (data?.volRatio || 0);
+  const acct = Number(localStorage.getItem("axiom_acct_size")) || 10000;
+  const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
+  const shares = riskPS > 0 ? Math.floor((acct * riskPct / 100) / riskPS) : 0;
+  const dollarRisk = +(shares * riskPS).toFixed(0);
+  const bullProb = Math.max(5, Math.min(95, score));
+  const stage4 = (data?.stage || "").includes("4");
+
+  // Verdict
+  let verdict = "WAIT", vcol = C.textDim;
+  if (data) {
+    if (stage4 || passCount <= 4 || score < 40) { verdict = "AVOID"; vcol = C.red; }
+    else if (score >= 80 && buyPoint && regime.score >= 55) { verdict = "STRONG BUY"; vcol = C.green; }
+    else if (score >= 65 && buyPoint) { verdict = "BUY"; vcol = C.green; }
+    else if (score >= 58) { verdict = "WATCH"; vcol = C.amber; }
+    else { verdict = "WAIT"; vcol = C.textDim; }
+  }
+  const reasonsNot = [];
+  if (data) {
+    if (s.extended) reasonsNot.push("Extended above the buy zone — chasing risk");
+    if (!s.actionable) reasonsNot.push("Not at an actionable entry (base building / below pivot)");
+    if (rsR < 50) reasonsNot.push(`Weak relative strength (RS ${rsR})`);
+    if (stage4) reasonsNot.push("Stage 4 downtrend — avoid longs");
+    if ((data.volRatio || 0) < 1) reasonsNot.push("No volume confirmation");
+    if (regime.score < 55) reasonsNot.push(`Market not green (regime ${regime.score}/100)`);
+    if (rr < 2) reasonsNot.push(`Reward:risk only ${rr.toFixed(1)}:1`);
+  }
+
+  const Row = ({ k, v, c }) => <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.border}`, fontFamily: SANS, fontSize: 13 }}><span style={{ color: C.textDim }}>{k}</span><span style={{ fontFamily: MONO, fontWeight: 700, color: c || C.text }}>{v}</span></div>;
+  const Card = ({ title, children }) => <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}><div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>{title}</div>{children}</div>;
+
+  return (
+    <div style={{ padding: "8px 4px" }}>
+      <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 10 }}>🔬 TRADE ANALYZER</div>
+      <form onSubmit={e => { e.preventDefault(); run(); }} style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        <input value={sym} onChange={e => setSym(e.target.value)} placeholder="Enter a symbol (e.g. MU, NVDA, HUT)…" style={{ flex: 1, maxWidth: 320, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, fontFamily: MONO, fontSize: 14, color: C.text, padding: "10px 12px", outline: "none" }} />
+        <button type="submit" disabled={loading} style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "10px 22px", borderRadius: 8, border: "none", color: "#fff", background: loading ? C.textDim : C.accent, cursor: "pointer" }}>{loading ? "…" : "ANALYZE"}</button>
+      </form>
+      {err && <div style={{ fontFamily: SANS, fontSize: 13, color: C.red }}>⚠ {err}</div>}
+
+      {data && (<>
+        {/* Verdict banner */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", padding: "16px 18px", borderRadius: 12, marginBottom: 14, background: `${vcol}12`, border: `1px solid ${vcol}55` }}>
+          <div><div style={{ fontFamily: MONO, fontSize: 26, fontWeight: 900, color: C.text }}>{data.symbol} <span style={{ fontSize: 15, color: C.textSec }}>${price.toFixed(2)}</span></div>
+            <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{data.stage}</div></div>
+          <div style={{ marginLeft: "auto", textAlign: "right" }}>
+            <div style={{ fontFamily: MONO, fontSize: 30, fontWeight: 900, color: vcol }}>{verdict}</div>
+            <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>AI Score <b style={{ color: C.text }}>{score}/100</b> · Bullish <b style={{ color: bullProb >= 55 ? C.green : C.red }}>{bullProb}%</b></div>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>
+          <Card title="THE TRADE">
+            <Row k="Entry / pivot" v={`$${entry.toFixed(2)}`} />
+            <Row k="Pullback entry (EMA21)" v={s.ema21 ? `$${Number(s.ema21).toFixed(2)}` : "—"} />
+            <Row k="Stop loss" v={`$${stop.toFixed(2)}`} c={C.red} />
+            <Row k="Target 1 (2R)" v={`$${tp1}`} c={C.green} />
+            <Row k="Target 2 (3R)" v={`$${tp2}`} c={C.green} />
+            <Row k="Target 3 (4R)" v={`$${tp3}`} c={C.green} />
+            <Row k="Reward : Risk" v={`${rr.toFixed(1)} : 1`} c={rr >= 2 ? C.green : C.amber} />
+          </Card>
+          <Card title="POSITION SIZE">
+            <Row k="Account" v={`$${acct.toLocaleString()}`} />
+            <Row k="Risk per trade" v={`${riskPct}%`} />
+            <Row k="Suggested shares" v={shares} c={C.accent} />
+            <Row k="Dollar risk (max loss)" v={`$${dollarRisk}`} c={C.red} />
+            <Row k="Capital deployed" v={`$${(shares * entry).toFixed(0)}`} />
+            <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 6 }}>Sizes off your saved account & risk %.</div>
+          </Card>
+          <Card title="TECHNICALS">
+            <Row k="AI Score" v={`${score}/100`} c={C.accent} />
+            <Row k="Trend Template" v={`${passCount}/8`} />
+            <Row k="Relative Strength" v={rsR} c={rsR >= 70 ? C.green : C.textSec} />
+            <Row k="ATR (est)" v={`$${atr}`} />
+            <Row k="Relative Volume" v={`${Number(rvol).toFixed(2)}×`} c={rvol >= 1.4 ? C.green : C.textSec} />
+            <Row k="EMA alignment" v={price > (data.ma?.ma50 || data.ma?.[50] || 0) ? "Above 50-day ✅" : "Below 50-day ⚠"} />
+            <Row k="VWAP" v="n/a on daily (use EMA21)" c={C.textDim} />
+          </Card>
+          <Card title="LEVELS">
+            <Row k="Resistance (52w high)" v={data.hi52 ? `$${Number(data.hi52).toFixed(2)}` : "—"} c={C.red} />
+            <Row k="Pivot / buy point" v={pivot ? `$${pivot.toFixed(2)}` : "—"} />
+            <Row k="Support (52w low)" v={data.lo52 ? `$${Number(data.lo52).toFixed(2)}` : "—"} c={C.green} />
+            <Row k="% from 52w high" v={`${Number(data.pctFromHigh || 0).toFixed(1)}%`} />
+            <Row k="Holding estimate" v={stage4 ? "n/a" : "Swing: days–weeks"} />
+            <Row k="At buy point?" v={buyPoint ? "YES ✅" : "No — wait"} c={buyPoint ? C.green : C.amber} />
+          </Card>
+        </div>
+
+        {reasonsNot.length > 0 && (
+          <div style={{ marginTop: 12, padding: "12px 16px", borderRadius: 12, background: `${C.red}0d`, border: `1px solid ${C.red}44` }}>
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.red, marginBottom: 6 }}>⚠ REASONS NOT TO TAKE THIS TRADE</div>
+            {reasonsNot.map((r, i) => <div key={i} style={{ fontFamily: SANS, fontSize: 13, color: C.text, padding: "2px 0" }}>• {r}</div>)}
+          </div>
+        )}
+
+        <div style={{ marginTop: 12 }}>
+          <button onClick={askAi} disabled={aiLoading} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "9px 16px", borderRadius: 8, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, cursor: "pointer" }}>{aiLoading ? "⏳ asking AI…" : "🧠 AI second opinion"}</button>
+          {ai && <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 10, background: `${C.accent}0a`, border: `1px solid ${C.accent}33`, fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{ai}</div>}
+        </div>
+        <div style={{ marginTop: 12, fontFamily: SANS, fontSize: 10, color: C.textDim }}>Educational analysis only — no orders placed. Execute manually in Robinhood. Verify every level on a live chart.</div>
+      </>)}
+    </div>
+  );
+}
+
 export default function App() {
   // First-run defaults: route autopilot to the Alpaca paper account and turn it ON.
   // Only sets when unset, so it never overrides a choice you've made. (Paper only — no real money.)
@@ -22189,7 +22331,7 @@ export default function App() {
             const NAV_GROUPS = [
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["start", "dashboard", "quotes", "crypto", "news", "econ-cal", "macro"] },
               { id: "terminal",   label: "📈 CHART",      tabs: ["multitf", "tv"] },
-              { id: "rhpro",      label: "🎯 PRO",        tabs: ["rhpro", "rhpro-scan"] },
+              { id: "rhpro",      label: "🎯 PRO",        tabs: ["rhpro", "rhpro-scan", "rhpro-analyze"] },
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy", "trendtemplate", "outlook", "predictions", "morning-routine", "mytrades", "holdings", "gl-backtest"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes"] },
@@ -22559,6 +22701,7 @@ export default function App() {
           rhpro: [
             { id: "rhpro",      label: "🎯 COMMAND DECK" },
             { id: "rhpro-scan", label: "🎯 SNIPER SCANNER" },
+            { id: "rhpro-analyze", label: "🔬 TRADE ANALYZER" },
           ],
           scanner: [
             { id: "greenlight",   label: "🟢 GREEN LIGHT + TRADES" },
@@ -32419,6 +32562,7 @@ export default function App() {
       {activeTab === "coach" && <CoachTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "rhpro" && <RhProDashboard C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} />}
       {activeTab === "rhpro-scan" && <RhProScanner C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "rhpro-analyze" && <RhProAnalyzer C={C} MONO={MONO} SANS={SANS} macroData={macroData} />}
       {activeTab === "start" && <StartHereTab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
       {activeTab === "dealfinder" && <DealFinderTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "flightfinder" && <FlightFinderTab C={C} MONO={MONO} SANS={SANS} />}
