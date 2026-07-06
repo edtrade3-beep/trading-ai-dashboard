@@ -841,7 +841,21 @@ async function buildMarketOutlook() {
   };
 }
 
+// Per-symbol result cache (2 min). The scanner runs the same 60 stocks
+// repeatedly, so caching each symbol's heavy analysis makes rescans near-instant
+// and cuts load on the free tier. Keyed by symbol + light flag.
+const _ttCache = new Map();
+const TT_TTL_MS = 120_000;
 async function buildTrendTemplate(symbol, opts = {}) {
+  const key = `${symbol}:${opts.light ? 1 : 0}`;
+  const hit = _ttCache.get(key);
+  if (hit && Date.now() - hit.ts < TT_TTL_MS) return hit.data;
+  const data = await _buildTrendTemplate(symbol, opts);
+  _ttCache.set(key, { ts: Date.now(), data });
+  if (_ttCache.size > 400) { for (const [k, v] of _ttCache) if (Date.now() - v.ts > TT_TTL_MS) _ttCache.delete(k); }
+  return data;
+}
+async function _buildTrendTemplate(symbol, opts = {}) {
   const bars = await fetchYahooBars(symbol, "1y", "1d");
   if (!Array.isArray(bars) || bars.length < 200) {
     throw new Error(`Not enough history for ${symbol} (need ~200 trading days, got ${bars ? bars.length : 0}).`);
