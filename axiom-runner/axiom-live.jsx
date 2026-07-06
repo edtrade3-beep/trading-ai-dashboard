@@ -18132,11 +18132,13 @@ function RhProDashboard({ C, MONO, SANS, macroData, sectorData }) {
   const [guide, setGuide] = useState(() => localStorage.getItem("rhpro_guide_hide") !== "1");
   useEffect(() => {
     const j = (p, set, pick) => fetch(p).then(r => r.json()).then(d => set(pick ? pick(d) : d)).catch(() => {});
+    const moversList = "AAPL,MSFT,NVDA,AMZN,META,GOOGL,AVGO,TSLA,AMD,NFLX,MU,QCOM,SMCI,ARM,COIN,PLTR,CRWD,PANW,UBER,SHOP,MARA,RIOT,HUT,TSM,DELL,VRT,CEG,LLY,JPM,COST,XOM,BA,DIS,NKE,HOOD,NET,APP,CVNA,RDDT,SNOW";
+    const newsList = "SPY,QQQ,NVDA,AAPL,MSFT,TSLA,AMD,META,AMZN,GOOGL,MU,PLTR";
     const load = () => {
       j("/api/market/feargreed", setFg);
       j("/api/market/breadth", setBreadth);
-      j("/api/market/movers", setMovers);
-      j("/api/market/news", setNews, d => Array.isArray(d) ? d : (d.news || d.articles || d.items || []));
+      j(`/api/market/movers?symbols=${moversList}&n=6`, setMovers);
+      j(`/api/market/news?tickers=${newsList}&limit=10`, setNews, d => Array.isArray(d) ? d : (d.news || d.articles || d.items || []));
       setUpdated(new Date());
     };
     load(); const iv = setInterval(load, 60000); return () => clearInterval(iv);
@@ -18364,10 +18366,10 @@ function RhProAnalyzer({ C, MONO, SANS, macroData }) {
     setLoading(true); setErr(""); setData(null); setQuote(null); setAi("");
     Promise.all([
       fetch(`/api/market/trend-template?symbol=${t}`).then(r => r.json()).catch(() => null),
-      fetch(`/api/market/quote?symbol=${t}`).then(r => r.json()).catch(() => null),
+      fetch(`/api/market/quote?symbols=${t}`).then(r => r.json()).catch(() => null),
     ]).then(([tt, q]) => {
       if (!tt || tt.error || !tt.price) { setErr(tt?.error || "No data for " + t); }
-      else { setData(tt); setQuote(Array.isArray(q) ? q[0] : (q?.quote || q)); }
+      else { setData(tt); setQuote(Array.isArray(q) ? q[0] : (q?.quotes?.[0] || q?.quote || q)); }
     }).finally(() => setLoading(false));
   };
   const askAi = () => {
