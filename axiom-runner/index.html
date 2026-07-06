@@ -107,7 +107,9 @@
     // Fast path: load the PRECOMPILED JS (build step) — no in-browser Babel on ~2 MB.
     async function boot() {
       try {
-        const r = await fetch(`/axiom-runner/axiom-live.compiled.js?v=${Date.now()}`, { cache: "no-store" });
+        // no-cache = always revalidate with the server (tiny 304 when unchanged),
+        // but reuse the cached 2.6 MB bundle instead of re-downloading it every load.
+        const r = await fetch(`/axiom-runner/axiom-live.compiled.js`, { cache: "no-cache" });
         if (r.ok) {
           new Function(await r.text())();
           const App = window.__AXIOM_APP__;
@@ -142,6 +144,16 @@
       root.render(React.createElement(App));
     }
 
+    // Show a loading screen immediately (createRoot clears the static HTML), so a
+    // cold-server first load shows progress instead of a blank white page.
+    root.render(
+      React.createElement("div", { className: "boot" },
+        React.createElement("div", { className: "boot-card" },
+          React.createElement("h1", null, "Loading AM Trading Platform…"),
+          React.createElement("p", null, "Waking the server and loading the app. The first load after a while can take a few seconds — this won't repeat.")
+        )
+      )
+    );
     boot();
 
     // ── Auto-reload after a Render deploy (loop-safe) ──
