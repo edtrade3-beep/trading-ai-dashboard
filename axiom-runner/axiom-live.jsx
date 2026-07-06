@@ -18667,6 +18667,75 @@ function RhProCalc({ C, MONO, SANS }) {
   );
 }
 
+// Robinhood Pro AI — Feature 7: Options Mode. Flow bias + expected move.
+// Real IV/greeks/POP auto-enable if POLYGON_API_KEY is set. Analysis only — no orders.
+function RhProOptions({ C, MONO, SANS }) {
+  const [sym, setSym] = useState(""); const [flow, setFlow] = useState(null); const [tt, setTt] = useState(null);
+  const [poly, setPoly] = useState(null); const [loading, setLoading] = useState(false); const [err, setErr] = useState("");
+  const run = (s) => {
+    const t = (s || sym).trim().toUpperCase(); if (!t) return;
+    setLoading(true); setErr(""); setFlow(null); setTt(null); setPoly(null);
+    Promise.all([
+      fetch(`/api/market/options-flow?symbols=${t}&limit=8`).then(r => r.json()).catch(() => null),
+      fetch(`/api/market/trend-template?symbol=${t}`).then(r => r.json()).catch(() => null),
+      fetch(`/api/market/options?symbol=${t}`).then(r => r.json()).catch(() => null),
+    ]).then(([f, d, p]) => {
+      if (f && f.bySymbol) setFlow(f); if (d && !d.error) setTt(d);
+      if (p && !p.error) setPoly(p);
+      if ((!f || !f.bySymbol) && (!d || d.error)) setErr("No options data for " + t);
+    }).finally(() => setLoading(false));
+  };
+  const bs = flow?.bySymbol?.[0];
+  const contracts = bs?.topContracts || flow?.flow || [];
+  const calls = contracts.filter(c => c.side === "CALL").sort((a, b) => b.volume - a.volume).slice(0, 6);
+  const puts = contracts.filter(c => c.side === "PUT").sort((a, b) => b.volume - a.volume).slice(0, 6);
+  const ratio = Number(bs?.callPutRatio || 0);
+  const bias = ratio >= 1.3 ? { t: "BULLISH FLOW", c: C.green } : ratio > 0 && ratio <= 0.77 ? { t: "BEARISH FLOW", c: C.red } : { t: "MIXED / NEUTRAL", c: C.amber };
+  const price = Number(tt?.price || 0);
+  const atr = tt?.setup ? Math.max(0.01, (Number(tt.setup.entry) - Number(tt.setup.stop)) / 1.5) : 0;
+  const emWeek = price > 0 && atr > 0 ? +(atr * Math.sqrt(5)).toFixed(2) : 0;   // ~1-week expected move
+  const emPct = price > 0 ? (emWeek / price * 100) : 0;
+  const estimated = flow?.source === "estimated-from-price-volume" && !poly;
+
+  const inp = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, fontFamily: MONO, fontSize: 14, color: C.text, padding: "10px 12px", outline: "none" };
+  const th = { fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, padding: "5px 8px", textAlign: "left" };
+  const td = { fontFamily: MONO, fontSize: 12, padding: "5px 8px", borderTop: `1px solid ${C.border}` };
+  const Tbl = ({ rows, col }) => (
+    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <thead><tr>{["STRIKE", "VOL", "OI", "LAST"].map(h => <th key={h} style={th}>{h}</th>)}</tr></thead>
+      <tbody>{rows.length ? rows.map((c, i) => (
+        <tr key={i}><td style={{ ...td, color: col, fontWeight: 800 }}>${c.strike}</td><td style={td}>{c.volume?.toLocaleString?.() || c.volume}</td><td style={{ ...td, color: C.textDim }}>{c.openInterest?.toLocaleString?.() || c.openInterest}</td><td style={{ ...td, color: C.textSec }}>${Number(c.lastPrice || 0).toFixed(2)}</td></tr>
+      )) : <tr><td style={{ ...td, color: C.textDim }} colSpan="4">—</td></tr>}</tbody>
+    </table>
+  );
+
+  return (
+    <div style={{ padding: "8px 4px" }}>
+      <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 10 }}>🎲 OPTIONS MODE</div>
+      <form onSubmit={e => { e.preventDefault(); run(); }} style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <input value={sym} onChange={e => setSym(e.target.value)} placeholder="Symbol (e.g. AAPL, NVDA)…" style={{ ...inp, flex: 1, maxWidth: 300 }} />
+        <button type="submit" disabled={loading} style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "10px 22px", borderRadius: 8, border: "none", color: "#fff", background: C.accent, cursor: "pointer" }}>{loading ? "…" : "ANALYZE"}</button>
+      </form>
+      {err && <div style={{ fontFamily: SANS, fontSize: 13, color: C.red }}>⚠ {err}</div>}
+      {estimated && (bs || tt) && <div style={{ fontFamily: SANS, fontSize: 11, color: C.amber, background: `${C.amber}12`, border: `1px solid ${C.amber}44`, borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>⚠ Flow is <b>estimated</b> from price/volume. For true IV, greeks &amp; probability-of-profit, add <b>POLYGON_API_KEY</b> in Render — this view upgrades automatically.</div>}
+
+      {(bs || tt) && (<>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginBottom: 14 }}>
+          <div style={{ background: C.card, border: `1px solid ${bias.c}55`, borderRadius: 12, padding: 14 }}><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>OPTIONS BIAS</div><div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: bias.c }}>{bias.t}</div><div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Call/Put ratio {ratio ? ratio.toFixed(2) : "—"}</div></div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>EXPECTED MOVE (~1wk)</div><div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>{emWeek ? `±$${emWeek}` : "—"}</div><div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{emPct ? `±${emPct.toFixed(1)}% · vol-based est` : "needs data"}</div></div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>CALL NOTIONAL</div><div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.green }}>${Math.round(Number(flow?.summary?.callNotional || 0) / 1000)}k</div></div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}><div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>PUT NOTIONAL</div><div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.red }}>${Math.round(Number(flow?.summary?.putNotional || 0) / 1000)}k</div></div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12 }}><div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, marginBottom: 6 }}>📈 BULLISH — top CALLS</div><Tbl rows={calls} col={C.green} /></div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12 }}><div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.red, marginBottom: 6 }}>📉 BEARISH — top PUTS</div><Tbl rows={puts} col={C.red} /></div>
+        </div>
+        <div style={{ marginTop: 12, fontFamily: SANS, fontSize: 11, color: C.textDim, lineHeight: 1.6 }}>💡 Heavy call flow + a bullish stock setup = confluence. Expected move tells you a realistic 1-week range — sell premium outside it, buy inside it. <b>Options Academy</b> (LEARN tab) teaches the strategies. No options orders are placed here.</div>
+      </>)}
+    </div>
+  );
+}
+
 export default function App() {
   // First-run defaults: route autopilot to the Alpaca paper account and turn it ON.
   // Only sets when unset, so it never overrides a choice you've made. (Paper only — no real money.)
@@ -22540,7 +22609,7 @@ export default function App() {
             const NAV_GROUPS = [
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["start", "dashboard", "quotes", "crypto", "news", "econ-cal", "macro"] },
               { id: "terminal",   label: "📈 CHART",      tabs: ["multitf", "tv"] },
-              { id: "rhpro",      label: "🎯 PRO",        tabs: ["rhpro", "rhpro-scan", "rhpro-analyze", "rhpro-lists", "rhpro-heat", "rhpro-calc"] },
+              { id: "rhpro",      label: "🎯 PRO",        tabs: ["rhpro", "rhpro-scan", "rhpro-analyze", "rhpro-lists", "rhpro-heat", "rhpro-calc", "rhpro-options"] },
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy", "trendtemplate", "outlook", "predictions", "morning-routine", "mytrades", "holdings", "gl-backtest"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes"] },
@@ -22914,6 +22983,7 @@ export default function App() {
             { id: "rhpro-lists", label: "📋 WATCHLISTS" },
             { id: "rhpro-heat", label: "🗺 HEAT MAP" },
             { id: "rhpro-calc", label: "📐 SIZE CALC" },
+            { id: "rhpro-options", label: "🎲 OPTIONS" },
           ],
           scanner: [
             { id: "greenlight",   label: "🟢 GREEN LIGHT + TRADES" },
@@ -32778,6 +32848,7 @@ export default function App() {
       {activeTab === "rhpro-lists" && <RhProWatchlists C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
       {activeTab === "rhpro-heat" && <RhProHeatMap C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} />}
       {activeTab === "rhpro-calc" && <RhProCalc C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "rhpro-options" && <RhProOptions C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "start" && <StartHereTab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
       {activeTab === "dealfinder" && <DealFinderTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "flightfinder" && <FlightFinderTab C={C} MONO={MONO} SANS={SANS} />}
