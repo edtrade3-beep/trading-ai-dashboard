@@ -8,7 +8,9 @@ const STARTED_AT = new Date().toISOString();
 
 async function handleHealth(req, res) {
   const serverAutopilot = (process.env.SERVER_AUTOPILOT || "").toLowerCase() === "on";
-  return writeJson(res, 200, { ok: true, version: "market-v2", build: BUILD, startedAt: STARTED_AT, telegram: telegramConfigured(), serverAutopilot });
+  const meanrevPaper = (process.env.MEANREV_PAPER || "").toLowerCase() === "on";
+  const apiAuth = !!(process.env.API_AUTH_TOKEN || "").trim();
+  return writeJson(res, 200, { ok: true, version: "market-v2", build: BUILD, startedAt: STARTED_AT, telegram: telegramConfigured(), serverAutopilot, meanrevPaper, apiAuth });
 }
 
 module.exports = handleHealth;
