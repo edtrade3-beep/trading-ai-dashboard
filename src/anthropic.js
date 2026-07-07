@@ -12,8 +12,10 @@ const MODELS = {
 // - system: a stable instruction block; pass it once and reuse it across calls.
 // - cache: true → mark the system block cache_control:ephemeral so repeated calls
 //   read it at ~10% of input price (big savings when the same instructions repeat).
-function callAnthropicApi(prompt, apiKey, { model = MODELS.sonnet, maxTokens = 1024, system = null, cache = false, timeout = 30000 } = {}) {
+function callAnthropicApi(prompt, apiKey, { model = MODELS.sonnet, maxTokens = 1024, system = null, cache = false, timeout = 30000, effort = null } = {}) {
   const payload = { model, max_tokens: maxTokens, messages: [{ role: "user", content: prompt }] };
+  // effort (GA): low = faster/cheaper thinking, high = deeper. Cuts latency a lot.
+  if (effort) payload.output_config = { effort };
   if (system) {
     payload.system = cache
       ? [{ type: "text", text: String(system), cache_control: { type: "ephemeral" } }]
