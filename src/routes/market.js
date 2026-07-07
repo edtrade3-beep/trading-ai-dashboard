@@ -213,14 +213,26 @@ async function fetchMarketNews(tickers, limit, keys) {
     if (merged.length) return merged;
   }
 
-  const rows = await Promise.all(
+  // Free path (also runs on Render where Yahoo's JSON API is IP-blocked): pull
+  // BOTH Yahoo and Google News RSS per ticker, then merge + dedupe for a richer feed.
+  const { fetchGoogleNews } = require("../providers/googlenews");
+  const perTicker = await Promise.all(
     tickers.map(async (ticker) => {
-      const items = await fetchYahooNews(ticker);
-      return items.map((item) => ({ ...item, ticker }));
+      const [yahoo, google] = await Promise.all([
+        fetchYahooNews(ticker).catch(() => []),
+        fetchGoogleNews(ticker, 10).catch(() => []),
+      ]);
+      return [...yahoo, ...google].map((item) => ({ ...item, ticker: item.ticker || ticker }));
     })
   );
-  return rows
-    .flat()
+  // Dedupe by normalized title (different outlets carry the same story).
+  const seen = new Set();
+  const deduped = perTicker.flat().filter((n) => {
+    const k = String(n.title || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 60);
+    if (!k || seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+  return deduped
     .sort((a, b) => {
       const ta = a.publishedAt ? Date.parse(a.publishedAt) : 0;
       const tb = b.publishedAt ? Date.parse(b.publishedAt) : 0;
