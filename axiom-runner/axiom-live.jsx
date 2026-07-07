@@ -10072,6 +10072,7 @@ function TrendSetupPanel({ data, C, MONO, SANS }) {
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {box("Entry (pivot)", "$" + su.entry, C.accent, `${su.abovePivotPct}% vs pivot`)}
         {box("Stop", "$" + su.stop, "#c8282a", `risk ${su.riskPct}%`)}
+        {box("Target 1R", "$" + (Math.round((su.entry + (su.entry - su.stop)) * 100) / 100), "#5ab552", "+" + su.riskPct.toFixed(1) + "% · scale out")}
         {box("Target 2R", "$" + su.target2, "#0d9465", "+" + (su.riskPct * 2).toFixed(1) + "%")}
         {box("Target 3R", "$" + su.target3, "#0d9465", "+" + (su.riskPct * 3).toFixed(1) + "%")}
         {d != null && box("Base depth", d + "%", dCol, dSub)}
@@ -15596,7 +15597,13 @@ function TrendChart({ data, C, MONO, SANS, height }) {
     if (su) {
       const pl = (price, color, title, style) => s.priceLines.push(s.candle.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }));
       pl(su.entry, C.accent, "PIVOT", LS.Dashed ?? 2);
-      if (su.actionable) { pl(su.stop, C.red, "STOP", LS.Dashed ?? 2); pl(su.target2, C.green, "T2", LS.Dashed ?? 2); pl(su.target3, C.green, "T3", LS.Dotted ?? 1); }
+      if (su.actionable) {
+        pl(su.stop, C.red, "STOP", LS.Dashed ?? 2);
+        const t1 = Math.round((su.entry + (su.entry - su.stop)) * 100) / 100;   // 1R — first scale-out
+        pl(t1, "#5ab552", "T1", LS.Dotted ?? 1);
+        pl(su.target2, C.green, "T2", LS.Dashed ?? 2);
+        pl(su.target3, C.green, "T3", LS.Dotted ?? 1);
+      }
       // Base box: bottom = contraction low. Combined with the PIVOT line above it
       // this brackets the consolidation the stock is breaking out of.
       if (su.contractionLow) pl(su.contractionLow, C.textDim, "BASE LOW", LS.Dotted ?? 1);
