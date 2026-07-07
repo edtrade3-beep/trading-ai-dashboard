@@ -10043,8 +10043,17 @@ function InvestorsPanel({ symbol, C, MONO, SANS }) {
 // 8-point checklist) rendered from a trend-template payload. Used inside the
 // Terminal so the full Minervini read lives next to the chart.
 function TrendSetupPanel({ data, C, MONO, SANS }) {
+  const [alertMsg, setAlertMsg] = useState("");
   if (!data || !data.setup) return null;
   const su = data.setup, passN = Number(data.score) || 0;
+  const armAlert = () => {
+    fetch("/api/price-alerts", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol: data.symbol, targetPrice: su.entry, direction: "above", requireVolume: true, note: "Minervini pivot breakout" }) })
+      .then(r => r.json())
+      .then(d => setAlertMsg(d.error ? d.error : `🔔 Armed — you'll be alerted when ${data.symbol} breaks $${su.entry} on volume`))
+      .catch(e => setAlertMsg(e.message));
+    setTimeout(() => setAlertMsg(""), 5000);
+  };
   const vColor = su.verdict === "GO" ? "#0d9465" : su.verdict === "WAIT" ? "#d6a312" : "#c8282a";
   const bl = (() => {
     if (su.verdict === "GO") return `Buy candidate — ${passN}/8 pass and it's breaking out. Enter above ${su.entry} pivot, stop ${su.stop}.`;
@@ -10068,6 +10077,14 @@ function TrendSetupPanel({ data, C, MONO, SANS }) {
       <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.5,
         background: `${vColor}12`, border: `1px solid ${vColor}55`, borderLeft: `3px solid ${vColor}`, borderRadius: 8, padding: "9px 13px" }}>
         <b style={{ color: vColor }}>{su.verdict} · {data.stage}:</b> {bl}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <button onClick={armAlert}
+          style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "6px 14px", borderRadius: 8, cursor: "pointer",
+            border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent }}>
+          🔔 Alert me at pivot ${su.entry}
+        </button>
+        {alertMsg && <span style={{ fontFamily: MONO, fontSize: 11, color: "#0d9465" }}>{alertMsg}</span>}
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {box("Entry (pivot)", "$" + su.entry, C.accent, `${su.abovePivotPct}% vs pivot`)}
