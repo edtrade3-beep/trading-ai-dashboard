@@ -15103,17 +15103,29 @@ function TrendChart({ data, C, MONO, SANS, height }) {
   const vcpS = Number(data && data.setup && data.setup.report && data.setup.report.score) || 0;
   const rating = Math.max(0, Math.min(100, Math.round((passC / 8) * 50 + (vcpS / 100) * 50)));
   const rColor = rating >= 80 ? "#22d47e" : rating >= 60 ? "#d6a312" : rating >= 40 ? "#f59e0b" : "#ef4444";
+  const rWord  = rating >= 80 ? "STRONG" : rating >= 60 ? "GOOD" : rating >= 40 ? "FAIR" : "WEAK";
   const su = data && data.setup;
   const upside = su && su.target2 && data.price ? Math.round(((su.target2 - data.price) / data.price) * 100) : null;
+  const verdict = su && su.verdict;   // GO / WAIT / AVOID
+  const vColor = verdict === "GO" ? "#22d47e" : verdict === "WAIT" ? "#d6a312" : "#ef4444";
   return (
     <div style={{ position: "relative", width: "100%", height: H }}>
       <div ref={elRef} style={{ width: "100%", height: H }} />
       {data && (
-        <div style={{ position: "absolute", top: 10, right: 16, textAlign: "center", pointerEvents: "none",
-          background: (C.card || "#fff") + "e8", border: `1px solid ${rColor}`, borderRadius: 10, padding: "6px 12px" }}>
+        // Top-LEFT so it never collides with the right price axis or the AI-TARGET label.
+        <div style={{ position: "absolute", top: 10, left: 12, pointerEvents: "none",
+          background: (C.card || "#fff") + "f2", border: `1px solid ${rColor}`, borderRadius: 12, padding: "8px 14px", boxShadow: "0 2px 10px rgba(0,0,0,0.18)", minWidth: 132 }}>
           <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 1 }}>OVERALL RATING</div>
-          <div style={{ fontFamily: SANS, fontSize: 26, fontWeight: 900, color: rColor, lineHeight: 1 }}>{rating}</div>
-          {upside != null && <div style={{ fontFamily: MONO, fontSize: 10, color: "#f59e0b", marginTop: 2 }}>🎯 {upside > 0 ? "+" : ""}{upside}% to target</div>}
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <span style={{ fontFamily: SANS, fontSize: 30, fontWeight: 900, color: rColor, lineHeight: 1 }}>{rating}</span>
+            <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, color: rColor, letterSpacing: 0.5 }}>{rWord}</span>
+          </div>
+          {verdict && (
+            <div style={{ display: "inline-block", marginTop: 6, fontFamily: MONO, fontSize: 10, fontWeight: 800, color: "#fff", background: vColor, borderRadius: 5, padding: "2px 8px" }}>
+              {verdict === "GO" ? "🟢 GO" : verdict === "WAIT" ? "🟡 WAIT" : "🔴 AVOID"}
+            </div>
+          )}
+          {upside != null && <div style={{ fontFamily: MONO, fontSize: 10, color: "#f59e0b", marginTop: 5 }}>🎯 {upside > 0 ? "+" : ""}{upside}% to target</div>}
         </div>
       )}
     </div>
@@ -15618,8 +15630,10 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
               {box("Breakout vol", su.volSurge + "×", su.volSurge >= 1.4 ? C.green : C.textDim, "need ≥1.4×")}
             </div>
             {su.sellSignals.length > 0 && (
-              <div style={{ fontFamily: SANS, fontSize: 12, color: C.red }}>
-                🔴 Sell signal: {su.sellSignals.join(" · ")}</div>
+              <div style={{ fontFamily: SANS, fontSize: 12, color: C.amber, background: `${C.amber}14`, border: `1px solid ${C.amber}55`, borderRadius: 8, padding: "8px 12px", lineHeight: 1.5 }}>
+                ⚠️ <b>Exit / trim trigger</b> (for holders): {su.sellSignals.join(" · ")}.
+                <span style={{ color: C.textDim }}> The trend is still Stage 2 — this flags where a holder would take profits or tighten stops, not a short signal.</span>
+              </div>
             )}
             <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, lineHeight: 1.5 }}>
               Pivot = high of the recent base (buy on a break above it with volume ≥1.4× average).
