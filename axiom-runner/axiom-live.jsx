@@ -15622,8 +15622,8 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
         const su = data.setup;
         const sc = !su.actionable ? C.textDim : su.breakoutConfirmed ? C.green : su.extended ? C.red : "#d6a312";
         const box = (label, val, col, sub) => (
-          <div style={{ flex: "1 1 120px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
-            <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, textTransform: "uppercase", letterSpacing: .4 }}>{label}</div>
+          <div style={{ flex: "1 1 120px", background: C.card, border: `1.5px solid ${C.border}`, borderRadius: 10, padding: "9px 13px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
+            <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.text, opacity: 0.7, fontWeight: 700, textTransform: "uppercase", letterSpacing: .4 }}>{label}</div>
             <div style={{ fontFamily: NUM, fontSize: 26, fontWeight: 700, color: col || C.text, lineHeight: 1.1, letterSpacing: "0.01em" }}>{val}</div>
             {sub && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 1 }}>{sub}</div>}
           </div>
