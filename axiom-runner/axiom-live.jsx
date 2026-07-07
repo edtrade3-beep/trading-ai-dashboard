@@ -14712,8 +14712,10 @@ function TrendChart({ data, C, MONO, SANS, height }) {
     chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.84, bottom: 0 } });
     const mk = (color, w) => chart.addLineSeries({ color, lineWidth: w, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
     const ma200 = mk("#c94440", 1), ma150 = mk("#d6a312", 1), ma50 = mk(C.accent, 2);
+    // Bollinger Bands (20, 2σ) — the green volatility envelope in the reference chart.
+    const bbU = mk("#4ea86e", 1), bbL = mk("#4ea86e", 1);
     chartRef.current = chart;
-    seriesRef.current = { candle, vol, ma50, ma150, ma200, priceLines: [] };
+    seriesRef.current = { candle, vol, ma50, ma150, ma200, bbU, bbL, priceLines: [] };
     symRef.current = null; // force a fitContent on next data fill
     const onResize = () => chart.applyOptions({ width: el.clientWidth || 800 });
     window.addEventListener("resize", onResize);
@@ -14730,12 +14732,29 @@ function TrendChart({ data, C, MONO, SANS, height }) {
     const setMA = (series, arr) => series.setData(bars.map((b, i) => arr[i] == null ? null : ({ time: toTime(b.time), value: arr[i] })).filter(Boolean));
     setMA(s.ma200, data.series.ma200); setMA(s.ma150, data.series.ma150); setMA(s.ma50, data.series.ma50);
 
+    // Bollinger Bands (20-period, 2σ) computed from closes.
+    const P = 20, K = 2, closes = bars.map(b => b.close), bbUp = [], bbLo = [];
+    for (let i = 0; i < n; i++) {
+      if (i < P - 1) { bbUp.push(null); bbLo.push(null); continue; }
+      let sum = 0; for (let j = i - P + 1; j <= i; j++) sum += closes[j];
+      const mean = sum / P;
+      let vv = 0; for (let j = i - P + 1; j <= i; j++) vv += (closes[j] - mean) ** 2;
+      const sd = Math.sqrt(vv / P);
+      bbUp.push(mean + K * sd); bbLo.push(mean - K * sd);
+    }
+    setMA(s.bbU, bbUp); setMA(s.bbL, bbLo);
+
     s.priceLines.forEach(pl => { try { s.candle.removePriceLine(pl); } catch {} }); s.priceLines = [];
     const su = data.setup, LS = window.LightweightCharts.LineStyle || {};
     if (su) {
       const pl = (price, color, title, style) => s.priceLines.push(s.candle.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }));
       pl(su.entry, C.accent, "PIVOT", LS.Dashed ?? 2);
       if (su.actionable) { pl(su.stop, C.red, "STOP", LS.Dashed ?? 2); pl(su.target2, C.green, "T2", LS.Dashed ?? 2); pl(su.target3, C.green, "T3", LS.Dotted ?? 1); }
+      // Base box: bottom = contraction low. Combined with the PIVOT line above it
+      // this brackets the consolidation the stock is breaking out of.
+      if (su.contractionLow) pl(su.contractionLow, C.textDim, "BASE LOW", LS.Dotted ?? 1);
+      // AI prediction target — projected upside (measured move) as a dashed orange line.
+      if (su.target2) pl(su.target2, "#f59e0b", "🎯 AI TARGET", LS.Dashed ?? 2);
     }
     // BUY = most recent reclaim of the rising 50-day MA; EXIT = first close back below it.
     const ma50s = data.series.ma50 || []; let buyIdx = -1;
@@ -14753,7 +14772,26 @@ function TrendChart({ data, C, MONO, SANS, height }) {
   if (typeof window !== "undefined" && !window.LightweightCharts) {
     return <div style={{ height: H, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: SANS, fontSize: 12, color: C.textDim }}>Loading interactive chart…</div>;
   }
-  return <div ref={elRef} style={{ width: "100%", height: H }} />;
+  // Overall Rating (0–100): blends trend gears (score/8) with VCP base quality.
+  const passC = Number(data && data.score) || 0;
+  const vcpS = Number(data && data.setup && data.setup.report && data.setup.report.score) || 0;
+  const rating = Math.max(0, Math.min(100, Math.round((passC / 8) * 50 + (vcpS / 100) * 50)));
+  const rColor = rating >= 80 ? "#22d47e" : rating >= 60 ? "#d6a312" : rating >= 40 ? "#f59e0b" : "#ef4444";
+  const su = data && data.setup;
+  const upside = su && su.target2 && data.price ? Math.round(((su.target2 - data.price) / data.price) * 100) : null;
+  return (
+    <div style={{ position: "relative", width: "100%", height: H }}>
+      <div ref={elRef} style={{ width: "100%", height: H }} />
+      {data && (
+        <div style={{ position: "absolute", top: 10, right: 16, textAlign: "center", pointerEvents: "none",
+          background: (C.card || "#fff") + "e8", border: `1px solid ${rColor}`, borderRadius: 10, padding: "6px 12px" }}>
+          <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 1 }}>OVERALL RATING</div>
+          <div style={{ fontFamily: SANS, fontSize: 26, fontWeight: 900, color: rColor, lineHeight: 1 }}>{rating}</div>
+          {upside != null && <div style={{ fontFamily: MONO, fontSize: 10, color: "#f59e0b", marginTop: 2 }}>🎯 {upside > 0 ? "+" : ""}{upside}% to target</div>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
