@@ -10113,16 +10113,21 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
   useEffect(() => {
     if (source !== "watchlist") return;
     setWlRows(null);
-    fetch("/api/watchlist").then(r => r.json()).then(d => {
-      const syms = (Array.isArray(d.symbols) ? d.symbols : []).slice(0, 40);
+    fetch("/api/watchlist").then(r => r.json()).then(async (d) => {
+      const syms = (Array.isArray(d.symbols) ? d.symbols : []).slice(0, 150);
       if (!syms.length) { setWlRows([]); return; }
-      return fetch("/api/market/quote?symbols=" + encodeURIComponent(syms.join(",")))
-        .then(r => r.json()).then(q => {
+      // Fetch quotes in chunks of 40 so a big watchlist doesn't time out one call.
+      const out = [];
+      for (let i = 0; i < syms.length; i += 40) {
+        const chunk = syms.slice(i, i + 40);
+        try {
+          const q = await fetch("/api/market/quote?symbols=" + encodeURIComponent(chunk.join(","))).then(r => r.json());
           const arr = Array.isArray(q) ? q : (q.quotes || []);
-          setWlRows(arr.filter(x => typeof x.price === "number")
-            .map(x => ({ symbol: String(x.symbol).toUpperCase(), price: x.price, dayPct: Number(x.changesPercentage) || 0, volRatio: null }))
-            .sort((a, b) => b.dayPct - a.dayPct));
-        });
+          out.push(...arr.filter(x => typeof x.price === "number")
+            .map(x => ({ symbol: String(x.symbol).toUpperCase(), price: x.price, dayPct: Number(x.changesPercentage) || 0, volRatio: null })));
+        } catch {}
+      }
+      setWlRows(out.sort((a, b) => b.dayPct - a.dayPct));
     }).catch(() => setWlRows([]));
   }, [source]);
 
