@@ -1441,6 +1441,34 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  // AI price prediction for a target date — short, reasoned projection.
+  if (pathname === "/api/market/ai-predict" && req.method === "POST") {
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
+    const symbol = String(b.symbol || "").trim().toUpperCase();
+    const price = Number(b.price) || 0;
+    const targetDate = String(b.targetDate || "").slice(0, 10);
+    if (!symbol || !price || !targetDate) return writeJson(res, 400, { ok: false, error: "symbol, price, targetDate required" });
+    const ctx = `Current $${price}. Stage: ${b.stage || "?"}. RS ${b.rsRating ?? "?"}. 52w range $${b.lo52 ?? "?"}–$${b.hi52 ?? "?"}. Momentum ${b.momentum ?? "?"}%.`;
+    const system = `You are a quantitative analyst projecting a stock's price for a target date. Use the trend/stage/RS/range context. Respond in EXACTLY this format, nothing else:\nTARGET: $<number>\nRANGE: $<low> – $<high>\nWHY: <one tight sentence, <25 words>\nBe realistic and probabilistic — most stocks move within their recent volatility. Do not be wildly bullish or bearish without cause. This is educational, not financial advice.`;
+    const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 2 }];
+    try {
+      const messages = [{ role: "user", content: `Project ${symbol} price for ${targetDate}. ${ctx}` }];
+      let text = "";
+      for (let i = 0; i < 3; i++) {
+        const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 300,
+          system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools }, key, 45000);
+        const content = resp.content || [];
+        const t = content.filter(c => c.type === "text").map(c => c.text).join("");
+        if (t) text = t;
+        if (resp.stop_reason === "pause_turn") { messages.push({ role: "assistant", content }); continue; }
+        break;
+      }
+      return writeJson(res, 200, { ok: true, symbol, targetDate, reply: (text || "").trim() });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   // Manually fire the server-side AI game plan / trade coach (for testing or off-hours).
   if (pathname === "/api/market/ai-trigger" && req.method === "POST") {
     const type = (searchParams.get("type") || "gameplan").toLowerCase();

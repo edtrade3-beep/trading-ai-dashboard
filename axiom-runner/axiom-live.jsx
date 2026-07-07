@@ -9826,6 +9826,117 @@ function AnalystPeerPanel({ symbol, price, lb, C, MONO, SANS }) {
   );
 }
 
+// Valuation + growth + company profile for the loaded symbol.
+function FundamentalsPanel({ symbol, C, MONO, SANS }) {
+  const [f, setF] = useState(null);
+  const [state, setState] = useState("loading");
+  useEffect(() => {
+    if (!symbol) return;
+    setState("loading"); setF(null);
+    fetch("/api/market/fundamentals?symbol=" + encodeURIComponent(symbol))
+      .then(r => r.json()).then(d => { if (d && !d.error) { setF(d); setState("ok"); } else setState("none"); }).catch(() => setState("none"));
+  }, [symbol]);
+  const pct = (v) => v == null || isNaN(v) ? "—" : (v * 100).toFixed(1) + "%";
+  const num = (v, d = 2) => v == null || isNaN(v) || v === 0 ? "—" : Number(v).toFixed(d);
+  const box = (label, val, col) => (
+    <div key={label} style={{ flex: "1 1 90px", border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 11px", background: C.bg }}>
+      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim }}>{label}</div>
+      <div style={{ fontFamily: NUM, fontSize: 19, fontWeight: 700, color: col || C.text }}>{val}</div>
+    </div>
+  );
+  return (
+    <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", background: C.bg }}>
+      <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 10 }}>📊 Valuation &amp; Growth — {symbol}</div>
+      {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "16px 0", textAlign: "center" }}>Loading…</div>}
+      {state === "none" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "16px 0", textAlign: "center" }}>⚠ Fundamentals unavailable (add an FMP key for full data on the live server).</div>}
+      {state === "ok" && f && (
+        <>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 5 }}>VALUATION</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+            {box("P/E", num(f.pe || f.trailingPE, 1))}
+            {box("P/S", num(f.priceToSales, 1))}
+            {box("P/B", num(f.priceToBook, 1))}
+            {box("PEG", num(f.pegRatio, 2))}
+            {box("BETA", num(f.beta, 2))}
+            {box("DIV YIELD", f.dividendYield != null ? pct(f.dividendYield) : "—")}
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 5 }}>GROWTH &amp; MARGINS</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {box("REV GROWTH", pct(f.revenueGrowth), f.revenueGrowth > 0 ? "#0d9465" : f.revenueGrowth < 0 ? "#c8282a" : null)}
+            {box("EPS GROWTH", pct(f.earningsGrowth), f.earningsGrowth > 0 ? "#0d9465" : f.earningsGrowth < 0 ? "#c8282a" : null)}
+            {box("GROSS MGN", pct(f.grossMargin))}
+            {box("PROFIT MGN", pct(f.profitMargin))}
+            {box("ROE", pct(f.roe))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Company profile card — sector/industry from our map + any provider profile text.
+function CompanyProfile({ symbol, C, MONO, SANS }) {
+  const [f, setF] = useState(null);
+  useEffect(() => {
+    if (!symbol) return; setF(null);
+    fetch("/api/market/fundamentals?symbol=" + encodeURIComponent(symbol))
+      .then(r => r.json()).then(d => setF(d && !d.error ? d : null)).catch(() => {});
+  }, [symbol]);
+  const sectorEtf = STOCK_TO_SECTOR[symbol];
+  const sectorName = (SECTOR_ETFS.find(s => s.symbol === sectorEtf) || {}).name;
+  const mc = f && Number(f.marketCap) > 0 ? Number(f.marketCap) : null;
+  const mcStr = mc == null ? "—" : mc >= 1e12 ? "$" + (mc / 1e12).toFixed(2) + "T" : mc >= 1e9 ? "$" + (mc / 1e9).toFixed(1) + "B" : "$" + (mc / 1e6).toFixed(0) + "M";
+  const row = (k, v) => (
+    <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
+      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{k}</span>
+      <span style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 700, color: C.text }}>{v}</span>
+    </div>
+  );
+  return (
+    <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", background: C.bg }}>
+      <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 10 }}>🏢 Company — {symbol}</div>
+      {row("Sector", sectorName || "—")}
+      {row("Market Cap", mcStr)}
+      {row("Shares Out", f && f.sharesOutstanding ? (f.sharesOutstanding / 1e9).toFixed(2) + "B" : "—")}
+      {row("Analyst Target", f && Number(f.analystTarget || f.targetMeanPrice) > 0 ? "$" + Number(f.analystTarget || f.targetMeanPrice).toFixed(2) : "—")}
+      {f && f.description && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.55, marginTop: 10 }}>{String(f.description).slice(0, 400)}{f.description.length > 400 ? "…" : ""}</div>}
+      {!(f && f.description) && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 10 }}>Company description needs an FMP key on the live server.</div>}
+    </div>
+  );
+}
+
+// AI price prediction for a chosen future date.
+function AiPredictPanel({ symbol, chart, C, MONO, SANS }) {
+  const dflt = () => { const d = new Date(); d.setMonth(d.getMonth() + 3); return d.toISOString().slice(0, 10); };
+  const [date, setDate] = useState(dflt());
+  const [reply, setReply] = useState(""); const [state, setState] = useState("idle");
+  useEffect(() => { setReply(""); setState("idle"); }, [symbol]);
+  const go = () => {
+    if (!chart) return;
+    setState("loading");
+    fetch("/api/market/ai-predict", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol, price: chart.price, targetDate: date, stage: chart.stage, rsRating: chart.rsRating, hi52: chart.hi52, lo52: chart.lo52, momentum: chart.momentum }) })
+      .then(r => r.json()).then(j => { if (j.ok) { setReply(j.reply); setState("ok"); } else setState("err"); }).catch(() => setState("err"));
+  };
+  return (
+    <div style={{ marginTop: 14, border: `1px solid #7c5cff55`, borderRadius: 12, padding: "12px 14px", background: "rgba(124,92,255,0.06)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: reply ? 10 : 0 }}>
+        <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text }}>🔮 AI Price Prediction</div>
+        <input type="date" value={date} onChange={e => setDate(e.target.value)}
+          style={{ fontFamily: MONO, fontSize: 12, padding: "5px 8px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: C.text }} />
+        <button onClick={go} disabled={state === "loading" || !chart}
+          style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "6px 12px", borderRadius: 8, cursor: chart ? "pointer" : "not-allowed",
+            border: `1px solid #7c5cff`, background: "rgba(124,92,255,0.16)", color: "#a78bfa" }}>
+          {state === "loading" ? "Predicting…" : "Predict"}
+        </button>
+      </div>
+      {state === "err" && <div style={{ fontFamily: MONO, fontSize: 12, color: "#c8282a" }}>⚠ Prediction failed — try again.</div>}
+      {state === "ok" && <div style={{ fontFamily: SANS, fontSize: 13, lineHeight: 1.6, color: C.text, whiteSpace: "pre-wrap" }}>{reply}</div>}
+      {state === "idle" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 6 }}>Pick a date → AI projects a target price + range. Educational, not advice.</div>}
+    </div>
+  );
+}
+
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
 function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
@@ -9835,6 +9946,8 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
   const [chart, setChart] = useState(null);
   const [loadingChart, setLoadingChart] = useState(false);
   const [query, setQuery] = useState("");
+  const [dTab, setDTab] = useState("chart");   // per-symbol detail tab
+  const [sortBy, setSortBy] = useState("bucket");  // movers sort
 
   useEffect(() => {
     const load = () => fetch("/api/market/leaderboard?n=12").then(r => r.json()).then(setLb).catch(() => {});
@@ -9881,7 +9994,15 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
     { id: "upOnVolume", label: "Up Vol", icon: "📈" },
     { id: "downOnVolume", label: "Dn Vol", icon: "📉" },
   ];
-  const rows = (lb && lb[view]) || [];
+  const rows = (() => {
+    const base = (lb && lb[view]) || [];
+    if (sortBy === "bucket") return base;
+    const s = [...base];
+    if (sortBy === "chg") s.sort((a, b) => b.dayPct - a.dayPct);
+    else if (sortBy === "vol") s.sort((a, b) => (b.volRatio || 0) - (a.volRatio || 0));
+    else if (sortBy === "price") s.sort((a, b) => b.price - a.price);
+    return s;
+  })();
   const pct = (v) => v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2) + "%";
   const col = (v) => v == null ? C.textDim : v > 0 ? "#22d47e" : v < 0 ? "#ef4444" : C.text;
   // Day-change % for the loaded symbol, looked up across all movers buckets.
@@ -9906,7 +10027,7 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
           <input value={query} onChange={e => setQuery(e.target.value)} placeholder="🔍 Load any symbol…"
             style={{ flex: 1, fontFamily: MONO, fontSize: 13, padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.text }} />
         </form>
-        <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
           {VIEWS.map(v => (
             <button key={v.id} onClick={() => setView(v.id)}
               style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, padding: "6px 10px", borderRadius: 8, cursor: "pointer",
@@ -9914,6 +10035,16 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
               {v.icon} {v.label}
             </button>
           ))}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>SORT</span>
+          <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+            style={{ fontFamily: MONO, fontSize: 11, padding: "4px 8px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: C.text }}>
+            <option value="bucket">Default (bucket rank)</option>
+            <option value="chg">Day % change</option>
+            <option value="vol">Volume vs 50d</option>
+            <option value="price">Price</option>
+          </select>
         </div>
         <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", background: C.card }}>
           <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 0.8fr", padding: "8px 12px", background: C.bg, borderBottom: `2px solid ${C.border}`, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim }}>
@@ -9975,13 +10106,31 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
             })()}
           </div>
         )}
-        {chart
-          ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={520} />
-          : <div style={{ height: 520, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
-        <AiWhyPanel symbol={sym} price={chart && chart.price} changePct={symDayPct} C={C} MONO={MONO} SANS={SANS} />
-        <AnalystPeerPanel symbol={sym} price={chart && chart.price} lb={lb} C={C} MONO={MONO} SANS={SANS} />
-        <EarningsBars symbol={sym} C={C} MONO={MONO} SANS={SANS} />
-        <NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />
+        {/* ── Per-symbol detail tabs ── */}
+        <div style={{ display: "flex", gap: 4, margin: "4px 0 12px", flexWrap: "wrap", borderBottom: `1px solid ${C.border}`, paddingBottom: 8 }}>
+          {[["chart", "📈 Chart"], ["valuation", "📊 Valuation"], ["analysts", "🎯 Analysts"], ["earnings", "💰 Earnings"], ["company", "🏢 Company"], ["news", "📰 News"]].map(([id, lbl]) => (
+            <button key={id} onClick={() => setDTab(id)}
+              style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", borderRadius: 7, cursor: "pointer",
+                border: `1px solid ${dTab === id ? C.accent : "transparent"}`, background: dTab === id ? `${C.accent}16` : "transparent", color: dTab === id ? C.accent : C.textDim }}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+
+        {dTab === "chart" && (
+          <>
+            {chart
+              ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={520} />
+              : <div style={{ height: 520, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
+            <AiWhyPanel symbol={sym} price={chart && chart.price} changePct={symDayPct} C={C} MONO={MONO} SANS={SANS} />
+            <AiPredictPanel symbol={sym} chart={chart} C={C} MONO={MONO} SANS={SANS} />
+          </>
+        )}
+        {dTab === "valuation" && <FundamentalsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
+        {dTab === "analysts" && <AnalystPeerPanel symbol={sym} price={chart && chart.price} lb={lb} C={C} MONO={MONO} SANS={SANS} />}
+        {dTab === "earnings" && <EarningsBars symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
+        {dTab === "company" && <CompanyProfile symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
+        {dTab === "news" && <NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
       </div>
     </div>
     </div>
