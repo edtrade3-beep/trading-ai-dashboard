@@ -73,7 +73,11 @@ async function runServerAutopilot() {
   // money). Cash-only means the account can never lever up on the long side.
   const cash     = Math.max(0, Number(acct.cash) || 0);
   const buyPower = cash;
-  if (equity <= 0) return;
+  // Account health gate — never trade a blown, debit, or restricted account.
+  if (equity <= 0) return;                                   // negative/zero equity (blown account)
+  if ((Number(acct.cash) || 0) < 0) return;                 // margin debit — sitting in borrowed money
+  if (equity < 500) return;                                  // too small to trade sanely
+  if (acct.trading_blocked || acct.account_blocked) return; // Alpaca has restricted the account
 
   // Daily-loss circuit breaker: stop opening new trades after −2% on the day.
   if ((equity - lastEq) / lastEq <= -0.02) return;
