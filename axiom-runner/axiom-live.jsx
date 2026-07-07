@@ -9659,6 +9659,19 @@ function MarketTerminalTab({ C, MONO, SANS }) {
   }, []);
   useEffect(() => { loadSym("NVDA"); }, [loadSym]);
 
+  const [wlMsg, setWlMsg] = useState("");
+  const addToWatchlist = useCallback(() => {
+    const s = String(sym || "").trim().toUpperCase();
+    if (!s) return;
+    fetch("/api/watchlist").then(r => r.json()).then(d => {
+      const cur = Array.isArray(d.symbols) ? d.symbols.map(x => String(x).toUpperCase()) : [];
+      if (cur.includes(s)) { setWlMsg(`${s} already on watchlist`); setTimeout(() => setWlMsg(""), 2500); return; }
+      const next = [...cur, s];
+      return fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbols: next }) })
+        .then(() => { setWlMsg(`⭐ Added ${s} to watchlist`); setTimeout(() => setWlMsg(""), 2500); });
+    }).catch(() => { setWlMsg("Couldn't update watchlist"); setTimeout(() => setWlMsg(""), 2500); });
+  }, [sym]);
+
   const VIEWS = [
     { id: "moversUp", label: "Up", icon: "🟢" },
     { id: "moversDown", label: "Down", icon: "🔴" },
@@ -9721,6 +9734,12 @@ function MarketTerminalTab({ C, MONO, SANS }) {
           {chart && chart.price != null && <span style={{ fontFamily: MONO, fontSize: 18, color: C.text }}>${chart.price.toFixed(2)}</span>}
           {chart && chart.stage && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{chart.stage}</span>}
           {loadingChart && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>loading…</span>}
+          <button onClick={addToWatchlist}
+            style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 8, cursor: "pointer", marginLeft: "auto",
+              border: `1px solid #d6a312`, background: "rgba(214,163,18,0.14)", color: "#d6a312" }}>
+            ⭐ Add to Watchlist
+          </button>
+          {wlMsg && <span style={{ fontFamily: MONO, fontSize: 12, color: "#22d47e" }}>{wlMsg}</span>}
         </div>
         {chart && (
           <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
