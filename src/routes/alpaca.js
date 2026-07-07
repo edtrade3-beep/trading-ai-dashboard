@@ -177,6 +177,16 @@ async function handleAlpaca(req, res, requestUrl) {
     const qty = Math.max(0, Math.floor(Number(b.qty) || 0));
     const side = b.side === "sell" ? "sell" : "buy";
     if (!symbol || qty < 1) return writeJson(res, 400, { ok: false, error: "symbol and qty required" });
+    // LONGS ONLY — a sell may only close/trim shares you actually hold. A sell
+    // with no long position (or one larger than the position) would open/increase
+    // a SHORT, so it is rejected here. This blocks shorting at the source no
+    // matter which caller (autopilot, mean-rev, manual) sends it.
+    if (side === "sell") {
+      const posRes = await alpaca(`/v2/positions/${encodeURIComponent(symbol)}`);
+      const heldLong = posRes._ok ? Math.max(0, Math.floor(Number(posRes.data?.qty) || 0)) : 0;
+      if (heldLong < 1) return writeJson(res, 200, { ok: false, error: `Shorting disabled — no long position in ${symbol} to sell (long-only).` });
+      if (qty > heldLong) return writeJson(res, 200, { ok: false, error: `Long-only: can sell at most ${heldLong} sh of ${symbol} (would open a short).` });
+    }
     const order = {
       symbol, qty: String(qty), side,
       type: b.type || "market",
