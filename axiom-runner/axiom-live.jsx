@@ -15607,8 +15607,12 @@ function TrendChart({ data, C, MONO, SANS, height }) {
       // Base box: bottom = contraction low. Combined with the PIVOT line above it
       // this brackets the consolidation the stock is breaking out of.
       if (su.contractionLow) pl(su.contractionLow, C.textDim, "BASE LOW", LS.Dotted ?? 1);
-      // AI prediction target — projected upside (measured move) as a dashed orange line.
-      if (su.target2) pl(su.target2, "#f59e0b", "🎯 AI TARGET", LS.Dashed ?? 2);
+      // AI prediction target — MEASURED MOVE: pivot + base height (entry − base low),
+      // a distinct technical objective (not the R-multiple T2). Falls back to T2.
+      const aiTgt = su.contractionLow && su.entry > su.contractionLow
+        ? Math.round((su.entry + (su.entry - su.contractionLow)) * 100) / 100
+        : su.target2;
+      if (aiTgt) pl(aiTgt, "#f59e0b", "🎯 AI TARGET", LS.Dashed ?? 2);
     }
     // BUY = most recent reclaim of the rising 50-day MA; EXIT = first close back below it.
     const ma50s = data.series.ma50 || []; let buyIdx = -1;
@@ -15641,7 +15645,10 @@ function TrendChart({ data, C, MONO, SANS, height }) {
   const rColor = rating >= 80 ? "#22d47e" : rating >= 60 ? "#d6a312" : rating >= 40 ? "#f59e0b" : "#ef4444";
   const rWord  = rating >= 80 ? "STRONG" : rating >= 60 ? "GOOD" : rating >= 40 ? "FAIR" : "WEAK";
   const su = data && data.setup;
-  const upside = su && su.target2 && data.price ? Math.round(((su.target2 - data.price) / data.price) * 100) : null;
+  const aiTarget = su ? (su.contractionLow && su.entry > su.contractionLow
+    ? Math.round((su.entry + (su.entry - su.contractionLow)) * 100) / 100
+    : su.target2) : null;
+  const upside = aiTarget && data.price ? Math.round(((aiTarget - data.price) / data.price) * 100) : null;
   const verdict = su && su.verdict;   // GO / WAIT / AVOID
   const vColor = verdict === "GO" ? "#22d47e" : verdict === "WAIT" ? "#d6a312" : "#ef4444";
   const glossary = [
