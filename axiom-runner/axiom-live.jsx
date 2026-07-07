@@ -10149,6 +10149,17 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
   }, []);
   useEffect(() => { loadSym("NVDA"); }, [loadSym]);
 
+  // Live refresh — silently re-pull the loaded symbol every 45s (no spinner, keeps
+  // chart zoom) so price + setup stay current during the session.
+  useEffect(() => {
+    if (!sym) return;
+    const t = setInterval(() => {
+      fetch("/api/market/trend-template?symbol=" + encodeURIComponent(sym))
+        .then(r => r.json()).then(d => { if (d && !d.error) setChart(d); }).catch(() => {});
+    }, 45000);
+    return () => clearInterval(t);
+  }, [sym]);
+
   // Market cap + P/E from fundamentals (Yahoo local / FMP on cloud). Best-effort.
   const [fund, setFund] = useState(null);
   useEffect(() => {
@@ -10268,6 +10279,11 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
           <span style={{ fontFamily: SANS, fontSize: 24, fontWeight: 900, color: C.text }}>{sym}</span>
           {chart && chart.price != null && <span style={{ fontFamily: MONO, fontSize: 18, color: C.text }}>${chart.price.toFixed(2)}</span>}
+          {chart && !loadingChart && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#0d9465" }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#0d9465", display: "inline-block" }} /> LIVE
+            </span>
+          )}
           {chart && chart.stage && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{chart.stage}</span>}
           {loadingChart && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>loading…</span>}
           <button onClick={addToWatchlist}
