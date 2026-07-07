@@ -9677,6 +9677,155 @@ function SectorHeatStrip({ sectorData, C, MONO, SANS }) {
   );
 }
 
+// Live market-pulse strip: SPY / QQQ / DIA / VIX / BTC.
+function MarketPulseBar({ C, MONO, SANS }) {
+  const [q, setQ] = useState({});
+  useEffect(() => {
+    const load = () => fetch("/api/market/quote?symbols=SPY,QQQ,DIA,^VIX,BTC-USD")
+      .then(r => r.json())
+      .then(d => { const arr = Array.isArray(d) ? d : (d.quotes || []); const m = {}; arr.forEach(x => m[String(x.symbol).toUpperCase()] = x); setQ(m); })
+      .catch(() => {});
+    load(); const t = setInterval(load, 60000); return () => clearInterval(t);
+  }, []);
+  const items = [["SPY", "S&P 500"], ["QQQ", "Nasdaq"], ["DIA", "Dow"], ["^VIX", "VIX"], ["BTC-USD", "Bitcoin"]];
+  return (
+    <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+      {items.map(([sym, name]) => {
+        const x = q[sym] || {}; const chg = Number(x.changesPercentage);
+        const col = !isFinite(chg) ? C.textDim : chg > 0 ? "#0d9465" : chg < 0 ? "#c8282a" : C.text;
+        const isVix = sym === "^VIX";
+        return (
+          <div key={sym} style={{ flex: "1 1 130px", minWidth: 120, border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 12px", background: C.bg }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim }}>{name}</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+              <span style={{ fontFamily: NUM, fontSize: 20, fontWeight: 700, color: C.text }}>{isFinite(x.price) ? (x.price >= 1000 ? Math.round(x.price).toLocaleString() : x.price?.toFixed(2)) : "—"}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: isVix ? (chg > 0 ? "#c8282a" : "#0d9465") : col }}>{isFinite(chg) ? (chg > 0 ? "+" : "") + chg.toFixed(2) + "%" : ""}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Fear & Greed dial + StockTwits social buzz, side by side.
+function SentimentRow({ C, MONO, SANS }) {
+  const [fg, setFg] = useState(null);
+  const [soc, setSoc] = useState(null);
+  useEffect(() => {
+    fetch("/api/market/feargreed").then(r => r.json()).then(d => d.ok !== false && setFg(d)).catch(() => {});
+    fetch("/api/market/social-sentiment?symbols=SPY,QQQ").then(r => r.json()).then(d => d.ok !== false && setSoc(d)).catch(() => {});
+  }, []);
+  const fgCol = !fg ? C.textDim : fg.score <= 25 ? "#c8282a" : fg.score <= 45 ? "#e0803a" : fg.score <= 55 ? "#c9a227" : fg.score <= 75 ? "#5ab552" : "#0d9465";
+  const socCol = !soc ? C.textDim : soc.netPct >= 8 ? "#0d9465" : soc.netPct <= -8 ? "#c8282a" : "#c9a227";
+  return (
+    <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+      <div style={{ flex: "1 1 240px", border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.bg }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 6 }}>FEAR &amp; GREED</div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+          <span style={{ fontFamily: NUM, fontSize: 30, fontWeight: 700, color: fgCol }}>{fg ? fg.score : "—"}</span>
+          <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, color: fgCol }}>{fg ? fg.label : ""}</span>
+        </div>
+        <div style={{ height: 6, borderRadius: 3, marginTop: 6, background: "linear-gradient(to right,#c8282a,#e0803a,#c9a227,#5ab552,#0d9465)", position: "relative" }}>
+          {fg && <div style={{ position: "absolute", left: `calc(${Math.max(0, Math.min(100, fg.score))}% - 5px)`, top: -2, width: 10, height: 10, borderRadius: "50%", background: "#fff", border: `2px solid ${fgCol}` }} />}
+        </div>
+      </div>
+      <div style={{ flex: "1 1 240px", border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.bg }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 6 }}>SOCIAL BUZZ (StockTwits)</div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+          <span style={{ fontFamily: NUM, fontSize: 30, fontWeight: 700, color: socCol }}>{soc ? (soc.netPct > 0 ? "+" : "") + soc.netPct + "%" : "—"}</span>
+          <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, color: socCol }}>{soc ? soc.label : ""}</span>
+        </div>
+        {soc && soc.trending && soc.trending.length > 0 && (
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
+            {soc.trending.slice(0, 8).map((t, i) => (
+              <span key={i} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, background: `${C.accent}14`, borderRadius: 4, padding: "1px 6px" }}>{t.symbol || t}</span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Market-wide news wire (top headlines, not per-symbol).
+function MarketNewsWire({ C, MONO, SANS }) {
+  const [items, setItems] = useState(null);
+  useEffect(() => {
+    fetch("/api/market/news?tickers=SPY,QQQ,DIA&limit=14")
+      .then(r => r.json()).then(d => setItems(Array.isArray(d) ? d : (d.news || []))).catch(() => setItems([]));
+  }, []);
+  const ago = (iso) => { if (!iso) return ""; const m = Math.round((Date.now() - Date.parse(iso)) / 60000); return m < 60 ? m + "m" : m < 1440 ? Math.round(m / 60) + "h" : Math.round(m / 1440) + "d"; };
+  return (
+    <div style={{ marginTop: 12, border: `1px solid ${C.border}`, borderRadius: 10, background: C.bg, overflow: "hidden" }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, padding: "9px 12px", borderBottom: `1px solid ${C.border}` }}>📡 MARKET WIRE</div>
+      {!items && <div style={{ padding: "18px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
+      {items && items.slice(0, 14).map((it, i) => (
+        <a key={i} href={it.link || it.url || "#"} target="_blank" rel="noopener noreferrer"
+          style={{ display: "block", textDecoration: "none", padding: "8px 12px", borderTop: i ? `1px solid ${C.border}` : "none" }}>
+          <div style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 600, color: C.text, lineHeight: 1.35 }}>{it.title}</div>
+          <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginTop: 2 }}>{(it.source || it.publisher || "")}{it.publishedAt ? " · " + ago(it.publishedAt) + " ago" : ""}</div>
+        </a>
+      ))}
+    </div>
+  );
+}
+
+// Analyst consensus for the loaded symbol + how it ranks vs sector peers today.
+function AnalystPeerPanel({ symbol, price, lb, C, MONO, SANS }) {
+  const [f, setF] = useState(null);
+  useEffect(() => {
+    if (!symbol) return;
+    setF(null);
+    fetch("/api/market/fundamentals?symbol=" + encodeURIComponent(symbol))
+      .then(r => r.json()).then(d => setF(d && !d.error ? d : null)).catch(() => {});
+  }, [symbol]);
+  const target = f && Number(f.analystTarget || f.targetMeanPrice) > 0 ? Number(f.analystTarget || f.targetMeanPrice) : null;
+  const upside = target && price ? Math.round(((target - price) / price) * 100) : null;
+  const rec = f && f.recommendationKey ? String(f.recommendationKey).replace(/_/g, " ").toUpperCase() : null;
+  const recCol = rec ? (/BUY/.test(rec) ? "#0d9465" : /SELL|UNDER/.test(rec) ? "#c8282a" : "#c9a227") : C.textDim;
+  // Peer rank from the leaderboard universe, matched by sector.
+  const sec = STOCK_TO_SECTOR[symbol];
+  let peers = [];
+  if (lb && sec) {
+    const all = [...(lb.moversUp || []), ...(lb.moversDown || []), ...(lb.upOnVolume || []), ...(lb.downOnVolume || [])];
+    const seen = new Set();
+    peers = all.filter(r => { if (seen.has(r.symbol)) return false; seen.add(r.symbol); return STOCK_TO_SECTOR[r.symbol] === sec; })
+      .sort((a, b) => b.dayPct - a.dayPct);
+  }
+  const rank = peers.findIndex(p => p.symbol === symbol);
+  return (
+    <div style={{ marginTop: 14, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", background: C.bg }}>
+      <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 10 }}>🎯 Analyst &amp; Peers — {symbol}</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+        <div style={{ flex: "1 1 100px", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
+          <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>ANALYST TARGET</div>
+          <div style={{ fontFamily: NUM, fontSize: 22, fontWeight: 700, color: C.text }}>{target ? "$" + target.toFixed(2) : "—"}</div>
+          {upside != null && <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: upside >= 0 ? "#0d9465" : "#c8282a" }}>{upside > 0 ? "+" : ""}{upside}% upside</div>}
+        </div>
+        <div style={{ flex: "1 1 100px", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
+          <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>CONSENSUS</div>
+          <div style={{ fontFamily: NUM, fontSize: 22, fontWeight: 700, color: recCol }}>{rec || "—"}</div>
+          {f && f.numberOfAnalystOpinions ? <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{f.numberOfAnalystOpinions} analysts</div> : null}
+        </div>
+      </div>
+      {peers.length > 1 ? (
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 5 }}>
+            SECTOR PEERS TODAY {rank >= 0 ? `· ${symbol} ranks #${rank + 1} of ${peers.length}` : ""}
+          </div>
+          {peers.slice(0, 6).map(p => (
+            <div key={p.symbol} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: `1px solid ${C.border}` }}>
+              <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: p.symbol === symbol ? 800 : 600, color: p.symbol === symbol ? C.accent : C.text }}>{p.symbol}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: p.dayPct >= 0 ? "#0d9465" : "#c8282a" }}>{p.dayPct > 0 ? "+" : ""}{p.dayPct.toFixed(2)}%</span>
+            </div>
+          ))}
+        </div>
+      ) : <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>No sector peers in the tracked universe.</div>}
+    </div>
+  );
+}
+
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
 function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
@@ -9747,6 +9896,8 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
 
   return (
     <div style={{ width: "100%" }}>
+    <MarketPulseBar C={C} MONO={MONO} SANS={SANS} />
+    <SentimentRow C={C} MONO={MONO} SANS={SANS} />
     <SectorHeatStrip sectorData={sectorData} C={C} MONO={MONO} SANS={SANS} />
     <div style={{ width: "100%", display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
       {/* ── LEFT: movers list ── */}
@@ -9781,6 +9932,7 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
             </div>
           ))}
         </div>
+        <MarketNewsWire C={C} MONO={MONO} SANS={SANS} />
       </div>
 
       {/* ── RIGHT: pro chart ── */}
@@ -9827,6 +9979,7 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
           ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={520} />
           : <div style={{ height: 520, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
         <AiWhyPanel symbol={sym} price={chart && chart.price} changePct={symDayPct} C={C} MONO={MONO} SANS={SANS} />
+        <AnalystPeerPanel symbol={sym} price={chart && chart.price} lb={lb} C={C} MONO={MONO} SANS={SANS} />
         <EarningsBars symbol={sym} C={C} MONO={MONO} SANS={SANS} />
         <NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />
       </div>
