@@ -15695,12 +15695,18 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
               {box("Vol dry-up", su.volDryup == null ? "—" : su.volDryup + "×", su.volDryup != null && su.volDryup < 0.9 ? C.green : C.text, "vs 50d avg")}
               {box("Breakout vol", su.volSurge + "×", su.volSurge >= 1.4 ? C.green : C.textDim, "need ≥1.4×")}
             </div>
-            {su.sellSignals.length > 0 && (
-              <div style={{ fontFamily: SANS, fontSize: 12, color: C.amber, background: `${C.amber}14`, border: `1px solid ${C.amber}55`, borderRadius: 8, padding: "8px 12px", lineHeight: 1.5 }}>
-                ⚠️ <b>Exit / trim trigger</b> (for holders): {su.sellSignals.join(" · ")}.
-                <span style={{ color: C.textDim }}> The trend is still Stage 2 — this flags where a holder would take profits or tighten stops, not a short signal.</span>
-              </div>
-            )}
+            {su.sellSignals.length > 0 && (() => {
+              const isStage2 = /Stage\s*2/i.test(data.stage || "");
+              const note = isStage2
+                ? " The trend is still Stage 2 — this flags where a holder would take profits or tighten stops, not a short signal."
+                : ` The trend has already weakened (${data.stage}) — these confirm loss of momentum. A holder would reduce or exit; it's not a spot to buy.`;
+              return (
+                <div style={{ fontFamily: SANS, fontSize: 12, color: C.amber, background: `${C.amber}14`, border: `1px solid ${C.amber}55`, borderRadius: 8, padding: "8px 12px", lineHeight: 1.5 }}>
+                  ⚠️ <b>Exit / trim trigger</b> (for holders): {su.sellSignals.join(" · ")}.
+                  <span style={{ color: C.textDim }}>{note}</span>
+                </div>
+              );
+            })()}
             <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, lineHeight: 1.5 }}>
               Pivot = high of the recent base (buy on a break above it with volume ≥1.4× average).
               Stop = tighter of −8% or just under the last contraction low. Targets are 2× and 3× your risk —
