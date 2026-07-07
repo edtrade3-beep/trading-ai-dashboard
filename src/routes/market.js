@@ -1378,8 +1378,8 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
   if (pathname === "/api/market/ai-trigger" && req.method === "POST") {
     const type = (searchParams.get("type") || "gameplan").toLowerCase();
     try {
-      const { runMorningGamePlan, runTradeCoach } = require("../ai-coach");
-      (type === "coach" ? runTradeCoach() : runMorningGamePlan()).catch(() => {});
+      const { runMorningGamePlan, runTradeCoach, runApexBriefing } = require("../ai-coach");
+      (type === "coach" ? runTradeCoach() : type === "apex" ? runApexBriefing() : runMorningGamePlan()).catch(() => {});
       return writeJson(res, 200, { ok: true, fired: type, note: "Running — check Telegram in a few seconds (needs ANTHROPIC_API_KEY + Telegram + data)." });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
