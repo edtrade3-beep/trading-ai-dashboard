@@ -10294,6 +10294,11 @@ function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFo
           Add stocks to your watchlist to see Green Light scores
         </div>
       )}
+
+      {/* Trade Journal — log your Green Light trades right here */}
+      <div style={{ marginTop: 24, borderTop: `2px solid ${C.border}`, paddingTop: 16 }}>
+        <RhProJournal C={C} MONO={MONO} SANS={SANS} />
+      </div>
     </div>
   );
 }
