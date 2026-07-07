@@ -42,11 +42,11 @@ class RhErrorBoundary extends React.Component {
 // ═══════════════════════════════════════════════════════════════
 
 const THEME_LIGHT = {
-  // Backgrounds — warm soft off-white, easier than pure white
-  bg:         "#eef2f7",
-  surface:    "#f8fafc",
-  card:       "#f8fafc",
-  cardHover:  "#e4ecf6",
+  // Backgrounds — clean bright white page with faint-grey cards (no foggy haze)
+  bg:         "#ffffff",
+  surface:    "#f4f7fb",
+  card:       "#f7f9fc",
+  cardHover:  "#eaf1f9",
   // Borders
   border:     "#c8d6e8",
   borderLit:  "#afc4db",
