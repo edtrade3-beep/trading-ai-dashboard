@@ -15701,7 +15701,15 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                   border: `1px solid ${chartView === v ? C.accent : C.border}`, background: chartView === v ? `${C.accent}18` : "transparent",
                   color: chartView === v ? C.accent : C.textDim }}>{l}</button>
             ))}
-            {chartView === "analysis" && <span style={{ marginLeft: "auto", fontFamily: SANS, fontSize: 10, color: C.textDim, alignSelf: "center" }}>pivot · BUY/EXIT · VCP overlay</span>}
+            {chartView === "analysis" && (
+              <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", alignSelf: "center" }}>
+                {[["MA50", C.accent], ["MA150", "#d6a312"], ["MA200", "#c94440"], ["Bollinger", "#4ea86e"]].map(([lbl, col]) => (
+                  <span key={lbl} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: SANS, fontSize: 10, color: C.textDim }}>
+                    <span style={{ width: 14, height: 0, borderTop: `2px solid ${col}`, display: "inline-block" }} />{lbl}
+                  </span>
+                ))}
+              </span>
+            )}
           </div>
           {chartView === "tv" && data ? (
             <iframe key={`tt-tv-${data.symbol}`} title="TradingView chart"
