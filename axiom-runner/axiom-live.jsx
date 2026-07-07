@@ -15681,8 +15681,14 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
               {su.vcp && su.vcp.baseDepth != null && (() => {
                 const d = Number(su.vcp.baseDepth);
                 const c = d < 15 ? C.green : d < 25 ? "#5ab552" : d < 35 ? "#d6a312" : C.red;
-                const sub = d < 15 ? "tight — strong" : d < 25 ? "healthy" : d < 35 ? "wide" : "deep — low odds";
-                return box("Base depth", d + "%", c, sub);
+                const sub = d < 15 ? "tight — strong" : d < 25 ? "healthy" : d < 35 ? "wide — caution" : "deep — low odds";
+                return (
+                  <div key="basedepth" style={{ flex: "1 1 120px", background: `${c}18`, border: `1.5px solid ${c}`, borderRadius: 8, padding: "8px 12px", boxShadow: `0 0 0 3px ${c}14` }}>
+                    <div style={{ fontFamily: SANS, fontSize: 10.5, color: c, textTransform: "uppercase", letterSpacing: .4, fontWeight: 800 }}>Base depth</div>
+                    <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 900, color: c }}>{d}%</div>
+                    <div style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, color: c }}>{sub}</div>
+                  </div>
+                );
               })()}
               {box("Tightness", su.tightnessPct + "%", su.tightnessPct <= 10 ? C.green : C.text, "10d range")}
               {box("Vol dry-up", su.volDryup == null ? "—" : su.volDryup + "×", su.volDryup != null && su.volDryup < 0.9 ? C.green : C.text, "vs 50d avg")}
