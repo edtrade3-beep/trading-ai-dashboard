@@ -84,6 +84,34 @@ function mergeQuoteRows(primaryRows, overlayRows) {
   });
 }
 
+// ── Movers leaderboard (Market-Terminal style) ──
+// Liquid, high-volume large/mega caps + hot momentum names — the pool we rank.
+const LEADERBOARD_UNIVERSE = [
+  "NVDA","AAPL","MSFT","AMZN","META","GOOGL","TSLA","AVGO","AMD","NFLX",
+  "MU","SMCI","DELL","TSM","ARM","PLTR","CRWD","SNOW","NOW","ORCL",
+  "JPM","BAC","GS","V","MA","COIN","HOOD","SOFI","PYPL","SQ",
+  "XOM","CVX","OXY","CCJ","CEG","VRT","NEE","WMB","UNH","LLY",
+  "MARA","RIOT","CLSK","IREN","CORZ","MSTR","UBER","SHOP","ABNB","DIS",
+];
+let _lbCache = { key: null, at: 0, rows: null };
+
+// Bucket enriched rows into the four Market-Terminal categories.
+function buildLeaderboard(rows, n, at) {
+  const withVol = rows.filter(r => typeof r.volRatio === "number");
+  const up = rows.filter(r => r.dayPct > 0).sort((a, b) => b.dayPct - a.dayPct);
+  const down = rows.filter(r => r.dayPct < 0).sort((a, b) => a.dayPct - b.dayPct);
+  const upVol = withVol.filter(r => r.dayPct > 0).sort((a, b) => b.volRatio - a.volRatio);
+  const downVol = withVol.filter(r => r.dayPct < 0).sort((a, b) => b.volRatio - a.volRatio);
+  return {
+    moversUp: up.slice(0, n),
+    moversDown: down.slice(0, n),
+    upOnVolume: upVol.slice(0, n),
+    downOnVolume: downVol.slice(0, n),
+    count: rows.length,
+    generatedAt: new Date(at).toISOString(),
+  };
+}
+
 async function fetchMarketQuotes(symbols, keys) {
   // Primary: REAL Alpaca snapshots (free, real-time IEX) — works when Yahoo is
   // IP-blocked from the cloud and no Finnhub/FMP key is set. Equities only;
@@ -1584,6 +1612,51 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       count: quotes.length,
       generatedAt: new Date().toISOString(),
     });
+  }
+
+  // Market-Terminal style leaderboard: Movers Up/Down + Up/Down on Volume, each
+  // row carrying Price, Day %, YTD %, and Volume-vs-50-day-average. Enriches a
+  // liquid universe with daily bars (for YTD + avg volume). Cached 3 min.
+  if (pathname === "/api/market/leaderboard") {
+    const custom = (searchParams.get("symbols") || "").split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+    const universe = custom.length ? custom.slice(0, 80) : LEADERBOARD_UNIVERSE;
+    const n = Math.max(3, Math.min(25, Number(searchParams.get("n") || 8)));
+    const cacheKey = universe.join(",");
+    const now = Date.now();
+    if (_lbCache.rows && _lbCache.key === cacheKey && (now - _lbCache.at) < 180000) {
+      return writeJson(res, 200, buildLeaderboard(_lbCache.rows, n, _lbCache.at));
+    }
+    const keys = resolveProviderKeys(searchParams);
+    const { fetchAlpacaBars } = require("../providers/alpaca-data");
+    const payload = await withTimeout(fetchMarketQuotes(universe, keys), 20000, []);
+    const rawQuotes = Array.isArray(payload) ? payload : (payload.quotes || []);
+    const bySym = new Map(rawQuotes.filter(q => typeof q.price === "number").map(q => [String(q.symbol).toUpperCase(), q]));
+    const enriched = [];
+    for (let i = 0; i < universe.length; i += 8) {
+      const chunk = universe.slice(i, i + 8);
+      const done = await Promise.all(chunk.map(async (sym) => {
+        const q = bySym.get(sym);
+        if (!q) return null;
+        let ytdPct = null, volRatio = null;
+        try {
+          const bars = await withTimeout(fetchAlpacaBars(sym, "1y", "1d"), 6000, null);
+          if (Array.isArray(bars) && bars.length > 30) {
+            const yr = new Date().getFullYear();
+            const firstOfYear = bars.find(b => new Date(b.time).getFullYear() === yr);
+            const base = firstOfYear ? firstOfYear.open : bars[0].close;
+            if (base > 0) ytdPct = Math.round(((q.price - base) / base) * 10000) / 100;
+            const recent = bars.slice(-51, -1); // last 50 completed bars
+            const avgVol = recent.length ? recent.reduce((s, b) => s + (b.volume || 0), 0) / recent.length : 0;
+            const todayVol = Number(q.volume || bars[bars.length - 1].volume || 0);
+            if (avgVol > 0) volRatio = Math.round((todayVol / avgVol) * 100) / 100;
+          }
+        } catch {}
+        return { symbol: sym, price: q.price, dayPct: round2(q.changesPercentage || 0), ytdPct, volRatio, volume: Number(q.volume || 0) };
+      }));
+      enriched.push(...done.filter(Boolean));
+    }
+    _lbCache = { key: cacheKey, at: now, rows: enriched };
+    return writeJson(res, 200, buildLeaderboard(enriched, n, now));
   }
 
   if (pathname === "/api/market/news") {
