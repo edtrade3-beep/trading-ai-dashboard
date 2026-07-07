@@ -15018,6 +15018,7 @@ function TrendChart({ data, C, MONO, SANS, height }) {
   const seriesRef = React.useRef(null);
   const symRef = React.useRef(null);
   const H = height || 520;
+  const [showInfo, setShowInfo] = React.useState(false);
   const toTime = (ms) => { const d = new Date(ms); return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() }; };
 
   // Create the chart + series once per symbol / theme / size.
@@ -15108,9 +15109,39 @@ function TrendChart({ data, C, MONO, SANS, height }) {
   const upside = su && su.target2 && data.price ? Math.round(((su.target2 - data.price) / data.price) * 100) : null;
   const verdict = su && su.verdict;   // GO / WAIT / AVOID
   const vColor = verdict === "GO" ? "#22d47e" : verdict === "WAIT" ? "#d6a312" : "#ef4444";
+  const glossary = [
+    ["🔵 PIVOT", "Top of the recent base — buy on a break ABOVE it with volume ≥1.4× average. The breakout trigger."],
+    ["⚪ BASE LOW", "Bottom of the base. If price falls back here the setup has failed — often where the stop goes."],
+    ["🔴 STOP", "Where you exit if wrong — the tighter of −8% or just under the base low."],
+    ["🎯 TARGETS", "T2 and T3 = 2× and 3× your risk (pivot − stop), measured up from the pivot."],
+    ["🟠 AI TARGET", "Projected upside based on the trend/base quality."],
+  ];
   return (
     <div style={{ position: "relative", width: "100%", height: H }}>
       <div ref={elRef} style={{ width: "100%", height: H }} />
+      {/* ⓘ hover glossary — explains the levels drawn on the chart. */}
+      <div
+        onMouseEnter={() => setShowInfo(true)} onMouseLeave={() => setShowInfo(false)}
+        onClick={() => setShowInfo(v => !v)}
+        style={{ position: "absolute", top: 10, right: 60, zIndex: 5, cursor: "help",
+          width: 22, height: 22, borderRadius: "50%", background: (C.card || "#fff") + "f2",
+          border: `1px solid ${C.border}`, color: C.textDim, fontFamily: SANS, fontSize: 13, fontWeight: 800,
+          display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 6px rgba(0,0,0,0.15)" }}>
+        ⓘ
+        {showInfo && (
+          <div style={{ position: "absolute", top: 26, right: 0, width: 288, textAlign: "left", cursor: "default",
+            background: (C.card || "#fff"), border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px",
+            boxShadow: "0 6px 24px rgba(0,0,0,0.28)" }}>
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 6 }}>CHART LEVELS</div>
+            {glossary.map(([k, v]) => (
+              <div key={k} style={{ marginBottom: 6 }}>
+                <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text }}>{k}</span>
+                <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, lineHeight: 1.45 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       {data && (
         // Top-LEFT so it never collides with the right price axis or the AI-TARGET label.
         <div style={{ position: "absolute", top: 10, left: 12, pointerEvents: "none",
