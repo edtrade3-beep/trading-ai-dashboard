@@ -15102,10 +15102,15 @@ function TrendChart({ data, C, MONO, SANS, height }) {
   if (typeof window !== "undefined" && !window.LightweightCharts) {
     return <div style={{ height: H, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: SANS, fontSize: 12, color: C.textDim }}>Loading interactive chart…</div>;
   }
-  // Overall Rating (0–100): blends trend gears (score/8) with VCP base quality.
+  // Overall Rating (0–100): blends trend gears (score/8) with VCP base quality,
+  // then penalizes a deep base — a wide/deep base has poor breakout odds even
+  // when the trend template scores well.
   const passC = Number(data && data.score) || 0;
   const vcpS = Number(data && data.setup && data.setup.report && data.setup.report.score) || 0;
-  const rating = Math.max(0, Math.min(100, Math.round((passC / 8) * 50 + (vcpS / 100) * 50)));
+  const baseDepth = Number(data && data.setup && data.setup.vcp && data.setup.vcp.baseDepth);
+  // Penalty: 0 up to 25% deep, then grows; capped at −30 for very deep bases.
+  const depthPenalty = Number.isFinite(baseDepth) && baseDepth > 25 ? Math.min(30, Math.round((baseDepth - 25) * 1.2)) : 0;
+  const rating = Math.max(0, Math.min(100, Math.round((passC / 8) * 50 + (vcpS / 100) * 50) - depthPenalty));
   const rColor = rating >= 80 ? "#22d47e" : rating >= 60 ? "#d6a312" : rating >= 40 ? "#f59e0b" : "#ef4444";
   const rWord  = rating >= 80 ? "STRONG" : rating >= 60 ? "GOOD" : rating >= 40 ? "FAIR" : "WEAK";
   const su = data && data.setup;
