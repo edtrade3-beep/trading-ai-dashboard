@@ -15623,8 +15623,8 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
         const box = (label, val, col, sub) => (
           <div style={{ flex: "1 1 120px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
             <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, textTransform: "uppercase", letterSpacing: .4 }}>{label}</div>
-            <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 800, color: col || C.text }}>{val}</div>
-            {sub && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>{sub}</div>}
+            <div style={{ fontFamily: MONO, fontSize: 23, fontWeight: 900, color: col || C.text, lineHeight: 1.1, letterSpacing: "-0.02em" }}>{val}</div>
+            {sub && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 1 }}>{sub}</div>}
           </div>
         );
         // Plain-English bottom line — turns the 8 checks + verdict into one sentence.
@@ -15685,7 +15685,7 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                 return (
                   <div key="basedepth" style={{ flex: "1 1 120px", background: `${c}18`, border: `1.5px solid ${c}`, borderRadius: 8, padding: "8px 12px", boxShadow: `0 0 0 3px ${c}14` }}>
                     <div style={{ fontFamily: SANS, fontSize: 10.5, color: c, textTransform: "uppercase", letterSpacing: .4, fontWeight: 800 }}>Base depth</div>
-                    <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 900, color: c }}>{d}%</div>
+                    <div style={{ fontFamily: MONO, fontSize: 23, fontWeight: 900, color: c, lineHeight: 1.1, letterSpacing: "-0.02em" }}>{d}%</div>
                     <div style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, color: c }}>{sub}</div>
                   </div>
                 );
