@@ -212,6 +212,10 @@ async function handleAlpaca(req, res, requestUrl) {
   // Finds a near-dated (~2–5 wk) ATM contract and buys it at market. Requires options enabled on the paper account.
   if (pathname === "/api/alpaca/option-order" && req.method === "POST") {
     if (!configured) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key" });
+    // OPTIONS DISABLED — opening option positions is turned off for safety (the
+    // naked-short options blowup). Long stocks only. Closing existing options via
+    // /api/alpaca/liquidate-options still works.
+    return writeJson(res, 200, { ok: false, error: "Options trading is disabled (long stocks only)." });
     const b = await readBody(req);
     const underlying = String(b.underlying || "").toUpperCase().replace(/[^A-Z.]/g, "");
     const type = b.type === "put" ? "put" : "call";
