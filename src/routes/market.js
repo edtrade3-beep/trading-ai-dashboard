@@ -244,10 +244,17 @@ async function fetchMarketNews(tickers, limit, keys) {
 // --- Fundamentals ---
 
 async function fetchMarketFundamentals(symbol, keys) {
+  // FMP first if a key is set (richest data), else stockanalysis.com — free, no
+  // key, and reachable from Render where Yahoo's quoteSummary is IP-blocked.
   if (keys.fmp) {
     const fmp = await fetchFmpFundamentals(symbol, keys.fmp);
-    if (fmp) return fmp;
+    if (fmp && Number(fmp.marketCap) > 0) return fmp;
   }
+  try {
+    const { fetchStockAnalysis } = require("../providers/stockanalysis");
+    const sa = await fetchStockAnalysis(symbol);
+    if (sa && Number(sa.marketCap) > 0) return sa;
+  } catch {}
   return fetchYahooFundamentals(symbol);
 }
 
