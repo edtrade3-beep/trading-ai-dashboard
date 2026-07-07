@@ -9937,6 +9937,49 @@ function AiPredictPanel({ symbol, chart, C, MONO, SANS }) {
   );
 }
 
+// Prediction markets (Polymarket) — event odds that move the tape. Free, works
+// from Render (no key). Fed/rates/recession/crypto/politics.
+function PredictionMarkets({ C, MONO, SANS }) {
+  const [m, setM] = useState(null);
+  const [state, setState] = useState("loading");
+  const [cat, setCat] = useState("ALL");
+  useEffect(() => {
+    fetch("/api/market/predictions").then(r => r.json())
+      .then(d => { if (d && d.markets && d.markets.length) { setM(d.markets); setState("ok"); } else setState("none"); })
+      .catch(() => setState("none"));
+  }, []);
+  const CATS = ["ALL", "MACRO", "STOCKS", "CRYPTO", "POLITICS"];
+  const rows = (m || []).filter(x => cat === "ALL" || x.category === cat).slice(0, 12);
+  const barCol = (p) => p >= 65 ? "#0d9465" : p >= 35 ? "#c9a227" : "#c8282a";
+  return (
+    <div style={{ marginTop: 12, border: `1px solid ${C.border}`, borderRadius: 10, background: C.bg, overflow: "hidden" }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, padding: "9px 12px", borderBottom: `1px solid ${C.border}` }}>🎲 PREDICTION MARKETS</div>
+      {state === "ok" && (
+        <div style={{ display: "flex", gap: 4, padding: "8px 10px", flexWrap: "wrap", borderBottom: `1px solid ${C.border}` }}>
+          {CATS.map(c => (
+            <button key={c} onClick={() => setCat(c)}
+              style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, padding: "3px 8px", borderRadius: 5, cursor: "pointer",
+                border: `1px solid ${cat === c ? C.accent : C.border}`, background: cat === c ? `${C.accent}16` : "transparent", color: cat === c ? C.accent : C.textDim }}>{c}</button>
+          ))}
+        </div>
+      )}
+      {state === "loading" && <div style={{ padding: "18px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
+      {state === "none" && <div style={{ padding: "16px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>No markets right now.</div>}
+      {state === "ok" && rows.map((x, i) => (
+        <div key={i} style={{ padding: "8px 12px", borderTop: i ? `1px solid ${C.border}` : "none" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+            <span style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.3 }}>{x.question}</span>
+            <span style={{ fontFamily: NUM, fontSize: 18, fontWeight: 700, color: barCol(x.yesPct), whiteSpace: "nowrap" }}>{x.yesPct}%</span>
+          </div>
+          <div style={{ height: 4, borderRadius: 2, background: C.border, marginTop: 5 }}>
+            <div style={{ width: Math.max(2, Math.min(100, x.yesPct)) + "%", height: "100%", borderRadius: 2, background: barCol(x.yesPct) }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Institutional ownership + insider transactions for the loaded symbol.
 function InvestorsPanel({ symbol, C, MONO, SANS }) {
   const [d, setD] = useState(null);
@@ -10123,6 +10166,7 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
           ))}
         </div>
         <MarketNewsWire C={C} MONO={MONO} SANS={SANS} />
+        <PredictionMarkets C={C} MONO={MONO} SANS={SANS} />
       </div>
 
       {/* ── RIGHT: pro chart ── */}
