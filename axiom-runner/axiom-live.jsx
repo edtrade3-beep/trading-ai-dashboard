@@ -9555,6 +9555,44 @@ function EarningsBars({ symbol, C, MONO, SANS }) {
   );
 }
 
+// Latest headlines for the selected symbol. Reads /api/market/news.
+function NewsPanel({ symbol, C, MONO, SANS }) {
+  const [items, setItems] = useState(null);
+  const [state, setState] = useState("loading");
+
+  useEffect(() => {
+    if (!symbol) return;
+    setState("loading"); setItems(null);
+    fetch("/api/market/news?tickers=" + encodeURIComponent(symbol) + "&limit=8")
+      .then(r => r.json())
+      .then(j => { const arr = Array.isArray(j) ? j : (j.news || j.items || []); if (arr.length) { setItems(arr); setState("ok"); } else setState("none"); })
+      .catch(() => setState("none"));
+  }, [symbol]);
+
+  const ago = (iso) => {
+    if (!iso) return "";
+    const mins = Math.round((Date.now() - Date.parse(iso)) / 60000);
+    if (mins < 60) return mins + "m ago";
+    if (mins < 1440) return Math.round(mins / 60) + "h ago";
+    return Math.round(mins / 1440) + "d ago";
+  };
+
+  return (
+    <div style={{ marginTop: 14, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", background: C.card }}>
+      <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 10 }}>📰 Latest — {symbol}</div>
+      {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "14px 0", textAlign: "center" }}>Loading news…</div>}
+      {state === "none" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "14px 0", textAlign: "center" }}>No recent headlines.</div>}
+      {state === "ok" && (items || []).slice(0, 8).map((it, i) => (
+        <a key={i} href={it.link || it.url || "#"} target="_blank" rel="noopener noreferrer"
+          style={{ display: "block", textDecoration: "none", padding: "9px 0", borderTop: i ? `1px solid ${C.border}` : "none" }}>
+          <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.35 }}>{it.title}</div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>{(it.source || it.publisher || "")}{it.publishedAt ? " · " + ago(it.publishedAt) : ""}</div>
+        </a>
+      ))}
+    </div>
+  );
+}
+
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
 function MarketTerminalTab({ C, MONO, SANS }) {
@@ -9661,6 +9699,7 @@ function MarketTerminalTab({ C, MONO, SANS }) {
           ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={520} />
           : <div style={{ height: 520, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
         <EarningsBars symbol={sym} C={C} MONO={MONO} SANS={SANS} />
+        <NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />
       </div>
     </div>
   );
