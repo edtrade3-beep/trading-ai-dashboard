@@ -9684,6 +9684,15 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
   }, []);
   useEffect(() => { loadSym("NVDA"); }, [loadSym]);
 
+  // Market cap + P/E from fundamentals (Yahoo local / FMP on cloud). Best-effort.
+  const [fund, setFund] = useState(null);
+  useEffect(() => {
+    if (!sym) return;
+    setFund(null);
+    fetch("/api/market/fundamentals?symbol=" + encodeURIComponent(sym))
+      .then(r => r.json()).then(j => setFund(j && !j.error ? j : null)).catch(() => {});
+  }, [sym]);
+
   const [wlMsg, setWlMsg] = useState("");
   const addToWatchlist = useCallback(() => {
     const s = String(sym || "").trim().toUpperCase();
@@ -9778,7 +9787,12 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
                 </div>
               );
               const num = (v) => (v == null || isNaN(v)) ? null : v;
+              const mc = fund && Number(fund.marketCap) > 0 ? Number(fund.marketCap) : null;
+              const mcStr = mc == null ? "—" : mc >= 1e12 ? "$" + (mc / 1e12).toFixed(2) + "T" : mc >= 1e9 ? "$" + (mc / 1e9).toFixed(1) + "B" : "$" + (mc / 1e6).toFixed(0) + "M";
+              const pe = fund && Number(fund.pe || fund.trailingPE) > 0 ? Number(fund.pe || fund.trailingPE) : null;
               return [
+                pill("MARKET CAP", mcStr),
+                pill("P/E", pe != null ? pe.toFixed(1) : "—"),
                 pill("% TO 52W HIGH", s.pctFromHigh != null ? s.pctFromHigh.toFixed(1) + "%" : "—", s.pctFromHigh != null && s.pctFromHigh > -3 ? "#22d47e" : C.text),
                 pill("52W HIGH", num(s.hi52) != null ? "$" + s.hi52.toFixed(2) : "—"),
                 pill("52W LOW", num(s.lo52) != null ? "$" + s.lo52.toFixed(2) : "—"),
