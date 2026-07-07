@@ -69,7 +69,10 @@ async function runServerAutopilot() {
   const acct = acctR.data;
   const equity   = Number(acct.equity) || 0;
   const lastEq   = Number(acct.last_equity) || equity;
-  const buyPower = Number(acct.buying_power) || 0;
+  // Size off CASH, not buying_power — buying_power includes margin (borrowed
+  // money). Cash-only means the account can never lever up on the long side.
+  const cash     = Math.max(0, Number(acct.cash) || 0);
+  const buyPower = cash;
   if (equity <= 0) return;
 
   // Daily-loss circuit breaker: stop opening new trades after −2% on the day.
@@ -113,6 +116,7 @@ async function runServerAutopilot() {
   for (const p of positions) { const s = SECTORS[p.symbol] || "other"; sectorCount[s] = (sectorCount[s] || 0) + 1; }
   let slots = maxPos - positions.length;
   let placed = 0;
+  let availCash = buyPower;   // running cash budget — decremented as buys are placed
   for (const r of eligible) {
     if (slots <= 0) break;
     const sec = SECTORS[r.symbol] || "other";
@@ -122,7 +126,8 @@ async function runServerAutopilot() {
     const riskPerShare = Math.max(0.01, entry - stop);
     const riskFrac = (r.tier === "A" ? riskPct : riskPct * 0.5) / 100;   // Tier B trades at half size
     let qty = Math.floor((equity * riskFrac) / riskPerShare);
-    qty = Math.min(qty, Math.floor(buyPower / entry));      // don't exceed buying power
+    qty = Math.min(qty, Math.floor(availCash / entry));         // cash only — no margin, no double-spend
+    qty = Math.min(qty, Math.floor((equity * 0.20) / entry));   // ≤20% of equity in any one name
     if (qty < 1) continue;
     const order = {
       symbol: r.symbol, qty: String(qty), side: "buy", type: "market", time_in_force: "day",
@@ -134,7 +139,7 @@ async function runServerAutopilot() {
     };
     const res = await apca("/v2/orders", "POST", order);
     if (res && res.ok) {
-      slots--; placed++; sectorCount[sec] = (sectorCount[sec] || 0) + 1;
+      slots--; placed++; availCash -= qty * entry; sectorCount[sec] = (sectorCount[sec] || 0) + 1;
       // Journal the setup tags so we can later see which setups actually win.
       appendJournal({ ts: Date.now(), symbol: r.symbol, tier: r.tier, side: "long", qty,
         entry, stop, target, passCount: r.passCount, rsRating: r.rsRating || null, source: "server" });
