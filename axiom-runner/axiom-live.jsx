@@ -19110,8 +19110,10 @@ function RhProApex({ C, MONO, SANS, macroData, sectorData }) {
       const regime = computeRegime(macroData);
       const sectors = SECTOR_ETFS.map(se => { const sd = (sectorData || []).find(x => (x.symbol || "").toUpperCase() === se.symbol); return { name: se.name, chg: Number(sd?.changesPercentage || 0) }; }).sort((a, b) => b.chg - a.chg);
       let fg = null; try { fg = await fetch("/api/market/feargreed").then(r => r.json()); } catch {}
-      setPhase("APEX AI is analyzing (Fable)…");
+      setPhase("APEX AI is analyzing (~20s)…");
       const r = await fetch("/api/market/apex-cio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ regime: { score: regime.score, label: regime.label, factors: regime.factors, vixVal: regime.vixVal }, stocks, sectors, fearGreed: fg ? (fg.value ?? fg.score ?? "") + " " + (fg.label || fg.rating || "") : "n/a" }) });
+      const ct = r.headers.get("content-type") || "";
+      if (!ct.includes("application/json")) { setErr("Server was busy generating (this briefing is heavy). Wait a few seconds and press generate again."); return; }
       const d = await r.json();
       if (d.ok) { setReport(d.report); setRanAt(new Date()); } else setErr(d.error || "error");
     } catch (e) { setErr(e.message); } finally { setLoading(false); setPhase(""); }
