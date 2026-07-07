@@ -23035,7 +23035,6 @@ export default function App() {
           {(() => {
             const NAV_GROUPS = [
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["start", "dashboard", "quotes", "crypto", "news", "econ-cal", "macro"] },
-              { id: "terminal",   label: "📈 CHART",      tabs: ["multitf", "tv"] },
               { id: "rhpro",      label: "📈 PRO TRADE",  tabs: ["rhpro", "rhpro-apex", "rhpro-scan", "rhpro-analyze", "rhpro-lists", "rhpro-heat", "trendtemplate", "rhpro-calc", "rhpro-options", "greenlight", "gl-backtest", "holdings", "rhpro-journal", "rhpro-coach", "rhpro-perf", "smartscan", "dipbuy", "outlook", "predictions", "morning-routine", "mytrades"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes"] },
