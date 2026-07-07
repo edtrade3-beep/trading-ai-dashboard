@@ -15673,6 +15673,12 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
               {box("Stop", su.stop, C.red, `risk ${su.riskPct}%`)}
               {box("Target 2R", su.target2, C.green, "+" + (su.riskPct * 2).toFixed(1) + "%")}
               {box("Target 3R", su.target3, C.green, "+" + (su.riskPct * 3).toFixed(1) + "%")}
+              {su.vcp && su.vcp.baseDepth != null && (() => {
+                const d = Number(su.vcp.baseDepth);
+                const c = d < 15 ? C.green : d < 25 ? "#5ab552" : d < 35 ? "#d6a312" : C.red;
+                const sub = d < 15 ? "tight — strong" : d < 25 ? "healthy" : d < 35 ? "wide" : "deep — low odds";
+                return box("Base depth", d + "%", c, sub);
+              })()}
               {box("Tightness", su.tightnessPct + "%", su.tightnessPct <= 10 ? C.green : C.text, "10d range")}
               {box("Vol dry-up", su.volDryup == null ? "—" : su.volDryup + "×", su.volDryup != null && su.volDryup < 0.9 ? C.green : C.text, "vs 50d avg")}
               {box("Breakout vol", su.volSurge + "×", su.volSurge >= 1.4 ? C.green : C.textDim, "need ≥1.4×")}
