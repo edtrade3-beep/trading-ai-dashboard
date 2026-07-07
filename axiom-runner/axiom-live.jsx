@@ -20005,9 +20005,9 @@ export default function App() {
     const ticker = scanExpanded;
     const refresh = async () => {
       try {
-        const r = await fetch(`/api/market/quote?symbol=${encodeURIComponent(ticker)}`);
+        const r = await fetch(`/api/market/quote?symbols=${encodeURIComponent(ticker)}`);
         const d = await r.json();
-        const q = d?.quote || d;
+        const q = Array.isArray(d) ? d[0] : (d?.quotes ? d.quotes[0] : (d?.quote || d));
         if (!q || !q.price) return;
         setScanResults(prev => prev.map(row =>
           row.ticker === ticker
