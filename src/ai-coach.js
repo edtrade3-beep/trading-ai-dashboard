@@ -90,4 +90,61 @@ async function runMonthlyDeepReview() {
   if (review) sendTelegramMessage(`🔬 *MONTHLY DEEP REVIEW* — Fable\n${stats}${tiers ? `\n\n${tiers}` : ""}\n\n${review.trim()}`).catch(() => {});
 }
 
-module.exports = { runMorningGamePlan, runTradeCoach, runWeeklyReview, runMonthlyDeepReview };
+// ── APEX AI — automatic morning CIO briefing → Telegram (weekdays ~9:15 AM ET) ──
+const APEX_UNIVERSE = [
+  "AAPL","MSFT","NVDA","AMZN","META","GOOGL","AVGO","TSLA","AMD","NFLX",
+  "CRM","ORCL","PANW","CRWD","PLTR","MU","QCOM","ANET","MRVL","SMCI",
+  "ARM","COIN","UBER","LLY","V","JPM","COST","WMT","GE","CAT",
+  "TSM","VRT","NEE","CCJ","CEG","DELL","MARA","RIOT","HOOD","NET",
+];
+const APEX_SECTORS = [
+  ["XLK","Technology"],["XLV","Healthcare"],["XLF","Financials"],["XLY","Consumer Disc"],["XLC","Communication"],
+  ["XLI","Industrials"],["XLE","Energy"],["XLP","Cons. Staples"],["XLU","Utilities"],["XLRE","Real Estate"],["XLB","Materials"],
+];
+function apexScore(r) {
+  const pass = Math.max(0, Math.min(8, Number(r.passCount) || 0));
+  const rs = Math.max(1, Math.min(99, Number(r.rsRating) || 1));
+  return Math.round(pass / 8 * 50 + rs / 99 * 25 + (r.atBuyPoint ? 15 : 0) + (r.volConfirmed ? 10 : 0));
+}
+async function postJson(path, body) {
+  try { const r = await fetch(`${BASE()}${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); return await r.json(); } catch { return null; }
+}
+async function runApexBriefing() {
+  if (!KEY() || !isConfigured()) return;
+  const screen = await getJson(`/api/market/trend-screen?symbols=${encodeURIComponent(APEX_UNIVERSE.join(","))}`);
+  const stocks = ((screen && screen.results) || []).filter(x => !x.error).map(x => ({ ...x, score: apexScore(x) }))
+    .sort((a, b) => b.score - a.score).slice(0, 30)
+    .map(x => ({ symbol: x.symbol, price: x.price, score: x.score, passCount: x.passCount, rsRating: x.rsRating, stage: (x.stage || "").replace(/ —.*/, ""), atBuyPoint: !!x.atBuyPoint, entry: x.entry, stop: x.stop, target2: x.target2 }));
+  if (!stocks.length) return;
+
+  const mq = await getJson(`/api/market/quote?symbols=${encodeURIComponent("SPY,QQQ,^VIX")}`);
+  const qs = Array.isArray(mq) ? mq : [];
+  const find = s => qs.find(x => String(x.symbol || "").toUpperCase() === s);
+  const chg = x => Number(x?.changesPercentage || 0);
+  const spy = find("SPY"), qqq = find("QQQ"), vix = find("^VIX");
+  const vixVal = Number(vix?.price || 0);
+  const factors = [
+    { label: "SPY up", pass: chg(spy) > -0.1 }, { label: "QQQ up", pass: chg(qqq) > -0.1 },
+    { label: "VIX<20", pass: vixVal > 0 ? vixVal < 20 : false }, { label: "Breadth+", pass: chg(spy) > 0 && chg(qqq) > 0 },
+    { label: "Trend day", pass: chg(spy) > 0.4 },
+  ];
+  const score = factors.filter(f => f.pass).length * 20;
+  const regime = { score, label: score >= 75 ? "GREEN" : score >= 55 ? "YELLOW" : "RED", factors, vixVal };
+
+  const secQ = await getJson(`/api/market/quote?symbols=${APEX_SECTORS.map(s => s[0]).join(",")}`);
+  const secArr = Array.isArray(secQ) ? secQ : [];
+  const sectors = APEX_SECTORS.map(([sym, name]) => ({ name, chg: chg(secArr.find(x => String(x.symbol || "").toUpperCase() === sym)) })).sort((a, b) => b.chg - a.chg);
+
+  let fg = null; try { fg = await getJson("/api/market/feargreed"); } catch {}
+  const out = await postJson("/api/market/apex-cio", { regime, stocks, sectors, fearGreed: fg ? `${fg.value ?? fg.score ?? ""} ${fg.label || fg.rating || ""}` : "n/a" });
+  if (!out || !out.ok || !out.report) return;
+
+  const header = `🧠 *APEX AI — MORNING CIO BRIEFING*\n${new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}\n\n`;
+  const text = header + out.report;
+  // Telegram cap ~4096; send in chunks on blank lines.
+  for (let i = 0; i < text.length; i += 3800) {
+    await sendTelegramMessage(text.slice(i, i + 3800)).catch(() => {});
+  }
+}
+
+module.exports = { runMorningGamePlan, runTradeCoach, runWeeklyReview, runMonthlyDeepReview, runApexBriefing };
