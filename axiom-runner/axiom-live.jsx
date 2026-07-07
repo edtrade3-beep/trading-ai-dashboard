@@ -9937,6 +9937,65 @@ function AiPredictPanel({ symbol, chart, C, MONO, SANS }) {
   );
 }
 
+// Institutional ownership + insider transactions for the loaded symbol.
+function InvestorsPanel({ symbol, C, MONO, SANS }) {
+  const [d, setD] = useState(null);
+  const [state, setState] = useState("loading");
+  useEffect(() => {
+    if (!symbol) return; setState("loading"); setD(null);
+    fetch("/api/market/insider?ticker=" + encodeURIComponent(symbol))
+      .then(r => r.json()).then(j => { setD(j); setState(j && j.ok ? "ok" : "none"); }).catch(() => setState("none"));
+  }, [symbol]);
+  const inst = d && d.institutional || {};
+  const holders = (inst.institutions || []);
+  const txns = (d && d.insiderTransactions && d.insiderTransactions.transactions) || (d && d.insiderTransactions) || [];
+  const big = (v) => !v ? "—" : v >= 1e9 ? "$" + (v / 1e9).toFixed(1) + "B" : v >= 1e6 ? "$" + (v / 1e6).toFixed(0) + "M" : "$" + v.toFixed(0);
+  const hasData = holders.length || (Array.isArray(txns) && txns.length) || inst.institutionsPct;
+  return (
+    <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", background: C.bg }}>
+      <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 10 }}>🏦 Investors — {symbol}</div>
+      {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "16px 0", textAlign: "center" }}>Loading…</div>}
+      {(state === "none" || (state === "ok" && !hasData)) && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "16px 0", textAlign: "center" }}>⚠ Ownership data unavailable (Yahoo is IP-blocked on the live server — works locally / with a data key).</div>}
+      {state === "ok" && hasData && (
+        <>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
+              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>HELD BY INSTITUTIONS</div>
+              <div style={{ fontFamily: NUM, fontSize: 22, fontWeight: 700, color: C.text }}>{inst.institutionsPct ? inst.institutionsPct + "%" : "—"}</div>
+            </div>
+            <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
+              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>HELD BY INSIDERS</div>
+              <div style={{ fontFamily: NUM, fontSize: 22, fontWeight: 700, color: C.text }}>{inst.insidersPct ? inst.insidersPct + "%" : "—"}</div>
+            </div>
+          </div>
+          {holders.length > 0 && (
+            <>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 5 }}>TOP INSTITUTIONAL HOLDERS</div>
+              {holders.slice(0, 6).map((h, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontFamily: SANS, fontSize: 12, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, whiteSpace: "nowrap" }}>{h.pctHeld ? h.pctHeld + "% · " : ""}{big(h.value)}</span>
+                </div>
+              ))}
+            </>
+          )}
+          {Array.isArray(txns) && txns.length > 0 && (
+            <>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, margin: "12px 0 5px" }}>RECENT INSIDER TRANSACTIONS</div>
+              {txns.slice(0, 6).map((t, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontFamily: SANS, fontSize: 11.5, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name} <span style={{ color: C.textDim }}>{t.role}</span></span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: t.type === "SELL" ? "#c8282a" : "#0d9465", whiteSpace: "nowrap" }}>{t.type} {big(t.value)}</span>
+                </div>
+              ))}
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
 function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
@@ -10108,7 +10167,7 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
         )}
         {/* ── Per-symbol detail tabs ── */}
         <div style={{ display: "flex", gap: 4, margin: "4px 0 12px", flexWrap: "wrap", borderBottom: `1px solid ${C.border}`, paddingBottom: 8 }}>
-          {[["chart", "📈 Chart"], ["valuation", "📊 Valuation"], ["analysts", "🎯 Analysts"], ["earnings", "💰 Earnings"], ["company", "🏢 Company"], ["news", "📰 News"]].map(([id, lbl]) => (
+          {[["chart", "📈 Chart"], ["valuation", "📊 Valuation"], ["analysts", "🎯 Analysts"], ["investors", "🏦 Investors"], ["earnings", "💰 Earnings"], ["company", "🏢 Company"], ["news", "📰 News"]].map(([id, lbl]) => (
             <button key={id} onClick={() => setDTab(id)}
               style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", borderRadius: 7, cursor: "pointer",
                 border: `1px solid ${dTab === id ? C.accent : "transparent"}`, background: dTab === id ? `${C.accent}16` : "transparent", color: dTab === id ? C.accent : C.textDim }}>
@@ -10128,6 +10187,7 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
         )}
         {dTab === "valuation" && <FundamentalsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
         {dTab === "analysts" && <AnalystPeerPanel symbol={sym} price={chart && chart.price} lb={lb} C={C} MONO={MONO} SANS={SANS} />}
+        {dTab === "investors" && <InvestorsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
         {dTab === "earnings" && <EarningsBars symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
         {dTab === "company" && <CompanyProfile symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
         {dTab === "news" && <NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
