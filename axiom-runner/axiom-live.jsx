@@ -19567,11 +19567,40 @@ function rhMarkdown(text, C, MONO, SANS) {
     lines.forEach(ln => { if (/^##\s/.test(ln) && !header) header = ln.replace(/^#+\s/, ""); else if (ln.trim() && !/^---+$/.test(ln)) body.push(ln); });
     if (!header && !body.length) return null;
     const col = secColor(header);
+    // --- Markdown table support: group contiguous "| a | b |" lines into a <table>. ---
+    const isRow = (ln) => /^\s*\|.*\|\s*$/.test(ln);
+    const isSep = (ln) => /^\s*\|?[\s:|-]+\|?\s*$/.test(ln) && /-/.test(ln) && !/[a-z0-9]/i.test(ln.replace(/[-:|\s]/g, ""));
+    const cells = (ln) => ln.trim().replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+    const renderTable = (rows, key) => {
+      let head = null, data = rows;
+      if (rows.length >= 2 && isSep(rows[1])) { head = cells(rows[0]); data = rows.slice(2); }
+      else if (rows.length && isSep(rows[0])) { data = rows.slice(1); }
+      const th = (t, j) => React.createElement("th", { key: j, style: { fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, textAlign: "left", padding: "6px 10px", borderBottom: `2px solid ${C.border}`, whiteSpace: "nowrap" } }, t);
+      const td = (t, j) => React.createElement("td", { key: j, style: { fontFamily: SANS, fontSize: 12.5, color: C.text, padding: "6px 10px", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap" } }, inline(t));
+      return React.createElement("div", { key, style: { overflowX: "auto", margin: "6px 0 10px" } },
+        React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", minWidth: 520 } },
+          head && React.createElement("thead", null, React.createElement("tr", null, head.map(th))),
+          React.createElement("tbody", null, data.map((r, ri) => React.createElement("tr", { key: ri, style: { background: ri % 2 ? "transparent" : "rgba(127,127,127,0.04)" } }, cells(r).map(td))))
+        )
+      );
+    };
+    // Walk the body: emit tables for runs of table rows, normal divs otherwise.
+    const out = []; let i = 0;
+    while (i < body.length) {
+      if (isRow(body[i])) {
+        const run = []; while (i < body.length && isRow(body[i])) { run.push(body[i]); i++; }
+        out.push(renderTable(run, "t" + i));
+      } else {
+        const ln = body[i], li = "l" + i;
+        out.push(/^[-*]\s/.test(ln)
+          ? React.createElement("div", { key: li, style: { fontFamily: SANS, fontSize: 13, color: C.textSec, padding: "3px 0 3px 12px", lineHeight: 1.65 } }, "• ", inline(ln.replace(/^[-*]\s/, "")))
+          : React.createElement("div", { key: li, style: { fontFamily: SANS, fontSize: 13.5, fontWeight: /·/.test(ln) ? 700 : 400, color: C.text, padding: "3px 0", lineHeight: 1.65 } }, inline(ln)));
+        i++;
+      }
+    }
     return React.createElement("div", { key: bi, style: { background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${col}`, borderRadius: 10, padding: "12px 16px", marginBottom: 10 } },
       header && React.createElement("div", { style: { fontFamily: MONO, fontSize: 13, fontWeight: 900, color: col, marginBottom: 8, letterSpacing: "0.02em" } }, header),
-      body.map((ln, li) => /^[-*]\s/.test(ln)
-        ? React.createElement("div", { key: li, style: { fontFamily: SANS, fontSize: 13, color: C.textSec, padding: "3px 0 3px 12px", lineHeight: 1.65 } }, "• ", inline(ln.replace(/^[-*]\s/, "")))
-        : React.createElement("div", { key: li, style: { fontFamily: SANS, fontSize: 13.5, fontWeight: /·/.test(ln) ? 700 : 400, color: C.text, padding: "3px 0", lineHeight: 1.65 } }, inline(ln)))
+      out
     );
   }).filter(Boolean);
 }
