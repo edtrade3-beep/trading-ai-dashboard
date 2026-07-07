@@ -1509,7 +1509,7 @@ Exactly one: **BUY** / **SELL** / **WAIT** / **HOLD**. Then 2-3 sentences, plain
     const reg = b.regime || {};
     const prompt = `LIVE DATA — ${new Date().toDateString()}\n\nMARKET REGIME: ${reg.score}/100 (${reg.label}). Factors: ${(reg.factors || []).map(f => `${f.label}=${f.pass ? "✓" : "✗"}`).join(", ")}. VIX ${reg.vixVal || "?"}.\nFEAR/GREED: ${b.fearGreed || "n/a"}\nSECTOR PERFORMANCE: ${sec || "n/a"}\n\nRANKED CANDIDATES (${stocks.length}) — with today's move & relative volume:\n${rows || "none"}\n\nRECENT NEWS HEADLINES (use to explain why names are moving):\n${newsBlock}\n\nProduce the detailed CIO briefing. Cite real numbers. Explain WHY the movers moved using RVOL + news. Only this data exists; flag what's missing; preserve capital.`;
     try {
-      const report = await callAnthropicApi(prompt, key, { model: MODELS.sonnet, maxTokens: 2400, system: SYSTEM, cache: true, timeout: 100000, effort: "low" });
+      const report = await callAnthropicApi(prompt, key, { model: MODELS.sonnet, maxTokens: 1900, system: SYSTEM, cache: true, timeout: 100000, effort: "low" });
       return writeJson(res, 200, { ok: true, report: (report || "").trim() });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
