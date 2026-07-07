@@ -99,6 +99,7 @@ const C = { ...THEME_DARK };
 const SANS = `'Inter', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif`;
 // MONO  — true monospace for prices, tickers, percentages, scores — much crisper digits
 const MONO = `'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Roboto Mono', 'Courier New', monospace`;
+const NUM = `'Oswald', 'Inter', system-ui, sans-serif`;   // bold condensed display font for headline numbers
 const UI_ZOOM = 1.0;         // no zoom — let the layout fill the viewport naturally
 const UI_ZOOM_TABLET = 1.08; // slight zoom for iPad readability
 const LAYOUT = {
@@ -1633,7 +1634,7 @@ function PasswordLockScreen({ value, error, onChange, onSubmit }) {
       minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center",
       justifyContent: "center", fontFamily: SANS,
     }}>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet" />
       <div style={{
         width: 420, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
         padding: 32, textAlign: "center",
@@ -1696,7 +1697,7 @@ function ApiKeyScreen({ onSubmit }) {
       minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center",
       justifyContent: "center", fontFamily: SANS,
     }}>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet" />
       <div style={{
         width: 440, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
         padding: 40, textAlign: "center",
@@ -15623,7 +15624,7 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
         const box = (label, val, col, sub) => (
           <div style={{ flex: "1 1 120px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
             <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, textTransform: "uppercase", letterSpacing: .4 }}>{label}</div>
-            <div style={{ fontFamily: MONO, fontSize: 23, fontWeight: 900, color: col || C.text, lineHeight: 1.1, letterSpacing: "-0.02em" }}>{val}</div>
+            <div style={{ fontFamily: NUM, fontSize: 26, fontWeight: 700, color: col || C.text, lineHeight: 1.1, letterSpacing: "0.01em" }}>{val}</div>
             {sub && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 1 }}>{sub}</div>}
           </div>
         );
@@ -15685,7 +15686,7 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                 return (
                   <div key="basedepth" style={{ flex: "1 1 120px", background: `${c}18`, border: `1.5px solid ${c}`, borderRadius: 8, padding: "8px 12px", boxShadow: `0 0 0 3px ${c}14` }}>
                     <div style={{ fontFamily: SANS, fontSize: 10.5, color: c, textTransform: "uppercase", letterSpacing: .4, fontWeight: 800 }}>Base depth</div>
-                    <div style={{ fontFamily: MONO, fontSize: 23, fontWeight: 900, color: c, lineHeight: 1.1, letterSpacing: "-0.02em" }}>{d}%</div>
+                    <div style={{ fontFamily: NUM, fontSize: 26, fontWeight: 700, color: c, lineHeight: 1.1, letterSpacing: "0.01em" }}>{d}%</div>
                     <div style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, color: c }}>{sub}</div>
                   </div>
                 );
@@ -23514,7 +23515,7 @@ export default function App() {
       {/* Google Fonts — Inter (UI) + JetBrains Mono (data/numbers) */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet" />
       {/* Global baseline styles */}
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
