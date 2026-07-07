@@ -139,7 +139,7 @@ async function runApexBriefing() {
   const out = await postJson("/api/market/apex-cio", { regime, stocks, sectors, fearGreed: fg ? `${fg.value ?? fg.score ?? ""} ${fg.label || fg.rating || ""}` : "n/a" });
   if (!out || !out.ok || !out.report) return;
 
-  const header = `🧠 *APEX AI — MORNING CIO BRIEFING*\n${new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}\n\n`;
+  const header = `🧠 *TRADE PRO AI — MORNING BRIEFING*\n${new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}\n\n`;
   const text = header + out.report;
   // Telegram cap ~4096; send in chunks on blank lines.
   for (let i = 0; i < text.length; i += 3800) {

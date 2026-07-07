@@ -19146,11 +19146,11 @@ function RhProApex({ C, MONO, SANS, macroData, sectorData }) {
   return (
     <div style={{ padding: "8px 4px", maxWidth: 900 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
-        <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>🧠 APEX AI — CHIEF INVESTMENT OFFICER</div>
+        <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>🧠 TRADE PRO AI</div>
         {ranAt && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>briefing {ranAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>}
       </div>
       <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 14, lineHeight: 1.6 }}>An institutional CIO briefing over your live data — ranked longs/shorts, best trade of the day, sector rotation, risks, and a capital-first verdict. Honest by design: it flags the data it doesn't have (options/dark-pool/insider) and lowers confidence accordingly.</div>
-      <button onClick={generate} disabled={loading} style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, padding: "12px 26px", borderRadius: 10, border: "none", color: "#fff", background: loading ? C.textDim : "#a855f7", cursor: loading ? "default" : "pointer", marginBottom: 16 }}>{loading ? `⏳ ${phase}` : "🧠 GENERATE CIO BRIEFING"}</button>
+      <button onClick={generate} disabled={loading} style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, padding: "12px 26px", borderRadius: 10, border: "none", color: "#fff", background: loading ? C.textDim : "#a855f7", cursor: loading ? "default" : "pointer", marginBottom: 16 }}>{loading ? `⏳ ${phase}` : "🧠 GENERATE BRIEFING"}</button>
       {err && <div style={{ fontFamily: SANS, fontSize: 13, color: C.red, marginBottom: 10 }}>⚠ {err === "invalid x-api-key" ? "AI key rejected — update ANTHROPIC_API_KEY in Render." : err}</div>}
       {report && <div>{rhMarkdown(report, C, MONO, SANS)}</div>}
       <div style={{ marginTop: 12, fontFamily: SANS, fontSize: 10, color: C.textDim }}>Educational analysis only — no orders placed. Uses Fable (premium) — ~15¢ per briefing. Verify every level on a live chart before trading manually.</div>
@@ -23400,7 +23400,7 @@ export default function App() {
           ],
           rhpro: [
             { id: "rhpro",      label: "🎯 COMMAND DECK" },
-            { id: "rhpro-apex", label: "🧠 APEX CIO" },
+            { id: "rhpro-apex", label: "🧠 TRADE PRO AI" },
             { id: "rhpro-scan", label: "🎯 SNIPER SCANNER" },
             { id: "rhpro-analyze", label: "🔬 TRADE ANALYZER" },
             { id: "rhpro-lists", label: "📋 WATCHLISTS" },
