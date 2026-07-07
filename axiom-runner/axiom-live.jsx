@@ -9489,6 +9489,95 @@ function AISetupReview({ r, regimeScore, C, MONO, SANS, out, setOut }) {
   );
 }
 
+// Combined Market-Terminal page: movers leaderboard on the left, pro chart with
+// AI overlays on the right. Click a mover → it loads in the chart.
+function MarketTerminalTab({ C, MONO, SANS }) {
+  const [lb, setLb] = useState(null);
+  const [view, setView] = useState("moversUp");
+  const [sym, setSym] = useState("NVDA");
+  const [chart, setChart] = useState(null);
+  const [loadingChart, setLoadingChart] = useState(false);
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    const load = () => fetch("/api/market/leaderboard?n=12").then(r => r.json()).then(setLb).catch(() => {});
+    load(); const t = setInterval(load, 90000); return () => clearInterval(t);
+  }, []);
+
+  const loadSym = useCallback((s) => {
+    const symbol = String(s || "").trim().toUpperCase();
+    if (!symbol) return;
+    setSym(symbol); setLoadingChart(true);
+    fetch("/api/market/trend-template?symbol=" + encodeURIComponent(symbol))
+      .then(r => r.json())
+      .then(d => { if (!d.error) setChart(d); })
+      .catch(() => {})
+      .finally(() => setLoadingChart(false));
+  }, []);
+  useEffect(() => { loadSym("NVDA"); }, [loadSym]);
+
+  const VIEWS = [
+    { id: "moversUp", label: "Up", icon: "🟢" },
+    { id: "moversDown", label: "Down", icon: "🔴" },
+    { id: "upOnVolume", label: "Up Vol", icon: "📈" },
+    { id: "downOnVolume", label: "Dn Vol", icon: "📉" },
+  ];
+  const rows = (lb && lb[view]) || [];
+  const pct = (v) => v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2) + "%";
+  const col = (v) => v == null ? C.textDim : v > 0 ? "#22d47e" : v < 0 ? "#ef4444" : C.text;
+
+  return (
+    <div style={{ width: "100%", display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+      {/* ── LEFT: movers list ── */}
+      <div style={{ flex: "1 1 320px", minWidth: 300, maxWidth: 420 }}>
+        <form onSubmit={(e) => { e.preventDefault(); loadSym(query); setQuery(""); }} style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="🔍 Load any symbol…"
+            style={{ flex: 1, fontFamily: MONO, fontSize: 13, padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.text }} />
+        </form>
+        <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
+          {VIEWS.map(v => (
+            <button key={v.id} onClick={() => setView(v.id)}
+              style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, padding: "6px 10px", borderRadius: 8, cursor: "pointer",
+                border: `1px solid ${view === v.id ? "#22d47e" : C.border}`, background: view === v.id ? "rgba(34,212,126,0.14)" : C.card, color: view === v.id ? "#22d47e" : C.textDim }}>
+              {v.icon} {v.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", background: C.card }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 0.8fr", padding: "8px 12px", background: C.bg, borderBottom: `2px solid ${C.border}`, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim }}>
+            <div>SYMBOL</div><div style={{ textAlign: "right" }}>PRICE</div><div style={{ textAlign: "right" }}>DAY%</div><div style={{ textAlign: "right" }}>VOL</div>
+          </div>
+          {!lb && <div style={{ padding: "24px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
+          {rows.map((r, i) => (
+            <div key={r.symbol} onClick={() => loadSym(r.symbol)}
+              style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 0.8fr", padding: "9px 12px", alignItems: "center", cursor: "pointer",
+                borderBottom: i < rows.length - 1 ? `1px solid ${C.border}` : "none",
+                background: r.symbol === sym ? "rgba(34,212,126,0.10)" : (i % 2 ? "transparent" : "rgba(127,127,127,0.03)") }}>
+              <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 13, color: r.symbol === sym ? "#22d47e" : C.text }}>{r.symbol}</div>
+              <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.text }}>${r.price.toFixed(2)}</div>
+              <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col(r.dayPct) }}>{pct(r.dayPct)}</div>
+              <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: r.volRatio >= 1.5 ? "#f59e0b" : C.textDim }}>{r.volRatio == null ? "—" : r.volRatio.toFixed(1) + "×"}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── RIGHT: pro chart ── */}
+      <div style={{ flex: "2 1 520px", minWidth: 340 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: SANS, fontSize: 24, fontWeight: 900, color: C.text }}>{sym}</span>
+          {chart && chart.price != null && <span style={{ fontFamily: MONO, fontSize: 18, color: C.text }}>${chart.price.toFixed(2)}</span>}
+          {chart && chart.stage && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{chart.stage}</span>}
+          {loadingChart && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>loading…</span>}
+        </div>
+        {chart
+          ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={520} />
+          : <div style={{ height: 520, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
+      </div>
+    </div>
+  );
+}
+
 // Market-Terminal style movers leaderboard: Movers Up / Down / Up on Volume /
 // Down on Volume. Reads /api/market/leaderboard (cached 3 min server-side).
 function MoversTab({ C, MONO, SANS, openDeepDiveFor }) {
@@ -23163,6 +23252,7 @@ export default function App() {
           {(() => {
             const NAV_GROUPS = [
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["start", "dashboard", "movers", "quotes", "crypto", "news", "econ-cal", "macro"] },
+              { id: "mterminal",  label: "🖥 TERMINAL",   tabs: ["mterminal"] },
               { id: "rhpro",      label: "📈 PRO TRADE",  tabs: ["rhpro", "rhpro-apex", "rhpro-scan", "rhpro-analyze", "rhpro-lists", "rhpro-heat", "trendtemplate", "rhpro-calc", "rhpro-options", "greenlight", "gl-backtest", "holdings", "rhpro-journal", "rhpro-coach", "rhpro-perf", "smartscan", "dipbuy", "outlook", "predictions", "morning-routine", "mytrades"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes"] },
@@ -23529,6 +23619,9 @@ export default function App() {
           terminal: [
             { id: "multitf",    label: "📈 CHART" },
             { id: "tv",         label: "📺 TV LIVE" },
+          ],
+          mterminal: [
+            { id: "mterminal",  label: "🖥 MARKET TERMINAL" },
           ],
           rhpro: [
             { id: "rhpro-apex", label: "🧠 TRADE PRO AI" },
@@ -24171,6 +24264,10 @@ export default function App() {
 
         {activeTab === "movers" && (
           <MoversTab C={C} MONO={MONO} SANS={SANS} openDeepDiveFor={openDeepDiveFor} />
+        )}
+
+        {activeTab === "mterminal" && (
+          <MarketTerminalTab C={C} MONO={MONO} SANS={SANS} />
         )}
 
         {activeTab === "quotes" && watchlistData.length > 0 && (
@@ -36009,7 +36106,7 @@ export default function App() {
                         {/* ON/OFF toggle */}
                         <button
                           onClick={() => { const n = !lockEnabled; setLockEnabled(n); try{localStorage.setItem("lock_enabled",String(n));}catch{} if (!n) { setTradingLocked(false); setLockReason(""); } }}
-                          style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, border: "none",
+                          style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900,
                             background: lockEnabled ? C.green : C.surface,
                             color: lockEnabled ? "#fff" : C.textDim,
                             borderRadius: 20, padding: "4px 14px", cursor: "pointer",
