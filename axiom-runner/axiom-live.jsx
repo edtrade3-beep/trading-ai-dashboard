@@ -15674,7 +15674,7 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                 Wait for a base to form near the pivot; entry/stop/targets shown muted until then.
               </div>
             )}
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", opacity: su.actionable ? 1 : 0.5 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {box("Entry (pivot)", su.entry, C.accent, su.breakoutConfirmed ? "breakout confirmed" : `price ${su.abovePivotPct}% vs pivot`)}
               {box("Stop", su.stop, C.red, `risk ${su.riskPct}%`)}
               {box("Target 2R", su.target2, C.green, "+" + (su.riskPct * 2).toFixed(1) + "%")}
