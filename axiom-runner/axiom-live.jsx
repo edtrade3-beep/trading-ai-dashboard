@@ -5,13 +5,32 @@
 if (typeof window !== "undefined" && !window.__dmFetchWrapped) {
   window.__dmFetchWrapped = true;
   const _origFetch = window.fetch.bind(window);
-  window.fetch = (url, opts = {}) => {
+  window.fetch = async (url, opts = {}) => {
     try {
       if (typeof url === "string" && url.startsWith("/api/")) {
         const tok = localStorage.getItem("axiom_api_token");
         if (tok) opts = { ...opts, headers: { ...(opts.headers || {}), "x-api-token": tok } };
       }
     } catch {}
+    // Auto-retry transient server blips (5xx / HTML during a Render redeploy) for
+    // idempotent GET calls to our own API — so a brief deploy window doesn't
+    // surface scary "Unexpected end of JSON input" errors to the user. Only GETs
+    // are retried (never POSTs), and only our /api/ paths.
+    const isApiGet = typeof url === "string" && url.startsWith("/api/")
+      && (!opts.method || String(opts.method).toUpperCase() === "GET");
+    if (!isApiGet) return _origFetch(url, opts);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await _origFetch(url, opts);
+        const ct = res.headers.get("content-type") || "";
+        const transient = res.status >= 500 || (res.status === 200 && ct.includes("text/html")); // HTML = redeploy splash
+        if (transient && attempt === 0) { await new Promise(r => setTimeout(r, 900)); continue; }
+        return res;
+      } catch (e) {
+        if (attempt === 0) { await new Promise(r => setTimeout(r, 900)); continue; }
+        throw e;
+      }
+    }
     return _origFetch(url, opts);
   };
 }
