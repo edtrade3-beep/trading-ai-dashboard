@@ -23405,8 +23405,6 @@ export default function App() {
             { id: "rhpro-lists", label: "📋 WATCHLISTS" },
             { id: "rhpro-heat", label: "🗺 HEAT MAP" },
             { id: "trendtemplate", label: "🏆 TREND TEMPLATE" },
-            { id: "rhpro-calc", label: "📐 SIZE CALC" },
-            { id: "rhpro-options", label: "🎲 OPTIONS" },
             { id: "greenlight",   label: "🟢 GREEN LIGHT + AUTOPILOT" },
             { id: "gl-backtest",  label: "🔬 BACKTEST" },
             { id: "holdings",     label: "📊 HOLDINGS" },
