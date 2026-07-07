@@ -15088,8 +15088,11 @@ function TrendChart({ data, C, MONO, SANS, height }) {
     for (let i = n - 1; i >= 1; i--) { if (ma50s[i] != null && ma50s[i - 1] != null && bars[i].close > ma50s[i] && bars[i - 1].close <= ma50s[i - 1]) { buyIdx = i; break; } }
     if (buyIdx === -1) for (let i = 1; i < n; i++) { if (ma50s[i] != null && bars[i].close > ma50s[i]) { buyIdx = i; break; } }
     let exitIdx = -1; if (buyIdx >= 0) for (let i = buyIdx + 2; i < n; i++) { if (ma50s[i] != null && bars[i].close < ma50s[i]) { exitIdx = i; break; } }
+    // Only annotate a BUY when the stock is actually in an uptrend (Stage 2 /
+    // ≥6/8). On a Stage 4 downtrend a green "BUY" arrow is misleading.
+    const trendOK = (Number(data.score) || 0) >= 6 || /Stage\s*2/i.test(data.stage || "");
     const markers = [];
-    if (buyIdx >= 0) markers.push({ time: toTime(bars[buyIdx].time), position: "belowBar", color: C.green, shape: "arrowUp", text: "BUY" });
+    if (trendOK && buyIdx >= 0) markers.push({ time: toTime(bars[buyIdx].time), position: "belowBar", color: C.green, shape: "arrowUp", text: "BUY" });
     if (exitIdx >= 0) markers.push({ time: toTime(bars[exitIdx].time), position: "aboveBar", color: C.red, shape: "arrowDown", text: "EXIT" });
     s.candle.setMarkers(markers);
 
@@ -15619,8 +15622,22 @@ function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
             {sub && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>{sub}</div>}
           </div>
         );
+        // Plain-English bottom line — turns the 8 checks + verdict into one sentence.
+        const passN = Number(data.score) || 0;
+        const bl = (() => {
+          if (su.verdict === "GO") return `Buy candidate — ${passN}/8 trend checks pass and it's breaking out. Enter above the ${su.entry} pivot with a stop at ${su.stop}.`;
+          if (su.verdict === "WAIT" && passN >= 6) return `Strong trend (${passN}/8) but not at a buy point yet — wait for a break above the ${su.entry} pivot on volume before buying.`;
+          if (/Stage\s*4/i.test(data.stage || "")) return `Downtrend — ${8 - passN} of 8 trend checks failing (price below its key moving averages). Not a buy; wait for it to reclaim the averages and rebuild a base.`;
+          if (passN <= 5) return `Not in gear — only ${passN}/8 trend checks pass. Avoid until the trend re-aligns (price back above the 50/150/200-day MAs).`;
+          return su.verdictReason || `${passN}/8 — ${su.status}.`;
+        })();
+        const blColor = su.verdict === "GO" ? C.green : su.verdict === "AVOID" ? C.red : "#d6a312";
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.5,
+              background: `${blColor}12`, border: `1px solid ${blColor}55`, borderLeft: `3px solid ${blColor}`, borderRadius: 8, padding: "9px 13px" }}>
+              <b style={{ color: blColor }}>Bottom line:</b> {bl}
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>🎯 TRADE SETUP</div>
               {(() => { const vc = su.verdict === "GO" ? C.green : su.verdict === "AVOID" ? C.red : "#d6a312";
