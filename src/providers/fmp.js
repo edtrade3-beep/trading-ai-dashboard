@@ -45,18 +45,54 @@ async function fetchFmpQuotes(symbols, fmpKey) {
 
 async function fetchFmpFundamentals(symbol, fmpKey) {
   if (!fmpKey || !symbol) return null;
-  const quoteUrl = `https://financialmodelingprep.com/api/v3/quote/${encodeURIComponent(symbol)}?apikey=${encodeURIComponent(fmpKey)}`;
-  const profileUrl = `https://financialmodelingprep.com/api/v3/profile/${encodeURIComponent(symbol)}?apikey=${encodeURIComponent(fmpKey)}`;
-  const [quotePayload, profilePayload] = await Promise.all([fetchJsonSafe(quoteUrl), fetchJsonSafe(profileUrl)]);
-  const quote = Array.isArray(quotePayload) ? quotePayload[0] : null;
-  const profile = Array.isArray(profilePayload) ? profilePayload[0] : null;
+  const k = encodeURIComponent(fmpKey), s = encodeURIComponent(symbol);
+  const url = (p) => `https://financialmodelingprep.com/api/v3/${p}${p.includes("?") ? "&" : "?"}apikey=${k}`;
+  // Batch the free FMP endpoints that populate the Valuation / Company / Analyst
+  // panels. All are on the free tier. Failures degrade to null fields.
+  const [quoteP, profileP, ratiosP, growthP, targetP] = await Promise.all([
+    fetchJsonSafe(url(`quote/${s}`)),
+    fetchJsonSafe(url(`profile/${s}`)),
+    fetchJsonSafe(url(`ratios-ttm/${s}`)),
+    fetchJsonSafe(url(`income-statement-growth/${s}?period=annual&limit=1`)),
+    fetchJsonSafe(url(`price-target-consensus/${s}`)),
+  ]);
+  const quote = Array.isArray(quoteP) ? quoteP[0] : null;
+  const profile = Array.isArray(profileP) ? profileP[0] : null;
+  const ratios = Array.isArray(ratiosP) ? ratiosP[0] : null;
+  const growth = Array.isArray(growthP) ? growthP[0] : null;
+  const target = Array.isArray(targetP) ? targetP[0] : null;
   if (!quote && !profile) return null;
+  const n = (v) => { const x = Number(v); return Number.isFinite(x) && x !== 0 ? x : null; };
+  const tgt = n(target?.targetConsensus) || n(target?.targetMedian);
   return {
     symbol,
     marketCap: Number(quote?.marketCap) || Number(profile?.mktCap) || 0,
-    pe: Number(quote?.pe) || 0,
-    eps: Number(quote?.eps) || 0,
-    sharesOutstanding: Number(profile?.sharesOutstanding) || 0,
+    pe: n(quote?.pe) || n(ratios?.peRatioTTM),
+    trailingPE: n(quote?.pe) || n(ratios?.peRatioTTM),
+    eps: n(quote?.eps),
+    sharesOutstanding: Number(profile?.sharesOutstanding) || Number(quote?.sharesOutstanding) || 0,
+    // Valuation
+    priceToSales: n(ratios?.priceToSalesRatioTTM),
+    pegRatio: n(ratios?.pegRatioTTM),
+    priceToBook: n(ratios?.priceToBookRatioTTM),
+    beta: n(profile?.beta),
+    dividendYield: n(ratios?.dividendYielTTM),
+    // Margins & returns (FMP returns decimals)
+    grossMargin: n(ratios?.grossProfitMarginTTM),
+    profitMargin: n(ratios?.netProfitMarginTTM),
+    roe: n(ratios?.returnOnEquityTTM),
+    // Growth
+    revenueGrowth: n(growth?.growthRevenue),
+    earningsGrowth: n(growth?.growthEPS) || n(growth?.growthNetIncome),
+    // Analyst
+    analystTarget: tgt,
+    targetMeanPrice: tgt,
+    recommendationKey: null,
+    numberOfAnalystOpinions: null,
+    // Company profile
+    sector: profile?.sector || null,
+    industry: profile?.industry || null,
+    description: profile?.description || null,
     earningsDate: profile?.lastDiv || null,
   };
 }
