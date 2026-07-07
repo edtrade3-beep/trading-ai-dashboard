@@ -1461,6 +1461,54 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  // APEX AI — Chief Investment Officer briefing. Uses ONLY the real data the app
+  // has; explicitly flags what's missing and lowers confidence accordingly.
+  if (pathname === "/api/market/apex-cio" && req.method === "POST") {
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
+    const stocks = (Array.isArray(b.stocks) ? b.stocks : []).slice(0, 30);
+    const SYSTEM = `You are APEX AI, the Chief Investment Officer of a world-class quantitative hedge fund. Your job is NOT to predict the market — it is to surface only the highest-probability opportunities and, above all, preserve capital. Think like an institutional PM.
+
+ABSOLUTE RULES:
+- Use ONLY the live data provided below. NEVER invent, estimate, or assume data you were not given.
+- The data you HAVE: market regime (SPY/QQQ/VIX/breadth/trend), a ranked stock universe (0-100 AI score, 8-pt Trend Template, relative-strength rating, stage, entry/stop/target, at-buy-point flag), and sector performance.
+- The data you DO NOT have (state this and LOWER confidence because of it): intraday VWAP, options gamma/dealer positioning/IV rank, dark-pool prints, insider/13F/ETF flows, live news/earnings calendar, and fundamentals. Do NOT fabricate any of these — where a section needs them, write "DATA UNAVAILABLE" and explain the limitation.
+- If no high-quality setup exists, recommend WAIT / HOLD CASH. Never recommend a trade just to fill the format.
+- Every trade you list MUST include entry, stop, target(s), reward:risk, and a position size %. No trade without a stop.
+- Cap confidence: because options/institutional/news data are missing, no setup should exceed ~80 confidence.
+
+Scoring: derive Market Health, Technical, and Risk scores from the data. Institutional and Options scores = "N/A (data unavailable)".
+
+OUTPUT (markdown, tight, no fluff):
+## EXECUTIVE SUMMARY
+Market Health / Bias / Risk Level / Confidence / Today's best strategy (one line each).
+## BEST LONG TRADES
+Up to the 5 best from the candidates (score>=65, not extended). Each: Symbol · Entry · Stop · T1 · T2 · R:R · Confidence · Size% · why (one line, cite the actual score/RS/stage).
+## BEST SHORT TRADES
+Only if clearly weak (Stage 4 / low RS); else "None — no high-quality shorts."
+## 🎯 BEST TRADE OF THE DAY
+One pick with full levels and 2 sentences on why. Or "WAIT — no setup clears the bar."
+## STOCKS TO AVOID
+Up to 5 weakest (Stage 4 / low RS) with the one-line risk.
+## SECTOR ROTATION
+Rank sectors strongest→weakest from the data.
+## INSTITUTIONAL MONEY FLOW
+"DATA UNAVAILABLE — no dark-pool/ETF/13F feed." (one line)
+## BIGGEST RISKS TODAY
+Macro + technical risks derivable from the data (VIX level, breadth, extension).
+## FINAL RECOMMENDATION
+One of BUY / SELL / WAIT / HOLD CASH, then <120 words. Capital preservation first.`;
+    const rows = stocks.map(s => `${s.symbol}: score ${s.score}/100, ${s.passCount}/8 template, RS ${s.rsRating}, ${s.stage}, ${s.atBuyPoint ? "AT BUY POINT" : "not at buy point"}${s.entry ? `, entry $${s.entry} stop $${s.stop}${s.target2 ? ` target $${s.target2}` : ""}` : ""}, price $${s.price}`).join("\n");
+    const sec = (Array.isArray(b.sectors) ? b.sectors : []).map(s => `${s.name} ${s.chg >= 0 ? "+" : ""}${Number(s.chg).toFixed(2)}%`).join(", ");
+    const reg = b.regime || {};
+    const prompt = `LIVE DATA — ${new Date().toDateString()}\n\nMARKET REGIME: ${reg.score}/100 (${reg.label}). Factors: ${(reg.factors || []).map(f => `${f.label}=${f.pass ? "✓" : "✗"}`).join(", ")}. VIX ${reg.vixVal || "?"}.\nFEAR/GREED: ${b.fearGreed || "n/a"}\nSECTOR PERFORMANCE: ${sec || "n/a"}\n\nRANKED CANDIDATES (${stocks.length}):\n${rows || "none"}\n\nProduce the CIO briefing. Remember: only this data exists; flag what's missing; preserve capital.`;
+    try {
+      const report = await callAnthropicApi(prompt, key, { model: MODELS.fable, maxTokens: 2000, system: SYSTEM, cache: true, timeout: 180000 });
+      return writeJson(res, 200, { ok: true, report: (report || "").trim() });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   // ROBINHOOD PRO — grade ONE manual trade (A+ to F) with specific feedback.
   if (pathname === "/api/market/ai-grade" && req.method === "POST") {
     const key = (process.env.ANTHROPIC_API_KEY || "").trim();

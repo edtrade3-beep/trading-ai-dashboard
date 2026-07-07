@@ -19085,6 +19085,52 @@ function RhProPerf({ C, MONO, SANS }) {
   );
 }
 
+// Lightweight markdown renderer for the APEX briefing.
+function rhMarkdown(text, C, MONO, SANS) {
+  const lines = String(text || "").split(/\r?\n/);
+  const out = [];
+  lines.forEach((ln, i) => {
+    const bold = (s) => s.split(/(\*\*[^*]+\*\*)/g).map((p, j) => /^\*\*[^*]+\*\*$/.test(p)
+      ? React.createElement("b", { key: j, style: { color: C.text } }, p.slice(2, -2)) : p);
+    if (/^#{2,3}\s/.test(ln)) out.push(React.createElement("div", { key: i, style: { fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent, margin: "14px 0 6px", letterSpacing: "0.03em" } }, ln.replace(/^#+\s/, "")));
+    else if (/^[-*]\s/.test(ln)) out.push(React.createElement("div", { key: i, style: { fontFamily: SANS, fontSize: 13, color: C.textSec, padding: "2px 0 2px 14px", lineHeight: 1.6 } }, "• ", bold(ln.replace(/^[-*]\s/, ""))));
+    else if (/^---+$/.test(ln)) out.push(React.createElement("div", { key: i, style: { height: 1, background: C.border, margin: "8px 0" } }));
+    else if (ln.trim()) out.push(React.createElement("div", { key: i, style: { fontFamily: SANS, fontSize: 13, color: C.text, padding: "2px 0", lineHeight: 1.6 } }, bold(ln)));
+  });
+  return out;
+}
+function RhProApex({ C, MONO, SANS, macroData, sectorData }) {
+  const [report, setReport] = useState(""); const [loading, setLoading] = useState(false); const [err, setErr] = useState(""); const [ranAt, setRanAt] = useState(null); const [phase, setPhase] = useState("");
+  const generate = async () => {
+    setLoading(true); setErr(""); setReport(""); setPhase("Scanning the market…");
+    try {
+      const results = await rhScreen(RH_UNIVERSE);
+      const stocks = results.map(x => ({ ...x, score: rhScore(x) })).sort((a, b) => b.score - a.score).slice(0, 30)
+        .map(x => ({ symbol: x.symbol, price: x.price, score: x.score, passCount: x.passCount, rsRating: x.rsRating, stage: (x.stage || "").replace(/ —.*/, ""), atBuyPoint: !!x.atBuyPoint, entry: x.entry, stop: x.stop, target2: x.target2, setupStatus: x.setupStatus }));
+      const regime = computeRegime(macroData);
+      const sectors = SECTOR_ETFS.map(se => { const sd = (sectorData || []).find(x => (x.symbol || "").toUpperCase() === se.symbol); return { name: se.name, chg: Number(sd?.changesPercentage || 0) }; }).sort((a, b) => b.chg - a.chg);
+      let fg = null; try { fg = await fetch("/api/market/feargreed").then(r => r.json()); } catch {}
+      setPhase("APEX AI is analyzing (Fable)…");
+      const r = await fetch("/api/market/apex-cio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ regime: { score: regime.score, label: regime.label, factors: regime.factors, vixVal: regime.vixVal }, stocks, sectors, fearGreed: fg ? (fg.value ?? fg.score ?? "") + " " + (fg.label || fg.rating || "") : "n/a" }) });
+      const d = await r.json();
+      if (d.ok) { setReport(d.report); setRanAt(new Date()); } else setErr(d.error || "error");
+    } catch (e) { setErr(e.message); } finally { setLoading(false); setPhase(""); }
+  };
+  return (
+    <div style={{ padding: "8px 4px", maxWidth: 900 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
+        <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>🧠 APEX AI — CHIEF INVESTMENT OFFICER</div>
+        {ranAt && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>briefing {ranAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>}
+      </div>
+      <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 14, lineHeight: 1.6 }}>An institutional CIO briefing over your live data — ranked longs/shorts, best trade of the day, sector rotation, risks, and a capital-first verdict. Honest by design: it flags the data it doesn't have (options/dark-pool/insider) and lowers confidence accordingly.</div>
+      <button onClick={generate} disabled={loading} style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, padding: "12px 26px", borderRadius: 10, border: "none", color: "#fff", background: loading ? C.textDim : "#a855f7", cursor: loading ? "default" : "pointer", marginBottom: 16 }}>{loading ? `⏳ ${phase}` : "🧠 GENERATE CIO BRIEFING"}</button>
+      {err && <div style={{ fontFamily: SANS, fontSize: 13, color: C.red, marginBottom: 10 }}>⚠ {err === "invalid x-api-key" ? "AI key rejected — update ANTHROPIC_API_KEY in Render." : err}</div>}
+      {report && <div style={{ background: C.card, border: `1px solid ${C.border}`, borderTop: `3px solid #a855f7`, borderRadius: 12, padding: "18px 20px" }}>{rhMarkdown(report, C, MONO, SANS)}</div>}
+      <div style={{ marginTop: 12, fontFamily: SANS, fontSize: 10, color: C.textDim }}>Educational analysis only — no orders placed. Uses Fable (premium) — ~15¢ per briefing. Verify every level on a live chart before trading manually.</div>
+    </div>
+  );
+}
+
 export default function App() {
   // First-run defaults: route autopilot to the Alpaca paper account and turn it ON.
   // Only sets when unset, so it never overrides a choice you've made. (Paper only — no real money.)
@@ -22958,7 +23004,7 @@ export default function App() {
             const NAV_GROUPS = [
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["start", "dashboard", "quotes", "crypto", "news", "econ-cal", "macro"] },
               { id: "terminal",   label: "📈 CHART",      tabs: ["multitf", "tv"] },
-              { id: "rhpro",      label: "🎯 PRO",        tabs: ["rhpro", "rhpro-scan", "rhpro-analyze", "rhpro-lists", "rhpro-heat", "rhpro-calc", "rhpro-options", "rhpro-journal", "rhpro-coach", "rhpro-perf"] },
+              { id: "rhpro",      label: "🎯 PRO",        tabs: ["rhpro", "rhpro-apex", "rhpro-scan", "rhpro-analyze", "rhpro-lists", "rhpro-heat", "rhpro-calc", "rhpro-options", "rhpro-journal", "rhpro-coach", "rhpro-perf"] },
               { id: "scanner",    label: "🔍 SCAN",       tabs: ["greenlight", "smartscan", "dipbuy", "trendtemplate", "outlook", "predictions", "morning-routine", "mytrades", "holdings", "gl-backtest"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes"] },
@@ -23327,6 +23373,7 @@ export default function App() {
           ],
           rhpro: [
             { id: "rhpro",      label: "🎯 COMMAND DECK" },
+            { id: "rhpro-apex", label: "🧠 APEX CIO" },
             { id: "rhpro-scan", label: "🎯 SNIPER SCANNER" },
             { id: "rhpro-analyze", label: "🔬 TRADE ANALYZER" },
             { id: "rhpro-lists", label: "📋 WATCHLISTS" },
@@ -33195,6 +33242,7 @@ export default function App() {
       {activeTab === "predictions" && <PredictionsTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} />}
       {activeTab === "coach" && <CoachTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "rhpro" && <RhProDashboard C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} />}
+      {activeTab === "rhpro-apex" && <RhProApex C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} />}
       {activeTab === "rhpro-scan" && <RhProScanner C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "rhpro-analyze" && <RhProAnalyzer C={C} MONO={MONO} SANS={SANS} macroData={macroData} />}
       {activeTab === "rhpro-lists" && <RhProWatchlists C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
