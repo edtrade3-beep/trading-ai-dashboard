@@ -9632,9 +9632,34 @@ function NewsPanel({ symbol, C, MONO, SANS }) {
   );
 }
 
+// Sector heat strip: today's % move for each S&P sector ETF, green→red.
+function SectorHeatStrip({ sectorData, C, MONO, SANS }) {
+  const NAMES = { XLK: "Tech", XLV: "Health", XLF: "Financials", XLY: "Cons Disc", XLC: "Comms", XLI: "Industrials", XLE: "Energy", XLP: "Staples", XLU: "Utilities", XLRE: "Real Est", XLB: "Materials" };
+  const rows = Object.keys(NAMES).map(sym => {
+    const d = (sectorData || []).find(x => String(x.symbol || "").toUpperCase() === sym);
+    return { sym, name: NAMES[sym], chg: d ? Number(d.changesPercentage || 0) : null };
+  }).filter(r => r.chg != null).sort((a, b) => b.chg - a.chg);
+  if (!rows.length) return null;
+  const bg = (v) => v > 0 ? `rgba(34,212,126,${Math.min(0.6, 0.12 + Math.abs(v) * 0.12)})` : `rgba(239,68,68,${Math.min(0.6, 0.12 + Math.abs(v) * 0.12)})`;
+  return (
+    <div style={{ width: "100%", marginBottom: 12 }}>
+      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>SECTOR HEAT — TODAY</div>
+      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+        {rows.map(r => (
+          <div key={r.sym} title={`${r.name} (${r.sym})`}
+            style={{ flex: "1 1 80px", minWidth: 74, textAlign: "center", padding: "6px 4px", borderRadius: 7, background: bg(r.chg), border: `1px solid ${C.border}` }}>
+            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text }}>{r.name}</div>
+            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: r.chg >= 0 ? "#0a7d43" : "#b91c1c" }}>{r.chg > 0 ? "+" : ""}{r.chg.toFixed(2)}%</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
-function MarketTerminalTab({ C, MONO, SANS }) {
+function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
   const [lb, setLb] = useState(null);
   const [view, setView] = useState("moversUp");
   const [sym, setSym] = useState("NVDA");
@@ -9692,6 +9717,8 @@ function MarketTerminalTab({ C, MONO, SANS }) {
   })();
 
   return (
+    <div style={{ width: "100%" }}>
+    <SectorHeatStrip sectorData={sectorData} C={C} MONO={MONO} SANS={SANS} />
     <div style={{ width: "100%", display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
       {/* ── LEFT: movers list ── */}
       <div style={{ flex: "1 1 320px", minWidth: 300, maxWidth: 420 }}>
@@ -9769,6 +9796,7 @@ function MarketTerminalTab({ C, MONO, SANS }) {
         <EarningsBars symbol={sym} C={C} MONO={MONO} SANS={SANS} />
         <NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />
       </div>
+    </div>
     </div>
   );
 }
@@ -24462,7 +24490,7 @@ export default function App() {
         )}
 
         {activeTab === "mterminal" && (
-          <MarketTerminalTab C={C} MONO={MONO} SANS={SANS} />
+          <MarketTerminalTab C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} />
         )}
 
         {activeTab === "quotes" && watchlistData.length > 0 && (
