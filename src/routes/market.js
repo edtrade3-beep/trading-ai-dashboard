@@ -1402,6 +1402,33 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  // AI "why is this moving" — short, web-searched explanation for one symbol.
+  if (pathname === "/api/market/ai-why" && req.method === "POST") {
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
+    const symbol = String(b.symbol || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
+    const px = b.price != null ? `$${b.price}` : "?";
+    const chg = b.changePct != null ? `${b.changePct > 0 ? "+" : ""}${b.changePct}% today` : "";
+    const system = `You explain why a stock is moving, for an active trader. Use web_search for the latest catalyst (news, earnings, analyst action, sector move, guidance). Answer in 3-5 tight bullet points: the main driver first, then supporting context (volume, sector, upcoming catalysts). No fluff, no disclaimers, no "as an AI". If nothing specific is driving it, say it's drifting with the tape/sector. Under 120 words.`;
+    const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }];
+    try {
+      const messages = [{ role: "user", content: `Why is ${symbol} (${px}, ${chg}) moving today? What's the catalyst?` }];
+      let text = "";
+      for (let i = 0; i < 4; i++) {
+        const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 500,
+          system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools }, key, 55000);
+        const content = resp.content || [];
+        const t = content.filter(c => c.type === "text").map(c => c.text).join("");
+        if (t) text = t;
+        if (resp.stop_reason === "pause_turn") { messages.push({ role: "assistant", content }); continue; }
+        break;
+      }
+      return writeJson(res, 200, { ok: true, symbol, reply: (text || "").trim() || "(no answer)" });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   // Manually fire the server-side AI game plan / trade coach (for testing or off-hours).
   if (pathname === "/api/market/ai-trigger" && req.method === "POST") {
     const type = (searchParams.get("type") || "gameplan").toLowerCase();

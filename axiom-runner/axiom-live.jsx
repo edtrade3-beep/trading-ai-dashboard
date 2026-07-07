@@ -9555,6 +9555,45 @@ function EarningsBars({ symbol, C, MONO, SANS }) {
   );
 }
 
+// AI "why is this moving" — on-demand (button) web-searched blurb. Reads
+// /api/market/ai-why. On-demand so it only spends API tokens when asked.
+function AiWhyPanel({ symbol, price, changePct, C, MONO, SANS }) {
+  const [reply, setReply] = useState("");
+  const [state, setState] = useState("idle"); // idle | loading | ok | err
+  const [err, setErr] = useState("");
+
+  useEffect(() => { setReply(""); setState("idle"); setErr(""); }, [symbol]);
+
+  const ask = () => {
+    setState("loading"); setErr("");
+    fetch("/api/market/ai-why", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol, price, changePct }),
+    })
+      .then(r => r.json())
+      .then(j => { if (j.ok) { setReply(j.reply); setState("ok"); } else { setErr(j.error || "failed"); setState("err"); } })
+      .catch(e => { setErr(e.message); setState("err"); });
+  };
+
+  return (
+    <div style={{ marginTop: 14, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", background: C.card }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text }}>🤖 Why is {symbol} moving?</div>
+        <button onClick={ask} disabled={state === "loading"}
+          style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "6px 12px", borderRadius: 8, cursor: state === "loading" ? "wait" : "pointer",
+            border: `1px solid #7c5cff`, background: "rgba(124,92,255,0.14)", color: "#a78bfa" }}>
+          {state === "loading" ? "Searching…" : state === "ok" ? "↻ Refresh" : "Ask AI"}
+        </button>
+      </div>
+      {state === "err" && <div style={{ fontFamily: MONO, fontSize: 12, color: "#ef4444", marginTop: 8 }}>⚠ {err}</div>}
+      {state === "ok" && (
+        <div style={{ fontFamily: SANS, fontSize: 13, lineHeight: 1.5, color: C.text, marginTop: 10, whiteSpace: "pre-wrap" }}>{reply}</div>
+      )}
+      {state === "idle" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 8 }}>Live web-searched catalyst — click Ask AI.</div>}
+    </div>
+  );
+}
+
 // Latest headlines for the selected symbol. Reads /api/market/news.
 function NewsPanel({ symbol, C, MONO, SANS }) {
   const [items, setItems] = useState(null);
@@ -9629,6 +9668,15 @@ function MarketTerminalTab({ C, MONO, SANS }) {
   const rows = (lb && lb[view]) || [];
   const pct = (v) => v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2) + "%";
   const col = (v) => v == null ? C.textDim : v > 0 ? "#22d47e" : v < 0 ? "#ef4444" : C.text;
+  // Day-change % for the loaded symbol, looked up across all movers buckets.
+  const symDayPct = (() => {
+    if (!lb) return null;
+    for (const k of ["moversUp", "moversDown", "upOnVolume", "downOnVolume"]) {
+      const hit = (lb[k] || []).find(r => r.symbol === sym);
+      if (hit) return hit.dayPct;
+    }
+    return null;
+  })();
 
   return (
     <div style={{ width: "100%", display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
@@ -9698,6 +9746,7 @@ function MarketTerminalTab({ C, MONO, SANS }) {
         {chart
           ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={520} />
           : <div style={{ height: 520, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
+        <AiWhyPanel symbol={sym} price={chart && chart.price} changePct={symDayPct} C={C} MONO={MONO} SANS={SANS} />
         <EarningsBars symbol={sym} C={C} MONO={MONO} SANS={SANS} />
         <NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />
       </div>
