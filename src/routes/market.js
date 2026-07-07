@@ -16,7 +16,7 @@ const {
   fetchStockTwitsSentiment,
 } = require("../providers/yahoo");
 const { fetchFinnhubQuotes, fetchFinnhubNews } = require("../providers/finnhub");
-const { fetchFmpQuotes, fetchFmpFundamentals } = require("../providers/fmp");
+const { fetchFmpQuotes, fetchFmpFundamentals, fetchFmpEarnings } = require("../providers/fmp");
 const { fetchPolygonQuotes, fetchPolygonNews } = require("../providers/polygon");
 const { fetchTradierOptionsFlow } = require("../providers/tradier");
 
@@ -1657,6 +1657,20 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     }
     _lbCache = { key: cacheKey, at: now, rows: enriched };
     return writeJson(res, 200, buildLeaderboard(enriched, n, now));
+  }
+
+  // Annual earnings bars (past actuals + forward analyst estimates). FMP first
+  // (real forward estimates, works from cloud), Yahoo fallback (IP-blocked on
+  // Render). Returns { ok, source, annual:[{year,revenue,eps,estimate}] }.
+  if (pathname === "/api/market/earnings") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { error: "Symbol is required." });
+    const keys = resolveProviderKeys(searchParams);
+    let data = null, source = null;
+    if (keys.fmp) { try { data = await fetchFmpEarnings(symbol, keys.fmp); if (data) source = "fmp"; } catch {} }
+    if (!data) { try { const { fetchYahooEarnings } = require("../providers/yahoo"); data = await fetchYahooEarnings(symbol); if (data) source = "yahoo"; } catch {} }
+    if (!data) return writeJson(res, 200, { ok: false, symbol, annual: [], reason: "No earnings data available (add an FMP or Finnhub key for forward estimates)." });
+    return writeJson(res, 200, { ok: true, symbol, source, annual: data.annual });
   }
 
   if (pathname === "/api/market/news") {

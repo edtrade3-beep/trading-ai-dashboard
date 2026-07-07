@@ -9489,6 +9489,72 @@ function AISetupReview({ r, regimeScore, C, MONO, SANS, out, setOut }) {
   );
 }
 
+// Annual earnings bars (past actuals + forward analyst estimates). Estimates are
+// drawn hollow with an "E" tag. Reads /api/market/earnings.
+function EarningsBars({ symbol, C, MONO, SANS }) {
+  const [data, setData] = useState(null);
+  const [state, setState] = useState("loading"); // loading | ok | none
+  const [metric, setMetric] = useState("revenue");
+
+  useEffect(() => {
+    if (!symbol) return;
+    setState("loading"); setData(null);
+    fetch("/api/market/earnings?symbol=" + encodeURIComponent(symbol))
+      .then(r => r.json())
+      .then(j => { if (j.ok && j.annual && j.annual.length) { setData(j); setState("ok"); } else { setData(j); setState("none"); } })
+      .catch(() => setState("none"));
+  }, [symbol]);
+
+  const fmtBig = (v) => v == null ? "—" : Math.abs(v) >= 1e12 ? "$" + (v / 1e12).toFixed(2) + "T" : Math.abs(v) >= 1e9 ? "$" + (v / 1e9).toFixed(1) + "B" : Math.abs(v) >= 1e6 ? "$" + (v / 1e6).toFixed(0) + "M" : "$" + v.toFixed(0);
+  const rows = (data && data.annual) || [];
+  const hasRev = rows.some(r => r.revenue != null);
+  const hasEps = rows.some(r => r.eps != null);
+  const activeMetric = metric === "revenue" && hasRev ? "revenue" : hasEps ? "eps" : "revenue";
+  const vals = rows.map(r => activeMetric === "revenue" ? r.revenue : r.eps);
+  const max = Math.max(...vals.filter(v => v != null && v > 0), 1);
+  const fmt = (v) => v == null ? "—" : activeMetric === "revenue" ? fmtBig(v) : "$" + v.toFixed(2);
+
+  return (
+    <div style={{ marginTop: 14, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", background: C.card }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text }}>📊 Annual Earnings — {symbol}</div>
+        {state === "ok" && (
+          <div style={{ display: "flex", gap: 4 }}>
+            {hasRev && <button onClick={() => setMetric("revenue")} style={{ fontFamily: MONO, fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${activeMetric === "revenue" ? "#22d47e" : C.border}`, background: activeMetric === "revenue" ? "rgba(34,212,126,0.14)" : "transparent", color: activeMetric === "revenue" ? "#22d47e" : C.textDim }}>Revenue</button>}
+            {hasEps && <button onClick={() => setMetric("eps")} style={{ fontFamily: MONO, fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${activeMetric === "eps" ? "#22d47e" : C.border}`, background: activeMetric === "eps" ? "rgba(34,212,126,0.14)" : "transparent", color: activeMetric === "eps" ? "#22d47e" : C.textDim }}>EPS</button>}
+          </div>
+        )}
+      </div>
+
+      {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "18px 0", textAlign: "center" }}>Loading earnings…</div>}
+      {state === "none" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "16px 0", textAlign: "center" }}>⚠ {(data && data.reason) || "Earnings data unavailable."}</div>}
+
+      {state === "ok" && (
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: 150, paddingTop: 8 }}>
+          {rows.map((r, i) => {
+            const v = activeMetric === "revenue" ? r.revenue : r.eps;
+            const h = v != null && v > 0 ? Math.max(6, Math.round((v / max) * 110)) : 6;
+            const prev = i > 0 ? (activeMetric === "revenue" ? rows[i - 1].revenue : rows[i - 1].eps) : null;
+            const yoy = prev && v ? Math.round(((v - prev) / Math.abs(prev)) * 100) : null;
+            return (
+              <div key={r.year} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%" }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text, marginBottom: 3 }}>{fmt(v)}</div>
+                {yoy != null && <div style={{ fontFamily: MONO, fontSize: 9, color: yoy >= 0 ? "#22d47e" : "#ef4444", marginBottom: 2 }}>{yoy > 0 ? "+" : ""}{yoy}%</div>}
+                <div title={r.estimate ? "Analyst estimate" : "Reported"}
+                  style={{ width: "78%", height: h, borderRadius: "4px 4px 0 0",
+                    background: r.estimate ? "transparent" : "#22d47e",
+                    border: r.estimate ? "2px dashed #22d47e" : "none" }} />
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 5 }}>{r.year}{r.estimate ? "ᴱ" : ""}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {state === "ok" && <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 8 }}>Solid = reported · dashed = analyst estimate (ᴱ). Source: {data.source}.</div>}
+    </div>
+  );
+}
+
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
 function MarketTerminalTab({ C, MONO, SANS }) {
@@ -9573,6 +9639,7 @@ function MarketTerminalTab({ C, MONO, SANS }) {
         {chart
           ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={520} />
           : <div style={{ height: 520, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
+        <EarningsBars symbol={sym} C={C} MONO={MONO} SANS={SANS} />
       </div>
     </div>
   );

@@ -797,7 +797,38 @@ async function fetchStockTwitsSentiment(symbol) {
   }
 }
 
+// Annual earnings history (revenue + earnings) plus forward EPS estimate from
+// earningsTrend. Returns { annual: [{ year, revenue, eps, estimate }] } or null.
+// NOTE: Yahoo is IP-blocked from some cloud hosts (e.g. Render) — used as a local
+// / non-blocked fallback only.
+async function fetchYahooEarnings(symbol) {
+  const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=earnings,earningsTrend`;
+  try {
+    const r = await yFetch(url, 10000);
+    if (!r.ok) return null;
+    const j = await r.json();
+    const result = j?.quoteSummary?.result?.[0] || {};
+    const yearly = result?.earnings?.financialsChart?.yearly || [];
+    const byYear = new Map();
+    for (const y of yearly) {
+      const year = Number(y?.date);
+      if (!year) continue;
+      byYear.set(year, { year, revenue: Number(y?.revenue?.raw) || null, eps: null, estimate: false });
+    }
+    // Forward EPS estimate: earningsTrend "+1y" period.
+    const trend = (result?.earningsTrend?.trend || []).find(t => t?.period === "+1y");
+    const fwdEps = Number(trend?.earningsEstimate?.avg?.raw);
+    if (Number.isFinite(fwdEps)) {
+      const nextYear = new Date().getFullYear() + 1;
+      byYear.set(nextYear, { year: nextYear, revenue: null, eps: fwdEps, estimate: true });
+    }
+    const annual = [...byYear.values()].filter(x => x.revenue || x.eps).sort((a, b) => a.year - b.year).slice(-6);
+    return annual.length ? { annual } : null;
+  } catch { return null; }
+}
+
 module.exports = {
+  fetchYahooEarnings,
   fetchYahooBars, fetchYahooQuoteBatch, fetchYahooQuotes,
   fetchYahooNews, fetchYahooRssNews,
   fetchYahooFundamentals, fetchYahooCandlesWithIndicators,

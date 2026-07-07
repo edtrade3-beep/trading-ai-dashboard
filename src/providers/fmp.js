@@ -61,4 +61,33 @@ async function fetchFmpFundamentals(symbol, fmpKey) {
   };
 }
 
-module.exports = { normalizeFmpQuoteRow, fetchFmpQuotes, fetchFmpFundamentals };
+// Annual earnings history (past) + analyst estimates (forward). Returns
+// { annual: [{ year, revenue, eps, estimate }] } sorted oldest→newest, or null.
+async function fetchFmpEarnings(symbol, fmpKey) {
+  if (!fmpKey || !symbol) return null;
+  const sym = encodeURIComponent(symbol);
+  const histUrl = `https://financialmodelingprep.com/api/v3/income-statement/${sym}?period=annual&limit=5&apikey=${encodeURIComponent(fmpKey)}`;
+  const estUrl  = `https://financialmodelingprep.com/api/v3/analyst-estimates/${sym}?period=annual&limit=4&apikey=${encodeURIComponent(fmpKey)}`;
+  const [hist, est] = await Promise.all([fetchJsonSafe(histUrl), fetchJsonSafe(estUrl)]);
+  const byYear = new Map();
+  if (Array.isArray(hist)) {
+    for (const r of hist) {
+      const year = Number(String(r.calendarYear || (r.date || "").slice(0, 4)));
+      if (!year) continue;
+      byYear.set(year, { year, revenue: Number(r.revenue) || null, eps: Number(r.eps ?? r.epsdiluted) || null, estimate: false });
+    }
+  }
+  if (Array.isArray(est)) {
+    const thisYear = new Date().getFullYear();
+    for (const r of est) {
+      const year = Number(String((r.date || "").slice(0, 4)));
+      if (!year || year < thisYear) continue;           // only forward years
+      if (byYear.has(year) && byYear.get(year).estimate === false) continue; // prefer actuals
+      byYear.set(year, { year, revenue: Number(r.estimatedRevenueAvg) || null, eps: Number(r.estimatedEpsAvg) || null, estimate: true });
+    }
+  }
+  const annual = [...byYear.values()].filter(r => r.revenue || r.eps).sort((a, b) => a.year - b.year).slice(-6);
+  return annual.length ? { annual } : null;
+}
+
+module.exports = { normalizeFmpQuoteRow, fetchFmpQuotes, fetchFmpFundamentals, fetchFmpEarnings };
