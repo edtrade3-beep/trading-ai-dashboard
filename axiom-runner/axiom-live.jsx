@@ -10050,6 +10050,23 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
   const [query, setQuery] = useState("");
   const [dTab, setDTab] = useState("chart");   // per-symbol detail tab
   const [sortBy, setSortBy] = useState("bucket");  // movers sort
+  const [source, setSource] = useState("movers");  // movers | watchlist
+  const [wlRows, setWlRows] = useState(null);
+  useEffect(() => {
+    if (source !== "watchlist") return;
+    setWlRows(null);
+    fetch("/api/watchlist").then(r => r.json()).then(d => {
+      const syms = (Array.isArray(d.symbols) ? d.symbols : []).slice(0, 40);
+      if (!syms.length) { setWlRows([]); return; }
+      return fetch("/api/market/quote?symbols=" + encodeURIComponent(syms.join(",")))
+        .then(r => r.json()).then(q => {
+          const arr = Array.isArray(q) ? q : (q.quotes || []);
+          setWlRows(arr.filter(x => typeof x.price === "number")
+            .map(x => ({ symbol: String(x.symbol).toUpperCase(), price: x.price, dayPct: Number(x.changesPercentage) || 0, volRatio: null }))
+            .sort((a, b) => b.dayPct - a.dayPct));
+        });
+    }).catch(() => setWlRows([]));
+  }, [source]);
 
   useEffect(() => {
     const load = () => fetch("/api/market/leaderboard?n=12").then(r => r.json()).then(setLb).catch(() => {});
@@ -10097,6 +10114,7 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
     { id: "downOnVolume", label: "Dn Vol", icon: "📉" },
   ];
   const rows = (() => {
+    if (source === "watchlist") return wlRows || [];
     const base = (lb && lb[view]) || [];
     if (sortBy === "bucket") return base;
     const s = [...base];
@@ -10125,34 +10143,46 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
     <div style={{ width: "100%", display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
       {/* ── LEFT: movers list ── */}
       <div style={{ flex: "1 1 320px", minWidth: 300, maxWidth: 420 }}>
-        <form onSubmit={(e) => { e.preventDefault(); loadSym(query); setQuery(""); }} style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+        <form onSubmit={(e) => { e.preventDefault(); loadSym(query); setQuery(""); }} style={{ display: "flex", gap: 6, marginBottom: 8 }}>
           <input value={query} onChange={e => setQuery(e.target.value)} placeholder="🔍 Load any symbol…"
             style={{ flex: 1, fontFamily: MONO, fontSize: 13, padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.text }} />
         </form>
-        <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
-          {VIEWS.map(v => (
-            <button key={v.id} onClick={() => setView(v.id)}
-              style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, padding: "6px 10px", borderRadius: 8, cursor: "pointer",
-                border: `1px solid ${view === v.id ? "#22d47e" : C.border}`, background: view === v.id ? "rgba(34,212,126,0.14)" : C.card, color: view === v.id ? "#22d47e" : C.textDim }}>
-              {v.icon} {v.label}
-            </button>
+        <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+          {[["movers", "🔥 Movers"], ["watchlist", "⭐ My Watchlist"]].map(([id, lbl]) => (
+            <button key={id} onClick={() => setSource(id)}
+              style={{ flex: 1, fontFamily: SANS, fontSize: 12, fontWeight: 800, padding: "7px 0", borderRadius: 8, cursor: "pointer",
+                border: `1px solid ${source === id ? C.accent : C.border}`, background: source === id ? `${C.accent}16` : C.card, color: source === id ? C.accent : C.textDim }}>{lbl}</button>
           ))}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>SORT</span>
-          <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-            style={{ fontFamily: MONO, fontSize: 11, padding: "4px 8px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: C.text }}>
-            <option value="bucket">Default (bucket rank)</option>
-            <option value="chg">Day % change</option>
-            <option value="vol">Volume vs 50d</option>
-            <option value="price">Price</option>
-          </select>
-        </div>
+        {source === "movers" && (
+          <>
+            <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
+              {VIEWS.map(v => (
+                <button key={v.id} onClick={() => setView(v.id)}
+                  style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, padding: "6px 10px", borderRadius: 8, cursor: "pointer",
+                    border: `1px solid ${view === v.id ? "#22d47e" : C.border}`, background: view === v.id ? "rgba(34,212,126,0.14)" : C.card, color: view === v.id ? "#22d47e" : C.textDim }}>
+                  {v.icon} {v.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>SORT</span>
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                style={{ fontFamily: MONO, fontSize: 11, padding: "4px 8px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: C.text }}>
+                <option value="bucket">Default (bucket rank)</option>
+                <option value="chg">Day % change</option>
+                <option value="vol">Volume vs 50d</option>
+                <option value="price">Price</option>
+              </select>
+            </div>
+          </>
+        )}
         <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", background: C.card }}>
           <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 0.8fr", padding: "8px 12px", background: C.bg, borderBottom: `2px solid ${C.border}`, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim }}>
             <div>SYMBOL</div><div style={{ textAlign: "right" }}>PRICE</div><div style={{ textAlign: "right" }}>DAY%</div><div style={{ textAlign: "right" }}>VOL</div>
           </div>
-          {!lb && <div style={{ padding: "24px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
+          {((source === "movers" && !lb) || (source === "watchlist" && wlRows === null)) && <div style={{ padding: "24px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
+          {source === "watchlist" && Array.isArray(wlRows) && wlRows.length === 0 && <div style={{ padding: "24px 12px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Your watchlist is empty — add names from any tab.</div>}
           {rows.map((r, i) => (
             <div key={r.symbol} onClick={() => loadSym(r.symbol)}
               style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 0.8fr", padding: "9px 12px", alignItems: "center", cursor: "pointer",
