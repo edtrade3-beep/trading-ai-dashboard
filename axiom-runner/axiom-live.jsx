@@ -19086,18 +19086,35 @@ function RhProPerf({ C, MONO, SANS }) {
 }
 
 // Lightweight markdown renderer for the APEX briefing.
+// Colored, sectioned renderer — groups the markdown into cards colored by section.
 function rhMarkdown(text, C, MONO, SANS) {
-  const lines = String(text || "").split(/\r?\n/);
-  const out = [];
-  lines.forEach((ln, i) => {
-    const bold = (s) => s.split(/(\*\*[^*]+\*\*)/g).map((p, j) => /^\*\*[^*]+\*\*$/.test(p)
-      ? React.createElement("b", { key: j, style: { color: C.text } }, p.slice(2, -2)) : p);
-    if (/^#{2,3}\s/.test(ln)) out.push(React.createElement("div", { key: i, style: { fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent, margin: "14px 0 6px", letterSpacing: "0.03em" } }, ln.replace(/^#+\s/, "")));
-    else if (/^[-*]\s/.test(ln)) out.push(React.createElement("div", { key: i, style: { fontFamily: SANS, fontSize: 13, color: C.textSec, padding: "2px 0 2px 14px", lineHeight: 1.6 } }, "• ", bold(ln.replace(/^[-*]\s/, ""))));
-    else if (/^---+$/.test(ln)) out.push(React.createElement("div", { key: i, style: { height: 1, background: C.border, margin: "8px 0" } }));
-    else if (ln.trim()) out.push(React.createElement("div", { key: i, style: { fontFamily: SANS, fontSize: 13, color: C.text, padding: "2px 0", lineHeight: 1.6 } }, bold(ln)));
+  const secColor = (h) => { const H = (h || "").toUpperCase();
+    if (H.includes("BEST TRADE") || H.includes("WHY") || H.includes("TOP SETUP")) return C.green;
+    if (H.includes("REASONS NOT") || H.includes("RISK")) return C.red;
+    if (H.includes("MOVING") || H.includes("NEWS")) return "#3b82f6";
+    if (H.includes("ACTION")) { return /\bBUY\b/i.test(text.split(h)[1] || "") ? C.green : C.amber; }
+    return C.accent; };
+  const inline = (s) => String(s).split(/(\*\*[^*]+\*\*|[+-]\d+(?:\.\d+)?%|\d+(?:\.\d+)?×|\bWAIT\b|\bBUY\b|\bSELL\b|\bHOLD\b)/g).map((p, j) => {
+    if (/^\*\*[^*]+\*\*$/.test(p)) return React.createElement("b", { key: j, style: { color: C.text } }, p.slice(2, -2));
+    if (/^\+\d.*%$/.test(p)) return React.createElement("span", { key: j, style: { color: C.green, fontWeight: 700 } }, p);
+    if (/^-\d.*%$/.test(p)) return React.createElement("span", { key: j, style: { color: C.red, fontWeight: 700 } }, p);
+    if (/^(BUY)$/.test(p)) return React.createElement("b", { key: j, style: { color: C.green } }, p);
+    if (/^(SELL|WAIT|HOLD)$/.test(p)) return React.createElement("b", { key: j, style: { color: C.amber } }, p);
+    return p;
   });
-  return out;
+  const blocks = String(text || "").split(/\n(?=##\s)/);
+  return blocks.map((block, bi) => {
+    const lines = block.split(/\r?\n/); let header = ""; const body = [];
+    lines.forEach(ln => { if (/^##\s/.test(ln) && !header) header = ln.replace(/^#+\s/, ""); else if (ln.trim() && !/^---+$/.test(ln)) body.push(ln); });
+    if (!header && !body.length) return null;
+    const col = secColor(header);
+    return React.createElement("div", { key: bi, style: { background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${col}`, borderRadius: 10, padding: "12px 16px", marginBottom: 10 } },
+      header && React.createElement("div", { style: { fontFamily: MONO, fontSize: 13, fontWeight: 900, color: col, marginBottom: 8, letterSpacing: "0.02em" } }, header),
+      body.map((ln, li) => /^[-*]\s/.test(ln)
+        ? React.createElement("div", { key: li, style: { fontFamily: SANS, fontSize: 13, color: C.textSec, padding: "3px 0 3px 12px", lineHeight: 1.65 } }, "• ", inline(ln.replace(/^[-*]\s/, "")))
+        : React.createElement("div", { key: li, style: { fontFamily: SANS, fontSize: 13.5, fontWeight: /·/.test(ln) ? 700 : 400, color: C.text, padding: "3px 0", lineHeight: 1.65 } }, inline(ln)))
+    );
+  }).filter(Boolean);
 }
 function RhProApex({ C, MONO, SANS, macroData, sectorData }) {
   const [report, setReport] = useState(""); const [loading, setLoading] = useState(false); const [err, setErr] = useState(""); const [ranAt, setRanAt] = useState(null); const [phase, setPhase] = useState("");
@@ -19105,13 +19122,21 @@ function RhProApex({ C, MONO, SANS, macroData, sectorData }) {
     setLoading(true); setErr(""); setReport(""); setPhase("Scanning the market…");
     try {
       const results = await rhScreen(RH_UNIVERSE);
-      const stocks = results.map(x => ({ ...x, score: rhScore(x) })).sort((a, b) => b.score - a.score).slice(0, 30)
-        .map(x => ({ symbol: x.symbol, price: x.price, score: x.score, passCount: x.passCount, rsRating: x.rsRating, stage: (x.stage || "").replace(/ —.*/, ""), atBuyPoint: !!x.atBuyPoint, entry: x.entry, stop: x.stop, target2: x.target2, setupStatus: x.setupStatus }));
+      const ranked = results.map(x => ({ ...x, score: rhScore(x) })).sort((a, b) => b.score - a.score).slice(0, 16);
+      const syms = ranked.map(x => x.symbol);
+      setPhase("Pulling live quotes + news…");
+      const [quotes, news] = await Promise.all([
+        fetch(`/api/market/quote?symbols=${syms.join(",")}`).then(r => r.json()).catch(() => []),
+        fetch(`/api/market/news?tickers=${syms.slice(0, 6).join(",")}&limit=16`).then(r => r.json()).catch(() => []),
+      ]);
+      const qm = new Map((Array.isArray(quotes) ? quotes : []).map(q => [String(q.symbol || "").toUpperCase(), q]));
+      const stocks = ranked.map(x => { const q = qm.get(x.symbol.toUpperCase()); return { symbol: x.symbol, price: x.price, chgPct: Number(q?.changesPercentage || 0), rvol: Number(x.volRatio || 0), score: x.score, passCount: x.passCount, rsRating: x.rsRating, stage: (x.stage || "").replace(/ —.*/, ""), atBuyPoint: !!x.atBuyPoint, entry: x.entry, stop: x.stop, target2: x.target2 }; });
+      const newsArr = (Array.isArray(news) ? news : (news.news || news.articles || news.items || [])).map(n => ({ ticker: n.ticker || n.symbol || "", title: String(n.title || n.headline || "") })).filter(n => n.title).slice(0, 20);
       const regime = computeRegime(macroData);
       const sectors = SECTOR_ETFS.map(se => { const sd = (sectorData || []).find(x => (x.symbol || "").toUpperCase() === se.symbol); return { name: se.name, chg: Number(sd?.changesPercentage || 0) }; }).sort((a, b) => b.chg - a.chg);
       let fg = null; try { fg = await fetch("/api/market/feargreed").then(r => r.json()); } catch {}
-      setPhase("APEX AI is analyzing (~20s)…");
-      const r = await fetch("/api/market/apex-cio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ regime: { score: regime.score, label: regime.label, factors: regime.factors, vixVal: regime.vixVal }, stocks, sectors, fearGreed: fg ? (fg.value ?? fg.score ?? "") + " " + (fg.label || fg.rating || "") : "n/a" }) });
+      setPhase("APEX AI is analyzing (~25s)…");
+      const r = await fetch("/api/market/apex-cio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ regime: { score: regime.score, label: regime.label, factors: regime.factors, vixVal: regime.vixVal }, stocks, sectors, news: newsArr, fearGreed: fg ? (fg.value ?? fg.score ?? "") + " " + (fg.label || fg.rating || "") : "n/a" }) });
       const ct = r.headers.get("content-type") || "";
       if (!ct.includes("application/json")) { setErr("Server was busy generating (this briefing is heavy). Wait a few seconds and press generate again."); return; }
       const d = await r.json();
@@ -19127,7 +19152,7 @@ function RhProApex({ C, MONO, SANS, macroData, sectorData }) {
       <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 14, lineHeight: 1.6 }}>An institutional CIO briefing over your live data — ranked longs/shorts, best trade of the day, sector rotation, risks, and a capital-first verdict. Honest by design: it flags the data it doesn't have (options/dark-pool/insider) and lowers confidence accordingly.</div>
       <button onClick={generate} disabled={loading} style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, padding: "12px 26px", borderRadius: 10, border: "none", color: "#fff", background: loading ? C.textDim : "#a855f7", cursor: loading ? "default" : "pointer", marginBottom: 16 }}>{loading ? `⏳ ${phase}` : "🧠 GENERATE CIO BRIEFING"}</button>
       {err && <div style={{ fontFamily: SANS, fontSize: 13, color: C.red, marginBottom: 10 }}>⚠ {err === "invalid x-api-key" ? "AI key rejected — update ANTHROPIC_API_KEY in Render." : err}</div>}
-      {report && <div style={{ background: C.card, border: `1px solid ${C.border}`, borderTop: `3px solid #a855f7`, borderRadius: 12, padding: "18px 20px" }}>{rhMarkdown(report, C, MONO, SANS)}</div>}
+      {report && <div>{rhMarkdown(report, C, MONO, SANS)}</div>}
       <div style={{ marginTop: 12, fontFamily: SANS, fontSize: 10, color: C.textDim }}>Educational analysis only — no orders placed. Uses Fable (premium) — ~15¢ per briefing. Verify every level on a live chart before trading manually.</div>
     </div>
   );

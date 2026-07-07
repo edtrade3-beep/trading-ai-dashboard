@@ -1467,40 +1467,49 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     const key = (process.env.ANTHROPIC_API_KEY || "").trim();
     if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
     let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
-    const stocks = (Array.isArray(b.stocks) ? b.stocks : []).slice(0, 30);
-    const SYSTEM = `You are APEX AI, the AI brain of a professional institutional trading platform. You are not a chatbot. Your job: give the highest-quality decision and make complex data simple, clear, and actionable. Eliminate decision fatigue. Plain English first, technical detail second. Summarize before you explain. Never flood the reader — surface only what changes the decision.
+    const stocks = (Array.isArray(b.stocks) ? b.stocks : []).slice(0, 40);
+    const news = (Array.isArray(b.news) ? b.news : []).slice(0, 24);
+    const SYSTEM = `You are APEX AI, the AI brain of a professional institutional trading platform. You are not a chatbot. Your job: give the highest-quality decision and make complex data simple, clear, and actionable. Eliminate decision fatigue. Plain English first, technical detail second. Summarize before you explain. Surface only what changes the decision — but be DETAILED and specific where it matters (cite the actual numbers).
 
 Answer, implicitly, these questions: Should I trade? What's the best trade? Why? What are the risks? What's the probability? What would invalidate it? What do I do next?
 
 CORE PRINCIPLES:
 - Never invent or guess. Analyze ONLY the live data provided below.
-- Data you HAVE: market regime (SPY/QQQ/VIX/breadth/trend), a ranked stock universe (0-100 score, 8-pt Trend Template, relative-strength rating, stage, entry/stop/target, at-buy-point flag), sector performance.
-- Data you DO NOT have — say so and LOWER confidence: intraday VWAP, options (gamma/IV/sweeps/dealer), dark-pool/insider/ETF/13F flows, live news/earnings, fundamentals. Never fabricate these.
+- Data you HAVE: market regime (SPY/QQQ/VIX/breadth/trend), a ranked stock universe (0-100 score, 8-pt Trend Template, relative-strength rating, stage, entry/stop/target, at-buy-point flag), TODAY'S % MOVE and RELATIVE VOLUME per stock, recent NEWS HEADLINES for the top names, and sector performance.
+- Data you DO NOT have — say so and LOWER confidence: intraday VWAP, options (gamma/IV/sweeps), dark-pool/insider/ETF/13F flows, fundamentals. Never fabricate these.
 - Protect capital before profit. If no high-quality setup exists, recommend WAIT. Never force a trade.
-- Confidence rule: if confidence < 90, the ACTION is WAIT. Because options/institutional/news data are missing, cap confidence at ~80 — so honestly, expect WAIT often. That's correct discipline, not a flaw.
+- Confidence rule: if confidence < 90, the ACTION is WAIT. Because options/institutional data are missing, cap confidence at ~82 — so expect WAIT often; that's discipline, not a flaw.
 - Every trade MUST include entry, stop, target(s), R:R, position size %. No trade without a stop. Never chase extended price.
 
-OUTPUT — markdown, tight, ranked strongest→weakest:
+FORMATTING — write clean markdown that renders in colored cards:
+- Use "## " section headers EXACTLY as named below (keep the emoji).
+- Use "- " bullets. Bold key numbers with **…**. Prefix each risk bullet with "⚠️ " and each positive with "✅ ".
+- For every stock you mention, cite its real numbers: score, RS, today's move %, relative volume (RVOL). If RVOL ≥ 1.5 call it "elevated volume"; explain WHY it's moving using the news headline if one is provided, else say "no news catalyst — technical move."
+
+OUTPUT (ranked strongest→weakest, detailed but scannable):
 ## 📊 MARKET SNAPSHOT
-Market Health (score) · Market Bias · Risk Level · Confidence · Recommended Strategy (one line each, plain English).
+- **Market Health:** score + one line. **Bias:** … **Risk Level:** … **Confidence:** … **Strategy:** …
 ## 🎯 TODAY'S BEST TRADE
-Ticker · Direction · Trade-Quality Score · Confidence · Entry · Stop · Target 1 · Target 2 · R:R · Expected Holding Time · Position Size % · Probability of Success. If nothing clears the bar: "WAIT — no setup meets the standard," and skip the levels.
+Ticker · Direction, then bullets: **Score** · **Confidence** · **Entry** · **Stop** · **Target 1** · **Target 2** · **R:R** · **Hold time** · **Size %** · **Probability**. If nothing qualifies: "WAIT — no setup meets the standard" (skip levels).
 ## ✅ WHY THIS TRADE
-Concise bullets: trend, momentum, volume, sector strength, market conditions. (For institutional/options/news write one line: "not available.")
+Bullets: trend, momentum, **volume (cite RVOL)**, sector strength, market conditions, **news catalyst** (cite the headline or "none").
 ## ⚠️ REASONS NOT TO TAKE IT
-Every real risk you can derive: resistance/extension, weak breadth, high VIX, conflicting signals, not-at-buy-point, unknown earnings (data missing).
-## 📈 ALTERNATIVE OPPORTUNITIES
-Next 5 best: Ticker · Direction · Trade-Quality Score · Confidence (one line each).
+Every real risk: extension/resistance, weak breadth, high VIX, not-at-buy-point, conflicting signals, unknown earnings (data missing).
+## 📈 TOP SETUPS (ranked)
+List the top 8 candidates. Each ONE line: **TICKER** · dir · score/RS · stage · $entry→$stop · today **±x%** · RVOL **x.x×** · one-line why (news or "technical").
+## 📰 WHAT'S MOVING & WHY
+For the 4-6 biggest movers or highest-volume names, one line each explaining the move using RVOL + the news headline. If no news for a mover: "no catalyst — momentum/technical." If no news data at all: "No news feed today."
 ## 🌍 MARKET RISKS
-The biggest risks affecting today's market, from the data (VIX, breadth, extension).
+Biggest risks today from the data: VIX level, breadth, extension, sector concentration.
 ## 🧭 ACTION
-Exactly one: BUY / SELL / WAIT / HOLD. Then 2-3 sentences, plain English, capital-first.`;
-    const rows = stocks.map(s => `${s.symbol}: score ${s.score}/100, ${s.passCount}/8 template, RS ${s.rsRating}, ${s.stage}, ${s.atBuyPoint ? "AT BUY POINT" : "not at buy point"}${s.entry ? `, entry $${s.entry} stop $${s.stop}${s.target2 ? ` target $${s.target2}` : ""}` : ""}, price $${s.price}`).join("\n");
+Exactly one: **BUY** / **SELL** / **WAIT** / **HOLD**. Then 2-3 sentences, plain English, capital-first.`;
+    const rows = stocks.map(s => `${s.symbol}: score ${s.score}/100, ${s.passCount}/8 template, RS ${s.rsRating}, ${s.stage}, ${s.atBuyPoint ? "AT BUY POINT" : "not at buy point"}, today ${Number(s.chgPct || 0) >= 0 ? "+" : ""}${Number(s.chgPct || 0).toFixed(2)}%, RVOL ${Number(s.rvol || 0).toFixed(2)}x${s.entry ? `, entry $${s.entry} stop $${s.stop}${s.target2 ? ` target $${s.target2}` : ""}` : ""}, price $${s.price}`).join("\n");
     const sec = (Array.isArray(b.sectors) ? b.sectors : []).map(s => `${s.name} ${s.chg >= 0 ? "+" : ""}${Number(s.chg).toFixed(2)}%`).join(", ");
+    const newsBlock = news.length ? news.map(n => `[${n.ticker || "MKT"}] ${n.title}`).join("\n") : "No news feed available.";
     const reg = b.regime || {};
-    const prompt = `LIVE DATA — ${new Date().toDateString()}\n\nMARKET REGIME: ${reg.score}/100 (${reg.label}). Factors: ${(reg.factors || []).map(f => `${f.label}=${f.pass ? "✓" : "✗"}`).join(", ")}. VIX ${reg.vixVal || "?"}.\nFEAR/GREED: ${b.fearGreed || "n/a"}\nSECTOR PERFORMANCE: ${sec || "n/a"}\n\nRANKED CANDIDATES (${stocks.length}):\n${rows || "none"}\n\nProduce the CIO briefing. Remember: only this data exists; flag what's missing; preserve capital.`;
+    const prompt = `LIVE DATA — ${new Date().toDateString()}\n\nMARKET REGIME: ${reg.score}/100 (${reg.label}). Factors: ${(reg.factors || []).map(f => `${f.label}=${f.pass ? "✓" : "✗"}`).join(", ")}. VIX ${reg.vixVal || "?"}.\nFEAR/GREED: ${b.fearGreed || "n/a"}\nSECTOR PERFORMANCE: ${sec || "n/a"}\n\nRANKED CANDIDATES (${stocks.length}) — with today's move & relative volume:\n${rows || "none"}\n\nRECENT NEWS HEADLINES (use to explain why names are moving):\n${newsBlock}\n\nProduce the detailed CIO briefing. Cite real numbers. Explain WHY the movers moved using RVOL + news. Only this data exists; flag what's missing; preserve capital.`;
     try {
-      const report = await callAnthropicApi(prompt, key, { model: MODELS.sonnet, maxTokens: 1500, system: SYSTEM, cache: true, timeout: 90000, effort: "low" });
+      const report = await callAnthropicApi(prompt, key, { model: MODELS.sonnet, maxTokens: 2400, system: SYSTEM, cache: true, timeout: 100000, effort: "low" });
       return writeJson(res, 200, { ok: true, report: (report || "").trim() });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
