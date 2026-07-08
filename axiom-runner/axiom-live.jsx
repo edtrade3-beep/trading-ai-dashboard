@@ -10194,17 +10194,23 @@ const BEST_OPP_UNIVERSE = [
   "MRVL","PANW","COIN","HOOD","UBER","SHOP","LLY","V","MA","JPM",
   "GE","CAT","CEG","VRT","TSM","QCOM","NEE","WMB","CCJ","MARA",
 ];
-function BestOpportunities({ C, MONO, SANS, onPick }) {
+function BestOpportunities({ C, MONO, SANS, onPick, macroData }) {
   const [rows, setRows] = useState(null);
   const [state, setState] = useState("idle"); // idle | loading | ok | err
+  const [onlyStrong, setOnlyStrong] = useState(true);   // RS ≥ 70 quality filter
+  const regime = computeRegime(macroData);
+  const marketGreen = regime.score >= 55;
   const scan = () => {
     setState("loading");
     fetch("/api/market/trend-screen?symbols=" + encodeURIComponent(BEST_OPP_UNIVERSE.join(",")))
       .then(r => r.json())
       .then(j => {
-        const res = (j.results || []).filter(r => !r.error && Number(r.entry) > Number(r.stop) && (r.passCount || 0) >= 6 && !r.extended);
+        let res = (j.results || []).filter(r => !r.error && Number(r.entry) > Number(r.stop) && (r.passCount || 0) >= 6 && !r.extended);
+        // Quality filter: relative strength ≥ 70 (leaders only) when enabled.
+        if (onlyStrong) res = res.filter(r => (r.rsRating || 0) >= 70);
         const rr = (r) => (r.target2 - r.entry) / (r.entry - r.stop);
-        const rank = (r) => (r.verdict === "GO" ? 1000 : 0) + (r.atBuyPoint ? 500 : 0) + (r.volConfirmed ? 200 : 0) + (r.actionable ? 100 : 0) + (r.passCount || 0) * 20 + (r.rsRating || 0);
+        // Rank: GO/buy-point/volume first, then trend quality + RELATIVE STRENGTH heavily.
+        const rank = (r) => (r.verdict === "GO" ? 1000 : 0) + (r.atBuyPoint ? 500 : 0) + (r.volConfirmed ? 200 : 0) + (r.actionable ? 100 : 0) + (r.passCount || 0) * 20 + (r.rsRating || 0) * 2;
         const top = res.map(r => ({ ...r, _rr: rr(r), _rank: rank(r) })).sort((a, b) => b._rank - a._rank).slice(0, 5);
         setRows(top); setState(top.length ? "ok" : "none");
       })
@@ -10223,11 +10229,25 @@ function BestOpportunities({ C, MONO, SANS, onPick }) {
           <div style={{ fontFamily: SANS, fontSize: 17, fontWeight: 900, color: C.text }}>🎯 Best Opportunities Now</div>
           <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>One click — the top long setups in the market right now, ranked.</div>
         </div>
-        <button onClick={scan} disabled={state === "loading"}
-          style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, padding: "10px 20px", borderRadius: 10, cursor: state === "loading" ? "wait" : "pointer",
-            border: "none", background: C.accent, color: "#fff" }}>
-          {state === "loading" ? "Scanning market…" : state === "idle" ? "🔍 Find Best Now" : "↻ Rescan"}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <button onClick={() => setOnlyStrong(v => !v)} title="Only show market-leading stocks (Relative Strength ≥ 70)"
+            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "8px 12px", borderRadius: 8, cursor: "pointer",
+              border: `1px solid ${onlyStrong ? "#0d9465" : C.border}`, background: onlyStrong ? "rgba(13,148,101,0.12)" : C.bg, color: onlyStrong ? "#0d9465" : C.textDim }}>
+            {onlyStrong ? "✓ Leaders only (RS≥70)" : "All setups"}
+          </button>
+          <button onClick={scan} disabled={state === "loading"}
+            style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, padding: "10px 20px", borderRadius: 10, cursor: state === "loading" ? "wait" : "pointer",
+              border: "none", background: C.accent, color: "#fff" }}>
+            {state === "loading" ? "Scanning market…" : state === "idle" ? "🔍 Find Best Now" : "↻ Rescan"}
+          </button>
+        </div>
+      </div>
+      {/* Market-regime banner — breakouts work in green markets, fail in red ones. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", background: `${regime.color}14`, borderTop: `1px solid ${C.border}`, borderBottom: state === "ok" || state === "none" ? `1px solid ${C.border}` : "none", flexWrap: "wrap" }}>
+        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: regime.color }}>MARKET: {regime.label} {regime.score}/100</span>
+        <span style={{ fontFamily: SANS, fontSize: 12, color: C.textSec }}>
+          {marketGreen ? "✅ Conditions favor breakouts — buy-points more likely to work." : "⚠️ Weak market — breakouts fail more often. Be selective or stay in cash; the autopilot won't force trades here either."}
+        </span>
       </div>
       {state === "err" && <div style={{ fontFamily: MONO, fontSize: 12, color: "#c8282a", padding: "0 16px 12px" }}>⚠ Scan failed — try again.</div>}
       {state === "none" && <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, padding: "0 16px 14px" }}>No clean buy-points right now — the market's not offering A-setups. Cash is a position. Try again later.</div>}
@@ -10264,7 +10284,7 @@ function BestOpportunities({ C, MONO, SANS, onPick }) {
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
-function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
+function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData }) {
   const [lb, setLb] = useState(null);
   const [view, setView] = useState("moversUp");
   const [sym, setSym] = useState("NVDA");
@@ -10376,7 +10396,7 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
 
   return (
     <div style={{ width: "100%" }}>
-    <BestOpportunities C={C} MONO={MONO} SANS={SANS} onPick={loadSym} />
+    <BestOpportunities C={C} MONO={MONO} SANS={SANS} onPick={loadSym} macroData={macroData} />
     <MarketPulseBar C={C} MONO={MONO} SANS={SANS} />
     <SentimentRow C={C} MONO={MONO} SANS={SANS} />
     <SectorHeatStrip sectorData={sectorData} C={C} MONO={MONO} SANS={SANS} />
@@ -25342,7 +25362,7 @@ export default function App() {
         )}
 
         {activeTab === "mterminal" && (
-          <MarketTerminalTab C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} />
+          <MarketTerminalTab C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} />
         )}
 
         {activeTab === "quotes" && watchlistData.length > 0 && (
