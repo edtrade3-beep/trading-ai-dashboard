@@ -10198,10 +10198,11 @@ function BestOpportunities({ C, MONO, SANS, onPick, macroData }) {
   const [rows, setRows] = useState(null);
   const [state, setState] = useState("idle"); // idle | loading | ok | err
   const [onlyStrong, setOnlyStrong] = useState(true);   // RS ≥ 70 quality filter
+  const [lastScan, setLastScan] = useState(0);
   const regime = computeRegime(macroData);
   const marketGreen = regime.score >= 55;
   const scan = () => {
-    setState("loading");
+    setState(s => s === "ok" ? "ok" : "loading");  // silent refresh once we have data
     fetch("/api/market/trend-screen?symbols=" + encodeURIComponent(BEST_OPP_UNIVERSE.join(",")))
       .then(r => r.json())
       .then(j => {
@@ -10212,10 +10213,16 @@ function BestOpportunities({ C, MONO, SANS, onPick, macroData }) {
         // Rank: GO/buy-point/volume first, then trend quality + RELATIVE STRENGTH heavily.
         const rank = (r) => (r.verdict === "GO" ? 1000 : 0) + (r.atBuyPoint ? 500 : 0) + (r.volConfirmed ? 200 : 0) + (r.actionable ? 100 : 0) + (r.passCount || 0) * 20 + (r.rsRating || 0) * 2;
         const top = res.map(r => ({ ...r, _rr: rr(r), _rank: rank(r) })).sort((a, b) => b._rank - a._rank).slice(0, 5);
-        setRows(top); setState(top.length ? "ok" : "none");
+        setRows(top); setState(top.length ? "ok" : "none"); setLastScan(Date.now());
       })
-      .catch(() => setState("err"));
+      .catch(() => setState(s => s === "ok" ? "ok" : "err"));
   };
+  // Auto-scan on mount + every 5 minutes (re-runs when the quality filter changes).
+  useEffect(() => {
+    scan();
+    const t = setInterval(scan, 5 * 60 * 1000);
+    return () => clearInterval(t);
+  }, [onlyStrong]); // eslint-disable-line
   const vBadge = (r) => {
     if (r.verdict === "GO" || (r.atBuyPoint && r.volConfirmed)) return ["🟢 GO — buy point", "#0d9465"];
     if (r.actionable) return ["🟡 READY — near pivot", "#d6a312"];
@@ -10227,7 +10234,10 @@ function BestOpportunities({ C, MONO, SANS, onPick, macroData }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "12px 16px", flexWrap: "wrap" }}>
         <div>
           <div style={{ fontFamily: SANS, fontSize: 17, fontWeight: 900, color: C.text }}>🎯 Best Opportunities Now</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>One click — the top long setups in the market right now, ranked.</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 7, height: 7, borderRadius: "50%", background: "#0d9465", display: "inline-block" }} /> Auto-scans every 5 min</span>
+            {lastScan ? ` · updated ${Math.round((Date.now() - lastScan) / 1000) < 60 ? "just now" : Math.round((Date.now() - lastScan) / 60000) + "m ago"}` : ""}
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <button onClick={() => setOnlyStrong(v => !v)} title="Only show market-leading stocks (Relative Strength ≥ 70)"
@@ -10238,7 +10248,7 @@ function BestOpportunities({ C, MONO, SANS, onPick, macroData }) {
           <button onClick={scan} disabled={state === "loading"}
             style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, padding: "10px 20px", borderRadius: 10, cursor: state === "loading" ? "wait" : "pointer",
               border: "none", background: C.accent, color: "#fff" }}>
-            {state === "loading" ? "Scanning market…" : state === "idle" ? "🔍 Find Best Now" : "↻ Rescan"}
+            {state === "loading" && !rows ? "Scanning market…" : "↻ Rescan now"}
           </button>
         </div>
       </div>
