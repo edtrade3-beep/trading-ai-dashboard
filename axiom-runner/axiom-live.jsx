@@ -9509,6 +9509,39 @@ function AISetupReview({ r, regimeScore, C, MONO, SANS, out, setOut }) {
   );
 }
 
+// Earnings snapshot from fundamentals (works on Render via stockanalysis) —
+// TTM revenue, net income, EPS, margin, and the next earnings date.
+function EarningsSnapshot({ symbol, C, MONO, SANS }) {
+  const [f, setF] = useState(null);
+  useEffect(() => {
+    if (!symbol) return; setF(null);
+    fetch("/api/market/fundamentals?symbol=" + encodeURIComponent(symbol))
+      .then(r => r.json()).then(d => setF(d && !d.error ? d : null)).catch(() => {});
+  }, [symbol]);
+  if (!f) return null;
+  const rev = Number(f.revenue) || null;
+  const ni = rev && f.profitMargin != null ? rev * f.profitMargin : null;
+  const big = (v) => v == null ? "—" : v >= 1e12 ? "$" + (v / 1e12).toFixed(2) + "T" : v >= 1e9 ? "$" + (v / 1e9).toFixed(1) + "B" : "$" + (v / 1e6).toFixed(0) + "M";
+  const box = (label, val, col) => (
+    <div key={label} style={{ flex: "1 1 90px", border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 11px", background: C.bg }}>
+      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim }}>{label}</div>
+      <div style={{ fontFamily: NUM, fontSize: 19, fontWeight: 700, color: col || C.text }}>{val}</div>
+    </div>
+  );
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 8 }}>💰 Earnings Snapshot — {symbol}</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {box("REVENUE (TTM)", big(rev))}
+        {box("NET INCOME", big(ni), ni > 0 ? "#0d9465" : ni < 0 ? "#c8282a" : null)}
+        {box("EPS", f.eps != null ? "$" + Number(f.eps).toFixed(2) : "—")}
+        {box("PROFIT MARGIN", f.profitMargin != null ? (f.profitMargin * 100).toFixed(1) + "%" : "—")}
+        {box("NEXT EARNINGS", f.earningsDate ? String(f.earningsDate).replace(/,?\s*\d{4}$/, "") : "—")}
+      </div>
+    </div>
+  );
+}
+
 // Annual earnings bars (past actuals + forward analyst estimates). Estimates are
 // drawn hollow with an "E" tag. Reads /api/market/earnings.
 function EarningsBars({ symbol, C, MONO, SANS }) {
@@ -10398,7 +10431,7 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
         {dTab === "valuation" && <FundamentalsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
         {dTab === "analysts" && <AnalystPeerPanel symbol={sym} price={chart && chart.price} lb={lb} C={C} MONO={MONO} SANS={SANS} />}
         {dTab === "investors" && <InvestorsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
-        {dTab === "earnings" && <EarningsBars symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
+        {dTab === "earnings" && <><EarningsSnapshot symbol={sym} C={C} MONO={MONO} SANS={SANS} /><EarningsBars symbol={sym} C={C} MONO={MONO} SANS={SANS} /></>}
         {dTab === "company" && <CompanyProfile symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
         {dTab === "social" && <SocialFeed symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
         {dTab === "news" && <NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
