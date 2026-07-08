@@ -10186,6 +10186,82 @@ function TrendSetupPanel({ data, C, MONO, SANS }) {
   );
 }
 
+// ONE-CLICK best opportunities: scan a liquid universe, rank the best long
+// buy-points, show top 5 with why / entry / stop / target / R:R. Click → chart.
+const BEST_OPP_UNIVERSE = [
+  "NVDA","AAPL","MSFT","AMZN","META","GOOGL","AVGO","AMD","NFLX","TSLA",
+  "MU","SMCI","DELL","ARM","PLTR","CRWD","SNOW","NOW","ORCL","ANET",
+  "MRVL","PANW","COIN","HOOD","UBER","SHOP","LLY","V","MA","JPM",
+  "GE","CAT","CEG","VRT","TSM","QCOM","NEE","WMB","CCJ","MARA",
+];
+function BestOpportunities({ C, MONO, SANS, onPick }) {
+  const [rows, setRows] = useState(null);
+  const [state, setState] = useState("idle"); // idle | loading | ok | err
+  const scan = () => {
+    setState("loading");
+    fetch("/api/market/trend-screen?symbols=" + encodeURIComponent(BEST_OPP_UNIVERSE.join(",")))
+      .then(r => r.json())
+      .then(j => {
+        const res = (j.results || []).filter(r => !r.error && Number(r.entry) > Number(r.stop) && (r.passCount || 0) >= 6 && !r.extended);
+        const rr = (r) => (r.target2 - r.entry) / (r.entry - r.stop);
+        const rank = (r) => (r.verdict === "GO" ? 1000 : 0) + (r.atBuyPoint ? 500 : 0) + (r.volConfirmed ? 200 : 0) + (r.actionable ? 100 : 0) + (r.passCount || 0) * 20 + (r.rsRating || 0);
+        const top = res.map(r => ({ ...r, _rr: rr(r), _rank: rank(r) })).sort((a, b) => b._rank - a._rank).slice(0, 5);
+        setRows(top); setState(top.length ? "ok" : "none");
+      })
+      .catch(() => setState("err"));
+  };
+  const vBadge = (r) => {
+    if (r.verdict === "GO" || (r.atBuyPoint && r.volConfirmed)) return ["🟢 GO — buy point", "#0d9465"];
+    if (r.actionable) return ["🟡 READY — near pivot", "#d6a312"];
+    return ["🟡 WATCH", "#d6a312"];
+  };
+  const why = (r) => `${r.passCount}/8 template · RS ${r.rsRating} · ${r.stage.replace(/\s*—.*/, "")}${r.atBuyPoint ? " · at buy point" : r.actionable ? " · near pivot" : ""}`;
+  return (
+    <div style={{ marginBottom: 14, border: `2px solid ${C.accent}`, borderRadius: 12, background: `${C.accent}0a`, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "12px 16px", flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontFamily: SANS, fontSize: 17, fontWeight: 900, color: C.text }}>🎯 Best Opportunities Now</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>One click — the top long setups in the market right now, ranked.</div>
+        </div>
+        <button onClick={scan} disabled={state === "loading"}
+          style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, padding: "10px 20px", borderRadius: 10, cursor: state === "loading" ? "wait" : "pointer",
+            border: "none", background: C.accent, color: "#fff" }}>
+          {state === "loading" ? "Scanning market…" : state === "idle" ? "🔍 Find Best Now" : "↻ Rescan"}
+        </button>
+      </div>
+      {state === "err" && <div style={{ fontFamily: MONO, fontSize: 12, color: "#c8282a", padding: "0 16px 12px" }}>⚠ Scan failed — try again.</div>}
+      {state === "none" && <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, padding: "0 16px 14px" }}>No clean buy-points right now — the market's not offering A-setups. Cash is a position. Try again later.</div>}
+      {state === "ok" && rows && (
+        <div style={{ padding: "0 12px 12px" }}>
+          {rows.map((r, i) => {
+            const [badge, bc] = vBadge(r);
+            return (
+              <div key={r.symbol} onClick={() => onPick && onPick(r.symbol)}
+                style={{ display: "flex", gap: 12, alignItems: "center", padding: "11px 12px", cursor: "pointer", borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, marginBottom: 8 }}>
+                <div style={{ fontFamily: NUM, fontSize: 26, fontWeight: 700, color: C.textDim, minWidth: 26 }}>{i + 1}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontFamily: SANS, fontSize: 17, fontWeight: 900, color: C.text }}>{r.symbol}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: bc, background: `${bc}18`, borderRadius: 5, padding: "2px 8px" }}>{badge}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>R:R {r._rr.toFixed(1)}:1</span>
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 2 }}>{why(r)}</div>
+                </div>
+                <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 11, whiteSpace: "nowrap" }}>
+                  <div style={{ color: C.accent }}>Buy ${r.entry}</div>
+                  <div style={{ color: "#c8282a" }}>Stop ${r.stop}</div>
+                  <div style={{ color: "#0d9465" }}>Target ${r.target2}</div>
+                </div>
+              </div>
+            );
+          })}
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, padding: "2px 4px" }}>Tap any name to open its chart + full setup. Educational, not financial advice.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
 function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
@@ -10300,6 +10376,7 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
 
   return (
     <div style={{ width: "100%" }}>
+    <BestOpportunities C={C} MONO={MONO} SANS={SANS} onPick={loadSym} />
     <MarketPulseBar C={C} MONO={MONO} SANS={SANS} />
     <SentimentRow C={C} MONO={MONO} SANS={SANS} />
     <SectorHeatStrip sectorData={sectorData} C={C} MONO={MONO} SANS={SANS} />
