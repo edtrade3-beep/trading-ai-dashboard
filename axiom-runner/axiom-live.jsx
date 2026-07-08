@@ -10199,8 +10199,16 @@ function BestOpportunities({ C, MONO, SANS, onPick, macroData }) {
   const [state, setState] = useState("idle"); // idle | loading | ok | err
   const [onlyStrong, setOnlyStrong] = useState(true);   // RS ≥ 70 quality filter
   const [lastScan, setLastScan] = useState(0);
+  const [notifyOn, setNotifyOn] = useState(() => localStorage.getItem("bestopp_notify") === "on");
+  const seenGo = React.useRef(new Set());   // GO symbols already alerted (avoid repeats)
+  const isGo = (r) => r.verdict === "GO" || (r.atBuyPoint && r.volConfirmed);
   const regime = computeRegime(macroData);
   const marketGreen = regime.score >= 55;
+  const enableNotify = () => {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "granted") { const n = !notifyOn; setNotifyOn(n); localStorage.setItem("bestopp_notify", n ? "on" : "off"); return; }
+    Notification.requestPermission().then(p => { if (p === "granted") { setNotifyOn(true); localStorage.setItem("bestopp_notify", "on"); } });
+  };
   const scan = () => {
     setState(s => s === "ok" ? "ok" : "loading");  // silent refresh once we have data
     fetch("/api/market/trend-screen?symbols=" + encodeURIComponent(BEST_OPP_UNIVERSE.join(",")))
@@ -10213,6 +10221,12 @@ function BestOpportunities({ C, MONO, SANS, onPick, macroData }) {
         // Rank: GO/buy-point/volume first, then trend quality + RELATIVE STRENGTH heavily.
         const rank = (r) => (r.verdict === "GO" ? 1000 : 0) + (r.atBuyPoint ? 500 : 0) + (r.volConfirmed ? 200 : 0) + (r.actionable ? 100 : 0) + (r.passCount || 0) * 20 + (r.rsRating || 0) * 2;
         const top = res.map(r => ({ ...r, _rr: rr(r), _rank: rank(r) })).sort((a, b) => b._rank - a._rank).slice(0, 5);
+        // Flag GO setups that are NEW since we last saw them → highlight + notify.
+        const newGo = [];
+        top.forEach(r => { if (isGo(r) && !seenGo.current.has(r.symbol)) { r._new = true; newGo.push(r.symbol); seenGo.current.add(r.symbol); } });
+        if (newGo.length && notifyOn && "Notification" in window && Notification.permission === "granted") {
+          try { new Notification("🎯 New buy-point: " + newGo.join(", "), { body: "A new GO setup just appeared in Best Opportunities." }); } catch {}
+        }
         setRows(top); setState(top.length ? "ok" : "none"); setLastScan(Date.now());
       })
       .catch(() => setState(s => s === "ok" ? "ok" : "err"));
@@ -10245,6 +10259,11 @@ function BestOpportunities({ C, MONO, SANS, onPick, macroData }) {
               border: `1px solid ${onlyStrong ? "#0d9465" : C.border}`, background: onlyStrong ? "rgba(13,148,101,0.12)" : C.bg, color: onlyStrong ? "#0d9465" : C.textDim }}>
             {onlyStrong ? "✓ Leaders only (RS≥70)" : "All setups"}
           </button>
+          <button onClick={enableNotify} title="Get a desktop notification when a new GO buy-point appears"
+            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "8px 12px", borderRadius: 8, cursor: "pointer",
+              border: `1px solid ${notifyOn ? "#7c5cff" : C.border}`, background: notifyOn ? "rgba(124,92,255,0.12)" : C.bg, color: notifyOn ? "#7c5cff" : C.textDim }}>
+            {notifyOn ? "🔔 Alerts ON" : "🔕 Alert me on new GO"}
+          </button>
           <button onClick={scan} disabled={state === "loading"}
             style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, padding: "10px 20px", borderRadius: 10, cursor: state === "loading" ? "wait" : "pointer",
               border: "none", background: C.accent, color: "#fff" }}>
@@ -10267,11 +10286,12 @@ function BestOpportunities({ C, MONO, SANS, onPick, macroData }) {
             const [badge, bc] = vBadge(r);
             return (
               <div key={r.symbol} onClick={() => onPick && onPick(r.symbol)}
-                style={{ display: "flex", gap: 12, alignItems: "center", padding: "11px 12px", cursor: "pointer", borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, marginBottom: 8 }}>
+                style={{ display: "flex", gap: 12, alignItems: "center", padding: "11px 12px", cursor: "pointer", borderRadius: 10, background: C.bg, border: `1px solid ${r._new ? "#7c5cff" : C.border}`, boxShadow: r._new ? "0 0 0 3px rgba(124,92,255,0.15)" : "none", marginBottom: 8 }}>
                 <div style={{ fontFamily: NUM, fontSize: 26, fontWeight: 700, color: C.textDim, minWidth: 26 }}>{i + 1}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontFamily: SANS, fontSize: 17, fontWeight: 900, color: C.text }}>{r.symbol}</span>
+                    {r._new && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#fff", background: "#7c5cff", borderRadius: 4, padding: "1px 6px" }}>NEW</span>}
                     <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: bc, background: `${bc}18`, borderRadius: 5, padding: "2px 8px" }}>{badge}</span>
                     <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>R:R {r._rr.toFixed(1)}:1</span>
                   </div>
