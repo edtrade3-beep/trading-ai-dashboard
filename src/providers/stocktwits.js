@@ -88,4 +88,28 @@ async function fetchSentiment(symbol, limit = 30) {
   });
 }
 
-module.exports = { fetchTrending, fetchSentiment };
+// Full message stream for a symbol — the "X feed for traders": posts with author,
+// bullish/bearish tag, timestamp, likes. Free, no key.
+async function fetchMessages(symbol, limit = 25) {
+  const sym = String(symbol || "").toUpperCase();
+  return cached(`msgs:${sym}:${limit}`, 90_000, async () => {
+    const r = await fetch(
+      `${BASE}/streams/symbol/${encodeURIComponent(sym)}.json?limit=${limit}`,
+      { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(12_000) }
+    );
+    if (!r.ok) throw new Error(`StockTwits ${sym} HTTP ${r.status}`);
+    const d = await r.json();
+    const messages = (d.messages || []).slice(0, limit).map(m => ({
+      id: m.id,
+      user: m.user?.username || "trader",
+      followers: Number(m.user?.followers || 0),
+      body: (m.body || "").trim(),
+      sentiment: m.entities?.sentiment?.basic || null,   // "Bullish" | "Bearish" | null
+      at: m.created_at || null,
+      likes: Number(m.likes?.total || 0),
+    }));
+    return { symbol: sym, messages };
+  });
+}
+
+module.exports = { fetchTrending, fetchSentiment, fetchMessages };

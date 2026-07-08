@@ -1820,6 +1820,17 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     }
   }
 
+  // ── StockTwits message stream for one symbol (the "X feed for traders") ──
+  if (pathname === "/api/market/social-stream") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
+    try {
+      const st = require("../providers/stocktwits");
+      const data = await st.fetchMessages(symbol, 25);
+      return writeJson(res, 200, { ok: true, ...data });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message, messages: [] }); }
+  }
+
   // ── StockTwits social sentiment ("X for traders") ──
   if (pathname === "/api/market/social-sentiment") {
     try {

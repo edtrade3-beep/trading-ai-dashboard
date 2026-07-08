@@ -9980,6 +9980,44 @@ function PredictionMarkets({ C, MONO, SANS }) {
   );
 }
 
+// Social feed — StockTwits message stream ("X for traders") for the symbol.
+function SocialFeed({ symbol, C, MONO, SANS }) {
+  const [msgs, setMsgs] = useState(null);
+  const [state, setState] = useState("loading");
+  useEffect(() => {
+    if (!symbol) return; setState("loading"); setMsgs(null);
+    fetch("/api/market/social-stream?symbol=" + encodeURIComponent(symbol))
+      .then(r => r.json()).then(j => { if (j.ok && j.messages && j.messages.length) { setMsgs(j.messages); setState("ok"); } else setState("none"); })
+      .catch(() => setState("none"));
+  }, [symbol]);
+  const ago = (iso) => { if (!iso) return ""; const m = Math.round((Date.now() - Date.parse(iso)) / 60000); return m < 60 ? m + "m" : m < 1440 ? Math.round(m / 60) + "h" : Math.round(m / 1440) + "d"; };
+  const bull = (msgs || []).filter(m => m.sentiment === "Bullish").length;
+  const bear = (msgs || []).filter(m => m.sentiment === "Bearish").length;
+  return (
+    <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, background: C.bg, overflow: "hidden" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderBottom: `1px solid ${C.border}` }}>
+        <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text }}>💬 Social — {symbol}</span>
+        {state === "ok" && <span style={{ fontFamily: MONO, fontSize: 11 }}><span style={{ color: "#0d9465" }}>🟢 {bull}</span> · <span style={{ color: "#c8282a" }}>🔴 {bear}</span></span>}
+      </div>
+      {state === "loading" && <div style={{ padding: "18px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading feed…</div>}
+      {state === "none" && <div style={{ padding: "16px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>No recent posts.</div>}
+      {state === "ok" && (msgs || []).map((m) => {
+        const sc = m.sentiment === "Bullish" ? "#0d9465" : m.sentiment === "Bearish" ? "#c8282a" : C.textDim;
+        return (
+          <div key={m.id} style={{ padding: "9px 14px", borderTop: `1px solid ${C.border}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>@{m.user}</span>
+              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{m.sentiment ? <b style={{ color: sc }}>{m.sentiment === "Bullish" ? "🟢 Bull" : "🔴 Bear"} · </b> : ""}{ago(m.at)}</span>
+            </div>
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.4, marginTop: 3 }}>{m.body}</div>
+          </div>
+        );
+      })}
+      {state === "ok" && <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, padding: "8px 14px" }}>Source: StockTwits (free). X/Twitter posts require a paid API.</div>}
+    </div>
+  );
+}
+
 // Institutional ownership + insider transactions for the loaded symbol.
 function InvestorsPanel({ symbol, C, MONO, SANS }) {
   const [d, setD] = useState(null);
@@ -10338,7 +10376,7 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
         )}
         {/* ── Per-symbol detail tabs ── */}
         <div style={{ display: "flex", gap: 4, margin: "4px 0 12px", flexWrap: "wrap", borderBottom: `1px solid ${C.border}`, paddingBottom: 8 }}>
-          {[["chart", "📈 Chart"], ["valuation", "📊 Valuation"], ["analysts", "🎯 Analysts"], ["investors", "🏦 Investors"], ["earnings", "💰 Earnings"], ["company", "🏢 Company"], ["news", "📰 News"]].map(([id, lbl]) => (
+          {[["chart", "📈 Chart"], ["valuation", "📊 Valuation"], ["analysts", "🎯 Analysts"], ["investors", "🏦 Investors"], ["earnings", "💰 Earnings"], ["company", "🏢 Company"], ["social", "💬 Social"], ["news", "📰 News"]].map(([id, lbl]) => (
             <button key={id} onClick={() => setDTab(id)}
               style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", borderRadius: 7, cursor: "pointer",
                 border: `1px solid ${dTab === id ? C.accent : "transparent"}`, background: dTab === id ? `${C.accent}16` : "transparent", color: dTab === id ? C.accent : C.textDim }}>
@@ -10362,6 +10400,7 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData }) {
         {dTab === "investors" && <InvestorsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
         {dTab === "earnings" && <EarningsBars symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
         {dTab === "company" && <CompanyProfile symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
+        {dTab === "social" && <SocialFeed symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
         {dTab === "news" && <NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
       </div>
     </div>
