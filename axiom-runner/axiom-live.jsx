@@ -9685,6 +9685,63 @@ function NewsPanel({ symbol, C, MONO, SANS }) {
   );
 }
 
+// Day-trade scanner: intraday momentum (gap / RVOL / VWAP / opening-range).
+function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
+  const [rows, setRows] = useState(null);
+  const [state, setState] = useState("idle");
+  const [gen, setGen] = useState(null);
+  const scan = () => {
+    setState(s => s === "ok" ? "ok" : "loading");
+    fetch("/api/market/daytrade-scan").then(r => r.json())
+      .then(j => { if (j.ok && j.rows) { setRows(j.rows); setGen(j.generatedAt); setState(j.rows.length ? "ok" : "none"); } else setState("err"); })
+      .catch(() => setState(s => s === "ok" ? "ok" : "err"));
+  };
+  useEffect(() => { scan(); const t = setInterval(scan, 90000); return () => clearInterval(t); }, []);
+  const col = (v) => v == null ? C.textDim : v > 0 ? "#0d9465" : v < 0 ? "#c8282a" : C.text;
+  const pct = (v) => v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2) + "%";
+  return (
+    <div style={{ width: "100%", maxWidth: 1100 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+        <div>
+          <div style={{ fontFamily: SANS, fontSize: 22, fontWeight: 900, color: C.text }}>⚡ Day Trade Scanner</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Intraday momentum — gap · RVOL · VWAP · opening-range breakout. Auto-refreshes 90s.</div>
+        </div>
+        <button onClick={scan} style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, padding: "9px 16px", borderRadius: 10, cursor: "pointer", border: "none", background: C.accent, color: "#fff" }}>↻ Rescan</button>
+      </div>
+      <div style={{ fontFamily: SANS, fontSize: 12, color: C.amber, background: `${C.amber}12`, border: `1px solid ${C.amber}44`, borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
+        ⚠️ Day trading is high-risk and fast — most day traders lose money. Paper-trade this until it proves out. Educational, not financial advice.
+      </div>
+      {(state === "loading" && !rows) && <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, padding: "40px 0", textAlign: "center" }}>Scanning intraday momentum…</div>}
+      {state === "err" && <div style={{ fontFamily: MONO, fontSize: 13, color: "#c8282a", padding: "20px 0", textAlign: "center" }}>⚠ Scan failed — try again (market may be closed / data delayed).</div>}
+      {state === "none" && <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, padding: "20px 0", textAlign: "center" }}>No intraday data (market likely closed). Come back during market hours.</div>}
+      {(state === "ok" && rows) && (
+        <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden", background: C.bg }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 0.9fr 1fr 1.3fr", padding: "9px 14px", background: C.card, borderBottom: `2px solid ${C.border}`, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim }}>
+            <div>SYMBOL</div><div style={{ textAlign: "right" }}>PRICE</div><div style={{ textAlign: "right" }}>DAY %</div><div style={{ textAlign: "right" }}>GAP</div><div style={{ textAlign: "right" }}>RVOL</div><div style={{ textAlign: "right" }}>SIGNALS</div>
+          </div>
+          {rows.slice(0, 20).map((r, i) => (
+            <div key={r.symbol} onClick={() => onDeepDive && onDeepDive(r.symbol)}
+              style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 0.9fr 1fr 1.3fr", padding: "10px 14px", alignItems: "center", cursor: "pointer", borderBottom: i < 19 ? `1px solid ${C.border}` : "none", background: i % 2 ? "transparent" : "rgba(127,127,127,0.03)" }}>
+              <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 14, color: C.text }}>{r.symbol}</div>
+              <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.text }}>${r.price.toFixed(2)}</div>
+              <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col(r.chgPct) }}>{pct(r.chgPct)}</div>
+              <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, color: col(r.gapPct) }}>{pct(r.gapPct)}</div>
+              <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: r.rvol >= 1.5 ? "#f59e0b" : C.textDim }}>{r.rvol == null ? "—" : r.rvol.toFixed(1) + "×"}</div>
+              <div style={{ textAlign: "right", display: "flex", gap: 4, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                {r.orBreakout && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#0d9465", background: "#0d946518", borderRadius: 4, padding: "1px 5px" }}>OR BREAK</span>}
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: r.aboveVwap ? "#0d9465" : "#c8282a", background: (r.aboveVwap ? "#0d9465" : "#c8282a") + "18", borderRadius: 4, padding: "1px 5px" }}>{r.aboveVwap ? "＞VWAP" : "＜VWAP"}</span>
+              </div>
+            </div>
+          ))}
+          <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, padding: "8px 14px" }}>
+            OR BREAK = broke opening-range high · ＞VWAP = above volume-weighted avg (bullish intraday). Tap a row for its chart. {gen ? "· " + new Date(gen).toLocaleTimeString() : ""}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Sector heat strip: today's % move for each S&P sector ETF, green→red.
 function SectorHeatStrip({ sectorData, C, MONO, SANS }) {
   const NAMES = { XLK: "Tech", XLV: "Health", XLF: "Financials", XLY: "Cons Disc", XLC: "Comms", XLI: "Industrials", XLE: "Energy", XLP: "Staples", XLU: "Utilities", XLRE: "Real Est", XLB: "Materials" };
@@ -24403,7 +24460,7 @@ export default function App() {
           {(() => {
             const NAV_GROUPS = [
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["start", "dashboard", "movers", "quotes", "crypto", "news", "econ-cal", "macro"] },
-              { id: "mterminal",  label: "🖥 TERMINAL",   tabs: ["mterminal"] },
+              { id: "mterminal",  label: "🖥 TERMINAL",   tabs: ["mterminal", "daytrade"] },
               { id: "rhpro",      label: "📈 PRO TRADE",  tabs: ["rhpro", "rhpro-apex", "rhpro-scan", "rhpro-analyze", "rhpro-lists", "rhpro-heat", "trendtemplate", "rhpro-calc", "rhpro-options", "greenlight", "gl-backtest", "holdings", "rhpro-journal", "rhpro-coach", "rhpro-perf", "smartscan", "dipbuy", "outlook", "predictions", "morning-routine", "mytrades"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes"] },
@@ -24773,6 +24830,7 @@ export default function App() {
           ],
           mterminal: [
             { id: "mterminal",  label: "🖥 MARKET TERMINAL" },
+            { id: "daytrade",   label: "⚡ DAY TRADE" },
           ],
           rhpro: [
             { id: "rhpro-apex", label: "🧠 TRADE PRO AI" },
@@ -25419,6 +25477,10 @@ export default function App() {
 
         {activeTab === "mterminal" && (
           <MarketTerminalTab C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} />
+        )}
+
+        {activeTab === "daytrade" && (
+          <DayTradeTab C={C} MONO={MONO} SANS={SANS} onDeepDive={openDeepDiveFor} />
         )}
 
         {activeTab === "quotes" && watchlistData.length > 0 && (

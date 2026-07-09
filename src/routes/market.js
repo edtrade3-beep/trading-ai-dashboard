@@ -94,6 +94,14 @@ const LEADERBOARD_UNIVERSE = [
   "MARA","RIOT","CLSK","IREN","CORZ","MSTR","UBER","SHOP","ABNB","DIS",
 ];
 let _lbCache = { key: null, at: 0, rows: null };
+// Liquid, volatile day-trade favorites — the pool the intraday scanner works on.
+const DAYTRADE_UNIVERSE = [
+  "NVDA","TSLA","AMD","AAPL","META","AMZN","MSFT","AVGO","NFLX","GOOGL",
+  "COIN","MARA","RIOT","CLSK","MSTR","PLTR","SOFI","HOOD","NIO","RIVN",
+  "MU","SMCI","ARM","AFRM","UPST","DKNG","SNAP","UBER","SHOP","BABA",
+  "F","AAL","CCL","PLUG","AMC","GME","INTC","WBD","LCID","CVNA",
+];
+let _dtCache = { key: null, at: 0, rows: null };
 
 // Bucket enriched rows into the four Market-Terminal categories.
 function buildLeaderboard(rows, n, at) {
@@ -1686,6 +1694,61 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       count: quotes.length,
       generatedAt: new Date().toISOString(),
     });
+  }
+
+  // Day-trade scanner: intraday momentum from Alpaca 5-min bars — gap %, RVOL,
+  // VWAP position, and opening-range breakout. Cached 90s.
+  if (pathname === "/api/market/daytrade-scan") {
+    const custom = (searchParams.get("symbols") || "").split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+    const universe = custom.length ? custom.slice(0, 60) : DAYTRADE_UNIVERSE;
+    const now = Date.now();
+    if (_dtCache.rows && _dtCache.key === universe.join(",") && (now - _dtCache.at) < 90000) {
+      return writeJson(res, 200, { ok: true, cached: true, rows: _dtCache.rows, generatedAt: new Date(_dtCache.at).toISOString() });
+    }
+    const { fetchAlpacaBars } = require("../providers/alpaca-data");
+    const out = [];
+    for (let i = 0; i < universe.length; i += 8) {
+      const chunk = universe.slice(i, i + 8);
+      const done = await Promise.all(chunk.map(async (sym) => {
+        try {
+          const [intraday, daily] = await Promise.all([
+            withTimeout(fetchAlpacaBars(sym, "1d", "5m"), 6000, null),
+            withTimeout(fetchAlpacaBars(sym, "1mo", "1d"), 6000, null),
+          ]);
+          if (!Array.isArray(intraday) || intraday.length < 3 || !Array.isArray(daily) || daily.length < 5) return null;
+          // Today's session = bars sharing the latest bar's calendar day.
+          const lastDay = new Date(intraday[intraday.length - 1].time).toDateString();
+          const today = intraday.filter(b => new Date(b.time).toDateString() === lastDay);
+          if (today.length < 2) return null;
+          const price = today[today.length - 1].close;
+          const prevClose = daily[daily.length - 2].close;
+          if (!prevClose) return null;
+          const gapPct = Math.round(((today[0].open - prevClose) / prevClose) * 10000) / 100;
+          const chgPct = Math.round(((price - prevClose) / prevClose) * 10000) / 100;
+          // VWAP over today
+          let pv = 0, vv = 0;
+          today.forEach(b => { const tp = (b.high + b.low + b.close) / 3; pv += tp * (b.volume || 0); vv += (b.volume || 0); });
+          const vwap = vv ? pv / vv : price;
+          const vsVwap = Math.round(((price - vwap) / vwap) * 10000) / 100;
+          // Opening range = first 6 bars (~30 min)
+          const orBars = today.slice(0, 6);
+          const orHigh = Math.max(...orBars.map(b => b.high));
+          const orLow = Math.min(...orBars.map(b => b.low));
+          const orBreakout = price > orHigh;
+          // RVOL — today volume so far vs avg full-day volume (last ~20 sessions)
+          const todayVol = today.reduce((s, b) => s + (b.volume || 0), 0);
+          const avgVol = daily.slice(-21, -1).reduce((s, b) => s + (b.volume || 0), 0) / Math.max(1, daily.slice(-21, -1).length);
+          const rvol = avgVol ? Math.round((todayVol / avgVol) * 100) / 100 : null;
+          return { symbol: sym, price: Math.round(price * 100) / 100, chgPct, gapPct, rvol, vsVwap, aboveVwap: price >= vwap, orBreakout, orHigh: Math.round(orHigh * 100) / 100 };
+        } catch { return null; }
+      }));
+      out.push(...done.filter(Boolean));
+    }
+    // Score: momentum bias — breakout + above VWAP + gap + RVOL + move.
+    const score = (r) => (r.orBreakout ? 40 : 0) + (r.aboveVwap ? 25 : -10) + Math.max(0, Math.min(20, r.gapPct * 3)) + Math.max(0, Math.min(25, (r.rvol || 0) * 8)) + Math.max(-15, Math.min(20, r.chgPct * 2));
+    const rows = out.map(r => ({ ...r, score: Math.round(score(r)) })).sort((a, b) => b.score - a.score);
+    _dtCache = { key: universe.join(","), at: now, rows };
+    return writeJson(res, 200, { ok: true, rows, generatedAt: new Date(now).toISOString() });
   }
 
   // Market-Terminal style leaderboard: Movers Up/Down + Up/Down on Volume, each
