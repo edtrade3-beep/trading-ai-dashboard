@@ -24948,17 +24948,22 @@ export default function App() {
             { id: "daytrade",   label: "⚡ DAY TRADE" },
           ],
           rhpro: [
-            { id: "rhpro-apex", label: "🧠 TRADE PRO AI" },
+            // ── Overview & AI ──
             { id: "rhpro",      label: "🎯 COMMAND DECK" },
+            { id: "rhpro-apex", label: "🧠 TRADE PRO AI" },
+            // ── Find setups ──
             { id: "rhpro-scan", label: "🎯 SNIPER SCANNER" },
+            { id: "trendtemplate", label: "🏆 TREND TEMPLATE" },
+            { id: "rhpro-heat", label: "🗺 HEAT MAP" },
+            // ── Analyze ──
             { id: "rhpro-analyze", label: "🔬 ANALYZER" },
             { id: "rhpro-lists", label: "📋 WATCHLISTS" },
-            { id: "rhpro-heat", label: "🗺 HEAT MAP" },
-            { id: "trendtemplate", label: "🏆 TREND TEMPLATE" },
+            // ── Trade & positions ──
             { id: "greenlight",   label: "🟢 GREEN LIGHT + AUTOPILOT" },
             { id: "holdings",     label: "📊 HOLDINGS" },
-            { id: "rhpro-coach", label: "🎓 AI COACH" },
+            // ── Review & improve ──
             { id: "rhpro-perf", label: "📊 PERFORMANCE" },
+            { id: "rhpro-coach", label: "🎓 AI COACH" },
           ],
           coach: [
             { id: "coach",        label: "🧭 المدرّب اليومي" },
