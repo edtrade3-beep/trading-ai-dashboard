@@ -9690,6 +9690,9 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
   const [rows, setRows] = useState(null);
   const [state, setState] = useState("idle");
   const [gen, setGen] = useState(null);
+  const [sel, setSel] = useState(null);        // symbol → inline 5-min chart
+  const [iv, setIv] = useState("5");           // intraday interval
+  const tvTheme = (C.bg && /^#0|^#1/i.test(C.bg)) ? "dark" : "light";
   const scan = () => {
     setState(s => s === "ok" ? "ok" : "loading");
     fetch("/api/market/daytrade-scan").then(r => r.json())
@@ -9711,6 +9714,24 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
       <div style={{ fontFamily: SANS, fontSize: 12, color: C.amber, background: `${C.amber}12`, border: `1px solid ${C.amber}44`, borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
         ⚠️ Day trading is high-risk and fast — most day traders lose money. Paper-trade this until it proves out. Educational, not financial advice.
       </div>
+      {sel && (
+        <div style={{ marginBottom: 14, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden", background: C.bg }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderBottom: `1px solid ${C.border}`, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 900, color: C.text }}>{sel}</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>intraday</span>
+            <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
+              {[["1", "1m"], ["5", "5m"], ["15", "15m"]].map(([v, l]) => (
+                <button key={v} onClick={() => setIv(v)} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${iv === v ? C.accent : C.border}`, background: iv === v ? `${C.accent}16` : "transparent", color: iv === v ? C.accent : C.textDim }}>{l}</button>
+              ))}
+              <button onClick={() => onDeepDive && onDeepDive(sel)} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.border}`, background: "transparent", color: C.textDim }}>Full analysis →</button>
+              <button onClick={() => setSel(null)} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "4px 9px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.border}`, background: "transparent", color: C.textDim }}>×</button>
+            </div>
+          </div>
+          <iframe key={`dt-${sel}-${iv}`} title="Intraday chart"
+            src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sel)}&t=${tvTheme}&h=440&iv=${iv}`}
+            style={{ width: "100%", height: 440, border: "none", display: "block" }} />
+        </div>
+      )}
       {(state === "loading" && !rows) && <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, padding: "40px 0", textAlign: "center" }}>Scanning intraday momentum…</div>}
       {state === "err" && <div style={{ fontFamily: MONO, fontSize: 13, color: "#c8282a", padding: "20px 0", textAlign: "center" }}>⚠ Scan failed — try again (market may be closed / data delayed).</div>}
       {state === "none" && <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, padding: "20px 0", textAlign: "center" }}>No intraday data (market likely closed). Come back during market hours.</div>}
@@ -9720,7 +9741,7 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
             <div>SYMBOL</div><div style={{ textAlign: "right" }}>PRICE</div><div style={{ textAlign: "right" }}>DAY %</div><div style={{ textAlign: "right" }}>GAP</div><div style={{ textAlign: "right" }}>RVOL</div><div style={{ textAlign: "right" }}>SIGNALS</div>
           </div>
           {rows.slice(0, 20).map((r, i) => (
-            <div key={r.symbol} onClick={() => onDeepDive && onDeepDive(r.symbol)}
+            <div key={r.symbol} onClick={() => setSel(r.symbol)}
               style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 0.9fr 1fr 1.3fr", padding: "10px 14px", alignItems: "center", cursor: "pointer", borderBottom: i < 19 ? `1px solid ${C.border}` : "none", background: i % 2 ? "transparent" : "rgba(127,127,127,0.03)" }}>
               <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 14, color: C.text }}>{r.symbol}</div>
               <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.text }}>${r.price.toFixed(2)}</div>
