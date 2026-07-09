@@ -24961,7 +24961,6 @@ export default function App() {
             { id: "greenlight",   label: "🟢 GREEN LIGHT + AUTOPILOT" },
             { id: "holdings",     label: "📊 HOLDINGS" },
             // ── Review & improve ──
-            { id: "rhpro-perf", label: "📊 PERFORMANCE" },
             { id: "rhpro-coach", label: "🎓 AI COACH" },
           ],
           coach: [
