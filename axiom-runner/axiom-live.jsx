@@ -10328,8 +10328,13 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData }) {
   useEffect(() => {
     if (source !== "watchlist") return;
     setWlRows(null);
-    fetch("/api/watchlist").then(r => r.json()).then(async (d) => {
-      const syms = (Array.isArray(d.symbols) ? d.symbols : []).slice(0, 150);
+    // localStorage is the durable source (survives Render free-tier redeploys that
+    // wipe the server file); merge with whatever the server still has.
+    let local = [];
+    try { local = JSON.parse(localStorage.getItem("dm_watchlist") || "[]"); } catch {}
+    fetch("/api/watchlist").then(r => r.json()).catch(() => ({ symbols: [] })).then(async (d) => {
+      const server = Array.isArray(d.symbols) ? d.symbols : [];
+      const syms = [...new Set([...local, ...server].map(s => String(s).toUpperCase()))].slice(0, 150);
       if (!syms.length) { setWlRows([]); return; }
       // Fetch quotes in chunks of 40 so a big watchlist doesn't time out one call.
       const out = [];
@@ -10387,14 +10392,31 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData }) {
   const addToWatchlist = useCallback(() => {
     const s = String(sym || "").trim().toUpperCase();
     if (!s) return;
+    // Durable store = localStorage (survives Render redeploys). Also push to the
+    // server so the scanner/autopilot sees it (best effort).
+    let local = [];
+    try { local = JSON.parse(localStorage.getItem("dm_watchlist") || "[]"); } catch {}
+    local = local.map(x => String(x).toUpperCase());
+    if (local.includes(s)) { setWlMsg(`${s} already on watchlist`); setTimeout(() => setWlMsg(""), 2500); return; }
+    const next = [...local, s];
+    try { localStorage.setItem("dm_watchlist", JSON.stringify(next)); } catch {}
+    setWlMsg(`⭐ Added ${s} to watchlist`); setTimeout(() => setWlMsg(""), 2500);
     fetch("/api/watchlist").then(r => r.json()).then(d => {
-      const cur = Array.isArray(d.symbols) ? d.symbols.map(x => String(x).toUpperCase()) : [];
-      if (cur.includes(s)) { setWlMsg(`${s} already on watchlist`); setTimeout(() => setWlMsg(""), 2500); return; }
-      const next = [...cur, s];
-      return fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbols: next }) })
-        .then(() => { setWlMsg(`⭐ Added ${s} to watchlist`); setTimeout(() => setWlMsg(""), 2500); });
-    }).catch(() => { setWlMsg("Couldn't update watchlist"); setTimeout(() => setWlMsg(""), 2500); });
+      const server = Array.isArray(d.symbols) ? d.symbols.map(x => String(x).toUpperCase()) : [];
+      const merged = [...new Set([...server, ...next])];
+      return fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbols: merged }) });
+    }).catch(() => {});
   }, [sym]);
+
+  const removeFromWatchlist = useCallback((s) => {
+    s = String(s).toUpperCase();
+    let local = [];
+    try { local = JSON.parse(localStorage.getItem("dm_watchlist") || "[]").map(x => String(x).toUpperCase()); } catch {}
+    const next = local.filter(x => x !== s);
+    try { localStorage.setItem("dm_watchlist", JSON.stringify(next)); } catch {}
+    setWlRows(prev => (prev || []).filter(r => r.symbol !== s));
+    fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbols: next }) }).catch(() => {});
+  }, []);
 
   const VIEWS = [
     { id: "moversUp", label: "Up", icon: "🟢" },
@@ -10481,7 +10503,11 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData }) {
               <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 13, color: r.symbol === sym ? "#22d47e" : C.text }}>{r.symbol}</div>
               <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.text }}>${r.price.toFixed(2)}</div>
               <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col(r.dayPct) }}>{pct(r.dayPct)}</div>
-              <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: r.volRatio >= 1.5 ? "#f59e0b" : C.textDim }}>{r.volRatio == null ? "—" : r.volRatio.toFixed(1) + "×"}</div>
+              <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: r.volRatio >= 1.5 ? "#f59e0b" : C.textDim }}>
+                {source === "watchlist"
+                  ? <span onClick={(e) => { e.stopPropagation(); removeFromWatchlist(r.symbol); }} title="Remove from watchlist" style={{ cursor: "pointer", color: C.textDim, fontWeight: 800, padding: "0 4px" }}>×</span>
+                  : (r.volRatio == null ? "—" : r.volRatio.toFixed(1) + "×")}
+              </div>
             </div>
           ))}
         </div>
