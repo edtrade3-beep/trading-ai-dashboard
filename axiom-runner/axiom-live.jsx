@@ -10480,7 +10480,7 @@ function BestOpportunities({ C, MONO, SANS, onPick, macroData }) {
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
-function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData }) {
+function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData, onDeepDive }) {
   const [lb, setLb] = useState(null);
   const [view, setView] = useState("moversUp");
   const [sym, setSym] = useState("NVDA");
@@ -10694,8 +10694,13 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData }) {
           )}
           {chart && chart.stage && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{chart.stage}</span>}
           {loadingChart && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>loading…</span>}
-          <button onClick={addToWatchlist}
+          <button onClick={() => onDeepDive && onDeepDive(sym)} title="Open the deep-dive Smart Scan (technicals, SMC/order blocks, AI trade setup, options, news)"
             style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 8, cursor: "pointer", marginLeft: "auto",
+              border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent }}>
+            🔬 Smart Scan →
+          </button>
+          <button onClick={addToWatchlist}
+            style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 8, cursor: "pointer",
               border: `1px solid #d6a312`, background: "rgba(214,163,18,0.14)", color: "#d6a312" }}>
             ⭐ Add to Watchlist
           </button>
@@ -25586,7 +25591,7 @@ export default function App() {
         )}
 
         {activeTab === "mterminal" && (
-          <MarketTerminalTab C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} />
+          <MarketTerminalTab C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} onDeepDive={openDeepDiveFor} />
         )}
 
         {activeTab === "daytrade" && (
