@@ -24576,7 +24576,7 @@ export default function App() {
             const NAV_GROUPS = [
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["start", "dashboard", "movers", "quotes", "crypto", "news", "econ-cal", "macro"] },
               { id: "mterminal",  label: "🖥 TERMINAL",   tabs: ["mterminal", "daytrade"] },
-              { id: "rhpro",      label: "📈 PRO TRADE",  tabs: ["rhpro", "rhpro-apex", "rhpro-scan", "rhpro-analyze", "rhpro-lists", "rhpro-heat", "trendtemplate", "rhpro-calc", "rhpro-options", "greenlight", "gl-backtest", "holdings", "rhpro-journal", "rhpro-coach", "rhpro-perf", "smartscan", "dipbuy", "outlook", "predictions", "morning-routine", "mytrades"] },
+              { id: "rhpro",      label: "📈 PRO TRADE",  tabs: ["rhpro", "rhpro-apex", "rhpro-scan", "rhpro-analyze", "rhpro-lists", "rhpro-heat", "rhpro-calc", "rhpro-options", "greenlight", "gl-backtest", "holdings", "rhpro-journal", "rhpro-coach", "rhpro-perf", "smartscan", "dipbuy", "outlook", "predictions", "morning-routine", "mytrades"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools", "dealfinder", "flightfinder", "leadresponder"] },
@@ -24953,7 +24953,6 @@ export default function App() {
             { id: "rhpro-apex", label: "🧠 TRADE PRO AI" },
             // ── Find setups ──
             { id: "rhpro-scan", label: "🎯 SNIPER SCANNER" },
-            { id: "trendtemplate", label: "🏆 TREND TEMPLATE" },
             { id: "rhpro-heat", label: "🗺 HEAT MAP" },
             // ── Analyze ──
             { id: "rhpro-analyze", label: "🔬 ANALYZER" },
