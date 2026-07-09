@@ -10264,6 +10264,60 @@ function TrendSetupPanel({ data, C, MONO, SANS }) {
   );
 }
 
+// "How am I doing" — real results of the paper account: equity, realized P&L,
+// win rate, profit factor, best/worst — from Alpaca closed trades.
+function PerformanceCard({ C, MONO, SANS }) {
+  const [acct, setAcct] = useState(null);
+  const [trades, setTrades] = useState(null);
+  useEffect(() => {
+    fetch("/api/alpaca/account").then(r => r.json()).then(d => d.ok && setAcct(d.account)).catch(() => {});
+    fetch("/api/alpaca/closed-trades").then(r => r.json()).then(d => setTrades(Array.isArray(d.trades) ? d.trades : [])).catch(() => setTrades([]));
+  }, []);
+  if (!acct && !trades) return null;
+  const n = (trades || []).length;
+  const wins = (trades || []).filter(t => t.pnl > 0);
+  const losses = (trades || []).filter(t => t.pnl < 0);
+  const winRate = n ? Math.round(wins.length / n * 100) : null;
+  const totalPnl = (trades || []).reduce((s, t) => s + (t.pnl || 0), 0);
+  const grossWin = wins.reduce((s, t) => s + t.pnl, 0);
+  const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
+  const pf = grossLoss > 0 ? grossWin / grossLoss : (grossWin > 0 ? Infinity : null);
+  const best = n ? (trades || []).reduce((a, b) => b.pnl > a.pnl ? b : a) : null;
+  const worst = n ? (trades || []).reduce((a, b) => b.pnl < a.pnl ? b : a) : null;
+  const eq = acct ? Number(acct.equity) : null;
+  const dayPl = acct && acct.lastEquity ? eq - Number(acct.lastEquity) : null;
+  const money = (v) => v == null ? "—" : (v >= 0 ? "+$" : "-$") + Math.abs(v).toFixed(0);
+  const box = (label, val, col) => (
+    <div key={label} style={{ flex: "1 1 90px", border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 11px", background: C.bg }}>
+      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim }}>{label}</div>
+      <div style={{ fontFamily: NUM, fontSize: 20, fontWeight: 700, color: col || C.text }}>{val}</div>
+    </div>
+  );
+  return (
+    <div style={{ marginBottom: 14, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", background: C.card }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+        <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 900, color: C.text }}>📈 My Performance</span>
+        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#0d9465", background: "#0d946518", borderRadius: 4, padding: "1px 7px" }}>PAPER</span>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {box("EQUITY", eq == null ? "—" : "$" + eq.toLocaleString(undefined, { maximumFractionDigits: 0 }))}
+        {box("TODAY", money(dayPl), dayPl == null ? null : dayPl >= 0 ? "#0d9465" : "#c8282a")}
+        {box("REALIZED P&L", money(totalPnl), totalPnl >= 0 ? "#0d9465" : "#c8282a")}
+        {box("WIN RATE", winRate == null ? "—" : winRate + "%", winRate >= 50 ? "#0d9465" : winRate == null ? null : "#d6a312")}
+        {box("TRADES", String(n))}
+        {box("PROFIT FACTOR", pf == null ? "—" : pf === Infinity ? "∞" : pf.toFixed(2), pf == null ? null : pf >= 1.5 ? "#0d9465" : pf >= 1 ? "#d6a312" : "#c8282a")}
+      </div>
+      {n > 0 ? (
+        <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginTop: 8 }}>
+          Best: <b style={{ color: "#0d9465" }}>{best.symbol} {money(best.pnl)}</b> · Worst: <b style={{ color: "#c8282a" }}>{worst.symbol} {money(worst.pnl)}</b> · Profit factor &gt;1 = making money over time.
+        </div>
+      ) : (
+        <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginTop: 8 }}>No closed trades yet — stats fill in as the autopilot's paper positions close. Give it time.</div>
+      )}
+    </div>
+  );
+}
+
 // ONE-CLICK best opportunities: scan a liquid universe, rank the best long
 // buy-points, show top 5 with why / entry / stop / target / R:R. Click → chart.
 const BEST_OPP_UNIVERSE = [
@@ -10526,6 +10580,7 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData }) {
 
   return (
     <div style={{ width: "100%" }}>
+    <PerformanceCard C={C} MONO={MONO} SANS={SANS} />
     <BestOpportunities C={C} MONO={MONO} SANS={SANS} onPick={loadSym} macroData={macroData} />
     <MarketPulseBar C={C} MONO={MONO} SANS={SANS} />
     <SentimentRow C={C} MONO={MONO} SANS={SANS} />
