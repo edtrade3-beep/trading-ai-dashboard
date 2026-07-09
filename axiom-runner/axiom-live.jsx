@@ -9692,7 +9692,14 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
   const [gen, setGen] = useState(null);
   const [sel, setSel] = useState(null);        // symbol → inline 5-min chart
   const [iv, setIv] = useState("5");           // intraday interval
+  const [analysis, setAnalysis] = useState(null);   // full trend-template payload for sel
   const tvTheme = (C.bg && /^#0|^#1/i.test(C.bg)) ? "dark" : "light";
+  useEffect(() => {
+    if (!sel) { setAnalysis(null); return; }
+    setAnalysis(null);
+    fetch("/api/market/trend-template?symbol=" + encodeURIComponent(sel))
+      .then(r => r.json()).then(d => { if (d && !d.error) setAnalysis(d); }).catch(() => {});
+  }, [sel]);
   const scan = () => {
     setState(s => s === "ok" ? "ok" : "loading");
     fetch("/api/market/daytrade-scan").then(r => r.json())
@@ -9723,13 +9730,40 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
               {[["1", "1m"], ["5", "5m"], ["15", "15m"]].map(([v, l]) => (
                 <button key={v} onClick={() => setIv(v)} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${iv === v ? C.accent : C.border}`, background: iv === v ? `${C.accent}16` : "transparent", color: iv === v ? C.accent : C.textDim }}>{l}</button>
               ))}
-              <button onClick={() => onDeepDive && onDeepDive(sel)} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.border}`, background: "transparent", color: C.textDim }}>Full analysis →</button>
+              <button onClick={() => onDeepDive && onDeepDive(sel)} title="Open the deep-dive Smart Scan (technicals, SMC/order blocks, AI trade setup, options, news)" style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.accent}`, background: `${C.accent}12`, color: C.accent }}>🔬 Smart Scan →</button>
               <button onClick={() => setSel(null)} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "4px 9px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.border}`, background: "transparent", color: C.textDim }}>×</button>
             </div>
           </div>
           <iframe key={`dt-${sel}-${iv}`} title="Intraday chart"
             src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sel)}&t=${tvTheme}&h=440&iv=${iv}`}
             style={{ width: "100%", height: 440, border: "none", display: "block" }} />
+          {/* ── Full analysis: swing chart + Trend Template setup + 8-pt checklist ── */}
+          <div style={{ padding: "12px 14px", borderTop: `1px solid ${C.border}` }}>
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, marginBottom: 8 }}>📊 FULL ANALYSIS (SWING CONTEXT)</div>
+            {!analysis && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "20px 0", textAlign: "center" }}>Loading analysis…</div>}
+            {analysis && (
+              <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+                <div style={{ flex: "2 1 420px", minWidth: 320 }}>
+                  <TrendChart data={analysis} C={C} MONO={MONO} SANS={SANS} height={420} />
+                  <TrendSetupPanel data={analysis} C={C} MONO={MONO} SANS={SANS} />
+                </div>
+                {Array.isArray(analysis.criteria) && (
+                  <div style={{ flex: "1 1 260px", minWidth: 240, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, padding: "8px 12px", borderBottom: `1px solid ${C.border}`, background: C.card }}>MINERVINI TEMPLATE · {analysis.score}/8 · {analysis.stage}</div>
+                    {analysis.criteria.map((c) => (
+                      <div key={c.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "7px 12px", borderTop: c.id > 1 ? `1px solid ${C.border}` : "none" }}>
+                        <span style={{ color: c.pass ? "#0d9465" : "#c8282a", fontWeight: 800, fontFamily: SANS, fontSize: 13 }}>{c.pass ? "✓" : "✗"}</span>
+                        <div>
+                          <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: C.text }}>{c.label}</div>
+                          {c.value && <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{c.value}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
       {(state === "loading" && !rows) && <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, padding: "40px 0", textAlign: "center" }}>Scanning intraday momentum…</div>}
