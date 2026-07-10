@@ -1733,8 +1733,9 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       const chunk = universe.slice(i, i + 12);
       const done = await Promise.all(chunk.map(async (sym) => {
         try {
+          // 15-minute timeframe only.
           const [intraday, daily] = await Promise.all([
-            withTimeout(fetchAlpacaBars(sym, "1d", "5m"), 6000, null),
+            withTimeout(fetchAlpacaBars(sym, "5d", "15m"), 6000, null),
             withTimeout(fetchAlpacaBars(sym, "1mo", "1d"), 6000, null),
           ]);
           if (!Array.isArray(intraday) || intraday.length < 3 || !Array.isArray(daily) || daily.length < 5) return null;
@@ -1747,39 +1748,35 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
           if (!prevClose) return null;
           const gapPct = Math.round(((today[0].open - prevClose) / prevClose) * 10000) / 100;
           const chgPct = Math.round(((price - prevClose) / prevClose) * 10000) / 100;
-          // VWAP over today
+          // VWAP over today's 15-min bars
           let pv = 0, vv = 0;
           today.forEach(b => { const tp = (b.high + b.low + b.close) / 3; pv += tp * (b.volume || 0); vv += (b.volume || 0); });
           const vwap = vv ? pv / vv : price;
           const vsVwap = Math.round(((price - vwap) / vwap) * 10000) / 100;
-          // Opening range = first 6 bars (~30 min)
-          const orBars = today.slice(0, 6);
+          // Opening range = first 2 fifteen-min bars (~30 min)
+          const orBars = today.slice(0, 2);
           const orHigh = Math.max(...orBars.map(b => b.high));
-          const orLow = Math.min(...orBars.map(b => b.low));
           const orBreakout = price > orHigh;
           // RVOL — today volume so far vs avg full-day volume (last ~20 sessions)
           const todayVol = today.reduce((s, b) => s + (b.volume || 0), 0);
           const avgVol = daily.slice(-21, -1).reduce((s, b) => s + (b.volume || 0), 0) / Math.max(1, daily.slice(-21, -1).length);
           const rvol = avgVol ? Math.round((todayVol / avgVol) * 100) / 100 : null;
-          // 9/21 EMA on 5-min and 15-min (resampled from 5m: every 3 bars = 15m).
+          // 9 / 21 / 50 EMA on the 15-min series (include the last few prior-day bars
+          // so the EMA has enough data early in the session).
           const ema = (vals, p) => { const k = 2 / (p + 1); let e = vals[0]; for (let i = 1; i < vals.length; i++) e = vals[i] * k + e * (1 - k); return e; };
-          const c5 = today.map(b => b.close);
-          const c15 = []; for (let i = 0; i < today.length; i += 3) c15.push(today[Math.min(i + 2, today.length - 1)].close);
-          const ema9_5 = c5.length >= 9 ? ema(c5, 9) : null;
-          const ema21_5 = c5.length >= 21 ? ema(c5, 21) : null;
-          const ema9_15 = c15.length >= 9 ? ema(c15, 9) : null;
-          const ema21_15 = c15.length >= 21 ? ema(c15, 21) : null;
-          // Bullish stack = price > 9EMA > 21EMA (momentum aligned).
-          const bull5 = ema9_5 != null && ema21_5 != null && price > ema9_5 && ema9_5 > ema21_5;
-          const bull15 = ema9_15 != null && ema21_15 != null && price > ema9_15 && ema9_15 > ema21_15;
-          const ema50_5 = c5.length >= 50 ? ema(c5, 50) : null;
-          // Close strength: where the last bar closed within its own range (top = strong).
+          const c15 = intraday.map(b => b.close);   // full 15m series (multi-day) for stable EMAs
+          const ema9 = c15.length >= 9 ? ema(c15, 9) : null;
+          const ema21 = c15.length >= 21 ? ema(c15, 21) : null;
+          const ema50 = c15.length >= 50 ? ema(c15, 50) : null;
+          // Bullish stack = price > 9EMA > 21EMA on 15-min.
+          const bull15 = ema9 != null && ema21 != null && price > ema9 && ema9 > ema21;
+          // Close strength: where the last 15m bar closed within its own range.
           const lb = today[today.length - 1];
           const rng = lb.high - lb.low;
           const closeStrong = rng > 0 ? ((lb.close - lb.low) / rng) >= 0.6 : price >= vwap;
           const rnd = (v) => v == null ? null : Math.round(v * 100) / 100;
           return { symbol: sym, price: rnd(price), chgPct, gapPct, rvol, vsVwap, aboveVwap: price >= vwap, orBreakout, orHigh: rnd(orHigh),
-            ema9: rnd(ema9_5), ema21: rnd(ema21_5), ema50: rnd(ema50_5), vwap: rnd(vwap), closeStrong, bull5, bull15 };
+            ema9: rnd(ema9), ema21: rnd(ema21), ema50: rnd(ema50), vwap: rnd(vwap), closeStrong, bull15, bull5: bull15 };
         } catch { return null; }
       }));
       out.push(...done.filter(Boolean));

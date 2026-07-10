@@ -9690,9 +9690,12 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
   const [rows, setRows] = useState(null);
   const [state, setState] = useState("idle");
   const [gen, setGen] = useState(null);
-  const [sel, setSel] = useState(null);        // symbol → inline 5-min chart
+  const [sel, setSel] = useState(null);        // symbol → inline chart
   const [selRow, setSelRow] = useState(null);  // full scan row for the status board
-  const [iv, setIv] = useState("5");           // intraday interval
+  const [iv, setIv] = useState("15");          // intraday interval (15-min default)
+  const [showSmart, setShowSmart] = useState(false);  // inline Smart Scan toggle
+  const [analysis2, setAnalysis2] = useState(null);   // trend-template for Smart Scan AI review
+  useEffect(() => { setShowSmart(false); if (!sel) { setAnalysis2(null); return; } fetch("/api/market/trend-template?symbol=" + encodeURIComponent(sel)).then(r => r.json()).then(d => { if (d && !d.error) setAnalysis2(d); }).catch(() => {}); }, [sel]);
   const [analysis, setAnalysis] = useState(null);   // full trend-template payload for sel
   const tvTheme = (C.bg && /^#0|^#1/i.test(C.bg)) ? "dark" : "light";
   useEffect(() => {
@@ -9719,7 +9722,7 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
         <div>
           <div style={{ fontFamily: SANS, fontSize: 22, fontWeight: 900, color: C.text }}>⚡ Day Trade Scanner</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Scans 100+ stocks → top 15 · 9/21 EMA (5m+15m) · VWAP · RVOL · gap · opening-range. Auto-refreshes 1 min.</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Scans 100+ stocks → top 15 · 9/21 EMA (15m) · VWAP · RVOL · gap · opening-range. Auto-refreshes 1 min.</div>
         </div>
         <button onClick={scan} style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, padding: "9px 16px", borderRadius: 10, cursor: "pointer", border: "none", background: C.accent, color: "#fff" }}>↻ Rescan</button>
       </div>
@@ -9735,7 +9738,7 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
               {[["1", "1m"], ["5", "5m"], ["15", "15m"]].map(([v, l]) => (
                 <button key={v} onClick={() => setIv(v)} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${iv === v ? C.accent : C.border}`, background: iv === v ? `${C.accent}16` : "transparent", color: iv === v ? C.accent : C.textDim }}>{l}</button>
               ))}
-              <button onClick={() => onDeepDive && onDeepDive(sel)} title="Open the deep-dive Smart Scan (technicals, SMC/order blocks, AI trade setup, options, news)" style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.accent}`, background: `${C.accent}12`, color: C.accent }}>🔬 Smart Scan →</button>
+              <button onClick={() => setShowSmart(v => !v)} title="Smart Money analysis inline (structure, order blocks, FVGs, AI review)" style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.accent}`, background: showSmart ? C.accent : `${C.accent}12`, color: showSmart ? "#fff" : C.accent }}>🔬 Smart Scan</button>
               <button onClick={() => setSel(null)} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "4px 9px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.border}`, background: "transparent", color: C.textDim }}>×</button>
             </div>
           </div>
@@ -9785,14 +9788,22 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
           <iframe key={`dt-${sel}-${iv}`} title="Intraday chart"
             src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sel)}&t=${tvTheme}&h=440&iv=${iv}&st=ema9,ema21,vwap,volume`}
             style={{ width: "100%", height: 440, border: "none", display: "block" }} />
-          {/* ── Full analysis: swing chart + Trend Template setup + 8-pt checklist ── */}
+          {/* ── Inline Smart Scan (SMC + AI review), no external navigation ── */}
+          {showSmart && (
+            <div style={{ padding: "12px 14px", borderTop: `1px solid ${C.border}` }}>
+              <SmartScanPanel symbol={sel} chart={analysis2} C={C} MONO={MONO} SANS={SANS} />
+            </div>
+          )}
+          {/* ── Full analysis: swing chart (TradingView live) + Trend Template setup + 8-pt checklist ── */}
           <div style={{ padding: "12px 14px", borderTop: `1px solid ${C.border}` }}>
-            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, marginBottom: 8 }}>📊 FULL ANALYSIS (SWING CONTEXT)</div>
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, marginBottom: 8 }}>📊 FULL ANALYSIS (SWING CONTEXT · DAILY)</div>
             {!analysis && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "20px 0", textAlign: "center" }}>Loading analysis…</div>}
             {analysis && (
               <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
                 <div style={{ flex: "2 1 420px", minWidth: 320 }}>
-                  <TrendChart data={analysis} C={C} MONO={MONO} SANS={SANS} height={420} />
+                  <iframe key={`dt-daily-${sel}`} title="Daily chart"
+                    src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sel)}&t=${tvTheme}&h=420&iv=D&st=ema50,vwap,volume`}
+                    style={{ width: "100%", height: 420, border: `1px solid ${C.border}`, borderRadius: 10, display: "block" }} />
                   <TrendSetupPanel data={analysis} C={C} MONO={MONO} SANS={SANS} />
                 </div>
                 {Array.isArray(analysis.criteria) && (
@@ -9833,13 +9844,12 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
               <div style={{ textAlign: "right", display: "flex", gap: 4, justifyContent: "flex-end", flexWrap: "wrap" }}>
                 {r.orBreakout && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#0d9465", background: "#0d946518", borderRadius: 4, padding: "1px 5px" }}>OR BREAK</span>}
                 <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: r.aboveVwap ? "#0d9465" : "#c8282a", background: (r.aboveVwap ? "#0d9465" : "#c8282a") + "18", borderRadius: 4, padding: "1px 5px" }}>{r.aboveVwap ? "＞VWAP" : "＜VWAP"}</span>
-                {r.bull5 && <span title="Price > 9EMA > 21EMA on 5-min" style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#0d9465", background: "#0d946518", borderRadius: 4, padding: "1px 5px" }}>9&gt;21 5m</span>}
-                {r.bull15 && <span title="Price > 9EMA > 21EMA on 15-min" style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#0891b2", background: "#0891b218", borderRadius: 4, padding: "1px 5px" }}>9&gt;21 15m</span>}
+                {r.bull15 && <span title="Price > 9EMA > 21EMA on 15-min" style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#0d9465", background: "#0d946518", borderRadius: 4, padding: "1px 5px" }}>9&gt;21</span>}
               </div>
             </div>
           ))}
           <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, padding: "8px 14px" }}>
-            OR BREAK = broke opening-range high · ＞VWAP = above VWAP · 9&gt;21 = price above 9EMA above 21EMA (momentum stack) on 5m/15m. Chart shows 9/21 EMA + VWAP. Tap a row for its chart. {gen ? "· " + new Date(gen).toLocaleTimeString() : ""}
+            OR BREAK = broke opening-range high · ＞VWAP = above VWAP · 9&gt;21 = price above 9EMA above 21EMA (momentum stack) on 15-min. Chart shows 9/21 EMA + VWAP. Tap a row for its chart. {gen ? "· " + new Date(gen).toLocaleTimeString() : ""}
           </div>
         </div>
       )}
