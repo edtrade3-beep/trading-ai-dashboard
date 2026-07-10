@@ -9707,7 +9707,7 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
       .then(j => { if (j.ok && j.rows) { setRows(j.rows); setGen(j.generatedAt); setState(j.rows.length ? "ok" : "none"); } else setState("err"); })
       .catch(() => setState(s => s === "ok" ? "ok" : "err"));
   };
-  useEffect(() => { scan(); const t = setInterval(scan, 90000); return () => clearInterval(t); }, []);
+  useEffect(() => { scan(); const t = setInterval(scan, 60000); return () => clearInterval(t); }, []);
   const col = (v) => v == null ? C.textDim : v > 0 ? "#0d9465" : v < 0 ? "#c8282a" : C.text;
   const pct = (v) => v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2) + "%";
   return (
@@ -9719,7 +9719,7 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
         <div>
           <div style={{ fontFamily: SANS, fontSize: 22, fontWeight: 900, color: C.text }}>⚡ Day Trade Scanner</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Scans 100+ stocks → top 15 · 9/21 EMA (5m+15m) · VWAP · RVOL · gap · opening-range. Auto-refreshes 90s.</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Scans 100+ stocks → top 15 · 9/21 EMA (5m+15m) · VWAP · RVOL · gap · opening-range. Auto-refreshes 1 min.</div>
         </div>
         <button onClick={scan} style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, padding: "9px 16px", borderRadius: 10, cursor: "pointer", border: "none", background: C.accent, color: "#fff" }}>↻ Rescan</button>
       </div>

@@ -1724,7 +1724,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     const custom = (searchParams.get("symbols") || "").split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
     const universe = [...new Set((custom.length ? custom.slice(0, 130) : DAYTRADE_UNIVERSE))];
     const now = Date.now();
-    if (_dtCache.rows && _dtCache.key === universe.join(",") && (now - _dtCache.at) < 90000) {
+    if (_dtCache.rows && _dtCache.key === universe.join(",") && (now - _dtCache.at) < 55000) {
       return writeJson(res, 200, { ok: true, cached: true, rows: _dtCache.rows, generatedAt: new Date(_dtCache.at).toISOString() });
     }
     const { fetchAlpacaBars } = require("../providers/alpaca-data");
