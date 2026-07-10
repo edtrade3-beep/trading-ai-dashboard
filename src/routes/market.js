@@ -1781,7 +1781,9 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     // Score: momentum bias — breakout + above VWAP + gap + RVOL + move.
     const score = (r) => (r.orBreakout ? 35 : 0) + (r.aboveVwap ? 22 : -10) + (r.bull5 ? 20 : 0) + (r.bull15 ? 15 : 0) + Math.max(0, Math.min(18, r.gapPct * 3)) + Math.max(0, Math.min(25, (r.rvol || 0) * 8)) + Math.max(-15, Math.min(18, r.chgPct * 2));
     const rows = out.map(r => ({ ...r, score: Math.round(score(r)) })).sort((a, b) => b.score - a.score);
-    _dtCache = { key: universe.join(","), at: now, rows };
+    // Only cache a non-empty result — a scan that failed (all fetches null during
+    // a redeploy / rate-limit) must not poison the cache for 90s.
+    if (rows.length) _dtCache = { key: universe.join(","), at: now, rows };
     return writeJson(res, 200, { ok: true, rows, generatedAt: new Date(now).toISOString() });
   }
 
@@ -1826,7 +1828,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       }));
       enriched.push(...done.filter(Boolean));
     }
-    _lbCache = { key: cacheKey, at: now, rows: enriched };
+    if (enriched.length) _lbCache = { key: cacheKey, at: now, rows: enriched };
     return writeJson(res, 200, buildLeaderboard(enriched, n, now));
   }
 
