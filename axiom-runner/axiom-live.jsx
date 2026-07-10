@@ -9712,6 +9712,10 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
   const pct = (v) => v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2) + "%";
   return (
     <div style={{ width: "100%", maxWidth: 1100 }}>
+      <style>{`
+        @keyframes dtGoPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(13,148,101,0.55); } 50% { box-shadow: 0 0 22px 4px rgba(13,148,101,0.55); } }
+        @keyframes dtGoBanner { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+      `}</style>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
         <div>
           <div style={{ fontFamily: SANS, fontSize: 22, fontWeight: 900, color: C.text }}>⚡ Day Trade Scanner</div>
@@ -9753,18 +9757,28 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
               </div>
             );
             const px = (v) => v == null ? "—" : "$" + v.toFixed(2);
+            // ALL SYSTEMS GO — every core signal aligned.
+            const allGo = r.bull5 && r.aboveVwap && r.orBreakout && (r.rvol || 0) >= 1.5 && r.closeStrong;
             return (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4, padding: "8px 10px", background: C.card, borderBottom: `1px solid ${C.border}` }}>
-                {cell("EMA 21", px(r.ema21), G)}
-                {cell("RISK", risk[0], risk[1])}
-                {cell("BUY", buy[0], buy[1])}
-                {cell("EXIT", exit[0], exit[1])}
-                {cell("TREND", trend[0], trend[1])}
-                {cell("EMA 50", px(r.ema50), G)}
-                {cell("VWAP", px(r.vwap), r.aboveVwap ? G : R)}
-                {cell("STOP", stop[0], stop[1])}
-                {cell("RVOL", rvolCell[0], rvolCell[1])}
-                {cell("CLOSE", close[0], close[1])}
+              <div style={{ padding: "8px 10px", background: C.card, borderBottom: `1px solid ${C.border}` }}>
+                {allGo && (
+                  <div style={{ textAlign: "center", fontFamily: MONO, fontSize: 13, fontWeight: 900, color: "#fff", background: G, borderRadius: 6, padding: "5px 0", marginBottom: 6, letterSpacing: 1, animation: "dtGoBanner 0.9s ease-in-out infinite" }}>
+                    🟢 ALL SYSTEMS GO — every signal aligned
+                  </div>
+                )}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4, borderRadius: 8, padding: allGo ? 4 : 0,
+                  border: allGo ? `2px solid ${G}` : "none", animation: allGo ? "dtGoPulse 1.1s ease-in-out infinite" : "none" }}>
+                  {cell("EMA 21", px(r.ema21), G)}
+                  {cell("RISK", risk[0], risk[1])}
+                  {cell("BUY", buy[0], buy[1])}
+                  {cell("EXIT", exit[0], exit[1])}
+                  {cell("TREND", trend[0], trend[1])}
+                  {cell("EMA 50", px(r.ema50), G)}
+                  {cell("VWAP", px(r.vwap), r.aboveVwap ? G : R)}
+                  {cell("STOP", stop[0], stop[1])}
+                  {cell("RVOL", rvolCell[0], rvolCell[1])}
+                  {cell("CLOSE", close[0], close[1])}
+                </div>
               </div>
             );
           })()}
