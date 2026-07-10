@@ -1740,13 +1740,25 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
           const todayVol = today.reduce((s, b) => s + (b.volume || 0), 0);
           const avgVol = daily.slice(-21, -1).reduce((s, b) => s + (b.volume || 0), 0) / Math.max(1, daily.slice(-21, -1).length);
           const rvol = avgVol ? Math.round((todayVol / avgVol) * 100) / 100 : null;
-          return { symbol: sym, price: Math.round(price * 100) / 100, chgPct, gapPct, rvol, vsVwap, aboveVwap: price >= vwap, orBreakout, orHigh: Math.round(orHigh * 100) / 100 };
+          // 9/21 EMA on 5-min and 15-min (resampled from 5m: every 3 bars = 15m).
+          const ema = (vals, p) => { const k = 2 / (p + 1); let e = vals[0]; for (let i = 1; i < vals.length; i++) e = vals[i] * k + e * (1 - k); return e; };
+          const c5 = today.map(b => b.close);
+          const c15 = []; for (let i = 0; i < today.length; i += 3) c15.push(today[Math.min(i + 2, today.length - 1)].close);
+          const ema9_5 = c5.length >= 9 ? ema(c5, 9) : null;
+          const ema21_5 = c5.length >= 21 ? ema(c5, 21) : null;
+          const ema9_15 = c15.length >= 9 ? ema(c15, 9) : null;
+          const ema21_15 = c15.length >= 21 ? ema(c15, 21) : null;
+          // Bullish stack = price > 9EMA > 21EMA (momentum aligned).
+          const bull5 = ema9_5 != null && ema21_5 != null && price > ema9_5 && ema9_5 > ema21_5;
+          const bull15 = ema9_15 != null && ema21_15 != null && price > ema9_15 && ema9_15 > ema21_15;
+          return { symbol: sym, price: Math.round(price * 100) / 100, chgPct, gapPct, rvol, vsVwap, aboveVwap: price >= vwap, orBreakout, orHigh: Math.round(orHigh * 100) / 100,
+            ema9: ema9_5 != null ? Math.round(ema9_5 * 100) / 100 : null, ema21: ema21_5 != null ? Math.round(ema21_5 * 100) / 100 : null, bull5, bull15 };
         } catch { return null; }
       }));
       out.push(...done.filter(Boolean));
     }
     // Score: momentum bias — breakout + above VWAP + gap + RVOL + move.
-    const score = (r) => (r.orBreakout ? 40 : 0) + (r.aboveVwap ? 25 : -10) + Math.max(0, Math.min(20, r.gapPct * 3)) + Math.max(0, Math.min(25, (r.rvol || 0) * 8)) + Math.max(-15, Math.min(20, r.chgPct * 2));
+    const score = (r) => (r.orBreakout ? 35 : 0) + (r.aboveVwap ? 22 : -10) + (r.bull5 ? 20 : 0) + (r.bull15 ? 15 : 0) + Math.max(0, Math.min(18, r.gapPct * 3)) + Math.max(0, Math.min(25, (r.rvol || 0) * 8)) + Math.max(-15, Math.min(18, r.chgPct * 2));
     const rows = out.map(r => ({ ...r, score: Math.round(score(r)) })).sort((a, b) => b.score - a.score);
     _dtCache = { key: universe.join(","), at: now, rows };
     return writeJson(res, 200, { ok: true, rows, generatedAt: new Date(now).toISOString() });

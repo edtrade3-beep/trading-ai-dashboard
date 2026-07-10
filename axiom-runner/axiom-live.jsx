@@ -9735,7 +9735,7 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
             </div>
           </div>
           <iframe key={`dt-${sel}-${iv}`} title="Intraday chart"
-            src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sel)}&t=${tvTheme}&h=440&iv=${iv}`}
+            src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sel)}&t=${tvTheme}&h=440&iv=${iv}&st=ema9,ema21,vwap,volume`}
             style={{ width: "100%", height: 440, border: "none", display: "block" }} />
           {/* ── Full analysis: swing chart + Trend Template setup + 8-pt checklist ── */}
           <div style={{ padding: "12px 14px", borderTop: `1px solid ${C.border}` }}>
@@ -9785,11 +9785,13 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
               <div style={{ textAlign: "right", display: "flex", gap: 4, justifyContent: "flex-end", flexWrap: "wrap" }}>
                 {r.orBreakout && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#0d9465", background: "#0d946518", borderRadius: 4, padding: "1px 5px" }}>OR BREAK</span>}
                 <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: r.aboveVwap ? "#0d9465" : "#c8282a", background: (r.aboveVwap ? "#0d9465" : "#c8282a") + "18", borderRadius: 4, padding: "1px 5px" }}>{r.aboveVwap ? "＞VWAP" : "＜VWAP"}</span>
+                {r.bull5 && <span title="Price > 9EMA > 21EMA on 5-min" style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#0d9465", background: "#0d946518", borderRadius: 4, padding: "1px 5px" }}>9&gt;21 5m</span>}
+                {r.bull15 && <span title="Price > 9EMA > 21EMA on 15-min" style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#0891b2", background: "#0891b218", borderRadius: 4, padding: "1px 5px" }}>9&gt;21 15m</span>}
               </div>
             </div>
           ))}
           <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, padding: "8px 14px" }}>
-            OR BREAK = broke opening-range high · ＞VWAP = above volume-weighted avg (bullish intraday). Tap a row for its chart. {gen ? "· " + new Date(gen).toLocaleTimeString() : ""}
+            OR BREAK = broke opening-range high · ＞VWAP = above VWAP · 9&gt;21 = price above 9EMA above 21EMA (momentum stack) on 5m/15m. Chart shows 9/21 EMA + VWAP. Tap a row for its chart. {gen ? "· " + new Date(gen).toLocaleTimeString() : ""}
           </div>
         </div>
       )}

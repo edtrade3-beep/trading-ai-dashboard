@@ -14,9 +14,21 @@
       var symbol = (q.get("s") || "SPY").toUpperCase();
       var iv = q.get("iv") || "D";            // "1","5","15","60","D","W"
       var theme = (q.get("t") || "light").toLowerCase() === "dark" ? "dark" : "light";
-      var st = (q.get("st") || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
-      // Default studies for a trading view: moving averages + volume.
-      var studies = st.length ? st : ["MASimple@tv-basicstudies", "Volume@tv-basicstudies"];
+      var st = (q.get("st") || "").split(",").map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean);
+      // Friendly study names → TradingView study configs (with EMA lengths).
+      function mapStudy(name) {
+        if (name === "ema9")  return { id: "MAExp@tv-basicstudies", inputs: { length: 9 } };
+        if (name === "ema21") return { id: "MAExp@tv-basicstudies", inputs: { length: 21 } };
+        if (name === "ema50") return { id: "MAExp@tv-basicstudies", inputs: { length: 50 } };
+        if (name === "vwap")  return "VWAP@tv-basicstudies";
+        if (name === "volume") return "Volume@tv-basicstudies";
+        if (name === "rsi")   return "RSI@tv-basicstudies";
+        if (name === "macd")  return "MACD@tv-basicstudies";
+        return name;   // pass through raw study ids
+      }
+      var studies = st.length
+        ? st.map(mapStudy)
+        : ["MASimple@tv-basicstudies", "Volume@tv-basicstudies"];
       function build() {
         if (!window.TradingView) { setTimeout(build, 200); return; }
         new TradingView.widget({
