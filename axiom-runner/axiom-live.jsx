@@ -10452,6 +10452,54 @@ function TrendSetupPanel({ data, C, MONO, SANS }) {
   );
 }
 
+// Position sizing off the saved account/risk % + an AI second opinion on the loaded
+// setup — the two pieces the standalone Trade Analyzer had that the Terminal chart
+// tab didn't (ported from RhProAnalyzer so that tab can be retired).
+function TradeExtrasPanel({ data, macroData, C, MONO, SANS }) {
+  const [ai, setAi] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  useEffect(() => { setAi(""); }, [data?.symbol]);
+  if (!data || !data.setup) return null;
+  const s = data.setup;
+  const entry = Number(s.entry || data.price || 0), stop = Number(s.stop || 0);
+  const riskPS = Math.max(0.01, entry - stop);
+  const rr = s.target2 != null ? (Number(s.target2) - entry) / riskPS : 0;
+  const acct = Number(localStorage.getItem("axiom_acct_size")) || 10000;
+  const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
+  const shares = riskPS > 0 ? Math.floor((acct * riskPct / 100) / riskPS) : 0;
+  const dollarRisk = +(shares * riskPS).toFixed(0);
+  const regime = computeRegime(macroData);
+  const buyPoint = !!(s.actionable && !s.extended);
+  const Row = ({ k, v, c }) => <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}`, fontFamily: SANS, fontSize: 13 }}><span style={{ color: C.textDim }}>{k}</span><span style={{ fontFamily: MONO, fontWeight: 700, color: c || C.text }}>{v}</span></div>;
+  const askAi = () => {
+    setAiLoading(true);
+    fetch("/api/market/ai-setup-review", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ setup: { symbol: data.symbol, px: data.price, chg: 0,
+        aScore: Math.round(rr * 20), grade: s.verdict, marketScore: regime.score, marketPass: regime.score >= 75,
+        sector: null, relStrength: data.rsRating, rvol: (data.volRatio || 0).toFixed(1),
+        bestEntry: s.ema21 || s.entry, stop: s.stop, rr: rr.toFixed(1), atEntry: buyPoint } }) })
+      .then(r => r.json()).then(d => setAi(d.ok ? d.review : `⚠ ${d.error || "AI unavailable"}`))
+      .catch(e => setAi("⚠ " + e.message)).finally(() => setAiLoading(false));
+  };
+  return (
+    <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, maxWidth: 320 }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>POSITION SIZE</div>
+        <Row k="Account" v={`$${acct.toLocaleString()}`} />
+        <Row k="Risk per trade" v={`${riskPct}%`} />
+        <Row k="Suggested shares" v={shares} c={C.accent} />
+        <Row k="Dollar risk (max loss)" v={`$${dollarRisk}`} c={C.red} />
+        <Row k="Capital deployed" v={`$${(shares * entry).toFixed(0)}`} />
+        <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 6 }}>Sizes off your saved account & risk % (Tools tab).</div>
+      </div>
+      <div>
+        <button onClick={askAi} disabled={aiLoading} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "9px 16px", borderRadius: 8, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, cursor: "pointer" }}>{aiLoading ? "⏳ asking AI…" : "🧠 AI second opinion"}</button>
+        {ai && <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 10, background: `${C.accent}0a`, border: `1px solid ${C.accent}33`, fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{ai}</div>}
+      </div>
+    </div>
+  );
+}
+
 // "How am I doing" — real results of the paper account: equity, realized P&L,
 // win rate, profit factor, best/worst — from Alpaca closed trades.
 function PerformanceCard({ C, MONO, SANS }) {
@@ -10757,7 +10805,11 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData, onDeepDive })
       .catch(() => {})
       .finally(() => setLoadingChart(false));
   }, []);
-  useEffect(() => { loadSym("NVDA"); }, [loadSym]);
+  useEffect(() => {
+    let pending = null;
+    try { pending = localStorage.getItem("mterminal_load_sym"); if (pending) localStorage.removeItem("mterminal_load_sym"); } catch {}
+    loadSym(pending || "NVDA");
+  }, [loadSym]);
 
   // Live refresh — silently re-pull the loaded symbol every 45s (no spinner, keeps
   // chart zoom) so price + setup stay current during the session.
@@ -10975,6 +11027,7 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData, onDeepDive })
               ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={520} />
               : <div style={{ height: 520, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
             <TrendSetupPanel data={chart} C={C} MONO={MONO} SANS={SANS} />
+            <TradeExtrasPanel data={chart} macroData={macroData} C={C} MONO={MONO} SANS={SANS} />
             <AiWhyPanel symbol={sym} price={chart && chart.price} changePct={symDayPct} C={C} MONO={MONO} SANS={SANS} />
             <AiPredictPanel symbol={sym} chart={chart} C={C} MONO={MONO} SANS={SANS} />
           </>
@@ -20363,7 +20416,7 @@ function RhProWatchlists({ C, MONO, SANS, setActiveTab }) {
     );
   };
   useEffect(() => { scan(); }, []);
-  const analyze = (sym) => { try { localStorage.setItem("rhpro_analyze_sym", sym); } catch {} setActiveTab && setActiveTab("rhpro-analyze"); };
+  const analyze = (sym) => { try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab && setActiveTab("mterminal"); };
 
   const st2 = r => (r.stage || "").includes("2");
   const st4 = r => (r.stage || "").includes("4");
@@ -25181,8 +25234,7 @@ export default function App() {
             // ── Find setups ──
             { id: "rhpro-scan", label: "🎯 SNIPER SCANNER" },
             { id: "rhpro-heat", label: "🗺 HEAT MAP" },
-            // ── Analyze ──
-            { id: "rhpro-analyze", label: "🔬 ANALYZER" },
+            // ── Analyze (now the Terminal chart tab — Trend Template + AI second opinion) ──
             { id: "rhpro-lists", label: "📋 WATCHLISTS" },
             // ── Trade & positions ──
             { id: "greenlight",   label: "🟢 GREEN LIGHT + AUTOPILOT" },
