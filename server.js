@@ -22,7 +22,6 @@ const path = require("node:path");
 const { PORT, HOST } = require("./src/config");
 const handleRequest = require("./src/router");
 const { startPriceAlertMonitor } = require("./src/price-alert-monitor");
-// const { startFbScheduler } = require("./src/fb-scheduler"); // disabled — not relevant to trading
 const { startMarketScanner, sendMacroReport, scanWatchlistAlerts, scanEntryZoneAlerts } = require("./src/market-scanner");
 const { startTelegramBot }    = require("./src/telegram-bot");
 const { checkDealWatches }   = require("./src/routes/deals");

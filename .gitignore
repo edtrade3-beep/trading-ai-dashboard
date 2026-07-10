@@ -9,5 +9,4 @@ lt-pid.txt
 data/
 
 # build artifacts
-node_modules/
 axiom-runner/axiom-live.compiled.js
