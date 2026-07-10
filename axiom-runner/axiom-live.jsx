@@ -9714,7 +9714,7 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
         <div>
           <div style={{ fontFamily: SANS, fontSize: 22, fontWeight: 900, color: C.text }}>⚡ Day Trade Scanner</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Intraday momentum — gap · RVOL · VWAP · opening-range breakout. Auto-refreshes 90s.</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Scans 100+ stocks → top 15 · 9/21 EMA (5m+15m) · VWAP · RVOL · gap · opening-range. Auto-refreshes 90s.</div>
         </div>
         <button onClick={scan} style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, padding: "9px 16px", borderRadius: 10, cursor: "pointer", border: "none", background: C.accent, color: "#fff" }}>↻ Rescan</button>
       </div>
@@ -9774,9 +9774,9 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
           <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 0.9fr 1fr 1.3fr", padding: "9px 14px", background: C.card, borderBottom: `2px solid ${C.border}`, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim }}>
             <div>SYMBOL</div><div style={{ textAlign: "right" }}>PRICE</div><div style={{ textAlign: "right" }}>DAY %</div><div style={{ textAlign: "right" }}>GAP</div><div style={{ textAlign: "right" }}>RVOL</div><div style={{ textAlign: "right" }}>SIGNALS</div>
           </div>
-          {rows.slice(0, 20).map((r, i) => (
+          {rows.slice(0, 15).map((r, i) => (
             <div key={r.symbol} onClick={() => setSel(r.symbol)}
-              style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 0.9fr 1fr 1.3fr", padding: "10px 14px", alignItems: "center", cursor: "pointer", borderBottom: i < 19 ? `1px solid ${C.border}` : "none", background: i % 2 ? "transparent" : "rgba(127,127,127,0.03)" }}>
+              style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 0.9fr 1fr 1.3fr", padding: "10px 14px", alignItems: "center", cursor: "pointer", borderBottom: i < 14 ? `1px solid ${C.border}` : "none", background: i % 2 ? "transparent" : "rgba(127,127,127,0.03)" }}>
               <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 14, color: C.text }}>{r.symbol}</div>
               <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.text }}>${r.price.toFixed(2)}</div>
               <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col(r.chgPct) }}>{pct(r.chgPct)}</div>

@@ -96,10 +96,31 @@ const LEADERBOARD_UNIVERSE = [
 let _lbCache = { key: null, at: 0, rows: null };
 // Liquid, volatile day-trade favorites — the pool the intraday scanner works on.
 const DAYTRADE_UNIVERSE = [
+  // Mega / large-cap movers
   "NVDA","TSLA","AMD","AAPL","META","AMZN","MSFT","AVGO","NFLX","GOOGL",
-  "COIN","MARA","RIOT","CLSK","MSTR","PLTR","SOFI","HOOD","NIO","RIVN",
-  "MU","SMCI","ARM","AFRM","UPST","DKNG","SNAP","UBER","SHOP","BABA",
-  "F","AAL","CCL","PLUG","AMC","GME","INTC","WBD","LCID","CVNA",
+  "GOOG","AVGO","MU","SMCI","ARM","QCOM","INTC","TXN","MRVL","ANET",
+  "ORCL","CRM","ADBE","NOW","PANW","CRWD","SNOW","DDOG","NET","ZS",
+  // Crypto-linked (high beta)
+  "COIN","MARA","RIOT","CLSK","MSTR","HUT","WULF","IREN","CIFR","BITF",
+  "HOOD","SOFI","BTC","BITO",
+  // Momentum / growth / meme
+  "PLTR","AFRM","UPST","DKNG","RBLX","U","PATH","AI","IONQ","RGTI",
+  "SNAP","PINS","UBER","LYFT","SHOP","ABNB","DASH","RDDT","CVNA","CHWY",
+  "AMC","GME","BBAI","SOUN","LUNR","ACHR","JOBY","RKLB","ASTS","DNA",
+  // China / intl
+  "BABA","PDD","JD","NIO","LI","XPEV","BIDU","TSM",
+  // Autos / industrials / airlines / cruise
+  "F","GM","RIVN","LCID","AAL","UAL","DAL","CCL","NCLH","BA",
+  // Financials / payments
+  "PYPL","SQ","V","MA","JPM","BAC","GS","SCHW","NU",
+  // Biotech / pharma runners
+  "MRNA","PFE","VKTX","HIMS","OSCR",
+  // Energy / materials
+  "XOM","CVX","OXY","CCJ","FCX","CLF","AA","PLUG","FCEL","ENPH",
+  // Media / retail / other liquid
+  "DIS","WBD","PARA","T","INTC","WMT","COST","NKE","SBUX","LULU",
+  // Index / sector ETFs (great intraday liquidity)
+  "SPY","QQQ","IWM","SMH","XLE","XLF","ARKK","TQQQ","SQQQ","SOXL",
 ];
 let _dtCache = { key: null, at: 0, rows: null };
 let _fgCache = { at: 0, data: null };   // Fear & Greed (slow — Yahoo-dependent)
@@ -1701,15 +1722,15 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
   // VWAP position, and opening-range breakout. Cached 90s.
   if (pathname === "/api/market/daytrade-scan") {
     const custom = (searchParams.get("symbols") || "").split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
-    const universe = custom.length ? custom.slice(0, 60) : DAYTRADE_UNIVERSE;
+    const universe = [...new Set((custom.length ? custom.slice(0, 130) : DAYTRADE_UNIVERSE))];
     const now = Date.now();
     if (_dtCache.rows && _dtCache.key === universe.join(",") && (now - _dtCache.at) < 90000) {
       return writeJson(res, 200, { ok: true, cached: true, rows: _dtCache.rows, generatedAt: new Date(_dtCache.at).toISOString() });
     }
     const { fetchAlpacaBars } = require("../providers/alpaca-data");
     const out = [];
-    for (let i = 0; i < universe.length; i += 8) {
-      const chunk = universe.slice(i, i + 8);
+    for (let i = 0; i < universe.length; i += 12) {
+      const chunk = universe.slice(i, i + 12);
       const done = await Promise.all(chunk.map(async (sym) => {
         try {
           const [intraday, daily] = await Promise.all([
