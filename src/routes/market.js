@@ -102,6 +102,7 @@ const DAYTRADE_UNIVERSE = [
   "F","AAL","CCL","PLUG","AMC","GME","INTC","WBD","LCID","CVNA",
 ];
 let _dtCache = { key: null, at: 0, rows: null };
+let _fgCache = { at: 0, data: null };   // Fear & Greed (slow — Yahoo-dependent)
 
 // Bucket enriched rows into the four Market-Terminal categories.
 function buildLeaderboard(rows, n, at) {
@@ -2089,11 +2090,15 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
 
   // GET /api/market/feargreed
   if (pathname === "/api/market/feargreed" && req.method === "GET") {
+    // Serve from cache (5 min) — this endpoint waits on Yahoo (IP-blocked on
+    // Render → ~12s of timeouts) so recomputing it on every page load is the main
+    // Terminal slowdown. Cache the result so only the first call per 5 min pays it.
+    if (_fgCache.data && (Date.now() - _fgCache.at) < 300000) return writeJson(res, 200, _fgCache.data);
     try {
       const [spyBars, vixBars, tltBars, hygBars] = await Promise.all([
-        withTimeout(fetchYahooBars("SPY",  "1y",  "1d"), 12000, []),
-        withTimeout(fetchYahooBars("^VIX", "3mo", "1d"), 10000, []),
-        withTimeout(fetchYahooBars("TLT",  "3mo", "1d"), 10000, []),
+        withTimeout(fetchYahooBars("SPY",  "1y",  "1d"), 8000, []),
+        withTimeout(fetchYahooBars("^VIX", "3mo", "1d"), 6000, []),
+        withTimeout(fetchYahooBars("TLT",  "3mo", "1d"), 6000, []),
         withTimeout(fetchYahooBars("HYG",  "3mo", "1d"), 10000, []),
       ]);
       const { computeRSI } = require("../indicators");
@@ -2127,7 +2132,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       );
       const fgLabel = composite<=25?"EXTREME FEAR":composite<=45?"FEAR":composite<=55?"NEUTRAL":composite<=75?"GREED":"EXTREME GREED";
       const sign = n => n >= 0 ? "+" : "";
-      return writeJson(res, 200, {
+      const payload = {
         ok:true, fetchedAt:new Date().toISOString(),
         score:composite, label:fgLabel, vix:round2(vix),
         components:[
@@ -2138,7 +2143,9 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
           {name:"Safe Haven Demand", score:safeHavenScore, weight:8,  detail:"TLT " + sign(tltDiff) + round2(tltDiff) + "% (20d)"},
           {name:"Junk Bond Demand",  score:junkScore,      weight:7,  detail:"HYG " + sign(hygDiff) + round2(hygDiff) + "% (20d)"},
         ],
-      });
+      };
+      _fgCache = { at: Date.now(), data: payload };
+      return writeJson(res, 200, payload);
     } catch(err) {
       return writeJson(res, 422, {error:err?.message||"Fear & Greed fetch failed"});
     }
