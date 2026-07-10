@@ -14,12 +14,16 @@ const path = require("node:path");
 const { ROOT } = require("../config");
 const { writeJson } = require("../utils");
 const broker = require("../tradier-broker");
+const {
+  isMarketHoursET, dailyLossBreakerTripped, openRiskPct,
+  sectorCapExceeded, sizePositionByRisk,
+} = require("../risk-guardrails");
 
 const CONFIG_PATH = path.join(ROOT, "data", "autoexec-config.json");
 
 const DEFAULT_CONFIG = {
   enabled:        false,       // master switch — must be explicitly turned on
-  positionSize:   500,         // $ per trade
+  positionSize:   500,         // $ per trade — fallback only, used if risk-based sizing can't be computed
   maxPositions:   3,           // max open auto positions at once
   maxDailyLoss:   200,         // stop trading for the day if realized loss exceeds this ($)
   scoreThreshold: 88,          // minimum composite score to auto-execute
@@ -27,8 +31,13 @@ const DEFAULT_CONFIG = {
   orderType:      "market",    // "market" or "limit"
   limitSlippage:  0.02,        // for limit orders: place limit this % above ask (buy) or below bid (sell)
   allowShorts:    false,       // sell-side auto-execute (requires margin account)
+  riskPct:        1,           // % of equity risked per trade (entry-to-stop), same default as the Alpaca autopilot
+  maxRiskPct:     6,           // total open risk ceiling, % of equity — matches server-autopilot.js
+  maxPerSector:   3,           // sector-correlation cap — matches server-autopilot.js
+  maxNamePct:     20,          // max % of equity in any one name — matches server-autopilot.js
   tradedToday:    [],          // symbols auto-traded today (reset each day)
   lastResetDate:  "",          // YYYY-MM-DD of last daily reset
+  startOfDayEquity: 0,         // equity snapshot at the first reset of the day (Tradier has no last_equity field)
 };
 
 function readConfig() {
@@ -45,23 +54,37 @@ function writeConfig(cfg) {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), "utf8");
 }
 
-// ── Daily reset (tradedToday list clears each calendar day) ──────────────────
-function maybeResetDaily(cfg) {
+// ── Daily reset (tradedToday list clears each calendar day, and we snapshot
+// start-of-day equity for the daily-loss breaker — Tradier's balances API has
+// no Alpaca-style last_equity field, so we have to persist our own). ────────
+async function maybeResetDaily(cfg) {
   const today = new Date().toISOString().slice(0, 10);
   if (cfg.lastResetDate !== today) {
     cfg.tradedToday  = [];
     cfg.lastResetDate = today;
+    const balances = await broker.getBalances().catch(() => null);
+    cfg.startOfDayEquity = Number(balances && balances.totalEquity) || 0;
     writeConfig(cfg);
   }
   return cfg;
 }
 
+// Normalize Tradier's {symbol, quantity, costBasis} into the {symbol, qty,
+// avgEntryPrice} shape risk-guardrails.js expects.
+function normalizePositions(positions) {
+  return (positions || []).map(p => ({
+    symbol: p.symbol, qty: p.quantity,
+    avgEntryPrice: p.quantity ? Math.abs(p.costBasis / p.quantity) : 0,
+  }));
+}
+
 // ── Exported for market-scanner.js to call ───────────────────────────────────
 async function maybeAutoExecute({ symbol, signal, composite, price, support, resistance, rvol }) {
   if (!broker.isConfigured()) return null;
+  if (!isMarketHoursET()) return null;
 
   let cfg = readConfig();
-  cfg = maybeResetDaily(cfg);
+  cfg = await maybeResetDaily(cfg);
 
   if (!cfg.enabled) return null;
   if (composite < cfg.scoreThreshold) return null;
@@ -73,20 +96,43 @@ async function maybeAutoExecute({ symbol, signal, composite, price, support, res
   // Already traded this symbol today
   if (cfg.tradedToday.includes(symbol)) return null;
 
+  const balances = await broker.getBalances().catch(() => null);
+  const equity = Number(balances && balances.totalEquity) || 0;
+  if (!(equity > 0)) return null;
+
+  // Daily-loss circuit breaker — was fetched-but-never-enforced before; now it
+  // actually stops new trades once today's loss crosses maxDailyLoss.
+  if (dailyLossBreakerTripped({ equity, startOfDayEquity: cfg.startOfDayEquity, maxLossAbs: cfg.maxDailyLoss })) return null;
+
   // Check max open positions
   let positions = [];
   try { positions = await broker.getPositions(); } catch { return null; }
   const autoPositions = positions.filter(p => (cfg.tradedToday || []).includes(p.symbol));
   if (autoPositions.length >= cfg.maxPositions) return null;
 
-  // Check daily loss limit
-  const balances = await broker.getBalances().catch(() => null);
-  // (Full P&L tracking would require order history; for now we gate on position count)
+  const normPositions = normalizePositions(positions);
 
-  // Determine share quantity from position size
-  const qty = Math.max(1, Math.floor(cfg.positionSize / price));
+  // Total open-risk ceiling — same math/defaults as the Alpaca autopilot.
+  if (openRiskPct({ positions: normPositions, equity }) >= cfg.maxRiskPct) return null;
+
+  // Sector-correlation cap — same math/defaults as the Alpaca autopilot.
+  if (sectorCapExceeded({ positions: normPositions, symbol, maxPerSector: cfg.maxPerSector })) return null;
 
   const side = signal === "BUY" ? "buy" : "sell";
+
+  // Risk-based sizing for the long (BUY) path — entry/stop come from the
+  // scanner's support level, same convention market-scanner.js already uses
+  // for its Telegram "Stop $X" message. If a valid stop can't be derived,
+  // skip the trade rather than fall back to flat/risk-blind sizing.
+  let qty;
+  if (side === "buy") {
+    const availCash = Number(balances && balances.totalCash) || 0;
+    qty = sizePositionByRisk({ equity, riskPct: cfg.riskPct, entry: price, stop: support, availCash, maxNamePct: cfg.maxNamePct });
+    if (qty < 1) return null;
+  } else {
+    // Shorts are opt-in (allowShorts) and rare — flat position-size fallback.
+    qty = Math.max(1, Math.floor(cfg.positionSize / price));
+  }
 
   let orderPrice = null;
   if (cfg.orderType === "limit") {
@@ -124,7 +170,7 @@ async function handleAutoExec(req, res, requestUrl) {
 
   // GET /api/autoexec/config
   if (pathname === "/api/autoexec/config" && method === "GET") {
-    const cfg = maybeResetDaily(readConfig());
+    const cfg = await maybeResetDaily(readConfig());
     return writeJson(res, 200, {
       ...cfg,
       brokerConfigured: broker.isConfigured(),
@@ -141,7 +187,8 @@ async function handleAutoExec(req, res, requestUrl) {
 
     const cfg = readConfig();
     const allowed = ["enabled","positionSize","maxPositions","maxDailyLoss","scoreThreshold",
-                     "rvolThreshold","orderType","limitSlippage","allowShorts"];
+                     "rvolThreshold","orderType","limitSlippage","allowShorts",
+                     "riskPct","maxRiskPct","maxPerSector","maxNamePct"];
     for (const k of allowed) {
       if (updates[k] !== undefined) cfg[k] = updates[k];
     }

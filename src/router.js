@@ -46,10 +46,14 @@ async function handleRequest(req, res) {
     // When set, these POST routes require header x-api-token === the token.
     // Read-only data + the app itself stay open, so you can always load and fix it.
     const AUTH_TOKEN = (process.env.API_AUTH_TOKEN || "").trim();
-    if (AUTH_TOKEN && req.method === "POST" && (
+    if (AUTH_TOKEN && (req.method === "POST" || req.method === "DELETE") && (
       pathname === "/api/alpaca/order" || pathname === "/api/alpaca/close" ||
       pathname === "/api/alpaca/option-order" || pathname === "/api/alpaca/liquidate-options" ||
-      pathname === "/api/notify"
+      pathname === "/api/notify" ||
+      // Tradier can go LIVE (TRADIER_LIVE=true) — its config/order/cancel routes
+      // need the same gate the Alpaca equivalents already have. (Read-only GETs
+      // like /positions and /orders aren't POST/DELETE, so they stay open.)
+      pathname.startsWith("/api/autoexec/")
     )) {
       const tok = req.headers["x-api-token"] || "";
       if (tok !== AUTH_TOKEN) return writeJson(res, 401, { ok: false, error: "unauthorized — set your API token in Settings" });
