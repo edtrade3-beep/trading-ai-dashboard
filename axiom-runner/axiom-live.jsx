@@ -10397,11 +10397,12 @@ function BestOpportunities({ C, MONO, SANS, onPick, macroData }) {
       })
       .catch(() => setState(s => s === "ok" ? "ok" : "err"));
   };
-  // Auto-scan on mount + every 5 minutes (re-runs when the quality filter changes).
+  // Auto-scan on mount + every 5 minutes. Defer the first (heavy, 40-symbol) scan
+  // ~1.6s so the chart/movers/pulse load first instead of competing for the server.
   useEffect(() => {
-    scan();
+    const kick = setTimeout(scan, 1600);
     const t = setInterval(scan, 5 * 60 * 1000);
-    return () => clearInterval(t);
+    return () => { clearTimeout(kick); clearInterval(t); };
   }, [onlyStrong]); // eslint-disable-line
   const vBadge = (r) => {
     if (r.verdict === "GO" || (r.atBuyPoint && r.volConfirmed)) return ["🟢 GO — buy point", "#0d9465"];
