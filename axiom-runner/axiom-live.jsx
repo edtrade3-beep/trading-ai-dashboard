@@ -9691,6 +9691,7 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
   const [state, setState] = useState("idle");
   const [gen, setGen] = useState(null);
   const [sel, setSel] = useState(null);        // symbol → inline 5-min chart
+  const [selRow, setSelRow] = useState(null);  // full scan row for the status board
   const [iv, setIv] = useState("5");           // intraday interval
   const [analysis, setAnalysis] = useState(null);   // full trend-template payload for sel
   const tvTheme = (C.bg && /^#0|^#1/i.test(C.bg)) ? "dark" : "light";
@@ -9734,6 +9735,39 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
               <button onClick={() => setSel(null)} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "4px 9px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.border}`, background: "transparent", color: C.textDim }}>×</button>
             </div>
           </div>
+          {/* ── Signal status board ── */}
+          {selRow && selRow.symbol === sel && (() => {
+            const r = selRow;
+            const G = "#0d9465", R = "#c8282a", GR = "#6b7280", PU = "#7c5cff", B = "#0891b2";
+            const trend = r.bull5 ? ["BULL", G] : (r.aboveVwap ? ["MIXED", "#d6a312"] : ["BEAR", R]);
+            const risk = (r.bull5 && r.aboveVwap) ? ["ON", G] : ["OFF", GR];
+            const buy = (r.bull5 && r.aboveVwap && (r.orBreakout || (r.rvol || 0) >= 1.5)) ? ["READY", G] : ["WAIT", GR];
+            const exit = (!r.aboveVwap || !r.bull5) ? ["EXIT", R] : ["WAIT", GR];
+            const stop = ["WAIT", PU];
+            const rvolCell = [(r.rvol == null ? "—" : r.rvol.toFixed(2)), (r.rvol || 0) >= 1.5 ? G : (r.rvol || 0) >= 1 ? "#d6a312" : R];
+            const close = r.closeStrong ? ["STRONG", G] : ["WEAK", R];
+            const cell = (label, val, col) => (
+              <div style={{ background: col, borderRadius: 4, padding: "6px 4px", textAlign: "center", color: "#fff", minWidth: 0 }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, opacity: 0.85, letterSpacing: 0.3 }}>{label}</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{val}</div>
+              </div>
+            );
+            const px = (v) => v == null ? "—" : "$" + v.toFixed(2);
+            return (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4, padding: "8px 10px", background: C.card, borderBottom: `1px solid ${C.border}` }}>
+                {cell("EMA 21", px(r.ema21), G)}
+                {cell("RISK", risk[0], risk[1])}
+                {cell("BUY", buy[0], buy[1])}
+                {cell("EXIT", exit[0], exit[1])}
+                {cell("TREND", trend[0], trend[1])}
+                {cell("EMA 50", px(r.ema50), G)}
+                {cell("VWAP", px(r.vwap), r.aboveVwap ? G : R)}
+                {cell("STOP", stop[0], stop[1])}
+                {cell("RVOL", rvolCell[0], rvolCell[1])}
+                {cell("CLOSE", close[0], close[1])}
+              </div>
+            );
+          })()}
           <iframe key={`dt-${sel}-${iv}`} title="Intraday chart"
             src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sel)}&t=${tvTheme}&h=440&iv=${iv}&st=ema9,ema21,vwap,volume`}
             style={{ width: "100%", height: 440, border: "none", display: "block" }} />
@@ -9775,7 +9809,7 @@ function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
             <div>SYMBOL</div><div style={{ textAlign: "right" }}>PRICE</div><div style={{ textAlign: "right" }}>DAY %</div><div style={{ textAlign: "right" }}>GAP</div><div style={{ textAlign: "right" }}>RVOL</div><div style={{ textAlign: "right" }}>SIGNALS</div>
           </div>
           {rows.slice(0, 15).map((r, i) => (
-            <div key={r.symbol} onClick={() => setSel(r.symbol)}
+            <div key={r.symbol} onClick={() => { setSel(r.symbol); setSelRow(r); }}
               style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 0.9fr 1fr 1.3fr", padding: "10px 14px", alignItems: "center", cursor: "pointer", borderBottom: i < 14 ? `1px solid ${C.border}` : "none", background: i % 2 ? "transparent" : "rgba(127,127,127,0.03)" }}>
               <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 14, color: C.text }}>{r.symbol}</div>
               <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.text }}>${r.price.toFixed(2)}</div>

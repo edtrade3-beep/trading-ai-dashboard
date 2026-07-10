@@ -1772,8 +1772,14 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
           // Bullish stack = price > 9EMA > 21EMA (momentum aligned).
           const bull5 = ema9_5 != null && ema21_5 != null && price > ema9_5 && ema9_5 > ema21_5;
           const bull15 = ema9_15 != null && ema21_15 != null && price > ema9_15 && ema9_15 > ema21_15;
-          return { symbol: sym, price: Math.round(price * 100) / 100, chgPct, gapPct, rvol, vsVwap, aboveVwap: price >= vwap, orBreakout, orHigh: Math.round(orHigh * 100) / 100,
-            ema9: ema9_5 != null ? Math.round(ema9_5 * 100) / 100 : null, ema21: ema21_5 != null ? Math.round(ema21_5 * 100) / 100 : null, bull5, bull15 };
+          const ema50_5 = c5.length >= 50 ? ema(c5, 50) : null;
+          // Close strength: where the last bar closed within its own range (top = strong).
+          const lb = today[today.length - 1];
+          const rng = lb.high - lb.low;
+          const closeStrong = rng > 0 ? ((lb.close - lb.low) / rng) >= 0.6 : price >= vwap;
+          const rnd = (v) => v == null ? null : Math.round(v * 100) / 100;
+          return { symbol: sym, price: rnd(price), chgPct, gapPct, rvol, vsVwap, aboveVwap: price >= vwap, orBreakout, orHigh: rnd(orHigh),
+            ema9: rnd(ema9_5), ema21: rnd(ema21_5), ema50: rnd(ema50_5), vwap: rnd(vwap), closeStrong, bull5, bull15 };
         } catch { return null; }
       }));
       out.push(...done.filter(Boolean));
