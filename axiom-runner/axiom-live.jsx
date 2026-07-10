@@ -24258,7 +24258,7 @@ export default function App() {
             const NAV_GROUPS = [
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["start", "dashboard", "movers", "quotes", "crypto", "news", "econ-cal", "macro"] },
               { id: "mterminal",  label: "🖥 TERMINAL",   tabs: ["mterminal", "daytrade"] },
-              { id: "rhpro",      label: "📈 PRO TRADE",  tabs: ["rhpro", "rhpro-apex", "rhpro-scan", "rhpro-analyze", "rhpro-lists", "rhpro-heat", "rhpro-calc", "rhpro-options", "greenlight", "gl-backtest", "holdings", "rhpro-journal", "rhpro-coach", "rhpro-perf", "smartscan", "dipbuy", "outlook", "predictions", "morning-routine", "mytrades"] },
+              { id: "rhpro",      label: "📈 PRO TRADE",  tabs: ["rhpro", "rhpro-apex", "rhpro-scan", "rhpro-analyze", "rhpro-lists", "rhpro-heat", "rhpro-calc", "rhpro-options", "greenlight", "gl-backtest", "combined", "dipbuy", "squeeze", "under10", "gap", "adol22", "smartscan", "holdings", "rhpro-journal", "rhpro-coach", "rhpro-perf", "outlook", "predictions", "morning-routine", "mytrades"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools", "dealfinder", "flightfinder", "leadresponder"] },
@@ -24633,13 +24633,31 @@ export default function App() {
             // ── Overview & AI ──
             { id: "rhpro",      label: "🎯 COMMAND DECK" },
             { id: "rhpro-apex", label: "🧠 TRADE PRO AI" },
-            // ── Find setups ──
+            // ── Find setups — each is a distinct strategy/screen, not overlap:
+            // Sniper Scanner (composite score), Heat Map (sector rotation), Green
+            // Light (A+ Trend Template setups + autopilot), Compression+Signal
+            // (VCP/base-building enriched with Smart Scan), Dip Buy (pullback
+            // entries), Squeeze (short-interest squeeze candidates, unrelated to
+            // compression), Under $10 (low-price opportunities), Gap Scanner
+            // (gap-up/down), Adol22 (personal multi-timeframe candle scanner —
+            // its backend already runs and alerts via Telegram regardless of nav).
             { id: "rhpro-scan", label: "🎯 SNIPER SCANNER" },
             { id: "rhpro-heat", label: "🗺 HEAT MAP" },
+            { id: "greenlight",  label: "🟢 GREEN LIGHT + AUTOPILOT" },
+            { id: "gl-backtest", label: "📈 GL BACKTEST" },
+            { id: "combined",    label: "🌀 COMPRESSION + SIGNAL" },
+            { id: "dipbuy",      label: "📉 DIP BUY" },
+            { id: "squeeze",     label: "🔥 SQUEEZE" },
+            { id: "under10",     label: "🔟 UNDER $10" },
+            { id: "gap",         label: "⚡ GAP SCANNER" },
+            { id: "adol22",      label: "🧬 ADOL22" },
+            { id: "smartscan",   label: "🔬 SMART SCAN" },
+            // ── Read the market ──
+            { id: "predictions", label: "🔮 PREDICTIONS" },
+            { id: "outlook",     label: "🌅 OUTLOOK" },
             // ── Analyze (now the Terminal chart tab — Trend Template + AI second opinion) ──
             { id: "rhpro-lists", label: "📋 WATCHLISTS" },
             // ── Trade & positions ──
-            { id: "greenlight",   label: "🟢 GREEN LIGHT + AUTOPILOT" },
             { id: "holdings",     label: "📊 HOLDINGS" },
             // ── Review & improve ──
             { id: "rhpro-coach", label: "🎓 AI COACH" },
