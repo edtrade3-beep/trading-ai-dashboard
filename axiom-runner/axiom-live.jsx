@@ -9693,7 +9693,7 @@ function ColoredIntradayChart({ symbol, iv, C, MONO, SANS }) {
   const [err, setErr] = React.useState("");
   const H = 440;
   const tf = iv === "5" ? "5M" : iv === "60" ? "1H" : "15M";
-  const COL = { ema9: "#2962ff", ema21: "#ff9800", ema50: "#9c27b0", vwap: "#e0a400" };
+  const COL = { ema9: "#2962ff", ema21: "#ff9800", ema50: "#00c853", vwap: "#9c27b0" };
   React.useEffect(() => {
     const LC = window.LightweightCharts, el = elRef.current;
     if (!LC || !el || !symbol) return;
