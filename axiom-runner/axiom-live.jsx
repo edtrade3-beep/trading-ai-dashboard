@@ -22806,7 +22806,7 @@ export default function App() {
     const toTab = {
       MONITOR: "dashboard",
       DASHBOARD: "dashboard",
-      TERMINAL: "terminal",
+      TERMINAL: "mterminal",
       MACRO: "macro",
       NEWS: "news",
       EARNINGS: "earnings",
@@ -22841,6 +22841,10 @@ export default function App() {
     if (normalized.startsWith("TF ")) {
       const tf = normalized.replace("TF ", "").trim();
       if (["5M", "15M", "1H", "1D", "1W"].includes(tf)) {
+        // TF/LAYOUT palette commands are the only remaining way to reach the
+        // legacy multi-panel Terminal view — it has no equivalent in the
+        // consolidated mterminal tab, so it's kept as an explicit power-user
+        // entry point rather than deleted outright.
         setActiveTab("terminal");
         setTerminalTf(tf);
       }
@@ -22850,6 +22854,7 @@ export default function App() {
     if (normalized.startsWith("LAYOUT ")) {
       const l = normalized.replace("LAYOUT ", "").trim();
       if (["1", "2", "4"].includes(l)) {
+        // See TF-command comment above — multi-panel LAYOUT is legacy-only.
         setActiveTab("terminal");
         setTerminalLayout(l);
       }
@@ -22864,7 +22869,8 @@ export default function App() {
         setWatchlistSymbols(next);
         setWatchlistInput(next.join(","));
       }
-      setActiveTab("terminal");
+      try { localStorage.setItem("mterminal_load_sym", maybeSymbol); } catch {}
+      setActiveTab("mterminal");
     }
   }, [watchlistSymbols, setWatchlistSymbols, setWatchlistInput, setTerminalLayout]);
 
@@ -22898,7 +22904,7 @@ export default function App() {
         if (k === "m") setActiveTab("dashboard");
         else if (k === "s") setActiveTab("smartscan");
         else if (k === "g") setActiveTab("gap");
-        else if (k === "c") setActiveTab("terminal");
+        else if (k === "c") setActiveTab("mterminal");
         else if (k === "n") setActiveTab("news");
         else if (k === "p") setActiveTab("portfolio");
         else if (k === "j") setActiveTab("journal");
@@ -23184,7 +23190,8 @@ export default function App() {
       setTimeout(() => { toast.style.opacity = "0"; setTimeout(() => toast.remove(), 500); }, 2000);
     } else {
       // On other tabs: navigate to chart as before
-      setActiveTab("terminal");
+      try { localStorage.setItem("mterminal_load_sym", symbol); } catch {}
+      setActiveTab("mterminal");
       setLoading(true);
       fetchAll(apiKey).finally(() => setLoading(false));
     }
@@ -23914,7 +23921,8 @@ export default function App() {
       score: Number(candidate.score || 0),
       why: candidate.why || "No rationale available.",
     }));
-    setActiveTab("terminal");
+    try { localStorage.setItem("mterminal_load_sym", candidate.symbol); } catch {}
+    setActiveTab("mterminal");
   }, [watchlistData]);
 
   const runWorkflowAuto = useCallback(async () => {
@@ -25590,7 +25598,7 @@ export default function App() {
                       {top3.map((q) => {
                         const chg = getChg(q);
                         return (
-                          <div key={`mv-t-${q.symbol}`} onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: `${C.green}18`, border: `1px solid ${C.green}44`, borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
+                          <div key={`mv-t-${q.symbol}`} onClick={() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); }} style={{ background: `${C.green}18`, border: `1px solid ${C.green}44`, borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
                             <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent }}>{q.symbol}</div>
                             <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, fontWeight: 700 }}>+{chg.toFixed(2)}%</div>
                             <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{isExt ? <span style={{ color: extColor, fontWeight: 700 }}>{extLabel} </span> : null}${(q.price || 0).toFixed(2)}</div>
@@ -25600,7 +25608,7 @@ export default function App() {
                       {bot3.map((q) => {
                         const chg = getChg(q);
                         return (
-                          <div key={`mv-b-${q.symbol}`} onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: `${C.red}18`, border: `1px solid ${C.red}44`, borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
+                          <div key={`mv-b-${q.symbol}`} onClick={() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); }} style={{ background: `${C.red}18`, border: `1px solid ${C.red}44`, borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
                             <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent }}>{q.symbol}</div>
                             <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, fontWeight: 700 }}>{chg.toFixed(2)}%</div>
                             <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{isExt ? <span style={{ color: extColor, fontWeight: 700 }}>{extLabel} </span> : null}${(q.price || 0).toFixed(2)}</div>
@@ -25626,7 +25634,7 @@ export default function App() {
                     const trendCol   = trend.includes("Up") ? C.green : trend.includes("Down") ? C.red : C.textDim;
                     return (
                       <div key={q.symbol}
-                        onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
+                        onClick={() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); }}
                         style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
                           padding: isTablet ? "16px" : "12px 14px",
                           minHeight: isTablet ? 100 : "auto",
@@ -25720,7 +25728,7 @@ export default function App() {
                                 </div>
                                 <div className="wl-btns" style={{ display: "flex", gap: 3, opacity: 0, transition: "opacity 0.15s" }}>
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
+                                  onClick={(e) => { e.stopPropagation(); setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); }}
                                   style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}
                                 >
                                   CHART
@@ -25968,7 +25976,7 @@ export default function App() {
         {activeTab === "options" && (
           <OptionsChainTab C={C} MONO={MONO} SANS={SANS}
             defaultSymbol={terminalSymbol || watchlistSymbols[0] || "AAPL"}
-            onOpenTerminal={(sym) => { setTerminalSymbol(sym); setActiveTab("terminal"); }}
+            onOpenTerminal={(sym) => { setTerminalSymbol(sym); try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab("mterminal"); }}
           />
         )}
 
@@ -25991,7 +25999,7 @@ export default function App() {
                 <tbody>
                   {rows.map((r, i) => (
                     <tr key={i} style={{ background: i % 2 === 0 ? "transparent" : C.surface, cursor: "pointer" }}
-                      onClick={() => { setTerminalSymbol(r.sym); setActiveTab("terminal"); }}>
+                      onClick={() => { setTerminalSymbol(r.sym); try { localStorage.setItem("mterminal_load_sym", r.sym); } catch {} setActiveTab("mterminal"); }}>
                       <td style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent, padding: "9px 8px" }}>{r.sym}</td>
                       <td style={{ fontFamily: MONO, fontSize: 12, color: C.text, padding: "9px 8px" }}>${r.price}</td>
                       <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: r.shortFloat > 20 ? C.red : r.shortFloat > 10 ? C.amber : C.text, padding: "9px 8px" }}>{r.shortFloat > 0 ? r.shortFloat.toFixed(1) + "%" : "—"}</td>
@@ -26045,7 +26053,7 @@ export default function App() {
                     const intensity = Math.min(1, s.value / Math.max(...dpHeatData.stocks.map(x=>x.value)));
                     const col = intensity > 0.7 ? C.accent : intensity > 0.4 ? C.green : "#4caf50";
                     return (
-                      <div key={i} onClick={() => { setTerminalSymbol(s.sym); setActiveTab("terminal"); }}
+                      <div key={i} onClick={() => { setTerminalSymbol(s.sym); try { localStorage.setItem("mterminal_load_sym", s.sym); } catch {} setActiveTab("mterminal"); }}
                         style={{ padding: "12px 14px", borderRadius: 8, cursor: "pointer",
                           background: `${col}${Math.round(intensity * 30).toString(16).padStart(2,"0")}`,
                           border: `1px solid ${col}${Math.round(intensity * 60).toString(16).padStart(2,"0")}` }}>
@@ -26104,7 +26112,7 @@ export default function App() {
                   <tbody>
                     {dpData.prints.map((p, i) => (
                       <tr key={i} style={{ background: i % 2 === 0 ? "transparent" : C.surface, cursor: "pointer" }}
-                        onClick={() => { setTerminalSymbol(p.ticker); setActiveTab("terminal"); }}>
+                        onClick={() => { setTerminalSymbol(p.ticker); try { localStorage.setItem("mterminal_load_sym", p.ticker); } catch {} setActiveTab("mterminal"); }}>
                         <td style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent, padding: "10px 12px", borderBottom: "1px solid " + C.border + "22" }}>{p.ticker}</td>
                         <td style={{ fontFamily: MONO, fontSize: 12, color: C.text, padding: "10px 12px", borderBottom: "1px solid " + C.border + "22" }}>${Number(p.price).toFixed(2)}</td>
                         <td style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, padding: "10px 12px", borderBottom: "1px solid " + C.border + "22" }}>{Number(p.size).toLocaleString()}</td>
@@ -26124,7 +26132,7 @@ export default function App() {
             C={C} MONO={MONO} SANS={SANS}
             watchlistSymbols={watchlistSymbols}
             watchlistData={watchlistData}
-            onOpenTerminal={(sym) => { setTerminalSymbol(sym); setActiveTab("terminal"); }}
+            onOpenTerminal={(sym) => { setTerminalSymbol(sym); try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab("mterminal"); }}
           />
         )}
 
@@ -26204,7 +26212,7 @@ export default function App() {
                     <div key={`${n.ticker}-${i}`} style={{ background: C.card, border: `1px solid ${aiSent ? (aiSent.s === "bull" ? `${C.green}44` : aiSent.s === "bear" ? `${C.red}44` : C.border) : C.border}`, borderLeft: `4px solid ${sentBorderColor}`, borderRadius: 6, padding: 12, position: "relative" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <button onClick={() => { setTerminalSymbol(n.ticker); setActiveTab("terminal"); }}
+                          <button onClick={() => { setTerminalSymbol(n.ticker); try { localStorage.setItem("mterminal_load_sym", n.ticker); } catch {} setActiveTab("mterminal"); }}
                             style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, cursor: "pointer", padding: 0, fontWeight: 700 }}>
                             {n.ticker}
                           </button>
@@ -26324,7 +26332,7 @@ export default function App() {
                   const px = Number(e.price || 0);
                   return (
                     <div key={`earn-row-${e.symbol}`} style={{ display: "grid", gridTemplateColumns: "130px 160px 130px 120px 120px 1fr auto", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${C.border}`, background: isSoon ? `${C.amber}0D` : C.card, alignItems: "center" }}>
-                      <button onClick={() => { setTerminalSymbol(e.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", padding: 0, textAlign: "left" }}>{e.symbol}</button>
+                      <button onClick={() => { setTerminalSymbol(e.symbol); try { localStorage.setItem("mterminal_load_sym", e.symbol); } catch {} setActiveTab("mterminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", padding: 0, textAlign: "left" }}>{e.symbol}</button>
                       <span style={{ fontSize: 12, color: C.textSec }}>{dateLabel}</span>
                       <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: isSoon ? C.amber : C.textSec }}>{e.timing}</span>
                       <span style={{ fontFamily: MONO, fontSize: 12, color: chg >= 0 ? C.green : C.red, fontWeight: 700 }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span>
@@ -26983,7 +26991,7 @@ export default function App() {
             C={C} MONO={MONO} SANS={SANS}
             watchlistData={watchlistData}
             watchlistSymbols={watchlistSymbols}
-            onOpenTerminal={(sym) => { setTerminalSymbol(sym); setActiveTab("terminal"); }}
+            onOpenTerminal={(sym) => { setTerminalSymbol(sym); try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab("mterminal"); }}
             onAddSymbols={(syms) => {
               setWatchlistSymbols(prev => {
                 const existing = new Set(prev.map(s => s.toUpperCase()));
@@ -29348,7 +29356,7 @@ export default function App() {
                           style={{ flex: 1, fontFamily: MONO, fontSize: 12, padding: "3px 0", background: watchlistSymbols.includes(q.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(q.symbol) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(q.symbol) ? C.red : C.green}44`, borderRadius: 5, cursor: "pointer" }}
                         >{watchlistSymbols.includes(q.symbol) ? "−WL" : "+WL"}</button>
                         <button
-                          onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
+                          onClick={() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); }}
                           style={{ flex: 1, fontFamily: MONO, fontSize: 12, padding: "3px 0", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 5, cursor: "pointer" }}
                         >CHART</button>
                         <button
@@ -29471,7 +29479,7 @@ export default function App() {
                         style={{ flex: 1, fontFamily: MONO, fontSize: 12, padding: "3px 0", background: watchlistSymbols.includes(k) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(k) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(k) ? C.red : C.green}44`, borderRadius: 5, cursor: "pointer" }}
                       >{watchlistSymbols.includes(k) ? "−WL" : "+WL"}</button>
                       <button
-                        onClick={() => { setTerminalSymbol(k); setActiveTab("terminal"); }}
+                        onClick={() => { setTerminalSymbol(k); try { localStorage.setItem("mterminal_load_sym", k); } catch {} setActiveTab("mterminal"); }}
                         style={{ flex: 1, fontFamily: MONO, fontSize: 12, padding: "3px 0", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 5, cursor: "pointer" }}
                       >CHART</button>
                     </div>
@@ -29543,7 +29551,7 @@ export default function App() {
                         style={{ flex: 1, fontFamily: MONO, fontSize: 12, padding: "3px 0", background: watchlistSymbols.includes(q.symbol) ? `${C.red}18` : `${C.green}18`, color: watchlistSymbols.includes(q.symbol) ? C.red : C.green, border: `1px solid ${watchlistSymbols.includes(q.symbol) ? C.red : C.green}44`, borderRadius: 5, cursor: "pointer" }}
                       >{watchlistSymbols.includes(q.symbol) ? "−WL" : "+WL"}</button>
                       <button
-                        onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
+                        onClick={() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); }}
                         style={{ flex: 1, fontFamily: MONO, fontSize: 12, padding: "3px 0", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 5, cursor: "pointer" }}
                       >CHART</button>
                     </div>
@@ -29610,7 +29618,7 @@ export default function App() {
                   <div key={`${a.symbol}-${idx}`} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 16 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <button onClick={() => { setTerminalSymbol(a.symbol); setActiveTab("terminal"); }}
+                        <button onClick={() => { setTerminalSymbol(a.symbol); try { localStorage.setItem("mterminal_load_sym", a.symbol); } catch {} setActiveTab("mterminal"); }}
                           style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontWeight: 800, fontSize: 14, cursor: "pointer", padding: 0 }}>{a.symbol}</button>
                         <Badge color={alertColor}>{a.type}</Badge>
                       </div>
@@ -29692,7 +29700,7 @@ export default function App() {
                     {priceAlerts.map(a => (
                       <tr key={a.id} style={{ borderTop: `1px solid ${C.border}`, opacity: a.status !== "active" ? 0.55 : 1 }}>
                         <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>
-                          <button onClick={() => { setTerminalSymbol(a.symbol); setActiveTab("terminal"); }}
+                          <button onClick={() => { setTerminalSymbol(a.symbol); try { localStorage.setItem("mterminal_load_sym", a.symbol); } catch {} setActiveTab("mterminal"); }}
                             style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", padding: 0 }}>{a.symbol}</button>
                         </td>
                         <td style={{ padding: "7px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: a.direction === "above" ? C.green : C.red }}>{a.direction.toUpperCase()}</td>
@@ -29809,7 +29817,7 @@ export default function App() {
                                 {row?.at ? new Date(row.at).toLocaleString(undefined, { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
                               </td>
                               <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, fontWeight: 800 }}>
-                                <button onClick={() => { if (row?.symbol) { setTerminalSymbol(row.symbol); setActiveTab("terminal"); } }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", padding: 0 }}>{row?.symbol || "?"}</button>
+                                <button onClick={() => { if (row?.symbol) { setTerminalSymbol(row.symbol); try { localStorage.setItem("mterminal_load_sym", row.symbol); } catch {} setActiveTab("mterminal"); } }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", padding: 0 }}>{row?.symbol || "?"}</button>
                               </td>
                               <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, color: sideColor, fontWeight: 700 }}>{side}</td>
                               <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, color: C.textDim }}>{row?.timeframe || "—"}</td>
@@ -30065,7 +30073,7 @@ export default function App() {
                         <div style={{ fontSize: 12, color: C.textDim, minHeight: 32 }}>{cand.why}</div>
                         <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
                           <button
-                            onClick={() => { setTerminalSymbol(cand.symbol); setActiveTab("terminal"); }}
+                            onClick={() => { setTerminalSymbol(cand.symbol); try { localStorage.setItem("mterminal_load_sym", cand.symbol); } catch {} setActiveTab("mterminal"); }}
                             style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 6, padding: "4px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                           >CHART</button>
                           {cand.symbol !== workflowAutoPlan.symbol && (
@@ -30131,14 +30139,14 @@ export default function App() {
                     <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, fontWeight: 700, marginBottom: 4 }}>TOP GAINERS</div>
                     {(marketMovers.gainers || []).map((q) => (
                       <div key={`mv-g-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
-                        <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
+                        <button onClick={() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
                         <span style={{ fontFamily: MONO, fontSize: 12, color: C.green, fontWeight: 700 }}>+{Number(q.changesPercentage || 0).toFixed(2)}%</span>
                       </div>
                     ))}
                     <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, fontWeight: 700, marginTop: 8, marginBottom: 4 }}>TOP LOSERS</div>
                     {(marketMovers.losers || []).map((q) => (
                       <div key={`mv-l-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
-                        <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
+                        <button onClick={() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
                         <span style={{ fontFamily: MONO, fontSize: 12, color: C.red, fontWeight: 700 }}>{Number(q.changesPercentage || 0).toFixed(2)}%</span>
                       </div>
                     ))}
@@ -30153,7 +30161,7 @@ export default function App() {
                   <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700 }}>PREMARKET</div>
                   {(prePostMovers.pre || []).map((q) => (
                     <div key={`wf-pre-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
-                      <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
+                      <button onClick={() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
                       <span style={{ fontFamily: MONO, fontSize: 12, color: q.pre >= 0 ? C.green : C.red, fontWeight: 700 }}>
                         {q.pre >= 0 ? "+" : ""}{q.pre.toFixed(2)}%
                       </span>
@@ -30165,7 +30173,7 @@ export default function App() {
                   <div style={{ fontFamily: MONO, fontSize: 12, color: C.purple, fontWeight: 700 }}>AFTERHOURS</div>
                   {(prePostMovers.post || []).map((q) => (
                     <div key={`wf-post-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
-                      <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
+                      <button onClick={() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
                       <span style={{ fontFamily: MONO, fontSize: 12, color: q.post >= 0 ? C.green : C.red, fontWeight: 700 }}>
                         {q.post >= 0 ? "+" : ""}{q.post.toFixed(2)}%
                       </span>
@@ -30184,7 +30192,7 @@ export default function App() {
                   return (
                     <div key={`wf-est-${r.symbol}`} style={{ borderBottom: `1px solid ${C.border}`, padding: "6px 0" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-                        <button onClick={() => { setTerminalSymbol(r.symbol); setActiveTab("terminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>{r.symbol}</button>
+                        <button onClick={() => { setTerminalSymbol(r.symbol); try { localStorage.setItem("mterminal_load_sym", r.symbol); } catch {} setActiveTab("mterminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>{r.symbol}</button>
                         <span style={{ fontFamily: MONO, fontSize: 12, color: tone, background: bg, border: `1px solid ${tone}44`, padding: "1px 6px", borderRadius: 999, fontWeight: 800 }}>{r.status}</span>
                       </div>
                       <div style={{ fontSize: 12, color: C.textDim }}>
@@ -30667,7 +30675,7 @@ export default function App() {
                           <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
                             {row.symbol && (
                               <button
-                                onClick={() => { setTerminalSymbol(row.symbol); setActiveTab("terminal"); }}
+                                onClick={() => { setTerminalSymbol(row.symbol); try { localStorage.setItem("mterminal_load_sym", row.symbol); } catch {} setActiveTab("mterminal"); }}
                                 style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 6, padding: "5px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                               >CHART</button>
                             )}
@@ -30847,7 +30855,7 @@ export default function App() {
                             <div>{q.symbol}</div>
                             <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
                               <button
-                                onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
+                                onClick={() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); }}
                                 style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                               >CHART</button>
                               <button
@@ -30927,7 +30935,7 @@ export default function App() {
                             <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, fontFamily: MONO, fontWeight: 700, color: C.text }}>
                               <div>{q.symbol}</div>
                               <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
-                                <button onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 6, padding: "2px 5px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>CHART</button>
+                                <button onClick={() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); }} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 6, padding: "2px 5px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>CHART</button>
                                 <button onClick={() => openTradingView(q.symbol)} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "2px 5px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>TV</button>
                                 <button onClick={() => { setScanResults(prev => prev.some(r=>r.ticker===q.symbol)?prev:[{ticker:q.symbol,score:50,signal:"WATCH",scannerScore:50,signals:[],sColor:"#f59e0b",quote:{price:Number(q.price)||0,changePercent:0},candles:null},...prev]); setActiveTab("smartscan"); setTimeout(()=>{setScanExpanded(q.symbol);loadDeepDive(q.symbol);loadDeepSocial(q.symbol);},100); }} style={{ border: `1px solid ${C.accent}44`, background: `${C.accent}15`, color: C.accent, borderRadius: 6, padding: "2px 5px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>DIVE</button>
                                 <button onClick={() => setWatchlistSymbols((prev) => Array.from(new Set([...prev, q.symbol])))} style={{ border: `1px solid ${C.green}55`, background: C.surface, color: C.green, borderRadius: 6, padding: "2px 5px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}>+WL</button>
@@ -30964,7 +30972,7 @@ export default function App() {
             watchlistData={watchlistData}
             macroData={macroData}
             sectorData={sectorData}
-            onSelectSymbol={(sym) => { setTerminalSymbol(sym); setActiveTab("terminal"); }}
+            onSelectSymbol={(sym) => { setTerminalSymbol(sym); try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab("mterminal"); }}
           />
         )}
 
@@ -31141,7 +31149,7 @@ export default function App() {
                       <div style={{ fontSize: 12, color: C.textDim, marginTop: 4, marginBottom: 6 }}>Expiry {row.expiration || "—"}</div>
                       <div style={{ display: "flex", gap: 5 }}>
                         <button
-                          onClick={() => { setTerminalSymbol(row.symbol); setActiveTab("terminal"); }}
+                          onClick={() => { setTerminalSymbol(row.symbol); try { localStorage.setItem("mterminal_load_sym", row.symbol); } catch {} setActiveTab("mterminal"); }}
                           style={{ fontFamily: MONO, fontSize: 12, padding: "3px 8px", background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}40`, borderRadius: 5, cursor: "pointer" }}
                         >CHART</button>
                         <button
@@ -31172,7 +31180,7 @@ export default function App() {
                       <Badge color={row.unusual ? C.amber : C.textDim}>{row.tradeType || "TAPE"}</Badge>
                       <div style={{ display: "flex", gap: 5 }}>
                         <button
-                          onClick={() => { setTerminalSymbol(row.symbol); setActiveTab("terminal"); }}
+                          onClick={() => { setTerminalSymbol(row.symbol); try { localStorage.setItem("mterminal_load_sym", row.symbol); } catch {} setActiveTab("mterminal"); }}
                           style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 6, padding: "4px 6px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                         >CHART</button>
                         <button
@@ -31342,7 +31350,7 @@ export default function App() {
                   </Badge>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button
-                      onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("terminal"); }}
+                      onClick={() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); }}
                       style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.accent, borderRadius: 6, padding: "5px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
                     >CHART</button>
                     <button
@@ -32347,7 +32355,7 @@ export default function App() {
                             <tr style={{ borderTop: `1px solid ${C.border}` }}>
                               <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textSec }}>{new Date(e.openedAt).toLocaleDateString()}</td>
                               <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>
-                                <button onClick={() => { setTerminalSymbol(e.ticker); setActiveTab("terminal"); }}
+                                <button onClick={() => { setTerminalSymbol(e.ticker); try { localStorage.setItem("mterminal_load_sym", e.ticker); } catch {} setActiveTab("mterminal"); }}
                                   style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", padding: 0 }}>{e.ticker}</button>
                               </td>
                               <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: e.side === "BUY" ? C.green : e.side === "SELL" ? C.red : C.amber, fontWeight: 700 }}>{e.side}</td>
@@ -32753,7 +32761,7 @@ export default function App() {
                           <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Score: <span style={{ color: gradeColor(s.grade), fontWeight: 800 }}>{s.score}/100</span></span>
                           {p.symbol && (
                             <button
-                              onClick={() => { setTerminalSymbol(p.symbol); setActiveTab("terminal"); }}
+                              onClick={() => { setTerminalSymbol(p.symbol); try { localStorage.setItem("mterminal_load_sym", p.symbol); } catch {} setActiveTab("mterminal"); }}
                               style={{ border: `1px solid ${C.accent}40`, background: `${C.accent}15`, color: C.accent, borderRadius: 6, padding: "4px 9px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                             >CHART</button>
                           )}
@@ -36382,7 +36390,7 @@ export default function App() {
           else groups.later.push(e);
         });
         const Row = ({ e }) => (
-          <tr onClick={() => { setTerminalSymbol(e.sym); setActiveTab("terminal"); }}
+          <tr onClick={() => { setTerminalSymbol(e.sym); try { localStorage.setItem("mterminal_load_sym", e.sym); } catch {} setActiveTab("mterminal"); }}
             style={{ borderBottom: `1px solid ${C.border}22`, cursor: "pointer" }}
             onMouseEnter={ev => ev.currentTarget.style.background = C.cardHover}
             onMouseLeave={ev => ev.currentTarget.style.background = "transparent"}>
