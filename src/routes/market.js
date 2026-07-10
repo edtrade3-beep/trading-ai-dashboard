@@ -1802,7 +1802,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     const n = Math.max(3, Math.min(25, Number(searchParams.get("n") || 8)));
     const cacheKey = universe.join(",");
     const now = Date.now();
-    if (_lbCache.rows && _lbCache.key === cacheKey && (now - _lbCache.at) < 180000) {
+    if (_lbCache.rows && _lbCache.key === cacheKey && (now - _lbCache.at) < 300000) {
       return writeJson(res, 200, buildLeaderboard(_lbCache.rows, n, _lbCache.at));
     }
     const keys = resolveProviderKeys(searchParams);
@@ -1811,8 +1811,8 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     const rawQuotes = Array.isArray(payload) ? payload : (payload.quotes || []);
     const bySym = new Map(rawQuotes.filter(q => typeof q.price === "number").map(q => [String(q.symbol).toUpperCase(), q]));
     const enriched = [];
-    for (let i = 0; i < universe.length; i += 8) {
-      const chunk = universe.slice(i, i + 8);
+    for (let i = 0; i < universe.length; i += 16) {
+      const chunk = universe.slice(i, i + 16);
       const done = await Promise.all(chunk.map(async (sym) => {
         const q = bySym.get(sym);
         if (!q) return null;

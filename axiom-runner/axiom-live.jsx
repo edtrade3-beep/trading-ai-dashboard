@@ -9876,10 +9876,13 @@ function SectorHeatStrip({ sectorData, C, MONO, SANS }) {
 function MarketPulseBar({ C, MONO, SANS }) {
   const [q, setQ] = useState({});
   useEffect(() => {
-    const load = () => fetch("/api/market/quote?symbols=SPY,QQQ,DIA,^VIX,BTC-USD")
-      .then(r => r.json())
-      .then(d => { const arr = Array.isArray(d) ? d : (d.quotes || []); const m = {}; arr.forEach(x => m[String(x.symbol).toUpperCase()] = x); setQ(m); })
-      .catch(() => {});
+    const merge = (d) => { const arr = Array.isArray(d) ? d : (d.quotes || []); setQ(prev => { const m = { ...prev }; arr.forEach(x => m[String(x.symbol).toUpperCase()] = x); return m; }); };
+    const load = () => {
+      // Fast path: SPY/QQQ/DIA via Alpaca (~0.3s) — show immediately.
+      fetch("/api/market/quote?symbols=SPY,QQQ,DIA").then(r => r.json()).then(merge).catch(() => {});
+      // Slow path: ^VIX/BTC go to Yahoo (blocked/slow on Render) — fill in when ready.
+      fetch("/api/market/quote?symbols=^VIX,BTC-USD").then(r => r.json()).then(merge).catch(() => {});
+    };
     load(); const t = setInterval(load, 60000); return () => clearInterval(t);
   }, []);
   const items = [["SPY", "S&P 500"], ["QQQ", "Nasdaq"], ["DIA", "Dow"], ["^VIX", "VIX"], ["BTC-USD", "Bitcoin"]];
