@@ -10132,6 +10132,39 @@ function AiPredictPanel({ symbol, chart, C, MONO, SANS }) {
   );
 }
 
+// COT (Commitment of Traders) — weekly CFTC positioning of big futures traders.
+function COTPanel({ C, MONO, SANS }) {
+  const [d, setD] = useState(null);
+  const [state, setState] = useState("loading");
+  useEffect(() => {
+    fetch("/api/cot/status").then(r => r.json())
+      .then(j => { if (j.ok && j.summary) { setD(j.summary); setState("ok"); } else setState("none"); })
+      .catch(() => setState("none"));
+  }, []);
+  const biasCol = (b) => { const s = String(b || "").toLowerCase(); return s.includes("bull") ? "#0d9465" : s.includes("bear") ? "#c8282a" : C.textDim; };
+  const rows = d ? [
+    ["Equities (S&P/Nas)", d.equityBias], ["Bonds", d.bondBias], ["US Dollar", d.dollarBias],
+    ["Gold", d.goldBias], ["Oil", d.oilBias], ["Bitcoin", d.bitcoinBias], ["VIX", d.vixBias],
+  ].filter(r => r[1]) : [];
+  return (
+    <div style={{ marginTop: 12, border: `1px solid ${C.border}`, borderRadius: 10, background: C.bg, overflow: "hidden" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 12px", borderBottom: `1px solid ${C.border}` }}>
+        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim }}>🏛 COT POSITIONING</span>
+        {d && d.reportDate && <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>wk {d.reportDate}</span>}
+      </div>
+      {state === "loading" && <div style={{ padding: "16px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
+      {state === "none" && <div style={{ padding: "14px 12px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.textDim }}>COT data not available yet.</div>}
+      {state === "ok" && rows.map(([name, bias], i) => (
+        <div key={name} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "7px 12px", borderTop: i ? `1px solid ${C.border}` : "none", alignItems: "center" }}>
+          <span style={{ fontFamily: SANS, fontSize: 12, color: C.text }}>{name}</span>
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: biasCol(bias), textAlign: "right" }}>{bias}</span>
+        </div>
+      ))}
+      {state === "ok" && <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, padding: "7px 12px" }}>Big-trader futures positioning (CFTC, weekly). ⚠️ Crowded = extreme positioning, reversal risk.</div>}
+    </div>
+  );
+}
+
 // Prediction markets (Polymarket) — event odds that move the tape. Free, works
 // from Render (no key). Fed/rates/recession/crypto/politics.
 function PredictionMarkets({ C, MONO, SANS }) {
@@ -10800,6 +10833,7 @@ function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData, onDeepDive })
           ))}
         </div>
         <MarketNewsWire C={C} MONO={MONO} SANS={SANS} />
+        <COTPanel C={C} MONO={MONO} SANS={SANS} />
         <PredictionMarkets C={C} MONO={MONO} SANS={SANS} />
       </div>
 
