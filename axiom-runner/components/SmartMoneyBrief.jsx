@@ -1,12 +1,25 @@
 import { useState } from "react";
 import { cardStyle, buttonChrome } from "./ui-helpers.js";
 
+// The system prompt tells Claude to skip markdown, but models don't always
+// comply perfectly — strip common markdown artifacts as a safety net so raw
+// "**"/"##"/"- " never leaks into the UI.
+function stripMarkdown(s) {
+  return String(s || "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/(^|\n)\s*#{1,6}\s*/g, "$1")
+    .replace(/(^|\n)\s*[-*]\s+/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .trim();
+}
+
 // Splits the AI brief into its 3 labeled sections (see the system prompt in
 // src/routes/market.js POST /api/market/smart-money-brief) for nicer display.
 function parseBrief(text) {
+  const clean = stripMarkdown(text);
   const grab = (label, nextLabels) => {
     const re = new RegExp(`${label}:\\s*([\\s\\S]*?)(?=(?:${nextLabels.join("|")}):|$)`, "i");
-    const m = text.match(re);
+    const m = clean.match(re);
     return m ? m[1].trim() : "";
   };
   const whats = grab("WHAT'S REALLY HAPPENING", ["VS\\. THE HEADLINES", "WATCH"]);
@@ -90,7 +103,7 @@ export default function SmartMoneyBrief({ C, MONO, SANS, watchlistSymbols }) {
               {sectionCard("WATCH", parsed.watch, C.green)}
             </>
           ) : (
-            sectionCard("BRIEF", brief.text, C.accent)
+            sectionCard("BRIEF", stripMarkdown(brief.text), C.accent)
           )}
 
           <details style={{ ...cardStyle(C), padding: 14 }}>
