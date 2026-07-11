@@ -7691,6 +7691,9 @@ export default function App() {
           {/* Nav tabs — grouped */}
           {(() => {
             const NAV_GROUPS = [
+              // breadth/sectors/rotation/cot hidden from the MONITOR subnav bar
+              // (see SUB_GROUPS.dashboard comment) but kept here so this pill
+              // still highlights correctly if you land on one via the palette.
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["start", "dashboard", "movers", "quotes", "crypto", "news", "econ-cal", "macro", "breadth", "sectors", "rotation", "cot"] },
               { id: "mterminal",  label: "🖥 TERMINAL",   tabs: ["mterminal", "daytrade"] },
               { id: "rhpro",      label: "📈 PRO TRADE",  tabs: ["rhpro", "rhpro-apex", "rhpro-scan", "rhpro-lists", "rhpro-heat", "greenlight", "holdings", "rhpro-journal", "rhpro-coach", "morning-routine", "mytrades",
@@ -8051,15 +8054,19 @@ export default function App() {
       {/* Sub-nav bar — shown when active tab belongs to a multi-tab group */}
       {(() => {
         const SUB_GROUPS = {
-          // Reorganized 2026-07-10: added 4 real, fully-built widgets that had
-          // lost their nav entry (breadth, sectors, rotation, cot) — same
-          // "restore, don't guess" treatment as the Phase 3 scanner reconnects.
-          // Left dormant (still work, just not surfaced — code untouched):
+          // Trimmed 2026-07-11: was 12 tabs — breadth/sectors/rotation/cot are
+          // real, fully-built, non-redundant widgets (added 2026-07-10) but
+          // more "occasional deep lens" than "check every time" like the 8
+          // below. Same "hide, don't delete" treatment as the PRO TRADE trim —
+          // all 4 still fully work via the command palette (BREADTH GO,
+          // SECTORS GO, ROTATION GO, COT GO). Add a line back here to
+          // re-surface any of them.
+          // Also left dormant (still work, just not surfaced — code untouched):
           // "calendar" (TV-iframe dup of Events), "heatmap" (portfolio P&L
           // heatmap, belongs nearer Holdings not market-wide monitoring),
           // feargreed/correlation/seasonality/darkpool/social/insider (real,
-          // but lower daily-monitoring priority than what's below — add a
-          // line back here any time to re-surface one).
+          // but lower daily-monitoring priority — most now live under the
+          // 🕵️ SMART MONEY group instead).
           dashboard: [
             { id: "start",      label: "🚀 START HERE" },
             { id: "dashboard",  label: "📊 MONITOR" },
@@ -8069,10 +8076,6 @@ export default function App() {
             { id: "news",       label: "📰 NEWS" },
             { id: "econ-cal",   label: "📅 EVENTS" },
             { id: "macro",      label: "🌍 MACRO" },
-            { id: "breadth",    label: "📶 BREADTH" },
-            { id: "sectors",    label: "🏭 SECTORS" },
-            { id: "rotation",   label: "🔄 ROTATION" },
-            { id: "cot",        label: "🏛 COT" },
           ],
           terminal: [
             { id: "multitf",    label: "📈 CHART" },
