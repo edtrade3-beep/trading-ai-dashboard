@@ -17003,7 +17003,11 @@ export default function App() {
             const NAV_GROUPS = [
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["start", "dashboard", "movers", "quotes", "crypto", "news", "econ-cal", "macro"] },
               { id: "mterminal",  label: "🖥 TERMINAL",   tabs: ["mterminal", "daytrade"] },
-              { id: "rhpro",      label: "📈 PRO TRADE",  tabs: ["rhpro", "rhpro-apex", "rhpro-scan", "rhpro-lists", "rhpro-heat", "greenlight", "gl-backtest", "combined", "dipbuy", "squeeze", "under10", "gap", "adol22", "smartscan", "holdings", "rhpro-journal", "rhpro-coach", "outlook", "predictions", "morning-routine", "mytrades"] },
+              { id: "rhpro",      label: "📈 PRO TRADE",  tabs: ["rhpro", "rhpro-apex", "rhpro-scan", "rhpro-lists", "rhpro-heat", "greenlight", "holdings", "rhpro-journal", "rhpro-coach", "morning-routine", "mytrades",
+                // Hidden from the PRO TRADE subnav bar (see SUB_GROUPS.rhpro
+                // comment) but still reachable — kept here so this group still
+                // highlights correctly if you land on one of these another way.
+                "gl-backtest", "combined", "dipbuy", "squeeze", "under10", "gap", "adol22", "smartscan", "outlook", "predictions"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools", "dealfinder", "flightfinder", "leadresponder"] },
@@ -17374,32 +17378,22 @@ export default function App() {
             { id: "mterminal",  label: "🖥 MARKET TERMINAL" },
             { id: "daytrade",   label: "⚡ DAY TRADE" },
           ],
+          // Trimmed 2026-07-10: was 18 tabs (8 of them near-duplicate "rank
+          // stocks, find setups" scanners). Kept the ones covering distinct,
+          // non-overlapping jobs. The rest (GL Backtest, Compression+Signal,
+          // Dip Buy, Squeeze, Under $10, Gap Scanner, Adol22, Smart Scan,
+          // Predictions, Outlook) still work exactly as before — their code,
+          // routes, and (for Adol22) backend Telegram alerts are untouched —
+          // they're just not cluttering this bar. Add a line back here to
+          // re-surface any of them.
           rhpro: [
             // ── Overview & AI ──
             { id: "rhpro",      label: "🎯 COMMAND DECK" },
             { id: "rhpro-apex", label: "🧠 TRADE PRO AI" },
-            // ── Find setups — each is a distinct strategy/screen, not overlap:
-            // Sniper Scanner (composite score), Heat Map (sector rotation), Green
-            // Light (A+ Trend Template setups + autopilot), Compression+Signal
-            // (VCP/base-building enriched with Smart Scan), Dip Buy (pullback
-            // entries), Squeeze (short-interest squeeze candidates, unrelated to
-            // compression), Under $10 (low-price opportunities), Gap Scanner
-            // (gap-up/down), Adol22 (personal multi-timeframe candle scanner —
-            // its backend already runs and alerts via Telegram regardless of nav).
+            // ── Find setups ──
             { id: "rhpro-scan", label: "🎯 SNIPER SCANNER" },
             { id: "rhpro-heat", label: "🗺 HEAT MAP" },
             { id: "greenlight",  label: "🟢 GREEN LIGHT + AUTOPILOT" },
-            { id: "gl-backtest", label: "📈 GL BACKTEST" },
-            { id: "combined",    label: "🌀 COMPRESSION + SIGNAL" },
-            { id: "dipbuy",      label: "📉 DIP BUY" },
-            { id: "squeeze",     label: "🔥 SQUEEZE" },
-            { id: "under10",     label: "🔟 UNDER $10" },
-            { id: "gap",         label: "⚡ GAP SCANNER" },
-            { id: "adol22",      label: "🧬 ADOL22" },
-            { id: "smartscan",   label: "🔬 SMART SCAN" },
-            // ── Read the market ──
-            { id: "predictions", label: "🔮 PREDICTIONS" },
-            { id: "outlook",     label: "🌅 OUTLOOK" },
             // ── Analyze (now the Terminal chart tab — Trend Template + AI second opinion) ──
             { id: "rhpro-lists", label: "📋 WATCHLISTS" },
             // ── Trade & positions ──
