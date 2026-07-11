@@ -1,6 +1,6 @@
-const { writeJson, readRequestBody, withTimeout, round2, average, trimText } = require("../utils");
+const { writeJson, readRequestBody, withTimeout, fetchJsonSafe, round2, average, trimText } = require("../utils");
 const { callAnthropicApi, MODELS, anthropicRequest } = require("../anthropic");
-const { MARKET_QUOTE_TIMEOUT_MS, MACRO_SYMBOLS, TIMEFRAME_CONFIG, resolveProviderKeys } = require("../config");
+const { PORT, MARKET_QUOTE_TIMEOUT_MS, MACRO_SYMBOLS, TIMEFRAME_CONFIG, resolveProviderKeys } = require("../config");
 const {
   computeEMA, computeRSI, computeVWAP,
   detectTrend, detectStructure, detectDivergence, detectSimpleTrend,
@@ -1408,6 +1408,62 @@ Return ONLY valid JSON, no markdown: {"firstName":"","customerEmail":"","custome
         break;
       }
       return writeJson(res, 200, { ok: true, analysis: (text || "").trim() || "(no answer)" });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
+  // 🕵️ SMART MONEY BRIEF — reads across dark pool, options flow, insider buys,
+  // COT institutional positioning, and short-interest changes to synthesize what
+  // the "smart money" is actually doing versus the mainstream headline narrative.
+  if (pathname === "/api/market/smart-money-brief" && req.method === "POST") {
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let b; try { b = JSON.parse((await readRequestBody(req)) || "{}"); } catch { b = {}; }
+    const symbols = (Array.isArray(b.symbols) && b.symbols.length ? b.symbols : ["SPY", "QQQ", "IWM", "NVDA", "TSLA", "AAPL", "META", "MSFT"])
+      .map(s => String(s || "").toUpperCase().replace(/[^A-Z.\-]/g, "")).filter(Boolean).slice(0, 10);
+    const base = `http://127.0.0.1:${PORT}`;
+    const q = symbols.map(encodeURIComponent).join(",");
+
+    const [cot, flow, insider, dp, shortChg] = await Promise.all([
+      withTimeout(fetchJsonSafe(`${base}/api/cot/status`), 8000, null),
+      withTimeout(fetchJsonSafe(`${base}/api/market/options-flow?symbols=${q}`), 8000, null),
+      withTimeout(fetchJsonSafe(`${base}/api/scanner/insider`), 8000, null),
+      withTimeout(fetchJsonSafe(`${base}/api/market/darkpool`), 8000, null),
+      withTimeout(fetchJsonSafe(`${base}/api/market/short-changes`), 8000, null),
+    ]);
+
+    const lines = [];
+    const bias = cot?.summary || cot?.ok ? cot.summary : null;
+    if (bias) {
+      lines.push(`COT institutional positioning (${bias.reportDate || "latest"}): equities ${bias.equityBias || "?"}, bonds ${bias.bondBias || "?"}, dollar ${bias.dollarBias || "?"}, gold ${bias.goldBias || "?"}, oil ${bias.oilBias || "?"}, VIX ${bias.vixBias || "?"}.`);
+    } else lines.push("COT positioning: unavailable this run.");
+
+    if (flow?.summary) {
+      const f = flow.summary;
+      const topFlow = (flow.bySymbol || []).slice(0, 5).map(s => `${s.symbol} C/P ${s.callPutRatio}`).join(", ");
+      lines.push(`Options flow (${symbols.join(",")}): $${Math.round((f.callNotional || 0) / 1000)}K call vs $${Math.round((f.putNotional || 0) / 1000)}K put notional. Per-symbol call/put ratio: ${topFlow || "n/a"}.${flow.source?.includes("estimated") ? " (estimated from price/volume, not live options tape)" : ""}`);
+    } else lines.push("Options flow: unavailable this run.");
+
+    if (insider?.ok && insider.results?.length) {
+      const top = insider.results.slice(0, 8).map(r => r.ticker || r.symbol).filter(Boolean).join(", ");
+      lines.push(`Insider buying (Form 4, last 14 days) — active names: ${top}.`);
+    } else lines.push("Insider buying: no notable Form 4 buys scanned this run.");
+
+    if (dp?.ok && dp.prints?.length) {
+      const biggest = dp.prints.slice(0, 5).map(p => `${p.symbol} $${Math.round((p.value || p.premium || 0) / 1e6)}M`).join(", ");
+      lines.push(`Dark pool prints: ${biggest}.`);
+    } else lines.push("Dark pool: unavailable this run (no data provider configured).");
+
+    if (shortChg?.ok && (shortChg.increasing?.length || shortChg.covering?.length)) {
+      const inc = (shortChg.increasing || []).slice(0, 4).map(s => s.symbol).join(", ");
+      const cov = (shortChg.covering || []).slice(0, 4).map(s => s.symbol).join(", ");
+      lines.push(`Short interest changes: increasing short bets in ${inc || "none notable"}; short covering in ${cov || "none notable"}.`);
+    } else lines.push("Short interest changes: unavailable this run.");
+
+    const system = `You are a skeptical institutional strategist who ignores financial-media narratives and reads only positioning data — dark pool prints, options flow, insider Form 4 buys, CFTC Commitments of Traders, and short interest. Your job: tell the trader what the SMART MONEY is actually doing right now, and where that likely CONTRADICTS or gets ahead of the mainstream headline story. Be specific and honest — if the data is thin or mixed, say so plainly rather than forcing a narrative. Format:\nWHAT'S REALLY HAPPENING: 2-3 tight sentences on the actual positioning picture.\nVS. THE HEADLINES: one sentence on how this differs from (or confirms) what mainstream financial media is likely saying today.\nWATCH: 1-2 specific names or signals worth tracking from this data.\nUnder 140 words total. No preamble, no disclaimers, no "consult a financial advisor."`;
+    const prompt = `Today's cross-market positioning data:\n${lines.join("\n")}\n\nWhat is smart money actually doing, and how does that compare to what the headlines are probably saying?`;
+    try {
+      const brief = await callAnthropicApi(prompt, key, { model: MODELS.haiku, maxTokens: 260, system, cache: true });
+      return writeJson(res, 200, { ok: true, brief: (brief || "").trim(), sources: lines, generatedAt: new Date().toISOString() });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 

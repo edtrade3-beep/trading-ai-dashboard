@@ -26,6 +26,7 @@ import TradeAdvisorTab from "./components/TradeAdvisorTab.jsx";
 import CompressionTab from "./components/CompressionTab.jsx";
 import AutoPilotEngine from "./components/AutoPilotEngine.jsx";
 import TerminalWorkspace from "./components/TerminalWorkspace.jsx";
+import SmartMoneyBrief from "./components/SmartMoneyBrief.jsx";
 
 // Attach the API token (if the user set one) to every same-origin /api request,
 // so money-moving routes work when server-side API_AUTH_TOKEN auth is enabled.
@@ -13433,7 +13434,7 @@ export default function App() {
                 // comment) but still reachable — kept here so this group still
                 // highlights correctly if you land on one of these another way.
                 "gl-backtest", "combined", "dipbuy", "squeeze", "under10", "gap", "adol22", "smartscan", "outlook", "predictions"] },
-              { id: "smartmoney", label: "🕵️ SMART MONEY", tabs: ["darkpool", "dp-heatmap", "insider", "smartmoney", "flow", "shortint", "short-changes", "sec-filings", "social", "correlation"] },
+              { id: "smartmoney", label: "🕵️ SMART MONEY", tabs: ["sm-brief", "darkpool", "dp-heatmap", "insider", "smartmoney", "flow", "shortint", "short-changes", "sec-filings", "social", "correlation"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes", "education"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools", "dealfinder", "flightfinder", "leadresponder"] },
@@ -13842,8 +13843,10 @@ export default function App() {
           ],
           // "What smart money is actually doing" — surfaced 2026-07-11. All 10 of
           // these were real, fully-built, backend-wired features with zero nav
-          // path (confirmed no duplicate work needed, just reconnection).
+          // path (confirmed no duplicate work needed, just reconnection). AI
+          // Brief added on top — synthesizes across all of them into one read.
           smartmoney: [
+            { id: "sm-brief",       label: "🧠 AI BRIEF" },
             { id: "darkpool",       label: "🌊 DARK POOL" },
             { id: "dp-heatmap",     label: "🗺 DP HEATMAP" },
             { id: "insider",        label: "🏦 INSIDER SCREENER" },
@@ -15284,6 +15287,8 @@ export default function App() {
           );
         })()}
 
+
+        {activeTab === "sm-brief" && <SmartMoneyBrief C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />}
 
         {/* ── DARK POOL TAB ── */}
         {activeTab === "darkpool" && (() => {
