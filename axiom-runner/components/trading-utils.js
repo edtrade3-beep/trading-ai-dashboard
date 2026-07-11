@@ -5,6 +5,16 @@
 // market-helpers.js (market-wide reference data/regime) since this is
 // specifically about scoring a symbol and simulating trades on it.
 
+export function classifyTrend(q) {
+  if (!q) return "—";
+  const chg = q.changesPercentage || 0;
+  if (chg > 2.5) return "Strong Up";
+  if (chg > 0.5) return "Up";
+  if (chg > -0.5) return "Flat";
+  if (chg > -2) return "Weak";
+  return "Down";
+}
+
 export function computeScores(q) {
   if (!q) return { tech: 0, fund: 0, macro: 0, composite: 0 };
 
