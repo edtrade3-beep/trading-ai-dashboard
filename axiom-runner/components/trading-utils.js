@@ -481,3 +481,74 @@ export async function alpacaOption(underlying, type, qty, underlyingPx) {
     return await r.json();
   } catch { return null; }
 }
+
+// Multi-timeframe signal — uses price action data already in each quote row
+// Returns { signal: "BUY"|"HOLD"|"SELL", score, timeframes: [{label,bull}] }
+export function computeMTFSignal(q) {
+  if (!q || !q.price) return { signal: "HOLD", score: 0, timeframes: [] };
+
+  const price   = Number(q.price);
+  const chg     = Number(q.changesPercentage || 0);
+  const chg5m   = Number(q.delta5m  || 0);
+  const chg30m  = Number(q.delta30m || 0);
+  const sma50   = Number(q.priceAvg50  || 0);
+  const sma200  = Number(q.priceAvg200 || 0);
+  const yHigh   = Number(q.yearHigh || 0);
+  const yLow    = Number(q.yearLow  || 0);
+  const rvol    = q.avgVolume ? q.volume / q.avgVolume : 1;
+
+  // Each timeframe: label shown in the badge row, and whether it's bullish
+  const tfs = [
+    {
+      label: "5M",
+      bull: chg5m > 0,
+      neutral: Math.abs(chg5m) < 0.05,
+    },
+    {
+      label: "30M",
+      bull: chg30m > 0,
+      neutral: Math.abs(chg30m) < 0.1,
+    },
+    {
+      label: "1D",
+      bull: chg > 0.15,
+      neutral: Math.abs(chg) < 0.15,
+    },
+    {
+      label: "1W",    // proxy: price vs 50D SMA
+      bull: sma50 > 0 ? price > sma50 : chg > 0,
+      neutral: sma50 > 0 ? Math.abs(price / sma50 - 1) < 0.005 : false,
+    },
+    {
+      label: "1M",    // proxy: price vs 200D SMA
+      bull: sma200 > 0 ? price > sma200 : chg > 0,
+      neutral: sma200 > 0 ? Math.abs(price / sma200 - 1) < 0.005 : false,
+    },
+  ];
+
+  // Score: each non-neutral tf gives +1 (bull) or -1 (bear)
+  let score = 0;
+  for (const tf of tfs) {
+    if (!tf.neutral) score += tf.bull ? 1 : -1;
+  }
+
+  // Volume confirms the direction (bonus ±1)
+  if (rvol > 1.25) score += chg >= 0 ? 1 : -1;
+
+  // 52W range position as tie-breaker
+  if (yHigh > yLow) {
+    const pos = (price - yLow) / (yHigh - yLow);
+    if (pos > 0.75) score += 1;
+    else if (pos < 0.25) score -= 1;
+  }
+
+  let signal;
+  if (score >= 3)       signal = "BUY";
+  else if (score <= -3) signal = "SELL";
+  else                  signal = "HOLD";
+
+  return { signal, score, timeframes: tfs };
+}
+
+
+export const r2 = (n) => Math.round(n * 100) / 100; // round to 2 decimal places
