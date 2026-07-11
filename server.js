@@ -19,6 +19,16 @@ const path = require("node:path");
   }
 })();
 
+// Safety net: without this, ANY uncaught error anywhere (a background scanner
+// tick, an unawaited route promise, a bad API response) kills the whole
+// process and takes every user down. Log and keep serving instead of dying.
+process.on("unhandledRejection", (err) => {
+  console.error("[unhandledRejection]", err && err.stack || err);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[uncaughtException]", err && err.stack || err);
+});
+
 const { PORT, HOST } = require("./src/config");
 const handleRequest = require("./src/router");
 const { startPriceAlertMonitor } = require("./src/price-alert-monitor");

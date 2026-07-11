@@ -60,65 +60,65 @@ async function handleRequest(req, res) {
     }
 
     if (pathname === "/api/auth/check") {
-      return handleAuth(req, res, requestUrl);
+      return await handleAuth(req, res, requestUrl);
     }
 
     if (pathname === "/api/health") {
-      return handleHealth(req, res, requestUrl);
+      return await handleHealth(req, res, requestUrl);
     }
 
     if (pathname === "/api/webhooks/tradingview" || pathname === "/api/market/tv-alerts") {
-      return handleWebhooks(req, res, requestUrl);
+      return await handleWebhooks(req, res, requestUrl);
     }
 
     if (pathname.startsWith("/api/fmp/") || pathname.startsWith("/api/td/")) {
-      return handleProxy(req, res, requestUrl);
+      return await handleProxy(req, res, requestUrl);
     }
 
     if (pathname.startsWith("/api/yahoo/")) {
-      return handleYahoo(req, res, requestUrl);
+      return await handleYahoo(req, res, requestUrl);
     }
 
     if (pathname.startsWith("/api/finviz/")) {
-      return handleFinviz(req, res, requestUrl);
+      return await handleFinviz(req, res, requestUrl);
     }
 
-    if (pathname === "/api/scanner/under10")      return handleUnder10(req, res, requestUrl);
-    if (pathname === "/api/scanner/squeeze")      return handleSqueeze(req, res);
-    if (pathname === "/api/scanner/compression")  return handleCompression(req, res, requestUrl);
-    if (pathname === "/api/scanner/insider")      return handleInsider(req, res);
-    if (pathname === "/api/scanner/gapfill")      return handleGapFill(req, res, requestUrl);
+    if (pathname === "/api/scanner/under10")      return await handleUnder10(req, res, requestUrl);
+    if (pathname === "/api/scanner/squeeze")      return await handleSqueeze(req, res);
+    if (pathname === "/api/scanner/compression")  return await handleCompression(req, res, requestUrl);
+    if (pathname === "/api/scanner/insider")      return await handleInsider(req, res);
+    if (pathname === "/api/scanner/gapfill")      return await handleGapFill(req, res, requestUrl);
 
     if (pathname.startsWith("/api/scanner/")) {
-      return handleScanner(req, res, requestUrl);
+      return await handleScanner(req, res, requestUrl);
     }
 
     if (pathname.startsWith("/api/deals/") || pathname === "/api/deals") {
-      return handleDeals(req, res, requestUrl);
+      return await handleDeals(req, res, requestUrl);
     }
 
     if (pathname.startsWith("/api/cot/") || pathname === "/api/cot") {
-      return handleCOT(req, res, requestUrl);
+      return await handleCOT(req, res, requestUrl);
     }
 
     if (pathname.startsWith("/api/autoexec")) {
-      return handleAutoExec(req, res, requestUrl);
+      return await handleAutoExec(req, res, requestUrl);
     }
 
     if (pathname.startsWith("/api/alpaca/")) {
-      return handleAlpaca(req, res, requestUrl);
+      return await handleAlpaca(req, res, requestUrl);
     }
 
     if (pathname === "/api/holdings") {
-      return handleHoldings(req, res, requestUrl);
+      return await handleHoldings(req, res, requestUrl);
     }
 
     if (pathname === "/api/market/fed-interpret" || pathname === "/api/market/fed-news") {
-      return handleFed(req, res, requestUrl);
+      return await handleFed(req, res, requestUrl);
     }
 
     if (pathname === "/api/crypto/liquidations") {
-      return handleLiquidations(req, res, requestUrl);
+      return await handleLiquidations(req, res, requestUrl);
     }
 
     if (pathname.startsWith("/api/adol22/")) {
@@ -134,7 +134,7 @@ async function handleRequest(req, res) {
     if (pathname === "/api/market/futures" ||
         pathname === "/api/market/premarket-movers" ||
         pathname === "/api/market/event-countdowns") {
-      return handleMonitorExtras(req, res, pathname);
+      return await handleMonitorExtras(req, res, pathname);
     }
 
     if (pathname.startsWith("/api/market/") || pathname === "/api/live") {
@@ -142,43 +142,43 @@ async function handleRequest(req, res) {
       if (pathname !== "/api/market/chart" && !checkRateLimit(req)) {
         return writeJson(res, 429, { error: "Too many requests. Please slow down." });
       }
-      return handleMarket(req, res, requestUrl);
+      return await handleMarket(req, res, requestUrl);
     }
 
     if (pathname === "/api/inventory" || pathname.startsWith("/api/inventory/")) {
-      return handleInventory(req, res, requestUrl);
+      return await handleInventory(req, res, requestUrl);
     }
 
     if (pathname === "/api/journal" || pathname.startsWith("/api/journal/")) {
-      return handleJournal(req, res, requestUrl);
+      return await handleJournal(req, res, requestUrl);
     }
 
     if (pathname === "/api/agent" || pathname.startsWith("/api/agent/")) {
-      return handleAgent(req, res, requestUrl);
+      return await handleAgent(req, res, requestUrl);
     }
 
     if (pathname === "/api/portfolio" || pathname.startsWith("/api/portfolio/")) {
-      return handlePortfolio(req, res, requestUrl);
+      return await handlePortfolio(req, res, requestUrl);
     }
 
     if (pathname.startsWith("/api/dealer/")) {
-      return handleDealership(req, res, requestUrl);
+      return await handleDealership(req, res, requestUrl);
     }
 
     if (pathname === "/api/price-alerts" || pathname.startsWith("/api/price-alerts/")) {
-      return handlePriceAlerts(req, res, requestUrl);
+      return await handlePriceAlerts(req, res, requestUrl);
     }
 
     if (pathname === "/api/settings") {
-      return handleSettings(req, res, requestUrl);
+      return await handleSettings(req, res, requestUrl);
     }
 
     if (pathname === "/api/plan") {
-      return handlePlan(req, res);
+      return await handlePlan(req, res);
     }
 
     if (pathname === "/api/watchlist") {
-      return handleWatchlist(req, res);
+      return await handleWatchlist(req, res);
     }
 
     // POST /api/notify — sends a freeform Telegram message from the platform UI
