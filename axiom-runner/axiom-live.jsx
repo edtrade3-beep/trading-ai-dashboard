@@ -17001,7 +17001,7 @@ export default function App() {
           {/* Nav tabs — grouped */}
           {(() => {
             const NAV_GROUPS = [
-              { id: "dashboard",  label: "📊 MONITOR",    tabs: ["start", "dashboard", "movers", "quotes", "crypto", "news", "econ-cal", "macro"] },
+              { id: "dashboard",  label: "📊 MONITOR",    tabs: ["start", "dashboard", "movers", "quotes", "crypto", "news", "econ-cal", "macro", "breadth", "sectors", "rotation", "cot"] },
               { id: "mterminal",  label: "🖥 TERMINAL",   tabs: ["mterminal", "daytrade"] },
               { id: "rhpro",      label: "📈 PRO TRADE",  tabs: ["rhpro", "rhpro-apex", "rhpro-scan", "rhpro-lists", "rhpro-heat", "greenlight", "holdings", "rhpro-journal", "rhpro-coach", "morning-routine", "mytrades",
                 // Hidden from the PRO TRADE subnav bar (see SUB_GROUPS.rhpro
@@ -17011,7 +17011,7 @@ export default function App() {
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools", "dealfinder", "flightfinder", "leadresponder"] },
-              { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih", "halal", "soccer"] },
+              { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih"] },
             ];
             const scannerBadge = scannerRows.filter(r => r.scannerScore >= 70).length || null;
             return (
@@ -17360,6 +17360,15 @@ export default function App() {
       {/* Sub-nav bar — shown when active tab belongs to a multi-tab group */}
       {(() => {
         const SUB_GROUPS = {
+          // Reorganized 2026-07-10: added 4 real, fully-built widgets that had
+          // lost their nav entry (breadth, sectors, rotation, cot) — same
+          // "restore, don't guess" treatment as the Phase 3 scanner reconnects.
+          // Left dormant (still work, just not surfaced — code untouched):
+          // "calendar" (TV-iframe dup of Events), "heatmap" (portfolio P&L
+          // heatmap, belongs nearer Holdings not market-wide monitoring),
+          // feargreed/correlation/seasonality/darkpool/social/insider (real,
+          // but lower daily-monitoring priority than what's below — add a
+          // line back here any time to re-surface one).
           dashboard: [
             { id: "start",      label: "🚀 START HERE" },
             { id: "dashboard",  label: "📊 MONITOR" },
@@ -17369,6 +17378,10 @@ export default function App() {
             { id: "news",       label: "📰 NEWS" },
             { id: "econ-cal",   label: "📅 EVENTS" },
             { id: "macro",      label: "🌍 MACRO" },
+            { id: "breadth",    label: "📶 BREADTH" },
+            { id: "sectors",    label: "🏭 SECTORS" },
+            { id: "rotation",   label: "🔄 ROTATION" },
+            { id: "cot",        label: "🏛 COT" },
           ],
           terminal: [
             { id: "multitf",    label: "📈 CHART" },
@@ -17415,13 +17428,13 @@ export default function App() {
             { id: "flightfinder",    label: "✈️ FLIGHT FINDER" },
             { id: "leadresponder",   label: "📧 LEAD RESPONDER" },
           ],
+          // halal/soccer hidden 2026-07-10 (removed from nav, code untouched —
+          // same "hide, don't delete" treatment as the PRO TRADE trim above).
           islamic: [
             { id: "quran",  label: "قرآن" },
             { id: "athan",  label: "الصلاة" },
             { id: "athkar", label: "أذكار" },
             { id: "tasbih", label: "تسبيح" },
-            { id: "halal",  label: "☪ HALAL" },
-            { id: "soccer", label: "⚽ SOCCER" },
           ],
         };
         const activeGroup = Object.entries(SUB_GROUPS).find(([, tabs]) =>
