@@ -2943,7 +2943,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
   if (pathname === "/api/market/darkpool" && req.method === "GET") {
     const { UNUSUAL_WHALES_API_KEY } = require("../config");
     const symbol = (requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
-    const uwKey  = UNUSUAL_WHALES_API_KEY || providerKeys?.unusualWhales;
+    const uwKey  = UNUSUAL_WHALES_API_KEY;
     if (!uwKey) return writeJson(res, 200, { ok: false, error: "Unusual Whales API key not configured", prints: [] });
 
     try {
@@ -3333,7 +3333,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
   // ── GET /api/market/darkpool-heatmap — dark pool activity vs avg by symbol ─
   if (pathname === "/api/market/darkpool-heatmap" && req.method === "GET") {
     const { UNUSUAL_WHALES_API_KEY } = require("../config");
-    const uwKey = UNUSUAL_WHALES_API_KEY || providerKeys?.unusualWhales;
+    const uwKey = UNUSUAL_WHALES_API_KEY;
     if (!uwKey) return writeJson(res, 200, { ok: false, error: "Unusual Whales key not configured", stocks: [] });
     try {
       const controller = new AbortController();

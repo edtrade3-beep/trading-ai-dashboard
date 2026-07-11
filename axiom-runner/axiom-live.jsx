@@ -13433,6 +13433,7 @@ export default function App() {
                 // comment) but still reachable — kept here so this group still
                 // highlights correctly if you land on one of these another way.
                 "gl-backtest", "combined", "dipbuy", "squeeze", "under10", "gap", "adol22", "smartscan", "outlook", "predictions"] },
+              { id: "smartmoney", label: "🕵️ SMART MONEY", tabs: ["darkpool", "dp-heatmap", "insider", "smartmoney", "flow", "shortint", "short-changes", "sec-filings", "social", "correlation"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes", "education"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools", "dealfinder", "flightfinder", "leadresponder"] },
@@ -13838,6 +13839,21 @@ export default function App() {
             { id: "holdings",     label: "📊 HOLDINGS" },
             // ── Review & improve ──
             { id: "rhpro-coach", label: "🎓 AI COACH" },
+          ],
+          // "What smart money is actually doing" — surfaced 2026-07-11. All 10 of
+          // these were real, fully-built, backend-wired features with zero nav
+          // path (confirmed no duplicate work needed, just reconnection).
+          smartmoney: [
+            { id: "darkpool",       label: "🌊 DARK POOL" },
+            { id: "dp-heatmap",     label: "🗺 DP HEATMAP" },
+            { id: "insider",        label: "🏦 INSIDER SCREENER" },
+            { id: "smartmoney",     label: "🔍 13F LOOKUP" },
+            { id: "flow",           label: "⚡ OPTIONS FLOW" },
+            { id: "shortint",       label: "🩳 SHORT INTEREST" },
+            { id: "short-changes",  label: "📉 SHORT CHANGES" },
+            { id: "sec-filings",    label: "📄 SEC FILINGS" },
+            { id: "social",         label: "💬 SOCIAL SENTIMENT" },
+            { id: "correlation",    label: "🔗 CORRELATION" },
           ],
           coach: [
             { id: "coach",        label: "🧭 المدرّب اليومي" },
