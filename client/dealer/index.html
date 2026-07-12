@@ -162,6 +162,7 @@
     <div class="card noprint" id="invForm" style="display:none">
       <h2 id="invFormTitle">Add Vehicle</h2>
       <div class="grid g4">
+        <div><label>Stock #</label><input id="f_stock" /></div>
         <div><label>VIN</label><input id="f_vin" style="text-transform:uppercase" /></div>
         <div><label>Year</label><input id="f_year" /></div>
         <div><label>Make</label><input id="f_make" /></div>
@@ -171,6 +172,10 @@
         <div><label>Cost</label><input id="f_cost" type="number" /></div>
         <div><label>Price</label><input id="f_price" type="number" /></div>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;text-transform:none;letter-spacing:0;color:var(--text);margin-top:12px;cursor:pointer">
+        <input type="checkbox" id="f_photosOk" style="width:auto" />
+        📷 Photos reviewed / ready to advertise
+      </label>
       <div class="row" style="margin-top:14px">
         <button class="btn success" onclick="saveVehicleForm()">Save</button>
         <button class="btn ghost" onclick="hideForm()">Cancel</button>
@@ -238,17 +243,32 @@
 
   <div class="tab" id="t-desc">
     <div class="card">
-      <h2>📝 Vehicle Description Generator</h2>
+      <h2>📦 Vehicle Package — full listing content</h2>
+      <div class="muted" style="font-size:13px;margin-bottom:12px">Generates a complete content package for the vehicle loaded in Workspace: overview, top features, premium packages, buyer benefits, website + IDMS descriptions, SEO keywords, banner text, financing highlights, FAQ, and objection responses — one AI pass, built only from the details below. Nothing is invented.</div>
       <div class="grid g2">
-        <div><label>Features (comma separated)</label><input id="ds_features" placeholder="Backup camera, Bluetooth, Leather, Sunroof" /></div>
-        <div><label>Condition notes</label><input id="ds_cond" placeholder="Clean title, well maintained, no accidents" /></div>
+        <div><label>Known features/equipment (comma separated, optional)</label><input id="ds_features" placeholder="Backup camera, Bluetooth, Leather, Sunroof" /></div>
+        <div><label>Condition / dealer notes (optional)</label><input id="ds_cond" placeholder="Clean title, well maintained, no accidents" /></div>
       </div>
       <div class="row" style="margin-top:12px">
-        <button class="btn" onclick="genDesc()">Generate</button>
-        <button class="btn ghost" onclick="copyText('descOut')">Copy</button>
+        <button class="btn" onclick="genPackage()" id="pkgBtn">Generate Full Package</button>
+        <span class="muted" id="pkgMsg" style="font-size:13px"></span>
       </div>
-      <div class="out" id="descOut" style="margin-top:14px">Decode or load a vehicle, then click Generate.</div>
     </div>
+    <div id="pkgResult"></div>
+  </div>
+
+  <div class="tab" id="t-photos">
+    <div class="card">
+      <h2>📷 Photo Review</h2>
+      <div class="muted" style="font-size:13px;margin-bottom:12px">Upload the listing photos for the vehicle loaded in Workspace. Claude checks for a strong cover photo, missing standard angles, a good display order, and visible quality issues — based only on what's actually in the photos, nothing guessed.</div>
+      <div class="row" style="margin-bottom:12px">
+        <input type="file" id="photoFiles" accept="image/*" multiple onchange="handlePhotoFiles()" style="max-width:340px" />
+        <button class="btn" onclick="reviewPhotos()" id="photoBtn">Review Photos</button>
+        <span class="muted" id="photoMsg" style="font-size:13px"></span>
+      </div>
+      <div id="photoThumbs" class="row" style="flex-wrap:wrap;gap:10px"></div>
+    </div>
+    <div id="photoResult"></div>
   </div>
 
   <div class="tab" id="t-print">
@@ -278,6 +298,30 @@
       <div class="grid g3" id="dashCards"></div>
     </div>
   </div>
+
+  <div class="tab" id="t-report">
+    <div class="card">
+      <h2>📊 Inventory Market Report</h2>
+      <div class="muted" style="font-size:13px;margin-bottom:12px">Runs a live price scan against every vehicle in your inventory and flags what needs attention — overpriced, underpriced, missing info, or needing photos — plus a pick of which vehicles to advertise first. Uses the same live pricing engine as Price Beater in Workspace (MarketCheck/Auto.dev/Brave if configured, otherwise an honest market estimate). Nothing here is invented — vehicles with no comparable listing found are marked Unknown, not guessed at.</div>
+      <div class="row" style="margin-bottom:12px">
+        <button class="btn" onclick="runInventoryReport()" id="reportBtn">Run Report</button>
+        <span class="muted" id="reportMsg" style="font-size:13px"></span>
+      </div>
+    </div>
+    <div class="card" id="reportSummaryCard" style="display:none">
+      <h2>Summary</h2>
+      <div class="grid g4" id="reportSummaryStats"></div>
+    </div>
+    <div class="card" id="reportTableCard" style="display:none">
+      <h2>Vehicle-by-Vehicle</h2>
+      <div style="overflow-x:auto">
+        <table id="reportTable">
+          <thead><tr><th>Stock#</th><th>VIN</th><th>Vehicle</th><th>Current Price</th><th>Cheapest Comp</th><th>Comp Dealer</th><th>Difference</th><th>Status</th><th>Flags</th></tr></thead>
+          <tbody id="reportBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="printArea" style="display:none"></div>
@@ -287,15 +331,16 @@
 "use strict";
 var TABS = [
   ["workspace","🚗 Workspace"],["import","📥 Bulk Import"],["profit","💵 Profit"],
-  ["ad","📣 FB Ad"],["desc","📝 Description"],
-  ["print","🖨 Print"],["dash","📈 Dashboard"]
+  ["ad","📣 FB Ad"],["desc","📦 Package"],["photos","📷 Photos"],
+  ["print","🖨 Print"],["dash","📈 Dashboard"],["report","📊 Market Report"]
 ];
-var INV_COLS = [["vin","VIN"],["year","Year"],["make","Make"],["model","Model"],["trim","Trim"],["mileage","Mileage"],["cost","Cost"],["price","Price"],["profit","Profit"]];
+var INV_COLS = [["stock","Stock#"],["vin","VIN"],["year","Year"],["make","Make"],["model","Model"],["trim","Trim"],["mileage","Mileage"],["cost","Cost"],["price","Price"],["profit","Profit"]];
 var INV_KEY = "dam_inventory_v1", CUR_KEY = "dam_current_v1";
 var sortCol = "year", sortDir = -1, editId = null;
 var vehicle = load(CUR_KEY, {});
 var inventory = load(INV_KEY, []);
 var csvRows = [];
+var photoQueue = [];
 var idCounter = 0;
 function nextId(){ idCounter++; return Date.now()*1000+idCounter; }
 
@@ -323,7 +368,6 @@ function showTab(id){
   if(id==="workspace"){ calcMarket(); renderInventory(); }
   if(id==="profit") renderProfit();
   if(id==="ad") genAd();
-  if(id==="desc") genDesc();
   if(id==="dash") renderDash();
   window.scrollTo(0,0);
 }
@@ -715,8 +759,8 @@ function renderCsvResults(){
   }).join("");
 }
 function rowToInventoryRecord(r){
-  return { id:nextId(), vin:r.vin, year:r.year, make:r.make, model:r.model, trim:r.trim,
-    mileage:num(r.mileage), cost:num(r.cost), price:num(r.price), engine:r.engine||"", body:r.body||"", fuel:r.fuel||"", drive:r.drive||"" };
+  return { id:nextId(), stock:r.stock||"", vin:r.vin, year:r.year, make:r.make, model:r.model, trim:r.trim,
+    mileage:num(r.mileage), cost:num(r.cost), price:num(r.price), engine:r.engine||"", body:r.body||"", fuel:r.fuel||"", drive:r.drive||"", photosOk:false };
 }
 function addCsvRow(i){
   var r=csvRows[i]; if(!r || !r.valid) return;
@@ -771,18 +815,138 @@ function genAd(){
   $("adFlag").innerHTML=note;
 }
 
-function genDesc(){
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function pkgSection(title, id, bodyText){
+  return '<div class="card"><h2>'+title+'</h2><div class="row" style="margin-bottom:10px"><button class="btn ghost sm" onclick="copyText(\''+id+'\')">Copy</button></div><div class="out" id="'+id+'">'+esc(bodyText)+'</div></div>';
+}
+function renderPackage(p){
+  if(!p){ $("pkgResult").innerHTML='<div class="card"><div class="muted">No content returned.</div></div>'; return; }
+  var html="";
+  html+=pkgSection("Overview","pkg_overview", p.overview||"");
+  html+=pkgSection("Top Features","pkg_features", (p.topFeatures||[]).map(function(x){return "• "+x;}).join("\n"));
+  if(p.premiumPackages && p.premiumPackages.length) html+=pkgSection("Premium Packages","pkg_premium", p.premiumPackages.map(function(x){return "• "+x;}).join("\n"));
+  html+=pkgSection("Buyer Benefits","pkg_benefits", (p.buyerBenefits||[]).map(function(x){return "• "+x;}).join("\n"));
+  html+=pkgSection("Website Description","pkg_website", p.websiteDescription||"");
+  html+=pkgSection("IDMS Description","pkg_idms", p.idmsDescription||"");
+  html+=pkgSection("SEO Keywords","pkg_seo", (p.seoKeywords||[]).join(", "));
+  html+=pkgSection("Banner Text","pkg_banner", p.bannerText||"");
+  html+=pkgSection("Financing Highlights","pkg_financing", (p.financingHighlights||[]).map(function(x){return "• "+x;}).join("\n"));
+  html+=pkgSection("FAQ","pkg_faq", (p.faq||[]).map(function(x){return "Q: "+x.q+"\nA: "+x.a;}).join("\n\n"));
+  html+=pkgSection("Objections & Responses","pkg_objections", (p.objections||[]).map(function(x){return "Objection: "+x.objection+"\nResponse: "+x.response;}).join("\n\n"));
+  $("pkgResult").innerHTML=html;
+}
+function genPackage(){
   var v=vehicle;
-  var title=[v.year,v.make,v.model,v.trim].filter(Boolean).join(" ")||"[Vehicle]";
-  var feats=($("ds_features").value||"").split(",").map(function(s){return s.trim();}).filter(Boolean);
-  var cond=($("ds_cond").value||"").trim();
-  var miles=v.mileage?num(v.mileage).toLocaleString()+" miles":"low miles";
-  var lines=[];
-  lines.push("Take a look at this "+title+" — "+miles+", "+(v.engine&&v.engine!=="—"?v.engine+" engine, ":"")+(v.drive&&v.drive!=="—"?v.drive+", ":"")+(v.fuel&&v.fuel!=="—"?v.fuel.toLowerCase()+".":"a great daily driver."));
-  if(feats.length) lines.push("\nKey features: "+feats.join(", ")+".");
-  lines.push("\nCondition: "+(cond||"Inspected and in solid mechanical condition.")+" Body style: "+(v.body||"—")+".");
-  lines.push("\nThis "+(v.make||"vehicle")+" is priced to sell and won't last long. Financing available for all credit types, ITIN welcome, trade-ins accepted. Contact us today to schedule a test drive!");
-  $("descOut").textContent=lines.join("\n");
+  if(!v.make || !v.model){ $("pkgMsg").textContent="Decode or load a vehicle first."; return; }
+  var payload={
+    year:num(v.year), make:v.make, model:v.model, trim:v.trim||"",
+    mileage:num(v.mileage), price:num(v.price), condition:"Good",
+    engine:v.engine||"", drive:v.drive||"", fuel:v.fuel||"", transmission:v.transmission||"",
+    features:($("ds_features").value||"").trim(), notes:($("ds_cond").value||"").trim()
+  };
+  $("pkgBtn").disabled=true; $("pkgMsg").textContent="Generating full content package… this can take 10–20s"; $("pkgResult").innerHTML="";
+  fetch("/api/dealer/vehicle-package",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)})
+   .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, d:d}; }); })
+   .then(function(res){
+     $("pkgMsg").textContent="";
+     var d=res.d;
+     if(!res.ok || d.error){ $("pkgResult").innerHTML='<div class="card"><div class="muted">'+esc(d.error||"Generation failed")+'</div></div>'; return; }
+     renderPackage(d.package);
+   })
+   .catch(function(e){ $("pkgMsg").textContent="Generation failed: "+e.message; })
+   .then(function(){ $("pkgBtn").disabled=false; });
+}
+
+// Photo Review — downscale client-side (keeps upload small/fast), Claude vision checks cover photo/angles/order/quality.
+function downscaleImage(file, maxDim, cb){
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var img=new Image();
+    img.onload=function(){
+      var w=img.width, h=img.height;
+      var scale=Math.min(1, maxDim/Math.max(w,h));
+      var cw=Math.max(1,Math.round(w*scale)), ch=Math.max(1,Math.round(h*scale));
+      var canvas=document.createElement("canvas");
+      canvas.width=cw; canvas.height=ch;
+      canvas.getContext("2d").drawImage(img,0,0,cw,ch);
+      cb(canvas.toDataURL("image/jpeg",0.82));
+    };
+    img.onerror=function(){ cb(null); };
+    img.src=e.target.result;
+  };
+  reader.onerror=function(){ cb(null); };
+  reader.readAsDataURL(file);
+}
+function handlePhotoFiles(){
+  var files=Array.prototype.slice.call($("photoFiles").files||[]);
+  if(!files.length) return;
+  photoQueue=new Array(files.length);
+  $("photoThumbs").innerHTML=""; $("photoResult").innerHTML="";
+  $("photoMsg").textContent="Loading "+files.length+" photo"+(files.length!==1?"s":"")+"…";
+  var remaining=files.length;
+  files.forEach(function(f,i){
+    downscaleImage(f, 1024, function(dataUrl){
+      remaining--;
+      if(dataUrl) photoQueue[i]={ name:f.name, dataUrl:dataUrl };
+      if(remaining===0){
+        photoQueue=photoQueue.filter(Boolean);
+        renderThumbs();
+        $("photoMsg").textContent=photoQueue.length+" photo"+(photoQueue.length!==1?"s":"")+" ready.";
+      }
+    });
+  });
+}
+function renderThumbs(){
+  $("photoThumbs").innerHTML=photoQueue.map(function(p){
+    return '<div style="text-align:center;width:100px">'
+      +'<img src="'+p.dataUrl+'" style="width:100px;height:75px;object-fit:cover;border-radius:8px;border:1px solid var(--border)" />'
+      +'<div class="muted" style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.name)+'</div>'
+      +'</div>';
+  }).join("");
+}
+function reviewPhotos(){
+  var v=vehicle;
+  if(!photoQueue.length){ $("photoMsg").textContent="Choose photos first."; return; }
+  if(!v.make || !v.model){ $("photoMsg").textContent="Decode or load a vehicle first."; return; }
+  $("photoBtn").disabled=true; $("photoMsg").textContent="Reviewing "+photoQueue.length+" photo"+(photoQueue.length!==1?"s":"")+"… this can take 15–30s"; $("photoResult").innerHTML="";
+  fetch("/api/dealer/photo-review",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ vehicle:{ year:v.year, make:v.make, model:v.model, trim:v.trim||"" }, photos:photoQueue })})
+   .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, d:d}; }); })
+   .then(function(res){
+     $("photoMsg").textContent="";
+     var d=res.d;
+     if(!res.ok || d.error){ $("photoResult").innerHTML='<div class="card"><div class="muted">'+esc(d.error||"Photo review failed")+'</div></div>'; return; }
+     renderPhotoReview(d);
+     if(v.vin){
+       var i=inventory.findIndex(function(x){ return x.vin && x.vin===v.vin; });
+       if(i>=0){ inventory[i].photosOk=true; save(INV_KEY,inventory); }
+     }
+   })
+   .catch(function(e){ $("photoMsg").textContent="Photo review failed: "+e.message; })
+   .then(function(){ $("photoBtn").disabled=false; });
+}
+function renderPhotoReview(d){
+  var html='<div class="card"><h2>Review Results</h2>';
+  if(d.coverPhoto) html+='<div class="spec"><span class="k">Suggested cover photo</span><span class="val">'+esc(d.coverPhoto)+'</span></div>';
+  if(d.coverPhotoReason) html+='<div class="muted" style="font-size:13px;margin:6px 0 4px">'+esc(d.coverPhotoReason)+'</div>';
+  if(d.anglesMissing && d.anglesMissing.length){
+    html+='<div style="margin-top:12px;padding:10px 12px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:8px">'
+      +'<div style="font-weight:700;font-size:13px;color:var(--danger);margin-bottom:6px">⚠ Missing angles</div>'
+      +d.anglesMissing.map(function(x){return '<div class="muted" style="font-size:13px">• '+esc(x)+'</div>';}).join("")
+      +'</div>';
+  }
+  if(d.anglesCovered && d.anglesCovered.length) html+='<div class="muted" style="font-size:12px;margin-top:12px">Covered: '+esc(d.anglesCovered.join(", "))+'</div>';
+  if(d.suggestedOrder && d.suggestedOrder.length) html+='<div class="muted" style="font-size:12px;margin-top:8px">Suggested order: '+esc(d.suggestedOrder.join(" → "))+'</div>';
+  if(d.overallNote) html+='<div class="out" style="margin-top:12px">'+esc(d.overallNote)+'</div>';
+  html+='</div>';
+  if(d.photoNotes && d.photoNotes.length){
+    html+='<div class="card"><h2>Per-Photo Notes</h2>'
+      +d.photoNotes.map(function(n){
+        return '<div class="spec"><span class="k">'+esc(n.name)+'</span><span class="val">'+(n.issues&&n.issues.length?esc(n.issues.join(", ")):"—")+(n.note?' <span class="muted" style="font-size:12px">'+esc(n.note)+'</span>':'')+'</span></div>';
+      }).join("")
+      +'</div>';
+  }
+  $("photoResult").innerHTML=html;
 }
 
 function copyText(id){
@@ -795,9 +959,9 @@ function fallbackCopy(t){ var ta=document.createElement("textarea"); ta.value=t;
 function vehProfit(x){ return num(x.price)-num(x.cost); }
 function saveToInventory(){
   if(!vehicle.vin && !vehicle.make){ toast("Decode a vehicle first."); return; }
-  inventory.unshift({ id:Date.now(), vin:vehicle.vin||"", year:vehicle.year||"", make:vehicle.make||"", model:vehicle.model||"",
+  inventory.unshift({ id:nextId(), stock:"", vin:vehicle.vin||"", year:vehicle.year||"", make:vehicle.make||"", model:vehicle.model||"",
     trim:vehicle.trim||"", mileage:num(vehicle.mileage), cost:num(vehicle.cost), price:num(vehicle.price),
-    engine:vehicle.engine||"", body:vehicle.body||"", fuel:vehicle.fuel||"", drive:vehicle.drive||"" });
+    engine:vehicle.engine||"", body:vehicle.body||"", fuel:vehicle.fuel||"", drive:vehicle.drive||"", photosOk:false });
   save(INV_KEY,inventory); toast("Saved to inventory ✓");
 }
 function renderInventory(){
@@ -814,11 +978,11 @@ function renderInventory(){
     if(va<vb) return -1*sortDir; if(va>vb) return 1*sortDir; return 0;
   });
   $("invCount").textContent=rows.length+" vehicle"+(rows.length!==1?"s":"");
-  if(!rows.length){ $("invBody").innerHTML='<tr><td colspan="10" class="empty">No vehicles yet. Decode a VIN and save it, or click Add Vehicle.</td></tr>'; return; }
+  if(!rows.length){ $("invBody").innerHTML='<tr><td colspan="11" class="empty">No vehicles yet. Decode a VIN and save it, or click Add Vehicle.</td></tr>'; return; }
   $("invBody").innerHTML=rows.map(function(x){
     var p=vehProfit(x), pc=p>=0?"var(--success)":"var(--danger)";
     return '<tr>'
-      +'<td>'+(x.vin||"—")+'</td><td>'+(x.year||"—")+'</td><td>'+(x.make||"—")+'</td><td>'+(x.model||"—")+'</td><td>'+(x.trim||"—")+'</td>'
+      +'<td>'+(x.stock||"—")+'</td><td>'+(x.vin||"—")+'</td><td>'+(x.year||"—")+'</td><td>'+(x.make||"—")+'</td><td>'+(x.model||"—")+'</td><td>'+(x.trim||"—")+'</td>'
       +'<td>'+num(x.mileage).toLocaleString()+'</td><td>'+money(x.cost)+'</td><td>'+money(x.price)+'</td>'
       +'<td style="color:'+pc+';font-weight:700">'+money(p)+'</td>'
       +'<td class="noprint" style="white-space:nowrap">'
@@ -835,19 +999,20 @@ function loadVehicle(id){
   $("d_vin").value=x.vin||""; $("d_mileage").value=x.mileage||""; $("d_cost").value=x.cost||""; $("d_price").value=x.price||"";
   renderVehicleCard(); toast("Loaded into workspace"); showTab("workspace");
 }
-function newVehicleForm(){ editId=null; $("invFormTitle").textContent="Add Vehicle"; ["vin","year","make","model","trim","mileage","cost","price"].forEach(function(f){$("f_"+f).value="";}); $("invForm").style.display=""; $("invForm").scrollIntoView({behavior:"smooth"}); }
+function newVehicleForm(){ editId=null; $("invFormTitle").textContent="Add Vehicle"; ["stock","vin","year","make","model","trim","mileage","cost","price"].forEach(function(f){$("f_"+f).value="";}); $("f_photosOk").checked=false; $("invForm").style.display=""; $("invForm").scrollIntoView({behavior:"smooth"}); }
 function editVehicle(id){
   var x=inventory.find(function(v){return v.id===id;}); if(!x) return;
   editId=id; $("invFormTitle").textContent="Edit Vehicle";
-  ["vin","year","make","model","trim","mileage","cost","price"].forEach(function(f){$("f_"+f).value=x[f]!=null?x[f]:"";});
+  ["stock","vin","year","make","model","trim","mileage","cost","price"].forEach(function(f){$("f_"+f).value=x[f]!=null?x[f]:"";});
+  $("f_photosOk").checked=!!x.photosOk;
   $("invForm").style.display=""; $("invForm").scrollIntoView({behavior:"smooth"});
 }
 function saveVehicleForm(){
-  var rec={ vin:($("f_vin").value||"").toUpperCase(), year:$("f_year").value, make:$("f_make").value, model:$("f_model").value,
-    trim:$("f_trim").value, mileage:num($("f_mileage").value), cost:num($("f_cost").value), price:num($("f_price").value) };
+  var rec={ stock:$("f_stock").value, vin:($("f_vin").value||"").toUpperCase(), year:$("f_year").value, make:$("f_make").value, model:$("f_model").value,
+    trim:$("f_trim").value, mileage:num($("f_mileage").value), cost:num($("f_cost").value), price:num($("f_price").value), photosOk:$("f_photosOk").checked };
   if(!rec.vin && !rec.make){ toast("Enter at least a VIN or make."); return; }
   if(editId){ var i=inventory.findIndex(function(v){return v.id===editId;}); if(i>=0) inventory[i]=Object.assign({},inventory[i],rec); }
-  else { rec.id=Date.now(); inventory.unshift(rec); }
+  else { rec.id=nextId(); inventory.unshift(rec); }
   save(INV_KEY,inventory); hideForm(); renderInventory(); toast("Saved ✓");
 }
 function delVehicle(id){ if(!confirm("Delete this vehicle?")) return; inventory=inventory.filter(function(v){return v.id!==id;}); save(INV_KEY,inventory); renderInventory(); }
@@ -864,7 +1029,7 @@ function buildPrint(kind){
       +prow("Front-End Gross",money(num(v.price)-num(v.cost)));
   } else if(kind==="inventory"){
     html='<h1>Inventory Sheet</h1><table><thead><tr>'+INV_COLS.map(function(c){return "<th>"+c[1]+"</th>";}).join("")+'</tr></thead><tbody>'
-      +inventory.map(function(x){return "<tr><td>"+(x.vin||"")+"</td><td>"+(x.year||"")+"</td><td>"+(x.make||"")+"</td><td>"+(x.model||"")+"</td><td>"+(x.trim||"")+"</td><td>"+num(x.mileage).toLocaleString()+"</td><td>"+money(x.cost)+"</td><td>"+money(x.price)+"</td><td>"+money(vehProfit(x))+"</td></tr>";}).join("")
+      +inventory.map(function(x){return "<tr><td>"+(x.stock||"")+"</td><td>"+(x.vin||"")+"</td><td>"+(x.year||"")+"</td><td>"+(x.make||"")+"</td><td>"+(x.model||"")+"</td><td>"+(x.trim||"")+"</td><td>"+num(x.mileage).toLocaleString()+"</td><td>"+money(x.cost)+"</td><td>"+money(x.price)+"</td><td>"+money(vehProfit(x))+"</td></tr>";}).join("")
       +'</tbody></table>';
   } else {
     var tv=inventory.length, tc=inventory.reduce(function(s,x){return s+num(x.cost);},0), tp=inventory.reduce(function(s,x){return s+num(x.price);},0);
@@ -896,6 +1061,85 @@ function renderDash(){
   $("dashCards").innerHTML = keys.length ? keys.map(function(m){
     return '<div class="stat"><div class="l">'+m+'</div><div class="v">'+byMake[m].n+' <span style="font-size:13px;color:var(--muted)">units</span></div><div class="muted" style="font-size:12px;margin-top:4px">Profit '+money(byMake[m].p)+'</div></div>';
   }).join("") : '<div class="empty">Add vehicles to see a summary.</div>';
+}
+
+// Inventory-wide Market Report — sequential price-beat scan per vehicle (same live engine as Price Beater),
+// then classifies overpriced/underpriced/fair/unknown and flags missing info, needs-photos, and advertise-first picks.
+function classifyReportRow(x, d){
+  var flags=[];
+  if(!x.vin || !num(x.price) || !num(x.mileage) || !num(x.cost)) flags.push("Missing Info");
+  if(!x.photosOk) flags.push("Needs Photos");
+  var status="Unknown", cheapest=null, dealer="", diff=null;
+  if(d && d.found){
+    cheapest=num(d.cheapestPrice); dealer=d.dealer||d.source||"";
+    diff=cheapest-num(x.price);
+    if(diff<=-500) status="Overpriced";
+    else if(diff>=1000) status="Underpriced";
+    else status="Fair";
+  }
+  return { flags:flags, status:status, cheapest:cheapest, dealer:dealer, diff:diff };
+}
+function runInventoryReport(){
+  if(!inventory.length){ $("reportMsg").textContent="No vehicles in inventory yet."; return; }
+  $("reportBtn").disabled=true;
+  $("reportSummaryCard").style.display="none"; $("reportTableCard").style.display="none";
+  var zip=($("pb_zip").value||"45014").replace(/[^0-9]/g,"").slice(0,5)||"45014";
+  var radius=num($("pb_radius").value)||200;
+  var rows=inventory.map(function(x){ return { x:x, result:null }; });
+  var i=0;
+  function next(){
+    if(i>=rows.length){ finishReport(rows); return; }
+    var x=rows[i].x;
+    $("reportMsg").textContent="Scanning "+(i+1)+" of "+rows.length+"…";
+    if(!x.make || !x.model || !x.year){ i++; next(); return; }
+    fetch("/api/dealer/price-beat",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ year:num(x.year), make:x.make, model:x.model, trim:x.trim||"", zip:zip, radius:radius, myPrice:num(x.price), myMiles:num(x.mileage) })})
+     .then(function(r){ return r.json(); })
+     .then(function(d){ rows[i].result=d; })
+     .catch(function(){})
+     .then(function(){ i++; next(); });
+  }
+  next();
+}
+function finishReport(rows){
+  $("reportBtn").disabled=false; $("reportMsg").textContent="Done — "+rows.length+" vehicle"+(rows.length!==1?"s":"")+" scanned.";
+  var classified=rows.map(function(r){ return { x:r.x, c:classifyReportRow(r.x, r.result) }; });
+  var candidates=classified.filter(function(r){ return r.c.status==="Underpriced" && r.c.flags.indexOf("Missing Info")<0 && r.c.flags.indexOf("Needs Photos")<0; })
+    .sort(function(a,b){ return (b.c.diff||0)-(a.c.diff||0); }).slice(0,3);
+  candidates.forEach(function(r){ r.c.flags.push("Advertise First"); });
+
+  var overpriced=classified.filter(function(r){ return r.c.status==="Overpriced"; }).length;
+  var underpriced=classified.filter(function(r){ return r.c.status==="Underpriced"; }).length;
+  var missingInfo=classified.filter(function(r){ return r.c.flags.indexOf("Missing Info")>=0; }).length;
+  var needsPhotos=classified.filter(function(r){ return r.c.flags.indexOf("Needs Photos")>=0; }).length;
+
+  $("reportSummaryCard").style.display="";
+  $("reportSummaryStats").innerHTML=[
+    ["Overpriced",String(overpriced),overpriced>0?"danger":"success"],
+    ["Underpriced",String(underpriced),underpriced>0?"warning":"success"],
+    ["Missing Info",String(missingInfo),missingInfo>0?"danger":"success"],
+    ["Needs Photos",String(needsPhotos),needsPhotos>0?"warning":"success"]
+  ].map(statBox).join("");
+
+  $("reportTableCard").style.display="";
+  $("reportBody").innerHTML=classified.map(function(r){
+    var x=r.x, c=r.c;
+    var statusPill = c.status==="Overpriced"?'<span class="pill red">OVERPRICED</span>'
+      : c.status==="Underpriced"?'<span class="pill yellow">UNDERPRICED</span>'
+      : c.status==="Fair"?'<span class="pill green">FAIR</span>':'<span class="pill yellow">UNKNOWN</span>';
+    var flagsHtml=c.flags.map(function(f){ return '<span class="pill '+(f==="Advertise First"?"green":"red")+'" style="font-size:10px;padding:2px 8px;margin-right:4px">'+esc(f)+'</span>'; }).join("");
+    var diffLabel = c.diff!=null ? ((c.diff>=0?"+":"-")+money(Math.abs(c.diff))) : "—";
+    return '<tr>'
+      +'<td>'+(x.stock||"—")+'</td><td>'+(x.vin||"—")+'</td>'
+      +'<td>'+esc([x.year,x.make,x.model,x.trim].filter(Boolean).join(" ")||"—")+'</td>'
+      +'<td>'+(x.price?money(x.price):"—")+'</td>'
+      +'<td>'+(c.cheapest!=null?money(c.cheapest):"—")+'</td>'
+      +'<td>'+esc(c.dealer||"—")+'</td>'
+      +'<td>'+diffLabel+'</td>'
+      +'<td>'+statusPill+'</td>'
+      +'<td>'+(flagsHtml||"—")+'</td>'
+      +'</tr>';
+  }).join("");
 }
 
 buildNav();

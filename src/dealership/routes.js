@@ -1,5 +1,5 @@
-const { writeJson, fetchJsonSafe, withTimeout, readRequestBody } = require("../utils");
-const { callAnthropicApi, callAnthropicWithSearch, MODELS } = require("../anthropic");
+const { writeJson, fetchJsonSafe, withTimeout, readRequestBody, readRequestBodyBuffer } = require("../utils");
+const { callAnthropicApi, callAnthropicWithSearch, anthropicRequest, MODELS } = require("../anthropic");
 const { ANTHROPIC_API_KEY } = require("../config");
 const { getKey, setKey } = require("../runtime-keys");
 
@@ -49,6 +49,86 @@ PART 1 — a fenced \`\`\`json block with this shape:
 PART 2 — a short, clear human-readable summary (market low/avg/high, best buy + why, expected resale, suggested max purchase price).
 
 If web search returns no usable listings, return listingsFound: 0 and explain honestly rather than inventing data.`;
+}
+
+// Builds the full listing-content-package prompt around the loaded vehicle's known details only.
+function buildVehiclePackagePrompt(v) {
+  const vehicleLine = `${v.year} ${v.make} ${v.model}${v.trim ? " " + v.trim : ""}`;
+  return `You are an experienced used-car dealership marketing copywriter and sales trainer. Create a complete marketing content package for this vehicle listing.
+
+VEHICLE DETAILS (use ONLY this information — do not invent features, options, or history that aren't listed or clearly standard for this trim)
+- ${vehicleLine}
+- Mileage: ${v.mileage ? v.mileage.toLocaleString() + " miles" : "not specified"}
+- Condition: ${v.condition || "Good"}
+- Price: ${v.price ? "$" + v.price.toLocaleString() : "contact for price"}
+${v.engine ? "- Engine: " + v.engine : ""}
+${v.transmission ? "- Transmission: " + v.transmission : ""}
+${v.drive ? "- Drivetrain: " + v.drive : ""}
+${v.fuel ? "- Fuel: " + v.fuel : ""}
+${v.features ? "- Known features/equipment: " + v.features : ""}
+${v.notes ? "- Additional notes from the dealer: " + v.notes : ""}
+
+RULES
+- Never claim a specific accident/damage history one way or the other unless told. If the FAQ needs to address history, answer honestly that a vehicle history report is available on request.
+- Never invent factory options/packages that aren't listed or standard for this trim — if unsure a feature applies, phrase it generically (e.g. "well-equipped") instead of naming an unconfirmed feature.
+- Keep financing highlights generic and compliant — no guaranteed-approval claims, no specific APR unless one was given.
+
+Return ONLY a fenced \`\`\`json block with exactly this shape (no other text):
+{
+  "overview": "2-3 sentence compelling summary of the vehicle",
+  "topFeatures": ["short feature phrase", "..."],
+  "premiumPackages": ["package or trim highlight, or omit entirely if nothing to highlight"],
+  "buyerBenefits": ["benefit-focused reason to buy", "..."],
+  "websiteDescription": "4-6 paragraph SEO-friendly dealership website listing",
+  "idmsDescription": "plain-text description formatted for an IDMS/inventory feed, no markdown, no emojis, factual, 150-250 words",
+  "seoKeywords": ["search-relevant keyword phrase", "..."],
+  "bannerText": "one punchy line under 60 characters for a lot banner or window sticker",
+  "financingHighlights": ["short financing benefit line", "..."],
+  "faq": [ { "q": "buyer question", "a": "dealer answer" } ],
+  "objections": [ { "objection": "common buyer pushback", "response": "how to respond" } ]
+}
+Include 5-8 topFeatures, 0-4 premiumPackages, 4-6 buyerBenefits, 8-12 seoKeywords, 3-5 financingHighlights, 5-6 faq entries, 4-6 objections.`;
+}
+
+// ─── Photo review (Claude vision) ─────────────────────────────────────────────
+
+function parseDataUrl(dataUrl) {
+  const m = String(dataUrl || "").match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  return m ? { mediaType: m[1], data: m[2] } : null;
+}
+
+async function reviewPhotosWithClaude(vehicleLine, photos, apiKey) {
+  const imageBlocks = photos.map(p => ({ type: "image", source: { type: "base64", media_type: p.mediaType, data: p.data } }));
+  const labelText = photos.map((p, i) => `Photo ${i + 1}: "${p.name}"`).join("\n");
+  const promptText = `You are reviewing a set of listing photos for a used-car dealership before they go live online.
+
+VEHICLE: ${vehicleLine}
+
+PHOTOS ARE ATTACHED IN THIS ORDER:
+${labelText}
+
+TASK
+1. Pick the single best COVER photo (the one that should appear first in the listing) — usually a clean front 3/4 exterior shot with good lighting and no clutter. Identify it by its photo number.
+2. Check which of these standard angles are covered by at least one photo, and which are missing: front 3/4 exterior, rear 3/4 exterior, driver side profile, passenger side profile, front interior/dashboard, rear seats, trunk/cargo area, engine bay, wheels/tires close-up, odometer/mileage reading.
+3. Suggest a good DISPLAY ORDER for all the photos (list photo numbers in the order they should appear, cover photo first).
+4. For any photo with a visible quality problem (blurry, too dark, glare/reflection, cluttered background, low resolution, bad angle), note it. Photos with no issues need no entry.
+5. Give one short overall recommendation.
+
+Only comment on what you can actually see in the images — do not guess at anything not visible, and do not invent angles or issues that aren't there.
+
+Return ONLY a fenced \`\`\`json block with exactly this shape:
+{
+  "coverPhoto": <photo number, integer>,
+  "coverPhotoReason": "string",
+  "anglesCovered": ["angle name", "..."],
+  "anglesMissing": ["angle name", "..."],
+  "suggestedOrder": [<photo number>, "..."],
+  "photoNotes": [ { "photo": <photo number>, "issues": ["issue", "..."], "note": "short comment" } ],
+  "overallNote": "one or two sentence summary recommendation"
+}`;
+  const payload = { model: MODELS.sonnet, max_tokens: 1600, messages: [{ role: "user", content: [{ type: "text", text: promptText }, ...imageBlocks] }] };
+  const resp = await anthropicRequest(payload, apiKey, 60000);
+  return (resp.content || []).filter(b => b.type === "text").map(b => b.text).join("");
 }
 
 function monthlyPayment(amount, apr, months, downPayment) {
@@ -466,6 +546,94 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
       return writeJson(res, 200, { description: text, style, generatedAt: new Date().toISOString() });
     } catch (err) {
       return writeJson(res, 422, { error: err instanceof Error ? err.message : "AI description failed" });
+    }
+  }
+
+  // POST /api/dealer/vehicle-package — full listing content package (overview, features, SEO, FAQ, objections, etc.)
+  if (pathname === "/api/dealer/vehicle-package" && req.method === "POST") {
+    if (!anthropicKey()) {
+      return writeJson(res, 503, { error: "ANTHROPIC_API_KEY is not configured." });
+    }
+    let body;
+    try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON body" }); }
+
+    const v = body || {};
+    const year = Number(v.year || 0);
+    const make = String(v.make || "").trim();
+    const model = String(v.model || "").trim();
+    if (!year || !make || !model) {
+      return writeJson(res, 400, { error: "year, make, and model are required" });
+    }
+
+    const vv = {
+      year, make, model,
+      trim: String(v.trim || "").trim(),
+      mileage: Number(v.mileage || 0),
+      condition: String(v.condition || "Good").trim(),
+      price: Number(v.price || 0),
+      engine: String(v.engine || "").trim(),
+      drive: String(v.drive || "").trim(),
+      fuel: String(v.fuel || "").trim(),
+      transmission: String(v.transmission || "").trim(),
+      features: String(v.features || "").trim(),
+      notes: String(v.notes || "").trim(),
+    };
+
+    const prompt = buildVehiclePackagePrompt(vv);
+    try {
+      const text = await callAnthropicApi(prompt, anthropicKey(), { model: MODELS.sonnet, maxTokens: 2600 });
+      const pkg = extractJsonBlock(text);
+      if (!pkg) return writeJson(res, 422, { error: "Could not parse the generated content — try again." });
+      return writeJson(res, 200, { package: pkg, generatedAt: new Date().toISOString() });
+    } catch (err) {
+      return writeJson(res, 422, { error: err instanceof Error ? err.message : "Vehicle package generation failed" });
+    }
+  }
+
+  // POST /api/dealer/photo-review — cover photo pick, missing angles, order, quality notes (Claude vision)
+  if (pathname === "/api/dealer/photo-review" && req.method === "POST") {
+    if (!anthropicKey()) {
+      return writeJson(res, 503, { error: "ANTHROPIC_API_KEY is not configured." });
+    }
+    let body;
+    try {
+      const buf = await readRequestBodyBuffer(req, 20 * 1024 * 1024);
+      body = JSON.parse(buf.toString("utf8"));
+    } catch (err) {
+      const tooLarge = err instanceof Error && /too large/i.test(err.message);
+      return writeJson(res, tooLarge ? 413 : 400, { error: tooLarge ? "Photos are too large — try fewer or smaller photos." : "Invalid JSON body" });
+    }
+
+    const v = body.vehicle || {};
+    const vehicleLine = [v.year, v.make, v.model, v.trim].filter(Boolean).join(" ") || "vehicle";
+    const rawPhotos = Array.isArray(body.photos) ? body.photos.slice(0, 12) : [];
+    if (!rawPhotos.length) return writeJson(res, 400, { error: "Upload at least one photo." });
+
+    const photos = [];
+    for (const p of rawPhotos) {
+      const parsed = parseDataUrl(p && p.dataUrl);
+      if (parsed) photos.push({ name: String((p && p.name) || `photo${photos.length + 1}`), mediaType: parsed.mediaType, data: parsed.data });
+    }
+    if (!photos.length) return writeJson(res, 400, { error: "No valid image data received." });
+
+    try {
+      const text = await reviewPhotosWithClaude(vehicleLine, photos, anthropicKey());
+      const review = extractJsonBlock(text);
+      if (!review) return writeJson(res, 422, { error: "Could not parse the photo review — try again." });
+      const nameOf = (n) => { const i = Number(n) - 1; return photos[i] ? photos[i].name : String(n); };
+      return writeJson(res, 200, {
+        coverPhoto: review.coverPhoto != null ? nameOf(review.coverPhoto) : null,
+        coverPhotoReason: review.coverPhotoReason || "",
+        anglesCovered: review.anglesCovered || [],
+        anglesMissing: review.anglesMissing || [],
+        suggestedOrder: (review.suggestedOrder || []).map(nameOf),
+        photoNotes: (review.photoNotes || []).map(x => ({ name: nameOf(x.photo), issues: x.issues || [], note: x.note || "" })),
+        overallNote: review.overallNote || "",
+        photoCount: photos.length,
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      return writeJson(res, 422, { error: err instanceof Error ? err.message : "Photo review failed" });
     }
   }
 
