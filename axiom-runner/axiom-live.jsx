@@ -7660,7 +7660,7 @@ export default function App() {
               // the PRO TRADE pill uses tabs[0] as the landing tab, and it
               // should land on one of the 3 tabs actually shown in the subnav,
               // matching the app's own global default landing tab.
-              { id: "rhpro",      label: "📈 PRO TRADE",  tabs: ["greenlight", "rhpro", "rhpro-apex", "rhpro-scan", "rhpro-lists", "rhpro-heat", "holdings", "rhpro-journal", "rhpro-coach", "morning-routine", "mytrades",
+              { id: "rhpro",      label: "📈 PRO TRADE",  tabs: ["greenlight", "tradeplanner", "rhpro", "rhpro-apex", "rhpro-scan", "rhpro-lists", "rhpro-heat", "holdings", "rhpro-journal", "rhpro-coach", "morning-routine", "mytrades",
                 // Hidden from the PRO TRADE subnav bar (see SUB_GROUPS.rhpro
                 // comment) but still reachable — kept here so this group still
                 // highlights correctly if you land on one of these another way.
@@ -8062,11 +8062,13 @@ export default function App() {
           // explicitly (autopilot + the two scanners). COMMAND DECK/HEAT MAP/
           // WATCHLISTS/HOLDINGS/AI COACH are all still fully wired, just not in
           // this bar — reachable via command palette (DECK/SECTORHEAT/
-          // WATCHLISTS/HOLDINGS/AICOACH GO).
+          // WATCHLISTS/HOLDINGS/AICOACH GO). TRADE PLANNER added back 2026-07-12
+          // after the user asked where to find it — was palette-only before.
           rhpro: [
             { id: "rhpro-apex", label: "🧠 TRADE PRO AI" },
             { id: "rhpro-scan", label: "🎯 SNIPER SCANNER" },
             { id: "greenlight",  label: "🟢 GREEN LIGHT + AUTOPILOT" },
+            { id: "tradeplanner", label: "🎯 TRADE PLANNER" },
           ],
           // SMART MONEY folded into the mterminal group above 2026-07-12 —
           // AI Brief/Dark Pool/Options Flow are now part of SUB_GROUPS.mterminal.
