@@ -7649,13 +7649,13 @@ export default function App() {
               // "dashboard" listed first (not "start") — clicking the MONITOR
               // pill uses tabs[0] as the landing tab, and Start Here is
               // onboarding-only, not a repeat destination.
-              { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard", "start", "movers", "quotes", "crypto", "news", "econ-cal", "macro", "breadth", "sectors", "rotation", "cot"] },
+              { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard", "start", "quotes", "crypto", "news", "econ-cal", "macro", "breadth", "sectors", "rotation", "cot"] },
               // SMART MONEY folded into TERMINAL 2026-07-12 per user request
               // ("add inside terminal") — its own top-level pill is gone, all
               // 11 of its tabs (3 now visible in the TERMINAL subnav, 8 still
               // palette-only) live under this group's membership now so
               // TERMINAL highlights correctly for all of them.
-              { id: "mterminal",  label: "🖥 TERMINAL",   tabs: ["mterminal", "daytrade", "sm-brief", "darkpool", "dp-heatmap", "insider", "smartmoney", "flow", "shortint", "short-changes", "sec-filings", "social", "correlation"] },
+              { id: "mterminal",  label: "🖥 TERMINAL",   tabs: ["mterminal", "daytrade", "movers", "sm-brief", "darkpool", "dp-heatmap", "insider", "smartmoney", "flow", "shortint", "short-changes", "sec-filings", "social", "correlation"] },
               // "greenlight" listed first (not "rhpro"/Command Deck) — clicking
               // the PRO TRADE pill uses tabs[0] as the landing tab, and it
               // should land on one of the 3 tabs actually shown in the subnav,
@@ -8035,9 +8035,10 @@ export default function App() {
           // QUOTES/CRYPTO/NEWS/EVENTS/MACRO are all still fully wired, just not
           // in this bar — reachable via command palette (QUOTES/CRYPTO/NEWS/
           // EVENTS/MACRO GO).
+          // MOVERS moved to TERMINAL 2026-07-12 per user request — now the
+          // sole tab here, matching the existing single-tab precedent (coach).
           dashboard: [
             { id: "dashboard",  label: "📊 MONITOR" },
-            { id: "movers",     label: "🔥 MOVERS" },
           ],
           terminal: [
             { id: "multitf",    label: "📈 CHART" },
@@ -8046,6 +8047,7 @@ export default function App() {
           mterminal: [
             { id: "mterminal",  label: "🖥 MARKET TERMINAL" },
             { id: "daytrade",   label: "⚡ DAY TRADE" },
+            { id: "movers",     label: "🔥 MOVERS" },
             { id: "sm-brief",   label: "🧠 AI BRIEF" },
             { id: "darkpool",   label: "🌊 DARK POOL" },
             { id: "flow",       label: "⚡ OPTIONS FLOW" },
