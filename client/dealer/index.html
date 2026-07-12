@@ -1072,10 +1072,14 @@ function classifyReportRow(x, d){
   var status="Unknown", cheapest=null, dealer="", diff=null;
   if(d && d.found){
     cheapest=num(d.cheapestPrice); dealer=d.dealer||d.source||"";
-    diff=cheapest-num(x.price);
-    if(diff<=-500) status="Overpriced";
-    else if(diff>=1000) status="Underpriced";
-    else status="Fair";
+    // Only classify overpriced/underpriced/fair if there's an actual asking price to compare against —
+    // otherwise diff against $0 always reads as wildly "underpriced", which is meaningless, not a real signal.
+    if(num(x.price)>0){
+      diff=cheapest-num(x.price);
+      if(diff<=-500) status="Overpriced";
+      else if(diff>=1000) status="Underpriced";
+      else status="Fair";
+    }
   }
   return { flags:flags, status:status, cheapest:cheapest, dealer:dealer, diff:diff };
 }
