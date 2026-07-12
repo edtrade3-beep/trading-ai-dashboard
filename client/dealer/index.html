@@ -178,6 +178,35 @@
     </div>
   </div>
 
+  <div class="tab" id="t-import">
+    <div class="card">
+      <h2>📥 Bulk Inventory Import</h2>
+      <div class="muted" style="font-size:13px;margin-bottom:12px">Upload a CSV export of your inventory. Every VIN is decoded and verified against NHTSA — missing/invalid VINs, duplicate VINs, and missing price or mileage are all flagged before anything is added to your inventory. Expected columns (any order, header names flexible): VIN, Year, Make, Model, Trim, Mileage, Cost, Price, Stock#. Have an Excel file? Save it as CSV first (File → Save As → CSV) and upload that.</div>
+      <div class="row">
+        <input type="file" id="csvFile" accept=".csv,text/csv" style="max-width:340px" />
+        <button class="btn" onclick="processCsvFile()" id="csvBtn">Process File</button>
+        <span class="muted" id="csvMsg" style="font-size:13px"></span>
+      </div>
+    </div>
+    <div class="card" id="csvSummaryCard" style="display:none">
+      <h2>Import Summary</h2>
+      <div class="grid g4" id="csvSummaryStats"></div>
+    </div>
+    <div class="card" id="csvResultCard" style="display:none">
+      <h2>Review Rows</h2>
+      <div class="row" style="margin-bottom:12px">
+        <button class="btn success" onclick="addAllValidToInventory()" id="csvAddAllBtn">＋ Add All Valid Rows to Inventory</button>
+        <span class="muted" id="csvAddMsg" style="font-size:13px"></span>
+      </div>
+      <div style="overflow-x:auto">
+        <table id="csvTable">
+          <thead><tr><th>Row</th><th>VIN</th><th>Year</th><th>Make</th><th>Model</th><th>Trim</th><th>Mileage</th><th>Cost</th><th>Price</th><th>Issues</th><th class="noprint"></th></tr></thead>
+          <tbody id="csvBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div class="tab" id="t-profit">
     <div class="card">
       <h2>💵 Vehicle Profit Center</h2>
@@ -257,7 +286,7 @@
 <script>
 "use strict";
 var TABS = [
-  ["workspace","🚗 Workspace"],["profit","💵 Profit"],
+  ["workspace","🚗 Workspace"],["import","📥 Bulk Import"],["profit","💵 Profit"],
   ["ad","📣 FB Ad"],["desc","📝 Description"],
   ["print","🖨 Print"],["dash","📈 Dashboard"]
 ];
@@ -266,6 +295,9 @@ var INV_KEY = "dam_inventory_v1", CUR_KEY = "dam_current_v1";
 var sortCol = "year", sortDir = -1, editId = null;
 var vehicle = load(CUR_KEY, {});
 var inventory = load(INV_KEY, []);
+var csvRows = [];
+var idCounter = 0;
+function nextId(){ idCounter++; return Date.now()*1000+idCounter; }
 
 function load(k,d){ try{ var v=JSON.parse(localStorage.getItem(k)); return v==null?d:v; }catch(e){ return d; } }
 function save(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
@@ -535,6 +567,171 @@ function runFullAnalysis(){
    })
    .catch(function(e){ $("dfMsg").textContent="Analysis failed: "+e.message; })
    .then(function(){ $("dfBtn").disabled=false; });
+}
+
+// Bulk CSV import — parse, batch-decode every VIN against NHTSA, flag issues, never silently import bad rows.
+function parseCSV(text){
+  if(text.charCodeAt(0)===0xFEFF) text=text.slice(1);
+  var rows=[], row=[], field="", inQuotes=false;
+  for(var i=0;i<text.length;i++){
+    var c=text[i];
+    if(inQuotes){
+      if(c==='"'){ if(text[i+1]==='"'){ field+='"'; i++; } else inQuotes=false; }
+      else field+=c;
+    } else {
+      if(c==='"') inQuotes=true;
+      else if(c===','){ row.push(field); field=""; }
+      else if(c==='\r'){ /* skip, \n below ends the row */ }
+      else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=""; }
+      else field+=c;
+    }
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows.filter(function(r){ return r.some(function(c){ return (c||"").trim()!==""; }); });
+}
+var HEADER_ALIASES = {
+  vin:["vin","vin#","vin number","vinno"],
+  year:["year","model year","yr"],
+  make:["make"],
+  model:["model"],
+  trim:["trim","series"],
+  mileage:["mileage","miles","odometer"],
+  cost:["cost","wholesale cost","dealer cost","your cost"],
+  price:["price","asking price","list price","retail price"],
+  stock:["stock","stock#","stock number","stk#","stk"]
+};
+function mapHeaders(header){
+  var map={};
+  header.forEach(function(h,i){
+    var norm=(h||"").trim().toLowerCase().replace(/\s+/g," ");
+    Object.keys(HEADER_ALIASES).forEach(function(k){
+      if(map[k]==null && HEADER_ALIASES[k].indexOf(norm)>=0) map[k]=i;
+    });
+  });
+  return map;
+}
+function decodeVinBatchAll(vins, onDone){
+  if(!vins.length){ onDone([]); return; }
+  var out=[], chunks=[];
+  for(var i=0;i<vins.length;i+=50){ chunks.push(vins.slice(i,i+50)); }
+  function next(idx){
+    if(idx>=chunks.length){ onDone(out); return; }
+    var data=chunks[idx].map(function(v){ return v+","; }).join(";");
+    fetch("https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVINValuesBatch/",{
+      method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"},
+      body:"format=json&data="+encodeURIComponent(data)
+    }).then(function(r){ return r.json(); }).then(function(d){
+      out=out.concat(d.Results||[]);
+      next(idx+1);
+    }).catch(function(){ next(idx+1); });
+  }
+  next(0);
+}
+function buildEngine(d){
+  var displ=d.DisplacementL, cyl=d.EngineCylinders;
+  return [displ?(parseFloat(displ).toFixed(1)+"L"):"", cyl?(cyl+" Cyl"):""].filter(Boolean).join(" ");
+}
+function buildCsvRow(p, decoded){
+  var issues=[];
+  if(!p.vin) issues.push("Missing VIN");
+  else if(p.vin.length!==17) issues.push("Invalid VIN (not 17 characters)");
+  else if(!decoded) issues.push("VIN could not be decoded");
+  else {
+    var code=String(decoded.ErrorCode||"0");
+    if(code!=="0" && code!=="") issues.push("NHTSA flagged this VIN: "+(decoded.ErrorText||("error code "+code)));
+  }
+  var year=(decoded&&decoded.ModelYear)||p.year, make=(decoded&&decoded.Make)||p.make,
+      model=(decoded&&decoded.Model)||p.model, trim=(decoded&&(decoded.Series||decoded.Trim))||p.trim;
+  if(!make || !model) issues.push("Missing make/model — VIN decode returned nothing, verify the VIN");
+  if(!num(p.mileage)) issues.push("Missing mileage");
+  if(!num(p.price)) issues.push("Missing price");
+  return {
+    rowNum:p.rowNum, vin:p.vin, year:year, make:make, model:model, trim:trim, stock:p.stock,
+    mileage:num(p.mileage), cost:num(p.cost), price:num(p.price),
+    engine:decoded?buildEngine(decoded):"", body:(decoded&&decoded.BodyClass)||"",
+    fuel:(decoded&&decoded.FuelTypePrimary)||"", drive:(decoded&&decoded.DriveType)||"",
+    issues:issues, valid:issues.length===0
+  };
+}
+function flagDuplicates(rows){
+  var seen={};
+  rows.forEach(function(r){ if(r.vin) seen[r.vin]=(seen[r.vin]||0)+1; });
+  var existingVins={};
+  inventory.forEach(function(x){ if(x.vin) existingVins[x.vin.toUpperCase()]=true; });
+  rows.forEach(function(r){
+    if(r.vin && seen[r.vin]>1){ r.issues.push("Duplicate VIN within this file"); r.valid=false; }
+    if(r.vin && existingVins[r.vin]){ r.issues.push("VIN already exists in your inventory"); r.valid=false; }
+  });
+}
+function processCsvFile(){
+  var f=$("csvFile").files[0];
+  if(!f){ $("csvMsg").textContent="Choose a CSV file first."; return; }
+  $("csvBtn").disabled=true; $("csvMsg").textContent="Reading file…";
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var table=parseCSV(String(e.target.result||""));
+    if(!table.length){ $("csvMsg").textContent="File is empty."; $("csvBtn").disabled=false; return; }
+    var colMap=mapHeaders(table[0]);
+    if(colMap.vin==null){ $("csvMsg").textContent="Could not find a VIN column in the header row."; $("csvBtn").disabled=false; return; }
+    var parsed=table.slice(1).map(function(r,i){
+      function cell(k){ return colMap[k]!=null?(r[colMap[k]]||"").trim():""; }
+      return { rowNum:i+2, vin:cell("vin").toUpperCase(), year:cell("year"), make:cell("make"), model:cell("model"),
+        trim:cell("trim"), mileage:cell("mileage"), cost:cell("cost"), price:cell("price"), stock:cell("stock") };
+    });
+    $("csvMsg").textContent="Decoding "+parsed.length+" VIN"+(parsed.length!==1?"s":"")+" against NHTSA…";
+    var toDecode=parsed.filter(function(p){ return p.vin.length===17; }).map(function(p){ return p.vin; });
+    decodeVinBatchAll(toDecode, function(decodedResults){
+      var byVin={};
+      decodedResults.forEach(function(d){ if(d.VIN) byVin[d.VIN.toUpperCase()]=d; });
+      csvRows=parsed.map(function(p){ return buildCsvRow(p, byVin[p.vin]); });
+      flagDuplicates(csvRows);
+      renderCsvResults();
+      $("csvMsg").textContent="Done — "+csvRows.length+" row"+(csvRows.length!==1?"s":"")+" processed.";
+      $("csvBtn").disabled=false;
+    });
+  };
+  reader.onerror=function(){ $("csvMsg").textContent="Could not read file."; $("csvBtn").disabled=false; };
+  reader.readAsText(f);
+}
+function renderCsvResults(){
+  var total=csvRows.length, valid=csvRows.filter(function(r){ return r.valid; }).length, flagged=total-valid;
+  $("csvSummaryCard").style.display=total?"":"none";
+  $("csvResultCard").style.display=total?"":"none";
+  if(!total) return;
+  $("csvSummaryStats").innerHTML=[
+    ["Rows Parsed",String(total),""],
+    ["Ready to Import",String(valid),"success"],
+    ["Flagged Rows",String(flagged),flagged>0?"danger":"success"],
+    ["Total Asking Value",money(csvRows.reduce(function(s,r){ return s+num(r.price); },0)),""]
+  ].map(statBox).join("");
+  $("csvBody").innerHTML=csvRows.map(function(r,i){
+    var pill=r.valid?'<span class="pill green">OK</span>':'<span class="pill red">'+r.issues.length+" issue"+(r.issues.length!==1?"s":"")+'</span>';
+    return '<tr>'
+      +'<td>'+r.rowNum+'</td><td>'+(r.vin||"—")+'</td><td>'+(r.year||"—")+'</td><td>'+(r.make||"—")+'</td><td>'+(r.model||"—")+'</td><td>'+(r.trim||"—")+'</td>'
+      +'<td>'+(r.mileage?num(r.mileage).toLocaleString():"—")+'</td><td>'+(r.cost?money(r.cost):"—")+'</td><td>'+(r.price?money(r.price):"—")+'</td>'
+      +'<td>'+pill+(r.issues.length?'<div class="muted" style="font-size:11px;white-space:normal;max-width:220px">'+r.issues.join("; ")+'</div>':'')+'</td>'
+      +'<td class="noprint">'+(r.valid?'<button class="btn ghost sm" onclick="addCsvRow('+i+')">Add</button>':'<span class="muted" style="font-size:11px">Fix in file</span>')+'</td>'
+      +'</tr>';
+  }).join("");
+}
+function rowToInventoryRecord(r){
+  return { id:nextId(), vin:r.vin, year:r.year, make:r.make, model:r.model, trim:r.trim,
+    mileage:num(r.mileage), cost:num(r.cost), price:num(r.price), engine:r.engine||"", body:r.body||"", fuel:r.fuel||"", drive:r.drive||"" };
+}
+function addCsvRow(i){
+  var r=csvRows[i]; if(!r || !r.valid) return;
+  inventory.unshift(rowToInventoryRecord(r));
+  csvRows.splice(i,1);
+  save(INV_KEY,inventory); renderCsvResults(); renderInventory();
+  toast("Added ✓");
+}
+function addAllValidToInventory(){
+  var added=0;
+  csvRows.forEach(function(r){ if(r.valid){ inventory.unshift(rowToInventoryRecord(r)); added++; } });
+  csvRows=csvRows.filter(function(r){ return !r.valid; });
+  save(INV_KEY,inventory); renderCsvResults(); renderInventory();
+  $("csvAddMsg").textContent=added+" vehicle"+(added!==1?"s":"")+" added to inventory.";
+  toast(added+" added to inventory ✓");
 }
 
 function genAd(){
