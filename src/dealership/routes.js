@@ -141,39 +141,6 @@ function estimateMarketValue(year, make, model, mileage, condition) {
   return Math.max(Math.round(base / 100) * 100, 4000);
 }
 
-const DOM_BY_CONDITION = { Excellent: 18, "Very Good": 24, Good: 32, Fair: 48, Rough: 65 };
-
-function buildComps(year, make, model, trim, mileage, condition, marketValue) {
-  const mi = Number(mileage || 0);
-  const variations = [
-    { priceMult: 1.05, miOffset: -8000,  condOffset: 0,  dom: Math.round((DOM_BY_CONDITION[condition] || 30) * 0.7) },
-    { priceMult: 1.02, miOffset: 5000,   condOffset: 0,  dom: Math.round((DOM_BY_CONDITION[condition] || 30) * 0.9) },
-    { priceMult: 0.98, miOffset: 12000,  condOffset: 1,  dom: Math.round((DOM_BY_CONDITION[condition] || 30) * 1.1) },
-    { priceMult: 0.95, miOffset: 20000,  condOffset: 1,  dom: Math.round((DOM_BY_CONDITION[condition] || 30) * 1.4) },
-    { priceMult: 1.00, miOffset: -2000,  condOffset: 0,  dom: Math.round((DOM_BY_CONDITION[condition] || 30) * 1.0) },
-  ];
-  const conditions = ["Excellent", "Very Good", "Good", "Fair", "Rough"];
-  const condIdx = conditions.indexOf(condition);
-  const sources = ["Private Party", "Dealer Listing", "CarGurus Est.", "Private Party", "Dealer Listing"];
-
-  return variations.map((v, i) => {
-    const compMi = Math.max(mi + v.miOffset, 0);
-    const compCondIdx = Math.min(Math.max(condIdx + v.condOffset, 0), conditions.length - 1);
-    const compCond = conditions[compCondIdx];
-    const price = Math.max(Math.round(marketValue * v.priceMult / 100) * 100, 3000);
-    return {
-      year: Number(year),
-      make,
-      model,
-      trim: trim || "",
-      mileage: compMi,
-      condition: compCond,
-      price,
-      daysOnMarket: v.dom,
-      source: sources[i],
-    };
-  });
-}
 
 const { handleFbHub } = require("./fb-hub");
 
@@ -435,40 +402,6 @@ async function handleDealership(req, res, requestUrl) {
     return writeJson(res, 200, {
       price, apr, months, downPayment: down,
       monthlyPayment: monthlyPayment(price, apr, months, down),
-    });
-  }
-
-  if (pathname === "/api/dealer/comps") {
-    const year = Number(searchParams.get("year") || 0);
-    const make = String(searchParams.get("make") || "").trim();
-    const model = String(searchParams.get("model") || "").trim();
-    const trim = String(searchParams.get("trim") || "").trim();
-    const mileage = Number(searchParams.get("mileage") || 0);
-    const condition = String(searchParams.get("condition") || "Good").trim();
-
-    const validConditions = ["Excellent", "Very Good", "Good", "Fair", "Rough"];
-    if (!year || year < 1990 || year > new Date().getFullYear() + 2) {
-      return writeJson(res, 400, { error: "Valid year (1990–present) is required." });
-    }
-    if (!make || !model) return writeJson(res, 400, { error: "make and model are required." });
-    if (!validConditions.includes(condition)) {
-      return writeJson(res, 400, { error: `condition must be one of: ${validConditions.join(", ")}` });
-    }
-
-    const marketValue = estimateMarketValue(year, make, model, mileage, condition);
-    const comps = buildComps(year, make, model, trim, mileage, condition, marketValue);
-    const prices = comps.map((c) => c.price);
-    const avgDom = Math.round(comps.reduce((s, c) => s + c.daysOnMarket, 0) / comps.length);
-
-    return writeJson(res, 200, {
-      vehicle: { year, make, model, trim, mileage, condition },
-      marketValue,
-      priceRange: { low: Math.min(...prices), high: Math.max(...prices) },
-      avgDaysOnMarket: avgDom,
-      cleanTrade: Math.round(marketValue * 0.87),
-      roughTrade: Math.round(marketValue * 0.78),
-      comps,
-      note: "Estimates based on age, mileage, make, and condition. Not a KBB or NADA quote.",
     });
   }
 

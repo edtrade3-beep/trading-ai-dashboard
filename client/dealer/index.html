@@ -135,6 +135,15 @@
       </div>
       <div id="pbResult"></div>
     </div>
+    <div class="card">
+      <h2>🔬 Full Market Analysis — live web search</h2>
+      <div class="muted" style="font-size:13px;margin-bottom:12px">Searches Cars.com, CarGurus, AutoTrader and similar for real, currently-listed comps within your radius. Uses the ZIP/radius above. Slower than Price Beater (15–30s) but returns every listing found, not just the cheapest.</div>
+      <div class="row" style="margin-bottom:12px">
+        <button class="btn" onclick="runFullAnalysis()" id="dfBtn">Run Full Analysis</button>
+        <span class="muted" id="dfMsg" style="font-size:13px"></span>
+      </div>
+      <div id="dfResult"></div>
+    </div>
 
     <div class="card">
       <h2>📦 Inventory</h2>
@@ -439,6 +448,93 @@ function findCheapest(){
    })
    .catch(function(e){ $("pbMsg").textContent="Scan failed: "+e.message; })
    .then(function(){ $("pbBtn").disabled=false; });
+}
+
+// Full Market Analysis — real Claude web search across Cars.com/CarGurus/AutoTrader/etc.
+// Never fabricates: if no listings are found it says so honestly (listingsFound: 0).
+var RISK_PILL = { GREEN:"green", YELLOW:"yellow", RED:"red", BLACKLIST:"red" };
+function runFullAnalysis(){
+  var v=vehicle;
+  if(!v.vin || v.vin.length!==17){ $("dfMsg").textContent="Decode a full 17-character VIN first."; return; }
+  var zip=($("pb_zip").value||"45014").replace(/[^0-9]/g,"").slice(0,5)||"45014";
+  var radius=num($("pb_radius").value)||200;
+  $("dfBtn").disabled=true; $("dfMsg").textContent="Searching the web for real listings within "+radius+" mi of "+zip+"… this can take 15–30s"; $("dfResult").innerHTML="";
+  fetch("/api/dealer/deal-finder",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ vin:v.vin, mileage:num(v.mileage), zip:zip, radius:radius })})
+   .then(function(r){return r.json().then(function(d){ return {ok:r.ok, d:d}; }); })
+   .then(function(res){
+     $("dfMsg").textContent="";
+     var d=res.d;
+     if(!res.ok || d.error){ $("dfResult").innerHTML='<div class="muted">'+(d.error||"Analysis failed")+'</div>'; return; }
+     var a=d.analysis;
+     if(!a){
+       // Claude didn't return parseable JSON — still show the honest human-readable summary rather than nothing.
+       $("dfResult").innerHTML='<div class="muted" style="font-size:13px;margin-bottom:10px">Could not parse structured data — showing raw analysis:</div><div class="out">'+(d.summary||"No result.")+'</div>';
+       return;
+     }
+     var ms=a.marketSummary||{};
+     var html="";
+     if(!ms.listingsFound){
+       html+='<div class="empty">No comparable listings found within '+radius+' mi of '+zip+'. No pricing suggestions are shown — nothing to base them on.</div>';
+       $("dfResult").innerHTML=html;
+       return;
+     }
+     // Market summary tiles
+     html+='<div class="grid g4" style="margin-bottom:14px">'
+       +statBox(["Listings Found", String(ms.listingsFound), ""])
+       +statBox(["Lowest", money(ms.low), ""])
+       +statBox(["Average", money(ms.average), "warning"])
+       +statBox(["Highest", money(ms.high), ""])
+       +'</div>';
+     // Suggested pricing — plainly derived from the real market low/average/high above, never invented.
+     html+='<div class="muted" style="font-size:12px;margin-bottom:6px">Suggested pricing (derived directly from the market data above — fast sale = market low, retail = market average, premium = market high):</div>';
+     html+='<div class="grid g3" style="margin-bottom:14px">'
+       +statBox(["Fast Sale Price", money(ms.low), "success"])
+       +statBox(["Suggested Retail", money(ms.average), "warning"])
+       +statBox(["Premium Price", money(ms.high), ""])
+       +'</div>';
+     if(a.priceCeiling) html+='<div class="spec"><span class="k">Suggested max purchase (price ceiling)</span><span class="val">'+money(a.priceCeiling)+'</span></div>';
+     if(a.resaleRange && (a.resaleRange.low||a.resaleRange.high)) html+='<div class="spec"><span class="k">Expected resale range</span><span class="val">'+money(a.resaleRange.low)+' – '+money(a.resaleRange.high)+'</span></div>';
+     // Picks
+     if(a.picks){
+       var pickRows=[["Cheapest",a.picks.cheapest],["Best safe deal",a.picks.bestSafeDeal],["Top value",a.picks.topDeal],["Best resale profit",a.picks.bestProfit]].filter(function(p){return p[1];});
+       if(pickRows.length) html+='<div style="margin-top:10px">'+pickRows.map(function(p){return '<div class="spec"><span class="k">'+p[0]+'</span><span class="val">'+p[1]+'</span></div>';}).join("")+'</div>';
+     }
+     // Risk alerts
+     if(a.riskAlerts && a.riskAlerts.length){
+       html+='<div style="margin-top:12px;padding:10px 12px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:8px">'
+         +'<div style="font-weight:700;font-size:13px;color:var(--danger);margin-bottom:6px">⚠ Risk Alerts</div>'
+         +a.riskAlerts.map(function(x){return '<div class="muted" style="font-size:13px">• '+x+'</div>';}).join("")
+         +'</div>';
+     }
+     // Listings table
+     var listings=Array.isArray(a.listings)?a.listings:[];
+     if(listings.length){
+       html+='<div style="overflow-x:auto;margin-top:14px"><table><thead><tr>'
+         +'<th>Listing</th><th>Price</th><th>Mileage</th><th>Location</th><th>Seller</th><th>Risk</th><th>Position</th><th>Score</th><th>Source</th>'
+         +'</tr></thead><tbody>'
+         +listings.map(function(l){
+           var riskCls=RISK_PILL[l.risk]||"yellow";
+           return '<tr>'
+             +'<td>'+(l.title||"—")+'</td>'
+             +'<td>'+(l.price?money(l.price):"—")+'</td>'
+             +'<td>'+(l.mileage?num(l.mileage).toLocaleString():"—")+'</td>'
+             +'<td>'+(l.location||"—")+'</td>'
+             +'<td>'+(l.seller||"—")+'</td>'
+             +'<td><span class="pill '+riskCls+'" style="font-size:11px;padding:2px 8px">'+(l.risk||"?")+'</span></td>'
+             +'<td>'+(l.pricePosition||"—")+'</td>'
+             +'<td>'+(l.score!=null?l.score:"—")+'</td>'
+             +'<td>'+(l.source||"—")+'</td>'
+             +'</tr>';
+         }).join("")
+         +'</tbody></table></div>';
+     }
+     // Human-readable summary
+     if(d.summary) html+='<div class="muted" style="font-size:12px;margin:12px 0 4px">Full analysis:</div><div class="out">'+d.summary+'</div>';
+     $("dfResult").innerHTML=html;
+   })
+   .catch(function(e){ $("dfMsg").textContent="Analysis failed: "+e.message; })
+   .then(function(){ $("dfBtn").disabled=false; });
 }
 
 function genAd(){
