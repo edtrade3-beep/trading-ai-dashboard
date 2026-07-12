@@ -6137,6 +6137,17 @@ export default function App() {
       TERMINAL: "mterminal",
       MACRO: "macro",
       NEWS: "news",
+      // Added 2026-07-12 with the nav trim above — these lost their subnav
+      // buttons but stay one command away, same convention as BREADTH/SECTORS/
+      // ROTATION/COT below.
+      QUOTES: "quotes",
+      CRYPTO: "crypto",
+      EVENTS: "econ-cal",
+      DECK: "rhpro",
+      SECTORHEAT: "rhpro-heat",
+      WATCHLISTS: "rhpro-lists",
+      HOLDINGS: "holdings",
+      AICOACH: "rhpro-coach",
       EARNINGS: "earnings",
       TV: "tv",
       LIVETV: "tv",
@@ -7622,9 +7633,16 @@ export default function App() {
               // breadth/sectors/rotation/cot hidden from the MONITOR subnav bar
               // (see SUB_GROUPS.dashboard comment) but kept here so this pill
               // still highlights correctly if you land on one via the palette.
-              { id: "dashboard",  label: "📊 MONITOR",    tabs: ["start", "dashboard", "movers", "quotes", "crypto", "news", "econ-cal", "macro", "breadth", "sectors", "rotation", "cot"] },
+              // "dashboard" listed first (not "start") — clicking the MONITOR
+              // pill uses tabs[0] as the landing tab, and Start Here is
+              // onboarding-only, not a repeat destination.
+              { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard", "start", "movers", "quotes", "crypto", "news", "econ-cal", "macro", "breadth", "sectors", "rotation", "cot"] },
               { id: "mterminal",  label: "🖥 TERMINAL",   tabs: ["mterminal", "daytrade"] },
-              { id: "rhpro",      label: "📈 PRO TRADE",  tabs: ["rhpro", "rhpro-apex", "rhpro-scan", "rhpro-lists", "rhpro-heat", "greenlight", "holdings", "rhpro-journal", "rhpro-coach", "morning-routine", "mytrades",
+              // "greenlight" listed first (not "rhpro"/Command Deck) — clicking
+              // the PRO TRADE pill uses tabs[0] as the landing tab, and it
+              // should land on one of the 3 tabs actually shown in the subnav,
+              // matching the app's own global default landing tab.
+              { id: "rhpro",      label: "📈 PRO TRADE",  tabs: ["greenlight", "rhpro", "rhpro-apex", "rhpro-scan", "rhpro-lists", "rhpro-heat", "holdings", "rhpro-journal", "rhpro-coach", "morning-routine", "mytrades",
                 // Hidden from the PRO TRADE subnav bar (see SUB_GROUPS.rhpro
                 // comment) but still reachable — kept here so this group still
                 // highlights correctly if you land on one of these another way.
@@ -7995,15 +8013,15 @@ export default function App() {
           // feargreed/correlation/seasonality/darkpool/social/insider (real,
           // but lower daily-monitoring priority — most now live under the
           // 🕵️ SMART MONEY group instead).
+          // Trimmed 2026-07-12 per user request ("fewer tabs, only what I use,
+          // no distraction") — was 8 tabs. START HERE is onboarding-only (still
+          // lands there automatically on first visit, no button needed) and
+          // QUOTES/CRYPTO/NEWS/EVENTS/MACRO are all still fully wired, just not
+          // in this bar — reachable via command palette (QUOTES/CRYPTO/NEWS/
+          // EVENTS/MACRO GO).
           dashboard: [
-            { id: "start",      label: "🚀 START HERE" },
             { id: "dashboard",  label: "📊 MONITOR" },
             { id: "movers",     label: "🔥 MOVERS" },
-            { id: "quotes",     label: "📋 QUOTES" },
-            { id: "crypto",     label: "🪙 CRYPTO" },
-            { id: "news",       label: "📰 NEWS" },
-            { id: "econ-cal",   label: "📅 EVENTS" },
-            { id: "macro",      label: "🌍 MACRO" },
           ],
           terminal: [
             { id: "multitf",    label: "📈 CHART" },
@@ -8021,20 +8039,15 @@ export default function App() {
           // routes, and (for Adol22) backend Telegram alerts are untouched —
           // they're just not cluttering this bar. Add a line back here to
           // re-surface any of them.
+          // Trimmed 2026-07-12 per user request — was 8 tabs, kept the 3 named
+          // explicitly (autopilot + the two scanners). COMMAND DECK/HEAT MAP/
+          // WATCHLISTS/HOLDINGS/AI COACH are all still fully wired, just not in
+          // this bar — reachable via command palette (DECK/SECTORHEAT/
+          // WATCHLISTS/HOLDINGS/AICOACH GO).
           rhpro: [
-            // ── Overview & AI ──
-            { id: "rhpro",      label: "🎯 COMMAND DECK" },
             { id: "rhpro-apex", label: "🧠 TRADE PRO AI" },
-            // ── Find setups ──
             { id: "rhpro-scan", label: "🎯 SNIPER SCANNER" },
-            { id: "rhpro-heat", label: "🗺 HEAT MAP" },
             { id: "greenlight",  label: "🟢 GREEN LIGHT + AUTOPILOT" },
-            // ── Analyze (now the Terminal chart tab — Trend Template + AI second opinion) ──
-            { id: "rhpro-lists", label: "📋 WATCHLISTS" },
-            // ── Trade & positions ──
-            { id: "holdings",     label: "📊 HOLDINGS" },
-            // ── Review & improve ──
-            { id: "rhpro-coach", label: "🎓 AI COACH" },
           ],
           // "What smart money is actually doing" — surfaced 2026-07-11. All 10 of
           // these were real, fully-built, backend-wired features with zero nav
