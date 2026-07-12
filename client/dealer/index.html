@@ -203,7 +203,7 @@
         <button class="btn success" onclick="addAllValidToInventory()" id="csvAddAllBtn">＋ Add All Valid Rows to Inventory</button>
         <span class="muted" id="csvAddMsg" style="font-size:13px"></span>
       </div>
-      <div style="overflow-x:auto">
+      <div style="overflow-x:auto" id="csvTableScroll">
         <table id="csvTable">
           <thead><tr><th>Row</th><th>VIN</th><th>Year</th><th>Make</th><th>Model</th><th>Trim</th><th>Mileage</th><th>Cost</th><th>Price</th><th>Issues</th><th class="noprint"></th></tr></thead>
           <tbody id="csvBody"></tbody>
@@ -314,7 +314,7 @@
     </div>
     <div class="card" id="reportTableCard" style="display:none">
       <h2>Vehicle-by-Vehicle</h2>
-      <div style="overflow-x:auto">
+      <div style="overflow-x:auto" id="reportTableScroll">
         <table id="reportTable">
           <thead><tr><th>Stock#</th><th>VIN</th><th>Vehicle</th><th>Current Price</th><th>Cheapest Comp</th><th>Comp Dealer</th><th>Difference</th><th>Status</th><th>Flags</th></tr></thead>
           <tbody id="reportBody"></tbody>
@@ -748,6 +748,7 @@ function renderCsvResults(){
     ["Flagged Rows",String(flagged),flagged>0?"danger":"success"],
     ["Total Asking Value",money(csvRows.reduce(function(s,r){ return s+num(r.price); },0)),""]
   ].map(statBox).join("");
+  $("csvTableScroll").scrollLeft=0;
   $("csvBody").innerHTML=csvRows.map(function(r,i){
     var pill=r.valid?'<span class="pill green">OK</span>':'<span class="pill red">'+r.issues.length+" issue"+(r.issues.length!==1?"s":"")+'</span>';
     return '<tr>'
@@ -1126,6 +1127,7 @@ function finishReport(rows){
   ].map(statBox).join("");
 
   $("reportTableCard").style.display="";
+  $("reportTableScroll").scrollLeft=0;
   $("reportBody").innerHTML=classified.map(function(r){
     var x=r.x, c=r.c;
     var statusPill = c.status==="Overpriced"?'<span class="pill red">OVERPRICED</span>'
