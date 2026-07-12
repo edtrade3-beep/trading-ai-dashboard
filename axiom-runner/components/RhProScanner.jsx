@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { RH_UNIVERSE, rhScore, rhScreenProgressive } from "./rhpro-shared.jsx";
 import { computeRegime, computeAPlusScore, computeNextAction } from "./market-helpers.js";
 
-export default function RhProScanner({ C, MONO, SANS, macroData }) {
+export default function RhProScanner({ C, MONO, SANS, macroData, setActiveTab }) {
   const regime = computeRegime(macroData);
+  const planTrade = (sym) => { try { localStorage.setItem("tradeplanner_load_sym", sym); } catch {} setActiveTab && setActiveTab("tradeplanner"); };
   const [rows, setRows] = useState([]); const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(""); const [filter, setFilter] = useState(60); const [ranAt, setRanAt] = useState(null);
   const scan = () => {
@@ -46,7 +47,11 @@ export default function RhProScanner({ C, MONO, SANS, macroData }) {
             {shown.map((r, i) => (
               <tr key={r.symbol} style={{ background: i % 2 ? "transparent" : `${C.surface}55` }}>
                 <td style={{ ...cell, color: C.textDim }}>{i + 1}</td>
-                <td style={{ ...cell, fontWeight: 900, color: C.text }}>{r.symbol}</td>
+                <td style={{ ...cell, fontWeight: 900, color: C.text }}>
+                  {r.symbol}
+                  <button onClick={() => planTrade(r.symbol)} title={`Plan this trade — opens Trade Planner with ${r.symbol} loaded`}
+                    style={{ marginLeft: 6, fontSize: 10, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "1px 5px", cursor: "pointer" }}>🎯 plan</button>
+                </td>
                 <td style={cell}><span style={{ fontWeight: 900, color: scoreCol(r.score) }}>{r.score}</span>{r.atBuyPoint && <span style={{ marginLeft: 6, fontSize: 10, color: C.green }}>🎯</span>}</td>
                 <td style={cell}>{r.aplus && <span title={r.aplus.reasons.join(" · ")} style={{ fontWeight: 900, color: "#fff", background: r.aplus.score >= 80 ? "#0d9465" : r.aplus.score >= 60 ? "#d6a312" : "#c8282a", borderRadius: 4, padding: "1px 7px", cursor: "help" }}>{r.aplus.score}</span>}</td>
                 <td style={{ ...cell, color: C.textSec }}>${Number(r.price || 0).toFixed(2)}</td>

@@ -13,8 +13,8 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
   const pct = (a, b) => b > 0 ? r2((a - b) / b * 100) : 0;
   const fmtPct = n => `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
 
-  const analyze = async () => {
-    const sym = input.trim().toUpperCase().replace(/[^A-Z0-9.^-]/g, "").slice(0, 10);
+  const analyze = async (symOverride) => {
+    const sym = (symOverride || input).trim().toUpperCase().replace(/[^A-Z0-9.^-]/g, "").slice(0, 10);
     if (!sym) return;
     setLoading(true); setError(""); setResult(null);
     try {
@@ -69,6 +69,15 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
     } catch(e) { setError(e.message||"Failed to fetch data"); }
     setLoading(false);
   };
+
+  // Pick up a symbol handed off from Sniper Scanner / Best Opportunities (same
+  // mterminal_load_sym convention used sitewide for "send this symbol elsewhere",
+  // just a dedicated key so a chart-only pick doesn't also trigger a full plan).
+  React.useEffect(() => {
+    let pending = null;
+    try { pending = localStorage.getItem("tradeplanner_load_sym"); if (pending) localStorage.removeItem("tradeplanner_load_sym"); } catch {}
+    if (pending) { setInput(pending); analyze(pending); }
+  }, []); // eslint-disable-line
 
   const card = { background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 };
   const numCard = (label,val,sub,col) => (

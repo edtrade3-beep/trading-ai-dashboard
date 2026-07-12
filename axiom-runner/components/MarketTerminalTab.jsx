@@ -12,7 +12,7 @@ import {
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
-export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData, onDeepDive }) {
+export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData, onDeepDive, setActiveTab }) {
   const [lb, setLb] = useState(null);
   const [view, setView] = useState("moversUp");
   const [sym, setSym] = useState("NVDA");
@@ -151,7 +151,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   return (
     <div style={{ width: "100%" }}>
     <PerformanceCard C={C} MONO={MONO} SANS={SANS} />
-    <BestOpportunities C={C} MONO={MONO} SANS={SANS} onPick={loadSym} macroData={macroData} />
+    <BestOpportunities C={C} MONO={MONO} SANS={SANS} onPick={loadSym} macroData={macroData} setActiveTab={setActiveTab} />
     <MarketPulseBar C={C} MONO={MONO} SANS={SANS} />
     <SentimentRow C={C} MONO={MONO} SANS={SANS} />
     <SectorHeatStrip sectorData={sectorData} C={C} MONO={MONO} SANS={SANS} />

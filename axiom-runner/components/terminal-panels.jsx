@@ -756,7 +756,7 @@ const BEST_OPP_UNIVERSE = [
   "MRVL","PANW","COIN","HOOD","UBER","SHOP","LLY","V","MA","JPM",
   "GE","CAT","CEG","VRT","TSM","QCOM","NEE","WMB","CCJ","MARA",
 ];
-export function BestOpportunities({ C, MONO, SANS, onPick, macroData }) {
+export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveTab }) {
   const [rows, setRows] = useState(null);
   const [state, setState] = useState("idle"); // idle | loading | ok | err
   const [onlyStrong, setOnlyStrong] = useState(true);   // RS ≥ 70 quality filter
@@ -873,10 +873,16 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData }) {
                   <div style={{ color: "#c8282a" }}>Stop ${r.stop}</div>
                   <div style={{ color: "#0d9465" }}>Target ${r.target2}</div>
                 </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); try { localStorage.setItem("tradeplanner_load_sym", r.symbol); } catch {} setActiveTab && setActiveTab("tradeplanner"); }}
+                  title={`Plan this trade — opens Trade Planner with ${r.symbol} loaded`}
+                  style={{ flexShrink: 0, fontFamily: MONO, fontSize: 11, fontWeight: 800, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
+                  🎯 Plan
+                </button>
               </div>
             );
           })}
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, padding: "2px 4px" }}>Tap any name to open its chart + full setup. Educational, not financial advice.</div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, padding: "2px 4px" }}>Tap any name to open its chart + full setup, or Plan to jump straight to Trade Planner. Educational, not financial advice.</div>
         </div>
       )}
     </div>
