@@ -32,6 +32,15 @@
   .g3{grid-template-columns:1fr 1fr 1fr}
   .g4{grid-template-columns:repeat(4,1fr)}
   @media(max-width:640px){.g2,.g3,.g4{grid-template-columns:1fr 1fr}}
+  /* On phones a 9-column table can't work no matter how it scrolls — show stacked cards instead. */
+  .repCards{display:none}
+  .repCard{padding:14px 0;border-top:1px solid var(--border)}
+  .repCard:first-child{border-top:none;padding-top:0}
+  .repCard-title{font-weight:700;font-size:14px;margin-bottom:2px}
+  @media(max-width:640px){
+    #reportTableScroll{display:none}
+    .repCards{display:block}
+  }
   label{display:block;font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:5px}
   input,textarea,select{width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);
     border-radius:10px;padding:10px 12px;font-size:14px;outline:none;font-family:inherit}
@@ -327,6 +336,7 @@
           <tbody id="reportBody"></tbody>
         </table>
       </div>
+      <div class="repCards" id="reportCards"></div>
     </div>
   </div>
 </div>
@@ -1154,6 +1164,26 @@ function finishReport(rows){
       +'<td>'+statusPill+'</td>'
       +'<td>'+(flagsHtml||"—")+'</td>'
       +'</tr>';
+  }).join("");
+
+  // Same data as stacked cards for phones — a 9-column table can't work on a narrow screen, CSS picks whichever fits.
+  $("reportCards").innerHTML=classified.map(function(r){
+    var x=r.x, c=r.c;
+    var statusPill = c.status==="Overpriced"?'<span class="pill red">OVERPRICED</span>'
+      : c.status==="Underpriced"?'<span class="pill yellow">UNDERPRICED</span>'
+      : c.status==="Fair"?'<span class="pill green">FAIR</span>':'<span class="pill yellow">UNKNOWN</span>';
+    var flagsHtml=c.flags.map(function(f){ return '<span class="pill '+(f==="Advertise First"?"green":"red")+'" style="font-size:10px;padding:2px 8px;margin-right:4px">'+esc(f)+'</span>'; }).join("");
+    var diffLabel = c.diff!=null ? ((c.diff>=0?"+":"-")+money(Math.abs(c.diff))) : "—";
+    var vehicleName = [x.year,x.make,x.model,x.trim].filter(Boolean).join(" ")||"—";
+    return '<div class="repCard">'
+      +'<div class="repCard-title">'+esc(vehicleName)+'</div>'
+      +'<div class="muted" style="font-size:12px;margin-bottom:8px">VIN '+esc(x.vin||"—")+(x.stock?' · Stock# '+esc(x.stock):'')+'</div>'
+      +'<div class="spec"><span class="k">Current Price</span><span class="val">'+(x.price?money(x.price):"—")+'</span></div>'
+      +'<div class="spec"><span class="k">Cheapest Comp</span><span class="val">'+(c.cheapest!=null?money(c.cheapest):"—")+'</span></div>'
+      +(c.dealer?'<div class="spec"><span class="k">Comp Dealer</span><span class="val">'+esc(c.dealer)+'</span></div>':'')
+      +'<div class="spec"><span class="k">Difference</span><span class="val">'+diffLabel+'</span></div>'
+      +'<div style="margin-top:10px">'+statusPill+' '+(flagsHtml||"")+'</div>'
+      +'</div>';
   }).join("");
 }
 
