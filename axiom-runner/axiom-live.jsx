@@ -9188,7 +9188,7 @@ export default function App() {
       <AutoPilotEngine watchlistData={watchlistData} macroData={macroData} scanResults={scanResults} />
 
       {/* ── CUSTOM SCREENER ──────────────────────────────────────────────── */}
-      {activeTab === "tradeplanner" && <TradePlannerTab C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "tradeplanner" && <TradePlannerTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} />}
       {activeTab === "dipbuy" && <DipBuyTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} />}
       {(activeTab === "greenlight" || activeTab === "mytrades") && <>
         <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} sectorData={sectorData} />

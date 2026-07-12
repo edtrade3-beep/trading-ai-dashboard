@@ -1,10 +1,13 @@
-export default function TradePlannerTab({ C, MONO, SANS }) {
+import { computeRegime, computeAPlusScore, computeNextAction } from "./market-helpers.js";
+
+export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
   const [input,   setInput]   = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [result,  setResult]  = React.useState(null);
   const [error,   setError]   = React.useState("");
   const [account, setAccount] = React.useState(10000);
   const [riskPct, setRiskPct] = React.useState(1);
+  const regime = computeRegime(macroData);
 
   const r2 = n => Math.round(n * 100) / 100;
   const pct = (a, b) => b > 0 ? r2((a - b) / b * 100) : 0;
@@ -50,8 +53,19 @@ export default function TradePlannerTab({ C, MONO, SANS }) {
       const shares=riskPerShare>0?Math.floor(riskAmt/riskPerShare):0;
       const t1=r2(price+riskPerShare*1.5), t2=r2(price+riskPerShare*2.5), t3=r2(price+riskPerShare*4);
 
+      // Best-effort: same trend-template screen the Terminal/Watchlists/Scanner use, so this
+      // gets the identical A+ Score + Next Action language as the rest of the app. If it fails
+      // (symbol not covered, request error), the rest of the plan above still renders fine.
+      let aplus = null, next = null;
+      try {
+        const tsResp = await fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(sym)}`);
+        const tsJson = tsResp.ok ? await tsResp.json() : null;
+        const tsRow = (tsJson?.results || []).find(x => x && !x.error && x.symbol === sym);
+        if (tsRow) { aplus = computeAPlusScore(tsRow, regime); next = computeNextAction(tsRow); }
+      } catch {}
+
       setResult({ sym, price, chg, ema9, ema21, ema50, atr, rsi, trend, trendCol,
-        stopLoss, riskPerShare, riskAmt, shares, cost:r2(shares*price), t1, t2, t3 });
+        stopLoss, riskPerShare, riskAmt, shares, cost:r2(shares*price), t1, t2, t3, aplus, next });
     } catch(e) { setError(e.message||"Failed to fetch data"); }
     setLoading(false);
   };
@@ -106,6 +120,28 @@ export default function TradePlannerTab({ C, MONO, SANS }) {
                 <div style={{fontFamily:MONO,fontSize:12,fontWeight:800,color:col}}>{v}</div>
               </div>
             ))}
+          </div>
+          <div style={{...card,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap",borderTop:`3px solid ${regime.color}`}}>
+            <div style={{textAlign:"center"}}>
+              <div style={{fontFamily:MONO,fontSize:9,color:C.textDim,fontWeight:800,letterSpacing:"0.08em",marginBottom:4}}>MARKET REGIME</div>
+              <div style={{fontFamily:MONO,fontSize:16,fontWeight:900,color:regime.color}}>{regime.label} {regime.score}/100</div>
+            </div>
+            {result.aplus && (
+              <div style={{textAlign:"center"}}>
+                <div style={{fontFamily:MONO,fontSize:9,color:C.textDim,fontWeight:800,letterSpacing:"0.08em",marginBottom:4}}>A+ SCORE</div>
+                <div title={result.aplus.reasons.join(" · ")} style={{fontFamily:MONO,fontSize:16,fontWeight:900,color:result.aplus.score>=80?C.green:result.aplus.score>=60?C.amber:C.red,cursor:"help"}}>{result.aplus.score}/100</div>
+              </div>
+            )}
+            {result.next && (
+              <div style={{textAlign:"center"}}>
+                <div style={{fontFamily:MONO,fontSize:9,color:C.textDim,fontWeight:800,letterSpacing:"0.08em",marginBottom:4}}>NEXT ACTION</div>
+                <div title={result.next.reason} style={{fontFamily:MONO,fontSize:13,fontWeight:900,color:result.next.color,border:`1px solid ${result.next.color}`,borderRadius:5,padding:"2px 10px",cursor:"help",display:"inline-block"}}>{result.next.action}</div>
+              </div>
+            )}
+            <div style={{fontFamily:SANS,fontSize:12,color:C.textSec,flex:1,minWidth:200}}>
+              {regime.score>=75?"✅ Market conditions favor this trade working out.":regime.score>=55?"⚠️ Mixed market — be selective, this setup needs to be strong on its own.":"🛑 Weak market — breakouts fail more often here. Consider a smaller size or skipping."}
+              {!result.aplus && " (A+ Score unavailable for this symbol — not in the trend-template universe.)"}
+            </div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
             {numCard("ENTRY PRICE",`$${result.price.toFixed(2)}`,"Current price — buy here",C.accent)}
