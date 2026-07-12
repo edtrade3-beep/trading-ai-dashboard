@@ -46,3 +46,26 @@ export function computeRegime(macroData) {
   const color = score >= 75 ? "#22c55e" : score >= 55 ? "#d6a312" : "#ef4444";
   return { score, label, color, factors, vixVal };
 }
+
+// A+ Score — one 0-100 number for "how good is this setup right now", combining trend-template
+// quality (40pt), relative strength (30pt), current market regime (20pt), and buy-point proximity
+// (10pt). A score with no explanation isn't actionable, so this always returns `reasons`.
+// Row shape: { passCount (0-8), rsRating (0-100), verdict, atBuyPoint, volConfirmed, actionable }.
+export function computeAPlusScore(row, regime) {
+  const passCount = Number(row?.passCount || 0);
+  const rsRating = Number(row?.rsRating || 0);
+  const regimeScore = Number(regime?.score ?? 0);
+  const trendPts = Math.round((passCount / 8) * 40);
+  const rsPts = Math.round((rsRating / 100) * 30);
+  const regimePts = Math.round((regimeScore / 100) * 20);
+  const isGo = row?.verdict === "GO" || (row?.atBuyPoint && row?.volConfirmed);
+  const setupPts = isGo ? 10 : row?.actionable ? 6 : 0;
+  const score = Math.max(0, Math.min(100, trendPts + rsPts + regimePts + setupPts));
+  const reasons = [
+    `${passCount}/8 trend template criteria met`,
+    rsRating >= 90 ? `RS ${rsRating} — top-decile market leader` : rsRating >= 70 ? `RS ${rsRating} — market leader` : `RS ${rsRating} — below leader threshold`,
+    `Market regime ${regime?.label || "?"} (${regimeScore}/100)${regimeScore >= 75 ? " — favorable for breakouts" : regimeScore >= 55 ? " — mixed, be selective" : " — unfavorable, high failure risk"}`,
+    isGo ? "At buy point with volume confirmation" : row?.actionable ? "Near pivot, not yet confirmed" : "Not yet actionable",
+  ];
+  return { score, reasons, breakdown: { trendPts, rsPts, regimePts, setupPts } };
+}

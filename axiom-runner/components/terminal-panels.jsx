@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { NUM } from "./theme.js";
-import { computeRegime, STOCK_TO_SECTOR, SECTOR_ETFS } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore, STOCK_TO_SECTOR, SECTOR_ETFS } from "./market-helpers.js";
 
 // Small self-contained panels that make up MarketTerminalTab's per-symbol
 // detail tabs (Valuation, Analysts, Investors, Earnings, Company, Social,
@@ -766,6 +766,11 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData }) {
   const isGo = (r) => r.verdict === "GO" || (r.atBuyPoint && r.volConfirmed);
   const regime = computeRegime(macroData);
   const marketGreen = regime.score >= 55;
+  // scan() is called from a 5-min interval whose closure is only rebuilt when onlyStrong
+  // changes — read regime through this ref (kept current every render) so the A+ Score
+  // never scores against a stale market snapshot from whenever the interval was set up.
+  const regimeRef = React.useRef(regime);
+  regimeRef.current = regime;
   const enableNotify = () => {
     if (!("Notification" in window)) return;
     if (Notification.permission === "granted") { const n = !notifyOn; setNotifyOn(n); localStorage.setItem("bestopp_notify", n ? "on" : "off"); return; }
@@ -780,9 +785,10 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData }) {
         // Quality filter: relative strength ≥ 70 (leaders only) when enabled.
         if (onlyStrong) res = res.filter(r => (r.rsRating || 0) >= 70);
         const rr = (r) => (r.target2 - r.entry) / (r.entry - r.stop);
-        // Rank: GO/buy-point/volume first, then trend quality + RELATIVE STRENGTH heavily.
-        const rank = (r) => (r.verdict === "GO" ? 1000 : 0) + (r.atBuyPoint ? 500 : 0) + (r.volConfirmed ? 200 : 0) + (r.actionable ? 100 : 0) + (r.passCount || 0) * 20 + (r.rsRating || 0) * 2;
-        const top = res.map(r => ({ ...r, _rr: rr(r), _rank: rank(r) })).sort((a, b) => b._rank - a._rank).slice(0, 5);
+        // Rank by the same A+ Score shown on each card — trend template + RS + current
+        // market regime + buy-point proximity, so the displayed order always matches the score.
+        const top = res.map(r => ({ ...r, _rr: rr(r), _aplus: computeAPlusScore(r, regimeRef.current) }))
+          .sort((a, b) => b._aplus.score - a._aplus.score).slice(0, 5);
         // Flag GO setups that are NEW since we last saw them → highlight + notify.
         const newGo = [];
         top.forEach(r => { if (isGo(r) && !seenGo.current.has(r.symbol)) { r._new = true; newGo.push(r.symbol); seenGo.current.add(r.symbol); } });
@@ -847,6 +853,7 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData }) {
         <div style={{ padding: "0 12px 12px" }}>
           {rows.map((r, i) => {
             const [badge, bc] = vBadge(r);
+            const ac = r._aplus.score >= 80 ? "#0d9465" : r._aplus.score >= 60 ? "#d6a312" : "#c8282a";
             return (
               <div key={r.symbol} onClick={() => onPick && onPick(r.symbol)}
                 style={{ display: "flex", gap: 12, alignItems: "center", padding: "11px 12px", cursor: "pointer", borderRadius: 10, background: C.bg, border: `1px solid ${r._new ? "#7c5cff" : C.border}`, boxShadow: r._new ? "0 0 0 3px rgba(124,92,255,0.15)" : "none", marginBottom: 8 }}>
@@ -854,6 +861,7 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData }) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontFamily: SANS, fontSize: 17, fontWeight: 900, color: C.text }}>{r.symbol}</span>
+                    <span title={r._aplus.reasons.join(" · ")} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#fff", background: ac, borderRadius: 5, padding: "2px 8px", cursor: "help" }}>A+ {r._aplus.score}</span>
                     {r._new && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#fff", background: "#7c5cff", borderRadius: 4, padding: "1px 6px" }}>NEW</span>}
                     <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: bc, background: `${bc}18`, borderRadius: 5, padding: "2px 8px" }}>{badge}</span>
                     <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>R:R {r._rr.toFixed(1)}:1</span>
