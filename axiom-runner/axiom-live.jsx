@@ -6148,6 +6148,15 @@ export default function App() {
       WATCHLISTS: "rhpro-lists",
       HOLDINGS: "holdings",
       AICOACH: "rhpro-coach",
+      // Added with the SMART MONEY trim — SMARTMONEY (13F Lookup) already
+      // had an alias below.
+      DPHEAT: "dp-heatmap",
+      INSIDER: "insider",
+      SHORTINT: "shortint",
+      SHORTCHG: "short-changes",
+      SECFILINGS: "sec-filings",
+      SOCIAL: "social",
+      CORR: "correlation",
       EARNINGS: "earnings",
       TV: "tv",
       LIVETV: "tv",
@@ -8049,22 +8058,18 @@ export default function App() {
             { id: "rhpro-scan", label: "🎯 SNIPER SCANNER" },
             { id: "greenlight",  label: "🟢 GREEN LIGHT + AUTOPILOT" },
           ],
-          // "What smart money is actually doing" — surfaced 2026-07-11. All 10 of
-          // these were real, fully-built, backend-wired features with zero nav
-          // path (confirmed no duplicate work needed, just reconnection). AI
-          // Brief added on top — synthesizes across all of them into one read.
+          // "What smart money is actually doing" — surfaced 2026-07-11, all 10
+          // real/backend-wired. Trimmed 2026-07-12 per user request — was 11
+          // tabs (AI Brief + 10), kept the 3 fastest-moving/daily-decision
+          // signals; DP Heatmap/Insider Screener/13F Lookup/Short Interest/
+          // Short Changes/SEC Filings/Social/Correlation are slower or more
+          // research-mode, still fully wired, reachable via command palette
+          // (DPHEAT/INSIDER/SMARTMONEY[13F]/SHORTINT/SHORTCHG/SECFILINGS/
+          // SOCIAL/CORR GO).
           smartmoney: [
             { id: "sm-brief",       label: "🧠 AI BRIEF" },
             { id: "darkpool",       label: "🌊 DARK POOL" },
-            { id: "dp-heatmap",     label: "🗺 DP HEATMAP" },
-            { id: "insider",        label: "🏦 INSIDER SCREENER" },
-            { id: "smartmoney",     label: "🔍 13F LOOKUP" },
             { id: "flow",           label: "⚡ OPTIONS FLOW" },
-            { id: "shortint",       label: "🩳 SHORT INTEREST" },
-            { id: "short-changes",  label: "📉 SHORT CHANGES" },
-            { id: "sec-filings",    label: "📄 SEC FILINGS" },
-            { id: "social",         label: "💬 SOCIAL SENTIMENT" },
-            { id: "correlation",    label: "🔗 CORRELATION" },
           ],
           coach: [
             { id: "coach",        label: "🧭 المدرّب اليومي" },
