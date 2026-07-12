@@ -127,7 +127,7 @@ Return ONLY a fenced \`\`\`json block with exactly this shape:
   "overallNote": "one or two sentence summary recommendation"
 }`;
   const payload = { model: MODELS.sonnet, max_tokens: 1600, messages: [{ role: "user", content: [{ type: "text", text: promptText }, ...imageBlocks] }] };
-  const resp = await anthropicRequest(payload, apiKey, 60000);
+  const resp = await anthropicRequest(payload, apiKey, 90000);
   return (resp.content || []).filter(b => b.type === "text").map(b => b.text).join("");
 }
 
@@ -581,7 +581,7 @@ Do not invent features not listed above. Do not use all-caps except for the vehi
 
     const prompt = buildVehiclePackagePrompt(vv);
     try {
-      const text = await callAnthropicApi(prompt, anthropicKey(), { model: MODELS.sonnet, maxTokens: 2600 });
+      const text = await callAnthropicApi(prompt, anthropicKey(), { model: MODELS.sonnet, maxTokens: 2600, timeout: 90000 });
       const pkg = extractJsonBlock(text);
       if (!pkg) return writeJson(res, 422, { error: "Could not parse the generated content — try again." });
       return writeJson(res, 200, { package: pkg, generatedAt: new Date().toISOString() });
