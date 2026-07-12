@@ -69,3 +69,16 @@ export function computeAPlusScore(row, regime) {
   ];
   return { score, reasons, breakdown: { trendPts, rsPts, regimePts, setupPts } };
 }
+
+// Next Action — a plain one-word verdict for new-money decisions (not position
+// management — no REDUCE/REMOVE, this doesn't know what you already own).
+// Same row shape as computeAPlusScore. Always returns a `reason`.
+export function computeNextAction(row) {
+  const stage = String(row?.stage || "");
+  const isGo = row?.verdict === "GO" || (row?.atBuyPoint && row?.volConfirmed);
+  if (isGo) return { action: "BUY", color: "#0d9465", reason: "At buy point with volume confirmation." };
+  if (stage.includes("4")) return { action: "AVOID", color: "#c8282a", reason: "Stage 4 downtrend — do not buy." };
+  if (row?.atBuyPoint) return { action: "BREAKOUT", color: "#2563eb", reason: "At the pivot, but volume hasn't confirmed yet — wait for it or size down." };
+  if (row?.actionable) return { action: "WATCH", color: "#d6a312", reason: "Near the buy zone, building strength — not a trigger yet." };
+  return { action: "WAIT", color: "#94a3b8", reason: "Not yet actionable — no clean entry right now." };
+}

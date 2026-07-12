@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { RH_UNIVERSE, rhScore, rhScreenProgressive } from "./rhpro-shared.jsx";
-import { computeRegime, computeAPlusScore } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore, computeNextAction } from "./market-helpers.js";
 
 export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData }) {
   const regime = computeRegime(macroData);
@@ -9,7 +9,7 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
     setLoading(true); setRows([]);
     let all = [];
     rhScreenProgressive(RH_UNIVERSE,
-      (part) => { all = [...all, ...part.map(x => ({ ...x, score: rhScore(x), aplus: computeAPlusScore(x, regime) }))]; setRows(all); setRanAt(new Date()); },
+      (part) => { all = [...all, ...part.map(x => ({ ...x, score: rhScore(x), aplus: computeAPlusScore(x, regime), next: computeNextAction(x) }))]; setRows(all); setRanAt(new Date()); },
       () => setLoading(false)
     );
   };
@@ -48,6 +48,9 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
                 onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                 <span style={{ fontWeight: 800, color: C.text }}>{r.symbol}</span>
                 <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {r.next && (
+                    <span title={r.next.reason} style={{ fontSize: 9, fontWeight: 900, color: r.next.color, border: `1px solid ${r.next.color}`, borderRadius: 4, padding: "1px 5px", cursor: "help" }}>{r.next.action}</span>
+                  )}
                   <span style={{ fontSize: 10, color: C.textDim }}>RS {r.rsRating ?? "—"}</span>
                   {r.aplus && (
                     <span title={r.aplus.reasons.join(" · ")} style={{ fontSize: 10, fontWeight: 900, color: "#fff", background: r.aplus.score >= 80 ? "#0d9465" : r.aplus.score >= 60 ? "#d6a312" : "#c8282a", borderRadius: 4, padding: "1px 6px", cursor: "help" }}>A+ {r.aplus.score}</span>

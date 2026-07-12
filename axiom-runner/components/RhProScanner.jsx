@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { RH_UNIVERSE, rhScore, rhScreenProgressive } from "./rhpro-shared.jsx";
-import { computeRegime, computeAPlusScore } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore, computeNextAction } from "./market-helpers.js";
 
 export default function RhProScanner({ C, MONO, SANS, macroData }) {
   const regime = computeRegime(macroData);
@@ -11,7 +11,7 @@ export default function RhProScanner({ C, MONO, SANS, macroData }) {
     let all = [];
     rhScreenProgressive(RH_UNIVERSE,
       (part) => {
-        all = [...all, ...part.map(x => ({ ...x, score: rhScore(x), aplus: computeAPlusScore(x, regime) }))]
+        all = [...all, ...part.map(x => ({ ...x, score: rhScore(x), aplus: computeAPlusScore(x, regime), next: computeNextAction(x) }))]
           .sort((a, b) => (b.score - a.score) || ((b.rsRating || 0) - (a.rsRating || 0)));
         setRows(all); setRanAt(new Date());   // render as batches arrive
       },
@@ -40,7 +40,7 @@ export default function RhProScanner({ C, MONO, SANS, macroData }) {
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "auto", maxHeight: "70vh" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr>
-            {["#", "SYMBOL", "AI SCORE", "A+ SCORE", "PRICE", "RS", "TREND (8pt)", "STAGE", "SETUP", "ENTRY → STOP"].map(h => <th key={h} style={th}>{h}</th>)}
+            {["#", "SYMBOL", "AI SCORE", "A+ SCORE", "PRICE", "RS", "TREND (8pt)", "STAGE", "ACTION", "ENTRY → STOP"].map(h => <th key={h} style={th}>{h}</th>)}
           </tr></thead>
           <tbody>
             {shown.map((r, i) => (
@@ -53,7 +53,7 @@ export default function RhProScanner({ C, MONO, SANS, macroData }) {
                 <td style={{ ...cell, color: (r.rsRating || 0) >= 70 ? C.green : C.textSec }}>{r.rsRating ?? "—"}</td>
                 <td style={{ ...cell, color: C.textSec }}>{r.passCount ?? "?"}/8</td>
                 <td style={{ ...cell, fontSize: 11, color: (r.stage || "").includes("2") ? C.green : (r.stage || "").includes("4") ? C.red : C.textDim }}>{(r.stage || "").replace(/ —.*/, "").slice(0, 18) || "—"}</td>
-                <td style={{ ...cell, fontSize: 11, color: C.textSec }}>{r.atBuyPoint ? <span style={{ color: C.green, fontWeight: 700 }}>BUY ZONE</span> : (r.setupStatus || "").slice(0, 20) || "—"}</td>
+                <td style={cell}>{r.next && <span title={r.next.reason} style={{ fontSize: 11, fontWeight: 900, color: r.next.color, border: `1px solid ${r.next.color}`, borderRadius: 4, padding: "1px 6px", cursor: "help" }}>{r.next.action}</span>}</td>
                 <td style={{ ...cell, fontSize: 11, color: C.textSec }}>{r.entry ? `$${Number(r.entry).toFixed(2)} → $${Number(r.stop).toFixed(2)}` : "—"}</td>
               </tr>
             ))}
