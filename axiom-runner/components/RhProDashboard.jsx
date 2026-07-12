@@ -75,14 +75,12 @@ export default function RhProDashboard({ C, MONO, SANS, macroData, sectorData })
             <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, margin: "12px 0 6px", letterSpacing: "0.05em" }}>THE DAILY WORKFLOW ↓</div>
             <div style={{ display: "grid", gap: 6 }}>
               {[
-                ["1. 🎯 COMMAND DECK", "Start here. Is the market safe? Check bias, risk level, cash rec. Red day → don't trade."],
-                ["2. 🎯 SNIPER SCANNER", "See the whole market ranked 0–100. Filter to ≥75 or 'at buy point'."],
-                ["3. 📋 WATCHLISTS", "Or browse by type (breakout, momentum, pullback). Tap any ticker → opens its chart."],
-                ["4. 🗺 HEAT MAP", "Only hunt longs in Leading/Improving sectors. Avoid Lagging."],
-                ["5. 🖥 TERMINAL", "Full trend-template read, entry/stop/3 targets, AI second opinion, and account-sized position sizing — all on the symbol's chart tab now."],
-                ["— execute in Robinhood —", "Place the trade yourself, with the levels Terminal gave you."],
-                ["6. 📓 JOURNAL", "Log every trade — including the mistake and the emotion."],
-                ["7. 🎓 AI COACH", "Grade each trade A+ to F. It rewards discipline, not luck."],
+                ["1. 🧠 TRADE PRO AI", "Start here. Is the market safe? Check bias, risk level, cash rec. Red day → don't trade."],
+                ["2. 🎯 SNIPER SCANNER", "See the whole market ranked 0–100, with an A+ Score and BUY/BREAKOUT/WATCH/AVOID/WAIT next-action call. Tap 🎯 plan on any row to send it straight to Trade Planner."],
+                ["3. 🟢 GREEN LIGHT + AUTOPILOT", "The 5-check signal — entries, stops, trend exits — with an optional paper autopilot watching it for you."],
+                ["4. 🎯 TRADE PLANNER", "Auto-generates entry/stop/3 targets, position size, and an execution checklist for any symbol — one click from Sniper Scanner, or type a ticker."],
+                ["— execute in Robinhood —", "Place the trade yourself, with the levels Trade Planner gave you."],
+                ["5. 🎓 AI COACH", "Grade each closed trade A+ to F. It rewards discipline, not luck."],
               ].map(([a, b], i) => (
                 <div key={i} style={{ display: "flex", gap: 10 }}>
                   <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: a.startsWith("—") ? C.amber : C.text, minWidth: 168 }}>{a}</span>
@@ -91,6 +89,7 @@ export default function RhProDashboard({ C, MONO, SANS, macroData, sectorData })
               ))}
             </div>
             <div style={{ marginTop: 10, fontFamily: SANS, fontSize: 11.5, color: C.textSec }}>💡 <b>The one rule that matters:</b> a green market + a high-score stock + at its buy zone + sized to 1% risk = a real trade. Miss any of those and it's a WAIT, not a trade.</div>
+            <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 11, color: C.textDim }}>Also still here, just not in this bar — reach them via <b>CMD</b>: 📋 Watchlists (<code>WATCHLISTS GO</code>), 🗺 Heat Map (<code>SECTORHEAT GO</code>), 📓 Journal (<code>JOURNAL GO</code>), 🖥 Terminal (top nav).</div>
           </div>
         </div>
       )}
