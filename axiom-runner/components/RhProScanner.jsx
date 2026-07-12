@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { RH_UNIVERSE, rhScore, rhScreenProgressive } from "./rhpro-shared.jsx";
+import { computeRegime, computeAPlusScore } from "./market-helpers.js";
 
-export default function RhProScanner({ C, MONO, SANS }) {
+export default function RhProScanner({ C, MONO, SANS, macroData }) {
+  const regime = computeRegime(macroData);
   const [rows, setRows] = useState([]); const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(""); const [filter, setFilter] = useState(60); const [ranAt, setRanAt] = useState(null);
   const scan = () => {
@@ -9,7 +11,7 @@ export default function RhProScanner({ C, MONO, SANS }) {
     let all = [];
     rhScreenProgressive(RH_UNIVERSE,
       (part) => {
-        all = [...all, ...part.map(x => ({ ...x, score: rhScore(x) }))]
+        all = [...all, ...part.map(x => ({ ...x, score: rhScore(x), aplus: computeAPlusScore(x, regime) }))]
           .sort((a, b) => (b.score - a.score) || ((b.rsRating || 0) - (a.rsRating || 0)));
         setRows(all); setRanAt(new Date());   // render as batches arrive
       },
@@ -38,7 +40,7 @@ export default function RhProScanner({ C, MONO, SANS }) {
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "auto", maxHeight: "70vh" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr>
-            {["#", "SYMBOL", "AI SCORE", "PRICE", "RS", "TREND (8pt)", "STAGE", "SETUP", "ENTRY → STOP"].map(h => <th key={h} style={th}>{h}</th>)}
+            {["#", "SYMBOL", "AI SCORE", "A+ SCORE", "PRICE", "RS", "TREND (8pt)", "STAGE", "SETUP", "ENTRY → STOP"].map(h => <th key={h} style={th}>{h}</th>)}
           </tr></thead>
           <tbody>
             {shown.map((r, i) => (
@@ -46,6 +48,7 @@ export default function RhProScanner({ C, MONO, SANS }) {
                 <td style={{ ...cell, color: C.textDim }}>{i + 1}</td>
                 <td style={{ ...cell, fontWeight: 900, color: C.text }}>{r.symbol}</td>
                 <td style={cell}><span style={{ fontWeight: 900, color: scoreCol(r.score) }}>{r.score}</span>{r.atBuyPoint && <span style={{ marginLeft: 6, fontSize: 10, color: C.green }}>🎯</span>}</td>
+                <td style={cell}>{r.aplus && <span title={r.aplus.reasons.join(" · ")} style={{ fontWeight: 900, color: "#fff", background: r.aplus.score >= 80 ? "#0d9465" : r.aplus.score >= 60 ? "#d6a312" : "#c8282a", borderRadius: 4, padding: "1px 7px", cursor: "help" }}>{r.aplus.score}</span>}</td>
                 <td style={{ ...cell, color: C.textSec }}>${Number(r.price || 0).toFixed(2)}</td>
                 <td style={{ ...cell, color: (r.rsRating || 0) >= 70 ? C.green : C.textSec }}>{r.rsRating ?? "—"}</td>
                 <td style={{ ...cell, color: C.textSec }}>{r.passCount ?? "?"}/8</td>
@@ -54,7 +57,7 @@ export default function RhProScanner({ C, MONO, SANS }) {
                 <td style={{ ...cell, fontSize: 11, color: C.textSec }}>{r.entry ? `$${Number(r.entry).toFixed(2)} → $${Number(r.stop).toFixed(2)}` : "—"}</td>
               </tr>
             ))}
-            {!shown.length && !loading && <tr><td colSpan="9" style={{ ...cell, textAlign: "center", color: C.textDim }}>No setups meet this filter right now — lower the threshold or rescan.</td></tr>}
+            {!shown.length && !loading && <tr><td colSpan="10" style={{ ...cell, textAlign: "center", color: C.textDim }}>No setups meet this filter right now — lower the threshold or rescan.</td></tr>}
           </tbody>
         </table>
       </div>
