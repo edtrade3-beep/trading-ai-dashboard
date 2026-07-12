@@ -1727,9 +1727,9 @@ async function scanEntryZoneAlerts(watchlistSymbols, fivexRef = {}) {
     if (getAlertLevel?.() === "off") return;
     if (checkBudget && !checkBudget()) return;
 
-    const { fetchYahooQuoteBatch } = require("./providers/yahoo");
+    const { fetchQuoteBatchWithFallback } = require("./providers/yahoo");
     const unique = [...new Set(watchlistSymbols.map(s => String(s).toUpperCase()))].slice(0, 30);
-    const quotes = await fetchYahooQuoteBatch(unique).catch(() => []);
+    const quotes = await fetchQuoteBatchWithFallback(unique).catch(() => []);
 
     for (const q of quotes) {
       const sym   = String(q.symbol || "").toUpperCase();

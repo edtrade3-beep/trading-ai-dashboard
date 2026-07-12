@@ -175,6 +175,34 @@ async function fetchYahooQuoteBatch(symbols) {
   }
 }
 
+// Same job as fetchYahooQuoteBatch (raw Yahoo v7 quote objects — symbol,
+// regularMarketPrice, regularMarketChangePercent, fiftyDayAverage, etc.) but
+// falls back to Alpaca snapshots, reshaped onto the same field names, when
+// Yahoo returns nothing (e.g. IP-blocked from Render). Alpaca's snapshot has
+// no MA50/MA200/52-week fields, so those come back absent on the fallback
+// path — strictly better than the zero rows callers got before, and callers
+// that already tolerate missing MA/52w data (via `|| 0` guards) keep working.
+async function fetchQuoteBatchWithFallback(symbols) {
+  const primary = await fetchYahooQuoteBatch(symbols);
+  if (primary.length) return primary;
+  try {
+    const { fetchAlpacaQuotes } = require("./alpaca-data");
+    const rows = await fetchAlpacaQuotes(symbols);
+    return rows.map((r) => ({
+      symbol: r.symbol,
+      regularMarketPrice: r.price,
+      regularMarketPreviousClose: r.previousClose,
+      regularMarketChange: r.previousClose ? r.price - r.previousClose : 0,
+      regularMarketChangePercent: r.changesPercentage,
+      regularMarketVolume: r.volume,
+      regularMarketOpen: r.open,
+      regularMarketDayHigh: r.dayHigh,
+      regularMarketDayLow: r.dayLow,
+      longName: r.name, shortName: r.name,
+    }));
+  } catch { return []; }
+}
+
 async function fetchYahooChartMeta(symbol) {
   const path = `/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d&includePrePost=false&events=div%2Csplits`;
   for (const host of ["query1", "query2"]) {
@@ -829,7 +857,7 @@ async function fetchYahooEarnings(symbol) {
 
 module.exports = {
   fetchYahooEarnings,
-  fetchYahooBars, fetchYahooQuoteBatch, fetchYahooQuotes,
+  fetchYahooBars, fetchYahooQuoteBatch, fetchYahooQuotes, fetchQuoteBatchWithFallback,
   fetchYahooNews, fetchYahooRssNews,
   fetchYahooFundamentals, fetchYahooCandlesWithIndicators,
   fetchYahooOptionsFlowForSymbol, fetchEstimatedOptionsFlow,

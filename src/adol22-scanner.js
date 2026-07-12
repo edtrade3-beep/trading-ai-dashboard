@@ -20,7 +20,27 @@ const COOLDOWN_MS = 60 * 60_000; // 1h per symbol per direction
 const cooldownMap = new Map();
 
 // ── Candle fetcher ────────────────────────────────────────────────────────────
-function fetchCandles(sym, interval, range) {
+// Tries Alpaca first (not IP-blocked from Render, unlike Yahoo) — same bar shape
+// as fetchYahooCandles below, just reshaped onto {t, time, o, h, l, c, v}.
+// Falls through to the raw Yahoo chart call when Alpaca has no keys, the symbol
+// isn't a plain equity (^VIX etc — fetchAlpacaBars returns null for those), or
+// the request fails, so behavior is unchanged wherever Alpaca can't help.
+async function fetchCandles(sym, interval, range) {
+  try {
+    const { fetchAlpacaBars } = require("./providers/alpaca-data");
+    const alpacaBars = await fetchAlpacaBars(sym, range, interval);
+    if (alpacaBars && alpacaBars.length) {
+      const bars = alpacaBars.map(b => ({
+        t: Math.floor(b.time / 1000), time: new Date(b.time),
+        o: b.open || 0, h: b.high || 0, l: b.low || 0, c: b.close || 0, v: b.volume || 0,
+      })).filter(b => b.c > 0 && b.h > 0);
+      if (bars.length) return { bars, price: bars.at(-1)?.c || 0 };
+    }
+  } catch { /* fall through to Yahoo */ }
+  return fetchYahooCandles(sym, interval, range);
+}
+
+function fetchYahooCandles(sym, interval, range) {
   return new Promise(resolve => {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=${interval}&range=${range}`;
     const req = https.get(url, { headers: { "User-Agent": "Mozilla/5.0" } }, res => {

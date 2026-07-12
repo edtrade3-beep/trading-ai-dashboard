@@ -2,7 +2,7 @@
 // Uses the same gap-scan universe as the Gap Scanner tab.
 // No new dependencies — pure Node.js + existing platform modules.
 
-const { fetchYahooQuoteBatch } = require("./providers/yahoo");
+const { fetchQuoteBatchWithFallback } = require("./providers/yahoo");
 const { sendTelegramMessage, isConfigured } = require("./telegram");
 
 const GAP_UNIVERSE = [
@@ -43,7 +43,7 @@ async function runPreMarketAlert(label) {
     const chunks = [];
     for (let i = 0; i < GAP_UNIVERSE.length; i += CHUNK)
       chunks.push(GAP_UNIVERSE.slice(i, i + CHUNK));
-    const settled = await Promise.allSettled(chunks.map(c => fetchYahooQuoteBatch(c)));
+    const settled = await Promise.allSettled(chunks.map(c => fetchQuoteBatchWithFallback(c)));
     const raw = settled.flatMap(r => r.status === "fulfilled" ? r.value : []);
 
     const gappers = raw

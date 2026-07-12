@@ -112,7 +112,7 @@ async function handleScanner(req, res, requestUrl) {
 
   // GET /api/scanner/gap-scan — real pre-market / intraday gap data via Yahoo
   if (pathname === "/api/scanner/gap-scan" && req.method === "GET") {
-    const { fetchYahooQuoteBatch } = require("../providers/yahoo");
+    const { fetchQuoteBatchWithFallback } = require("../providers/yahoo");
     const { round2 } = require("../utils");
 
     // ~80 liquid, high-volume symbols likely to gap
@@ -156,11 +156,11 @@ async function handleScanner(req, res, requestUrl) {
       const chunks = [];
       for (let i = 0; i < GAP_UNIVERSE.length; i += CHUNK)
         chunks.push(GAP_UNIVERSE.slice(i, i + CHUNK));
-      const settled = await Promise.allSettled(chunks.map(c => fetchYahooQuoteBatch(c)));
+      const settled = await Promise.allSettled(chunks.map(c => fetchQuoteBatchWithFallback(c)));
       const raw = settled.flatMap(r => r.status === "fulfilled" ? r.value : []);
 
       if (raw.length === 0) {
-        return writeJson(res, 502, { ok: false, error: "Yahoo Finance returned no data — API may be rate-limited. Try again in 30 seconds.", results: [] });
+        return writeJson(res, 502, { ok: false, error: "Yahoo Finance and the Alpaca fallback both returned no data — try again in 30 seconds.", results: [] });
       }
 
       const results = raw
