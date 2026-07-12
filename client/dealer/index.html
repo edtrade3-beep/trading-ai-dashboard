@@ -59,6 +59,13 @@
   th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;user-select:none}
   th:hover{color:var(--text)}
   tbody tr:hover{background:var(--card2)}
+  /* Wide tables scroll horizontally inside this wrapper — make the scrollbar impossible to miss. */
+  .scrollx{overflow-x:auto;scrollbar-width:auto;padding-bottom:4px}
+  .scrollx::-webkit-scrollbar{height:10px}
+  .scrollx::-webkit-scrollbar-track{background:var(--card2);border-radius:5px}
+  .scrollx::-webkit-scrollbar-thumb{background:var(--muted);border-radius:5px}
+  .scrollx::-webkit-scrollbar-thumb:hover{background:var(--primary)}
+  .cell-trunc{display:inline-block;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;cursor:help}
   .muted{color:var(--muted)}
   .out{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:14px;white-space:pre-wrap;font-size:14px;line-height:1.6;min-height:120px}
   .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--success);color:#04210f;
@@ -152,7 +159,7 @@
         <button class="btn" onclick="newVehicleForm()">＋ Add Vehicle</button>
         <span class="muted" id="invCount" style="font-size:13px"></span>
       </div>
-      <div style="overflow-x:auto">
+      <div class="scrollx">
         <table id="invTable">
           <thead><tr id="invHead"></tr></thead>
           <tbody id="invBody"></tbody>
@@ -203,7 +210,7 @@
         <button class="btn success" onclick="addAllValidToInventory()" id="csvAddAllBtn">＋ Add All Valid Rows to Inventory</button>
         <span class="muted" id="csvAddMsg" style="font-size:13px"></span>
       </div>
-      <div style="overflow-x:auto" id="csvTableScroll">
+      <div class="scrollx" id="csvTableScroll">
         <table id="csvTable">
           <thead><tr><th>Row</th><th>VIN</th><th>Year</th><th>Make</th><th>Model</th><th>Trim</th><th>Mileage</th><th>Cost</th><th>Price</th><th>Issues</th><th class="noprint"></th></tr></thead>
           <tbody id="csvBody"></tbody>
@@ -314,7 +321,7 @@
     </div>
     <div class="card" id="reportTableCard" style="display:none">
       <h2>Vehicle-by-Vehicle</h2>
-      <div style="overflow-x:auto" id="reportTableScroll">
+      <div class="scrollx" id="reportTableScroll">
         <table id="reportTable">
           <thead><tr><th>Stock#</th><th>VIN</th><th>Vehicle</th><th>Current Price</th><th>Cheapest Comp</th><th>Comp Dealer</th><th>Difference</th><th>Status</th><th>Flags</th></tr></thead>
           <tbody id="reportBody"></tbody>
@@ -586,7 +593,7 @@ function runFullAnalysis(){
      // Listings table
      var listings=Array.isArray(a.listings)?a.listings:[];
      if(listings.length){
-       html+='<div style="overflow-x:auto;margin-top:14px"><table><thead><tr>'
+       html+='<div class="scrollx" style="margin-top:14px"><table><thead><tr>'
          +'<th>Listing</th><th>Price</th><th>Mileage</th><th>Location</th><th>Seller</th><th>Risk</th><th>Position</th><th>Score</th><th>Source</th>'
          +'</tr></thead><tbody>'
          +listings.map(function(l){
@@ -1135,12 +1142,14 @@ function finishReport(rows){
       : c.status==="Fair"?'<span class="pill green">FAIR</span>':'<span class="pill yellow">UNKNOWN</span>';
     var flagsHtml=c.flags.map(function(f){ return '<span class="pill '+(f==="Advertise First"?"green":"red")+'" style="font-size:10px;padding:2px 8px;margin-right:4px">'+esc(f)+'</span>'; }).join("");
     var diffLabel = c.diff!=null ? ((c.diff>=0?"+":"-")+money(Math.abs(c.diff))) : "—";
+    var vehicleName = [x.year,x.make,x.model,x.trim].filter(Boolean).join(" ")||"—";
     return '<tr>'
-      +'<td>'+(x.stock||"—")+'</td><td>'+(x.vin||"—")+'</td>'
-      +'<td>'+esc([x.year,x.make,x.model,x.trim].filter(Boolean).join(" ")||"—")+'</td>'
+      +'<td>'+(x.stock||"—")+'</td>'
+      +'<td><span class="cell-trunc" title="'+esc(x.vin||"")+'">'+(x.vin||"—")+'</span></td>'
+      +'<td><span class="cell-trunc" style="max-width:230px" title="'+esc(vehicleName)+'">'+esc(vehicleName)+'</span></td>'
       +'<td>'+(x.price?money(x.price):"—")+'</td>'
       +'<td>'+(c.cheapest!=null?money(c.cheapest):"—")+'</td>'
-      +'<td>'+esc(c.dealer||"—")+'</td>'
+      +'<td><span class="cell-trunc" style="max-width:150px" title="'+esc(c.dealer||"")+'">'+esc(c.dealer||"—")+'</span></td>'
       +'<td>'+diffLabel+'</td>'
       +'<td>'+statusPill+'</td>'
       +'<td>'+(flagsHtml||"—")+'</td>'
