@@ -7646,7 +7646,12 @@ export default function App() {
               // pill uses tabs[0] as the landing tab, and Start Here is
               // onboarding-only, not a repeat destination.
               { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard", "start", "movers", "quotes", "crypto", "news", "econ-cal", "macro", "breadth", "sectors", "rotation", "cot"] },
-              { id: "mterminal",  label: "🖥 TERMINAL",   tabs: ["mterminal", "daytrade"] },
+              // SMART MONEY folded into TERMINAL 2026-07-12 per user request
+              // ("add inside terminal") — its own top-level pill is gone, all
+              // 11 of its tabs (3 now visible in the TERMINAL subnav, 8 still
+              // palette-only) live under this group's membership now so
+              // TERMINAL highlights correctly for all of them.
+              { id: "mterminal",  label: "🖥 TERMINAL",   tabs: ["mterminal", "daytrade", "sm-brief", "darkpool", "dp-heatmap", "insider", "smartmoney", "flow", "shortint", "short-changes", "sec-filings", "social", "correlation"] },
               // "greenlight" listed first (not "rhpro"/Command Deck) — clicking
               // the PRO TRADE pill uses tabs[0] as the landing tab, and it
               // should land on one of the 3 tabs actually shown in the subnav,
@@ -7656,7 +7661,6 @@ export default function App() {
                 // comment) but still reachable — kept here so this group still
                 // highlights correctly if you land on one of these another way.
                 "gl-backtest", "combined", "dipbuy", "squeeze", "under10", "gap", "adol22", "smartscan", "outlook", "predictions"] },
-              { id: "smartmoney", label: "🕵️ SMART MONEY", tabs: ["sm-brief", "darkpool", "dp-heatmap", "insider", "smartmoney", "flow", "shortint", "short-changes", "sec-filings", "social", "correlation"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes", "education"] },
               { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools", "dealfinder", "flightfinder", "leadresponder"] },
@@ -8039,6 +8043,9 @@ export default function App() {
           mterminal: [
             { id: "mterminal",  label: "🖥 MARKET TERMINAL" },
             { id: "daytrade",   label: "⚡ DAY TRADE" },
+            { id: "sm-brief",   label: "🧠 AI BRIEF" },
+            { id: "darkpool",   label: "🌊 DARK POOL" },
+            { id: "flow",       label: "⚡ OPTIONS FLOW" },
           ],
           // Trimmed 2026-07-10: was 18 tabs (8 of them near-duplicate "rank
           // stocks, find setups" scanners). Kept the ones covering distinct,
@@ -8058,19 +8065,8 @@ export default function App() {
             { id: "rhpro-scan", label: "🎯 SNIPER SCANNER" },
             { id: "greenlight",  label: "🟢 GREEN LIGHT + AUTOPILOT" },
           ],
-          // "What smart money is actually doing" — surfaced 2026-07-11, all 10
-          // real/backend-wired. Trimmed 2026-07-12 per user request — was 11
-          // tabs (AI Brief + 10), kept the 3 fastest-moving/daily-decision
-          // signals; DP Heatmap/Insider Screener/13F Lookup/Short Interest/
-          // Short Changes/SEC Filings/Social/Correlation are slower or more
-          // research-mode, still fully wired, reachable via command palette
-          // (DPHEAT/INSIDER/SMARTMONEY[13F]/SHORTINT/SHORTCHG/SECFILINGS/
-          // SOCIAL/CORR GO).
-          smartmoney: [
-            { id: "sm-brief",       label: "🧠 AI BRIEF" },
-            { id: "darkpool",       label: "🌊 DARK POOL" },
-            { id: "flow",           label: "⚡ OPTIONS FLOW" },
-          ],
+          // SMART MONEY folded into the mterminal group above 2026-07-12 —
+          // AI Brief/Dark Pool/Options Flow are now part of SUB_GROUPS.mterminal.
           coach: [
             { id: "coach",        label: "🧭 المدرّب اليومي" },
           ],
