@@ -17,8 +17,11 @@ export default function RhProCoach({ C, MONO, SANS }) {
       rhSaveJournal(all); setTrades(all);
     } finally { setBusy(null); }
   };
-  const graded = trades.filter(t => t.grade);
-  const gpa = graded.length ? (graded.reduce((s, t) => s + ({ "A+": 4.3, "A": 4, "A-": 3.7, "B+": 3.3, "B": 3, "B-": 2.7, "C+": 2.3, "C": 2, "C-": 1.7, "D": 1, "F": 0 }[t.grade] ?? 2), 0) / graded.length) : null;
+  const GPA_MAP = { "A+": 4.3, "A": 4, "A-": 3.7, "B+": 3.3, "B": 3, "B-": 2.7, "C+": 2.3, "C": 2, "C-": 1.7, "D": 1, "F": 0 };
+  // "?" means grading failed (no API key, request error) — a fake grade, not a real one.
+  // Must not count toward "X graded" or silently pollute the GPA average with a made-up 2.0.
+  const graded = trades.filter(t => t.grade && t.grade in GPA_MAP);
+  const gpa = graded.length ? (graded.reduce((s, t) => s + GPA_MAP[t.grade], 0) / graded.length) : null;
 
   return (
     <div style={{ padding: "8px 4px" }}>

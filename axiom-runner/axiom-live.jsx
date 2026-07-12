@@ -8060,15 +8060,16 @@ export default function App() {
           // re-surface any of them.
           // Trimmed 2026-07-12 per user request — was 8 tabs, kept the 3 named
           // explicitly (autopilot + the two scanners). COMMAND DECK/HEAT MAP/
-          // WATCHLISTS/HOLDINGS/AI COACH are all still fully wired, just not in
-          // this bar — reachable via command palette (DECK/SECTORHEAT/
-          // WATCHLISTS/HOLDINGS/AICOACH GO). TRADE PLANNER added back 2026-07-12
-          // after the user asked where to find it — was palette-only before.
+          // WATCHLISTS/HOLDINGS are still fully wired, just not in this bar —
+          // reachable via command palette (DECK/SECTORHEAT/WATCHLISTS/HOLDINGS
+          // GO). TRADE PLANNER and AI COACH added back 2026-07-12 — both are
+          // complete, valuable features that just weren't discoverable.
           rhpro: [
             { id: "rhpro-apex", label: "🧠 TRADE PRO AI" },
             { id: "rhpro-scan", label: "🎯 SNIPER SCANNER" },
             { id: "greenlight",  label: "🟢 GREEN LIGHT + AUTOPILOT" },
             { id: "tradeplanner", label: "🎯 TRADE PLANNER" },
+            { id: "rhpro-coach", label: "🎓 AI COACH" },
           ],
           // SMART MONEY folded into the mterminal group above 2026-07-12 —
           // AI Brief/Dark Pool/Options Flow are now part of SUB_GROUPS.mterminal.
