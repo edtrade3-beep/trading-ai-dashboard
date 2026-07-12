@@ -162,12 +162,19 @@
         <button class="btn" onclick="newVehicleForm()">＋ Add Vehicle</button>
         <span class="muted" id="invCount" style="font-size:13px"></span>
       </div>
-      <div class="scrollx">
-        <table id="invTable">
-          <thead><tr id="invHead"></tr></thead>
-          <tbody id="invBody"></tbody>
-        </table>
+      <div class="row" style="margin-bottom:6px">
+        <label style="margin:0;text-transform:none;font-size:13px;color:var(--muted);align-self:center">Sort by</label>
+        <select id="inv_sort" onchange="setInvSort()" style="max-width:160px">
+          <option value="year">Year</option>
+          <option value="price">Price</option>
+          <option value="cost">Cost</option>
+          <option value="profit">Profit</option>
+          <option value="mileage">Mileage</option>
+          <option value="make">Make</option>
+        </select>
+        <button class="btn ghost sm" onclick="toggleInvSortDir()" id="inv_sortDirBtn">▼</button>
       </div>
+      <div id="invCards"></div>
     </div>
     <div class="card noprint" id="invForm" style="display:none">
       <h2 id="invFormTitle">Add Vehicle</h2>
@@ -213,12 +220,7 @@
         <button class="btn success" onclick="addAllValidToInventory()" id="csvAddAllBtn">＋ Add All Valid Rows to Inventory</button>
         <span class="muted" id="csvAddMsg" style="font-size:13px"></span>
       </div>
-      <div class="scrollx" id="csvTableScroll">
-        <table id="csvTable">
-          <thead><tr><th>Row</th><th>VIN</th><th>Year</th><th>Make</th><th>Model</th><th>Trim</th><th>Mileage</th><th>Cost</th><th>Price</th><th>Issues</th><th class="noprint"></th></tr></thead>
-          <tbody id="csvBody"></tbody>
-        </table>
-      </div>
+      <div id="csvCards"></div>
     </div>
   </div>
 
@@ -753,15 +755,19 @@ function renderCsvResults(){
     ["Flagged Rows",String(flagged),flagged>0?"danger":"success"],
     ["Total Asking Value",money(csvRows.reduce(function(s,r){ return s+num(r.price); },0)),""]
   ].map(statBox).join("");
-  $("csvTableScroll").scrollLeft=0;
-  $("csvBody").innerHTML=csvRows.map(function(r,i){
+  $("csvCards").innerHTML=csvRows.map(function(r,i){
     var pill=r.valid?'<span class="pill green">OK</span>':'<span class="pill red">'+r.issues.length+" issue"+(r.issues.length!==1?"s":"")+'</span>';
-    return '<tr>'
-      +'<td>'+r.rowNum+'</td><td>'+(r.vin||"—")+'</td><td>'+(r.year||"—")+'</td><td>'+(r.make||"—")+'</td><td>'+(r.model||"—")+'</td><td>'+(r.trim||"—")+'</td>'
-      +'<td>'+(r.mileage?num(r.mileage).toLocaleString():"—")+'</td><td>'+(r.cost?money(r.cost):"—")+'</td><td>'+(r.price?money(r.price):"—")+'</td>'
-      +'<td>'+pill+(r.issues.length?'<div class="muted" style="font-size:11px;white-space:normal;max-width:220px">'+r.issues.join("; ")+'</div>':'')+'</td>'
-      +'<td class="noprint">'+(r.valid?'<button class="btn ghost sm" onclick="addCsvRow('+i+')">Add</button>':'<span class="muted" style="font-size:11px">Fix in file</span>')+'</td>'
-      +'</tr>';
+    var title=[r.year,r.make,r.model,r.trim].filter(Boolean).join(" ")||"Row "+r.rowNum;
+    return '<div class="repCard">'
+      +'<div class="repCard-title">Row '+r.rowNum+' — '+esc(title)+'</div>'
+      +'<div class="muted" style="font-size:12px;margin-bottom:8px">VIN '+esc(r.vin||"—")+'</div>'
+      +'<div class="spec"><span class="k">Mileage</span><span class="val">'+(r.mileage?num(r.mileage).toLocaleString():"—")+'</span></div>'
+      +'<div class="spec"><span class="k">Cost</span><span class="val">'+(r.cost?money(r.cost):"—")+'</span></div>'
+      +'<div class="spec"><span class="k">Price</span><span class="val">'+(r.price?money(r.price):"—")+'</span></div>'
+      +'<div style="margin-top:8px">'+pill+'</div>'
+      +(r.issues.length?'<div class="muted" style="font-size:12px;margin-top:6px">'+esc(r.issues.join("; "))+'</div>':'')
+      +'<div class="row noprint" style="margin-top:10px">'+(r.valid?'<button class="btn ghost sm" onclick="addCsvRow('+i+')">＋ Add to Inventory</button>':'<span class="muted" style="font-size:12px">Fix in file and re-upload</span>')+'</div>'
+      +'</div>';
   }).join("");
 }
 function rowToInventoryRecord(r){
@@ -971,10 +977,8 @@ function saveToInventory(){
   save(INV_KEY,inventory); toast("Saved to inventory ✓");
 }
 function renderInventory(){
-  $("invHead").innerHTML=INV_COLS.map(function(c){
-    var arrow = sortCol===c[0]?(sortDir>0?" ▲":" ▼"):"";
-    return '<th onclick="sortInv(\''+c[0]+'\')">'+c[1]+arrow+'</th>';
-  }).join("")+'<th class="noprint"></th>';
+  $("inv_sort").value=sortCol;
+  $("inv_sortDirBtn").textContent=sortDir>0?"▲":"▼";
   var q=($("inv_search").value||"").toLowerCase();
   var rows=inventory.filter(function(x){ return !q || [x.vin,x.make,x.model,x.trim,x.year].join(" ").toLowerCase().indexOf(q)>=0; });
   rows.sort(function(a,b){
@@ -984,21 +988,27 @@ function renderInventory(){
     if(va<vb) return -1*sortDir; if(va>vb) return 1*sortDir; return 0;
   });
   $("invCount").textContent=rows.length+" vehicle"+(rows.length!==1?"s":"");
-  if(!rows.length){ $("invBody").innerHTML='<tr><td colspan="11" class="empty">No vehicles yet. Decode a VIN and save it, or click Add Vehicle.</td></tr>'; return; }
-  $("invBody").innerHTML=rows.map(function(x){
+  if(!rows.length){ $("invCards").innerHTML='<div class="empty">No vehicles yet. Decode a VIN and save it, or click Add Vehicle.</div>'; return; }
+  $("invCards").innerHTML=rows.map(function(x){
     var p=vehProfit(x), pc=p>=0?"var(--success)":"var(--danger)";
-    return '<tr>'
-      +'<td>'+(x.stock||"—")+'</td><td>'+(x.vin||"—")+'</td><td>'+(x.year||"—")+'</td><td>'+(x.make||"—")+'</td><td>'+(x.model||"—")+'</td><td>'+(x.trim||"—")+'</td>'
-      +'<td>'+num(x.mileage).toLocaleString()+'</td><td>'+money(x.cost)+'</td><td>'+money(x.price)+'</td>'
-      +'<td style="color:'+pc+';font-weight:700">'+money(p)+'</td>'
-      +'<td class="noprint" style="white-space:nowrap">'
-        +'<button class="btn ghost sm" onclick="loadVehicle('+x.id+')">Load</button> '
-        +'<button class="btn ghost sm" onclick="editVehicle('+x.id+')">Edit</button> '
-        +'<button class="btn danger sm" onclick="delVehicle('+x.id+')">✕</button>'
-      +'</td></tr>';
+    var title=[x.year,x.make,x.model,x.trim].filter(Boolean).join(" ")||"Vehicle";
+    return '<div class="repCard">'
+      +'<div class="repCard-title">'+esc(title)+'</div>'
+      +'<div class="muted" style="font-size:12px;margin-bottom:8px">VIN '+esc(x.vin||"—")+(x.stock?' · Stock# '+esc(x.stock):'')+'</div>'
+      +'<div class="spec"><span class="k">Mileage</span><span class="val">'+num(x.mileage).toLocaleString()+'</span></div>'
+      +'<div class="spec"><span class="k">Cost</span><span class="val">'+money(x.cost)+'</span></div>'
+      +'<div class="spec"><span class="k">Price</span><span class="val">'+money(x.price)+'</span></div>'
+      +'<div class="spec"><span class="k">Profit</span><span class="val" style="color:'+pc+'">'+money(p)+'</span></div>'
+      +'<div class="row noprint" style="margin-top:10px">'
+        +'<button class="btn ghost sm" onclick="loadVehicle('+x.id+')">Load</button>'
+        +'<button class="btn ghost sm" onclick="editVehicle('+x.id+')">Edit</button>'
+        +'<button class="btn danger sm" onclick="delVehicle('+x.id+')">✕ Delete</button>'
+      +'</div>'
+      +'</div>';
   }).join("");
 }
-function sortInv(c){ if(sortCol===c) sortDir*=-1; else { sortCol=c; sortDir=1; } renderInventory(); }
+function setInvSort(){ sortCol=$("inv_sort").value; renderInventory(); }
+function toggleInvSortDir(){ sortDir*=-1; renderInventory(); }
 function loadVehicle(id){
   var x=inventory.find(function(v){return v.id===id;}); if(!x) return;
   vehicle=JSON.parse(JSON.stringify(x)); save(CUR_KEY,vehicle);
