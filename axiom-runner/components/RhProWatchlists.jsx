@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import { RH_UNIVERSE, rhScore, rhScreenProgressive } from "./rhpro-shared.jsx";
+import { computeRegime, computeAPlusScore } from "./market-helpers.js";
 
-export default function RhProWatchlists({ C, MONO, SANS, setActiveTab }) {
+export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData }) {
+  const regime = computeRegime(macroData);
   const [rows, setRows] = useState([]); const [loading, setLoading] = useState(false); const [ranAt, setRanAt] = useState(null);
   const scan = () => {
     setLoading(true); setRows([]);
     let all = [];
     rhScreenProgressive(RH_UNIVERSE,
-      (part) => { all = [...all, ...part.map(x => ({ ...x, score: rhScore(x) }))]; setRows(all); setRanAt(new Date()); },
+      (part) => { all = [...all, ...part.map(x => ({ ...x, score: rhScore(x), aplus: computeAPlusScore(x, regime) }))]; setRows(all); setRanAt(new Date()); },
       () => setLoading(false)
     );
   };
@@ -47,6 +49,9 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab }) {
                 <span style={{ fontWeight: 800, color: C.text }}>{r.symbol}</span>
                 <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <span style={{ fontSize: 10, color: C.textDim }}>RS {r.rsRating ?? "—"}</span>
+                  {r.aplus && (
+                    <span title={r.aplus.reasons.join(" · ")} style={{ fontSize: 10, fontWeight: 900, color: "#fff", background: r.aplus.score >= 80 ? "#0d9465" : r.aplus.score >= 60 ? "#d6a312" : "#c8282a", borderRadius: 4, padding: "1px 6px", cursor: "help" }}>A+ {r.aplus.score}</span>
+                  )}
                   <span style={{ fontWeight: 900, color: r.score >= 70 ? C.green : r.score >= 50 ? C.amber : C.textDim }}>{r.score}</span>
                 </span>
               </div>
