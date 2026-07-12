@@ -6171,6 +6171,10 @@ export default function App() {
       BACKTEST: "backtest",
       ROTATION: "rotation",
       TOOLS: "tools",
+      // Added with the TOOLS group removal 2026-07-12.
+      DEALFINDER: "dealfinder",
+      FLIGHTFINDER: "flightfinder",
+      LEADRESPONDER: "leadresponder",
       SECTORS: "sectors",
       BREADTH: "breadth",
       COT: "cot",
@@ -7663,7 +7667,6 @@ export default function App() {
                 "gl-backtest", "combined", "dipbuy", "squeeze", "under10", "gap", "adol22", "smartscan", "outlook", "predictions"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
               { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes", "education"] },
-              { id: "tools",      label: "🛠 TOOLS",      tabs: ["tools", "dealfinder", "flightfinder", "leadresponder"] },
               { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih"] },
             ];
             const scannerBadge = scannerRows.filter(r => r.scannerScore >= 70).length || null;
@@ -8076,12 +8079,11 @@ export default function App() {
             { id: "education",       label: "🎓 PSYCHOLOGY" },
             { id: "notes",           label: "📝 NOTES" },
           ],
-          tools: [
-            { id: "tools",           label: "⚙ SETTINGS" },
-            { id: "dealfinder",      label: "🛒 DEAL FINDER" },
-            { id: "flightfinder",    label: "✈️ FLIGHT FINDER" },
-            { id: "leadresponder",   label: "📧 LEAD RESPONDER" },
-          ],
+          // TOOLS removed as a top-level group 2026-07-12 per user request
+          // ("remove tools") — Settings/Deal Finder/Flight Finder/Lead
+          // Responder are all still fully wired, just not in the nav bar,
+          // reachable via command palette (TOOLS/DEALFINDER/FLIGHTFINDER/
+          // LEADRESPONDER GO).
           // halal/soccer hidden 2026-07-10 (removed from nav, code untouched —
           // same "hide, don't delete" treatment as the PRO TRADE trim above).
           islamic: [
