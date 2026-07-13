@@ -27,6 +27,9 @@ import LeadResponderTab from "./components/LeadResponderTab.jsx";
 import FlightFinderTab from "./components/FlightFinderTab.jsx";
 import DealFinderTab from "./components/DealFinderTab.jsx";
 import MarketOutlookTab from "./components/MarketOutlookTab.jsx";
+import ShortChangesTab from "./components/ShortChangesTab.jsx";
+import TvTab from "./components/TvTab.jsx";
+import { LIVE_TV_SOURCES } from "./components/tv-sources.js";
 import {
   classifyTrend, computeScores, computeGreenLight, logTradeNote, addPaperTrade, addPaperShort,
   optionValue, addPaperOption, alpacaPlace, alpacaShort, alpacaClose, alpacaOption,
@@ -329,26 +332,6 @@ const MARKET_UNIVERSE_SYMBOLS = [
   "LOW","TJX","TGT","ROST","DG","DLTR","CVS","CI","HUM","ISRG","SYK","BSX","GILD","VRTX","REGN","MDT","BMY","SO","DUK","D",
   "PLD","AMT","EQIX","PSA","CCI","SPG","O","WELL","VICI","NEM","FCX","NUE","X","CLF","DAL","UAL","AAL","RCL","CCL","MAR",
   "HLT","ABNB","PYPL","SQ","COIN","HOOD","RIOT","MARA","SMCI","ARM","ASML","TSM","NVO","SAP","BABA","PDD","JD","MELI","SE",
-];
-const LIVE_TV_SOURCES = [
-  {
-    id: "bloomberg",
-    label: "Bloomberg TV",
-    embed: "https://www.youtube.com/embed/live_stream?channel=UCIALMKvObZNtJ6AmdCLP7Lg",
-    official: "https://www.bloomberg.com/live/us",
-  },
-  {
-    id: "cnbc",
-    label: "CNBC",
-    embed: "https://www.youtube.com/embed/live_stream?channel=UCvJJ_dzjViJCoLf5uKUTwoA",
-    official: "https://www.cnbc.com/live-tv/",
-  },
-  {
-    id: "reuters",
-    label: "Reuters",
-    embed: "https://www.youtube.com/embed/live_stream?channel=UChqUTb7kYRX8-EiaN3XFrSQ",
-    official: "https://www.reuters.com/world/",
-  },
 ];
 const MACRO_SYMBOLS = [
   { symbol: "SPY", label: "S&P 500", type: "etf" },
@@ -5989,46 +5972,9 @@ export default function App() {
           <SecFilingsTab C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />
         )}
 
-        {/* ── SHORT INTEREST CHANGES TAB (#26) ── */}
-        {activeTab === "short-changes" && (() => {
-          // No hooks here — state hoisted to top level
-          const scLoad = !shortChgData;
-          const fmtPct = v => v > 0 ? "+" + v.toFixed(1) + "%" : v.toFixed(1) + "%";
-          const Section = ({ title, col, rows, cols }) => (
-            <div style={{ flex: 1, minWidth: 280 }}>
-              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: col, marginBottom: 10, letterSpacing: "0.06em" }}>{title}</div>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead><tr style={{ background: C.surface }}>
-                  {cols.map(c => <th key={c} style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "6px 8px", textAlign: "left", borderBottom: `1px solid ${C.border}` }}>{c}</th>)}
-                </tr></thead>
-                <tbody>
-                  {rows.map((r, i) => (
-                    <tr key={i} style={{ background: i % 2 === 0 ? "transparent" : C.surface, cursor: "pointer" }}
-                      onClick={() => { setTerminalSymbol(r.sym); try { localStorage.setItem("mterminal_load_sym", r.sym); } catch {} setActiveTab("mterminal"); }}>
-                      <td style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent, padding: "9px 8px" }}>{r.sym}</td>
-                      <td style={{ fontFamily: MONO, fontSize: 12, color: C.text, padding: "9px 8px" }}>${r.price}</td>
-                      <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: r.shortFloat > 20 ? C.red : r.shortFloat > 10 ? C.amber : C.text, padding: "9px 8px" }}>{r.shortFloat > 0 ? r.shortFloat.toFixed(1) + "%" : "—"}</td>
-                      <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: r.shortChange > 5 ? C.red : r.shortChange < -5 ? C.green : C.text, padding: "9px 8px" }}>{r.shortChange !== 0 ? fmtPct(r.shortChange) : "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          );
-          return (
-            <div style={{ padding: "16px 20px" }}>
-              <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text, marginBottom: 16 }}>🩳 SHORT INTEREST CHANGES</div>
-              {scLoad && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>⌛ Loading short interest data…</div>}
-              {shortChgData && (
-                <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-                  <Section title="🔴 SHORTS INCREASING — Bears Adding" col={C.red} rows={shortChgData.increasing || []} cols={["TICKER","PRICE","FLOAT SHORT","WK CHG%"]} />
-                  <Section title="🟢 SHORT COVERING — Bears Running" col={C.green} rows={shortChgData.covering || []} cols={["TICKER","PRICE","FLOAT SHORT","WK CHG%"]} />
-                  <Section title="⚡ HIGHEST SHORT FLOAT — Squeeze Candidates" col={C.amber} rows={shortChgData.highShort || []} cols={["TICKER","PRICE","FLOAT SHORT","WK CHG%"]} />
-                </div>
-              )}
-            </div>
-          );
-        })()}
+        {activeTab === "short-changes" && (
+          <ShortChangesTab C={C} MONO={MONO} shortChgData={shortChgData} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+        )}
 
         {activeTab === "dp-heatmap" && (
           <DpHeatmapTab
@@ -6078,51 +6024,7 @@ export default function App() {
         )}
 
         {activeTab === "tv" && (
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
-                LIVE MARKET TV
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                {LIVE_TV_SOURCES.map((src) => (
-                  <button
-                    key={src.id}
-                    onClick={() => setTvSource(src.id)}
-                    style={{
-                      border: `1px solid ${tvSource === src.id ? C.accent : C.border}`,
-                      background: tvSource === src.id ? `${C.accent}12` : C.surface,
-                      color: tvSource === src.id ? C.accent : C.text,
-                      borderRadius: 6,
-                      padding: "6px 10px",
-                      fontFamily: MONO,
-                      fontSize: 12,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {src.label}
-                  </button>
-                ))}
-                <button
-                  onClick={() => window.open(selectedTvSource.official, "_blank", "noopener,noreferrer")}
-                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
-                >
-                  OPEN OFFICIAL
-                </button>
-              </div>
-            </div>
-            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-              <iframe
-                title="live-market-tv"
-                src={selectedTvSource.embed}
-                style={{ width: "100%", height: "72vh", border: "none", borderRadius: 8, background: "#000" }}
-                allow="autoplay; encrypted-media; picture-in-picture"
-                allowFullScreen
-              />
-              <div style={{ marginTop: 8, fontSize: 12, color: C.textDim }}>
-                If this stream is blocked by provider policy, use <b>OPEN OFFICIAL</b>.
-              </div>
-            </div>
-          </div>
+          <TvTab C={C} MONO={MONO} tvSource={tvSource} setTvSource={setTvSource} selectedTvSource={selectedTvSource} />
         )}
 
         {activeTab === "openstock" && (
