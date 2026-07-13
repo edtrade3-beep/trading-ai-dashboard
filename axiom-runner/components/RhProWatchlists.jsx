@@ -51,6 +51,12 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
                   {r.next && (
                     <span title={r.next.reason} style={{ fontSize: 9, fontWeight: 900, color: r.next.color, border: `1px solid ${r.next.color}`, borderRadius: 4, padding: "1px 5px", cursor: "help" }}>{r.next.action}</span>
                   )}
+                  {r.riskState && (
+                    <span title="Risk level — from the VCP risk report" style={{ fontSize: 9, fontWeight: 900, color: r.riskState === "LOW" ? C.green : r.riskState === "MEDIUM" ? C.amber : C.red, border: `1px solid ${r.riskState === "LOW" ? C.green : r.riskState === "MEDIUM" ? C.amber : C.red}`, borderRadius: 4, padding: "1px 5px", cursor: "help" }}>{r.riskState}</span>
+                  )}
+                  {r.confidence != null && (
+                    <span title="Breakout-engine confidence" style={{ fontSize: 10, fontWeight: 800, color: r.confidence >= 70 ? C.green : r.confidence >= 40 ? C.amber : C.textDim }}>{r.confidence}%</span>
+                  )}
                   <span style={{ fontSize: 10, color: C.textDim }}>RS {r.rsRating ?? "—"}</span>
                   {r.aplus && (
                     <span title={r.aplus.reasons.join(" · ")} style={{ fontSize: 10, fontWeight: 900, color: "#fff", background: r.aplus.score >= 80 ? "#0d9465" : r.aplus.score >= 60 ? "#d6a312" : "#c8282a", borderRadius: 4, padding: "1px 6px", cursor: "help" }}>A+ {r.aplus.score}</span>
