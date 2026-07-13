@@ -40,6 +40,7 @@ import TiltDetectorOverlay from "./components/TiltDetectorOverlay.jsx";
 import TradingLockedOverlay from "./components/TradingLockedOverlay.jsx";
 import QuickLogModal from "./components/QuickLogModal.jsx";
 import CommandPaletteModal from "./components/CommandPaletteModal.jsx";
+import IstighfarWidget, { ISTIGHFAR_BAR_H } from "./components/IstighfarWidget.jsx";
 import {
   classifyTrend, computeScores, computeGreenLight, logTradeNote, addPaperTrade, addPaperShort,
   optionValue, addPaperOption, alpacaPlace, alpacaShort, alpacaClose, alpacaOption,
@@ -5124,6 +5125,8 @@ export default function App() {
 
   return (
     <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: SANS, zoom: (isMobile ? 1 : isTablet ? UI_ZOOM_TABLET : UI_ZOOM) * pageZoom, lineHeight: 1.5, width: "100%", maxWidth: "100vw", overflowX: "hidden", filter: brightness < 100 ? `brightness(${brightness}%)` : "none", transition: "filter 0.2s" }}>
+      <IstighfarWidget C={C} themeMode={themeMode} isMobile={isMobile} />
+      <div style={{ height: ISTIGHFAR_BAR_H, flexShrink: 0 }} aria-hidden="true" />
       <TradingCopilot C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistSymbols={watchlistSymbols} />
       {/* Google Fonts — Inter (UI) + JetBrains Mono (data/numbers) */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -5166,7 +5169,7 @@ export default function App() {
         padding: isMobile ? "6px 10px" : "8px 18px", borderBottom: `1px solid ${C.border}`,
         background: themeMode === "dark" ? "#0d1422" : C.surface,
         flexWrap: "wrap", rowGap: 6,
-        position: "sticky", top: 0, zIndex: 40,
+        position: "sticky", top: ISTIGHFAR_BAR_H, zIndex: 40,
         boxShadow: themeMode === "dark" ? "0 1px 0 #1a2e4a, 0 2px 12px rgba(0,0,0,0.5)" : "0 1px 4px rgba(0,0,0,0.06)",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, minWidth: 0, flex: "1 1 auto", overflow: "hidden" }}>
