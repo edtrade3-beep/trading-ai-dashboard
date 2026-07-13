@@ -3790,6 +3790,10 @@ export default function App() {
       PREDICTIONS: "predictions",
       JOURNAL: "journal",
       JSTATS: "journal-stats",
+      // Added with the LEARN nav trim 2026-07-12.
+      PROPATH: "propath",
+      OPTIONSEDU: "options-edu",
+      OPTIONS101: "options-edu",
       QURAN: "quran",
       ATHAN: "athan",
       PRAYER: "athan",
@@ -5235,7 +5239,13 @@ export default function App() {
                 // highlights correctly if you land on one of these another way.
                 "gl-backtest", "combined", "dipbuy", "squeeze", "under10", "gap", "adol22", "smartscan", "outlook", "predictions"] },
               { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
-              { id: "education",  label: "🎓 LEARN",      tabs: ["propath", "options-edu", "notes", "education"] },
+              // Trimmed 2026-07-12 — PRO PATH/OPTIONS 101 hidden from the subnav
+              // (still reachable via PROPATH/OPTIONSEDU palette commands), kept
+              // PSYCHOLOGY (biggest, most-used academy content) + NOTES (daily
+              // auto-populated buy/sell signal log) visible. "education" listed
+              // first, not "propath" — matches the tabs[0]-landing-tab rule used
+              // by every other trim this session.
+              { id: "education",  label: "🎓 LEARN",      tabs: ["education", "notes", "propath", "options-edu"] },
               { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih"] },
             ];
             const scannerBadge = scannerRows.filter(r => r.scannerScore >= 70).length || null;
@@ -5597,9 +5607,11 @@ export default function App() {
           coach: [
             { id: "coach",        label: "🧭 المدرّب اليومي" },
           ],
+          // Trimmed 2026-07-12 (LEARN nav trim) — was 4 tabs, kept the 2 with the
+          // most content/daily use. PRO PATH and OPTIONS 101 are still fully
+          // wired, just not in this bar — reachable via command palette
+          // (PROPATH/OPTIONSEDU GO).
           education: [
-            { id: "propath",         label: "🎯 PRO PATH" },
-            { id: "options-edu",     label: "📈 OPTIONS 101" },
             { id: "education",       label: "🎓 PSYCHOLOGY" },
             { id: "notes",           label: "📝 NOTES" },
           ],
