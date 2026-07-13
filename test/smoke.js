@@ -38,3 +38,9 @@ ok("bracket stop is below entry for a long", () => {
 
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("SMOKE TEST FAILED"); else console.log("SMOKE TEST OK");
+
+// Force-exit: requiring router.js pulls in modules (e.g. finviz.js's
+// setInterval(refreshNews, 5min)) that keep the event loop alive
+// indefinitely without this — the test's own checks are done, so don't
+// wait on background timers that belong to the real running server.
+process.exit(process.exitCode || 0);

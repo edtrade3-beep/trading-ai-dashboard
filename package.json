@@ -8,7 +8,7 @@
     "start": "node server.js",
     "build": "node build-client.js",
     "check": "node --check server.js",
-    "test": "node test/smoke.js"
+    "test": "node test/smoke.js && node test/risk-guardrails.test.js"
   },
   "engines": {
     "node": ">=20"
