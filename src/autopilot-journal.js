@@ -1,21 +1,20 @@
 // Setup-tagged trade journal. Every autopilot BUY is logged with the setup tags
 // (tier, passCount, RS, entry/stop/target). Joined with Alpaca closed-trade P&L,
 // this tells us which setups actually make money — so we can cut the ones that don't.
-const fs = require("node:fs");
 const path = require("node:path");
+const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 
 const JOURNAL_PATH = path.join(__dirname, "..", "data", "autopilot-journal.json");
 
 function readJournal() {
-  try { return JSON.parse(fs.readFileSync(JOURNAL_PATH, "utf8")) || []; } catch { return []; }
+  return readJsonSafe(JOURNAL_PATH, []);
 }
 function appendJournal(entry) {
   try {
     const arr = readJournal();
     arr.push(entry);
     const trimmed = arr.slice(-800);   // keep the most recent 800 entries
-    fs.mkdirSync(path.dirname(JOURNAL_PATH), { recursive: true });
-    fs.writeFileSync(JOURNAL_PATH, JSON.stringify(trimmed), "utf8");
+    writeJsonAtomic(JOURNAL_PATH, trimmed);
   } catch {}
 }
 

@@ -9,10 +9,10 @@
  * DELETE /api/autoexec/order/:id    — cancel an order
  */
 
-const fs   = require("node:fs");
 const path = require("node:path");
 const { ROOT } = require("../config");
 const { writeJson } = require("../utils");
+const { writeJsonAtomic, readJsonSafe } = require("../atomic-write");
 const broker = require("../tradier-broker");
 const {
   isMarketHoursET, checkAccountHealth, dailyLossBreakerTripped, openRiskPct,
@@ -41,17 +41,12 @@ const DEFAULT_CONFIG = {
 };
 
 function readConfig() {
-  try {
-    const raw = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
-    return { ...DEFAULT_CONFIG, ...raw };
-  } catch {
-    return { ...DEFAULT_CONFIG };
-  }
+  const raw = readJsonSafe(CONFIG_PATH, null);
+  return raw ? { ...DEFAULT_CONFIG, ...raw } : { ...DEFAULT_CONFIG };
 }
 
 function writeConfig(cfg) {
-  fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), "utf8");
+  writeJsonAtomic(CONFIG_PATH, cfg);
 }
 
 // ── Daily reset (tradedToday list clears each calendar day, and we snapshot
