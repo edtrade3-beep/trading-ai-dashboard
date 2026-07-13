@@ -6,10 +6,12 @@ import FedInterpreter from "./FedInterpreter.jsx";
 import FedWatchWidget from "./FedWatchWidget.jsx";
 import MacroEventsWidget from "./MacroEventsWidget.jsx";
 import RegimeNewsPanel from "./RegimeNewsPanel.jsx";
+import TopOpportunityCard from "./TopOpportunityCard.jsx";
+import PriorityAlertsCard from "./PriorityAlertsCard.jsx";
 
 export default function DashboardTab({
   C, MONO, SANS, watchlistData, macroData, distData, fearGreedData, sigData, sigFilter,
-  newsSentiment, socialSentiment, flowBias, eventCountdowns, preMktMovers,
+  newsSentiment, socialSentiment, flowBias, eventCountdowns, preMktMovers, combinedAlerts,
   tiltEnabled, tiltLocked, tiltStreak,
   setTerminalSymbol, setScanResults, setActiveTab, setScanExpanded, loadDeepDive, loadDeepSocial,
   setTiltLocked, setSigLoading, setSigData, fetchFearGreed, setDistData, setFuturesData, setPreMktMovers,
@@ -128,6 +130,12 @@ export default function DashboardTab({
             <MonitorSection C={C} MONO={MONO} label="🚦 MARKET MODE & FLOW" storeKey="mon_mode">
               <RiskTrafficLight C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
               <SpyVolumeWidget C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
+            </MonitorSection>
+
+            {/* ── TOP OPPORTUNITY & PRIORITY ALERTS — the "what should I do right now" card ── */}
+            <MonitorSection C={C} MONO={MONO} label="🎯 TOP OPPORTUNITY & ALERTS" storeKey="mon_focus">
+              <TopOpportunityCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
+              <PriorityAlertsCard C={C} MONO={MONO} SANS={SANS} alerts={combinedAlerts} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
             </MonitorSection>
 
             {/* ── 2. CATALYSTS — Fed + scheduled economic events ── */}

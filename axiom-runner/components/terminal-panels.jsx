@@ -750,7 +750,7 @@ export function PerformanceCard({ C, MONO, SANS }) {
 
 // ONE-CLICK best opportunities: scan a liquid universe, rank the best long
 // buy-points, show top 5 with why / entry / stop / target / R:R. Click → chart.
-const BEST_OPP_UNIVERSE = [
+export const BEST_OPP_UNIVERSE = [
   "NVDA","AAPL","MSFT","AMZN","META","GOOGL","AVGO","AMD","NFLX","TSLA",
   "MU","SMCI","DELL","ARM","PLTR","CRWD","SNOW","NOW","ORCL","ANET",
   "MRVL","PANW","COIN","HOOD","UBER","SHOP","LLY","V","MA","JPM",
