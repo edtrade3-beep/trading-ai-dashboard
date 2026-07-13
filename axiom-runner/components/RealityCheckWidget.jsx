@@ -40,6 +40,23 @@ function narrativeScore(social) {
   return Math.round((bullPct - 50) * 2);
 }
 
+// Dark pool prints don't carry a reliable buy/sell direction in the data we
+// get back, so this is shown as informational context, not folded into the
+// divergence score. "NOT_CONFIGURED" is distinct from "no data" — it means
+// there's simply no Unusual Whales API key set, not that we checked and
+// found nothing.
+function darkPoolSignal(dp) {
+  if (!dp) return { state: "UNAVAILABLE" };
+  if (dp.ok === false) {
+    if (/api key/i.test(dp.error || "")) return { state: "NOT_CONFIGURED" };
+    return { state: "UNAVAILABLE" };
+  }
+  const prints = dp.prints || [];
+  if (!prints.length) return { state: "NO_PRINTS", count: 0, totalValue: 0 };
+  const totalValue = prints.reduce((s, p) => s + (Number(p.value) || 0), 0);
+  return { state: "PRINTS", count: prints.length, totalValue };
+}
+
 const fmtUSD = (n) =>
   Math.abs(n) >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : Math.abs(n) >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${Math.round(n)}`;
 
@@ -51,19 +68,20 @@ export default function RealityCheckWidget() {
   const [ticker, setTicker] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState(null); // { symbol, flow, insider, social }
+  const [result, setResult] = useState(null); // { symbol, flow, insider, social, darkpool }
 
   const check = async (symOverride) => {
     const sym = String(symOverride || ticker).trim().toUpperCase().replace(/[^A-Z0-9.\-]/g, "").slice(0, 10);
     if (!sym) return;
     setLoading(true); setError(""); setResult(null);
     try {
-      const [flowRes, insiderRes, socialRes] = await Promise.all([
+      const [flowRes, insiderRes, socialRes, darkpoolRes] = await Promise.all([
         fetch(`/api/market/options-flow?symbols=${encodeURIComponent(sym)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetch(`/api/market/insider?ticker=${encodeURIComponent(sym)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetch(`/api/market/social?ticker=${encodeURIComponent(sym)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch(`/api/market/darkpool?symbol=${encodeURIComponent(sym)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ]);
-      setResult({ symbol: sym, flow: flowRes, insider: insiderRes, social: socialRes });
+      setResult({ symbol: sym, flow: flowRes, insider: insiderRes, social: socialRes, darkpool: darkpoolRes });
     } catch (e) {
       setError(e?.message || "Failed to fetch data");
     }
@@ -73,6 +91,7 @@ export default function RealityCheckWidget() {
   const flowBias = result ? optionsFlowBias(result.flow) : null;
   const insider = result ? insiderSignal(result.insider) : null;
   const narrScore = result ? narrativeScore(result.social) : null;
+  const darkPool = result ? darkPoolSignal(result.darkpool) : null;
   const redditMentions = result?.social?.redditMentions ?? null;
   const divergence = flowBias != null && narrScore != null ? flowBias.score - narrScore : null;
 
@@ -172,7 +191,7 @@ export default function RealityCheckWidget() {
                       Calls {fmtUSD(flowBias.call)} · Puts {fmtUSD(flowBias.put)}
                     </div>
                   )}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                     <span style={{ color: C.textSec, fontSize: 11.5 }}>Insider transactions</span>
                     <span style={{
                       color: insider?.state === "BUYING" ? C.green : insider?.state === "SELLING" ? C.red : C.textDim,
@@ -180,6 +199,20 @@ export default function RealityCheckWidget() {
                     }}>
                       {insider?.state || "QUIET"}
                     </span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ color: C.textSec, fontSize: 11.5 }}>Dark pool blocks</span>
+                    {darkPool?.state === "PRINTS" ? (
+                      <span style={{ color: C.text, fontFamily: MONO, fontSize: 12, fontWeight: 800 }}>
+                        {darkPool.count} · {fmtUSD(darkPool.totalValue)}
+                      </span>
+                    ) : darkPool?.state === "NO_PRINTS" ? (
+                      <span style={{ color: C.textDim, fontFamily: MONO, fontSize: 12, fontWeight: 800 }}>NONE FOUND</span>
+                    ) : (
+                      <span style={{ color: C.textDim, fontSize: 10.5 }} title="Set UNUSUAL_WHALES_API_KEY to enable this">
+                        needs API key
+                      </span>
+                    )}
                   </div>
                 </div>
 
