@@ -36,6 +36,8 @@ import SessionCountdownBadge from "./components/SessionCountdownBadge.jsx";
 import RegimeStrategyBanner from "./components/RegimeStrategyBanner.jsx";
 import FloatingChecklistButton from "./components/FloatingChecklistButton.jsx";
 import ShortcutHelpModal from "./components/ShortcutHelpModal.jsx";
+import TiltDetectorOverlay from "./components/TiltDetectorOverlay.jsx";
+import TradingLockedOverlay from "./components/TradingLockedOverlay.jsx";
 import {
   classifyTrend, computeScores, computeGreenLight, logTradeNote, addPaperTrade, addPaperShort,
   optionValue, addPaperOption, alpacaPlace, alpacaShort, alpacaClose, alpacaOption,
@@ -6724,94 +6726,9 @@ export default function App() {
 
       <FloatingChecklistButton C={C} checklistItems={checklistItems} setActiveTab={setActiveTab} />
 
-      {/* ── DAILY MAX LOSS LOCK OVERLAY ── */}
-      {/* ── Tilt Detector Banner ── */}
-      {tiltLocked && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.93)", zIndex: 9998,
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ maxWidth: 500, width: "100%", background: C.surface, borderRadius: 16,
-            border: `2px solid ${C.amber}`, boxShadow: `0 0 60px ${C.amber}44`, padding: 36, textAlign: "center" }}>
-            <div style={{ fontSize: 52, marginBottom: 12 }}>🧠</div>
-            <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.amber, marginBottom: 10 }}>
-              TILT DETECTED — STEP AWAY
-            </div>
-            <div style={{ fontFamily: SANS, fontSize: 15, color: C.textSec, lineHeight: 1.7, marginBottom: 18 }}>
-              You have <strong style={{ color: C.red }}>3 consecutive losses</strong> today. The platform is locked for <strong>30 minutes</strong>.
-              {tiltUnlockAt && (
-                <div style={{ fontFamily: MONO, fontSize: 13, color: C.amber, marginTop: 8 }}>
-                  Unlocks at {tiltUnlockAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </div>
-              )}
-            </div>
-            <div style={{ background: `${C.amber}12`, border: `1px solid ${C.amber}33`, borderRadius: 10, padding: "14px 18px", marginBottom: 20, textAlign: "left" }}>
-              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.amber, marginBottom: 6 }}>WHAT TO DO RIGHT NOW</div>
-              <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, lineHeight: 1.8 }}>
-                1. Close your laptop or put down the phone<br/>
-                2. Go for a 10-minute walk<br/>
-                3. Come back and review what went wrong — not to fix it, just to understand it<br/>
-                4. No more trades today unless the setup is a perfect 10
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-              <button onClick={() => setActiveTab("journal")}
-                style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, border: `1px solid ${C.accent}`,
-                  background: `${C.accent}18`, color: C.accent, borderRadius: 8, padding: "10px 24px", cursor: "pointer" }}>
-                📓 Review My Trades
-              </button>
-              <button onClick={() => { setTiltLocked(false); setTiltUnlockAt(null); }}
-                style={{ fontFamily: MONO, fontSize: 12, border: `1px solid ${C.border}`,
-                  background: "transparent", color: C.textDim, borderRadius: 8, padding: "10px 14px", cursor: "pointer" }}>
-                Override Unlock
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <TiltDetectorOverlay C={C} MONO={MONO} SANS={SANS} tiltLocked={tiltLocked} tiltUnlockAt={tiltUnlockAt} setActiveTab={setActiveTab} setTiltLocked={setTiltLocked} setTiltUnlockAt={setTiltUnlockAt} />
 
-      {tradingLocked && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 9999,
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-          padding: 24 }}>
-          <div style={{ maxWidth: 520, width: "100%", background: C.surface, borderRadius: 16,
-            border: `2px solid ${C.red}`, boxShadow: `0 0 60px ${C.red}44`, padding: 36, textAlign: "center" }}>
-            <div style={{ fontSize: 56, marginBottom: 16 }}>🛑</div>
-            <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.red, marginBottom: 12 }}>
-              TRADING LOCKED
-            </div>
-            <div style={{ fontFamily: SANS, fontSize: 15, color: C.textSec, lineHeight: 1.7, marginBottom: 24 }}>
-              {lockReason}
-            </div>
-            <div style={{ background: `${C.red}12`, border: `1px solid ${C.red}33`, borderRadius: 10, padding: "16px 20px", marginBottom: 24 }}>
-              <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.red, marginBottom: 8 }}>
-                WHY THIS RULE EXISTS
-              </div>
-              <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, lineHeight: 1.7, textAlign: "left" }}>
-                After hitting your daily loss limit, the brain switches to "revenge mode" — you start chasing trades to make it back. This is how small losses become catastrophic losses. Professional traders never trade past their daily limit. Come back tomorrow with a clear head.
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-              <button onClick={() => { setTradingLocked(false); setLockReason(""); }}
-                style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, border: "none",
-                  background: C.green, color: "#fff", borderRadius: 8, padding: "12px 28px", cursor: "pointer" }}>
-                🔓 UNLOCK PLATFORM
-              </button>
-              <button onClick={() => setActiveTab("journal")}
-                style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, border: `1px solid ${C.accent}`,
-                  background: `${C.accent}18`, color: C.accent, borderRadius: 8, padding: "10px 24px", cursor: "pointer" }}>
-                📓 REVIEW MY TRADES
-              </button>
-              <button onClick={() => { setTradingLocked(false); setLockReason(""); setLockEnabled(false); try{localStorage.setItem("lock_enabled","false");}catch{} }}
-                style={{ fontFamily: MONO, fontSize: 12, border: `1px solid ${C.border}`,
-                  background: "transparent", color: C.textDim, borderRadius: 8, padding: "10px 14px", cursor: "pointer" }}>
-                Disable Lock Feature
-              </button>
-            </div>
-            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 16, textAlign: "center" }}>
-              Locked at -${dailyMaxLoss} · Turn off in TOOLS → 📚 ACADEMY
-            </div>
-          </div>
-        </div>
-      )}
+      <TradingLockedOverlay C={C} MONO={MONO} SANS={SANS} tradingLocked={tradingLocked} lockReason={lockReason} dailyMaxLoss={dailyMaxLoss} setActiveTab={setActiveTab} setTradingLocked={setTradingLocked} setLockReason={setLockReason} setLockEnabled={setLockEnabled} />
 
       <style>{`
         @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.3 } }
