@@ -32,6 +32,9 @@ import TvTab from "./components/TvTab.jsx";
 import { LIVE_TV_SOURCES } from "./components/tv-sources.js";
 import MarketSessionBanner from "./components/MarketSessionBanner.jsx";
 import NewsAlertTape from "./components/NewsAlertTape.jsx";
+import SessionCountdownBadge from "./components/SessionCountdownBadge.jsx";
+import RegimeStrategyBanner from "./components/RegimeStrategyBanner.jsx";
+import FloatingChecklistButton from "./components/FloatingChecklistButton.jsx";
 import {
   classifyTrend, computeScores, computeGreenLight, logTradeNote, addPaperTrade, addPaperShort,
   optionValue, addPaperOption, alpacaPlace, alpacaShort, alpacaClose, alpacaOption,
@@ -393,14 +396,6 @@ function getSessionCountdownSecs(now = new Date()) {
   if (s >= OPEN && s < CLOSE) return { label: "CLOSES IN",  secs: CLOSE - s,   session: "REGULAR" };
   if (s >= CLOSE && s < AH_END) return { label: "AH ENDS IN", secs: AH_END - s, session: "AFTERMARKET" };
   return { label: "PRE IN", secs: s >= AH_END ? (DAY - s + PRE) : (PRE - s), session: "OVERNIGHT" };
-}
-
-function fmtCountdownShort(secs) {
-  const s = Math.max(0, Math.round(secs));
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
-  if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m ${String(ss).padStart(2, "0")}s`;
-  if (m > 0) return `${m}m ${String(ss).padStart(2, "0")}s`;
-  return `${ss}s`;
 }
 
 // ── Telegram / TradingView Alert Analyzer ──────────────────────────────────
@@ -5396,15 +5391,7 @@ export default function App() {
             </div>
 
             {/* Session countdown */}
-            {(() => {
-              const cdColor = sessionCountdown.session === "REGULAR" ? C.green : sessionCountdown.session === "PREMARKET" ? C.accent : sessionCountdown.session === "AFTERMARKET" ? C.amber : C.textDim;
-              return (
-                <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", background: `${cdColor}0e`, borderRadius: 6, border: `1px solid ${cdColor}2a` }}>
-                  <span style={{ fontSize: 12, fontFamily: MONO, color: C.textDim }}>{sessionCountdown.label}</span>
-                  <span style={{ fontSize: 12, fontFamily: MONO, color: cdColor, fontWeight: 800 }}>{fmtCountdownShort(sessionCountdown.secs)}</span>
-                </div>
-              );
-            })()}
+            <SessionCountdownBadge C={C} MONO={MONO} sessionCountdown={sessionCountdown} compact />
 
             {/* Hijri date */}
             {athanHijri && (
@@ -5526,15 +5513,7 @@ export default function App() {
                 <span style={{ color: C.textDim }}>{weatherCodeLabel(weatherData.code)}</span>
               </div>
             )}
-            {(() => {
-              const cdColor = sessionCountdown.session === "REGULAR" ? C.green : sessionCountdown.session === "PREMARKET" ? C.accent : sessionCountdown.session === "AFTERMARKET" ? C.amber : C.textDim;
-              return (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: `${cdColor}0e`, borderRadius: 6, border: `1px solid ${cdColor}2a` }}>
-                  <span style={{ fontSize: 12, fontFamily: MONO, color: C.textDim }}>{sessionCountdown.label}</span>
-                  <span style={{ fontSize: 12, fontFamily: MONO, color: cdColor, fontWeight: 800 }}>{fmtCountdownShort(sessionCountdown.secs)}</span>
-                </div>
-              );
-            })()}
+            <SessionCountdownBadge C={C} MONO={MONO} sessionCountdown={sessionCountdown} />
             <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", background: C.card, borderRadius: 6, border: `1px solid ${C.border}` }}>
               <div style={{ width: 6, height: 6, borderRadius: "50%", background: dataBadge === "LIVE" ? C.green : C.amber, boxShadow: `0 0 4px ${C.green}` }} />
               <span style={{ fontSize: 12, fontFamily: MONO, color: C.textDim }}>{lastUpdate ? lastUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}</span>
@@ -5723,29 +5702,7 @@ export default function App() {
       {/* Content */}
       <div className={isMobile ? "mobile-content" : ""} style={{ padding: isMobile ? "10px 10px 24px" : LAYOUT.contentPadding, maxWidth: LAYOUT.pageMaxWidth, margin: "0 auto" }}>
 
-        {/* ── Regime Strategy Banner ── shows on scanner/watchlist tabs */}
-        {["scanner","early","smartscan","screener","fivex","shortint"].includes(activeTab) && regime && regime !== "Loading…" && (() => {
-          const isRiskOff  = regime === "Risk-Off" || regime === "Defensive";
-          const isRiskOn   = regime === "Risk-On" || regime === "Growth" || regime === "Goldilocks";
-          const bannerColor = isRiskOff ? C.red : isRiskOn ? C.green : C.amber;
-          const bannerBg    = isRiskOff ? C.redBg : isRiskOn ? C.greenBg : C.amberBg;
-          const icon  = isRiskOff ? "⚠️" : isRiskOn ? "🟢" : "🟡";
-          const strategy = isRiskOff
-            ? "RISK-OFF MODE: Reduce size, prefer hedges/shorts, tighten stops on longs. Avoid chasing."
-            : isRiskOn
-            ? "RISK-ON MODE: Lean long on high-RS names with confirmation. Momentum favors buyers."
-            : "NEUTRAL REGIME: Trade selective A+ setups only. No edge in low-conviction names.";
-          return (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", marginBottom: 12,
-              background: bannerBg, border: `1px solid ${bannerColor}44`, borderRadius: 8, borderLeft: `3px solid ${bannerColor}` }}>
-              <span style={{ fontSize: 14 }}>{icon}</span>
-              <div>
-                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: bannerColor, letterSpacing: "0.06em" }}>REGIME: {regime.toUpperCase()}</span>
-                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, marginLeft: 12 }}>{strategy}</span>
-              </div>
-            </div>
-          );
-        })()}
+        <RegimeStrategyBanner C={C} MONO={MONO} activeTab={activeTab} regime={regime} />
 
         {loading && !watchlistData.length && (
           <div style={{ textAlign: "center", padding: 60, fontFamily: MONO, color: C.textDim }}>
@@ -6808,25 +6765,7 @@ export default function App() {
       )}
 
 
-      {/* ── Floating Checklist Button ── */}
-      {(() => {
-        const done  = checklistItems.filter(c => c.done).length;
-        const total = checklistItems.length;
-        const allDone = done === total;
-        return (
-          <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 8000 }}>
-            <button
-              onClick={() => setActiveTab("tools")}
-              style={{ width: 52, height: 52, borderRadius: "50%", border: "none", cursor: "pointer",
-                background: allDone ? C.green : done > 0 ? C.amber : C.red,
-                boxShadow: `0 4px 18px ${allDone ? C.green : done > 0 ? C.amber : C.red}66`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 20, transition: "all 0.2s" }}>
-              ✅
-            </button>
-          </div>
-        );
-      })()}
+      <FloatingChecklistButton C={C} checklistItems={checklistItems} setActiveTab={setActiveTab} />
 
       {/* ── DAILY MAX LOSS LOCK OVERLAY ── */}
       {/* ── Tilt Detector Banner ── */}
