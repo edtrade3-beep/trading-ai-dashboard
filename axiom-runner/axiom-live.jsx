@@ -5109,6 +5109,22 @@ export default function App() {
     loadMarketUniverse();
   }, [scannerFilters.scope, marketUniverseData.length, loadMarketUniverse]);
 
+  // Top Bar is `position: fixed` (not `sticky` — see comment at its style below)
+  // so its actual rendered height is measured here and used both for its own
+  // top offset (stacking below the fixed IstighfarWidget) and for the spacer
+  // right after it, since the bar wraps to 2 lines on narrow/mobile widths.
+  const topBarRef = useRef(null);
+  const [topBarH, setTopBarH] = useState(64);
+  useEffect(() => {
+    if (!topBarRef.current) return;
+    const el = topBarRef.current;
+    const update = () => setTopBarH(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isMobile, isTablet]);
+
   if (!appUnlocked) {
     return (
       <PasswordLockScreen
@@ -5163,13 +5179,18 @@ export default function App() {
         `}</style>
       )}
 
-      {/* Top Bar */}
-      <div style={{
+      {/* Top Bar — `position: fixed` (not `sticky`): the outer wrapper's `zoom`
+          scale factor for the UI-scale setting makes `position: sticky` fail
+          to stick in Chromium, confirmed while building IstighfarWidget above.
+          `topBarH` (measured via ResizeObserver, since this bar wraps to 2
+          lines on narrow widths) sizes the spacer right after this div so
+          nothing is covered on first paint. */}
+      <div ref={topBarRef} style={{
         display: "flex", justifyContent: "space-between", alignItems: "center",
         padding: isMobile ? "6px 10px" : "8px 18px", borderBottom: `1px solid ${C.border}`,
         background: themeMode === "dark" ? "#0d1422" : C.surface,
         flexWrap: "wrap", rowGap: 6,
-        position: "sticky", top: ISTIGHFAR_BAR_H, zIndex: 40,
+        position: "fixed", top: ISTIGHFAR_BAR_H, left: 0, right: 0, width: "100%", zIndex: 40,
         boxShadow: themeMode === "dark" ? "0 1px 0 #1a2e4a, 0 2px 12px rgba(0,0,0,0.5)" : "0 1px 4px rgba(0,0,0,0.06)",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, minWidth: 0, flex: "1 1 auto", overflow: "hidden" }}>
@@ -5466,6 +5487,7 @@ export default function App() {
           </div>
         )}
       </div>
+      <div style={{ height: topBarH, flexShrink: 0 }} aria-hidden="true" />
 
       {/* Mobile menu drawer — opens from LEFT hamburger button */}
       {isMobile && mobileMenuOpen && (
