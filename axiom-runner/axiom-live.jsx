@@ -19,6 +19,8 @@ import StartHereTab from "./components/StartHereTab.jsx";
 import OptionsEduTab from "./components/OptionsEduTab.jsx";
 import GLBacktestTab from "./components/GLBacktestTab.jsx";
 import SecFilingsTab from "./components/SecFilingsTab.jsx";
+import PasswordLockScreen from "./components/PasswordLockScreen.jsx";
+import ApiKeyScreen from "./components/ApiKeyScreen.jsx";
 import {
   classifyTrend, computeScores, computeGreenLight, logTradeNote, addPaperTrade, addPaperShort,
   optionValue, addPaperOption, alpacaPlace, alpacaShort, alpacaClose, alpacaOption,
@@ -1279,137 +1281,6 @@ const Pill = ({ active, onClick, children }) => (
   }}>{children}</button>
 );
 
-// ── API Key Screen ──
-function PasswordLockScreen({ value, error, onChange, onSubmit }) {
-  return (
-    <div style={{
-      minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center",
-      justifyContent: "center", fontFamily: SANS,
-    }}>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet" />
-      <div style={{
-        width: 420, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
-        padding: 32, textAlign: "center",
-      }}>
-        <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 800, color: C.text, marginBottom: 4 }}>AM TRADING</div>
-        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 20 }}>
-          PASSWORD PROTECTED
-        </div>
-        <input
-          type="password"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && onSubmit()}
-          placeholder="Enter password"
-          style={{
-            width: "100%", boxSizing: "border-box", padding: "11px 12px",
-            border: `1px solid ${C.border}`, borderRadius: 6, background: C.surface,
-            color: C.text, fontFamily: MONO, fontSize: 13, marginBottom: 12,
-          }}
-        />
-        {error ? <div style={{ fontSize: 12, color: C.red, marginBottom: 10 }}>{error}</div> : null}
-        <button
-          onClick={onSubmit}
-          style={{
-            width: "100%", border: `1px solid ${C.accent}`, background: C.accent, color: "#fff",
-            borderRadius: 6, padding: "10px 0", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer",
-          }}
-        >
-          UNLOCK
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ApiKeyScreen({ onSubmit }) {
-  const [key, setKey] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleSubmit = async () => {
-    if (!key.trim()) return;
-    setLoading(true);
-    setError("");
-    try {
-      const data = await fetchApiPayload(`${MARKET_BASE_URL}/quote?symbols=AAPL`);
-      if (normalizeQuoteResponse(data).length > 0) {
-        onSubmit(key.trim());
-      } else {
-        setError("Unexpected response. Verify your provider keys in server environment.");
-      }
-    } catch (e) {
-      setError(toFriendlyApiMessage(e?.message || "Network error. Check your connection."));
-    }
-    setLoading(false);
-  };
-
-  return (
-    <div style={{
-      minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center",
-      justifyContent: "center", fontFamily: SANS,
-    }}>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet" />
-      <div style={{
-        width: 440, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
-        padding: 40, textAlign: "center",
-      }}>
-        <div style={{
-          fontFamily: MONO, fontSize: 28, fontWeight: 800, color: C.text,
-          letterSpacing: "-0.03em", marginBottom: 4,
-        }}>AXIOM</div>
-        <div style={{
-          fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.15em",
-          marginBottom: 32, textTransform: "uppercase",
-        }}>Market Intelligence Platform</div>
-
-        <div style={{ textAlign: "left", marginBottom: 6 }}>
-          <label style={{ fontSize: 12, fontFamily: MONO, color: C.textSec, letterSpacing: "0.06em" }}>
-            PROVIDER ACCESS KEY
-          </label>
-        </div>
-        <input
-          type="password"
-          value={key}
-          onChange={(e) => setKey(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-          placeholder="Optional key (server env keys recommended)"
-          style={{
-            width: "100%", padding: "10px 14px", background: C.bg, border: `1px solid ${C.border}`,
-            borderRadius: 6, color: C.text, fontFamily: MONO, fontSize: 12, outline: "none",
-            marginBottom: 12, boxSizing: "border-box",
-          }}
-          onFocus={(e) => e.target.style.borderColor = C.accent}
-          onBlur={(e) => e.target.style.borderColor = C.border}
-        />
-
-        {error && (
-          <div style={{ fontSize: 12, color: C.red, fontFamily: SANS, marginBottom: 10 }}>{error}</div>
-        )}
-
-        <button
-          onClick={handleSubmit}
-          disabled={loading || !key.trim()}
-          style={{
-            width: "100%", padding: "10px 0", background: loading ? C.textDim : C.accent,
-            color: "#fff", border: "none", borderRadius: 6, fontFamily: MONO, fontSize: 12,
-            fontWeight: 700, cursor: loading ? "wait" : "pointer", letterSpacing: "0.06em",
-            marginBottom: 20, opacity: (!key.trim() && !loading) ? 0.5 : 1,
-          }}
-        >{loading ? "VALIDATING…" : "CONNECT"}</button>
-
-        <div style={{
-          fontSize: 12, fontFamily: SANS, color: C.textDim, lineHeight: 1.7,
-          borderTop: `1px solid ${C.border}`, paddingTop: 16,
-        }}>
-          Configure provider keys on the server for best reliability:
-          <br /><span style={{ color: C.accent, fontWeight: 600 }}>FINNHUB_API_KEY</span> and <span style={{ color: C.accent, fontWeight: 600 }}>FMP_API_KEY</span>
-          <br />Yahoo remains an automatic fallback when available.
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ── Macro Tape ──
 function MacroTape({ data, cryptoSnapshot }) {
@@ -1496,42 +1367,6 @@ function MacroTape({ data, cryptoSnapshot }) {
   );
 }
 
-// ── Sector Heatmap ──
-function SectorHeatmap({ data }) {
-  if (!data.length) return <div style={{ fontSize: 12, color: C.textDim, fontFamily: MONO, padding: 16 }}>Loading sectors…</div>;
-  const sorted = [...data].sort((a, b) => (b.changesPercentage || 0) - (a.changesPercentage || 0));
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 3 }}>
-      {sorted.map(s => {
-        const chg = s.changesPercentage || 0;
-        const int = Math.min(Math.abs(chg) / 2.5, 1);
-        const bg = chg >= 0
-          ? `rgba(0,214,143,${0.06 + int * 0.22})`
-          : `rgba(255,71,87,${0.06 + int * 0.22})`;
-        const bdr = chg >= 0
-          ? `rgba(0,214,143,${0.12 + int * 0.3})`
-          : `rgba(255,71,87,${0.12 + int * 0.3})`;
-        return (
-          <div key={s.symbol} style={{
-            background: bg, border: `1px solid ${bdr}`, borderRadius: 5,
-            padding: "7px 5px", textAlign: "center",
-          }}>
-            <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim }}>{s.symbol}</div>
-            <div style={{
-              fontSize: 13, fontFamily: MONO, fontWeight: 800,
-              color: chg >= 0 ? C.green : C.red,
-            }}>
-              {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
-            </div>
-            <div style={{ fontSize: 7, fontFamily: SANS, color: C.textDim, marginTop: 1 }}>
-              {s._sectorName}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 
 // ─── Crypto liquidations widget (Monitor) ────────────────────────────────────
@@ -1618,149 +1453,7 @@ function CryptoLiqWidget({ C, MONO, SANS }) {
 
 
 
-// ─── Scrolling news ticker strip (Monitor top area) ─────────────────────────
-function NewsTicker({ C, MONO }) {
-  const [items, setItems] = React.useState([]);
-  const [paused, setPaused] = React.useState(false);
 
-  React.useEffect(() => {
-    let alive = true;
-    const load = () => {
-      fetch("/api/finviz/news?limit=40")
-        .then(r => r.json())
-        .then(d => { if (alive) setItems(d.items || []); })
-        .catch(() => {});
-    };
-    load();
-    const t = setInterval(load, 120000);
-    return () => { alive = false; clearInterval(t); };
-  }, []);
-
-  if (!items.length) return null;
-
-  // Build ticker text: "TICKER  Headline  ·  ..."
-  const tickerText = items.map(n => {
-    const sym = n.tickers && n.tickers.length > 0 ? n.tickers[0] + "  " : "";
-    return sym + n.title;
-  }).join("   ·   ");
-
-  return (
-    <div
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      style={{
-        marginBottom: 8, background: C.surface,
-        border: `1px solid ${C.border}`, borderRadius: 8,
-        overflow: "hidden", position: "relative",
-        display: "flex", alignItems: "center",
-        height: 34,
-      }}
-    >
-      {/* Label */}
-      <div style={{
-        flexShrink: 0, padding: "0 10px",
-        fontFamily: MONO, fontSize: 10, fontWeight: 900,
-        color: C.accent, letterSpacing: "0.08em",
-        borderRight: `1px solid ${C.border}`,
-        height: "100%", display: "flex", alignItems: "center",
-        background: C.card, zIndex: 2,
-      }}>📰 NEWS</div>
-
-      {/* Scrolling area */}
-      <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
-        <div style={{
-          display: "inline-block",
-          whiteSpace: "nowrap",
-          fontFamily: MONO, fontSize: 11, color: C.textSec,
-          animation: paused ? "none" : "tickerScroll 240s linear infinite",
-          paddingLeft: "100%",
-        }}>
-          {tickerText}
-        </div>
-      </div>
-
-      {/* Pause indicator */}
-      {paused && (
-        <div style={{
-          position: "absolute", right: 8,
-          fontFamily: MONO, fontSize: 9, color: C.textDim,
-          background: C.surface, padding: "0 4px",
-        }}>⏸ hover</div>
-      )}
-
-      <style>{`
-        @keyframes tickerScroll {
-          0%   { transform: translateX(0); }
-          100% { transform: translateX(-100%); }
-        }
-      `}</style>
-    </div>
-  );
-}
-
-// ─── Finviz News Card — live market news scraped from finviz.com/news.ashx ───
-function FinvizNewsCard({ C, MONO }) {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [ts, setTs] = useState(null);
-
-  const [meta, setMeta] = useState({ source: "", ageMin: null });
-
-  const load = (force) => {
-    if (!force) setLoading(true);
-    fetch(`/api/finviz/news?limit=40${force ? "&refresh=1" : ""}`)
-      .then(r => r.json())
-      .then(d => {
-        setItems(d.items || []);
-        setMeta({ source: d.source || "", ageMin: d.ageMin });
-        setTs(new Date());
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    load(false);
-    const t = setInterval(() => load(false), 5 * 60 * 1000); // poll every 5 min
-    return () => clearInterval(t);
-  }, []);
-
-  return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, overflowY: "auto", maxHeight: 440 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em" }}>
-          📰 MARKET NEWS
-          {meta.source && <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginLeft: 6 }}>via {meta.source}</span>}
-        </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          {meta.ageMin !== null && <span style={{ fontFamily: MONO, fontSize: 9, color: meta.ageMin <= 5 ? C.green : C.textDim }}>{meta.ageMin}m ago</span>}
-          {ts && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{ts.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span>}
-          <button onClick={() => load(true)}
-            style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 4, color: C.accent, fontFamily: MONO, fontSize: 10, cursor: "pointer", padding: "2px 6px" }}>↻</button>
-        </div>
-      </div>
-      {loading && <div style={{ fontSize: 12, color: C.textDim }}>Loading…</div>}
-      {!loading && items.length === 0 && (
-        <div style={{ fontSize: 12, color: C.textDim }}>Fetching headlines — check back in 30 seconds…</div>
-      )}
-      {items.map((n, i) => (
-        <a key={i} href={n.url} target="_blank" rel="noreferrer"
-          style={{ display: "block", textDecoration: "none", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, color: C.accent, fontWeight: 700 }}>
-              {n.tickers && n.tickers.length > 0 ? n.tickers.slice(0, 3).join(" · ") : n.source || "MKT"}
-            </span>
-            {n.time && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{n.time}</span>}
-          </div>
-          <div style={{ fontSize: 12, color: C.text, fontWeight: 600, lineHeight: 1.4 }}>{n.title}</div>
-          {n.source && n.tickers && n.tickers.length > 0 && (
-            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 1 }}>{n.source}</div>
-          )}
-        </a>
-      ))}
-    </div>
-  );
-}
 
 
 
@@ -5832,7 +5525,7 @@ export default function App() {
     );
   }
 
-  if (!apiKey) return <ApiKeyScreen onSubmit={handleApiKey} />;
+  if (!apiKey) return <ApiKeyScreen onSubmit={handleApiKey} fetchApiPayload={fetchApiPayload} marketBaseUrl={MARKET_BASE_URL} normalizeQuoteResponse={normalizeQuoteResponse} toFriendlyApiMessage={toFriendlyApiMessage} />;
 
 
   return (
