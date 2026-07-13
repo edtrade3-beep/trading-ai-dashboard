@@ -63,17 +63,59 @@ const fmtUSD = (n) =>
 const zoneColor = (score) => (score >= 20 ? C.green : score <= -20 ? C.red : C.amber);
 const zoneLabel = (score) => (score >= 20 ? "BULLISH" : score <= -20 ? "BEARISH" : "NEUTRAL");
 
+// Position management, not entry — "if I'm already IN this trade, does the
+// real data still support staying in it." Direction-relative: the exact
+// same BEARISH options flow that's a warning sign for a LONG is actually
+// confirmation for a SHORT, so everything here is scored against the
+// position's own direction, not an absolute bullish/bearish read.
+function positionVerdict(direction, flowBias, narrScore) {
+  if (!direction) return null;
+  const sign = direction === "LONG" ? 1 : -1;
+  const support = flowBias != null ? flowBias.score * sign : null;
+  const crowdSupport = narrScore != null ? narrScore * sign : null;
+
+  if (support == null) {
+    return {
+      verdict: "UNKNOWN", color: C.textDim,
+      reason: "Not enough real options-flow data to grade this position — manage it by your own stop and plan.",
+    };
+  }
+  if (support <= -40) {
+    return {
+      verdict: "EXIT / REDUCE", color: C.red,
+      reason: `Real options flow has turned firmly against your ${direction.toLowerCase()} — the money is now leaning the other way.`,
+    };
+  }
+  if (support < 0) {
+    return {
+      verdict: "TIGHTEN STOP", color: C.amber,
+      reason: `Real flow has softened against your ${direction.toLowerCase()} — not a red flag yet, but worth tightening risk.`,
+    };
+  }
+  if (crowdSupport != null && crowdSupport >= 60 && support < 40) {
+    return {
+      verdict: "WATCH CLOSELY", color: C.amber,
+      reason: "The crowd is euphoric in your direction but real flow isn't confirming as strongly — euphoria without confirmation is a classic late-stage warning.",
+    };
+  }
+  return {
+    verdict: "HOLD", color: C.green,
+    reason: `Real flow still supports your ${direction.toLowerCase()} position.`,
+  };
+}
+
 export default function RealityCheckWidget() {
   const [open, setOpen] = useState(false);
   const [ticker, setTicker] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null); // { symbol, flow, insider, social, darkpool }
+  const [position, setPosition] = useState(null); // null | "LONG" | "SHORT" — "am I already in this trade"
 
   const check = async (symOverride) => {
     const sym = String(symOverride || ticker).trim().toUpperCase().replace(/[^A-Z0-9.\-]/g, "").slice(0, 10);
     if (!sym) return;
-    setLoading(true); setError(""); setResult(null);
+    setLoading(true); setError(""); setResult(null); setPosition(null);
     try {
       const [flowRes, insiderRes, socialRes, darkpoolRes] = await Promise.all([
         fetch(`/api/market/options-flow?symbols=${encodeURIComponent(sym)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
@@ -94,6 +136,8 @@ export default function RealityCheckWidget() {
   const darkPool = result ? darkPoolSignal(result.darkpool) : null;
   const redditMentions = result?.social?.redditMentions ?? null;
   const divergence = flowBias != null && narrScore != null ? flowBias.score - narrScore : null;
+  const biggestTrade = result?.flow?.flow?.[0] || null; // flow[] is already sorted by notional desc
+  const posVerdict = result ? positionVerdict(position, flowBias, narrScore) : null;
 
   const takeaway = (() => {
     if (!result) return "";
@@ -187,8 +231,14 @@ export default function RealityCheckWidget() {
                     <div style={{ color: C.textDim, fontSize: 11.5, marginBottom: 6 }}>Options flow: no data available</div>
                   )}
                   {flowBias != null && (
-                    <div style={{ color: C.textDim, fontSize: 10.5, marginBottom: 6 }}>
+                    <div style={{ color: C.textDim, fontSize: 10.5, marginBottom: 4 }}>
                       Calls {fmtUSD(flowBias.call)} · Puts {fmtUSD(flowBias.put)}
+                    </div>
+                  )}
+                  {biggestTrade && (
+                    <div style={{ color: C.textDim, fontSize: 10.5, marginBottom: 6, lineHeight: 1.5 }}>
+                      Biggest print: {biggestTrade.side} ${biggestTrade.strike} exp {biggestTrade.expiry} — {fmtUSD(biggestTrade.notional)}
+                      {biggestTrade.unusual ? " (unusual)" : ""}
                     </div>
                   )}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
@@ -200,6 +250,11 @@ export default function RealityCheckWidget() {
                       {insider?.state || "QUIET"}
                     </span>
                   </div>
+                  {insider && (insider.buyValue > 0 || insider.sellValue > 0) && (
+                    <div style={{ color: C.textDim, fontSize: 10.5, marginBottom: 6 }}>
+                      Bought {fmtUSD(insider.buyValue)} · Sold {fmtUSD(insider.sellValue)}
+                    </div>
+                  )}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ color: C.textSec, fontSize: 11.5 }}>Dark pool blocks</span>
                     {darkPool?.state === "PRINTS" ? (
@@ -247,6 +302,44 @@ export default function RealityCheckWidget() {
                 }}>
                   <span style={{ fontSize: 14 }}>{divergence != null && Math.abs(divergence) >= 40 ? "⚠️" : "🔎"}</span>
                   <div style={{ color: C.text, fontSize: 11.5, lineHeight: 1.5 }}>{takeaway}</div>
+                </div>
+
+                {/* Position management — "am I already in this trade, should I stay" */}
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px" }}>
+                  <div style={{ color: C.textDim, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 8 }}>
+                    📍 IN THIS TRADE ALREADY? (not a buy/sell call)
+                  </div>
+                  <div style={{ display: "flex", gap: 6, marginBottom: posVerdict ? 10 : 0 }}>
+                    {[
+                      { key: null, label: "Not in a trade" },
+                      { key: "LONG", label: "I'm LONG" },
+                      { key: "SHORT", label: "I'm SHORT" },
+                    ].map((opt) => {
+                      const active = position === opt.key;
+                      return (
+                        <button key={opt.label} onClick={() => setPosition(opt.key)}
+                          style={{
+                            flex: 1, fontSize: 10.5, fontWeight: 700, padding: "7px 6px", borderRadius: 8, cursor: "pointer",
+                            border: `1px solid ${active ? C.text : C.border}`,
+                            background: active ? C.text : "transparent",
+                            color: active ? C.bg : C.textDim,
+                          }}>
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {posVerdict && (
+                    <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                      <span style={{
+                        flexShrink: 0, fontFamily: MONO, fontSize: 11, fontWeight: 900, color: "#fff",
+                        background: posVerdict.color, borderRadius: 5, padding: "3px 9px",
+                      }}>
+                        {posVerdict.verdict}
+                      </span>
+                      <div style={{ color: C.textSec, fontSize: 11.5, lineHeight: 1.5 }}>{posVerdict.reason}</div>
+                    </div>
+                  )}
                 </div>
               </>
             )}
