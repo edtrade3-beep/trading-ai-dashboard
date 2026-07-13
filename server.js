@@ -22,11 +22,27 @@ const path = require("node:path");
 // Safety net: without this, ANY uncaught error anywhere (a background scanner
 // tick, an unawaited route promise, a bad API response) kills the whole
 // process and takes every user down. Log and keep serving instead of dying.
+//
+// console.error alone is invisible unless someone is tailing Render logs —
+// alertOnce also pages Telegram, debounced per label (max 1 per 10 min) so a
+// crash-loop or a repeatedly-failing 5-min interval doesn't spam.
+const { sendTelegramMessage } = require("./src/telegram");
+const ALERT_DEBOUNCE_MS = 10 * 60_000;
+const _lastAlertAt = {};
+function alertOnce(label, message) {
+  const now = Date.now();
+  if (_lastAlertAt[label] && now - _lastAlertAt[label] < ALERT_DEBOUNCE_MS) return;
+  _lastAlertAt[label] = now;
+  sendTelegramMessage(message);
+}
+
 process.on("unhandledRejection", (err) => {
   console.error("[unhandledRejection]", err && err.stack || err);
+  alertOnce("unhandledRejection", `⚠️ unhandledRejection: ${(err && err.message) || err}`);
 });
 process.on("uncaughtException", (err) => {
   console.error("[uncaughtException]", err && err.stack || err);
+  alertOnce("uncaughtException", `⚠️ uncaughtException: ${(err && err.message) || err}`);
 });
 
 const { PORT, HOST } = require("./src/config");
@@ -166,7 +182,10 @@ server.listen(PORT, HOST, () => {
   // Server-side autopilot — trades A+ buy-points on Alpaca paper with NO browser
   // open. Only runs when SERVER_AUTOPILOT="on". Every 5 min (market-hours gated inside).
   if (require("./src/utils").isOn(process.env.SERVER_AUTOPILOT)) {
-    setInterval(() => runServerAutopilot().catch(() => {}), 5 * 60_000);
+    setInterval(() => runServerAutopilot().catch((err) => {
+      console.error("[Server autopilot] tick failed:", (err && err.stack) || err);
+      alertOnce("autopilot", `⚠️ Server autopilot tick failed: ${(err && err.message) || err}`);
+    }), 5 * 60_000);
     setInterval(() => runTrailingStops().catch(() => {}), 5 * 60_000);   // ratchet stops up on winners
     console.log("[Server autopilot] ACTIVE — trades + trailing stops on Alpaca paper, no browser needed");
   }
