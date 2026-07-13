@@ -120,7 +120,7 @@ function Gauge({ score, color }: { score: number; color: string }) {
 }
 
 export default function SlippageSleepTaxWidget() {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [hour, setHour] = useState<number>(() => new Date().getHours());
   const [positionSize, setPositionSize] = useState<string>("10000");
   const [presetKey, setPresetKey] = useState<VolatilityPreset["key"]>("normal");
