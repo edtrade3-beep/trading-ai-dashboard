@@ -1009,56 +1009,99 @@ const COMMANDS = {
   },
 
   // ── /plan TICKER — full AI trade plan with entry/stop/target ─────────────────
+  // Mirrors axiom-runner/components/TradePlannerTab.jsx exactly — same chart
+  // endpoint, same EMA/ATR/RSI/stop/target math, same computeRegime/
+  // computeAPlusScore/computeNextAction engine (ported to CommonJS in
+  // ./trade-planner-scoring.js) — so /plan and the website's Trade Planner
+  // always agree on numbers for the same symbol.
   plan: async (args) => {
     const sym = (args[0] || "").toUpperCase();
     if (!sym) return reply("Usage: /plan NVDA");
     await reply(`⚙️ Building trade plan for ${sym}…`);
     try {
+      const { computeRegime, computeAPlusScore, computeNextAction } = require("./trade-planner-scoring");
       const { fetchYahooQuoteBatch } = require("./providers/yahoo");
-      const { detectBOSChoCh, detectOrderBlocks, detectFVGs } = require("./smc-engine");
-      const bars  = await fetchYahooBars(sym, "3mo", "1d").catch(() => []);
-      const q     = await fetchYahooQuoteBatch([sym]).catch(() => []);
-      const quote = q[0] || {};
-      const price = Number(quote.regularMarketPrice || bars.at(-1)?.close || 0);
-      if (!price) return reply(`No data for ${sym}`);
-      const { bos } = detectBOSChoCh(bars);
-      const obs  = detectOrderBlocks(bars);
-      const fvgs = detectFVGs(bars);
-      const ma50  = Number(quote.fiftyDayAverage || 0);
-      const ma200 = Number(quote.twoHundredDayAverage || 0);
-      const rsi   = (() => { if (bars.length < 14) return 50; const cl = bars.map(b => b.close); const g = [], l = []; for (let i = 1; i < cl.length; i++) { const d = cl[i]-cl[i-1]; d > 0 ? g.push(d) : l.push(Math.abs(d)); } const ag = g.slice(-14).reduce((a,b)=>a+b,0)/14; const al = l.slice(-14).reduce((a,b)=>a+b,0)/14; return al === 0 ? 100 : Math.round(100-(100/(1+ag/al))); })();
-      const stop  = ma50 > 0 && ma50 < price ? round2(ma50 * 0.97) : round2(price * 0.97);
-      const t1    = round2(price * 1.08);
-      const t2    = round2(price * 1.15);
-      const rr    = round2((t1 - price) / (price - stop));
-      const bullBOS = bos?.type === "BULL_BOS";
-      const bestOB  = obs.filter(o => o.type === "BULL_OB").sort((a,b) => b.bot - a.bot)[0];
-      const regime  = price > ma200 && price > ma50 ? "BULL" : price < ma200 ? "BEAR" : "MIXED";
-      const signal  = bullBOS && rsi < 70 && price > ma50 ? "BUY" : rsi > 70 ? "AVOID (overbought)" : !bullBOS ? "WAIT (no Bull BOS)" : "WATCH";
+      const base = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 3000}`;
+
+      const chartResp = await fetch(`${base}/api/market/chart?symbol=${encodeURIComponent(sym)}&interval=1d&range=90d`);
+      if (!chartResp.ok) return reply(`No data for ${sym}`);
+      const chartJson = await chartResp.json();
+      const r = chartJson?.chart?.result?.[0];
+      if (!r) return reply(`No data for ${sym}`);
+      const meta = r.meta || {};
+      const ts   = r.timestamp || [];
+      const q    = r.indicators?.quote?.[0] || {};
+      const bars = ts.map((t, i) => ({ c: q.close?.[i] || 0, h: q.high?.[i] || 0, l: q.low?.[i] || 0 })).filter(b => b.c > 0);
+      if (bars.length < 14) return reply(`Not enough data for ${sym}`);
+
+      const price  = meta.regularMarketPrice || bars.at(-1).c;
+      const chg    = meta.regularMarketChangePercent || 0;
+      const closes = bars.map(b => b.c);
+
+      const ema = (n, arr) => { const k = 2/(n+1); let e = arr.slice(0,n).reduce((s,v)=>s+v,0)/n; for (let i=n;i<arr.length;i++) e = arr[i]*k+e*(1-k); return round2(e); };
+      const ema9 = ema(9, closes), ema21 = ema(21, closes), ema50 = ema(Math.min(50, closes.length), closes);
+
+      let atrSum = 0;
+      for (let i = bars.length - 14; i < bars.length; i++) { const p = bars[i-1]?.c || bars[i].c; atrSum += Math.max(bars[i].h - bars[i].l, Math.abs(bars[i].h - p), Math.abs(bars[i].l - p)); }
+      const atr = round2(atrSum / 14);
+
+      let gains = 0, losses = 0;
+      for (let i = bars.length - 14; i < bars.length; i++) { const d = bars[i].c - (bars[i-1]?.c || 0); d > 0 ? gains += d : losses += Math.abs(d); }
+      const rsi = round2(losses === 0 ? 100 : 100 - 100/(1 + gains/14/(losses/14)));
+
+      const trend = price > ema50 && ema50 > ema21 ? "STRONG BULL" : price > ema21 ? "BULL" : price < ema21 ? "BEAR" : "NEUTRAL";
+
+      const stopLoss = round2(Math.max(price - atr*1.5, price*0.97, ema21 < price ? ema21*0.99 : price*0.97));
+      const riskPerShare = round2(price - stopLoss);
+      const t1 = round2(price + riskPerShare*1.5), t2 = round2(price + riskPerShare*2.5), t3 = round2(price + riskPerShare*4);
+
+      // Same endpoint AND same VIX proxy (VIXY, not raw ^VIX) the website's own
+      // regime engine uses (axiom-live.jsx MACRO_SYMBOLS + fetchQuotes →
+      // /api/market/quote, which is Alpaca-first with Yahoo fallback) — hitting
+      // fetchYahooQuoteBatch directly instead disagreed with the website at
+      // borderline regime thresholds, since it's a different provider/symbol.
+      const macroResp = await fetch(`${base}/api/market/quote?symbols=SPY,QQQ,VIXY`);
+      const macroData = macroResp.ok ? await macroResp.json().catch(() => []) : [];
+      const regime = computeRegime(Array.isArray(macroData) ? macroData : []);
+
+      // Best-effort, same trend-template screen Terminal/Watchlists/Scanner/website use.
+      let aplus = null, next = null;
+      try {
+        const tsResp = await fetch(`${base}/api/market/trend-screen?symbols=${encodeURIComponent(sym)}`);
+        const tsJson = tsResp.ok ? await tsResp.json() : null;
+        const tsRow = (tsJson?.results || []).find(x => x && !x.error && x.symbol === sym);
+        if (tsRow) { aplus = computeAPlusScore(tsRow, regime); next = computeNextAction(tsRow); }
+      } catch {}
+
+      const pct = (a, b) => b > 0 ? round2((a - b) / b * 100) : 0;
+      const fmtPct = n => `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
+      const account = 10000, riskPct = 1; // same defaults as the website
+      const riskAmt = account * (riskPct / 100);
+      const shares  = riskPerShare > 0 ? Math.floor(riskAmt / riskPerShare) : 0;
+
       const lines = [
-        `📋 TRADE PLAN — ${sym}`,
+        `🎯 TRADE PLAN — ${sym}`,
         `━━━━━━━━━━━━━━━━━━━━`,
-        `Signal: ${signal}`,
-        `Regime: ${regime}`,
+        `$${price.toFixed(2)}  ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%`,
+        `Trend: ${trend}  |  RSI: ${rsi.toFixed(0)}  |  EMA9/21: ${ema9 > ema21 ? "▲ BULLISH" : "▼ BEARISH"}  |  ATR: $${atr}`,
+        ``,
+        `Market Regime: ${regime.label} ${regime.score}/100`,
+        aplus ? `A+ Score: ${aplus.score}/100` : `A+ Score: unavailable (not in trend-template universe)`,
+        next ? `Next Action: ${next.action} — ${next.reason}` : "",
         ``,
         `💰 LEVELS`,
-        `Entry:  $${round2(price)}  (current)`,
-        bestOB ? `Better: $${bestOB.bot}-$${bestOB.top}  (order block)` : "",
-        `Stop:   $${stop}  (-${round2((price-stop)/price*100)}%)`,
-        `T1:     $${t1}   (+8%)`,
-        `T2:     $${t2}   (+15%)`,
-        `R:R     ${rr}:1`,
+        `Entry:  $${price.toFixed(2)}  (current)`,
+        `Stop:   $${stopLoss}  (${fmtPct(pct(stopLoss, price))} · ATR-based)`,
+        `T1:     $${t1}  (${fmtPct(pct(t1, price))} · 1.5R · take 50%)`,
+        `T2:     $${t2}  (${fmtPct(pct(t2, price))} · 2.5R · take 25%)`,
+        `T3:     $${t3}  (${fmtPct(pct(t3, price))} · 4R · let run)`,
         ``,
-        `📊 TECHNICAL`,
-        `RSI: ${rsi}  |  ${rsi < 30 ? "🔥 Oversold" : rsi > 70 ? "⚠ Overbought" : "Neutral"}`,
-        `EMA: ${price > ma50 ? "Above 50MA ✅" : "Below 50MA ❌"}`,
-        bos ? `BOS: ${bos.label} @ $${bos.level}` : "BOS: None yet",
-        fvgs.length ? `FVG: $${fvgs[0]?.bot}-$${fvgs[0]?.top}` : "",
+        `💵 POSITION SIZING — $${account.toLocaleString()} acct · ${riskPct}% risk`,
+        `Shares: ${shares}  |  Cost: $${round2(shares*price).toLocaleString()}  |  Max Loss: $${riskAmt.toFixed(0)}`,
         ``,
-        `━━━━━━━━━━━━━━━━━━━━`,
-        signal === "BUY"
-          ? `✅ ACTIONABLE: Enter near $${round2(price)}, stop $${stop}, target $${t1}`
-          : `👁 ${signal}: Wait for better conditions`,
+        regime.score >= 75 ? "✅ Market conditions favor this trade working out."
+          : regime.score >= 55 ? "⚠️ Mixed market — be selective, this setup needs to be strong on its own."
+          : "🛑 Weak market — breakouts fail more often here. Consider a smaller size or skipping.",
         `\n⚠️ Not financial advice. Manage risk.`,
       ].filter(Boolean).join("\n");
       await reply(lines);
