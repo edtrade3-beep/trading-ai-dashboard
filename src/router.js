@@ -42,11 +42,15 @@ async function handleRequest(req, res) {
     const { pathname } = requestUrl;
 
     // ── API auth gate for money-moving routes ──────────────────────────────────
-    // OFF unless API_AUTH_TOKEN is set (so it can never lock you out by default).
-    // When set, these POST routes require header x-api-token === the token.
-    // Read-only data + the app itself stay open, so you can always load and fix it.
+    // Fail-closed: these routes require x-api-token === API_AUTH_TOKEN. If the
+    // token isn't configured at all, the routes are refused rather than left
+    // open — money-moving endpoints should never be reachable with zero auth.
+    // (Was opt-in until 2026-07 — "never lock myself out by default" — but that
+    // meant an unset token left live order-placement unauthenticated. Read-only
+    // data + the app itself stay open either way, so you can always load and fix
+    // your token in Settings even if these routes are refusing requests.)
     const AUTH_TOKEN = (process.env.API_AUTH_TOKEN || "").trim();
-    if (AUTH_TOKEN && (req.method === "POST" || req.method === "DELETE") && (
+    if ((req.method === "POST" || req.method === "DELETE") && (
       pathname === "/api/alpaca/order" || pathname === "/api/alpaca/close" ||
       pathname === "/api/alpaca/option-order" || pathname === "/api/alpaca/liquidate-options" ||
       pathname === "/api/notify" ||
@@ -55,6 +59,7 @@ async function handleRequest(req, res) {
       // like /positions and /orders aren't POST/DELETE, so they stay open.)
       pathname.startsWith("/api/autoexec/")
     )) {
+      if (!AUTH_TOKEN) return writeJson(res, 401, { ok: false, error: "unauthorized — API_AUTH_TOKEN is not configured on the server" });
       const tok = req.headers["x-api-token"] || "";
       if (tok !== AUTH_TOKEN) return writeJson(res, 401, { ok: false, error: "unauthorized — set your API token in Settings" });
     }
@@ -102,6 +107,7 @@ async function handleRequest(req, res) {
     }
 
     if (pathname.startsWith("/api/autoexec")) {
+      if (!checkRateLimit(req)) return writeJson(res, 429, { error: "Too many requests. Please slow down." });
       return await handleAutoExec(req, res, requestUrl);
     }
 

@@ -15,7 +15,7 @@ const { ROOT } = require("../config");
 const { writeJson } = require("../utils");
 const broker = require("../tradier-broker");
 const {
-  isMarketHoursET, dailyLossBreakerTripped, openRiskPct,
+  isMarketHoursET, checkAccountHealth, dailyLossBreakerTripped, openRiskPct,
   sectorCapExceeded, sizePositionByRisk,
 } = require("../risk-guardrails");
 
@@ -78,6 +78,24 @@ function normalizePositions(positions) {
   }));
 }
 
+// Shared account-safety check — used by both the automated scanner-triggered
+// path AND the manual override, so neither can place an order on a blown,
+// restricted, or already-over-the-daily-loss-limit account. Tradier's
+// balances API doesn't expose blocked/restricted flags the way Alpaca's
+// does, so tradingBlocked/accountBlocked are always false here — the real
+// protection is the equity/cash/daily-loss checks, which Tradier does give us.
+async function checkTradeGuardrails(cfg) {
+  const balances = await broker.getBalances().catch(() => null);
+  const equity = Number(balances && balances.totalEquity) || 0;
+  const cash = balances ? Number(balances.totalCash) || 0 : null;
+  const health = checkAccountHealth({ equity, cash, tradingBlocked: false, accountBlocked: false });
+  if (!health.ok) return { ok: false, reason: health.reason, balances, equity };
+  if (dailyLossBreakerTripped({ equity, startOfDayEquity: cfg.startOfDayEquity, maxLossAbs: cfg.maxDailyLoss })) {
+    return { ok: false, reason: "daily loss limit reached", balances, equity };
+  }
+  return { ok: true, reason: null, balances, equity };
+}
+
 // ── Exported for market-scanner.js to call ───────────────────────────────────
 async function maybeAutoExecute({ symbol, signal, composite, price, support, resistance, rvol }) {
   if (!broker.isConfigured()) return null;
@@ -96,13 +114,9 @@ async function maybeAutoExecute({ symbol, signal, composite, price, support, res
   // Already traded this symbol today
   if (cfg.tradedToday.includes(symbol)) return null;
 
-  const balances = await broker.getBalances().catch(() => null);
-  const equity = Number(balances && balances.totalEquity) || 0;
-  if (!(equity > 0)) return null;
-
-  // Daily-loss circuit breaker — was fetched-but-never-enforced before; now it
-  // actually stops new trades once today's loss crosses maxDailyLoss.
-  if (dailyLossBreakerTripped({ equity, startOfDayEquity: cfg.startOfDayEquity, maxLossAbs: cfg.maxDailyLoss })) return null;
+  const guard = await checkTradeGuardrails(cfg);
+  if (!guard.ok) return null;
+  const { equity, balances } = guard;
 
   // Check max open positions
   let positions = [];
@@ -218,13 +232,23 @@ async function handleAutoExec(req, res, requestUrl) {
     }
   }
 
-  // POST /api/autoexec/order  — manual order
+  // POST /api/autoexec/order  — manual order (override)
+  // Skips the auto-path's score/RVOL/dedupe triggers on purpose — this is a
+  // deliberate manual trade — but still runs the same account-health and
+  // daily-loss-breaker checks the automated path uses. A human placing a
+  // manual order on a blown or already-over-the-daily-limit account is
+  // exactly the scenario those checks exist to prevent.
   if (pathname === "/api/autoexec/order" && method === "POST") {
     if (!broker.isConfigured()) return writeJson(res, 503, { error: "Tradier not configured." });
     let body = "";
     for await (const chunk of req) body += chunk;
     let opts;
     try { opts = JSON.parse(body); } catch { return writeJson(res, 400, { error: "Invalid JSON" }); }
+
+    const cfg = await maybeResetDaily(readConfig());
+    const guard = await checkTradeGuardrails(cfg);
+    if (!guard.ok) return writeJson(res, 403, { error: `Blocked by risk guardrails: ${guard.reason}` });
+
     try {
       const result = await broker.placeEquityOrder(opts);
       return writeJson(res, 200, result);
