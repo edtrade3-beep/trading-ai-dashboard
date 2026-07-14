@@ -45,6 +45,10 @@ async function pollGmailLeads() {
   _running = true;
   const autoSend = (process.env.GMAIL_AUTO_SEND || "").toLowerCase() === "on";
   const client = new ImapFlow({ host: "imap.gmail.com", port: 993, secure: true, auth: { user, pass }, logger: false });
+  // ImapFlow emits 'error' on socket timeout/close from a background socket-level
+  // handler, not from the awaited call chain below — without a listener here, Node's
+  // default EventEmitter behavior is to throw it as an uncaught exception.
+  client.on("error", (err) => console.error("[Gmail leads] client error:", err.message));
   let handled = 0;
   try {
     await client.connect();
@@ -82,6 +86,7 @@ async function testGmailConnection() {
   const pass = (process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
   if (!user || !pass) return { ok: false, configured: false, error: "GMAIL_USER / GMAIL_APP_PASSWORD not set in Render" };
   const client = new ImapFlow({ host: "imap.gmail.com", port: 993, secure: true, auth: { user, pass }, logger: false });
+  client.on("error", (err) => console.error("[Gmail leads] client error (testGmailConnection):", err.message));
   try {
     await client.connect();
     const lock = await client.getMailboxLock("INBOX");
