@@ -465,25 +465,20 @@ function detectPatterns(bars) {
 }
 
 // ── Signal history storage ─────────────────────────────────────────────────────
-const fs   = require("fs");
 const path = require("path");
+const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const HISTORY_FILE = path.join(__dirname, "../data/adol22-history.json");
 const MAX_HISTORY  = 50;
 
 function loadHistory() {
-  try {
-    if (!fs.existsSync(HISTORY_FILE)) return [];
-    return JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8"));
-  } catch { return []; }
+  return readJsonSafe(HISTORY_FILE, []);
 }
 
 function saveHistory(entry) {
   try {
-    const dir = path.join(__dirname, "../data");
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     const hist = loadHistory();
     hist.unshift({ ...entry, savedAt: new Date().toISOString() });
-    fs.writeFileSync(HISTORY_FILE, JSON.stringify(hist.slice(0, MAX_HISTORY), null, 2));
+    writeJsonAtomic(HISTORY_FILE, hist.slice(0, MAX_HISTORY));
   } catch {}
 }
 

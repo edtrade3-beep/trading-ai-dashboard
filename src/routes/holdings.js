@@ -1,18 +1,16 @@
 // Holdings store — persists the user's positions server-side so MY HOLDINGS survives across
 // devices and can be refreshed by a daily sync (Claude reads Robinhood → POSTs here).
-const fs = require("node:fs");
 const path = require("node:path");
 const { writeJson } = require("../utils");
+const { writeJsonAtomic, readJsonSafe } = require("../atomic-write");
 
 const FILE = path.join(__dirname, "../../data/holdings.json");
 
 function read() {
-  try { return JSON.parse(fs.readFileSync(FILE, "utf8")); } catch { return null; }
+  return readJsonSafe(FILE, null);
 }
 function write(data) {
-  const dir = path.dirname(FILE);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(FILE, JSON.stringify(data, null, 2), "utf8");
+  writeJsonAtomic(FILE, data);
 }
 
 async function handleHoldings(req, res) {

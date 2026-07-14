@@ -4,11 +4,11 @@
 //   FB_PAGE_ACCESS_TOKEN  — from Meta for Developers > your App > Messenger > Page token
 //   FB_VERIFY_TOKEN       — any string you choose; entered in the webhook setup screen
 
-const fs   = require("fs");
 const path = require("path");
 const https = require("https");
 const { writeJson } = require("../utils");
 const { callAnthropicApi, MODELS } = require("../anthropic");
+const { writeJsonAtomic, readJsonSafe } = require("../atomic-write");
 
 const DATA_DIR   = path.join(__dirname, "../../data");
 const MSG_FILE   = path.join(DATA_DIR, "fb-messages.json");
@@ -32,16 +32,12 @@ function notifyLead(senderName, customerMsg, aiReply) {
 // ── JSON helpers ──────────────────────────────────────────────────────────────
 
 function readJson(file, fallback) {
-  try {
-    if (!fs.existsSync(file)) return fallback;
-    return JSON.parse(fs.readFileSync(file, "utf8"));
-  } catch { return fallback; }
+  return readJsonSafe(file, fallback);
 }
 
 function saveJson(file, data) {
   try {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(file, JSON.stringify(data, null, 2));
+    writeJsonAtomic(file, data);
   } catch (e) {
     console.error("[FB Hub] saveJson failed:", e.message);
   }
@@ -98,7 +94,7 @@ function matchAutoReply(text, rules) {
 }
 
 // ── AI Smart Reply ────────────────────────────────────────────────────────────
-function readJsonFile(file, fb) { try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return fb; } }
+function readJsonFile(file, fb) { return readJsonSafe(file, fb); }
 
 async function generateAiReply(customerMsg, conversationHistory) {
   const apiKey = (process.env.ANTHROPIC_API_KEY || "").trim();

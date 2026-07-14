@@ -5,15 +5,11 @@
  * Stores per-market history and a top-level index in data/cot/.
  */
 
-const fs   = require("node:fs");
 const path = require("node:path");
 const { ROOT } = require("../config");
+const { writeJsonAtomic, readJsonSafe } = require("../atomic-write");
 
 const COT_DIR = path.join(ROOT, "data", "cot");
-
-function ensureDir() {
-  if (!fs.existsSync(COT_DIR)) fs.mkdirSync(COT_DIR, { recursive: true });
-}
 
 // ── Per-market history ────────────────────────────────────────────────────────
 
@@ -22,18 +18,13 @@ function marketFile(biasKey) {
 }
 
 function loadMarketHistory(biasKey) {
-  try {
-    const f = marketFile(biasKey);
-    if (!fs.existsSync(f)) return [];
-    return JSON.parse(fs.readFileSync(f, "utf8")) || [];
-  } catch { return []; }
+  return readJsonSafe(marketFile(biasKey), []) || [];
 }
 
 /**
  * Upsert records for a market by date (keeps last 52 weeks).
  */
 function saveMarketHistory(biasKey, records) {
-  ensureDir();
   const existing = loadMarketHistory(biasKey);
 
   // Merge: index by reportDate
@@ -47,7 +38,7 @@ function saveMarketHistory(biasKey, records) {
     .sort((a, b) => a.reportDate.localeCompare(b.reportDate))
     .slice(-52);
 
-  fs.writeFileSync(marketFile(biasKey), JSON.stringify(merged, null, 2), "utf8");
+  writeJsonAtomic(marketFile(biasKey), merged);
   return merged;
 }
 
@@ -56,20 +47,16 @@ function saveMarketHistory(biasKey, records) {
 const INDEX_FILE = path.join(COT_DIR, "index.json");
 
 function loadIndex() {
-  try {
-    if (!fs.existsSync(INDEX_FILE)) return {};
-    return JSON.parse(fs.readFileSync(INDEX_FILE, "utf8")) || {};
-  } catch { return {}; }
+  return readJsonSafe(INDEX_FILE, {}) || {};
 }
 
 /**
  * Save a computed bias result to the index keyed by biasKey.
  */
 function saveBias(biasKey, biasResult) {
-  ensureDir();
   const idx = loadIndex();
   idx[biasKey] = { ...biasResult, updatedAt: new Date().toISOString() };
-  fs.writeFileSync(INDEX_FILE, JSON.stringify(idx, null, 2), "utf8");
+  writeJsonAtomic(INDEX_FILE, idx);
 }
 
 function getAllBiases() {
@@ -86,16 +73,12 @@ function getMarketBias(biasKey) {
 const META_FILE = path.join(COT_DIR, "meta.json");
 
 function loadMeta() {
-  try {
-    if (!fs.existsSync(META_FILE)) return {};
-    return JSON.parse(fs.readFileSync(META_FILE, "utf8")) || {};
-  } catch { return {}; }
+  return readJsonSafe(META_FILE, {}) || {};
 }
 
 function saveMeta(updates) {
-  ensureDir();
   const meta = { ...loadMeta(), ...updates, savedAt: new Date().toISOString() };
-  fs.writeFileSync(META_FILE, JSON.stringify(meta, null, 2), "utf8");
+  writeJsonAtomic(META_FILE, meta);
   return meta;
 }
 

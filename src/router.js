@@ -294,28 +294,25 @@ async function handleRequest(req, res) {
     // GET /api/cloud/load  — load saved platform data from server disk
     // POST /api/cloud/save — save platform data to server disk
     if (pathname === "/api/cloud/load" && req.method === "GET") {
-      const fs = require("node:fs");
       const path = require("node:path");
+      const { readJsonSafe } = require("./atomic-write");
       const file = path.join(__dirname, "../data/cloud-save.json");
       try {
-        const raw = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : null;
-        const data = raw ? JSON.parse(raw) : null;
+        const data = readJsonSafe(file, null);
         return writeJson(res, 200, { ok: true, data, savedAt: data?.savedAt || null });
       } catch (e) {
         return writeJson(res, 200, { ok: false, error: e.message });
       }
     }
     if (pathname === "/api/cloud/save" && req.method === "POST") {
-      const fs = require("node:fs");
       const path = require("node:path");
+      const { writeJsonAtomic } = require("./atomic-write");
       let body = "";
       for await (const chunk of req) body += chunk;
       try {
         const payload = JSON.parse(body || "{}");
-        const dir = path.join(__dirname, "../data");
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
         const toSave = { ...payload, savedAt: new Date().toISOString() };
-        fs.writeFileSync(path.join(dir, "cloud-save.json"), JSON.stringify(toSave, null, 2), "utf8");
+        writeJsonAtomic(path.join(__dirname, "../data/cloud-save.json"), toSave);
         return writeJson(res, 200, { ok: true, savedAt: toSave.savedAt });
       } catch (e) {
         return writeJson(res, 500, { ok: false, error: e.message });

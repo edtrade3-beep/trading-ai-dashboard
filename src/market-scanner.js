@@ -1,6 +1,6 @@
-const fs = require("node:fs");
 const path = require("node:path");
 const { ROOT } = require("./config");
+const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const { fetchYahooBars } = require("./providers/yahoo");
 const { computeEMA, computeRSI } = require("./indicators");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
@@ -118,17 +118,13 @@ const FIRE_MAX_PER_SCAN = 1;  // max 1 fire alert per scan
 // ── Config ────────────────────────────────────────────────────────────────────
 
 function loadConfig() {
-  try {
-    if (!fs.existsSync(CONFIG_PATH)) return { ...DEFAULT_CONFIG };
-    return { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8")) };
-  } catch { return { ...DEFAULT_CONFIG }; }
+  const raw = readJsonSafe(CONFIG_PATH, null);
+  return { ...DEFAULT_CONFIG, ...(raw || {}) };
 }
 
 function saveConfig(updates) {
   const merged = { ...loadConfig(), ...updates };
-  const dir = path.dirname(CONFIG_PATH);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(merged, null, 2), "utf8");
+  writeJsonAtomic(CONFIG_PATH, merged);
   return merged;
 }
 
@@ -185,16 +181,15 @@ function saveScannerState() {
         lastMacroAlertedAt,
         savedAt: Date.now(),
       };
-      fs.mkdirSync(path.dirname(STATE_PATH), { recursive: true });
-      fs.writeFileSync(STATE_PATH, JSON.stringify(snapshot), "utf8");
+      writeJsonAtomic(STATE_PATH, snapshot);
     } catch {}
   }, 2000);
   if (_saveStateTimer.unref) _saveStateTimer.unref();
 }
 function loadScannerState() {
   try {
-    if (!fs.existsSync(STATE_PATH)) return;
-    const s = JSON.parse(fs.readFileSync(STATE_PATH, "utf8"));
+    const s = readJsonSafe(STATE_PATH, null);
+    if (!s) return;
     // Drop entries older than 24h so stale cooldowns don't suppress fresh signals forever.
     const cutoff = Date.now() - 24 * 3600_000;
     for (const [k, ts] of (s.cooldownMap || [])) {

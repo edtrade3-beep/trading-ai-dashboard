@@ -3,8 +3,8 @@
 // It places NO orders. It simulates entries/exits on daily bars and logs
 // hypothetical P&L so you can watch whether the edge holds forward. Zero risk.
 // Enable with MEANREV_PAPER=on. Runs once/day after the close.
-const fs = require("node:fs");
 const path = require("node:path");
+const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const { sendTelegramMessage, isConfigured } = require("./telegram");
 const { isOn } = require("./utils");
 
@@ -33,8 +33,8 @@ const vavg = (a,i,n) => { if (i<n-1) return null; let s=0; for (let k=i-n+1;k<=i
 function rsi(a,i,n){if(i<n)return null;let g=0,l=0;for(let k=i-n+1;k<=i;k++){const d=a[k].c-a[k-1].c;if(d>0)g+=d;else l-=d;}const rs=l===0?100:g/l;return 100-100/(1+rs);}
 function atr(a,i,n=14){if(i<n)return null;let s=0;for(let k=i-n+1;k<=i;k++){const tr=Math.max(a[k].h-a[k].l,Math.abs(a[k].h-a[k-1].c),Math.abs(a[k].l-a[k-1].c));s+=tr;}return s/n;}
 
-function load() { try { return JSON.parse(fs.readFileSync(STATE_PATH, "utf8")); } catch { return { open: {}, closed: [] }; } }
-function save(st) { try { fs.mkdirSync(path.dirname(STATE_PATH), { recursive: true }); fs.writeFileSync(STATE_PATH, JSON.stringify(st)); } catch {} }
+function load() { return readJsonSafe(STATE_PATH, { open: {}, closed: [] }); }
+function save(st) { try { writeJsonAtomic(STATE_PATH, st); } catch {} }
 
 async function runMeanrevPaper() {
   if (!isOn(process.env.MEANREV_PAPER)) return;
