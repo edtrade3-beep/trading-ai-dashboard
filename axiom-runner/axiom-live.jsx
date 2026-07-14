@@ -41,7 +41,6 @@ import TradingLockedOverlay from "./components/TradingLockedOverlay.jsx";
 import QuickLogModal from "./components/QuickLogModal.jsx";
 import CommandPaletteModal from "./components/CommandPaletteModal.jsx";
 import IstighfarWidget, { ISTIGHFAR_BAR_H } from "./components/IstighfarWidget.jsx";
-import SlippageSleepTaxWidget from "./components/SlippageSleepTaxWidget.jsx";
 import RealityCheckWidget from "./components/RealityCheckWidget.jsx";
 import SubNavBar from "./components/SubNavBar.jsx";
 import TerminalChartArea from "./components/TerminalChartArea.jsx";
@@ -5147,7 +5146,6 @@ export default function App() {
       <IstighfarWidget C={C} themeMode={themeMode} isMobile={isMobile} />
       <div style={{ height: ISTIGHFAR_BAR_H, flexShrink: 0 }} aria-hidden="true" />
       <TradingCopilot C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistSymbols={watchlistSymbols} />
-      <SlippageSleepTaxWidget />
       <RealityCheckWidget />
       {/* Google Fonts — Inter (UI) + JetBrains Mono (data/numbers) */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
