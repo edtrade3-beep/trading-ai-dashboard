@@ -203,6 +203,80 @@ function AlpacaReportCard({ C, MONO, SANS }) {
   </>);
 }
 
+// ── 🎯 BY SETUP TIER — win rate / avg R / P&L per tagged setup tier, so you can ──
+// see which tiers actually make money vs which just look good and cut the losers.
+function TierStatsCard({ C, MONO, SANS }) {
+  const [tiers, setTiers] = useState(null);
+  const [err, setErr] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch("/api/alpaca/tier-stats").then(r => r.json())
+      .then(d => { if (!alive) return; if (d.ok) setTiers(d.tiers || []); else setErr(d.reason === "no-alpaca-key" ? "nokey" : (d.error || "error")); })
+      .catch(() => alive && setErr("error"));
+    load();
+    const id = setInterval(load, 60000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+
+  if (err === "nokey") return null;
+  const wrap = (inner) => <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", marginBottom: 12 }}>{inner}</div>;
+  if (tiers === null && !err) return wrap(<div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading tier breakdown…</div>);
+  if (err) return wrap(<div style={{ fontFamily: SANS, fontSize: 12, color: C.red }}>Couldn't load tier stats — {err}.</div>);
+  if (!tiers.length) return wrap(<>
+    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em", marginBottom: 4 }}>🎯 BY SETUP TIER</div>
+    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No tagged trades yet. Once the auto-pilot closes round-trips, each tier's real win rate and R-multiple will show up here.</div>
+  </>);
+
+  const MIN_SAMPLE = 5; // below this, a tier's stats aren't reliable enough to call good/bad yet
+  return wrap(<>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em" }}>🎯 BY SETUP TIER</span>
+      <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>which setups actually work</span>
+    </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 10px" }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.05em", width: 70 }}>TIER</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.05em", width: 60, textAlign: "right" }}>TRADES</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.05em", width: 60, textAlign: "right" }}>WIN%</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.05em", width: 70, textAlign: "right" }}>AVG R</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.05em", flex: 1, textAlign: "right" }}>P&L</span>
+      </div>
+      {tiers.map(t => {
+        const reliable = t.n >= MIN_SAMPLE;
+        const good = reliable && t.avgR != null && t.avgR > 0;
+        const bad = reliable && t.avgR != null && t.avgR <= 0;
+        const rowColor = good ? C.green : bad ? C.red : C.textDim;
+        const label = t.tier === "?" ? "UNTAGGED" : `TIER ${t.tier}`;
+        return (
+          <div key={t.tier} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px",
+            background: C.surface, borderRadius: 8, border: `1px solid ${reliable ? `${rowColor}33` : "transparent"}` }}>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: reliable ? rowColor : C.text, width: 70 }}>{label}</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, width: 60, textAlign: "right" }}>{t.n}</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: t.winRate >= 50 ? C.green : C.amber, width: 60, textAlign: "right" }}>{t.winRate}%</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: t.avgR == null ? C.textDim : t.avgR > 0 ? C.green : C.red, width: 70, textAlign: "right" }}>
+              {t.avgR == null ? "—" : `${t.avgR >= 0 ? "+" : ""}${t.avgR}R`}
+            </span>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: t.pnl >= 0 ? C.green : C.red, flex: 1, textAlign: "right" }}>
+              {t.pnl >= 0 ? "+" : ""}${t.pnl}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+    {(() => {
+      const worst = tiers.filter(t => t.n >= MIN_SAMPLE && t.avgR != null).sort((a, b) => a.avgR - b.avgR)[0];
+      if (!worst || worst.avgR > 0) return null;
+      const label = worst.tier === "?" ? "untagged trades" : `Tier ${worst.tier}`;
+      return (
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 10 }}>
+          ⚠️ <b style={{ color: C.red }}>{label}</b> is losing money over {worst.n} trades ({worst.avgR}R avg) — consider cutting this setup.
+        </div>
+      );
+    })()}
+  </>);
+}
+
 export default function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [autoPilot, setAutoPilot] = useState(() => localStorage.getItem("axiom_autopilot") === "on");
   const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 5);
@@ -437,6 +511,7 @@ export default function MyTradesTab({ C, MONO, SANS, watchlistData }) {
       </>
 
       <AlpacaReportCard C={C} MONO={MONO} SANS={SANS} />
+      <TierStatsCard C={C} MONO={MONO} SANS={SANS} />
     </div>
   );
 }

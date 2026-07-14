@@ -1,6 +1,7 @@
 // Alpaca PAPER trading bridge — keys stay server-side, orders go to the paper API only.
 // Set ALPACA_KEY_ID and ALPACA_SECRET_KEY in the environment (use PAPER keys).
 const { writeJson } = require("../utils");
+const { tierStats } = require("../autopilot-journal");
 
 const BASE = "https://paper-api.alpaca.markets"; // PAPER only — never live
 
@@ -31,6 +32,59 @@ async function alpaca(path, method = "GET", body = null) {
 async function readBody(req) {
   let body = ""; for await (const chunk of req) body += chunk;
   try { return JSON.parse(body || "{}"); } catch { return {}; }
+}
+
+// Closed round-trip trades with realized P&L — built from FILL activities via FIFO matching.
+// Shared by /api/alpaca/closed-trades and /api/alpaca/tier-stats so the FIFO logic lives once.
+async function getClosedTrades() {
+  // Alpaca caps the activities endpoint at 100 per page — page through (newest first) up to ~500 fills.
+  let raw = [];
+  let pageToken = null;
+  for (let page = 0; page < 5; page++) {
+    const qs = `/v2/account/activities?activity_types=FILL&page_size=100&direction=desc${pageToken ? `&page_token=${encodeURIComponent(pageToken)}` : ""}`;
+    const a = await alpaca(qs);
+    if (!a._ok) {
+      if (page === 0) return { ok: false, trades: [], error: a.data?.message || "activities error" };
+      break; // keep what we have if a later page fails
+    }
+    const batch = Array.isArray(a.data) ? a.data : [];
+    raw = raw.concat(batch);
+    if (batch.length < 100) break;          // last page
+    pageToken = batch[batch.length - 1].id;  // next page starts after the last id
+  }
+  const fills = raw
+    .map(f => ({ symbol: f.symbol, side: f.side, qty: Math.abs(Number(f.qty) || 0), price: Number(f.price) || 0, at: f.transaction_time }))
+    .filter(f => f.symbol && f.qty > 0 && f.price > 0)
+    .sort((x, y) => new Date(x.at) - new Date(y.at)); // oldest first
+
+  // FIFO match: opens (buy for long, sell_short for short) vs closes. Produce realized round trips.
+  const lots = {};   // symbol -> array of open lots { qty, price, side:'long'|'short', at }
+  const trades = [];
+  for (const f of fills) {
+    const sym = f.symbol;
+    lots[sym] = lots[sym] || [];
+    const open = lots[sym];
+    const isBuy = f.side === "buy";
+    // Determine if this fill opens or closes against existing inventory.
+    const opposite = open.length && ((isBuy && open[0].side === "short") || (!isBuy && open[0].side === "long"));
+    if (!open.length || !opposite) {
+      open.push({ qty: f.qty, price: f.price, side: isBuy ? "long" : "short", at: f.at });
+      continue;
+    }
+    let remaining = f.qty;
+    while (remaining > 0 && open.length && ((isBuy && open[0].side === "short") || (!isBuy && open[0].side === "long"))) {
+      const lot = open[0];
+      const matched = Math.min(remaining, lot.qty);
+      const entry = lot.price, exit = f.price;
+      const pnl = lot.side === "long" ? (exit - entry) * matched : (entry - exit) * matched;
+      trades.push({ symbol: sym, side: lot.side, qty: matched, entry, exit, pnl, openedAt: lot.at, closedAt: f.at });
+      lot.qty -= matched; remaining -= matched;
+      if (lot.qty <= 1e-9) open.shift();
+    }
+    if (remaining > 0) open.push({ qty: remaining, price: f.price, side: isBuy ? "long" : "short", at: f.at });
+  }
+  trades.sort((x, y) => new Date(y.closedAt) - new Date(x.closedAt)); // newest first
+  return { ok: true, trades };
 }
 
 async function handleAlpaca(req, res, requestUrl) {
@@ -79,57 +133,33 @@ async function handleAlpaca(req, res, requestUrl) {
   }
 
   // Closed round-trip trades with realized P&L — built from FILL activities via FIFO matching.
-  // Powers the My Trades "report card" (win rate, expectancy, edge check) on real Alpaca fills.
+  // Powers the My Trades "report card" (win rate, expectancy, edge check) on real Alpaca fills,
+  // and the tier-stats endpoint below (which joins these against the setup-tagged journal).
   if (pathname === "/api/alpaca/closed-trades" && req.method === "GET") {
     if (!configured) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key", trades: [] });
-    // Alpaca caps the activities endpoint at 100 per page — page through (newest first) up to ~500 fills.
-    let raw = [];
-    let pageToken = null;
-    for (let page = 0; page < 5; page++) {
-      const qs = `/v2/account/activities?activity_types=FILL&page_size=100&direction=desc${pageToken ? `&page_token=${encodeURIComponent(pageToken)}` : ""}`;
-      const a = await alpaca(qs);
-      if (!a._ok) {
-        if (page === 0) return writeJson(res, 200, { ok: false, trades: [], error: a.data?.message || "activities error" });
-        break; // keep what we have if a later page fails
-      }
-      const batch = Array.isArray(a.data) ? a.data : [];
-      raw = raw.concat(batch);
-      if (batch.length < 100) break;          // last page
-      pageToken = batch[batch.length - 1].id;  // next page starts after the last id
-    }
-    const fills = raw
-      .map(f => ({ symbol: f.symbol, side: f.side, qty: Math.abs(Number(f.qty) || 0), price: Number(f.price) || 0, at: f.transaction_time }))
-      .filter(f => f.symbol && f.qty > 0 && f.price > 0)
-      .sort((x, y) => new Date(x.at) - new Date(y.at)); // oldest first
-
-    // FIFO match: opens (buy for long, sell_short for short) vs closes. Produce realized round trips.
-    const lots = {};   // symbol -> array of open lots { qty, price, side:'long'|'short', at }
-    const trades = [];
-    for (const f of fills) {
-      const sym = f.symbol;
-      lots[sym] = lots[sym] || [];
-      const open = lots[sym];
-      const isBuy = f.side === "buy";
-      // Determine if this fill opens or closes against existing inventory.
-      const opposite = open.length && ((isBuy && open[0].side === "short") || (!isBuy && open[0].side === "long"));
-      if (!open.length || !opposite) {
-        open.push({ qty: f.qty, price: f.price, side: isBuy ? "long" : "short", at: f.at });
-        continue;
-      }
-      let remaining = f.qty;
-      while (remaining > 0 && open.length && ((isBuy && open[0].side === "short") || (!isBuy && open[0].side === "long"))) {
-        const lot = open[0];
-        const matched = Math.min(remaining, lot.qty);
-        const entry = lot.price, exit = f.price;
-        const pnl = lot.side === "long" ? (exit - entry) * matched : (entry - exit) * matched;
-        trades.push({ symbol: sym, side: lot.side, qty: matched, entry, exit, pnl, openedAt: lot.at, closedAt: f.at });
-        lot.qty -= matched; remaining -= matched;
-        if (lot.qty <= 1e-9) open.shift();
-      }
-      if (remaining > 0) open.push({ qty: remaining, price: f.price, side: isBuy ? "long" : "short", at: f.at });
-    }
-    trades.sort((x, y) => new Date(y.closedAt) - new Date(x.closedAt)); // newest first
+    const { ok, trades, error } = await getClosedTrades();
+    if (!ok) return writeJson(res, 200, { ok: false, trades: [], error });
     return writeJson(res, 200, { ok: true, trades });
+  }
+
+  // Per-setup-tier win rate — joins closed trades against the tagged journal
+  // (autopilot-journal.js) via tierStats(), so you can see which tiers/setups
+  // actually make money vs which just look good. Powers the My Trades tier
+  // breakdown; same join Telegram's weekly/monthly AI reviews already use.
+  if (pathname === "/api/alpaca/tier-stats" && req.method === "GET") {
+    if (!configured) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key", tiers: [] });
+    const { ok, trades, error } = await getClosedTrades();
+    if (!ok) return writeJson(res, 200, { ok: false, tiers: [], error });
+    const byTier = tierStats(trades);
+    const tiers = Object.entries(byTier).map(([tier, s]) => ({
+      tier,
+      n: s.n,
+      wins: s.wins,
+      winRate: s.n ? Math.round((s.wins / s.n) * 100) : 0,
+      pnl: Math.round(s.pnl),
+      avgR: s.rN ? +(s.rSum / s.rN).toFixed(2) : null,
+    })).sort((a, b) => (b.avgR ?? -Infinity) - (a.avgR ?? -Infinity));
+    return writeJson(res, 200, { ok: true, tiers, totalTrades: trades.length });
   }
 
   if (pathname === "/api/alpaca/positions" && req.method === "GET") {
