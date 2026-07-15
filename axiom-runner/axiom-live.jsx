@@ -43,6 +43,7 @@ import CommandPaletteModal from "./components/CommandPaletteModal.jsx";
 import IstighfarWidget, { ISTIGHFAR_BAR_H } from "./components/IstighfarWidget.jsx";
 import RealityCheckWidget from "./components/RealityCheckWidget.jsx";
 import Sidebar, { SIDEBAR_ITEMS } from "./components/Sidebar.jsx";
+import StatusBar, { STATUS_BAR_H } from "./components/StatusBar.jsx";
 import TerminalChartArea from "./components/TerminalChartArea.jsx";
 import {
   classifyTrend, computeScores, computeGreenLight, logTradeNote, addPaperTrade, addPaperShort,
@@ -5428,9 +5429,14 @@ export default function App() {
           rows below is sufficient. */}
       {!isMobile && (
         <Sidebar C={C} MONO={MONO} SANS={SANS} activeTab={activeTab} setActiveTab={setActiveTab}
-          topOffset={ISTIGHFAR_BAR_H + topBarH} width={LAYOUT.sidebarWidth}
+          topOffset={ISTIGHFAR_BAR_H + topBarH} width={LAYOUT.sidebarWidth} bottomOffset={STATUS_BAR_H}
           scannerBadge={scannerBadge} setPaletteOpen={setPaletteOpen} />
       )}
+
+      {/* Bottom status bar — connection/integration badges, latency, paper- ──
+          trading indicator. STATUS_BAR_H is an authored constant (own file),
+          same "no ResizeObserver needed" reasoning as the Sidebar. */}
+      <StatusBar C={C} MONO={MONO} sidebarWidth={LAYOUT.sidebarWidth} isMobile={isMobile} />
 
       {/* Mobile menu drawer — opens from LEFT hamburger button */}
       {isMobile && mobileMenuOpen && (
@@ -5551,7 +5557,11 @@ export default function App() {
       )}
 
       {/* Content */}
-      <div className={isMobile ? "mobile-content" : ""} style={{ padding: isMobile ? "10px 10px 24px" : LAYOUT.contentPadding, maxWidth: LAYOUT.pageMaxWidth, marginTop: 0, marginBottom: 0, marginRight: "auto", marginLeft: !isMobile ? LAYOUT.sidebarWidth : "auto" }}>
+      <div className={isMobile ? "mobile-content" : ""} style={{
+        paddingTop: isMobile ? 10 : 14, paddingLeft: isMobile ? 10 : 18, paddingRight: isMobile ? 10 : 18,
+        paddingBottom: 24 + STATUS_BAR_H,
+        maxWidth: LAYOUT.pageMaxWidth, marginTop: 0, marginBottom: 0, marginRight: "auto", marginLeft: !isMobile ? LAYOUT.sidebarWidth : "auto",
+      }}>
 
         <RegimeStrategyBanner C={C} MONO={MONO} activeTab={activeTab} regime={regime} />
 

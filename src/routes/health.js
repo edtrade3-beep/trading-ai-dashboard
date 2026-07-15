@@ -15,6 +15,7 @@ async function handleHealth(req, res) {
     MEANREV_PAPER: process.env.MEANREV_PAPER !== undefined,
     SERVER_AUTOPILOT: process.env.SERVER_AUTOPILOT !== undefined,
     ALPACA_KEY_ID: process.env.ALPACA_KEY_ID !== undefined,
+    POLYGON_API_KEY: !!(process.env.POLYGON_API_KEY || "").trim(),
   };
   return writeJson(res, 200, { ok: true, version: "market-v2", build: BUILD, startedAt: STARTED_AT, telegram: telegramConfigured(), serverAutopilot, meanrevPaper, apiAuth, envSeen });
 }
