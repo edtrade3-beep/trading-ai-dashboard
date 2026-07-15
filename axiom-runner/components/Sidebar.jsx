@@ -19,9 +19,9 @@ export const SIDEBAR_ITEMS = [
   { id: "quran",     label: "Quran",         icon: "☪️", tab: "quran" },
 ];
 
-export default function Sidebar({ C, MONO, SANS, activeTab, setActiveTab, topOffset, width, bottomOffset, scannerBadge, setPaletteOpen }) {
+export default function Sidebar({ C, MONO, SANS, activeTab, setActiveTab, topOffset, width, bottomOffset, scannerBadge, setPaletteOpen, rootRef }) {
   return (
-    <div style={{
+    <div ref={rootRef} style={{
       position: "fixed", top: topOffset, left: 0, bottom: bottomOffset || 0, width,
       background: C.surface, borderRight: `1px solid ${C.border}`,
       display: "flex", flexDirection: "column", zIndex: 39, overflowY: "auto",

@@ -5129,6 +5129,45 @@ export default function App() {
     return () => ro.disconnect();
   }, [isMobile, isTablet]);
 
+  // Sidebar is also `position: fixed`, and — unexpectedly, discovered via a
+  // real bug report — its *actual rendered width* does NOT reliably match
+  // the raw LAYOUT.sidebarWidth constant once the page's CSS `zoom` factor
+  // differs from 1 (UI_ZOOM_TABLET = 1.08, applied only in tablet width).
+  // `position: fixed` boxes don't scale in lockstep with normal-flow
+  // siblings under `zoom` the way normal-flow elements do (the same family
+  // of quirk that already forced the Top Bar off `position: sticky`), so a
+  // content div positioned via a hardcoded marginLeft silently drifted out
+  // of alignment with the sidebar at tablet widths — content rendered
+  // underneath/behind the sidebar instead of beside it. Fixed the same way
+  // topBarH is: measure the real box, don't trust the authored constant.
+  const sidebarRef = useRef(null);
+  const [sidebarW, setSidebarW] = useState(LAYOUT.sidebarWidth);
+  useEffect(() => {
+    if (isMobile || !sidebarRef.current) return;
+    const el = sidebarRef.current;
+    const update = () => setSidebarW(el.offsetWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isMobile, isTablet]);
+
+  // Same zoom-vs-fixed-position risk applies to the bottom StatusBar's
+  // height as the Sidebar's width above — measure it rather than trust
+  // the authored STATUS_BAR_H constant for anything that needs to leave
+  // room for it (Sidebar's bottom edge, the content area's bottom padding).
+  const statusBarRef = useRef(null);
+  const [statusBarH, setStatusBarH] = useState(STATUS_BAR_H);
+  useEffect(() => {
+    if (!statusBarRef.current) return;
+    const el = statusBarRef.current;
+    const update = () => setStatusBarH(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isMobile, isTablet]);
+
   if (!appUnlocked) {
     return (
       <PasswordLockScreen
@@ -5422,21 +5461,20 @@ export default function App() {
       </div>
       <div style={{ height: topBarH, flexShrink: 0 }} aria-hidden="true" />
 
-      {/* Persistent left Sidebar — desktop/tablet only. Its width is an
-          authored value (LAYOUT.sidebarWidth), not intrinsic wrapping
-          content, so unlike the Top Bar it doesn't need ResizeObserver
-          measurement — position: fixed + a matching marginLeft on the
-          rows below is sufficient. */}
+      {/* Persistent left Sidebar — desktop/tablet only. Its CSS width is the
+          authored LAYOUT.sidebarWidth constant, but everything that needs to
+          align BESIDE it (content marginLeft, StatusBar's left offset) uses
+          the ResizeObserver-measured `sidebarW` instead — see the sidebarW
+          comment above for why the raw constant isn't safe to trust here. */}
       {!isMobile && (
         <Sidebar C={C} MONO={MONO} SANS={SANS} activeTab={activeTab} setActiveTab={setActiveTab}
-          topOffset={ISTIGHFAR_BAR_H + topBarH} width={LAYOUT.sidebarWidth} bottomOffset={STATUS_BAR_H}
-          scannerBadge={scannerBadge} setPaletteOpen={setPaletteOpen} />
+          topOffset={ISTIGHFAR_BAR_H + topBarH} width={LAYOUT.sidebarWidth} bottomOffset={statusBarH}
+          scannerBadge={scannerBadge} setPaletteOpen={setPaletteOpen} rootRef={sidebarRef} />
       )}
 
-      {/* Bottom status bar — connection/integration badges, latency, paper- ──
-          trading indicator. STATUS_BAR_H is an authored constant (own file),
-          same "no ResizeObserver needed" reasoning as the Sidebar. */}
-      <StatusBar C={C} MONO={MONO} sidebarWidth={LAYOUT.sidebarWidth} isMobile={isMobile} />
+      {/* Bottom status bar — connection/integration badges, latency, paper-
+          trading indicator. */}
+      <StatusBar C={C} MONO={MONO} sidebarWidth={sidebarW} isMobile={isMobile} rootRef={statusBarRef} />
 
       {/* Mobile menu drawer — opens from LEFT hamburger button */}
       {isMobile && mobileMenuOpen && (
@@ -5541,7 +5579,7 @@ export default function App() {
         </div>
       )}
 
-      <div style={{ marginLeft: !isMobile ? LAYOUT.sidebarWidth : 0 }}>
+      <div style={{ marginLeft: !isMobile ? sidebarW : 0 }}>
         <MarketSessionBanner C={C} MONO={MONO} SANS={SANS} marketSession={marketSession} />
 
         {/* Market Index Strip — matches screenshot layout */}
@@ -5551,18 +5589,27 @@ export default function App() {
       </div>
 
       {error && (
-        <div style={{ padding: "8px 18px", fontSize: 12, fontFamily: MONO, color: C.red, background: C.redBg, marginLeft: !isMobile ? LAYOUT.sidebarWidth : 0 }}>
+        <div style={{ padding: "8px 18px", fontSize: 12, fontFamily: MONO, color: C.red, background: C.redBg, marginLeft: !isMobile ? sidebarW : 0 }}>
           {error}
         </div>
       )}
 
       {/* Content */}
+      {/* width is explicit (not left to auto-margin resolution) and overflowX
+          is clipped as a safety net: ~31 existing tab components each set
+          their OWN `maxWidth: N, margin: "0 auto"` on their root div, sized
+          for the pre-Sidebar full-width content area. At narrower widths
+          (tablet range, or a wide max-content tab) that inner maxWidth can
+          exceed this wrapper's real available width, and margin:auto centers
+          the overflow symmetrically — bleeding half of it left, underneath
+          the fixed Sidebar. Root cause is in those 31 tabs' own styling, but
+          fixing it once here is far lower-risk than touching all of them. */}
       <div className={isMobile ? "mobile-content" : ""} style={{
         paddingTop: isMobile ? 10 : 14, paddingLeft: isMobile ? 10 : 18, paddingRight: isMobile ? 10 : 18,
-        paddingBottom: 24 + STATUS_BAR_H,
-        maxWidth: LAYOUT.pageMaxWidth, marginTop: 0, marginBottom: 0, marginRight: "auto", marginLeft: !isMobile ? LAYOUT.sidebarWidth : "auto",
+        paddingBottom: 24 + statusBarH,
+        maxWidth: LAYOUT.pageMaxWidth, marginTop: 0, marginBottom: 0, marginRight: "auto", marginLeft: !isMobile ? sidebarW : "auto",
+        width: !isMobile ? `calc(100% - ${sidebarW}px)` : "100%", overflowX: "hidden", boxSizing: "border-box",
       }}>
-
         <RegimeStrategyBanner C={C} MONO={MONO} activeTab={activeTab} regime={regime} />
 
         {loading && !watchlistData.length && (
@@ -5790,8 +5837,6 @@ export default function App() {
             setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab}
           />
         )}
-
-      </div>
 
       {/* Deep Dive */}
         {activeTab === "macro" && (
@@ -6326,7 +6371,11 @@ export default function App() {
         />
       )}
 
-
+      </div>
+      {/* Floating overlays — deliberately OUTSIDE the width-constrained
+          content wrapper above, same as IstighfarWidget/TradingCopilot/
+          RealityCheckWidget: these are viewport-relative fixed overlays,
+          not page content, so they shouldn't inherit the sidebar offset. */}
       <FloatingChecklistButton C={C} checklistItems={checklistItems} setActiveTab={setActiveTab} />
 
       <TiltDetectorOverlay C={C} MONO={MONO} SANS={SANS} tiltLocked={tiltLocked} tiltUnlockAt={tiltUnlockAt} setActiveTab={setActiveTab} setTiltLocked={setTiltLocked} setTiltUnlockAt={setTiltUnlockAt} />

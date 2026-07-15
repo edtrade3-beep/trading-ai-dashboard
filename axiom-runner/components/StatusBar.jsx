@@ -8,7 +8,7 @@ import { useState, useEffect } from "react";
 // page content.
 export const STATUS_BAR_H = 40;
 
-export default function StatusBar({ C, MONO, sidebarWidth, isMobile }) {
+export default function StatusBar({ C, MONO, sidebarWidth, isMobile, rootRef }) {
   const [health, setHealth] = useState(null);
   const [latencyMs, setLatencyMs] = useState(null);
   const [state, setState] = useState("loading"); // loading | ok | error
@@ -33,7 +33,7 @@ export default function StatusBar({ C, MONO, sidebarWidth, isMobile }) {
   );
 
   return (
-    <div style={{
+    <div ref={rootRef} style={{
       position: "fixed", bottom: 0, left: !isMobile ? sidebarWidth : 0, right: 0, height: STATUS_BAR_H,
       background: C.surface, borderTop: `1px solid ${C.border}`, zIndex: 38,
       display: "flex", alignItems: "center", gap: 16, padding: "0 16px",
