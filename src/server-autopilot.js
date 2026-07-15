@@ -9,7 +9,7 @@ const { appendJournal } = require("./autopilot-journal");
 const { isOn } = require("./utils");
 const {
   isMarketHoursET, checkAccountHealth, dailyLossBreakerTripped,
-  openRiskPct, sectorCapExceeded, sizePositionByRisk,
+  openRiskPct, sectorCapExceeded, sizePositionByRisk, sectorOf,
 } = require("./risk-guardrails");
 
 // Curated liquid market leaders — the kind of names the Trend Template works best
@@ -126,8 +126,13 @@ async function runServerAutopilot() {
       slots--; placed++; availCash -= qty * entry;
       heldPositions.push({ symbol: r.symbol, qty, avgEntryPrice: entry });
       // Journal the setup tags so we can later see which setups actually win.
+      // sector: added for AI-Memory-style pattern mining (journal-analytics.js)
+      // — "which sector do I actually trade well" was previously uncomputed
+      // anywhere in the app despite sectorOf() already existing for the
+      // sector-cap guardrail above.
       appendJournal({ ts: Date.now(), symbol: r.symbol, tier: r.tier, side: "long", qty,
-        entry, stop, target, passCount: r.passCount, rsRating: r.rsRating || null, source: "server" });
+        entry, stop, target, passCount: r.passCount, rsRating: r.rsRating || null, source: "server",
+        sector: sectorOf(r.symbol) });
       if (isConfigured()) sendTelegramMessage(
         `🤖 SERVER AUTOPILOT — BUY ${r.symbol} (Tier ${r.tier})\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${target}\n(no browser needed · ${riskFrac.toFixed(2)}% risk)`
       ).catch(() => {});

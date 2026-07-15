@@ -6,6 +6,7 @@ const { callAnthropicApi, MODELS } = require("./anthropic");
 const { sendTelegramMessage, isConfigured } = require("./telegram");
 const { PORT } = require("./config");
 const { tierStatsLine } = require("./autopilot-journal");
+const { patternSummaryLine } = require("./journal-analytics");
 // Shared "informational" daily budget — a safety net against a scheduling
 // bug flooding Telegram, not a throttle on normal once-a-day operation. See
 // the comment above shouldSendAlert() in telegram-bot.js for why these
@@ -70,10 +71,13 @@ async function runWeeklyReview() {
   const SYSTEM = `You are a seasoned trading coach reviewing a full WEEK of a trader's closed trades. Find the ONE recurring pattern that's costing them the most, and one concrete change for next week. Be specific and honest — no generic advice. Max 110 words. Format:\nWEEK: one-line verdict.\n#1 MISTAKE: the single most costly recurring pattern, with evidence from the trades.\nNEXT WEEK: one concrete rule to fix it.`;
   const rows = week.map(t => `${t.symbol} ${t.side || "long"}: $${t.entry}→$${t.exit}, P&L $${Math.round(t.pnl)}`).join("\n");
   const stats = `${week.length} trades · ${winRate}% win · net $${Math.round(net)} · avg win $${Math.round(avgWin)} · avg loss $${Math.round(avgLoss)}`;
-  const review = await callAnthropicApi(`This week's stats: ${stats}\n\nClosed trades:\n${rows}\n\nWhat's my #1 recurring mistake?`, KEY(), { model: MODELS.fable, maxTokens: 500, system: SYSTEM, cache: true, timeout: 120000 }).catch(() => "");
+  const patterns = patternSummaryLine(week);
+  const patternPrompt = patterns ? `\n\nKnown patterns so far:\n${patterns}` : "";
+  const review = await callAnthropicApi(`This week's stats: ${stats}\n\nClosed trades:\n${rows}${patternPrompt}\n\nWhat's my #1 recurring mistake?`, KEY(), { model: MODELS.fable, maxTokens: 500, system: SYSTEM, cache: true, timeout: 120000 }).catch(() => "");
   const tiers = tierStatsLine(week);
   const tierBlock = tiers ? `\n\nBY SETUP:\n${tiers}` : "";
-  if (review && shouldSendAlert({ category: "ai-coach" })) sendTelegramMessage(`📅 *WEEKLY REVIEW*\n${stats}${tierBlock}\n\n${review.trim()}`).catch(() => {});
+  const patternBlock = patterns ? `\n\nPATTERNS:\n${patterns}` : "";
+  if (review && shouldSendAlert({ category: "ai-coach" })) sendTelegramMessage(`📅 *WEEKLY REVIEW*\n${stats}${tierBlock}${patternBlock}\n\n${review.trim()}`).catch(() => {});
 }
 
 // ── Monthly Deep Review — 1st of month, Fable judges whether the edge is real. ──
@@ -89,11 +93,12 @@ async function runMonthlyDeepReview() {
   const pf = gl > 0 ? (gp / gl) : (gp > 0 ? 99 : 0);
   const stats = `${trades.length} trades · ${Math.round(wins.length / trades.length * 100)}% win · net $${Math.round(net)} · profit factor ${pf.toFixed(2)}`;
   const tiers = tierStatsLine(trades);
+  const patterns = patternSummaryLine(trades);
   const SYSTEM = `You are a hedge-fund risk manager doing a rigorous, skeptical monthly review of an automated PAPER trading strategy. Be brutally honest — most retail strategies have no edge. Assess: (1) is the edge statistically real yet or is the sample too small? (2) which setup tier/type is carrying or dragging the results? (3) 2-3 concrete parameter changes to test next month. Do not be encouraging for its own sake. Max 220 words. End with a one-line verdict: KEEP / TUNE / STOP.`;
   const rows = trades.map(t => `${t.symbol} ${t.side || "long"}: $${t.entry}→$${t.exit}, P&L $${Math.round(t.pnl)}`).join("\n");
-  const prompt = `Track record: ${stats}\n${tiers ? `By setup tier:\n${tiers}\n` : ""}\nTrades:\n${rows}\n\nIs the edge real? Verdict + what to change.`;
+  const prompt = `Track record: ${stats}\n${tiers ? `By setup tier:\n${tiers}\n` : ""}${patterns ? `Behavioral patterns:\n${patterns}\n` : ""}\nTrades:\n${rows}\n\nIs the edge real? Verdict + what to change.`;
   const review = await callAnthropicApi(prompt, KEY(), { model: MODELS.fable, maxTokens: 600, system: SYSTEM, cache: true, timeout: 150000 }).catch(() => "");
-  if (review && shouldSendAlert({ category: "ai-coach" })) sendTelegramMessage(`🔬 *MONTHLY DEEP REVIEW* — Fable\n${stats}${tiers ? `\n\n${tiers}` : ""}\n\n${review.trim()}`).catch(() => {});
+  if (review && shouldSendAlert({ category: "ai-coach" })) sendTelegramMessage(`🔬 *MONTHLY DEEP REVIEW* — Fable\n${stats}${tiers ? `\n\n${tiers}` : ""}${patterns ? `\n\n${patterns}` : ""}\n\n${review.trim()}`).catch(() => {});
 }
 
 // ── APEX AI — automatic morning CIO briefing → Telegram (weekdays ~9:15 AM ET) ──
