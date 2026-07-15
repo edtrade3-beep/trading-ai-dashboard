@@ -62,7 +62,8 @@ export default function CeoAiCard({ C, MONO, SANS }) {
       {state === "empty" && (
         <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, lineHeight: 1.6 }}>
           Not run yet today. Click <b style={{ color: C.text }}>Generate</b> — it reads what Scanner AI, Portfolio Risk, Macro AI, and
-          Journal AI have already found and gives you one final call, not another report.
+          Journal AI have already found and thinks like a CIO about it: what the crowd's likely missing, what the silence
+          in a report actually means, and whether there's an asymmetric setup nobody flagged individually.
         </div>
       )}
       {state === "ok" && brief && (
@@ -88,6 +89,13 @@ export default function CeoAiCard({ C, MONO, SANS }) {
               <div style={{ fontFamily: SANS, fontSize: 13.5, color: C.text, lineHeight: 1.55 }}>{brief.biggestRisk}</div>
             </div>
           </div>
+
+          {brief.contrarianTake && (
+            <div style={{ padding: "10px 14px", background: `${C.purple}14`, borderRadius: 8, border: `1px dashed ${C.purple}66`, marginBottom: 12 }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.purple, letterSpacing: "0.06em", marginBottom: 4 }}>🔭 CONTRARIAN TAKE</div>
+              <div style={{ fontFamily: SANS, fontSize: 13.5, color: C.text, lineHeight: 1.55, fontStyle: "italic" }}>{brief.contrarianTake}</div>
+            </div>
+          )}
 
           {Array.isArray(brief.departmentReadout) && brief.departmentReadout.length > 0 && (
             <div style={{ marginBottom: 12 }}>
