@@ -55,6 +55,7 @@ const { startCOTScheduler }  = require("./src/cot/scheduler");
 const { startPreMarketAlerts } = require("./src/premarket-alerts");
 const { runMarketRecap }       = require("./src/market-recap");
 const { runMorningGamePlan, runTradeCoach, runWeeklyReview, runMonthlyDeepReview, runApexBriefing } = require("./src/ai-coach");
+const { runCeoRecommendation } = require("./src/ceo-ai");
 const { runAutopilotRecap } = require("./src/alpaca-recap");
 const { runServerAutopilot } = require("./src/server-autopilot");
 const { runTrailingStops } = require("./src/trailing-stops");
@@ -152,13 +153,18 @@ server.listen(PORT, HOST, () => {
 
   // AI Morning Game Plan (~9:40 AM ET) + AI Trade Coach (~4:15 PM ET) — weekdays, server-side.
   // Autopilot recap (~4:05 PM ET) — what the Alpaca paper autopilot did today.
-  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null;
+  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null;
   setInterval(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
     const today = `${et.getFullYear()}-${et.getMonth()}-${et.getDate()}`;
     if (day < 1 || day > 5) return;
     if (h === 9 && m >= 15 && m < 21 && _apexSent !== today) { _apexSent = today; runApexBriefing().catch(() => {}); }
+    // CEO AI — 9:25 ET, after the Morning Brief (9:15) has had time to finish
+    // and persist, so the CEO's synthesis can read that morning's actual
+    // report. Explicitly requested by the user 2026-07-15 after an earlier
+    // attempt to add this same schedule was blocked pending that sign-off.
+    if (h === 9 && m >= 25 && m < 31 && _ceoSent !== today) { _ceoSent = today; runCeoRecommendation().catch(() => {}); }
     if (h === 9 && m >= 40 && m < 46 && _gpSent !== today) { _gpSent = today; runMorningGamePlan().catch(() => {}); }
     if (h === 16 && m >= 5 && m < 11 && _recapAP !== today) { _recapAP = today; runAutopilotRecap().catch(() => {}); }
     if (h === 16 && m >= 15 && m < 21 && _coachSent !== today) { _coachSent = today; runTradeCoach().catch(() => {}); }
@@ -170,7 +176,7 @@ server.listen(PORT, HOST, () => {
     if (h === 16 && m >= 20 && m < 26 && _mrvPaper !== today) { _mrvPaper = today; runMeanrevPaper().catch(() => {}); }
     if (day === 5 && h === 16 && m >= 25 && m < 31 && _mrvSummary !== today) { _mrvSummary = today; sendMeanrevSummary().catch(() => {}); }
   }, 60_000);
-  console.log("[AI] Game plan 9:40 · autopilot recap 4:05 · trade coach 4:15 PM — weekdays only");
+  console.log("[AI] CEO AI 9:25 · Game plan 9:40 · autopilot recap 4:05 · trade coach 4:15 PM — weekdays only");
 
   // CarGurus lead auto-reply — poll Gmail every 3 min (only if GMAIL_USER/APP_PASSWORD set).
   if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
