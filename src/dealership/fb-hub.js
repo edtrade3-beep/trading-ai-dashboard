@@ -96,6 +96,31 @@ function matchAutoReply(text, rules) {
 // ── AI Smart Reply ────────────────────────────────────────────────────────────
 function readJsonFile(file, fb) { return readJsonSafe(file, fb); }
 
+// Picks which vehicles go into the AI's context window. With inventory now past 500
+// items, a blind "first 30" misses anything the customer specifically asks about
+// (e.g. a vehicle added later ends up last in the array and is never seen). Instead:
+// vehicles whose year/make/model/trim word appears in the customer's message are
+// always included, then the remainder is filled with the most recently listed cars.
+function fmtVehicleLine(v) {
+  const priceStr = v.price > 0 ? `$${v.price}` : (v.askingPrice > 0 ? `$${v.askingPrice}` : "call for price");
+  return `${v.year || ""} ${v.make || ""} ${v.model || ""}${v.trim ? ` ${v.trim}` : ""} — ${priceStr}${v.mileage ? ` · ${v.mileage}mi` : ""}${v.vin ? ` · VIN ${String(v.vin).slice(-6)}` : ""}`;
+}
+
+function buildInventorySummary(inv, customerMsg, limit = 30) {
+  if (!Array.isArray(inv) || !inv.length) return "No inventory loaded yet.";
+
+  const msg = (customerMsg || "").toLowerCase();
+  const matched = [];
+  const rest = [];
+  for (const v of inv) {
+    const words = [v.year, v.make, v.model, v.trim].filter(Boolean).map(String).flatMap(s => s.toLowerCase().split(/\s+/));
+    const isMatch = words.some(w => w.length > 2 && msg.includes(w));
+    (isMatch ? matched : rest).push(v);
+  }
+  const picked = matched.concat(rest).slice(0, Math.max(limit, matched.length));
+  return picked.map(fmtVehicleLine).join("\n");
+}
+
 async function generateAiReply(customerMsg, conversationHistory) {
   const apiKey = (process.env.ANTHROPIC_API_KEY || "").trim();
   if (!apiKey) return null;
@@ -110,9 +135,7 @@ async function generateAiReply(customerMsg, conversationHistory) {
 
   // Inventory context (so AI can answer about real cars)
   const inv = readJsonFile(INV_FILE, []);
-  const invSummary = Array.isArray(inv) && inv.length
-    ? inv.slice(0, 30).map(v => `${v.year || ""} ${v.make || ""} ${v.model || ""} — $${v.price || v.askingPrice || "?"}${v.mileage ? ` · ${v.mileage}mi` : ""}${v.vin ? ` · VIN ${String(v.vin).slice(-6)}` : ""}`).join("\n")
-    : "No inventory loaded yet.";
+  const invSummary = buildInventorySummary(inv, customerMsg);
 
   // Recent conversation for context
   const history = (conversationHistory || []).slice(-6).map(m => `${m.from === "customer" ? "Customer" : "You"}: ${m.text}`).join("\n");
@@ -189,9 +212,7 @@ async function draftDealerReply(customerMsg, history) {
   const apiKey = (process.env.ANTHROPIC_API_KEY || "").trim();
   const cfg = readJsonFile(AI_CFG_FILE, {});
   const inv = readJsonFile(INV_FILE, []);
-  const invSummary = Array.isArray(inv) && inv.length
-    ? inv.slice(0, 30).map(v => `${v.year||""} ${v.make||""} ${v.model||""} — $${v.price||v.askingPrice||"?"}${v.mileage?` · ${v.mileage}mi`:""}`).join("\n")
-    : "No inventory loaded.";
+  const invSummary = buildInventorySummary(inv, customerMsg);
   const hist = (history || []).slice(-6).map(m => `${m.from === "customer" ? "Customer" : "Me"}: ${m.text}`).join("\n");
 
   // Smart rule-based replies — NO AI KEY NEEDED. Language-aware, follows all rules.
