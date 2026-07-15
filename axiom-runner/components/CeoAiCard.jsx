@@ -67,8 +67,18 @@ export default function CeoAiCard({ C, MONO, SANS }) {
       )}
       {state === "ok" && brief && (
         <div>
-          <div style={{ fontFamily: SANS, fontSize: 20, fontWeight: 800, color: C.text, marginBottom: 14, lineHeight: 1.35 }}>{brief.verdict}</div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 14 }}>
+            <div style={{ fontFamily: SANS, fontSize: 20, fontWeight: 800, color: C.text, lineHeight: 1.35, flex: 1 }}>{brief.verdict}</div>
+            {brief.confidence && (
+              <span style={{
+                fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.05em", padding: "4px 9px", borderRadius: 12, flexShrink: 0, marginTop: 3,
+                color: brief.confidence === "HIGH" ? C.green : brief.confidence === "LOW" ? C.textDim : C.amber,
+                background: brief.confidence === "HIGH" ? `${C.green}22` : brief.confidence === "LOW" ? C.surface : `${C.amber}22`,
+              }}>{brief.confidence} CONF.</span>
+            )}
+          </div>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
             <div style={{ flex: "1 1 260px", padding: "10px 14px", background: C.surface, borderRadius: 8, borderLeft: `3px solid ${C.green}` }}>
               <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, letterSpacing: "0.06em", marginBottom: 4 }}>🎯 TOP ACTION</div>
               <div style={{ fontFamily: SANS, fontSize: 13.5, color: C.text, lineHeight: 1.55 }}>{brief.topAction}</div>
@@ -78,7 +88,22 @@ export default function CeoAiCard({ C, MONO, SANS }) {
               <div style={{ fontFamily: SANS, fontSize: 13.5, color: C.text, lineHeight: 1.55 }}>{brief.biggestRisk}</div>
             </div>
           </div>
-          {brief.reasoning && <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 12, lineHeight: 1.6, fontStyle: "italic" }}>{brief.reasoning}</div>}
+
+          {Array.isArray(brief.departmentReadout) && brief.departmentReadout.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em", marginBottom: 6 }}>DEPARTMENT READOUT</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                {brief.departmentReadout.map((d, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, fontSize: 12.5, lineHeight: 1.5 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent, minWidth: 150, flexShrink: 0 }}>{d.department}</span>
+                    <span style={{ fontFamily: SANS, color: C.textSec }}>{d.note}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {brief.reasoning && <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 4, lineHeight: 1.6, fontStyle: "italic", borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>{brief.reasoning}</div>}
         </div>
       )}
     </div>

@@ -9,10 +9,11 @@
 //
 // Cost discipline: every input below is either free (real data, no AI call)
 // or already-persisted AI output (generated once, reused here for free).
-// This adds exactly one new Haiku call/day — smart-money-brief is
-// deliberately NOT pulled in here since it's a paid, manually-triggered
-// endpoint; auto-invoking it inside a daily cron would spend money the user
-// didn't ask for.
+// This adds exactly one new Sonnet call/day (upgraded from Haiku — this is
+// the single most important output in the app, worth the better reasoning).
+// smart-money-brief is deliberately NOT pulled in here since it's a paid,
+// manually-triggered endpoint; auto-invoking it inside a daily cron would
+// spend money the user didn't ask for.
 const { callAnthropicApi, MODELS } = require("./anthropic");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
 const { shouldSendAlert } = require("./telegram-bot");
@@ -70,13 +71,13 @@ async function buildCeoRecommendation() {
     gamePlan ? `TODAY'S GAME PLAN: ${gamePlan}` : null,
   ].filter(Boolean).join("\n\n");
 
-  const SYSTEM = `You are the CEO AI of a small trading desk. You don't analyze raw market data yourself — that's your department heads' job, and their reports are below. Your only job is to synthesize THEIR findings into one final executive call. If two departments disagree, say so and explain which one you're weighting more and why. If the departments collectively don't support a clear action, say WAIT — do not manufacture a false sense of certainty. Return JSON ONLY in exactly this shape, no text outside the JSON:
-{"verdict":"one line, the overall stance","topAction":"the single highest-conviction action right now, with reasoning, or a clear WAIT with why","biggestRisk":"the one thing most likely to hurt you today, one sentence","reasoning":"2-3 sentences tying the department reports together into why you reached this call"}`;
-  const prompt = `Today's department reports:\n\n${departmentReports}\n\nGive your final call.`;
+  const SYSTEM = `You are the CEO AI of a small trading desk, delivering the daily executive briefing. You don't analyze raw market data yourself — that's your department heads' job, and their reports are below. Your job is to read EVERY department report closely, show your work, and synthesize their findings into one detailed final call. Be specific — reference actual numbers, tickers, and levels from the reports, don't speak in generalities. If two departments disagree, say so explicitly and explain which one you're weighting more and why. If the departments collectively don't support a clear action, say WAIT and explain exactly what would need to change for that to flip — do not manufacture a false sense of certainty. Return JSON ONLY in exactly this shape, no text outside the JSON:
+{"verdict":"one punchy headline line — the overall stance","confidence":"HIGH, MEDIUM, or LOW","topAction":"3-5 sentences: the specific action (or explicit WAIT), the concrete reasoning behind it referencing real data from the reports, and what specific change would alter this call","biggestRisk":"2-4 sentences: the single biggest risk, how it could realistically play out today, and one early-warning sign worth watching for it","departmentReadout":[{"department":"Scanner AI","note":"one sentence on what it found and whether it matters right now"},{"department":"Risk Manager AI","note":"one sentence"},{"department":"Macro AI","note":"one sentence"},{"department":"Market Intelligence AI","note":"one sentence"},{"department":"Journal AI","note":"one sentence"}],"reasoning":"4-6 sentences tying every department together into the final call — explicitly name any disagreement between departments and how you resolved it, and be honest about which departments had nothing useful to say today"}`;
+  const prompt = `Today's department reports:\n\n${departmentReports}\n\nGive your detailed final call.`;
 
   let recommendation;
   try {
-    const raw = await callAnthropicApi(prompt, KEY(), { model: MODELS.haiku, maxTokens: 500, system: SYSTEM, cache: true });
+    const raw = await callAnthropicApi(prompt, KEY(), { model: MODELS.sonnet, maxTokens: 1200, system: SYSTEM, cache: true });
     const m = (raw || "").match(/\{[\s\S]*\}/);
     recommendation = JSON.parse(m ? m[0] : raw);
   } catch {
@@ -93,7 +94,8 @@ async function runCeoRecommendation() {
   const built = await buildCeoRecommendation();
   if (!built) return;
   if (!telegramConfigured() || !shouldSendAlert({ category: "ai-coach" })) return;
-  const msg = `👔 *CEO AI — TODAY'S CALL*\n\n${built.verdict}\n\n🎯 *Top action:* ${built.topAction}\n⚠️ *Watch:* ${built.biggestRisk}`;
+  const confidence = built.confidence ? ` (${built.confidence} confidence)` : "";
+  const msg = `👔 *CEO AI — TODAY'S CALL*${confidence}\n\n${built.verdict}\n\n🎯 *Top action:* ${built.topAction}\n\n⚠️ *Biggest risk:* ${built.biggestRisk}`;
   sendTelegramMessage(msg).catch(() => {});
 }
 
