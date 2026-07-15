@@ -20,6 +20,7 @@ import AiMorningBriefCard from "./AiMorningBriefCard.jsx";
 import PortfolioRiskCard from "./PortfolioRiskCard.jsx";
 import OpportunityQueueCard from "./OpportunityQueueCard.jsx";
 import AskAiBar from "./AskAiBar.jsx";
+import MarketIntelCard from "./MarketIntelCard.jsx";
 
 // ── Shared card shell for the new 3-row grid ──────────────────────────────
 function Card({ C, title, children, style }) {
@@ -219,7 +220,7 @@ function CopilotInsightsCard({ C, MONO, SANS, macroData, watchlistData, setActiv
 
 export default function DashboardTab({
   C, MONO, SANS, watchlistData, macroData, distData, fearGreedData, sigData, sigFilter,
-  newsSentiment, socialSentiment, flowBias, eventCountdowns, preMktMovers, combinedAlerts,
+  newsSentiment, socialSentiment, flowBias, flowCallNotional, flowPutNotional, eventCountdowns, preMktMovers, combinedAlerts,
   tiltEnabled, tiltLocked, tiltStreak,
   setTerminalSymbol, setScanResults, setActiveTab, setScanExpanded, loadDeepDive, loadDeepSocial,
   setTiltLocked, setSigLoading, setSigData, fetchFearGreed, setDistData, setFuturesData, setPreMktMovers,
@@ -311,6 +312,9 @@ export default function DashboardTab({
           <Card C={C} title="MARKET NEWS" style={{ height: "100%" }}>
             <RegimeNewsPanel C={C} MONO={MONO} SANS={SANS} />
           </Card>
+        </div>
+        <div style={{ flex: 1, minWidth: 260 }}>
+          <MarketIntelCard C={C} MONO={MONO} SANS={SANS} flowBias={flowBias} flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional} setActiveTab={setActiveTab} />
         </div>
       </div>
 

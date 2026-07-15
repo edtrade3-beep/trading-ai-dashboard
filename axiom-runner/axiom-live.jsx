@@ -3748,6 +3748,7 @@ export default function App() {
       SECTORS: "sectors",
       BREADTH: "breadth",
       COT: "cot",
+      SMBRIEF: "sm-brief",
       DEALS: "deals",
       DIPBUY: "dipbuy",
       TELEGRAM: "telegram",
@@ -5674,7 +5675,8 @@ export default function App() {
             C={C} MONO={MONO} SANS={SANS}
             watchlistData={watchlistData} macroData={macroData} distData={distData} fearGreedData={fearGreedData}
             sigData={sigData} sigFilter={sigFilter} newsSentiment={newsSentiment} socialSentiment={socialSentiment}
-            flowBias={flowBias} eventCountdowns={eventCountdowns} preMktMovers={preMktMovers} combinedAlerts={combinedAlerts}
+            flowBias={flowBias} flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional}
+            eventCountdowns={eventCountdowns} preMktMovers={preMktMovers} combinedAlerts={combinedAlerts}
             tiltEnabled={tiltEnabled} tiltLocked={tiltLocked} tiltStreak={tiltStreak}
             setTerminalSymbol={setTerminalSymbol} setScanResults={setScanResults} setActiveTab={setActiveTab}
             setScanExpanded={setScanExpanded} loadDeepDive={loadDeepDive} loadDeepSocial={loadDeepSocial}
