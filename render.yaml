@@ -9,12 +9,14 @@ services:
     startCommand: "npm start"
     healthCheckPath: /api/health
     autoDeploy: true
-    # Manually attached in the Render dashboard (Blueprint sync alone didn't
-    # provision it) — kept here so future syncs stay consistent with reality.
-    disk:
-      name: dealer-data
-      mountPath: /opt/render/project/src/data
-      sizeGB: 1
+    # The dealer-data disk is intentionally NOT declared here. Blueprint sync
+    # never actually provisioned it (showed "attached" but was 0 bytes/not
+    # attached) — it had to be added manually in the dashboard instead. With
+    # it declared here too, every git-push-triggered Blueprint sync appeared
+    # to fight with the manually-managed disk and reset it before the next
+    # boot, wiping dealer data on every routine deploy. Manage the disk only
+    # through the dashboard from now on: Settings -> Disks, name
+    # "dealer-data", mount path /opt/render/project/src/data, size 1GB.
     envVars:
       - key: NODE_VERSION
         value: 20
