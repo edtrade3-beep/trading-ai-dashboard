@@ -100,6 +100,7 @@ import DashboardTab from "./components/DashboardTab.jsx";
 import SmartScanTab from "./components/SmartScanTab.jsx";
 import JournalTab from "./components/JournalTab.jsx";
 import QuotesTab from "./components/QuotesTab.jsx";
+import AiWatchlistSuggestions from "./components/AiWatchlistSuggestions.jsx";
 import PortfolioTab from "./components/PortfolioTab.jsx";
 import FivexTab from "./components/FivexTab.jsx";
 import JournalStatsTab from "./components/JournalStatsTab.jsx";
@@ -3882,8 +3883,39 @@ export default function App() {
       return;
     }
 
+    // Dedicated Command Center intents — routed before the generic AI
+    // fallback so these read as "the app understood me" rather than a
+    // generic chat guess. Each reuses an existing endpoint/tab; none of
+    // these add new AI infrastructure.
+    if (/^REVIEW\s+(MY\s+)?PORTFOLIO/.test(normalized)) {
+      window.dispatchEvent(new CustomEvent("open-ai-copilot", { detail: { query: "Review my current portfolio and flag any risk issues." } }));
+      return;
+    }
+    const compareMatch = normalized.match(/^COMPARE\s+([A-Z.\-]{1,10})\s+(?:VS\.?|AND)\s+([A-Z.\-]{1,10})/);
+    if (compareMatch) {
+      window.dispatchEvent(new CustomEvent("open-ai-copilot", { detail: { query: `Compare ${compareMatch[1]} vs ${compareMatch[2]} for a swing trade — which is the stronger setup right now and why?` } }));
+      return;
+    }
+    if (/^(BUILD\s+)?(A\s+)?TRADING?\s*PLAN/.test(normalized)) {
+      // Deliberately NOT routed to the LLM — TradePlannerTab's deterministic
+      // scoring is explicitly out of scope to touch (standing instruction to
+      // leave trade scoring alone).
+      setActiveTab("tradeplanner");
+      return;
+    }
+    if (/^FIND\s+BREAKOUTS?/.test(normalized)) {
+      setActiveTab("scanner");
+      window.dispatchEvent(new CustomEvent("open-ai-copilot", { detail: { query: "What are the strongest breakout setups right now?" } }));
+      return;
+    }
+    const scanMatch = normalized.match(/^SCAN\s+(.+?)\s+STOCKS?/);
+    if (scanMatch) {
+      window.dispatchEvent(new CustomEvent("open-ai-copilot", { detail: { query: `What are the best ${scanMatch[1].toLowerCase()} stock setups today?` } }));
+      return;
+    }
+
     window.dispatchEvent(new CustomEvent("open-ai-copilot", { detail: { query: raw.trim() } }));
-  }, [watchlistSymbols, setWatchlistSymbols, setWatchlistInput, setTerminalLayout, watchlistData, macroData]);
+  }, [watchlistSymbols, setWatchlistSymbols, setWatchlistInput, setTerminalLayout, watchlistData, macroData, setActiveTab]);
 
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -5699,6 +5731,9 @@ export default function App() {
         )}
 
         {activeTab === "quotes" && (
+          <>
+          <AiWatchlistSuggestions C={C} MONO={MONO} SANS={SANS}
+            watchlistSymbols={watchlistSymbols} setWatchlistSymbols={setWatchlistSymbols} setWatchlistInput={setWatchlistInput} />
           <QuotesTab
             C={C} MONO={MONO} SANS={SANS} isTablet={isTablet} apiKey={apiKey} settings={settings}
             marketSession={marketSession}
@@ -5724,6 +5759,7 @@ export default function App() {
             fetchAll={fetchAll} openTradingView={openTradingView} loadDeepDive={loadDeepDive}
             loadDeepSocial={loadDeepSocial}
           />
+          </>
         )}
 
 
