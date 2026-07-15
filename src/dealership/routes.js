@@ -2,6 +2,7 @@ const { writeJson, fetchJsonSafe, withTimeout, readRequestBody, readRequestBodyB
 const { callAnthropicApi, callAnthropicWithSearch, anthropicRequest, MODELS } = require("../anthropic");
 const { ANTHROPIC_API_KEY } = require("../config");
 const { getKey, setKey } = require("../runtime-keys");
+const { sendTelegramMessage, isConfigured: telegramConfigured } = require("../telegram");
 
 // Resolve the Anthropic key from runtime override → env → config (lets the UI set it).
 const anthropicKey = () => getKey("ANTHROPIC_API_KEY", ANTHROPIC_API_KEY);
@@ -447,6 +448,22 @@ async function handleDealership(req, res, requestUrl) {
     });
     const handled = await handleFbHub(req, res, pathname, searchParams, body || "{}");
     if (handled !== null) return;
+  }
+
+  // Marketplace Posting Assistant — fires once a listing has everything
+  // (title/description, photos, price) ready, so the dealer knows to go
+  // post it without watching the app. Same shouldSendAlert-less pattern
+  // as fb-hub.js's own notifyLead(): silently no-ops if Telegram isn't
+  // configured, never errors the request over a missing integration.
+  if (pathname === "/api/dealer/notify-ready" && req.method === "POST") {
+    let body = "";
+    for await (const c of req) body += c;
+    let payload; try { payload = JSON.parse(body || "{}"); } catch { payload = {}; }
+    const vehicleLabel = String(payload.vehicle || "Vehicle").trim();
+    if (telegramConfigured()) {
+      sendTelegramMessage(`🚀 *LISTING READY TO POST*\n\n${vehicleLabel}\n\nTitle, description, photos, and price are all set — open DIXIE and post it to Marketplace.`).catch(() => {});
+    }
+    return writeJson(res, 200, { ok: true });
   }
 
   if (pathname === "/api/dealer/vin-decode") {

@@ -286,6 +286,39 @@
     <div id="photoResult"></div>
   </div>
 
+  <div class="tab" id="t-post">
+    <div class="card">
+      <h2>🚀 Post to Marketplace</h2>
+      <div class="muted" style="font-size:13px;margin-bottom:12px">Everything you need to post the vehicle loaded in Workspace, in one place. This does not post for you — Facebook's own posting flow, security, and CAPTCHAs are never bypassed. Copy each piece into Marketplace's own listing form yourself, then mark it posted here.</div>
+      <div id="postChecklist"></div>
+    </div>
+    <div class="card" id="postContentCard" style="display:none">
+      <h2>Listing Content</h2>
+      <div style="margin-bottom:14px">
+        <label>Title</label>
+        <div class="out" id="post_title" style="min-height:auto;padding:10px 12px"></div>
+        <div class="row" style="margin-top:6px"><button class="btn ghost sm" onclick="copyText('post_title')">Copy Title</button></div>
+      </div>
+      <div style="margin-bottom:14px">
+        <label>Description</label>
+        <div class="out" id="post_desc"></div>
+        <div class="row" style="margin-top:6px"><button class="btn ghost sm" onclick="copyText('post_desc')">Copy Description</button></div>
+      </div>
+      <div class="grid g3">
+        <div><label>Price</label><div class="out" id="post_price" style="min-height:auto;padding:10px 12px"></div></div>
+        <div><label>Mileage</label><div class="out" id="post_mileage" style="min-height:auto;padding:10px 12px"></div></div>
+        <div><label>Photos</label><div class="out" id="post_photos" style="min-height:auto;padding:10px 12px"></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row">
+        <a class="btn ghost" href="https://www.facebook.com/marketplace/create/vehicle" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block">Open Facebook Marketplace →</a>
+        <button class="btn" onclick="setPostStatus('ready')">Mark Ready</button>
+        <button class="btn success" onclick="setPostStatus('posted')">✓ Mark as Posted</button>
+      </div>
+    </div>
+  </div>
+
   <div class="tab" id="t-print">
     <div class="card noprint">
       <h2>🖨 Print Center</h2>
@@ -353,7 +386,7 @@
 "use strict";
 var TABS = [
   ["workspace","🚗 Workspace"],["import","📥 Bulk Import"],["profit","💵 Profit"],
-  ["ad","📣 FB Ad"],["desc","📦 Package"],["photos","📷 Photos"],
+  ["ad","📣 FB Ad"],["desc","📦 Package"],["photos","📷 Photos"],["post","🚀 Post"],
   ["print","🖨 Print"],["dash","📈 Dashboard"],["report","📊 Market Report"]
 ];
 var INV_COLS = [["stock","Stock#"],["vin","VIN"],["year","Year"],["make","Make"],["model","Model"],["trim","Trim"],["mileage","Mileage"],["cost","Cost"],["price","Price"],["profit","Profit"]];
@@ -413,6 +446,7 @@ function showTab(id){
   if(id==="profit") renderProfit();
   if(id==="ad") genAd();
   if(id==="dash") renderDash();
+  if(id==="post") renderPostAssistant();
   window.scrollTo(0,0);
 }
 
@@ -917,6 +951,12 @@ function genPackage(){
      var d=res.d;
      if(!res.ok || d.error){ $("pkgResult").innerHTML='<div class="card"><div class="muted">'+esc(d.error||"Generation failed")+'</div></div>'; return; }
      renderPackage(d.package);
+     // Kept on the in-memory workspace vehicle only (same convention this
+     // tab already used before this change) — the Posting Assistant reads
+     // it from here, not from the synced inventory array, since AI content
+     // like this can be sizable and every inventory save round-trips the
+     // whole array to the server.
+     vehicle.package=d.package; save(CUR_KEY,vehicle);
    })
    .catch(function(e){ $("pkgMsg").textContent="Generation failed: "+e.message; })
    .then(function(){ $("pkgBtn").disabled=false; });
@@ -982,6 +1022,7 @@ function reviewPhotos(){
      var d=res.d;
      if(!res.ok || d.error){ $("photoResult").innerHTML='<div class="card"><div class="muted">'+esc(d.error||"Photo review failed")+'</div></div>'; return; }
      renderPhotoReview(d);
+     vehicle.photoReview=d; save(CUR_KEY,vehicle);
      if(v.vin){
        var i=inventory.findIndex(function(x){ return x.vin && x.vin===v.vin; });
        if(i>=0){ inventory[i].photosOk=true; save(INV_KEY,inventory); syncInventoryToServer(); }
@@ -1020,6 +1061,54 @@ function copyText(id){
   else fallbackCopy(t);
 }
 function fallbackCopy(t){ var ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand("copy");toast("Copied!");}catch(e){} document.body.removeChild(ta); }
+
+// Marketplace Posting Assistant — consolidates what's already been
+// generated elsewhere (Package tab's AI description, Photos tab's
+// review, the price already on the vehicle) into one screen, with a
+// checklist and a Mark Ready/Mark as Posted flow. Never touches
+// Facebook itself — copy-and-paste + an "open Marketplace" convenience
+// link only, matching the compliance note on the FB Ad tab.
+function renderPostAssistant(){
+  var v=vehicle;
+  var hasVehicle=!!(v.vin || v.make);
+  var hasContent=!!(v.package && (v.package.websiteDescription || v.package.overview));
+  var hasPhotos=!!v.photoReview;
+  var hasPrice=num(v.price)>0;
+  var items=[
+    ["Vehicle loaded", hasVehicle, "workspace"],
+    ["Title &amp; description generated", hasContent, "desc"],
+    ["Photos reviewed", hasPhotos, "photos"],
+    ["Price set", hasPrice, "workspace"]
+  ];
+  $("postChecklist").innerHTML=items.map(function(it){
+    return '<div class="spec"><span class="k">'+(it[1]?"✅":"⬜")+" "+it[0]+'</span>'+(it[1]?"":'<span class="val"><button class="btn ghost sm" onclick="showTab(\''+it[2]+'\')">Go</button></span>')+"</div>";
+  }).join("");
+
+  $("postContentCard").style.display=hasVehicle?"":"none";
+  if(!hasVehicle) return;
+  var title=[v.year,v.make,v.model,v.trim].filter(Boolean).join(" ")||"[Vehicle]";
+  $("post_title").textContent=title;
+  $("post_desc").textContent = v.package ? (v.package.websiteDescription||v.package.overview||"") : "Generate a Package first (📦 Package tab) for an AI-written description — or write your own here.";
+  $("post_price").textContent = hasPrice ? money(v.price) : "—";
+  $("post_mileage").textContent = num(v.mileage)>0 ? num(v.mileage).toLocaleString()+" mi" : "—";
+  $("post_photos").textContent = hasPhotos ? ("Reviewed ✓"+(v.photoReview.suggestedOrder?" · order suggested":"")) : (photoQueue.length?photoQueue.length+" loaded, not reviewed yet":"None yet");
+
+  // Fire the "ready" Telegram alert once per vehicle when every checklist
+  // item is complete — guarded by _notifiedReady so re-visiting this tab
+  // doesn't resend it every time.
+  var allReady=hasVehicle && hasContent && hasPhotos && hasPrice;
+  if(allReady && v.vin && v._notifiedReady!==v.vin){
+    v._notifiedReady=v.vin; save(CUR_KEY,v);
+    fetch("/api/dealer/notify-ready",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({vehicle:title})}).catch(function(){});
+  }
+}
+function setPostStatus(status){
+  var v=vehicle;
+  if(!v.vin && !v.make){ toast("Load a vehicle first."); return; }
+  var i=inventory.findIndex(function(x){ return (v.vin && x.vin===v.vin) || (v.id && x.id===v.id); });
+  if(i<0){ toast("This vehicle isn't saved to inventory yet — save it in Workspace first."); return; }
+  setVehicleStatus(inventory[i].id, status);
+}
 
 function vehProfit(x){ return num(x.price)-num(x.cost); }
 function saveToInventory(){
