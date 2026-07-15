@@ -6,7 +6,8 @@ export default function AutoExecPanel({ C, MONO, SANS }) {
   const [saving,    setSaving]    = React.useState(false);
   const [loading,   setLoading]   = React.useState(true);
   const [error,     setError]     = React.useState(null);
-  const [tab,       setTab]       = React.useState("settings"); // settings | positions | orders
+  const [tab,       setTab]       = React.useState("settings"); // settings | pending | positions | orders
+  const [pending,   setPending]   = React.useState([]);
 
   const load = React.useCallback(async () => {
     setLoading(true); setError(null);
@@ -34,10 +35,19 @@ export default function AutoExecPanel({ C, MONO, SANS }) {
     } catch {}
   }, []);
 
-  React.useEffect(() => { load(); }, [load]);
+  const loadPending = React.useCallback(async () => {
+    try {
+      const r = await fetch("/api/autoexec/pending");
+      const d = await r.json();
+      if (d.pending) setPending(d.pending);
+    } catch {}
+  }, []);
+
+  React.useEffect(() => { load(); loadPending(); }, [load, loadPending]);
   React.useEffect(() => {
     if (tab === "positions") loadPositions();
     if (tab === "orders")    loadOrders();
+    if (tab === "pending")   loadPending();
   }, [tab]);
 
   const save = React.useCallback(async (patch) => {
@@ -59,6 +69,16 @@ export default function AutoExecPanel({ C, MONO, SANS }) {
     loadOrders();
   }, [loadOrders]);
 
+  const approvePending = React.useCallback(async (id) => {
+    await fetch(`/api/autoexec/pending/${id}/approve`, { method: "POST" });
+    loadPending();
+  }, [loadPending]);
+
+  const rejectPending = React.useCallback(async (id) => {
+    await fetch(`/api/autoexec/pending/${id}/reject`, { method: "POST" });
+    loadPending();
+  }, [loadPending]);
+
   const card  = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 18px", marginBottom: 12 };
   const label = { fontFamily: MONO, fontSize: 12, color: C.textDim, display: "block", marginBottom: 4 };
   const input = { background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, width: "100%", outline: "none", boxSizing: "border-box" };
@@ -79,12 +99,29 @@ export default function AutoExecPanel({ C, MONO, SANS }) {
             {cfg.brokerConfigured ? <span style={{ color: C.green }}>Tradier connected</span> : <span style={{ color: C.red }}>Tradier not configured</span>}
           </div>
         </div>
-        {/* Master toggle */}
-        <button
-          onClick={() => save({ enabled: !cfg.enabled })}
-          style={{ ...btn(cfg.enabled, cfg.enabled ? C.green : C.red), fontSize: 13, padding: "8px 20px" }}>
-          {cfg.enabled ? "● ACTIVE" : "○ DISABLED"}
-        </button>
+      </div>
+
+      {/* Mode selector — off / observer (log only) / assistant (approve each trade) /
+          autopilot (places orders automatically). Replaces the old on/off toggle now
+          that the auto-executor supports the AI-OS Execution modes. */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+        {[
+          { m: "off",       lbl: "○ OFF",       color: C.red },
+          { m: "observer",  lbl: "👁 OBSERVER",  color: C.textDim },
+          { m: "assistant", lbl: "🟡 ASSISTANT", color: C.amber },
+          { m: "autopilot", lbl: "● AUTOPILOT",  color: C.green },
+        ].map(({ m, lbl, color }) => (
+          <button key={m} onClick={() => save({ mode: m })}
+            style={{ ...btn(cfg.mode === m, color), flex: 1, fontSize: 12, padding: "8px 6px" }}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+      <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: -10, marginBottom: 16, lineHeight: 1.5 }}>
+        {cfg.mode === "off"       && "Auto-execute is off — no scoring, no orders, no notifications."}
+        {cfg.mode === "observer"  && "Runs the full scoring/guardrail pipeline and reports what it WOULD trade via Telegram — never places an order."}
+        {cfg.mode === "assistant" && "Proposes trades that pass every guardrail and waits for your approval below — never places an order on its own."}
+        {cfg.mode === "autopilot" && "Places qualifying trades automatically, exactly as before."}
       </div>
 
       {!cfg.brokerConfigured && (
@@ -98,12 +135,12 @@ export default function AutoExecPanel({ C, MONO, SANS }) {
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-        {["settings","positions","orders"].map(t => (
+        {["settings","pending","positions","orders"].map(t => (
           <button key={t} onClick={() => setTab(t)} style={btn(tab === t)}>
-            {t === "settings" ? "⚙️ SETTINGS" : t === "positions" ? "📊 POSITIONS" : "📋 ORDERS"}
+            {t === "settings" ? "⚙️ SETTINGS" : t === "pending" ? `🟡 PENDING${pending.length ? ` (${pending.length})` : ""}` : t === "positions" ? "📊 POSITIONS" : "📋 ORDERS"}
           </button>
         ))}
-        <button onClick={load} style={{ ...btn(false), marginLeft: "auto" }}>↻ REFRESH</button>
+        <button onClick={() => { load(); loadPending(); }} style={{ ...btn(false), marginLeft: "auto" }}>↻ REFRESH</button>
       </div>
 
       {/* ── SETTINGS TAB ── */}
@@ -175,6 +212,27 @@ export default function AutoExecPanel({ C, MONO, SANS }) {
           </div>
 
           {saving && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center", marginTop: 8 }}>Saving…</div>}
+        </div>
+      )}
+
+      {/* ── PENDING TAB (Assistant-mode proposals awaiting approval) ── */}
+      {tab === "pending" && (
+        <div style={card}>
+          {pending.length === 0
+            ? <div style={{ fontFamily: MONO, color: C.textDim, fontSize: 12, padding: 20, textAlign: "center" }}>No trades awaiting approval</div>
+            : pending.map(p => (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: `1px solid ${C.border}`, flexWrap: "wrap" }}>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: p.side === "buy" ? C.green : C.red }}>{p.side?.toUpperCase()}</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text }}>{p.symbol}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{p.qty} sh @ ~${p.price}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>score {p.score} · RVOL {p.rvol?.toFixed ? p.rvol.toFixed(1) : p.rvol}×</span>
+                <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                  <button onClick={() => approvePending(p.id)} style={{ ...btn(false, C.green), padding: "4px 10px", fontSize: 12 }}>APPROVE</button>
+                  <button onClick={() => rejectPending(p.id)} style={{ ...btn(false, C.red), padding: "4px 10px", fontSize: 12 }}>REJECT</button>
+                </div>
+              </div>
+            ))
+          }
         </div>
       )}
 

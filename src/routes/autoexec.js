@@ -7,12 +7,16 @@
  * GET  /api/autoexec/orders         — recent orders
  * POST /api/autoexec/order          — manual order (override)
  * DELETE /api/autoexec/order/:id    — cancel an order
+ * GET  /api/autoexec/pending             — list pending trades (assistant mode)
+ * POST /api/autoexec/pending/:id/approve — approve + place a pending trade
+ * POST /api/autoexec/pending/:id/reject  — reject a pending trade
  */
 
 const path = require("node:path");
 const { ROOT } = require("../config");
 const { writeJson } = require("../utils");
 const { writeJsonAtomic, readJsonSafe } = require("../atomic-write");
+const { sendTelegramMessage, isConfigured: telegramConfigured } = require("../telegram");
 const broker = require("../tradier-broker");
 const {
   isMarketHoursET, checkAccountHealth, dailyLossBreakerTripped, openRiskPct,
@@ -20,9 +24,19 @@ const {
 } = require("../risk-guardrails");
 
 const CONFIG_PATH = path.join(ROOT, "data", "autoexec-config.json");
+const PENDING_PATH = path.join(ROOT, "data", "pending-trades.json");
 
 const DEFAULT_CONFIG = {
-  enabled:        false,       // master switch — must be explicitly turned on
+  // mode: "off" | "observer" | "assistant" | "autopilot"
+  //   off       — no scoring, no orders, no notifications (was enabled:false)
+  //   observer  — runs the full pipeline, never places an order, just reports
+  //               what it would have done (Execution AI's "Observer" mode)
+  //   assistant — runs the full pipeline, proposes a trade and waits for
+  //               explicit approval via /api/autoexec/pending instead of
+  //               placing it automatically ("Assistant" mode)
+  //   autopilot — places the order automatically, exactly as this always did
+  //               (was enabled:true)
+  mode:           "off",
   positionSize:   500,         // $ per trade — fallback only, used if risk-based sizing can't be computed
   maxPositions:   3,           // max open auto positions at once
   maxDailyLoss:   200,         // stop trading for the day if realized loss exceeds this ($)
@@ -42,11 +56,28 @@ const DEFAULT_CONFIG = {
 
 function readConfig() {
   const raw = readJsonSafe(CONFIG_PATH, null);
-  return raw ? { ...DEFAULT_CONFIG, ...raw } : { ...DEFAULT_CONFIG };
+  if (!raw) return { ...DEFAULT_CONFIG };
+  const cfg = { ...DEFAULT_CONFIG, ...raw };
+  // Back-compat: existing configs on disk only have the old `enabled`
+  // boolean, not `mode` — translate once rather than losing the user's
+  // current on/off state on first load after this change.
+  if (raw.mode === undefined && raw.enabled !== undefined) {
+    cfg.mode = raw.enabled ? "autopilot" : "off";
+  }
+  return cfg;
 }
 
 function writeConfig(cfg) {
   writeJsonAtomic(CONFIG_PATH, cfg);
+}
+
+function readPending() {
+  const raw = readJsonSafe(PENDING_PATH, []);
+  return Array.isArray(raw) ? raw : [];
+}
+
+function writePending(list) {
+  writeJsonAtomic(PENDING_PATH, list);
 }
 
 // ── Daily reset (tradedToday list clears each calendar day, and we snapshot
@@ -99,7 +130,7 @@ async function maybeAutoExecute({ symbol, signal, composite, price, support, res
   let cfg = readConfig();
   cfg = await maybeResetDaily(cfg);
 
-  if (!cfg.enabled) return null;
+  if (cfg.mode === "off" || !cfg.mode) return null;
   if (composite < cfg.scoreThreshold) return null;
   if (rvol < cfg.rvolThreshold) return null;
 
@@ -151,15 +182,37 @@ async function maybeAutoExecute({ symbol, signal, composite, price, support, res
       : Math.round(price * (1 - cfg.limitSlippage) * 100) / 100;
   }
 
+  const orderOpts = { side, symbol, quantity: qty, type: cfg.orderType, price: orderPrice, duration: "day" };
+
+  // Observer mode — run the exact same scoring/guardrail pipeline as
+  // autopilot, but never place the order. Reports what it WOULD have done.
+  if (cfg.mode === "observer") {
+    cfg.tradedToday = [...(cfg.tradedToday || []), symbol];
+    writeConfig(cfg);
+    const msg = `👁 OBSERVER — would have ${side.toUpperCase()} ${qty} ${symbol} @ ~$${price} (score ${composite}, RVOL ${rvol.toFixed ? rvol.toFixed(1) : rvol}) — no order placed (Observer mode).`;
+    console.log(`[autoexec] ${msg}`);
+    if (telegramConfigured()) sendTelegramMessage(msg).catch(() => {});
+    return { observed: true, autoTriggered: true, score: composite, rvol, symbol, side, qty, price };
+  }
+
+  // Assistant mode — propose the trade and wait for explicit approval via
+  // /api/autoexec/pending instead of placing it automatically.
+  if (cfg.mode === "assistant") {
+    cfg.tradedToday = [...(cfg.tradedToday || []), symbol];
+    writeConfig(cfg);
+    const pending = readPending();
+    const entry = { id: `${symbol}-${Date.now()}`, symbol, side, qty, price, orderOpts, score: composite, rvol, proposedAt: Date.now(), status: "pending" };
+    pending.push(entry);
+    writePending(pending);
+    const msg = `🟡 ASSISTANT — proposed ${side.toUpperCase()} ${qty} ${symbol} @ ~$${price} (score ${composite}, RVOL ${rvol.toFixed ? rvol.toFixed(1) : rvol}). Approve in the app (Pending Approval) or via POST /api/autoexec/pending/${entry.id}/approve.`;
+    console.log(`[autoexec] ${msg}`);
+    if (telegramConfigured()) sendTelegramMessage(msg).catch(() => {});
+    return { proposed: true, id: entry.id, autoTriggered: true, score: composite, rvol, symbol, side, qty, price };
+  }
+
+  // Autopilot mode — unchanged from the original always-on behavior.
   try {
-    const result = await broker.placeEquityOrder({
-      side,
-      symbol,
-      quantity: qty,
-      type: cfg.orderType,
-      price: orderPrice,
-      duration: "day",
-    });
+    const result = await broker.placeEquityOrder(orderOpts);
 
     // Record that we traded this symbol today
     cfg.tradedToday = [...(cfg.tradedToday || []), symbol];
@@ -195,12 +248,18 @@ async function handleAutoExec(req, res, requestUrl) {
     try { updates = JSON.parse(body); } catch { return writeJson(res, 400, { error: "Invalid JSON" }); }
 
     const cfg = readConfig();
-    const allowed = ["enabled","positionSize","maxPositions","maxDailyLoss","scoreThreshold",
+    const allowed = ["mode","positionSize","maxPositions","maxDailyLoss","scoreThreshold",
                      "rvolThreshold","orderType","limitSlippage","allowShorts",
                      "riskPct","maxRiskPct","maxPerSector","maxNamePct"];
     for (const k of allowed) {
       if (updates[k] !== undefined) cfg[k] = updates[k];
     }
+    // Back-compat: a UI still sending the old `enabled` boolean maps it to
+    // mode (off/autopilot) unless the request also explicitly set `mode`.
+    if (updates.mode === undefined && updates.enabled !== undefined) {
+      cfg.mode = updates.enabled ? "autopilot" : "off";
+    }
+    if (!["off", "observer", "assistant", "autopilot"].includes(cfg.mode)) cfg.mode = "off";
     writeConfig(cfg);
     return writeJson(res, 200, { ok: true, config: cfg });
   }
@@ -262,6 +321,50 @@ async function handleAutoExec(req, res, requestUrl) {
     } catch (e) {
       return writeJson(res, 502, { error: e.message });
     }
+  }
+
+  // GET /api/autoexec/pending — list trades proposed by Assistant mode, awaiting approval.
+  if (pathname === "/api/autoexec/pending" && method === "GET") {
+    return writeJson(res, 200, { pending: readPending().filter(p => p.status === "pending") });
+  }
+
+  // POST /api/autoexec/pending/:id/approve — places the order via the SAME
+  // guardrail-checked path the manual-override endpoint uses (re-checked
+  // fresh, not trusted from when it was proposed — the account/market could
+  // have changed since).
+  if (pathname.startsWith("/api/autoexec/pending/") && pathname.endsWith("/approve") && method === "POST") {
+    if (!broker.isConfigured()) return writeJson(res, 503, { error: "Tradier not configured." });
+    const id = pathname.split("/")[4];
+    const pending = readPending();
+    const entry = pending.find(p => p.id === id && p.status === "pending");
+    if (!entry) return writeJson(res, 404, { error: "Pending trade not found (already approved, rejected, or expired)." });
+
+    const cfg = await maybeResetDaily(readConfig());
+    const guard = await checkTradeGuardrails(cfg);
+    if (!guard.ok) return writeJson(res, 403, { error: `Blocked by risk guardrails: ${guard.reason}` });
+
+    try {
+      const result = await broker.placeEquityOrder(entry.orderOpts);
+      entry.status = "approved";
+      entry.resolvedAt = Date.now();
+      writePending(pending);
+      if (telegramConfigured()) sendTelegramMessage(`✅ APPROVED — ${entry.side.toUpperCase()} ${entry.qty} ${entry.symbol} placed.`).catch(() => {});
+      return writeJson(res, 200, { ok: true, result });
+    } catch (e) {
+      return writeJson(res, 400, { error: e.message });
+    }
+  }
+
+  // POST /api/autoexec/pending/:id/reject — discard a proposed trade, no order placed.
+  if (pathname.startsWith("/api/autoexec/pending/") && pathname.endsWith("/reject") && method === "POST") {
+    const id = pathname.split("/")[4];
+    const pending = readPending();
+    const entry = pending.find(p => p.id === id && p.status === "pending");
+    if (!entry) return writeJson(res, 404, { error: "Pending trade not found (already approved, rejected, or expired)." });
+    entry.status = "rejected";
+    entry.resolvedAt = Date.now();
+    writePending(pending);
+    return writeJson(res, 200, { ok: true });
   }
 
   return writeJson(res, 404, { error: "Not found" });
