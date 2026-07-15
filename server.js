@@ -159,12 +159,13 @@ server.listen(PORT, HOST, () => {
     const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
     const today = `${et.getFullYear()}-${et.getMonth()}-${et.getDate()}`;
     if (day < 1 || day > 5) return;
-    if (h === 9 && m >= 15 && m < 21 && _apexSent !== today) { _apexSent = today; runApexBriefing().catch(() => {}); }
-    // CEO AI — 9:25 ET, after the Morning Brief (9:15) has had time to finish
-    // and persist, so the CEO's synthesis can read that morning's actual
-    // report. Explicitly requested by the user 2026-07-15 after an earlier
-    // attempt to add this same schedule was blocked pending that sign-off.
-    if (h === 9 && m >= 25 && m < 31 && _ceoSent !== today) { _ceoSent = today; runCeoRecommendation().catch(() => {}); }
+    // Morning Brief 8:00 ET / CEO AI 8:10 ET — moved earlier from 9:15/9:25 at
+    // the user's request so there's real pre-market reading time (80 min
+    // before the 9:30 open) instead of a 5-minute-before-the-bell fire.
+    // Kept as a pair with the same ~10 min gap so CEO AI still reads that
+    // morning's actual persisted Morning Brief, not yesterday's.
+    if (h === 8 && m >= 0 && m < 6 && _apexSent !== today) { _apexSent = today; runApexBriefing().catch(() => {}); }
+    if (h === 8 && m >= 10 && m < 16 && _ceoSent !== today) { _ceoSent = today; runCeoRecommendation().catch(() => {}); }
     if (h === 9 && m >= 40 && m < 46 && _gpSent !== today) { _gpSent = today; runMorningGamePlan().catch(() => {}); }
     if (h === 16 && m >= 5 && m < 11 && _recapAP !== today) { _recapAP = today; runAutopilotRecap().catch(() => {}); }
     if (h === 16 && m >= 15 && m < 21 && _coachSent !== today) { _coachSent = today; runTradeCoach().catch(() => {}); }
@@ -176,7 +177,7 @@ server.listen(PORT, HOST, () => {
     if (h === 16 && m >= 20 && m < 26 && _mrvPaper !== today) { _mrvPaper = today; runMeanrevPaper().catch(() => {}); }
     if (day === 5 && h === 16 && m >= 25 && m < 31 && _mrvSummary !== today) { _mrvSummary = today; sendMeanrevSummary().catch(() => {}); }
   }, 60_000);
-  console.log("[AI] CEO AI 9:25 · Game plan 9:40 · autopilot recap 4:05 · trade coach 4:15 PM — weekdays only");
+  console.log("[AI] Morning Brief 8:00 · CEO AI 8:10 · Game plan 9:40 · autopilot recap 4:05 · trade coach 4:15 PM — weekdays only");
 
   // CarGurus lead auto-reply — poll Gmail every 3 min (only if GMAIL_USER/APP_PASSWORD set).
   if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
