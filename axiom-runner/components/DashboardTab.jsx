@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import MonitorSection from "./MonitorSection.jsx";
 import MonitorAthan from "./MonitorAthan.jsx";
 import RiskTrafficLight from "./RiskTrafficLight.jsx";
@@ -8,6 +9,209 @@ import MacroEventsWidget from "./MacroEventsWidget.jsx";
 import RegimeNewsPanel from "./RegimeNewsPanel.jsx";
 import TopOpportunityCard from "./TopOpportunityCard.jsx";
 import PriorityAlertsCard from "./PriorityAlertsCard.jsx";
+import RadialGauge from "./RadialGauge.jsx";
+import DonutChart from "./DonutChart.jsx";
+import Sparkline from "./Sparkline.jsx";
+import TrendChart from "./TrendChart.jsx";
+import { BestOpportunities } from "./terminal-panels.jsx";
+import { computeRegime } from "./market-helpers.js";
+import { COACH_LESSONS } from "./CoachTab.jsx";
+
+// ── Shared card shell for the new 3-row grid ──────────────────────────────
+function Card({ C, title, children, style }) {
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", ...style }}>
+      {title && <div style={{ fontFamily: "inherit", fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>{title}</div>}
+      {children}
+    </div>
+  );
+}
+
+// ── Row 1: Market Regime gauge (computeRegime + the existing 6-state playbook) ──
+function MarketRegimeCard({ C, MONO, SANS, macroData, distData }) {
+  const spy = (macroData || []).find(m => m.symbol === "SPY");
+  const qqq = (macroData || []).find(m => m.symbol === "QQQ");
+  const vix = distData?.vix || 0;
+  const spyChg = Number(spy?.changesPercentage || 0);
+  const qqqChg = Number(qqq?.changesPercentage || 0);
+  const loaded = !!spy;
+  const regime = computeRegime(macroData);
+  let regLabel, regColor, playbook;
+  if (!loaded) { regLabel = "LOADING…"; regColor = C.textDim; playbook = "Waiting for market data…"; }
+  else if (vix > 30 || spyChg < -1.5) { regLabel = "RISK OFF"; regColor = C.red; playbook = "Reduce size, cash or shorts only."; }
+  else if (vix < 16 && spyChg > 0.3 && qqqChg > 0.3) { regLabel = "RISK ON"; regColor = C.green; playbook = "Full size on A+ setups, let winners run."; }
+  else if (Math.abs(spyChg) < 0.3 && vix < 22) { regLabel = "CHOP"; regColor = C.amber; playbook = "Reduce size, take profits faster."; }
+  else if (spyChg > 0.5) { regLabel = "CAUTIOUS BULL"; regColor = C.greenLight; playbook = "Normal size on confirmed setups."; }
+  else { regLabel = "DEFENSIVE"; regColor = C.amber; playbook = "Smaller size, favor defensive sectors."; }
+  return (
+    <Card C={C} title="MARKET REGIME">
+      <RadialGauge C={C} MONO={MONO} value={regime.score} label={regLabel} sublabel="regime score" color={regColor} />
+      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 8, textAlign: "center" }}>{playbook}</div>
+    </Card>
+  );
+}
+
+// ── Row 1: AI Market Summary — reuses the same rule-based factor scoring ──
+// already used for the (kept, collapsed-by-default) Next Day Outlook card.
+// Deliberately NOT a live LLM call: that would add cost/latency/a Telegram
+// dependency to something that should be instant and free on every load.
+function AiMarketSummaryCard({ C, MONO, SANS, factors, bias, biasColor }) {
+  return (
+    <Card C={C} title="AI MARKET SUMMARY">
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: biasColor, marginBottom: 8 }}>{bias}</div>
+      <div style={{ flex: 1 }}>
+        {factors.slice(0, 5).map((f, i) => (
+          <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, padding: "3px 0", lineHeight: 1.4 }}>{f}</div>
+        ))}
+        {!factors.length && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Waiting for market data…</div>}
+      </div>
+    </Card>
+  );
+}
+
+// ── Row 1: Today's Score — same A+ score as the Top Opportunity card /  ──
+// AI Copilot Insights panel (single fetch, shared via the onScore callback
+// below — not a second independent scan).
+function TodaysScoreCard({ C, MONO, aplusScore, aplusSymbol }) {
+  return (
+    <Card C={C} title="TODAY'S SCORE">
+      <RadialGauge C={C} MONO={MONO} value={aplusScore ?? 0} label={aplusSymbol ? `${aplusSymbol} SETUP` : "SCANNING…"} sublabel="opportunity score" color={C.accent} />
+    </Card>
+  );
+}
+
+// ── Row 1: Portfolio Snapshot — self-contained, mirrors MyTradesTab's ──
+// AlpacaPanel fetch (account + positions), condensed, + an equity sparkline
+// from /api/alpaca/history.
+function PortfolioSnapshotCard({ C, MONO, SANS }) {
+  const [acct, setAcct] = useState(null);
+  const [openCount, setOpenCount] = useState(0);
+  const [equityHist, setEquityHist] = useState([]);
+  const [state, setState] = useState("loading");
+  useEffect(() => {
+    const load = () => {
+      fetch("/api/alpaca/account").then(r => r.json()).then(d => {
+        if (d?.reason === "no-alpaca-key") { setState("nokey"); return; }
+        if (!d?.ok) { setState("error"); return; }
+        setAcct(d.account); setState("ok");
+      }).catch(() => setState("error"));
+      fetch("/api/alpaca/positions").then(r => r.json()).then(d => { if (d?.ok) setOpenCount((d.positions || []).length); }).catch(() => {});
+      fetch("/api/alpaca/history?period=1M&timeframe=1D").then(r => r.json()).then(d => { if (d?.ok) setEquityHist((d.equity || []).filter(v => v != null)); }).catch(() => {});
+    };
+    load();
+    const t = setInterval(load, 60000);
+    return () => clearInterval(t);
+  }, []);
+  if (state === "nokey") return null;
+  if (state === "loading") return <Card C={C} title="PORTFOLIO SNAPSHOT"><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Connecting…</div></Card>;
+  if (state === "error" || !acct) return <Card C={C} title="PORTFOLIO SNAPSHOT"><div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>Couldn't load account.</div></Card>;
+  const dayChg = (Number(acct.equity) || 0) - (Number(acct.lastEquity) || Number(acct.equity) || 0);
+  const fmt = v => `$${Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  return (
+    <Card C={C} title="PORTFOLIO SNAPSHOT">
+      <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>TODAY'S P&L</div>
+      <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: dayChg >= 0 ? C.green : C.red, marginBottom: 6 }}>
+        {dayChg >= 0 ? "+" : ""}{fmt(Math.abs(dayChg)).replace("$", dayChg < 0 ? "-$" : "$")}
+      </div>
+      {equityHist.length >= 2 && <div style={{ marginBottom: 8 }}><Sparkline C={C} data={equityHist} /></div>}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontFamily: MONO, fontSize: 11 }}>
+        <div><span style={{ color: C.textDim }}>Equity </span><span style={{ color: C.text, fontWeight: 700 }}>{fmt(acct.equity)}</span></div>
+        <div><span style={{ color: C.textDim }}>Buying Power </span><span style={{ color: C.text, fontWeight: 700 }}>{fmt(acct.buyingPower)}</span></div>
+        <div><span style={{ color: C.textDim }}>Cash </span><span style={{ color: C.text, fontWeight: 700 }}>{fmt(acct.cash)}</span></div>
+        <div><span style={{ color: C.textDim }}>Open Trades </span><span style={{ color: C.text, fontWeight: 700 }}>{openCount}</span></div>
+      </div>
+    </Card>
+  );
+}
+
+// ── Row 1: Upcoming Events — pure restyle of eventCountdowns, already fetched ──
+function UpcomingEventsCard({ C, MONO, SANS, eventCountdowns }) {
+  return (
+    <Card C={C} title="UPCOMING EVENTS">
+      {(eventCountdowns || []).length ? eventCountdowns.slice(0, 5).map((ev, i) => (
+        <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "5px 0", borderBottom: i < eventCountdowns.length - 1 ? `1px solid ${C.border}` : "none" }}>
+          <span style={{ fontFamily: SANS, fontSize: 12, color: C.text }}>{ev.name}</span>
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: ev.days <= 1 ? C.red : ev.days <= 3 ? C.amber : C.textDim, flexShrink: 0 }}>
+            {ev.days === 0 ? "TODAY" : ev.days === 1 ? "TOMORROW" : `${ev.days}d`}
+          </span>
+        </div>
+      )) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No upcoming events tracked.</div>}
+    </Card>
+  );
+}
+
+// ── Row 2: Watchlist — condensed symbol/price/%chg/signal from data already ──
+// in props (watchlistData, sigData) — no new fetch.
+function WatchlistCard({ C, MONO, SANS, watchlistData, sigData, setTerminalSymbol, setActiveTab }) {
+  const rows = (watchlistData || []).slice(0, 8);
+  const sigOf = sym => (sigData?.signals || []).find(s => s.sym === sym);
+  return (
+    <Card C={C} title="WATCHLIST" style={{ flex: 1 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 1, overflowY: "auto" }}>
+        {rows.map(q => {
+          const chg = Number(q.changesPercentage || 0);
+          const sig = sigOf(q.symbol);
+          return (
+            <div key={q.symbol} onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("mterminal"); }}
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 4px", borderRadius: 6, cursor: "pointer" }}>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, minWidth: 55 }}>{q.symbol}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>${Number(q.price || 0).toFixed(2)}</span>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: chg >= 0 ? C.green : C.red, minWidth: 50, textAlign: "right" }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span>
+              {sig && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: sig.action === "LONG" ? C.green : sig.action === "SHORT / AVOID" ? C.red : C.amber, marginLeft: 8 }}>{sig.action}</span>}
+            </div>
+          );
+        })}
+        {!rows.length && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Watchlist is empty.</div>}
+      </div>
+    </Card>
+  );
+}
+
+// ── Row 2: big chart panel — reuses TrendChart.jsx (same component shared ──
+// by DayTradeTab/MarketTerminalTab/TrendTemplateTab), fed by the same
+// /api/market/trend-template endpoint they already use.
+function DashboardChartCard({ C, MONO, SANS, symbol }) {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/market/trend-template?symbol=" + encodeURIComponent(symbol))
+      .then(r => r.json()).then(d => { if (alive && d && !d.error) setData(d); }).catch(() => {});
+    return () => { alive = false; };
+  }, [symbol]);
+  return (
+    <Card C={C} title={`CHART — ${symbol}`} style={{ flex: 2, minWidth: 0 }}>
+      {data ? <TrendChart data={data} C={C} MONO={MONO} SANS={SANS} height={340} />
+        : <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: 40, textAlign: "center" }}>Loading chart…</div>}
+    </Card>
+  );
+}
+
+// ── Row 2: AI Copilot Insights — best setup (TopOpportunityCard, shared ──
+// fetch with Today's Score via onScore) + watchlist breadth donut (from data
+// already in props, no new fetch) + today's rotating coach mantra.
+function CopilotInsightsCard({ C, MONO, SANS, macroData, watchlistData, setActiveTab, setTerminalSymbol, onScore }) {
+  const wl = (watchlistData || []).filter(q => q.symbol && Number(q.price) > 0);
+  const adv = wl.filter(q => Number(q.changesPercentage || 0) > 0).length;
+  const dec = wl.length - adv;
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+  const mantra = COACH_LESSONS[dayOfYear % COACH_LESSONS.length]?.mantra;
+  return (
+    <Card C={C} title="AI COPILOT INSIGHTS" style={{ flex: 1 }}>
+      <TopOpportunityCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} />
+      {wl.length >= 2 && (
+        <div style={{ marginTop: 8 }}>
+          <DonutChart C={C} MONO={MONO} centerLabel="WATCHLIST" centerValue={wl.length}
+            segments={[{ label: "Advancing", value: adv, color: C.green }, { label: "Declining", value: dec, color: C.red }]} size={140} />
+        </div>
+      )}
+      {mantra && (
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}`, fontFamily: SANS, fontSize: 12, color: C.textSec, fontStyle: "italic", direction: "rtl", textAlign: "center" }}>
+          "{mantra}"
+        </div>
+      )}
+    </Card>
+  );
+}
 
 export default function DashboardTab({
   C, MONO, SANS, watchlistData, macroData, distData, fearGreedData, sigData, sigFilter,
@@ -16,377 +220,123 @@ export default function DashboardTab({
   setTerminalSymbol, setScanResults, setActiveTab, setScanExpanded, loadDeepDive, loadDeepSocial,
   setTiltLocked, setSigLoading, setSigData, fetchFearGreed, setDistData, setFuturesData, setPreMktMovers,
 }) {
-          const pulse = [["SPY","SPY"],["QQQ","QQQ"],["IWM","IWM"],["BTC","BTCUSD","BTC-USD"],["ETH","ETHUSD","ETH-USD"],["SOL","SOLUSD","SOL-USD"]].map(([label, ...syms]) => {
-            let q = null;
-            for (const s of syms) { q = watchlistData.find(w => w.symbol === s) || (macroData||[]).find(m => m.symbol === s); if (q) break; }
-            if (!q) return null;
-            const chg = Number(q.changesPercentage || q.delta1d || 0);
-            return { sym: label, chg, price: Number(q.price || 0) };
-          }).filter(Boolean);
-          const radarAlert = distData?.alert || "NORMAL";
-          const radarScore = distData?.riskScore || 0;
-          const radarColor = radarAlert === "DANGER" ? C.red : radarAlert === "CAUTION" ? C.amber : radarAlert === "WATCH" ? C.greenLight : C.green;
-          const radarIcon  = radarAlert === "DANGER" ? "🚨" : radarAlert === "CAUTION" ? "⚠️" : radarAlert === "WATCH" ? "👁" : "✅";
-          const highW = (distData?.warnings || []).filter(w => w.level === "HIGH");
-          const fg = fearGreedData;
-          const fgScore = fg?.score || 0;
-          const fgColor = fgScore <= 25 ? C.red : fgScore <= 45 ? C.amber : fgScore <= 55 ? C.textSec : fgScore <= 75 ? C.greenLight : C.green;
-          const fgLabel = fgScore <= 25 ? "EXTREME FEAR" : fgScore <= 45 ? "FEAR" : fgScore <= 55 ? "NEUTRAL" : fgScore <= 75 ? "GREED" : "EXTREME GREED";
-          const ACT_COL = { "LONG": C.green, "SHORT / AVOID": C.red, "WATCH SHORT": C.redLight, "WATCH": C.amber };
-          const filtered2 = (sigData?.signals || []).filter(s => {
-            if (sigFilter === "LONG")    return s.action === "LONG" || s.action === "WATCH";
-            if (sigFilter === "SHORT")   return s.action === "SHORT / AVOID" || s.action === "WATCH SHORT";
-            
-            return true;
-          });
-          const handleSigClick = (s) => {
-            const ticker = s.sym;
-            setTerminalSymbol(ticker);
-            const row2 = { ticker, score: s.score||50, signal: s.action === "LONG" ? "BUY" : s.action === "SHORT / AVOID" ? "SELL" : "WATCH",
-              signals: (s.rationale||[]).map(r => ({ txt: r, bull: s.action === "LONG" })),
-              sColor: ACT_COL[s.action] || C.amber, rsiVal: null, macdBull: null, ema9v: null, ema21v: null,
-              quote: { price: s.entry, changePercent: s.chgPct, yearHigh: s.hi52, priceAvg50: s.ma50, priceAvg200: s.ma200, volume: 0, avgVolume: 0 }, candles: null };
-            setScanResults(prev => prev.some(r => r.ticker === ticker) ? prev : [row2, ...prev]);
-            setActiveTab("smartscan"); setScanExpanded(ticker);
-            loadDeepDive(ticker); loadDeepSocial(ticker);
-          };
-          return (
-            <>
-            {/* 1: MARKET PULSE STRIP */}
-            <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 10, padding: "8px 16px",
-              background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
-              overflowX: "auto", scrollbarWidth: "none" }}>
-              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, marginRight: 14, flexShrink: 0, letterSpacing: "0.08em" }}>
-                MARKET
-              </span>
-              {pulse.map((p, i) => (
-                <div key={p.sym} style={{ display: "flex", alignItems: "center" }}>
-                  {i > 0 && <span style={{ width: 1, height: 16, background: C.border, margin: "0 12px", flexShrink: 0 }} />}
-                  <div style={{ textAlign: "center", flexShrink: 0 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>{p.sym}</div>
-                    {p.price > 0 && (
-                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>
-                        ${p.price < 1 ? p.price.toFixed(4) : p.price < 100 ? p.price.toFixed(2) : p.price.toFixed(2)}
-                      </div>
-                    )}
-                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: p.chg >= 0 ? C.green : C.red }}>
-                      {p.chg >= 0 ? "+" : ""}{p.chg.toFixed(2)}%
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <span style={{ width: 1, height: 16, background: C.border, margin: "0 12px", flexShrink: 0 }} />
-              <div style={{ display: "flex", gap: 16, alignItems: "center", flexShrink: 0 }}>
-                {distData && (
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>REGIME</div>
-                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: radarColor }}>{radarIcon} {radarAlert}</div>
-                  </div>
-                )}
-                {(distData?.vix || 0) > 0 && (
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>VIX</div>
-                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800,
-                      color: distData.vix > 25 ? C.red : distData.vix > 18 ? C.amber : C.green }}>
-                      {distData.vix.toFixed(1)}
-                    </div>
-                  </div>
-                )}
-                {fg && (
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>F&G</div>
-                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: fgColor }}>{fgScore} · {fgLabel}</div>
-                  </div>
-                )}
-                {tiltEnabled && (
-                  <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => tiltLocked && setTiltLocked(false)} title={tiltLocked ? "Click to override tilt lock" : `${tiltStreak} consecutive losses today`}>
-                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>TILT</div>
-                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800,
-                      color: tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green }}>
-                      {tiltLocked ? "🔒 LOCKED" : tiltStreak === 0 ? "✅ 0" : `⚠ ${tiltStreak}/3`}
-                    </div>
-                  </div>
-                )}
+  const [aplusScore, setAplusScore] = useState(null);
+  const [aplusSymbol, setAplusSymbol] = useState(null);
+  const onScore = (row) => { setAplusScore(row ? row._aplus.score : null); setAplusSymbol(row ? row.symbol : null); };
+
+  // Same next-day-bias factor scoring used by the (now collapsed, kept for
+  // detail) Next Day Outlook card — computed once, shared by the new AI
+  // Market Summary card above.
+  const spy = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
+  const qqq = (macroData || []).find(m => m.symbol === "QQQ") || (watchlistData || []).find(w => w.symbol === "QQQ");
+  const spyChg = Number(spy?.changesPercentage || 0);
+  const qqqChg = Number(qqq?.changesPercentage || 0);
+  const spyPx = Number(spy?.price || 0);
+  const ma50 = Number(spy?.priceAvg50 || 0);
+  const vix = Number(distData?.vix || 0);
+  const fg = Number(fearGreedData?.score || 0);
+  const wlForBreadth = (watchlistData || []).filter(q => q.symbol && Number(q.price) > 0);
+  const advForBreadth = wlForBreadth.filter(q => Number(q.changesPercentage || 0) > 0).length;
+  const breadthPct = wlForBreadth.length ? Math.round(advForBreadth / wlForBreadth.length * 100) : 50;
+  let score = 0;
+  const factors = [];
+  if (spyChg > 0.5) { score += 20; factors.push("✅ SPY closed green"); }
+  else if (spyChg < -1) { score -= 25; factors.push("🔴 SPY closed down hard"); }
+  else if (spyChg < 0) { score -= 10; factors.push("⚠️ SPY closed red"); }
+  if (ma50 > 0 && spyPx > ma50) { score += 15; factors.push("✅ SPY above 50D MA"); }
+  else if (ma50 > 0) { score -= 15; factors.push("🔴 SPY below 50D MA"); }
+  if (vix > 25) { score -= 20; factors.push(`🔴 VIX high (${vix.toFixed(0)}) — fear elevated`); }
+  else if (vix > 0 && vix < 16) { score += 12; factors.push(`✅ VIX low (${vix.toFixed(0)}) — calm`); }
+  if (breadthPct >= 60) { score += 15; factors.push(`✅ Strong breadth (${breadthPct}% up)`); }
+  else if (breadthPct <= 35) { score -= 15; factors.push(`🔴 Weak breadth (${breadthPct}% up)`); }
+  if (fg <= 25) { score += 10; factors.push("✅ Extreme fear — bounce odds rise"); }
+  else if (fg >= 75) { score -= 10; factors.push("⚠️ Extreme greed — pullback risk"); }
+  if (qqqChg > 0.5 && spyChg > 0) { score += 8; factors.push("✅ Tech leading"); }
+  if (newsSentiment && (newsSentiment.bull + newsSentiment.bear) >= 3) {
+    const np = newsSentiment.netPct;
+    if (np >= 25) { score += 18; factors.push(`📰 News BULLISH (+${np}% net)`); }
+    else if (np >= 8) { score += 10; factors.push(`📰 News lean bullish (+${np}%)`); }
+    else if (np <= -25) { score -= 18; factors.push(`📰 News BEARISH (${np}% net)`); }
+    else if (np <= -8) { score -= 10; factors.push(`📰 News lean bearish (${np}%)`); }
+  }
+  const bias = score >= 25 ? "BULLISH" : score >= 5 ? "LEAN BULLISH" : score <= -25 ? "BEARISH" : score <= -5 ? "LEAN BEARISH" : "NEUTRAL";
+  const biasCol = score >= 25 ? C.green : score >= 5 ? C.greenLight : score <= -25 ? C.red : score <= -5 ? C.redLight : C.amber;
+
+  return (
+    <>
+      {/* ── ROW 1 ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10, marginBottom: 10 }}>
+        <MarketRegimeCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} distData={distData} />
+        <AiMarketSummaryCard C={C} MONO={MONO} SANS={SANS} factors={factors} bias={bias} biasColor={biasCol} />
+        <TodaysScoreCard C={C} MONO={MONO} aplusScore={aplusScore} aplusSymbol={aplusSymbol} />
+        <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
+        <UpcomingEventsCard C={C} MONO={MONO} SANS={SANS} eventCountdowns={eventCountdowns} />
+      </div>
+
+      {/* ── ROW 2 ── */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", alignItems: "stretch" }}>
+        <WatchlistCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} sigData={sigData} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+        <DashboardChartCard C={C} MONO={MONO} SANS={SANS} symbol={aplusSymbol || "SPY"} />
+        <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} />
+      </div>
+
+      {/* ── ROW 3 ── */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "stretch" }}>
+        <div style={{ flex: 2, minWidth: 320 }}>
+          <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} />
+        </div>
+        <div style={{ flex: 1, minWidth: 280 }}>
+          <Card C={C} title="MARKET NEWS" style={{ height: "100%" }}>
+            <RegimeNewsPanel C={C} MONO={MONO} SANS={SANS} />
+          </Card>
+        </div>
+      </div>
+
+      {/* ── MORE — everything from the previous layout that doesn't have a ── */}
+      {/* Row 1-3 home yet. Collapsed by default, not deleted — same         */}
+      {/* "hide, don't delete" precedent already used throughout this app's  */}
+      {/* nav history (see SubNavBar.jsx). */}
+      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.1em", margin: "4px 0 8px" }}>MORE DETAIL</div>
+
+      <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={false}>
+        <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
+      </MonitorSection>
+
+      <MonitorSection C={C} MONO={MONO} label="🚦 MARKET MODE & FLOW" storeKey="mon_mode" defaultOpen={false}>
+        <RiskTrafficLight C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
+        <SpyVolumeWidget C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
+      </MonitorSection>
+
+      <MonitorSection C={C} MONO={MONO} label="🔔 PRIORITY ALERTS" storeKey="mon_alerts" defaultOpen={false}>
+        <PriorityAlertsCard C={C} MONO={MONO} SANS={SANS} alerts={combinedAlerts} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+      </MonitorSection>
+
+      <MonitorSection C={C} MONO={MONO} label="🏛 CATALYSTS & EVENTS" storeKey="mon_catalysts" defaultOpen={false}>
+        <FedInterpreter C={C} MONO={MONO} SANS={SANS} />
+        <FedWatchWidget C={C} MONO={MONO} SANS={SANS} />
+        <MacroEventsWidget C={C} MONO={MONO} SANS={SANS} />
+      </MonitorSection>
+
+      {preMktMovers.length > 0 && (
+        <MonitorSection C={C} MONO={MONO} label="⚡ PRE-MARKET MOVERS" storeKey="mon_premkt" defaultOpen={false}>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+            {preMktMovers.slice(0, 8).map(m => (
+              <div key={m.sym} style={{ textAlign: "center" }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent }}>{m.sym}</div>
+                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: m.chg >= 0 ? C.green : C.red }}>{m.chg >= 0 ? "+" : ""}{m.chg.toFixed(1)}%</div>
               </div>
-              <button onClick={() => {
-                setSigLoading(true);
-                fetch("/api/market/trade-signals").then(r=>r.json()).then(d=>{if(d.ok)setSigData(d);}).catch(()=>{}).finally(()=>setSigLoading(false));
-                if (!fearGreedData) fetchFearGreed();
-                fetch("/api/market/distribution?refresh=1").then(r=>r.json()).then(d=>{if(d.ok)setDistData(d);}).catch(()=>{});
-                fetch("/api/market/futures").then(r=>r.ok?r.json():null).then(d=>{if(d?.ok)setFuturesData(d.futures||[]);}).catch(()=>{});
-                fetch("/api/market/premarket-movers").then(r=>r.ok?r.json():null).then(d=>{if(d?.ok)setPreMktMovers(d.movers||[]);}).catch(()=>{});
-              }} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, border: `1px solid ${C.border}`,
-                background: "transparent", color: C.textDim, borderRadius: 6, padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}>
-                ↺ REFRESH ALL
-              </button>
-            </div>
+            ))}
+          </div>
+        </MonitorSection>
+      )}
 
-            {/* ── Prayer Times (collapsed, top) ── */}
-            <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={false}>
-              <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
-            </MonitorSection>
-
-            {/* ── 1. MARKET MODE — am I risk-on or risk-off right now? ── */}
-            <MonitorSection C={C} MONO={MONO} label="🚦 MARKET MODE & FLOW" storeKey="mon_mode">
-              <RiskTrafficLight C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
-              <SpyVolumeWidget C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
-            </MonitorSection>
-
-            {/* ── TOP OPPORTUNITY & PRIORITY ALERTS — the "what should I do right now" card ── */}
-            <MonitorSection C={C} MONO={MONO} label="🎯 TOP OPPORTUNITY & ALERTS" storeKey="mon_focus">
-              <TopOpportunityCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
-              <PriorityAlertsCard C={C} MONO={MONO} SANS={SANS} alerts={combinedAlerts} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
-            </MonitorSection>
-
-            {/* ── 2. CATALYSTS — Fed + scheduled economic events ── */}
-            <MonitorSection C={C} MONO={MONO} label="🏛 CATALYSTS & EVENTS" storeKey="mon_catalysts">
-              <FedInterpreter C={C} MONO={MONO} SANS={SANS} />
-              <FedWatchWidget C={C} MONO={MONO} SANS={SANS} />
-              <MacroEventsWidget C={C} MONO={MONO} SANS={SANS} />
-            </MonitorSection>
-
-            {/* ── EVENT COUNTDOWN + PRE-MARKET MOVERS (under Catalysts) ── */}
-            <div style={{ display: "grid", gridTemplateColumns: eventCountdowns.length > 0 && preMktMovers.length > 0 ? "1fr 1fr" : "1fr",
-              gap: 10, marginBottom: 10 }}>
-
-              {/* Event Countdown */}
-              {eventCountdowns.length > 0 && (
-                <div style={{ padding: "10px 14px", background: C.surface, border: `1px solid ${C.border}`,
-                  borderRadius: 8, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em", flexShrink: 0 }}>
-                    ⏰ EVENTS
-                  </span>
-                  {eventCountdowns.slice(0, 4).map((ev, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                      {i > 0 && <span style={{ width: 1, height: 14, background: C.border }} />}
-                      <div style={{ textAlign: "center" }}>
-                        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
-                          color: ev.days <= 1 ? C.red : ev.days <= 3 ? C.amber : C.textDim }}>
-                          {ev.days === 0 ? "TODAY" : ev.days === 1 ? "TOMORROW" : `${ev.days}d`}
-                        </div>
-                        <div style={{ fontFamily: SANS, fontSize: 11, color: C.text, fontWeight: 600 }}>{ev.name}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Pre-Market Movers */}
-              {preMktMovers.length > 0 && (
-                <div style={{ padding: "10px 14px", background: C.surface, border: `1px solid ${C.border}`,
-                  borderRadius: 8, overflowX: "auto", scrollbarWidth: "none" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em", flexShrink: 0 }}>
-                      ⚡ PRE-MKT
-                    </span>
-                    {preMktMovers.slice(0, 6).map((m, i) => (
-                      <div key={m.sym} style={{ display: "flex", alignItems: "center", gap: 0 }}>
-                        {i > 0 && <span style={{ width: 1, height: 14, background: C.border, marginRight: 12 }} />}
-                        <div style={{ textAlign: "center", flexShrink: 0 }}>
-                          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>{m.sym}</div>
-                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: m.chg >= 0 ? C.green : C.red }}>
-                            {m.chg >= 0 ? "+" : ""}{m.chg.toFixed(1)}%
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* ── MARKET REGIME DASHBOARD ── */}
-            <MonitorSection C={C} MONO={MONO} label="🌡 MARKET CONDITIONS" storeKey="mon_regime">
-            {(() => {
-              const spy    = macroData.find(m => m.symbol === "SPY");
-              const qqq    = macroData.find(m => m.symbol === "QQQ");
-              const vix    = distData?.vix || 0;
-              const spyChg = Number(spy?.changesPercentage || 0);
-              const qqqChg = Number(qqq?.changesPercentage || 0);
-              const loaded = !!spy;
-              let regLabel, regColor, regIcon, regBg, regConf, playbook;
-              if (!loaded) {
-                regLabel = "LOADING…"; regIcon = "⏳"; regColor = C.textDim; regBg = C.card; regConf = 0;
-                playbook = ["Waiting for market data…", "This card updates automatically", "Check back in a few seconds", "Data loads from Yahoo Finance"];
-              } else if (vix > 30 || spyChg < -1.5) {
-                regLabel = "BEAR / RISK-OFF"; regIcon = "🐻"; regColor = C.red; regBg = `${C.red}10`; regConf = vix > 35 ? 92 : 78;
-                playbook = ["Reduce position size 50%", "Only take short setups or cash", "Tighten stops — volatility is high", "No longs unless SPY reclaims key level"];
-              } else if (vix < 16 && spyChg > 0.3 && qqqChg > 0.3) {
-                regLabel = "BULL TREND"; regIcon = "🐂"; regColor = C.green; regBg = `${C.green}10`; regConf = vix < 13 ? 90 : 75;
-                playbook = ["Full size on A+ long setups", "Let winners run — trend is your friend", "Buy pullbacks to EMA21", "Avoid shorting into strength"];
-              } else if (Math.abs(spyChg) < 0.3 && vix < 22) {
-                regLabel = "CHOP / NEUTRAL"; regIcon = "〰️"; regColor = C.amber; regBg = `${C.amber}10`; regConf = 65;
-                playbook = ["Reduce size to 50–75%", "Take profits faster — don't hold overnight", "Avoid breakout trades — they fail in chop", "Wait for regime to resolve before adding risk"];
-              } else if (spyChg > 0.5) {
-                regLabel = "CAUTIOUS BULL"; regIcon = "📈"; regColor = C.greenLight; regBg = `${C.greenLight}10`; regConf = 68;
-                playbook = ["Normal size on confirmed setups", "Watch for VIX spike that could reverse", "Focus on sector leaders, not laggards", "Keep stops tight"];
-              } else {
-                regLabel = "DEFENSIVE"; regIcon = "🛡️"; regColor = C.amber; regBg = `${C.amber}10`; regConf = 60;
-                playbook = ["Smaller size — uncertainty is elevated", "Favor defensive sectors (XLU, XLV, XLP)", "No momentum plays until market stabilizes", "Keep 30–40% cash"];
-              }
-              const signals = [
-                { label: "SPY",  val: loaded ? `${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}%` : "—", color: spyChg > 0 ? C.green : C.red },
-                { label: "QQQ",  val: loaded ? `${qqqChg >= 0 ? "+" : ""}${qqqChg.toFixed(2)}%` : "—", color: qqqChg > 0 ? C.green : C.red },
-                { label: "VIX",  val: vix > 0 ? vix.toFixed(1) : "—", color: vix > 25 ? C.red : vix > 18 ? C.amber : C.green },
-                { label: "FLOW", val: flowBias || "—", color: (flowBias||"").includes("CALL") ? C.green : (flowBias||"").includes("PUT") ? C.red : C.amber },
-              ];
-              return (
-                <div style={{ marginBottom: 0, background: regBg, border: `2px solid ${regColor}55`,
-                  borderBottom: "none", borderRadius: "12px 12px 0 0", overflow: "hidden" }}>
-                  {/* Title bar */}
-                  <div style={{ padding: "8px 16px", background: `${regColor}22`, borderBottom: `1px solid ${regColor}33`,
-                    display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: regColor, letterSpacing: "0.1em" }}>
-                      📊 MARKET REGIME DASHBOARD
-                    </span>
-                    {regConf > 0 && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{regConf}% confidence</span>}
-                  </div>
-                  <div style={{ padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
-                    {/* Big regime label */}
-                    <div style={{ flexShrink: 0, minWidth: 160 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: regColor, lineHeight: 1.1 }}>
-                        {regIcon} {regLabel}
-                      </div>
-                    </div>
-                    {/* Signals */}
-                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
-                      {signals.map(s => (
-                        <div key={s.label} style={{ textAlign: "center", padding: "4px 10px",
-                          background: `${regColor}15`, borderRadius: 6 }}>
-                          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{s.label}</div>
-                          <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: s.color }}>{s.val}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {/* Playbook */}
-                    <div style={{ minWidth: 200 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim,
-                        letterSpacing: "0.08em", marginBottom: 6 }}>TODAY'S PLAYBOOK</div>
-                      {playbook.map((p, i) => (
-                        <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: regColor,
-                          display: "flex", gap: 6, marginBottom: 3 }}>
-                          <span style={{ flexShrink: 0, opacity: 0.6 }}>{i + 1}.</span>{p}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* ── LIVE NEWS inside regime card ── */}
-                    <RegimeNewsPanel C={C} MONO={MONO} SANS={SANS} />
-                  </div>
-                </div>
-              );
-            })()}
-            {/* ── Next-day outlook (merged into Market Conditions) ── */}
-            {(() => {
-              const spy = (macroData||[]).find(m=>m.symbol==="SPY") || (watchlistData||[]).find(w=>w.symbol==="SPY");
-              const qqq = (macroData||[]).find(m=>m.symbol==="QQQ") || (watchlistData||[]).find(w=>w.symbol==="QQQ");
-              const spyChg = Number(spy?.changesPercentage || 0);
-              const qqqChg = Number(qqq?.changesPercentage || 0);
-              const spyPx  = Number(spy?.price || 0);
-              const ma50   = Number(spy?.priceAvg50 || 0);
-              const vix    = Number(distData?.vix || 0);
-              const fg     = Number(fearGreedData?.score || 0);
-              // Breadth from watchlist
-              const wl = (watchlistData||[]).filter(q => q.symbol && Number(q.price) > 0);
-              const adv = wl.filter(q => Number(q.changesPercentage||0) > 0).length;
-              const breadthPct = wl.length ? Math.round(adv/wl.length*100) : 50;
-
-              // Score the next-day bias (-100 to +100)
-              let score = 0;
-              const factors = [];
-              if (spyChg > 0.5) { score += 20; factors.push("✅ SPY closed green"); }
-              else if (spyChg < -1) { score -= 25; factors.push("🔴 SPY closed down hard"); }
-              else if (spyChg < 0) { score -= 10; factors.push("⚠️ SPY closed red"); }
-              if (ma50 > 0 && spyPx > ma50) { score += 15; factors.push("✅ SPY above 50D MA"); }
-              else if (ma50 > 0) { score -= 15; factors.push("🔴 SPY below 50D MA"); }
-              if (vix > 25) { score -= 20; factors.push(`🔴 VIX high (${vix.toFixed(0)}) — fear elevated`); }
-              else if (vix > 0 && vix < 16) { score += 12; factors.push(`✅ VIX low (${vix.toFixed(0)}) — calm`); }
-              if (breadthPct >= 60) { score += 15; factors.push(`✅ Strong breadth (${breadthPct}% up)`); }
-              else if (breadthPct <= 35) { score -= 15; factors.push(`🔴 Weak breadth (${breadthPct}% up)`); }
-              if (fg <= 25) { score += 10; factors.push("✅ Extreme fear — bounce odds rise"); }
-              else if (fg >= 75) { score -= 10; factors.push("⚠️ Extreme greed — pullback risk"); }
-              if (qqqChg > 0.5 && spyChg > 0) { score += 8; factors.push("✅ Tech leading"); }
-              // ── News sentiment factor ──
-              if (newsSentiment && (newsSentiment.bull + newsSentiment.bear) >= 3) {
-                const np = newsSentiment.netPct;
-                if (np >= 25)      { score += 18; factors.push(`📰 News BULLISH (${np>0?"+":""}${np}% net of ${newsSentiment.bull+newsSentiment.bear} headlines)`); }
-                else if (np >= 8)  { score += 10; factors.push(`📰 News lean bullish (+${np}%)`); }
-                else if (np <= -25){ score -= 18; factors.push(`📰 News BEARISH (${np}% net of ${newsSentiment.bull+newsSentiment.bear} headlines)`); }
-                else if (np <= -8) { score -= 10; factors.push(`📰 News lean bearish (${np}%)`); }
-                else               { factors.push(`📰 News mixed (${np>0?"+":""}${np}%)`); }
-              }
-              // ── Social (StockTwits) sentiment factor ──
-              if (socialSentiment && (socialSentiment.totalBull + socialSentiment.totalBear) >= 5) {
-                const sp = socialSentiment.netPct;
-                if (sp >= 25)      { score += 12; factors.push(`💬 Traders BULLISH (${sp>0?"+":""}${sp}% on StockTwits)`); }
-                else if (sp >= 8)  { score += 7;  factors.push(`💬 Traders lean bullish (+${sp}%)`); }
-                else if (sp <= -25){ score -= 12; factors.push(`💬 Traders BEARISH (${sp}% on StockTwits)`); }
-                else if (sp <= -8) { score -= 7;  factors.push(`💬 Traders lean bearish (${sp}%)`); }
-              }
-
-              const bias = score >= 25 ? "BULLISH" : score >= 5 ? "LEAN BULLISH" : score <= -25 ? "BEARISH" : score <= -5 ? "LEAN BEARISH" : "NEUTRAL";
-              const biasCol = score >= 25 ? C.green : score >= 5 ? C.greenLight : score <= -25 ? C.red : score <= -5 ? C.redLight : C.amber;
-              const biasIcon = score >= 5 ? "📈" : score <= -5 ? "📉" : "➡️";
-              const plan = score >= 25 ? "Look for GREEN LIGHT longs at the open. Buy pullbacks to support."
-                         : score >= 5 ? "Cautiously bullish — take only A+ setups, normal size."
-                         : score <= -25 ? "Defensive. Avoid longs until SPY reclaims 50D MA. Cash is a position."
-                         : score <= -5 ? "Stay small. Wait for the open to confirm direction before committing."
-                         : "Mixed signals. Let the first 30 min set the tone — don't predict, react.";
-              // Key levels for tomorrow
-              const support = ma50 > 0 ? Math.min(ma50, spyPx * 0.985) : spyPx * 0.985;
-              const resist  = spyPx * 1.015;
-
-              return (
-                <div style={{ marginBottom: 14, background: `${biasCol}0c`, border: `2px solid ${biasCol}44`, borderTop: "none", borderRadius: "0 0 14px 14px", overflow: "hidden" }}>
-                  <div style={{ padding: "14px 22px", background: `${biasCol}18`, borderBottom: `1px solid ${biasCol}33`, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: biasCol, letterSpacing: "0.08em" }}>🔮 NEXT DAY OUTLOOK</span>
-                    <span style={{ fontFamily: MONO, fontSize: 26, fontWeight: 900, color: biasCol }}>{biasIcon} {bias}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: "auto" }}>based on today's close · for next session</span>
-                  </div>
-                  <div style={{ padding: "18px 22px", display: "flex", gap: 28, flexWrap: "wrap" }}>
-                    {/* Factors */}
-                    <div style={{ flex: 1, minWidth: 260 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>WHAT'S DRIVING IT</div>
-                      {factors.slice(0, 7).map((f, i) => (
-                        <div key={i} style={{ fontFamily: SANS, fontSize: 15, color: C.textSec, padding: "4px 0" }}>{f}</div>
-                      ))}
-                      {!factors.length && <div style={{ fontFamily: SANS, fontSize: 15, color: C.textDim }}>Waiting for market data…</div>}
-                    </div>
-                    {/* News sentiment */}
-                    {newsSentiment && (newsSentiment.bull + newsSentiment.bear) >= 3 && (
-                      <div style={{ minWidth: 260, flex: 1 }}>
-                        <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>
-                          📰 NEWS SENTIMENT: <span style={{ color: newsSentiment.netPct >= 8 ? C.green : newsSentiment.netPct <= -8 ? C.red : C.amber, fontWeight: 800, fontSize: 15 }}>{newsSentiment.label} ({newsSentiment.netPct >= 0 ? "+" : ""}{newsSentiment.netPct}%)</span>
-                        </div>
-                        <div style={{ display: "flex", gap: 14, marginBottom: 10 }}>
-                          <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: C.green }}>🟢 {newsSentiment.bull} bullish</span>
-                          <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: C.red }}>🔴 {newsSentiment.bear} bearish</span>
-                        </div>
-                        {newsSentiment.topBull.map((h,i) => <div key={"b"+i} style={{ fontFamily: SANS, fontSize: 13, color: C.green, lineHeight: 1.5, padding: "1px 0" }}>+ {h.slice(0,75)}</div>)}
-                        {newsSentiment.topBear.map((h,i) => <div key={"r"+i} style={{ fontFamily: SANS, fontSize: 13, color: C.red, lineHeight: 1.5, padding: "1px 0" }}>− {h.slice(0,75)}</div>)}
-                      </div>
-                    )}
-                    {/* Levels */}
-                    <div style={{ minWidth: 190 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, letterSpacing: "0.08em", marginBottom: 10 }}>SPY LEVELS TO WATCH</div>
-                      {[["Resistance", resist, C.red], ["Current", spyPx, C.text], ["Support", support, C.green]].map(([l,v,col]) => (
-                        <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", gap: 16 }}>
-                          <span style={{ fontFamily: SANS, fontSize: 15, color: C.textDim }}>{l}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: col }}>${v.toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div style={{ padding: "14px 22px", borderTop: `1px solid ${biasCol}22`, background: `${biasCol}08` }}>
-                    <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: biasCol }}>📋 TOMORROW'S PLAN: </span>
-                    <span style={{ fontFamily: SANS, fontSize: 15, color: C.text }}>{plan}</span>
-                  </div>
-                </div>
-              );
-            })()}
-            </MonitorSection>
-
-            </>
-          );
+      {tiltEnabled && (
+        <MonitorSection C={C} MONO={MONO} label="😤 TILT" storeKey="mon_tilt" defaultOpen={false}>
+          <div onClick={() => tiltLocked && setTiltLocked(false)} style={{ cursor: "pointer", fontFamily: MONO, fontSize: 13, fontWeight: 800, color: tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green }}>
+            {tiltLocked ? "🔒 LOCKED — click to override" : tiltStreak === 0 ? "✅ 0 consecutive losses today" : `⚠ ${tiltStreak}/3 consecutive losses`}
+          </div>
+        </MonitorSection>
+      )}
+    </>
+  );
 }
-

@@ -6,7 +6,7 @@ import { BEST_OPP_UNIVERSE } from "./terminal-panels.jsx";
 // Dashboard's "should I trade today" top-opportunity card — same scan/rank
 // logic as BestOpportunities (MarketTerminalTab), but surfaces only the #1
 // setup as a single punchy verdict rather than a list of 5.
-export default function TopOpportunityCard({ C, MONO, SANS, macroData, setActiveTab, setTerminalSymbol }) {
+export default function TopOpportunityCard({ C, MONO, SANS, macroData, setActiveTab, setTerminalSymbol, onScore }) {
   const [row, setRow] = useState(null);
   const [state, setState] = useState("idle"); // idle | loading | ok | none | err
   const regime = computeRegime(macroData);
@@ -21,6 +21,7 @@ export default function TopOpportunityCard({ C, MONO, SANS, macroData, setActive
         const res = (j.results || []).filter(r => !r.error && Number(r.entry) > Number(r.stop) && (r.passCount || 0) >= 6 && !r.extended && (r.rsRating || 0) >= 70);
         const top = res.map(r => ({ ...r, _aplus: computeAPlusScore(r, regimeRef.current) })).sort((a, b) => b._aplus.score - a._aplus.score)[0] || null;
         setRow(top); setState(top ? "ok" : "none");
+        if (onScore) onScore(top);
       })
       .catch(() => setState(s => s === "ok" ? "ok" : "err"));
   };
