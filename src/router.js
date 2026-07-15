@@ -22,6 +22,7 @@ const handleScanner = require("./routes/scanner");
 const handleDeals   = require("./routes/deals");
 const handleCOT     = require("./routes/cot");
 const { handleAutoExec } = require("./routes/autoexec");
+const { handleAiHub } = require("./routes/ai-hub");
 const { handleLiquidations } = require("./routes/liquidations");
 const { handleMonitorExtras } = require("./routes/monitor-extras");
 const { handleRecapApi }      = require("./market-recap");
@@ -109,6 +110,10 @@ async function handleRequest(req, res) {
     if (pathname.startsWith("/api/autoexec")) {
       if (!checkRateLimit(req)) return writeJson(res, 429, { error: "Too many requests. Please slow down." });
       return await handleAutoExec(req, res, requestUrl);
+    }
+
+    if (pathname.startsWith("/api/ai-hub/")) {
+      return await handleAiHub(req, res, requestUrl);
     }
 
     if (pathname.startsWith("/api/alpaca/")) {

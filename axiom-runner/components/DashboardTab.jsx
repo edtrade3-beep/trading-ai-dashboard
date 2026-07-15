@@ -16,6 +16,10 @@ import TrendChart from "./TrendChart.jsx";
 import { BestOpportunities } from "./terminal-panels.jsx";
 import { computeRegime } from "./market-helpers.js";
 import { COACH_LESSONS } from "./CoachTab.jsx";
+import AiMorningBriefCard from "./AiMorningBriefCard.jsx";
+import PortfolioRiskCard from "./PortfolioRiskCard.jsx";
+import OpportunityQueueCard from "./OpportunityQueueCard.jsx";
+import AskAiBar from "./AskAiBar.jsx";
 
 // ── Shared card shell for the new 3-row grid ──────────────────────────────
 function Card({ C, title, children, style }) {
@@ -264,6 +268,21 @@ export default function DashboardTab({
 
   return (
     <>
+      {/* ── MISSION CONTROL — the AI already runs on a schedule and already ── */}
+      {/* has real risk/opportunity data; this is the first on-screen home    */}
+      {/* for it instead of Telegram-only or a hidden chat bubble.            */}
+      <div style={{ marginBottom: 10 }}>
+        <AskAiBar C={C} MONO={MONO} SANS={SANS} />
+      </div>
+      <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", alignItems: "stretch" }}>
+        <div style={{ flex: 2, minWidth: 340 }}>
+          <AiMorningBriefCard C={C} MONO={MONO} SANS={SANS} />
+        </div>
+        <div style={{ flex: 1, minWidth: 260 }}>
+          <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} />
+        </div>
+      </div>
+
       {/* ── ROW 1 ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10, marginBottom: 10 }}>
         <MarketRegimeCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} distData={distData} />
@@ -282,6 +301,9 @@ export default function DashboardTab({
 
       {/* ── ROW 3 ── */}
       <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "stretch" }}>
+        <div style={{ flex: 1, minWidth: 300 }}>
+          <OpportunityQueueCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+        </div>
         <div style={{ flex: 2, minWidth: 320 }}>
           <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} />
         </div>
