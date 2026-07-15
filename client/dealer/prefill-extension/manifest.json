@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "DIXIE Marketplace Prefill",
+  "version": "1.0.0",
+  "description": "Fills Facebook Marketplace's vehicle listing form from data you already generated in DIXIE. Never submits anything — you review and click Facebook's own Publish button yourself.",
+  "content_scripts": [
+    {
+      "matches": ["https://www.facebook.com/marketplace/create/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

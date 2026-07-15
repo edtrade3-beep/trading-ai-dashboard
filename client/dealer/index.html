@@ -329,9 +329,11 @@
     <div class="card">
       <div class="row">
         <a class="btn ghost" href="https://www.facebook.com/marketplace/create/vehicle" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block">Open Facebook Marketplace →</a>
+        <button class="btn" onclick="openFacebookPrefilled()" title="Requires the DIXIE Prefill browser extension — see client/dealer/prefill-extension/">✨ Open Facebook (prefilled)</button>
         <button class="btn" onclick="setPostStatus('ready')">Mark Ready</button>
         <button class="btn success" onclick="setPostStatus('posted')">✓ Mark as Posted</button>
       </div>
+      <div class="muted" style="font-size:12px;margin-top:8px">"Open Facebook (prefilled)" needs the DIXIE Prefill browser extension installed (client/dealer/prefill-extension/ — load unpacked in Chrome). It fills in the fields it can find; you still review everything and click Facebook's own Publish button.</div>
     </div>
   </div>
 
@@ -1273,6 +1275,26 @@ function renderPostAssistant(){
     v._notifiedReady=v.vin; save(CUR_KEY,v);
     fetch("/api/dealer/notify-ready",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({vehicle:title})}).catch(function(){});
   }
+}
+// Opens Facebook's own Create Vehicle Listing page with our data attached
+// as a URL param for the companion browser extension (prefill-extension/)
+// to read and fill in — Facebook's page itself is never touched server-side,
+// nothing is submitted for the user, they still review and click Publish
+// themselves. Works with or without the extension installed: without it,
+// this is just a plain link to Facebook's page (data param is ignored).
+function openFacebookPrefilled(){
+  var v=vehicle;
+  var payload={
+    title:[v.year,v.make,v.model,v.trim].filter(Boolean).join(" "),
+    price:num(v.price)>0?String(Math.round(num(v.price))):"",
+    description:v.package?(v.package.websiteDescription||v.package.overview||""):"",
+    year:v.year||"", make:v.make||"", model:v.model||"", trim:v.trim||"",
+    mileage:num(v.mileage)>0?String(Math.round(num(v.mileage))):"",
+    vin:v.vin||"", bodyStyle:v.body||"", exteriorColor:v.exteriorColor||""
+  };
+  var json=JSON.stringify(payload);
+  var b64=btoa(unescape(encodeURIComponent(json)));
+  window.open("https://www.facebook.com/marketplace/create/vehicle?dixie="+encodeURIComponent(b64), "_blank", "noopener");
 }
 function setPostStatus(status){
   var v=vehicle;
