@@ -1,5 +1,6 @@
 const { writeJson, readRequestBody, readRequestBodyBuffer } = require("../utils");
 const { loadInventory, saveInventory } = require("../inventory-store");
+const { deletePhotosForVehicle } = require("../dealership/photo-store");
 
 // ─── Vehicle normalizer ───────────────────────────────────────────────────────
 
@@ -291,6 +292,31 @@ async function handleInventory(req, res, requestUrl) {
       return writeJson(res, 400, { error: "Invalid JSON body" });
     }
     const items = Array.isArray(body.items) ? body.items : Array.isArray(body) ? body : [];
+
+    // Whole-array replace is how this store has always worked (client sends
+    // its full local state each save) — a vehicle missing from the new array
+    // means it was deleted, so its photo directory would otherwise sit
+    // orphaned on disk forever with nothing left pointing to it.
+    //
+    // Guard: this same session already saw a client-side cache-loss bug send
+    // an empty/near-empty array over a real 525-vehicle inventory (browser
+    // localStorage got cleared, POSTed {"items":[]}). Deleting photos on
+    // that kind of mass drop would destroy files with no JSON backup to
+    // recover them from, unlike the inventory record itself. Skip the photo
+    // cleanup (still save the array as requested) when it looks like a bulk
+    // loss rather than real deletions — over half of a non-trivial inventory
+    // disappearing in one save.
+    const before = loadInventory() || [];
+    const bulkLossLikely = before.length > 10 && items.length < before.length * 0.5;
+    if (!bulkLossLikely) {
+      const afterIds = new Set(items.map(v => String(v.id)));
+      for (const v of before) {
+        if (!afterIds.has(String(v.id))) deletePhotosForVehicle(v.id);
+      }
+    } else {
+      console.error(`[inventory] save dropped ${before.length} -> ${items.length} items — skipping photo cleanup as a likely bulk-loss, not real deletions.`);
+    }
+
     saveInventory(items);
     return writeJson(res, 200, { ok: true, saved: items.length });
   }

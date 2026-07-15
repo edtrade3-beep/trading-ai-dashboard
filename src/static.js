@@ -7,7 +7,7 @@ const { ROOT, MIME_TYPES } = require("./config");
 // returns a tiny 304 instead of re-sending the whole 2.6 MB bundle — so pages
 // load instantly on repeat/cold visits, and still bust automatically on deploy
 // (a new build changes the file's size/mtime → new ETag → one fresh download).
-function serveStatic(pathname, res, req) {
+function serveStatic(pathname, res, req, opts) {
   const cleanPath = pathname === "/" ? "/axiom-runner/index.html" : pathname;
   const filePath = path.join(ROOT, cleanPath);
 
@@ -29,7 +29,10 @@ function serveStatic(pathname, res, req) {
       "Content-Type": MIME_TYPES[ext] || "application/octet-stream",
       "ETag": etag,
       // Cache, but revalidate every time — never serve stale after a deploy.
-      "Cache-Control": "public, max-age=0, must-revalidate",
+      // Callers serving content that's never overwritten in place (e.g.
+      // uploaded photos, which get a new filename on re-upload) can pass
+      // opts.cacheControl for real long-lived caching instead.
+      "Cache-Control": (opts && opts.cacheControl) || "public, max-age=0, must-revalidate",
     };
 
     // Conditional request: unchanged → 304, no body. A gzipping proxy (Render/

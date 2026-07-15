@@ -333,8 +333,29 @@ async function handleRequest(req, res) {
       const id = pathname.slice("/vehicle/".length);
       const inv = loadInventory() || [];
       const v = inv.find(x => String(x.id) === id);
+      const proto = req.headers["x-forwarded-proto"] || "https";
+      const baseUrl = `${proto}://${req.headers.host}`;
       res.writeHead(v ? 200 : 404, { "Content-Type": "text/html; charset=utf-8" });
-      res.end(renderVehiclePage(v));
+      res.end(renderVehiclePage(v, baseUrl));
+      return;
+    }
+
+    // Uploaded vehicle photos — the only intentionally-public subtree of
+    // data/ (see photo-store.js). Long-lived cache: a re-upload replaces
+    // files under a fresh directory, these paths never change in place.
+    if (pathname.startsWith("/data/photos/") && req.method === "GET") {
+      return serveStatic(pathname, res, req, { cacheControl: "public, max-age=31536000, immutable" });
+    }
+
+    // Everything else under data/ is a private JSON store (inventory, CRM
+    // leads, FB messages/config) — without this guard the generic static
+    // catch-all below would serve it to anyone who requests the path, since
+    // data/ lives under ROOT like any other directory. Found while wiring up
+    // photo hosting: confirmed live that /data/inventory.json was already
+    // publicly fetchable before this fix.
+    if (pathname.startsWith("/data/")) {
+      res.writeHead(403, { "Content-Type": "text/plain" });
+      res.end("Forbidden");
       return;
     }
 

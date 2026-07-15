@@ -49,4 +49,15 @@ function readJsonSafe(filePath, fallback) {
   }
 }
 
-module.exports = { writeJsonAtomic, readJsonSafe };
+// Same atomicity pattern as writeJsonAtomic, for binary data (e.g. uploaded
+// vehicle photos) — a crash mid-write leaves an orphaned .tmp file, never a
+// half-written real file.
+function writeBinaryAtomic(filePath, buffer) {
+  const dir = path.dirname(filePath);
+  fs.mkdirSync(dir, { recursive: true });
+  const tmpPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+  fs.writeFileSync(tmpPath, buffer);
+  fs.renameSync(tmpPath, filePath);
+}
+
+module.exports = { writeJsonAtomic, readJsonSafe, writeBinaryAtomic };

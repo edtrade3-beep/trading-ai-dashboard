@@ -4,6 +4,8 @@ const { ANTHROPIC_API_KEY } = require("../config");
 const { getKey, setKey } = require("../runtime-keys");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("../telegram");
 const { buildVehicleFeedCsv } = require("./vehicle-feed");
+const { savePhotosForVehicle, deletePhotosForVehicle } = require("./photo-store");
+const { loadInventory, saveInventory } = require("../inventory-store");
 
 // Resolve the Anthropic key from runtime override → env → config (lets the UI set it).
 const anthropicKey = () => getKey("ANTHROPIC_API_KEY", ANTHROPIC_API_KEY);
@@ -478,6 +480,47 @@ async function handleDealership(req, res, requestUrl) {
     res.writeHead(200, { "Content-Type": "text/csv; charset=utf-8", "Cache-Control": "public, max-age=300" });
     res.end(csv);
     return;
+  }
+
+  // POST /api/dealer/vehicle/:id/photos — save the Photos tab's reviewed
+  // set to disk, replacing whatever was there before, and record the
+  // resulting public URLs on the vehicle so the Meta feed + public vehicle
+  // page can use them. Same body shape as /api/dealer/photo-review below
+  // (photoQueue already produces {name, dataUrl} — this is a straight
+  // reuse of that transport, just persisted instead of discarded).
+  const photoUploadMatch = pathname.match(/^\/api\/dealer\/vehicle\/([^/]+)\/photos$/);
+  if (photoUploadMatch && req.method === "POST") {
+    const id = photoUploadMatch[1];
+    let body;
+    try {
+      const buf = await readRequestBodyBuffer(req, 30 * 1024 * 1024);
+      body = JSON.parse(buf.toString("utf8"));
+    } catch (err) {
+      const tooLarge = err instanceof Error && /too large/i.test(err.message);
+      return writeJson(res, tooLarge ? 413 : 400, { error: tooLarge ? "Photos are too large — try fewer or smaller photos." : "Invalid JSON body" });
+    }
+
+    const raw = Array.isArray(body.photos) ? body.photos.slice(0, 20) : [];
+    if (!raw.length) return writeJson(res, 400, { error: "No photos provided." });
+
+    const parsed = [];
+    for (const p of raw) {
+      const d = parseDataUrl(p && p.dataUrl);
+      if (!d) return writeJson(res, 400, { error: `"${(p && p.name) || "one of the photos"}" isn't a valid image.` });
+      if (Buffer.byteLength(d.data, "base64") > 5 * 1024 * 1024) {
+        return writeJson(res, 413, { error: `"${(p && p.name) || "one of the photos"}" is over 5MB — re-save it first.` });
+      }
+      parsed.push(d);
+    }
+
+    const inv = loadInventory() || [];
+    const idx = inv.findIndex(v => String(v.id) === id);
+    if (idx < 0) return writeJson(res, 404, { error: "Vehicle not found." });
+
+    const urls = savePhotosForVehicle(id, parsed);
+    inv[idx].photos = urls;
+    saveInventory(inv);
+    return writeJson(res, 200, { ok: true, photos: urls });
   }
 
   if (pathname === "/api/dealer/vin-decode") {

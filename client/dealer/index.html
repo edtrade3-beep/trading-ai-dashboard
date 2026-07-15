@@ -294,6 +294,7 @@
       <div class="row" style="margin-bottom:12px">
         <input type="file" id="photoFiles" accept="image/*" multiple onchange="handlePhotoFiles()" style="max-width:340px" />
         <button class="btn" onclick="reviewPhotos()" id="photoBtn">Review Photos</button>
+        <button class="btn ghost" onclick="savePhotosToVehicle()" id="savePhotosBtn">💾 Save Photos to Vehicle</button>
         <span class="muted" id="photoMsg" style="font-size:13px"></span>
       </div>
       <div id="photoThumbs" class="row" style="flex-wrap:wrap;gap:10px"></div>
@@ -1181,6 +1182,26 @@ function reviewPhotos(){
    })
    .catch(function(e){ $("photoMsg").textContent="Photo review failed: "+e.message; })
    .then(function(){ $("photoBtn").disabled=false; });
+}
+function savePhotosToVehicle(){
+  var v=vehicle;
+  if(!photoQueue.length){ $("photoMsg").textContent="Choose photos first."; return; }
+  if(!v.id){ $("photoMsg").textContent="Save this vehicle to inventory first (Workspace tab), then come back to save photos."; return; }
+  $("savePhotosBtn").disabled=true; $("photoMsg").textContent="Saving "+photoQueue.length+" photo"+(photoQueue.length!==1?"s":"")+"…";
+  fetch("/api/dealer/vehicle/"+encodeURIComponent(v.id)+"/photos",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ photos:photoQueue.map(function(p){ return { name:p.name, dataUrl:p.dataUrl }; }) })})
+   .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, d:d}; }); })
+   .then(function(res){
+     var d=res.d;
+     if(!res.ok || d.error){ $("photoMsg").textContent=d.error||"Saving photos failed."; return; }
+     vehicle.photos=d.photos; save(CUR_KEY,vehicle);
+     var i=inventory.findIndex(function(x){ return x.id===v.id; });
+     if(i>=0){ inventory[i].photos=d.photos; save(INV_KEY,inventory); syncInventoryToServer(); }
+     $("photoMsg").textContent=d.photos.length+" photo"+(d.photos.length!==1?"s":"")+" saved to this listing ✓";
+     toast("Photos saved ✓");
+   })
+   .catch(function(e){ $("photoMsg").textContent="Saving photos failed: "+e.message; })
+   .then(function(){ $("savePhotosBtn").disabled=false; });
 }
 function renderPhotoReview(d){
   var html='<div class="card"><h2>Review Results</h2>';
