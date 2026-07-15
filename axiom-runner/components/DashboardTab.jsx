@@ -22,6 +22,7 @@ import OpportunityQueueCard from "./OpportunityQueueCard.jsx";
 import AskAiBar from "./AskAiBar.jsx";
 import MarketIntelCard from "./MarketIntelCard.jsx";
 import TradingLessonCard from "./TradingLessonCard.jsx";
+import CeoAiCard from "./CeoAiCard.jsx";
 
 // ── Shared card shell for the new 3-row grid ──────────────────────────────
 function Card({ C, title, children, style }) {
@@ -273,6 +274,9 @@ export default function DashboardTab({
       {/* ── MISSION CONTROL — the AI already runs on a schedule and already ── */}
       {/* has real risk/opportunity data; this is the first on-screen home    */}
       {/* for it instead of Telegram-only or a hidden chat bubble.            */}
+      <div style={{ marginBottom: 10 }}>
+        <CeoAiCard C={C} MONO={MONO} SANS={SANS} />
+      </div>
       <div style={{ marginBottom: 10 }}>
         <AskAiBar C={C} MONO={MONO} SANS={SANS} />
       </div>

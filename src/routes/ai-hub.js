@@ -12,9 +12,12 @@
 // GET  /api/ai-hub/coach-log              — all persisted ai-coach.js outputs
 // GET  /api/ai-hub/journal-patterns       — journal-analytics.js over closed trades
 // POST /api/ai-hub/trading-lesson         — today's Learning AI lesson (generates once/day)
+// GET  /api/ai-hub/ceo-brief              — last persisted CEO AI recommendation
+// POST /api/ai-hub/ceo-brief/refresh      — force-generate a fresh one
 const { writeJson, readRequestBody } = require("../utils");
 const { loadCoachLog } = require("../ai-coach-store");
 const { buildApexBriefing } = require("../ai-coach");
+const { buildCeoRecommendation } = require("../ceo-ai");
 const {
   winRateByDayOfWeek, winRateByHour, avgHoldTime, sectorPerformance, bestWorstTrades,
 } = require("../journal-analytics");
@@ -146,6 +149,17 @@ async function handleAiHub(req, res, requestUrl) {
     try { body = JSON.parse((await readRequestBody(req)) || "{}"); } catch {}
     const result = await generateTradingLesson(!!body.force);
     return writeJson(res, 200, result);
+  }
+
+  if (pathname === "/api/ai-hub/ceo-brief" && req.method === "GET") {
+    const log = loadCoachLog();
+    return writeJson(res, 200, { ok: true, brief: log.ceo || null });
+  }
+
+  if (pathname === "/api/ai-hub/ceo-brief/refresh" && req.method === "POST") {
+    const built = await buildCeoRecommendation();
+    if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate a CEO recommendation (ANTHROPIC_API_KEY not set or the AI call failed)." });
+    return writeJson(res, 200, { ok: true, brief: built });
   }
 
   return writeJson(res, 404, { error: "Not found" });
