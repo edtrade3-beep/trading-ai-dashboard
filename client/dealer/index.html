@@ -275,7 +275,7 @@
   <div class="tab" id="t-photos">
     <div class="card">
       <h2>📷 Photo Review</h2>
-      <div class="muted" style="font-size:13px;margin-bottom:12px">Upload the listing photos for the vehicle loaded in Workspace. Claude checks for a strong cover photo, missing standard angles, a good display order, and visible quality issues — based only on what's actually in the photos, nothing guessed.</div>
+      <div class="muted" style="font-size:13px;margin-bottom:12px">Upload the listing photos for the vehicle loaded in Workspace. Possible duplicates are flagged automatically. Drag thumbnails to reorder, ✨ auto-fixes lighting (stretches the existing exposure range — never invents detail), 🏷 adds a price banner to the cover photo. Then click Review Photos and Claude checks for a strong cover photo, missing standard angles, and visible quality issues — based only on what's actually in the photos, nothing guessed.</div>
       <div class="row" style="margin-bottom:12px">
         <input type="file" id="photoFiles" accept="image/*" multiple onchange="handlePhotoFiles()" style="max-width:340px" />
         <button class="btn" onclick="reviewPhotos()" id="photoBtn">Review Photos</button>
@@ -992,20 +992,149 @@ function handlePhotoFiles(){
   files.forEach(function(f,i){
     downscaleImage(f, 1024, function(dataUrl){
       remaining--;
-      if(dataUrl) photoQueue[i]={ name:f.name, dataUrl:dataUrl };
+      if(dataUrl) photoQueue[i]={ name:f.name, dataUrl:dataUrl, origDataUrl:dataUrl };
       if(remaining===0){
         photoQueue=photoQueue.filter(Boolean);
-        renderThumbs();
-        $("photoMsg").textContent=photoQueue.length+" photo"+(photoQueue.length!==1?"s":"")+" ready.";
+        $("photoMsg").textContent="Checking for duplicates…";
+        detectDuplicates(function(){
+          renderThumbs();
+          var dupCt=photoQueue.filter(function(p){return p.dupOf!=null;}).length;
+          $("photoMsg").textContent=photoQueue.length+" photo"+(photoQueue.length!==1?"s":"")+" ready"+(dupCt?" — "+dupCt+" possible duplicate"+(dupCt!==1?"s":"")+" flagged":"")+".";
+        });
       }
     });
   });
 }
+
+// ── Duplicate detection — 8x8 grayscale average-hash, no server round- ──
+// trip. Two photos are flagged as likely duplicates when their hashes
+// differ in 5 or fewer of 64 bits — a cheap, well-established technique
+// (perceptual hashing), not exact-match, so near-identical burst-mode
+// shots get flagged too, not just byte-identical files.
+function computeHash(dataUrl, cb){
+  var img=new Image();
+  img.onload=function(){
+    var c=document.createElement("canvas"); c.width=8; c.height=8;
+    var ctx=c.getContext("2d"); ctx.drawImage(img,0,0,8,8);
+    var data=ctx.getImageData(0,0,8,8).data;
+    var vals=[], sum=0;
+    for(var i=0;i<64;i++){ var o=i*4; var g=(data[o]+data[o+1]+data[o+2])/3; vals.push(g); sum+=g; }
+    var avg=sum/64;
+    cb(vals.map(function(v){return v>avg?"1":"0";}).join(""));
+  };
+  img.onerror=function(){ cb(null); };
+  img.src=dataUrl;
+}
+function hammingDist(a,b){
+  if(!a||!b||a.length!==b.length) return 64;
+  var d=0; for(var i=0;i<a.length;i++){ if(a[i]!==b[i]) d++; } return d;
+}
+function detectDuplicates(cb){
+  if(!photoQueue.length){ cb(); return; }
+  var remaining=photoQueue.length;
+  photoQueue.forEach(function(p){
+    computeHash(p.origDataUrl||p.dataUrl, function(hash){
+      p.hash=hash;
+      remaining--;
+      if(remaining===0){
+        photoQueue.forEach(function(p){ p.dupOf=null; });
+        for(var i=0;i<photoQueue.length;i++){
+          for(var j=0;j<i;j++){
+            if(hammingDist(photoQueue[i].hash, photoQueue[j].hash)<=5){ photoQueue[i].dupOf=j; break; }
+          }
+        }
+        cb();
+      }
+    });
+  });
+}
+
+// ── Lighting — non-deceptive auto-levels: stretches the photo's EXISTING ──
+// luminance range to use the full 0-255 range, the same idea as "auto
+// contrast" in any photo editor. Never invents detail or changes what's
+// actually in the photo, just makes an under/over-exposed shot easier to
+// see — always run from the true original so repeated clicks don't stack.
+function clamp255(v){ return Math.max(0,Math.min(255,Math.round(v))); }
+function autoLevels(dataUrl, cb){
+  var img=new Image();
+  img.onload=function(){
+    var c=document.createElement("canvas"); c.width=img.width; c.height=img.height;
+    var ctx=c.getContext("2d"); ctx.drawImage(img,0,0);
+    var id=ctx.getImageData(0,0,c.width,c.height), d=id.data;
+    var lo=255, hi=0;
+    for(var i=0;i<d.length;i+=4){ var g=(d[i]+d[i+1]+d[i+2])/3; if(g<lo)lo=g; if(g>hi)hi=g; }
+    var range=hi-lo;
+    if(range<10){ cb(dataUrl); return; } // already full-range or a flat/blank image — nothing useful to stretch
+    for(var j=0;j<d.length;j+=4){
+      d[j]=clamp255((d[j]-lo)/range*255); d[j+1]=clamp255((d[j+1]-lo)/range*255); d[j+2]=clamp255((d[j+2]-lo)/range*255);
+    }
+    ctx.putImageData(id,0,0);
+    cb(c.toDataURL("image/jpeg",0.85));
+  };
+  img.onerror=function(){ cb(dataUrl); };
+  img.src=dataUrl;
+}
+function fixLighting(i){
+  var p=photoQueue[i]; if(!p) return;
+  toast("Adjusting lighting…");
+  autoLevels(p.origDataUrl||p.dataUrl, function(fixed){
+    p.dataUrl=fixed; p.lightingFixed=true; renderThumbs(); toast("Lighting adjusted ✓");
+  });
+}
+
+// ── Branded banner — composites a semi-transparent price banner onto a ──
+// COPY of the photo (never overwrites the original silently; stacks on
+// top of a lighting fix if one was already applied, since this is meant
+// to be the final step before posting).
+function addBanner(i){
+  var p=photoQueue[i]; if(!p) return;
+  var v=vehicle;
+  if(!num(v.price)){ toast("Set a price in Workspace first."); return; }
+  var img=new Image();
+  img.onload=function(){
+    var c=document.createElement("canvas"); c.width=img.width; c.height=img.height;
+    var ctx=c.getContext("2d"); ctx.drawImage(img,0,0);
+    var bannerH=Math.round(c.height*0.16);
+    ctx.fillStyle="rgba(15,23,42,0.80)";
+    ctx.fillRect(0,c.height-bannerH,c.width,bannerH);
+    ctx.fillStyle="#fff"; ctx.textBaseline="middle";
+    ctx.font="bold "+Math.round(bannerH*0.34)+"px -apple-system,Segoe UI,Arial";
+    var title=[v.year,v.make,v.model].filter(Boolean).join(" ");
+    ctx.fillText(title, 14, c.height-bannerH*0.68);
+    ctx.font="bold "+Math.round(bannerH*0.46)+"px -apple-system,Segoe UI,Arial";
+    ctx.fillStyle="#4ade80";
+    ctx.fillText(money(v.price), 14, c.height-bannerH*0.28);
+    p.dataUrl=c.toDataURL("image/jpeg",0.88); p.bannered=true;
+    renderThumbs(); toast("Banner added ✓");
+  };
+  img.src=p.dataUrl;
+}
+function removeThumb(i){ photoQueue.splice(i,1); renderThumbs(); }
+
+// ── Drag-and-drop manual reorder — on top of whatever order photos were ──
+// uploaded in, or the AI-suggested order from Review Photos below.
+var dragSrcIdx=null;
+function thumbDragStart(i){ dragSrcIdx=i; }
+function thumbDrop(i){
+  if(dragSrcIdx===null || dragSrcIdx===i){ dragSrcIdx=null; return; }
+  var item=photoQueue.splice(dragSrcIdx,1)[0];
+  photoQueue.splice(i,0,item);
+  dragSrcIdx=null; renderThumbs(); toast("Reordered");
+}
 function renderThumbs(){
-  $("photoThumbs").innerHTML=photoQueue.map(function(p){
-    return '<div style="text-align:center;width:100px">'
-      +'<img src="'+p.dataUrl+'" style="width:100px;height:75px;object-fit:cover;border-radius:8px;border:1px solid var(--border)" />'
-      +'<div class="muted" style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.name)+'</div>'
+  $("photoThumbs").innerHTML=photoQueue.map(function(p,i){
+    var badges=(i===0?'<span class="pill green" style="font-size:9px;padding:1px 6px;position:absolute;top:3px;left:3px">COVER</span>':"")
+      +(p.dupOf!=null?'<span class="pill red" style="font-size:9px;padding:1px 6px;position:absolute;top:3px;right:3px">DUP</span>':"");
+    return '<div draggable="true" ondragstart="thumbDragStart('+i+')" ondragover="event.preventDefault()" ondrop="thumbDrop('+i+')" '
+      +'style="text-align:center;width:112px;position:relative;cursor:grab;padding-bottom:4px">'
+      +badges
+      +'<img src="'+p.dataUrl+'" style="width:112px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--border)" />'
+      +'<div class="muted" style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.name)+(p.lightingFixed?" ✨":"")+(p.bannered?" 🏷":"")+'</div>'
+      +'<div class="row" style="justify-content:center;gap:3px;margin-top:2px">'
+        +'<button class="btn ghost sm" style="padding:2px 6px;font-size:10px" onclick="fixLighting('+i+')" title="Auto-fix lighting">✨</button>'
+        +(i===0?'<button class="btn ghost sm" style="padding:2px 6px;font-size:10px" onclick="addBanner('+i+')" title="Add price banner">🏷</button>':"")
+        +'<button class="btn danger sm" style="padding:2px 6px;font-size:10px" onclick="removeThumb('+i+')" title="Remove">✕</button>'
+      +'</div>'
       +'</div>';
   }).join("");
 }
@@ -1015,7 +1144,8 @@ function reviewPhotos(){
   if(!v.make || !v.model){ $("photoMsg").textContent="Decode or load a vehicle first."; return; }
   $("photoBtn").disabled=true; $("photoMsg").textContent="Reviewing "+photoQueue.length+" photo"+(photoQueue.length!==1?"s":"")+"… this can take 15–30s"; $("photoResult").innerHTML="";
   fetch("/api/dealer/photo-review",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ vehicle:{ year:v.year, make:v.make, model:v.model, trim:v.trim||"" }, photos:photoQueue })})
+    body:JSON.stringify({ vehicle:{ year:v.year, make:v.make, model:v.model, trim:v.trim||"" },
+      photos:photoQueue.map(function(p){ return { name:p.name, dataUrl:p.dataUrl }; }) })})
    .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, d:d}; }); })
    .then(function(res){
      $("photoMsg").textContent="";
