@@ -87,13 +87,19 @@ async function fetchFmpFundamentals(symbol, fmpKey) {
     // Analyst
     analystTarget: tgt,
     targetMeanPrice: tgt,
+    targetHighPrice: n(target?.targetHigh),
+    targetLowPrice: n(target?.targetLow),
     recommendationKey: null,
     numberOfAnalystOpinions: null,
     // Company profile
     sector: profile?.sector || null,
     industry: profile?.industry || null,
     description: profile?.description || null,
-    earningsDate: profile?.lastDiv || null,
+    // NOT profile?.lastDiv — that's the last dividend *amount*, not an
+    // earnings date. This function doesn't fetch a real earnings calendar
+    // (fetchFmpEarnings below does, for a different endpoint); leaving this
+    // null is honest, a wrong date here would be worse than none.
+    earningsDate: null,
   };
 }
 

@@ -26,10 +26,13 @@ const KNOWN_LABELS = new Set([
 function parseFinvizHtml(html, symbol) {
   const raw = {};
 
-  // Find the snapshot stats table
-  const tStart = html.indexOf("snapshot-table2");
-  const tEnd   = html.indexOf("</table>", tStart);
-  const table  = tStart !== -1 && tEnd !== -1 ? html.slice(tStart, tEnd) : html;
+  // Finviz's snapshot stats are split across several separate <table
+  // class="...snapshot-table2..."> blocks (a layout redesign — used to be
+  // one single table). Grab all of them, not just the first, or every field
+  // past the first ~10 rows silently reads as missing.
+  const tableRe = /<table[^>]*snapshot-table2[^>]*>[\s\S]*?<\/table>/g;
+  const tables  = html.match(tableRe);
+  const table   = tables && tables.length ? tables.join("") : html;
 
   // Extract text content from every <td> in the table
   const tds = [];

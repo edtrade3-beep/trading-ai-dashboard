@@ -2721,7 +2721,11 @@ export default function App() {
     setScanDeepLoad(prev => ({ ...prev, [ticker]: true }));
     try {
       const [fundR, newsR, shortR, insiderR, optionsR, smcR, fvR] = await Promise.allSettled([
-        fetch(`/api/yahoo/fundamentals?symbol=${ticker}`).then(r => r.json()),
+        // /api/market/fundamentals tries FMP then stockanalysis.com before
+        // falling back to Yahoo — Yahoo's quoteSummary v10 is IP-blocked from
+        // Render, so hitting it directly (the old /api/yahoo/fundamentals)
+        // always returned all-null fields. Same response shape either way.
+        fetch(`/api/market/fundamentals?symbol=${ticker}`).then(r => r.json()),
         fetch(`/api/yahoo/news?tickers=${ticker}&limit=6`).then(r => r.json()),
         fetch(`/api/yahoo/short-interest?symbol=${ticker}`).then(r => r.json()),
         fetch(`/api/yahoo/insider?symbol=${ticker}`).then(r => r.json()),
