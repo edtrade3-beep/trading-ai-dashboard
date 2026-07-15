@@ -11,16 +11,49 @@
 //                                            that already gates the autopilots
 // GET  /api/ai-hub/coach-log              — all persisted ai-coach.js outputs
 // GET  /api/ai-hub/journal-patterns       — journal-analytics.js over closed trades
-const { writeJson } = require("../utils");
+// POST /api/ai-hub/trading-lesson         — today's Learning AI lesson (generates once/day)
+const { writeJson, readRequestBody } = require("../utils");
 const { loadCoachLog } = require("../ai-coach-store");
 const { buildApexBriefing } = require("../ai-coach");
 const {
   winRateByDayOfWeek, winRateByHour, avgHoldTime, sectorPerformance, bestWorstTrades,
 } = require("../journal-analytics");
-const { PORT } = require("../config");
+const { PORT, ANTHROPIC_API_KEY } = require("../config");
 const {
   sectorOf, checkAccountHealth, dailyLossBreakerTripped, openRiskPct,
 } = require("../risk-guardrails");
+const { callAnthropicApi, MODELS } = require("../anthropic");
+const { load: loadLessonStore, saveLesson } = require("../trading-lesson-store");
+
+const etDateStr = (d = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(d);
+
+const LESSON_TOPICS = [
+  "risk management", "position sizing", "technical analysis", "trading psychology",
+  "market structure", "trade review discipline", "chart patterns", "cutting losses",
+];
+async function generateTradingLesson(force) {
+  const key = ANTHROPIC_API_KEY;
+  if (!key) return { ok: false, error: "ANTHROPIC_API_KEY not set" };
+  const today = etDateStr();
+  const store = loadLessonStore();
+  if (!force && store.today && store.todayDate === today) return { ok: true, lesson: store.today, cached: true };
+
+  const topic = LESSON_TOPICS[Math.floor(Math.random() * LESSON_TOPICS.length)];
+  const recent = (store.recent || []).slice(0, 20);
+  const SYSTEM = `You are an elite trading coach writing one short, deep, practical lesson. Return JSON ONLY in exactly this shape, no text outside the JSON:
+{"title":"short title","teach":"2-3 sentences teaching the idea with real depth","deep":"1-2 sentences adding a sharper edge or concrete example","practice":"one practical exercise to apply today","mantra":"one memorable line to repeat"}`;
+  const prompt = `Write a new lesson on: ${topic}.${recent.length ? ` Avoid repeating these previous titles: ${recent.join(", ")}.` : ""} Return JSON only.`;
+  try {
+    const raw = await callAnthropicApi(prompt, key, { model: MODELS.haiku, maxTokens: 400, system: SYSTEM, cache: true });
+    let lesson;
+    try {
+      const m = (raw || "").match(/\{[\s\S]*\}/);
+      lesson = JSON.parse(m ? m[0] : raw);
+    } catch { return { ok: false, error: "could not parse lesson" }; }
+    saveLesson(lesson, today);
+    return { ok: true, lesson, topic, cached: false };
+  } catch (e) { return { ok: false, error: e.message }; }
+}
 
 const BASE = () => process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
 async function getJson(path) {
@@ -106,6 +139,13 @@ async function handleAiHub(req, res, requestUrl) {
       bySector: sectorPerformance(trades),
       bestWorst: bestWorstTrades(trades),
     });
+  }
+
+  if (pathname === "/api/ai-hub/trading-lesson" && req.method === "POST") {
+    let body = {};
+    try { body = JSON.parse((await readRequestBody(req)) || "{}"); } catch {}
+    const result = await generateTradingLesson(!!body.force);
+    return writeJson(res, 200, result);
   }
 
   return writeJson(res, 404, { error: "Not found" });

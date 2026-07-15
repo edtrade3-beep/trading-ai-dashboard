@@ -21,6 +21,7 @@ import PortfolioRiskCard from "./PortfolioRiskCard.jsx";
 import OpportunityQueueCard from "./OpportunityQueueCard.jsx";
 import AskAiBar from "./AskAiBar.jsx";
 import MarketIntelCard from "./MarketIntelCard.jsx";
+import TradingLessonCard from "./TradingLessonCard.jsx";
 
 // ── Shared card shell for the new 3-row grid ──────────────────────────────
 function Card({ C, title, children, style }) {
@@ -291,6 +292,7 @@ export default function DashboardTab({
         <TodaysScoreCard C={C} MONO={MONO} aplusScore={aplusScore} aplusSymbol={aplusSymbol} />
         <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
         <UpcomingEventsCard C={C} MONO={MONO} SANS={SANS} eventCountdowns={eventCountdowns} />
+        <TradingLessonCard C={C} MONO={MONO} SANS={SANS} />
       </div>
 
       {/* ── ROW 2 ── */}
