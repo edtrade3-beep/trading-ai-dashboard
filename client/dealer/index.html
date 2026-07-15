@@ -59,6 +59,7 @@
   .pill.green{background:rgba(34,197,94,.18);color:var(--success)}
   .pill.yellow{background:rgba(245,158,11,.18);color:var(--warning)}
   .pill.red{background:rgba(239,68,68,.18);color:var(--danger)}
+  .pill.blue{background:rgba(37,99,235,.15);color:var(--primary)}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
   th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;user-select:none}
@@ -302,7 +303,19 @@
   </div>
 
   <div class="tab" id="t-dash">
+    <div class="card">
+      <h2>Listing Status</h2>
+      <div class="grid g4" id="dashStatusStats"></div>
+    </div>
     <div class="grid g4" id="dashStats"></div>
+    <div class="card">
+      <h2>👥 Leads <a class="crmlink" href="/crm" style="font-size:12px;margin-left:8px">Open CRM →</a></h2>
+      <div class="grid g4" id="dashLeadStats"></div>
+    </div>
+    <div class="card">
+      <h2>Today</h2>
+      <div id="dashToday"></div>
+    </div>
     <div class="card">
       <h2>Most Recent Vehicles</h2>
       <div id="dashRecent"></div>
@@ -796,7 +809,23 @@ function renderCsvResults(){
 }
 function rowToInventoryRecord(r){
   return { id:nextId(), stock:r.stock||"", vin:r.vin, year:r.year, make:r.make, model:r.model, trim:r.trim,
-    mileage:num(r.mileage), cost:num(r.cost), price:num(r.price), engine:r.engine||"", body:r.body||"", fuel:r.fuel||"", drive:r.drive||"", photosOk:false };
+    mileage:num(r.mileage), cost:num(r.cost), price:num(r.price), engine:r.engine||"", body:r.body||"", fuel:r.fuel||"", drive:r.drive||"", photosOk:false,
+    status:"draft", createdAt:Date.now() };
+}
+// Status lifecycle is human-driven (draft -> ready -> posted -> sold) —
+// no "scheduled"/"failed" states, since those would imply automated
+// posting, which this tool deliberately doesn't do (see compliance note
+// in the FB Ad tab). postedAt/soldAt are stamped on the relevant
+// transition so Dashboard/analytics can compute real elapsed time later.
+var STATUS_LABELS = { draft:"📝 Draft", ready:"✅ Ready", posted:"📤 Posted", sold:"💰 Sold" };
+function vehStatus(x){ return x.status||"draft"; }
+function setVehicleStatus(id, status){
+  var x=inventory.find(function(v){return v.id===id;}); if(!x) return;
+  x.status=status;
+  if(status==="posted" && !x.postedAt) x.postedAt=Date.now();
+  if(status==="sold" && !x.soldAt) x.soldAt=Date.now();
+  save(INV_KEY,inventory); syncInventoryToServer(); renderInventory();
+  toast("Status: "+(STATUS_LABELS[status]||status));
 }
 function addCsvRow(i){
   var r=csvRows[i]; if(!r || !r.valid) return;
@@ -997,7 +1026,8 @@ function saveToInventory(){
   if(!vehicle.vin && !vehicle.make){ toast("Decode a vehicle first."); return; }
   inventory.unshift({ id:nextId(), stock:"", vin:vehicle.vin||"", year:vehicle.year||"", make:vehicle.make||"", model:vehicle.model||"",
     trim:vehicle.trim||"", mileage:num(vehicle.mileage), cost:num(vehicle.cost), price:num(vehicle.price),
-    engine:vehicle.engine||"", body:vehicle.body||"", fuel:vehicle.fuel||"", drive:vehicle.drive||"", photosOk:false });
+    engine:vehicle.engine||"", body:vehicle.body||"", fuel:vehicle.fuel||"", drive:vehicle.drive||"", photosOk:false,
+    status:"draft", createdAt:Date.now() });
   save(INV_KEY,inventory); syncInventoryToServer(); toast("Saved to inventory ✓");
 }
 function renderInventory(){
@@ -1016,14 +1046,19 @@ function renderInventory(){
   $("invCards").innerHTML=rows.map(function(x){
     var p=vehProfit(x), pc=p>=0?"var(--success)":"var(--danger)";
     var title=[x.year,x.make,x.model,x.trim].filter(Boolean).join(" ")||"Vehicle";
+    var st=vehStatus(x);
+    var stPill='<span class="pill '+(st==="sold"?"green":st==="posted"?"blue":st==="ready"?"yellow":"")+'" style="'+(st==="draft"?"background:var(--card2);color:var(--muted)":"")+'">'+STATUS_LABELS[st]+'</span>';
     return '<div class="repCard">'
-      +'<div class="repCard-title">'+esc(title)+'</div>'
+      +'<div class="repCard-title">'+esc(title)+' '+stPill+'</div>'
       +'<div class="muted" style="font-size:12px;margin-bottom:8px">VIN '+esc(x.vin||"—")+(x.stock?' · Stock# '+esc(x.stock):'')+'</div>'
       +'<div class="spec"><span class="k">Mileage</span><span class="val">'+num(x.mileage).toLocaleString()+'</span></div>'
       +'<div class="spec"><span class="k">Cost</span><span class="val">'+money(x.cost)+'</span></div>'
       +'<div class="spec"><span class="k">Price</span><span class="val">'+money(x.price)+'</span></div>'
       +'<div class="spec"><span class="k">Profit</span><span class="val" style="color:'+pc+'">'+money(p)+'</span></div>'
       +'<div class="row noprint" style="margin-top:10px">'
+        +'<select onchange="setVehicleStatus('+x.id+',this.value)" style="max-width:130px;padding:6px 8px;font-size:12px">'
+          +Object.keys(STATUS_LABELS).map(function(s){return '<option value="'+s+'"'+(s===st?" selected":"")+'>'+STATUS_LABELS[s]+'</option>';}).join("")
+        +'</select>'
         +'<button class="btn ghost sm" onclick="loadVehicle('+x.id+')">Load</button>'
         +'<button class="btn ghost sm" onclick="editVehicle('+x.id+')">Edit</button>'
         +'<button class="btn danger sm" onclick="delVehicle('+x.id+')">✕ Delete</button>'
@@ -1052,7 +1087,7 @@ function saveVehicleForm(){
     trim:$("f_trim").value, mileage:num($("f_mileage").value), cost:num($("f_cost").value), price:num($("f_price").value), photosOk:$("f_photosOk").checked };
   if(!rec.vin && !rec.make){ toast("Enter at least a VIN or make."); return; }
   if(editId){ var i=inventory.findIndex(function(v){return v.id===editId;}); if(i>=0) inventory[i]=Object.assign({},inventory[i],rec); }
-  else { rec.id=nextId(); inventory.unshift(rec); }
+  else { rec.id=nextId(); rec.status="draft"; rec.createdAt=Date.now(); inventory.unshift(rec); }
   save(INV_KEY,inventory); syncInventoryToServer(); hideForm(); renderInventory(); toast("Saved ✓");
 }
 function delVehicle(id){ if(!confirm("Delete this vehicle?")) return; inventory=inventory.filter(function(v){return v.id!==id;}); save(INV_KEY,inventory); syncInventoryToServer(); renderInventory(); }
@@ -1091,6 +1126,28 @@ function renderDash(){
     ["Average Price",money(n?tp/n:0),"warning"],
     ["Total Potential Profit",money(profit),profit>=0?"success":"danger"]
   ].map(statBox).join("");
+
+  var draftN=inventory.filter(function(x){return vehStatus(x)==="draft";}).length;
+  var readyN=inventory.filter(function(x){return vehStatus(x)==="ready";}).length;
+  var postedN=inventory.filter(function(x){return vehStatus(x)==="posted";}).length;
+  var soldN=inventory.filter(function(x){return vehStatus(x)==="sold";}).length;
+  $("dashStatusStats").innerHTML=[
+    ["📝 Draft",String(draftN),""],
+    ["✅ Ready to Post",String(readyN),readyN>0?"warning":""],
+    ["📤 Posted",String(postedN),""],
+    ["💰 Sold",String(soldN),"success"]
+  ].map(statBox).join("");
+
+  var todayStart=new Date(); todayStart.setHours(0,0,0,0);
+  var todayVehicles=inventory.filter(function(x){return x.createdAt && x.createdAt>=todayStart.getTime();});
+  $("dashToday").innerHTML = todayVehicles.length
+    ? todayVehicles.map(function(x){
+        return '<div class="spec"><span class="k">'+([x.year,x.make,x.model,x.trim].filter(Boolean).join(" ")||"Vehicle")+'</span><span class="val">'+STATUS_LABELS[vehStatus(x)]+'</span></div>';
+      }).join("")
+    : '<div class="empty">No vehicles added today yet.</div>';
+
+  loadLeadsSummary();
+
   var recent=inventory.slice(0,5);
   $("dashRecent").innerHTML = recent.length ? recent.map(function(x){
     return '<div class="spec"><span class="k">'+([x.year,x.make,x.model,x.trim].filter(Boolean).join(" ")||"Vehicle")+'</span><span class="val">'+money(x.price)+' · <span style="color:'+(vehProfit(x)>=0?"var(--success)":"var(--danger)")+'">'+money(vehProfit(x))+'</span></span></div>';
@@ -1101,6 +1158,25 @@ function renderDash(){
   $("dashCards").innerHTML = keys.length ? keys.map(function(m){
     return '<div class="stat"><div class="l">'+m+'</div><div class="v">'+byMake[m].n+' <span style="font-size:13px;color:var(--muted)">units</span></div><div class="muted" style="font-size:12px;margin-top:4px">Profit '+money(byMake[m].p)+'</div></div>';
   }).join("") : '<div class="empty">Add vehicles to see a summary.</div>';
+}
+
+// Leads summary strip — same 4 numbers fb-hub.js's own daily CRM Telegram
+// summary already computes (new/appointments/negotiating/hot-open), pulled
+// from the same GET /api/dealer/crm/leads endpoint the CRM page uses.
+function loadLeadsSummary(){
+  fetch("/api/dealer/crm/leads").then(function(r){return r.json();}).then(function(d){
+    var leads=(d&&Array.isArray(d.leads))?d.leads:[];
+    var newCt=leads.filter(function(l){return (l.stage||"NEW")==="NEW";}).length;
+    var apptCt=leads.filter(function(l){return l.stage==="APPOINTMENT";}).length;
+    var negCt=leads.filter(function(l){return l.stage==="NEGOTIATING";}).length;
+    var hotCt=leads.filter(function(l){return l.hot && l.stage!=="SOLD";}).length;
+    $("dashLeadStats").innerHTML=[
+      ["New Leads",String(newCt),newCt>0?"warning":""],
+      ["Appointments",String(apptCt),""],
+      ["Negotiating",String(negCt),""],
+      ["🔥 Hot (open)",String(hotCt),hotCt>0?"danger":"success"]
+    ].map(statBox).join("");
+  }).catch(function(){ $("dashLeadStats").innerHTML='<div class="muted" style="font-size:12px">Could not load leads.</div>'; });
 }
 
 // Inventory-wide Market Report — sequential price-beat scan per vehicle (same live engine as Price Beater),
