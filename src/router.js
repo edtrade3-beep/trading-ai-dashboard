@@ -15,6 +15,7 @@ const handlePortfolio = require("./routes/portfolio");
 const handleDealership = require("./dealership/routes");
 const { loadInventory } = require("./inventory-store");
 const { renderVehiclePage } = require("./dealership/vehicle-feed");
+const photoStore = require("./dealership/photo-store");
 const handlePriceAlerts = require("./routes/price-alerts");
 const handleSettings = require("./routes/settings");
 const handlePlan = require("./routes/plan");
@@ -343,7 +344,21 @@ async function handleRequest(req, res) {
     // Uploaded vehicle photos — the only intentionally-public subtree of
     // data/ (see photo-store.js). Long-lived cache: a re-upload replaces
     // files under a fresh directory, these paths never change in place.
+    // DB mode (DATABASE_URL set): photos live in Postgres, not on disk —
+    // serveStatic would 404 every time, so fetch and stream bytes directly.
     if (pathname.startsWith("/data/photos/") && req.method === "GET") {
+      if (photoStore.isDbMode()) {
+        const parts = pathname.slice("/data/photos/".length).split("/");
+        const [id, filename] = parts;
+        const photo = id && filename ? await photoStore.getPhoto(id, filename) : null;
+        if (!photo) { res.writeHead(404); res.end("Not found"); return; }
+        res.writeHead(200, {
+          "Content-Type": photo.contentType,
+          "Cache-Control": "public, max-age=31536000, immutable",
+        });
+        res.end(photo.data);
+        return;
+      }
       return serveStatic(pathname, res, req, { cacheControl: "public, max-age=31536000, immutable" });
     }
 

@@ -517,7 +517,7 @@ async function handleDealership(req, res, requestUrl) {
     const idx = inv.findIndex(v => String(v.id) === id);
     if (idx < 0) return writeJson(res, 404, { error: "Vehicle not found." });
 
-    const urls = savePhotosForVehicle(id, parsed);
+    const urls = await savePhotosForVehicle(id, parsed);
     inv[idx].photos = urls;
     saveInventory(inv);
     return writeJson(res, 200, { ok: true, photos: urls });

@@ -66,6 +66,26 @@ const { updateCOTData, isDataFresh } = require("./src/cot/cotService");
 
 const server = http.createServer(handleRequest);
 
+// If DATABASE_URL is set, every data/*.json store (journal, portfolio,
+// dealer inventory, ~25 total — see src/atomic-write.js) is backed by
+// Postgres instead of the app's own ephemeral disk, which was discovered
+// this session to silently wipe on every deploy/restart despite showing a
+// persistent disk as "attached". Bootstrap MUST complete before the server
+// accepts any requests (a route reading/writing before the cache is warm
+// would see stale/empty data) — and if DATABASE_URL is set but the
+// connection fails, refuse to start rather than silently falling back to
+// the ephemeral-disk behavior this exists to replace.
+const { initPgStore } = require("./src/atomic-write");
+const { initPhotoStore } = require("./src/dealership/photo-store");
+
+Promise.all([initPgStore(), initPhotoStore()])
+  .then(() => startServer())
+  .catch((err) => {
+    console.error("[startup] DATABASE_URL is set but Postgres bootstrap failed — refusing to start:", err.message);
+    process.exit(1);
+  });
+
+function startServer() {
 server.listen(PORT, HOST, () => {
   console.log(`Institutional Trading Analyst running at http://localhost:${PORT}`);
   const ifaces = os.networkInterfaces();
@@ -221,3 +241,4 @@ server.listen(PORT, HOST, () => {
     console.log(`[Keep-alive] Pinging ${pingUrl} every 10 min`);
   }
 });
+}

@@ -311,7 +311,7 @@ async function handleInventory(req, res, requestUrl) {
     if (!bulkLossLikely) {
       const afterIds = new Set(items.map(v => String(v.id)));
       for (const v of before) {
-        if (!afterIds.has(String(v.id))) deletePhotosForVehicle(v.id);
+        if (!afterIds.has(String(v.id))) await deletePhotosForVehicle(v.id);
       }
     } else {
       console.error(`[inventory] save dropped ${before.length} -> ${items.length} items — skipping photo cleanup as a likely bulk-loss, not real deletions.`);

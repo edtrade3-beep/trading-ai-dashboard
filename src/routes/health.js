@@ -3,6 +3,8 @@ const path = require("node:path");
 const { writeJson, isOn } = require("../utils");
 const { isConfigured: telegramConfigured } = require("../telegram");
 const { ROOT } = require("../config");
+const { getDbStatus } = require("../atomic-write");
+const { isDbMode: photosDbMode } = require("../dealership/photo-store");
 
 // Build marker — the deploy's git commit (stable across restarts/cold-starts; changes ONLY on a new deploy).
 // Render sets RENDER_GIT_COMMIT automatically. Fall back to a fixed string so restarts don't trigger reloads.
@@ -38,7 +40,13 @@ async function handleHealth(req, res) {
     diskDebug.inventoryFile = { sizeBytes: invStat.size, mtime: invStat.mtime };
   } catch (e) { diskDebug.inventoryFileErr = e.message; }
 
-  return writeJson(res, 200, { ok: true, version: "market-v2", build: BUILD, startedAt: STARTED_AT, telegram: telegramConfigured(), serverAutopilot, meanrevPaper, apiAuth, envSeen, diskDebug });
+  // Postgres persistence status — verify this reports connected:true with a
+  // real kvRowCount immediately after DATABASE_URL is set, before trusting
+  // it with real data. If DATABASE_URL isn't set, the app stays in file
+  // mode (same as always) and this just reports configured:false.
+  const postgres = { ...getDbStatus(), photosConnected: photosDbMode() };
+
+  return writeJson(res, 200, { ok: true, version: "market-v2", build: BUILD, startedAt: STARTED_AT, telegram: telegramConfigured(), serverAutopilot, meanrevPaper, apiAuth, envSeen, diskDebug, postgres });
 }
 
 module.exports = handleHealth;
