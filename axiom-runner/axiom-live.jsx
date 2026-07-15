@@ -5539,7 +5539,7 @@ export default function App() {
         <MarketSessionBanner C={C} MONO={MONO} SANS={SANS} marketSession={marketSession} />
 
         {/* Market Index Strip — matches screenshot layout */}
-        <MacroTape data={macroData} cryptoSnapshot={cryptoSnapshot} />
+        <MacroTape data={macroData} cryptoSnapshot={cryptoSnapshot} marketSession={marketSession} />
 
         <NewsAlertTape C={C} MONO={MONO} SANS={SANS} topHeadlineTape={topHeadlineTape} />
       </div>

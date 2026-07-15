@@ -1,20 +1,36 @@
+import { useState, useEffect } from "react";
 import { C, MONO } from "./theme.js";
 
-export default function MacroTape({ data, cryptoSnapshot }) {
+const SESSION_LABEL = { REGULAR: "MARKET OPEN", PREMARKET: "PRE-MARKET", AFTERMARKET: "AFTER-HOURS", OVERNIGHT: "MARKET CLOSED" };
+const SESSION_COLOR = { REGULAR: C.green, PREMARKET: C.amber, AFTERMARKET: C.purple, OVERNIGHT: C.textDim };
+
+export default function MacroTape({ data, cryptoSnapshot, marketSession }) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   if (!data.length) return null;
 
-  // Priority index slots matching the screenshot layout
+  // Priority index slots matching the reference layout. DXY is backed by
+  // UUP (the closest fetched proxy — MACRO_SYMBOLS has no literal DXY quote)
+  // labeled "US Dollar" rather than "DXY", since UUP's ETF share price
+  // (~$25-30) doesn't match real DXY index conventions (~100-110) — showing
+  // it as "DXY" would be a misleading number, not just a relabel.
   const SLOTS = [
     { sym: "SPY",   label: "S&P 500",        shortLabel: "S&P 500" },
     { sym: "QQQ",   label: "Nasdaq 100",      shortLabel: "Nasdaq 100" },
     { sym: "IWM",   label: "Russell 2000",    shortLabel: "Russell 2000" },
     { sym: "DIA",   label: "Dow 30",          shortLabel: "Dow 30" },
     { sym: "VIXY",  label: "Volatility",      shortLabel: "Volatility", isVix: true },
+    { sym: "UUP",   label: "US Dollar",       shortLabel: "US Dollar" },
     { sym: "GLD",   label: "Gold",            shortLabel: "Gold" },
     { sym: "BNO",   label: "Brent Oil",       shortLabel: "Brent Oil (l)" },
     { sym: "USO",   label: "Crude Oil",       shortLabel: "Crude Oil" },
     { sym: "SHY",   label: "2Y Treasury",     shortLabel: "2Y Treasury" },
     { sym: "BTCUSD",label: "Bitcoin",         shortLabel: "BTC" },
+    { sym: "ETHUSD",label: "Ethereum",        shortLabel: "ETH" },
   ];
 
   const vixyRow = data.find(q => q.symbol === "VIXY");
@@ -69,7 +85,7 @@ export default function MacroTape({ data, cryptoSnapshot }) {
           </div>
         );
       })}
-      {/* VIX regime badge pinned right */}
+      {/* VIX regime badge */}
       <div style={{
         marginLeft: "auto", padding: "6px 16px", display: "flex",
         alignItems: "center", gap: 7, background: regimeBg,
@@ -80,6 +96,22 @@ export default function MacroTape({ data, cryptoSnapshot }) {
           VIX REGIME: {regime}
         </span>
       </div>
+      {/* Clock + market-status — right-pinned, reuses the same marketSession
+          value already computed for MarketSessionBanner (no new fetch). */}
+      {marketSession && (() => {
+        const sCol = SESSION_COLOR[marketSession] || C.textDim;
+        return (
+          <div style={{ padding: "6px 16px", display: "flex", alignItems: "center", gap: 8, borderLeft: `1px solid ${C.border}`, flexShrink: 0 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: sCol, flexShrink: 0, boxShadow: marketSession === "REGULAR" ? `0 0 7px ${sCol}` : "none" }} />
+            <span style={{ fontFamily: MONO, fontSize: 12, color: sCol, fontWeight: 800, letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
+              {SESSION_LABEL[marketSession] || marketSession}
+            </span>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, whiteSpace: "nowrap" }}>
+              {now.toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", second: "2-digit" })} ET
+            </span>
+          </div>
+        );
+      })()}
     </div>
   );
 }
