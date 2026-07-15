@@ -8,19 +8,47 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [positions, setPositions] = useState([]);
+  const [queuedQuery, setQueuedQuery] = useState(null);
   const endRef = useRef(null);
   useEffect(() => { if (open) fetch("/api/alpaca/positions").then(r => r.json()).then(d => { if (d?.ok) setPositions(d.positions || []); }).catch(() => {}); }, [open]);
-  // Opened from the sidebar's "AI Copilot" item — event-based rather than a
-  // lifted prop, matching the existing window-event pattern used elsewhere
-  // (e.g. "gl-trades-changed", "autopilot-tick") for cross-component signals.
+  // Opened from the sidebar's "AI Copilot" item, or from the command palette
+  // routing free-text queries here — event-based rather than a lifted prop,
+  // matching the existing window-event pattern used elsewhere (e.g.
+  // "gl-trades-changed", "autopilot-tick") for cross-component signals.
+  // detail.query alone: queue it to send through the normal /api/market/
+  // ai-copilot flow once open. detail.deferAnswer: true: show the question
+  // immediately but don't call ai-copilot — the command palette is fetching
+  // a purpose-built answer (e.g. ai-why) separately and will deliver it via
+  // "ai-copilot-answer", so only one AI call happens for that query.
   useEffect(() => {
-    const onOpen = () => setOpen(true);
+    const onOpen = (e) => {
+      setOpen(true);
+      const detail = e.detail || {};
+      if (!detail.query) return;
+      if (detail.deferAnswer) {
+        setMsgs(m => [...m, { role: "user", content: detail.query }]);
+        setBusy(true);
+      } else {
+        setQueuedQuery(detail.query);
+      }
+    };
+    const onAnswer = (e) => {
+      setBusy(false);
+      setMsgs(m => [...m, { role: "assistant", content: (e.detail && e.detail.answer) || "(no answer)" }]);
+    };
     window.addEventListener("open-ai-copilot", onOpen);
-    return () => window.removeEventListener("open-ai-copilot", onOpen);
+    window.addEventListener("ai-copilot-answer", onAnswer);
+    return () => { window.removeEventListener("open-ai-copilot", onOpen); window.removeEventListener("ai-copilot-answer", onAnswer); };
   }, []);
+  // Fires the queued query once the panel is actually open (positions have
+  // started fetching) — uses this render's own `send` closure, so it's
+  // always fresh, unlike the mount-only effect above.
+  useEffect(() => {
+    if (queuedQuery && open) { send(queuedQuery); setQueuedQuery(null); }
+  }, [queuedQuery, open]);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, busy]);
-  const send = () => {
-    const q = input.trim(); if (!q || busy) return;
+  const send = (override) => {
+    const q = (override ?? input).trim(); if (!q || busy) return;
     const next = [...msgs, { role: "user", content: q }];
     setMsgs(next); setInput(""); setBusy(true);
     const ctx = {

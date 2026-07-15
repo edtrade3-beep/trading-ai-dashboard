@@ -3836,18 +3836,53 @@ export default function App() {
       return;
     }
 
-    const maybeSymbol = normalized.split(" ")[0];
-    if (/^[A-Z.\-]{1,10}$/.test(maybeSymbol)) {
-      setTerminalSymbol(maybeSymbol);
-      if (!watchlistSymbols.includes(maybeSymbol)) {
-        const next = [...watchlistSymbols, maybeSymbol];
+    // Ticker shortcut — ONLY for genuinely single-token input (no spaces).
+    // Previously this matched just the first word of ANY input, so free text
+    // like "why is spy weak" silently treated "WHY" as a ticker and polluted
+    // the watchlist. Multi-word input now always falls through to the AI
+    // routing below instead.
+    if (/^[A-Z.\-]{1,10}$/.test(normalized)) {
+      setTerminalSymbol(normalized);
+      if (!watchlistSymbols.includes(normalized)) {
+        const next = [...watchlistSymbols, normalized];
         setWatchlistSymbols(next);
         setWatchlistInput(next.join(","));
       }
-      try { localStorage.setItem("mterminal_load_sym", maybeSymbol); } catch {}
+      try { localStorage.setItem("mterminal_load_sym", normalized); } catch {}
       setActiveTab("mterminal");
+      return;
     }
-  }, [watchlistSymbols, setWatchlistSymbols, setWatchlistInput, setTerminalLayout]);
+
+    // Free text that isn't a nav alias or a bare ticker — genuine natural-
+    // language input. "WHY (IS) <SYMBOL> ..." routes to the purpose-built
+    // ai-why endpoint (single-symbol + web search, tighter answer than the
+    // general copilot chat); everything else opens the Trading Copilot chat
+    // with the query queued to send, reusing its existing account/watchlist/
+    // positions/regime context rather than building a second AI integration.
+    const whyMatch = normalized.match(/^WHY\s+(?:IS\s+)?([A-Z.\-]{1,10})\b/);
+    if (whyMatch) {
+      const sym = whyMatch[1];
+      const q = (watchlistData || []).find(w => w.symbol === sym) || (macroData || []).find(m => m.symbol === sym);
+      // deferAnswer: true — show the question immediately but do NOT call the
+      // generic /api/market/ai-copilot endpoint; the answer arrives separately
+      // via "ai-copilot-answer" once ai-why responds, so only one AI call
+      // happens for this query, not two.
+      window.dispatchEvent(new CustomEvent("open-ai-copilot", { detail: { query: raw.trim(), deferAnswer: true } }));
+      fetch("/api/market/ai-why", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol: sym, price: q?.price, changePct: q?.changesPercentage }),
+      }).then(r => r.json()).then(d => {
+        window.dispatchEvent(new CustomEvent("ai-copilot-answer", {
+          detail: { answer: d.ok ? d.reply : `⚠ ${d.error || "error"}` },
+        }));
+      }).catch(e => {
+        window.dispatchEvent(new CustomEvent("ai-copilot-answer", { detail: { answer: `⚠ ${e.message}` } }));
+      });
+      return;
+    }
+
+    window.dispatchEvent(new CustomEvent("open-ai-copilot", { detail: { query: raw.trim() } }));
+  }, [watchlistSymbols, setWatchlistSymbols, setWatchlistInput, setTerminalLayout, watchlistData, macroData]);
 
   useEffect(() => {
     const onKeyDown = (e) => {
