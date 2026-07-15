@@ -2,6 +2,7 @@
 // today's P&L, open positions) and sends one summary so you know what the
 // autopilot did while you weren't watching. PAPER only.
 const { sendTelegramMessage, isConfigured } = require("./telegram");
+const { shouldSendAlert } = require("./telegram-bot");
 
 const BASE = "https://paper-api.alpaca.markets";
 function keys() {
@@ -61,7 +62,7 @@ async function runAutopilotRecap() {
     (posLines ? `\n${posLines}\n` : `\n(no open positions)\n`) +
     `\n⏰ ${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" })} ET (paper)`;
 
-  await sendTelegramMessage(msg).catch(() => {});
+  if (shouldSendAlert({ category: "recap" })) await sendTelegramMessage(msg).catch(() => {});
   console.log(`[Autopilot recap] sent — day ${money(dayPnl)}, ${openN} open`);
 }
 

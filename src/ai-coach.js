@@ -6,6 +6,12 @@ const { callAnthropicApi, MODELS } = require("./anthropic");
 const { sendTelegramMessage, isConfigured } = require("./telegram");
 const { PORT } = require("./config");
 const { tierStatsLine } = require("./autopilot-journal");
+// Shared "informational" daily budget — a safety net against a scheduling
+// bug flooding Telegram, not a throttle on normal once-a-day operation. See
+// the comment above shouldSendAlert() in telegram-bot.js for why these
+// scheduled reports don't use isQuietHours()/checkDailyBudget() (those are
+// tuned for reactive scan alerts, not deliberately-scheduled daily reports).
+const { shouldSendAlert } = require("./telegram-bot");
 
 const KEY = () => (process.env.ANTHROPIC_API_KEY || "").trim();
 const BASE = () => process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
@@ -30,7 +36,7 @@ async function runMorningGamePlan() {
   const SYSTEM = `You are a head trader writing the team's morning game plan in ONE short paragraph (max 60 words). Direct and actionable: today's stance (aggressive long / selective / cash), the 1-3 best tickers to focus on, and one risk to respect. No fluff, no disclaimers.`;
   const prompt = `Date: ${new Date().toDateString()}. Strongest watchlist setups this morning: ${rows}. Write the morning game plan.`;
   const plan = await callAnthropicApi(prompt, KEY(), { model: MODELS.haiku, maxTokens: 200, system: SYSTEM, cache: true }).catch(() => "");
-  if (plan) sendTelegramMessage(`🌅 *MORNING GAME PLAN*\n\n${plan.trim()}`).catch(() => {});
+  if (plan && shouldSendAlert({ category: "ai-coach" })) sendTelegramMessage(`🌅 *MORNING GAME PLAN*\n\n${plan.trim()}`).catch(() => {});
 }
 
 // ── AI Trade Coach ─────────────────────────────────────────────────────────
@@ -44,7 +50,7 @@ async function runTradeCoach() {
   const SYSTEM = `You are a tough-but-fair trading coach reviewing a trader's CLOSED trades for the day. Specific and honest — praise discipline, call out mistakes (cutting winners early, holding losers, oversizing, revenge trades). Max 80 words. Format:\nWENT WELL: one line.\nFIX: 1-2 specific things.\nTOMORROW: one focus.`;
   const rows = todayT.map(t => `${t.symbol} ${t.side || "long"}: $${t.entry}→$${t.exit}, P&L $${Math.round(t.pnl)}`).join("\n");
   const coach = await callAnthropicApi(`Today's closed trades:\n${rows}\n\nCoach me.`, KEY(), { model: MODELS.haiku, maxTokens: 250, system: SYSTEM, cache: true }).catch(() => "");
-  if (coach) sendTelegramMessage(`🎯 *AI TRADE COACH* — ${today}\n\n${coach.trim()}`).catch(() => {});
+  if (coach && shouldSendAlert({ category: "ai-coach" })) sendTelegramMessage(`🎯 *AI TRADE COACH* — ${today}\n\n${coach.trim()}`).catch(() => {});
 }
 
 // ── Weekly AI Review — Friday after close: name the #1 recurring mistake. ────
@@ -67,7 +73,7 @@ async function runWeeklyReview() {
   const review = await callAnthropicApi(`This week's stats: ${stats}\n\nClosed trades:\n${rows}\n\nWhat's my #1 recurring mistake?`, KEY(), { model: MODELS.fable, maxTokens: 500, system: SYSTEM, cache: true, timeout: 120000 }).catch(() => "");
   const tiers = tierStatsLine(week);
   const tierBlock = tiers ? `\n\nBY SETUP:\n${tiers}` : "";
-  if (review) sendTelegramMessage(`📅 *WEEKLY REVIEW*\n${stats}${tierBlock}\n\n${review.trim()}`).catch(() => {});
+  if (review && shouldSendAlert({ category: "ai-coach" })) sendTelegramMessage(`📅 *WEEKLY REVIEW*\n${stats}${tierBlock}\n\n${review.trim()}`).catch(() => {});
 }
 
 // ── Monthly Deep Review — 1st of month, Fable judges whether the edge is real. ──
@@ -87,7 +93,7 @@ async function runMonthlyDeepReview() {
   const rows = trades.map(t => `${t.symbol} ${t.side || "long"}: $${t.entry}→$${t.exit}, P&L $${Math.round(t.pnl)}`).join("\n");
   const prompt = `Track record: ${stats}\n${tiers ? `By setup tier:\n${tiers}\n` : ""}\nTrades:\n${rows}\n\nIs the edge real? Verdict + what to change.`;
   const review = await callAnthropicApi(prompt, KEY(), { model: MODELS.fable, maxTokens: 600, system: SYSTEM, cache: true, timeout: 150000 }).catch(() => "");
-  if (review) sendTelegramMessage(`🔬 *MONTHLY DEEP REVIEW* — Fable\n${stats}${tiers ? `\n\n${tiers}` : ""}\n\n${review.trim()}`).catch(() => {});
+  if (review && shouldSendAlert({ category: "ai-coach" })) sendTelegramMessage(`🔬 *MONTHLY DEEP REVIEW* — Fable\n${stats}${tiers ? `\n\n${tiers}` : ""}\n\n${review.trim()}`).catch(() => {});
 }
 
 // ── APEX AI — automatic morning CIO briefing → Telegram (weekdays ~9:15 AM ET) ──
@@ -139,9 +145,11 @@ async function runApexBriefing() {
   const out = await postJson("/api/market/apex-cio", { regime, stocks, sectors, fearGreed: fg ? `${fg.value ?? fg.score ?? ""} ${fg.label || fg.rating || ""}` : "n/a" });
   if (!out || !out.ok || !out.report) return;
 
+  if (!shouldSendAlert({ category: "ai-coach" })) return;
   const header = `🧠 *TRADE PRO AI — MORNING BRIEFING*\n${new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}\n\n`;
   const text = header + out.report;
-  // Telegram cap ~4096; send in chunks on blank lines.
+  // Telegram cap ~4096; send in chunks on blank lines. Gated once above (not
+  // per-chunk) so a multi-part briefing can't be cut off mid-send by budget.
   for (let i = 0; i < text.length; i += 3800) {
     await sendTelegramMessage(text.slice(i, i + 3800)).catch(() => {});
   }

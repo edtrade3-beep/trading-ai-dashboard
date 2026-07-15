@@ -7,6 +7,7 @@
 
 const https  = require("https");
 const { sendTelegramMessage, isConfigured } = require("./telegram");
+const { shouldSendAlert } = require("./telegram-bot");
 
 // ── Universe ──────────────────────────────────────────────────────────────────
 const SCAN_UNIVERSE = [
@@ -322,6 +323,14 @@ async function runAdol22Scan(symbols, spyChg, vixPrice) {
 async function sendAdol22Alert(result, type) {
   if (!result) return;
   const { sym, pattern, price, scoring, atr, total } = result;
+  // Classified as "opportunity" (always-allow), not the informational
+  // budget: this only fires at an 80%+ confidence threshold (already a real
+  // quality bar, checked above at the call site) and already has its own
+  // per-symbol/type cooldown (cooldownMap below) — it's a genuine high-
+  // confidence setup alert, the exact "A+ Opportunity" category the
+  // notification-discipline plan says should never be silenced by a
+  // shared budget with lower-priority recap/summary messages.
+  if (!shouldSendAlert({ category: "opportunity" })) return;
   const text = buildAlertText(type, sym, pattern, price, scoring, atr);
   await sendTelegramMessage(text).catch(() => {});
   cooldownMap.set(`${sym}:${type}`, Date.now());

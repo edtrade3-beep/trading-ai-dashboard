@@ -6,6 +6,7 @@
 const path = require("node:path");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const { sendTelegramMessage, isConfigured } = require("./telegram");
+const { shouldSendAlert } = require("./telegram-bot");
 const { isOn } = require("./utils");
 
 const STATE_PATH = path.join(__dirname, "..", "data", "meanrev-paper.json");
@@ -85,6 +86,7 @@ function summaryLine() {
 }
 async function sendMeanrevSummary() {
   if (!isOn(process.env.MEANREV_PAPER) || !isConfigured()) return;
+  if (!shouldSendAlert({ category: "recap" })) return;
   await sendTelegramMessage(summaryLine()).catch(() => {});
 }
 

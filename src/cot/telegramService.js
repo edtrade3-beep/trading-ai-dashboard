@@ -14,6 +14,7 @@
  */
 
 const { sendTelegramMessage } = require("../telegram");
+const { shouldSendAlert } = require("../telegram-bot");
 const { scanCOTSymbols } = require("./intradayScanner");
 const { loadWatchlistSymbols } = require("./watchlistHelper");
 
@@ -159,6 +160,7 @@ function buildReport(session, scanResult) {
 
 async function sendCOTReport(session, extraWatchlistSymbols = []) {
   try {
+    if (!shouldSendAlert({ category: "recap" })) return { ok: false, error: "skipped — daily informational budget reached" };
     const scanResult = await scanCOTSymbols(extraWatchlistSymbols);
     const msg = buildReport(session, scanResult);
     await sendTelegramMessage(msg);
@@ -173,6 +175,7 @@ async function sendCOTReport(session, extraWatchlistSymbols = []) {
 // ── Weekly COT data notification ──────────────────────────────────────────────
 
 async function sendCOTUpdateNotification(marketsUpdated, reportDate) {
+  if (!shouldSendAlert({ category: "recap" })) return;
   const msg = [
     `📋 COT DATA UPDATED`,
     `━━━━━━━━━━━━━━━━━━━━━━━━`,

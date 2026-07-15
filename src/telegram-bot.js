@@ -51,6 +51,38 @@ function checkDailyBudget() {
 }
 function incrementDailyCount() { dailyAlertCount++; }
 
+// ── Unified notification discipline ("never spam unless it matters") ───────────
+// isQuietHours()/checkDailyBudget() above are tuned specifically for reactive
+// per-symbol scan alerts (only during the 10am-2:30pm prime window, hard cap
+// of 2/day) — applying them to the scheduled AI Coach / recap reports would be
+// WRONG, since those are deliberately scheduled around the open/close
+// (9:40am, 4:05-4:35pm), outside that window on purpose, and are already
+// deduped to once/day each by server.js's own date-tracking. What those
+// categories actually lack is a safety net against a scheduling bug or
+// misfire flooding the user — a separate, generous daily budget for
+// "informational" (not time-critical) messages, shared across all of them.
+let infoMsgCount = 0;
+let infoMsgDate  = "";
+const MAX_DAILY_INFO_MSGS = 10; // generous — normal operation never approaches this; it's a safety net, not a throttle
+
+// Categories the vision doc explicitly says should ALWAYS notify — never
+// gated, regardless of volume: A+ Opportunity, Market Regime Change, Portfolio
+// Risk, Economic Event, Stop Trigger, Target Hit, Breaking News. Everything
+// else routes through the shared informational budget.
+const ALWAYS_ALLOW_CATEGORIES = new Set([
+  "opportunity", "regime-change", "portfolio-risk", "economic-event",
+  "stop-trigger", "target-hit", "breaking-news", "auto-exec",
+]);
+
+function shouldSendAlert({ category }) {
+  if (ALWAYS_ALLOW_CATEGORIES.has(category)) return true;
+  const today = new Date().toLocaleDateString("en-US", { timeZone: "America/New_York" });
+  if (today !== infoMsgDate) { infoMsgDate = today; infoMsgCount = 0; }
+  if (infoMsgCount >= MAX_DAILY_INFO_MSGS) return false;
+  infoMsgCount++;
+  return true;
+}
+
 // Quiet hours: alerts only 10:00am–2:30pm ET (prime window only) + no weekends
 function isQuietHours() {
   const etStr  = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
@@ -1459,4 +1491,4 @@ function startTelegramBot() {
 
 function stopTelegramBot() { _polling = false; }
 
-module.exports = { startTelegramBot, stopTelegramBot, enqueueScanAlert, isQuietHours, getAlertLevel, checkDailyBudget, incrementDailyCount };
+module.exports = { startTelegramBot, stopTelegramBot, enqueueScanAlert, isQuietHours, getAlertLevel, checkDailyBudget, incrementDailyCount, shouldSendAlert };
