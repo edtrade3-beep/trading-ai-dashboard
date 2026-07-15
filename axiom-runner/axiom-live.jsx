@@ -42,7 +42,7 @@ import QuickLogModal from "./components/QuickLogModal.jsx";
 import CommandPaletteModal from "./components/CommandPaletteModal.jsx";
 import IstighfarWidget, { ISTIGHFAR_BAR_H } from "./components/IstighfarWidget.jsx";
 import RealityCheckWidget from "./components/RealityCheckWidget.jsx";
-import SubNavBar from "./components/SubNavBar.jsx";
+import Sidebar, { SIDEBAR_ITEMS } from "./components/Sidebar.jsx";
 import TerminalChartArea from "./components/TerminalChartArea.jsx";
 import {
   classifyTrend, computeScores, computeGreenLight, logTradeNote, addPaperTrade, addPaperShort,
@@ -4443,6 +4443,7 @@ export default function App() {
       .filter((q) => sector === "ALL" || q.sectorEtf === sector)
       .sort((a, b) => b.scannerScore - a.scannerScore);
   }, [watchlistData, marketUniverseData, scannerFilters]);
+  const scannerBadge = useMemo(() => scannerRows.filter(r => r.scannerScore >= 70).length || null, [scannerRows]);
   const marketSession = useMemo(() => getMarketSessionET(new Date()), [lastUpdate, loading]);
   const sessionCountdown = useMemo(() => getSessionCountdownSecs(new Date(clockNow)), [clockNow]);
   const newsIntel = useMemo(() => analyzeNewsIntelligence(newsData), [newsData]);
@@ -5242,81 +5243,9 @@ export default function App() {
               }}
             />
           </div>
-          {/* Nav tabs — grouped */}
-          {(() => {
-            const NAV_GROUPS = [
-              // breadth/sectors/rotation/cot hidden from the MONITOR subnav bar
-              // (see SUB_GROUPS.dashboard comment) but kept here so this pill
-              // still highlights correctly if you land on one via the palette.
-              // "dashboard" listed first (not "start") — clicking the MONITOR
-              // pill uses tabs[0] as the landing tab, and Start Here is
-              // onboarding-only, not a repeat destination.
-              { id: "dashboard",  label: "📊 MONITOR",    tabs: ["dashboard", "start", "quotes", "crypto", "news", "econ-cal", "macro", "breadth", "sectors", "rotation", "cot"] },
-              // SMART MONEY folded into TERMINAL 2026-07-12 per user request
-              // ("add inside terminal") — its own top-level pill is gone, all
-              // 11 of its tabs (3 now visible in the TERMINAL subnav, 8 still
-              // palette-only) live under this group's membership now so
-              // TERMINAL highlights correctly for all of them.
-              { id: "mterminal",  label: "🖥 TERMINAL",   tabs: ["mterminal", "daytrade", "movers", "sm-brief", "darkpool", "dp-heatmap", "insider", "smartmoney", "flow", "shortint", "short-changes", "sec-filings", "social", "correlation"] },
-              // "greenlight" listed first (not "rhpro"/Command Deck) — clicking
-              // the PRO TRADE pill uses tabs[0] as the landing tab, and it
-              // should land on one of the 3 tabs actually shown in the subnav,
-              // matching the app's own global default landing tab.
-              { id: "rhpro",      label: "📈 PRO TRADE",  tabs: ["greenlight", "tradeplanner", "rhpro", "rhpro-apex", "rhpro-scan", "rhpro-lists", "rhpro-heat", "holdings", "rhpro-journal", "rhpro-coach", "morning-routine", "mytrades",
-                // Hidden from the PRO TRADE subnav bar (see SUB_GROUPS.rhpro
-                // comment) but still reachable — kept here so this group still
-                // highlights correctly if you land on one of these another way.
-                "gl-backtest", "combined", "dipbuy", "squeeze", "under10", "gap", "adol22", "smartscan", "outlook", "predictions"] },
-              { id: "coach",      label: "🧭 المدرّب",    tabs: ["coach"] },
-              // Trimmed 2026-07-12 — PRO PATH/OPTIONS 101 hidden from the subnav
-              // (still reachable via PROPATH/OPTIONSEDU palette commands), kept
-              // PSYCHOLOGY (biggest, most-used academy content) + NOTES (daily
-              // auto-populated buy/sell signal log) visible. "education" listed
-              // first, not "propath" — matches the tabs[0]-landing-tab rule used
-              // by every other trim this session.
-              { id: "education",  label: "🎓 LEARN",      tabs: ["education", "notes", "propath", "options-edu"] },
-              { id: "islamic",    label: "☪️",             tabs: ["quran", "athan", "athkar", "tasbih"] },
-            ];
-            const scannerBadge = scannerRows.filter(r => r.scannerScore >= 70).length || null;
-            return (
-              <div style={{ display: "flex", gap: 2, overflowX: "auto", maxWidth: "100%", paddingBottom: 0, scrollbarWidth: "none", flexWrap: "nowrap", alignItems: "center" }}>
-                {NAV_GROUPS.map(g => {
-                  const isActive = g.tabs.includes(activeTab);
-                  const hasAlertBadge = g.id === "portfolio" && triggeredAlertBadge > 0;
-                  const hasScanBadge  = g.id === "scanner" && scannerBadge;
-                  return (
-                    <button
-                      key={g.id}
-                      onClick={() => setActiveTab(g.tabs[0])}
-                      className={isMobile ? "mobile-nav-btn" : isTablet ? "tablet-nav-btn" : ""}
-                      style={{
-                        border: "none",
-                        background: isActive
-                          ? (themeMode === "dark" ? `${C.accent}22` : `${C.accent}14`)
-                          : "transparent",
-                        color: isActive ? C.accent : C.textSec,
-                        fontFamily: MONO, fontSize: 12, fontWeight: isActive ? 800 : 600,
-                        padding: isMobile ? "10px 11px" : "6px 9px", borderRadius: 6, cursor: "pointer",
-                        borderBottom: isActive ? `2px solid ${C.accent}` : "2px solid transparent",
-                        letterSpacing: "0.04em", whiteSpace: "nowrap",
-                        transition: "color 0.15s, background 0.15s",
-                        display: "inline-flex", alignItems: "center", gap: 4,
-                        minHeight: isMobile ? 44 : "auto",
-                      }}
-                    >
-                      {g.label}
-                      {hasAlertBadge && (
-                        <span style={{ background: C.red, color: "#fff", borderRadius: 10, padding: "2px 6px", fontSize: 12, fontWeight: 800 }}>{triggeredAlertBadge}</span>
-                      )}
-                      {hasScanBadge && (
-                        <span style={{ background: C.green, color: "#fff", borderRadius: 10, padding: "2px 6px", fontSize: 12, fontWeight: 800 }}>{scannerBadge}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })()}
+          {/* Nav pills moved to the persistent left Sidebar (below). Mobile
+              still uses the hamburger+drawer, restyled to the same 13-item
+              list — see Sidebar.jsx and the mobile drawer render below. */}
         </div>
         {/* Mobile: theme toggle — shown on mobile only here */}
         {isMobile && (
@@ -5492,6 +5421,17 @@ export default function App() {
       </div>
       <div style={{ height: topBarH, flexShrink: 0 }} aria-hidden="true" />
 
+      {/* Persistent left Sidebar — desktop/tablet only. Its width is an
+          authored value (LAYOUT.sidebarWidth), not intrinsic wrapping
+          content, so unlike the Top Bar it doesn't need ResizeObserver
+          measurement — position: fixed + a matching marginLeft on the
+          rows below is sufficient. */}
+      {!isMobile && (
+        <Sidebar C={C} MONO={MONO} SANS={SANS} activeTab={activeTab} setActiveTab={setActiveTab}
+          topOffset={ISTIGHFAR_BAR_H + topBarH} width={LAYOUT.sidebarWidth}
+          scannerBadge={scannerBadge} setPaletteOpen={setPaletteOpen} />
+      )}
+
       {/* Mobile menu drawer — opens from LEFT hamburger button */}
       {isMobile && mobileMenuOpen && (
         <div style={{
@@ -5522,6 +5462,36 @@ export default function App() {
               onClick={() => { openTradingView(symbolSearch || terminalSymbol); setMobileMenuOpen(false); }}
               style={{ border: `1px solid ${C.border}`, background: C.card, color: C.accent, borderRadius: 8, padding: "12px 14px", fontFamily: MONO, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
             >TV</button>
+          </div>
+          {/* Nav list — was previously the horizontally-scrollable pill row
+              shown on mobile too; now that primary nav lives in the desktop
+              Sidebar, mobile gets the same flat 13-item list here instead. */}
+          <div style={{ padding: "10px 12px 0", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+            {SIDEBAR_ITEMS.map(item => {
+              const isActive = item.tab && activeTab === item.tab;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    if (item.tab) setActiveTab(item.tab);
+                    else if (item.id === "copilot") window.dispatchEvent(new Event("open-ai-copilot"));
+                    setMobileMenuOpen(false);
+                  }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8, textAlign: "left",
+                    background: isActive ? `${C.accent}18` : C.card,
+                    border: `1px solid ${isActive ? C.accent : C.border}`,
+                    color: isActive ? C.accent : C.textSec,
+                    borderRadius: 8, padding: "10px 10px", minHeight: 44,
+                    fontFamily: SANS, fontSize: 12, fontWeight: isActive ? 700 : 500, cursor: "pointer",
+                  }}
+                >
+                  <span style={{ fontSize: 15 }}>{item.icon}</span>
+                  <span>{item.label}</span>
+                  {item.badge && <span style={{ marginLeft: "auto", background: C.accent, color: "#fff", borderRadius: 5, padding: "1px 5px", fontFamily: MONO, fontSize: 8, fontWeight: 800 }}>{item.badge}</span>}
+                </button>
+              );
+            })}
           </div>
           {/* Action buttons grid */}
           <div style={{ padding: "10px 12px 12px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
@@ -5565,24 +5535,23 @@ export default function App() {
         </div>
       )}
 
-      <MarketSessionBanner C={C} MONO={MONO} SANS={SANS} marketSession={marketSession} />
+      <div style={{ marginLeft: !isMobile ? LAYOUT.sidebarWidth : 0 }}>
+        <MarketSessionBanner C={C} MONO={MONO} SANS={SANS} marketSession={marketSession} />
 
-      {/* Market Index Strip — matches screenshot layout */}
-      <MacroTape data={macroData} cryptoSnapshot={cryptoSnapshot} />
+        {/* Market Index Strip — matches screenshot layout */}
+        <MacroTape data={macroData} cryptoSnapshot={cryptoSnapshot} />
 
-      <NewsAlertTape C={C} MONO={MONO} SANS={SANS} topHeadlineTape={topHeadlineTape} />
-
-      {/* Sub-nav bar — shown when active tab belongs to a multi-tab group */}
-      <SubNavBar C={C} MONO={MONO} activeTab={activeTab} isMobile={isMobile} tvChartMode={tvChartMode} setTvChartMode={setTvChartMode} setActiveTab={setActiveTab} triggeredAlertBadge={triggeredAlertBadge} />
+        <NewsAlertTape C={C} MONO={MONO} SANS={SANS} topHeadlineTape={topHeadlineTape} />
+      </div>
 
       {error && (
-        <div style={{ padding: "8px 18px", fontSize: 12, fontFamily: MONO, color: C.red, background: C.redBg }}>
+        <div style={{ padding: "8px 18px", fontSize: 12, fontFamily: MONO, color: C.red, background: C.redBg, marginLeft: !isMobile ? LAYOUT.sidebarWidth : 0 }}>
           {error}
         </div>
       )}
 
       {/* Content */}
-      <div className={isMobile ? "mobile-content" : ""} style={{ padding: isMobile ? "10px 10px 24px" : LAYOUT.contentPadding, maxWidth: LAYOUT.pageMaxWidth, margin: "0 auto" }}>
+      <div className={isMobile ? "mobile-content" : ""} style={{ padding: isMobile ? "10px 10px 24px" : LAYOUT.contentPadding, maxWidth: LAYOUT.pageMaxWidth, marginTop: 0, marginBottom: 0, marginRight: "auto", marginLeft: !isMobile ? LAYOUT.sidebarWidth : "auto" }}>
 
         <RegimeStrategyBanner C={C} MONO={MONO} activeTab={activeTab} regime={regime} />
 

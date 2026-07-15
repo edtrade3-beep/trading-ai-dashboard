@@ -73,5 +73,5 @@ export const LAYOUT = {
   pageMaxWidth: "100%",
   contentPadding: "14px 18px 24px",
   gridGap: 12,
-  sidebarWidth: 340,
+  sidebarWidth: 220,   // persistent left nav (Sidebar.jsx), desktop/tablet only
 };

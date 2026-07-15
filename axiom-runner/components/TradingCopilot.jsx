@@ -10,6 +10,14 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
   const [positions, setPositions] = useState([]);
   const endRef = useRef(null);
   useEffect(() => { if (open) fetch("/api/alpaca/positions").then(r => r.json()).then(d => { if (d?.ok) setPositions(d.positions || []); }).catch(() => {}); }, [open]);
+  // Opened from the sidebar's "AI Copilot" item — event-based rather than a
+  // lifted prop, matching the existing window-event pattern used elsewhere
+  // (e.g. "gl-trades-changed", "autopilot-tick") for cross-component signals.
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener("open-ai-copilot", onOpen);
+    return () => window.removeEventListener("open-ai-copilot", onOpen);
+  }, []);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, busy]);
   const send = () => {
     const q = input.trim(); if (!q || busy) return;
