@@ -9,6 +9,8 @@ services:
     startCommand: "npm start"
     healthCheckPath: /api/health
     autoDeploy: true
+    # Manually attached in the Render dashboard (Blueprint sync alone didn't
+    # provision it) — kept here so future syncs stay consistent with reality.
     disk:
       name: dealer-data
       mountPath: /opt/render/project/src/data
