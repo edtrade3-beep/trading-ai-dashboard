@@ -27,18 +27,32 @@ export default function CeoAiCard({ C, MONO, SANS }) {
     }).catch(() => setState("error")).finally(() => setGenerating(false));
   };
 
+  // Deliberately styled to be unmissable — thicker glowing border, gradient
+  // tint, a filled badge instead of an outline button — every other Dashboard
+  // card is a plain bordered box; this is the one card meant to look like the
+  // final word, not another data panel.
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.accent}55`, borderRadius: 12, padding: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text, letterSpacing: "0.04em" }}>
-          👔 CEO AI — TODAY'S CALL
-          {brief?.generatedAt && <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 400, color: C.textDim, marginLeft: 8 }}>
-            {new Date(brief.generatedAt).toLocaleString([], { hour: "2-digit", minute: "2-digit" })}
-          </span>}
+    <div style={{
+      background: `linear-gradient(135deg, ${C.accentGlow}, ${C.card} 55%)`,
+      border: `2px solid ${C.accent}`,
+      borderRadius: 14, padding: "18px 20px",
+      boxShadow: `0 0 0 1px ${C.accentGlow}, 0 12px 30px -10px ${C.accentGlow}`,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 34, height: 34, borderRadius: "50%", background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>👔</div>
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text, letterSpacing: "0.03em" }}>CEO AI</div>
+            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em" }}>
+              TODAY'S CALL{brief?.generatedAt && <span style={{ color: C.textDim, fontWeight: 400, letterSpacing: "normal" }}>
+                {" "}· {new Date(brief.generatedAt).toLocaleString([], { hour: "2-digit", minute: "2-digit" })}
+              </span>}
+            </div>
+          </div>
         </div>
         <button onClick={generate} disabled={generating}
-          style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6, cursor: generating ? "default" : "pointer",
-            border: `1px solid ${C.border}`, background: "transparent", color: generating ? C.textDim : C.accent, opacity: generating ? 0.6 : 1 }}>
+          style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 16px", borderRadius: 8, cursor: generating ? "default" : "pointer",
+            border: "none", background: generating ? C.surface : C.accent, color: generating ? C.textDim : "#fff", opacity: generating ? 0.7 : 1 }}>
           {generating ? "Synthesizing…" : brief ? "↻ New Call" : "Generate"}
         </button>
       </div>
@@ -46,25 +60,25 @@ export default function CeoAiCard({ C, MONO, SANS }) {
       {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
       {state === "error" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>Couldn't generate — check ANTHROPIC_API_KEY is set.</div>}
       {state === "empty" && (
-        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, lineHeight: 1.5 }}>
-          Not run yet today. Click Generate — it reads what Scanner AI, Portfolio Risk, Macro AI, and
+        <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, lineHeight: 1.6 }}>
+          Not run yet today. Click <b style={{ color: C.text }}>Generate</b> — it reads what Scanner AI, Portfolio Risk, Macro AI, and
           Journal AI have already found and gives you one final call, not another report.
         </div>
       )}
       {state === "ok" && brief && (
         <div>
-          <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 10, lineHeight: 1.4 }}>{brief.verdict}</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ padding: "8px 10px", background: C.surface, borderRadius: 6 }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.green, letterSpacing: "0.05em", marginBottom: 3 }}>TOP ACTION</div>
-              <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{brief.topAction}</div>
+          <div style={{ fontFamily: SANS, fontSize: 20, fontWeight: 800, color: C.text, marginBottom: 14, lineHeight: 1.35 }}>{brief.verdict}</div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ flex: "1 1 260px", padding: "10px 14px", background: C.surface, borderRadius: 8, borderLeft: `3px solid ${C.green}` }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, letterSpacing: "0.06em", marginBottom: 4 }}>🎯 TOP ACTION</div>
+              <div style={{ fontFamily: SANS, fontSize: 13.5, color: C.text, lineHeight: 1.55 }}>{brief.topAction}</div>
             </div>
-            <div style={{ padding: "8px 10px", background: C.surface, borderRadius: 6 }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.amber, letterSpacing: "0.05em", marginBottom: 3 }}>BIGGEST RISK</div>
-              <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{brief.biggestRisk}</div>
+            <div style={{ flex: "1 1 260px", padding: "10px 14px", background: C.surface, borderRadius: 8, borderLeft: `3px solid ${C.red}` }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.red, letterSpacing: "0.06em", marginBottom: 4 }}>⚠️ BIGGEST RISK</div>
+              <div style={{ fontFamily: SANS, fontSize: 13.5, color: C.text, lineHeight: 1.55 }}>{brief.biggestRisk}</div>
             </div>
           </div>
-          {brief.reasoning && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 10, lineHeight: 1.55, fontStyle: "italic" }}>{brief.reasoning}</div>}
+          {brief.reasoning && <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 12, lineHeight: 1.6, fontStyle: "italic" }}>{brief.reasoning}</div>}
         </div>
       )}
     </div>
