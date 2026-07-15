@@ -1,3 +1,41 @@
+import { useState, useEffect } from "react";
+import JournalPatternsPanel from "./JournalPatternsPanel.jsx";
+
+// ── Coach's Notes — ai-coach.js's scheduled functions (morning game plan,
+// after-close trade coach, weekly review) have always run on a cron and
+// generated real content; it just only ever reached Telegram. This is the
+// first time it's visible in the app itself.
+const COACH_LABELS = {
+  gameplan: "🌅 MORNING GAME PLAN", tradeCoach: "🎯 TRADE COACH",
+  weekly: "📅 WEEKLY REVIEW", monthly: "🔬 MONTHLY DEEP REVIEW", apex: "🧠 MORNING BRIEF",
+};
+function CoachNotesPanel({ C, MONO, SANS }) {
+  const [log, setLog] = useState(null);
+  useEffect(() => {
+    fetch("/api/ai-hub/coach-log").then(r => r.json()).then(d => { if (d && d.ok) setLog(d.log); }).catch(() => {});
+  }, []);
+  const entries = Object.entries(log || {})
+    .filter(([type]) => type !== "apex" && COACH_LABELS[type])
+    .sort((a, b) => (b[1]?.savedAt || 0) - (a[1]?.savedAt || 0));
+  if (!entries.length) return null;
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14, marginBottom: 14 }}>
+      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>COACH'S NOTES</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {entries.slice(0, 4).map(([type, entry]) => (
+          <div key={type} style={{ borderLeft: `3px solid ${C.purple}`, paddingLeft: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.purple }}>{COACH_LABELS[type]}</span>
+              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{entry.savedAt ? new Date(entry.savedAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}</span>
+            </div>
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{entry.text}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function JournalTab({
   C, MONO, SANS,
   journalCloseId, journalClosePrice, journalDateRange, journalEditEntry, journalEditId,
@@ -46,6 +84,8 @@ export default function JournalTab({
               </div>
             )}
 
+            <CoachNotesPanel C={C} MONO={MONO} SANS={SANS} />
+            <JournalPatternsPanel C={C} MONO={MONO} SANS={SANS} />
 
             {/* Today / Week P&L strip */}
             {journalEntries.length > 0 && (() => {

@@ -9,9 +9,14 @@
 // POST /api/ai-hub/morning-brief/refresh  — force-generate a fresh one
 // GET  /api/ai-hub/risk-snapshot          — live portfolio risk, same math
 //                                            that already gates the autopilots
+// GET  /api/ai-hub/coach-log              — all persisted ai-coach.js outputs
+// GET  /api/ai-hub/journal-patterns       — journal-analytics.js over closed trades
 const { writeJson } = require("../utils");
 const { loadCoachLog } = require("../ai-coach-store");
 const { buildApexBriefing } = require("../ai-coach");
+const {
+  winRateByDayOfWeek, winRateByHour, avgHoldTime, sectorPerformance, bestWorstTrades,
+} = require("../journal-analytics");
 const { PORT } = require("../config");
 const {
   sectorOf, checkAccountHealth, dailyLossBreakerTripped, openRiskPct,
@@ -82,6 +87,25 @@ async function handleAiHub(req, res, requestUrl) {
   if (pathname === "/api/ai-hub/risk-snapshot" && req.method === "GET") {
     const snapshot = await buildRiskSnapshot();
     return writeJson(res, 200, snapshot);
+  }
+
+  if (pathname === "/api/ai-hub/coach-log" && req.method === "GET") {
+    return writeJson(res, 200, { ok: true, log: loadCoachLog() });
+  }
+
+  if (pathname === "/api/ai-hub/journal-patterns" && req.method === "GET") {
+    const ct = await getJson("/api/alpaca/closed-trades");
+    if (!ct || !ct.ok) return writeJson(res, 200, { ok: false, reason: ct?.reason || "no-alpaca-key" });
+    const trades = ct.trades || [];
+    return writeJson(res, 200, {
+      ok: true,
+      tradeCount: trades.length,
+      byDayOfWeek: winRateByDayOfWeek(trades),
+      byHour: winRateByHour(trades),
+      holdTime: avgHoldTime(trades),
+      bySector: sectorPerformance(trades),
+      bestWorst: bestWorstTrades(trades),
+    });
   }
 
   return writeJson(res, 404, { error: "Not found" });
