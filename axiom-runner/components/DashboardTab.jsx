@@ -25,14 +25,14 @@ export default function DashboardTab({
           }).filter(Boolean);
           const radarAlert = distData?.alert || "NORMAL";
           const radarScore = distData?.riskScore || 0;
-          const radarColor = radarAlert === "DANGER" ? C.red : radarAlert === "CAUTION" ? C.amber : radarAlert === "WATCH" ? "#4caf50" : C.green;
+          const radarColor = radarAlert === "DANGER" ? C.red : radarAlert === "CAUTION" ? C.amber : radarAlert === "WATCH" ? C.greenLight : C.green;
           const radarIcon  = radarAlert === "DANGER" ? "🚨" : radarAlert === "CAUTION" ? "⚠️" : radarAlert === "WATCH" ? "👁" : "✅";
           const highW = (distData?.warnings || []).filter(w => w.level === "HIGH");
           const fg = fearGreedData;
           const fgScore = fg?.score || 0;
-          const fgColor = fgScore <= 25 ? C.red : fgScore <= 45 ? C.amber : fgScore <= 55 ? C.textSec : fgScore <= 75 ? "#22c55e" : C.green;
+          const fgColor = fgScore <= 25 ? C.red : fgScore <= 45 ? C.amber : fgScore <= 55 ? C.textSec : fgScore <= 75 ? C.greenLight : C.green;
           const fgLabel = fgScore <= 25 ? "EXTREME FEAR" : fgScore <= 45 ? "FEAR" : fgScore <= 55 ? "NEUTRAL" : fgScore <= 75 ? "GREED" : "EXTREME GREED";
-          const ACT_COL = { "LONG": C.green, "SHORT / AVOID": C.red, "WATCH SHORT": "#ff6b6b", "WATCH": C.amber };
+          const ACT_COL = { "LONG": C.green, "SHORT / AVOID": C.red, "WATCH SHORT": C.redLight, "WATCH": C.amber };
           const filtered2 = (sigData?.signals || []).filter(s => {
             if (sigFilter === "LONG")    return s.action === "LONG" || s.action === "WATCH";
             if (sigFilter === "SHORT")   return s.action === "SHORT / AVOID" || s.action === "WATCH SHORT";
@@ -218,7 +218,7 @@ export default function DashboardTab({
                 regLabel = "CHOP / NEUTRAL"; regIcon = "〰️"; regColor = C.amber; regBg = `${C.amber}10`; regConf = 65;
                 playbook = ["Reduce size to 50–75%", "Take profits faster — don't hold overnight", "Avoid breakout trades — they fail in chop", "Wait for regime to resolve before adding risk"];
               } else if (spyChg > 0.5) {
-                regLabel = "CAUTIOUS BULL"; regIcon = "📈"; regColor = "#22c55e"; regBg = "#22c55e10"; regConf = 68;
+                regLabel = "CAUTIOUS BULL"; regIcon = "📈"; regColor = C.greenLight; regBg = `${C.greenLight}10`; regConf = 68;
                 playbook = ["Normal size on confirmed setups", "Watch for VIX spike that could reverse", "Focus on sector leaders, not laggards", "Keep stops tight"];
               } else {
                 regLabel = "DEFENSIVE"; regIcon = "🛡️"; regColor = C.amber; regBg = `${C.amber}10`; regConf = 60;
@@ -325,7 +325,7 @@ export default function DashboardTab({
               }
 
               const bias = score >= 25 ? "BULLISH" : score >= 5 ? "LEAN BULLISH" : score <= -25 ? "BEARISH" : score <= -5 ? "LEAN BEARISH" : "NEUTRAL";
-              const biasCol = score >= 25 ? C.green : score >= 5 ? "#4caf50" : score <= -25 ? C.red : score <= -5 ? "#ff6b6b" : C.amber;
+              const biasCol = score >= 25 ? C.green : score >= 5 ? C.greenLight : score <= -25 ? C.red : score <= -5 ? C.redLight : C.amber;
               const biasIcon = score >= 5 ? "📈" : score <= -5 ? "📉" : "➡️";
               const plan = score >= 25 ? "Look for GREEN LIGHT longs at the open. Buy pullbacks to support."
                          : score >= 5 ? "Cautiously bullish — take only A+ setups, normal size."

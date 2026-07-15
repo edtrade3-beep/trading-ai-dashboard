@@ -359,7 +359,7 @@ export default function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   };
 
   // Reusable labeled setting block: title + caption + segmented buttons
-  const Setting = ({ label, hint, options, value, onPick, accent = "#7c3aed" }) => (
+  const Setting = ({ label, hint, options, value, onPick, accent = C.purple }) => (
     <div style={{ minWidth: 130 }}>
       <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textSec, letterSpacing: "0.04em" }}>{label}</div>
       <div style={{ display: "flex", gap: 4, marginTop: 5 }}>

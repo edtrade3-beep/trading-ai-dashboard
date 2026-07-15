@@ -25,8 +25,10 @@ export const THEME_LIGHT = {
   // Semantic — slightly softer than pure saturated
   green:      "#0d9465",   // slightly muted emerald
   greenBg:    "rgba(13,148,101,0.10)",
+  greenLight: "#4fa87e",   // mild/tentative bullish — lighter than `green`, for multi-tier bias scales
   red:        "#c8282a",   // slightly softer red
   redBg:      "rgba(200,40,42,0.10)",
+  redLight:   "#d9636a",   // mild/tentative bearish — lighter than `red`, for multi-tier bias scales
   amber:      "#c96f00",   // warm amber
   amberBg:    "rgba(201,111,0,0.10)",
   cyan:       "#0882a8",
@@ -51,8 +53,10 @@ export const THEME_DARK = {
   // Semantic — muted, professional (not neon)
   green:      "#2ec27e",   // natural green — readable, not neon
   greenBg:    "rgba(46,194,126,0.12)",
+  greenLight: "#8fd9ae",   // mild/tentative bullish — lighter than `green`, for multi-tier bias scales
   red:        "#e05c6a",   // warm coral-red — easier than harsh bright red
   redBg:      "rgba(224,92,106,0.12)",
+  redLight:   "#eb98a0",   // mild/tentative bearish — lighter than `red`, for multi-tier bias scales
   amber:      "#f0a830",   // warm amber
   amberBg:    "rgba(240,168,48,0.13)",
   cyan:       "#42c9d8",   // teal-cyan — softer
