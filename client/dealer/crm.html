@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DIXIE CRM — Lead Manager</title>
+<style>
+  :root{
+    --bg:#ffffff; --card:#f8fafc; --card2:#eef2f7; --primary:#2563eb;
+    --success:#22c55e; --warning:#f59e0b; --danger:#ef4444;
+    --text:#0f172a; --muted:#64748b; --border:#e2e8f0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1280px;margin:0 auto;padding:16px}
+  header{display:flex;align-items:center;gap:12px;padding:14px 0;flex-wrap:wrap}
+  header .logo{width:42px;height:42px;border-radius:12px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:22px}
+  header h1{font-size:20px;margin:0;font-weight:800}
+  header .sub{color:var(--muted);font-size:12px}
+  header a.back{color:var(--primary);text-decoration:none;font-weight:700;font-size:13px}
+  nav{display:flex;gap:6px;overflow-x:auto;padding:8px 0;scrollbar-width:thin}
+  nav button{flex:0 0 auto;background:var(--card);border:1px solid var(--border);color:var(--muted);
+    border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.15s}
+  nav button:hover{color:var(--text)}
+  nav button.active{background:var(--primary);border-color:var(--primary);color:#fff}
+  .tab{display:none}
+  .tab.active{display:block;animation:fade .2s}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px}
+  .card h2{margin:0 0 14px;font-size:16px;font-weight:800}
+  .grid{display:grid;gap:12px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:1fr 1fr 1fr}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:900px){.g4{grid-template-columns:1fr 1fr}}
+  @media(max-width:640px){.g2,.g3{grid-template-columns:1fr}}
+  label{display:block;font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:5px}
+  input,textarea,select{width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);
+    border-radius:10px;padding:10px 12px;font-size:14px;outline:none;font-family:inherit}
+  input:focus,textarea:focus,select:focus{border-color:var(--primary)}
+  textarea{resize:vertical;min-height:70px;line-height:1.55}
+  .btn{background:var(--primary);border:none;color:#fff;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer;transition:.15s}
+  .btn:hover{filter:brightness(1.1)}
+  .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .btn.success{background:var(--success)} .btn.danger{background:var(--danger)}
+  .btn.sm{padding:7px 12px;font-size:12px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .stat{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:14px}
+  .stat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+  .stat .v{font-size:22px;font-weight:900;margin-top:4px}
+  .pill{display:inline-block;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:800}
+  .pill.green{background:rgba(34,197,94,.18);color:var(--success)}
+  .pill.yellow{background:rgba(245,158,11,.18);color:var(--warning)}
+  .pill.red{background:rgba(239,68,68,.18);color:var(--danger)}
+  .pill.blue{background:rgba(37,99,235,.15);color:var(--primary)}
+  .muted{color:var(--muted)}
+  .empty{color:var(--muted);text-align:center;padding:30px;font-size:14px}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--success);color:#04210f;
+    padding:10px 18px;border-radius:10px;font-weight:800;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:50}
+  .toast.show{opacity:1}
+  /* Pipeline board — 4 stage columns, horizontally scrollable on narrow screens rather than cramming/overflowing. */
+  .board{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;align-items:flex-start}
+  .col{flex:0 0 270px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;min-height:120px}
+  .col h3{margin:0 0 10px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;align-items:center}
+  .col .count{background:var(--card2);border-radius:999px;padding:2px 9px;font-size:12px;color:var(--muted);font-weight:700}
+  .leadCard{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px}
+  .leadCard .name{font-weight:800;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:6px}
+  .leadCard .veh{font-size:12px;color:var(--muted);margin-top:2px}
+  .leadCard .notes{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.4}
+  .leadCard select{margin-top:8px;font-size:12px;padding:6px 8px}
+  .leadCard .row{margin-top:8px;gap:6px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+  th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  tbody tr:hover{background:var(--card2)}
+  .scrollx{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">🧲</div>
+    <div style="flex:1">
+      <h1>DIXIE CRM</h1>
+      <div class="sub">Lead Manager — Facebook Messenger leads, pipeline, and follow-ups</div>
+    </div>
+    <a class="back" href="/dealer">← Back to DIXIE</a>
+  </header>
+
+  <nav id="nav"></nav>
+
+  <div class="tab active" id="t-pipeline">
+    <div class="grid g4" id="pipeStats" style="margin-bottom:14px"></div>
+    <div class="board" id="board"></div>
+  </div>
+
+  <div class="tab" id="t-leads">
+    <div class="card">
+      <h2>All Leads</h2>
+      <div class="row" style="margin-bottom:12px">
+        <input id="leadSearch" placeholder="Search name / phone / vehicle…" oninput="renderLeadsTable()" style="max-width:300px" />
+        <button class="btn" onclick="newLeadForm()">＋ Add Lead</button>
+        <span class="muted" id="leadCount" style="font-size:13px"></span>
+      </div>
+      <div class="scrollx"><table id="leadsTable"><thead><tr>
+        <th>Name</th><th>Phone</th><th>Vehicle</th><th>Stage</th><th>Source</th><th>Added</th><th></th>
+      </tr></thead><tbody id="leadsTbody"></tbody></table></div>
+    </div>
+    <div class="card" id="leadForm" style="display:none">
+      <h2 id="leadFormTitle">Add Lead</h2>
+      <div class="grid g3">
+        <div><label>Name</label><input id="l_name" /></div>
+        <div><label>Phone</label><input id="l_phone" /></div>
+        <div><label>Vehicle interested in</label><input id="l_vehicle" placeholder="e.g. 2019 Toyota Camry" /></div>
+        <div><label>Budget</label><input id="l_budget" /></div>
+        <div><label>Down payment</label><input id="l_down" /></div>
+        <div><label>Stage</label>
+          <select id="l_stage">
+            <option value="NEW">New</option>
+            <option value="APPOINTMENT">Appointment</option>
+            <option value="NEGOTIATING">Negotiating</option>
+            <option value="SOLD">Sold</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:12px"><label>Notes</label><textarea id="l_notes" placeholder="Follow-up notes, what they said, when to call back…"></textarea></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;text-transform:none;letter-spacing:0;color:var(--text);margin-top:12px;cursor:pointer">
+        <input type="checkbox" id="l_hot" style="width:auto" />
+        🔥 Hot lead (gets a Telegram alert)
+      </label>
+      <div class="row" style="margin-top:14px">
+        <button class="btn success" onclick="saveLeadForm()">Save</button>
+        <button class="btn ghost" onclick="hideLeadForm()">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+var TABS = [["pipeline","📋 Pipeline"],["leads","👥 All Leads"]];
+var STAGES = [["NEW","🆕 New"],["APPOINTMENT","📅 Appointment"],["NEGOTIATING","🤝 Negotiating"],["SOLD","✅ Sold"]];
+var leads = [];
+var editId = null;
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function toast(m){ var t=$("toast"); t.textContent=m; t.classList.add("show"); setTimeout(function(){t.classList.remove("show");},1600); }
+
+function buildNav(){
+  var nav=$("nav"); nav.innerHTML="";
+  TABS.forEach(function(t,i){
+    var b=document.createElement("button"); b.textContent=t[1]; b.id="nav-"+t[0];
+    if(i===0) b.className="active";
+    b.onclick=function(){ showTab(t[0]); };
+    nav.appendChild(b);
+  });
+}
+function showTab(id){
+  TABS.forEach(function(t){
+    $("t-"+t[0]).classList.toggle("active", t[0]===id);
+    $("nav-"+t[0]).classList.toggle("active", t[0]===id);
+  });
+  if(id==="pipeline") renderBoard();
+  if(id==="leads") renderLeadsTable();
+  window.scrollTo(0,0);
+}
+
+function loadLeads(cb){
+  fetch("/api/dealer/crm/leads").then(function(r){return r.json();}).then(function(d){
+    leads = (d && Array.isArray(d.leads)) ? d.leads : [];
+    if(cb) cb();
+  }).catch(function(){ leads=[]; if(cb) cb(); });
+}
+
+function statBox(s){
+  var col = s[2]==="success"?"var(--success)":s[2]==="danger"?"var(--danger)":s[2]==="warning"?"var(--warning)":"var(--text)";
+  return '<div class="stat"><div class="l">'+s[0]+'</div><div class="v" style="color:'+col+'">'+s[1]+'</div></div>';
+}
+
+function renderBoard(){
+  var newCt=leads.filter(function(l){return (l.stage||"NEW")==="NEW";}).length;
+  var apptCt=leads.filter(function(l){return l.stage==="APPOINTMENT";}).length;
+  var negCt=leads.filter(function(l){return l.stage==="NEGOTIATING";}).length;
+  var hotCt=leads.filter(function(l){return l.hot && l.stage!=="SOLD";}).length;
+  $("pipeStats").innerHTML=[
+    ["New Leads",String(newCt),newCt>0?"warning":""],
+    ["Appointments",String(apptCt),""],
+    ["Negotiating",String(negCt),""],
+    ["🔥 Hot (open)",String(hotCt),hotCt>0?"danger":"success"]
+  ].map(statBox).join("");
+
+  $("board").innerHTML = STAGES.map(function(s){
+    var stageKey=s[0], stageLabel=s[1];
+    var col=leads.filter(function(l){ return (l.stage||"NEW")===stageKey; });
+    var cards = col.length ? col.map(function(l){
+      var vehicleName=esc(l.vehicle||"—");
+      var when=l.createdAt?new Date(l.createdAt).toLocaleDateString():"";
+      return '<div class="leadCard">'
+        +'<div class="name">'+(l.hot?"🔥 ":"")+esc(l.name||l.phone||"Lead")+'<span class="muted" style="font-weight:400;font-size:11px">'+esc(when)+'</span></div>'
+        +'<div class="veh">'+vehicleName+(l.phone?' · '+esc(l.phone):'')+'</div>'
+        +(l.notes?'<div class="notes">'+esc(l.notes.slice(0,120))+'</div>':'')
+        +'<select onchange="moveStage(\''+l.id+'\',this.value)">'
+          +STAGES.map(function(x){return '<option value="'+x[0]+'"'+(x[0]===stageKey?" selected":"")+'>'+x[1]+'</option>';}).join("")
+        +'</select>'
+        +'<div class="row"><button class="btn ghost sm" onclick="editLead(\''+l.id+'\')">Edit</button></div>'
+        +'</div>';
+    }).join("") : '<div class="muted" style="font-size:12px;padding:10px 0">No leads in this stage.</div>';
+    return '<div class="col"><h3>'+stageLabel+' <span class="count">'+col.length+'</span></h3>'+cards+'</div>';
+  }).join("");
+}
+
+function moveStage(id, stage){
+  fetch("/api/dealer/crm/stage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id,stage:stage})})
+    .then(function(){ var l=leads.find(function(x){return x.id===id;}); if(l) l.stage=stage; renderBoard(); if($("t-leads").classList.contains("active")) renderLeadsTable(); toast("Moved to "+stage); })
+    .catch(function(){ toast("Failed to update — try again."); });
+}
+
+function renderLeadsTable(){
+  var q=($("leadSearch").value||"").toLowerCase();
+  var rows=leads.filter(function(l){ return !q || [l.name,l.phone,l.vehicle].join(" ").toLowerCase().indexOf(q)>=0; });
+  $("leadCount").textContent=rows.length+" lead"+(rows.length!==1?"s":"");
+  if(!rows.length){ $("leadsTbody").innerHTML='<tr><td colspan="7" class="empty">No leads yet.</td></tr>'; return; }
+  $("leadsTbody").innerHTML=rows.map(function(l){
+    var stagePill='<span class="pill '+(l.stage==="SOLD"?"green":l.stage==="NEGOTIATING"?"yellow":l.stage==="APPOINTMENT"?"blue":"red")+'">'+(l.stage||"NEW")+'</span>';
+    var when=l.createdAt?new Date(l.createdAt).toLocaleDateString():"—";
+    return '<tr>'
+      +'<td>'+(l.hot?"🔥 ":"")+esc(l.name||"—")+'</td>'
+      +'<td>'+esc(l.phone||"—")+'</td>'
+      +'<td>'+esc(l.vehicle||"—")+'</td>'
+      +'<td>'+stagePill+'</td>'
+      +'<td>'+esc(l.source||"manual")+'</td>'
+      +'<td>'+when+'</td>'
+      +'<td><button class="btn ghost sm" onclick="editLead(\''+l.id+'\')">Edit</button> <button class="btn danger sm" onclick="deleteLead(\''+l.id+'\')">✕</button></td>'
+      +'</tr>';
+  }).join("");
+}
+
+function newLeadForm(){
+  editId=null; $("leadFormTitle").textContent="Add Lead";
+  ["name","phone","vehicle","budget","down","notes"].forEach(function(f){$("l_"+f).value="";});
+  $("l_stage").value="NEW"; $("l_hot").checked=false;
+  $("leadForm").style.display=""; $("leadForm").scrollIntoView({behavior:"smooth"});
+}
+function editLead(id){
+  var l=leads.find(function(x){return x.id===id;}); if(!l) return;
+  editId=id; $("leadFormTitle").textContent="Edit Lead";
+  $("l_name").value=l.name||""; $("l_phone").value=l.phone||""; $("l_vehicle").value=l.vehicle||"";
+  $("l_budget").value=l.budget||""; $("l_down").value=l.down||""; $("l_notes").value=l.notes||"";
+  $("l_stage").value=l.stage||"NEW"; $("l_hot").checked=!!l.hot;
+  showTab("leads");
+  $("leadForm").style.display=""; $("leadForm").scrollIntoView({behavior:"smooth"});
+}
+function hideLeadForm(){ $("leadForm").style.display="none"; editId=null; }
+function saveLeadForm(){
+  var lead={
+    name:$("l_name").value.trim(), phone:$("l_phone").value.trim(), vehicle:$("l_vehicle").value.trim(),
+    budget:$("l_budget").value.trim(), down:$("l_down").value.trim(), notes:$("l_notes").value.trim(),
+    stage:$("l_stage").value, hot:$("l_hot").checked, source:"manual"
+  };
+  if(!lead.name && !lead.phone){ toast("Enter a name or phone number."); return; }
+  if(editId) lead.id=editId;
+  fetch("/api/dealer/crm/leads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(lead)})
+    .then(function(r){return r.json();})
+    .then(function(){ hideLeadForm(); loadLeads(function(){ renderLeadsTable(); renderBoard(); }); toast("Saved ✓"); })
+    .catch(function(){ toast("Save failed — try again."); });
+}
+function deleteLead(id){
+  if(!confirm("Delete this lead?")) return;
+  fetch("/api/dealer/crm/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id})})
+    .then(function(){ leads=leads.filter(function(l){return l.id!==id;}); renderLeadsTable(); renderBoard(); toast("Deleted"); })
+    .catch(function(){ toast("Delete failed — try again."); });
+}
+
+buildNav();
+loadLeads(function(){ renderBoard(); renderLeadsTable(); });
+</script>
+</body>
+</html>

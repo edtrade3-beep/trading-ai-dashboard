@@ -433,8 +433,13 @@ async function bravePriceScan(vehicle, braveKey, refPrice) {
 async function handleDealership(req, res, requestUrl) {
   const { pathname, searchParams } = requestUrl;
 
-  // ── Facebook Hub routes ──
-  if (pathname.startsWith("/api/dealer/fb/")) {
+  // ── Facebook Hub + CRM routes ──
+  // Bug fix: this used to only match /api/dealer/fb/*, but handleFbHub also
+  // implements the CRM endpoints (/api/dealer/crm/leads, /crm/stage,
+  // /crm/delete) — they were never actually reachable since this dispatcher
+  // never forwarded them, so the whole CRM backend 404'd despite being fully
+  // built. Discovered while building its first working frontend (crm.html).
+  if (pathname.startsWith("/api/dealer/fb/") || pathname.startsWith("/api/dealer/crm/")) {
     let body = "";
     await new Promise(resolve => {
       req.on("data", c => body += c);

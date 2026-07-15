@@ -17,6 +17,7 @@
   header .logo{width:42px;height:42px;border-radius:12px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:22px}
   header h1{font-size:20px;margin:0;font-weight:800}
   header .sub{color:var(--muted);font-size:12px}
+  header a.crmlink{color:var(--primary);text-decoration:none;font-weight:700;font-size:13px;white-space:nowrap}
   nav{display:flex;gap:6px;overflow-x:auto;padding:8px 0;scrollbar-width:thin}
   nav button{flex:0 0 auto;background:var(--card);border:1px solid var(--border);color:var(--muted);
     border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.15s}
@@ -92,8 +93,9 @@
     <div class="logo">🚗</div>
     <div style="flex:1">
       <h1>DIXIE</h1>
-      <div class="sub">Dixie Motors AI Operations Manager — VIN decode · profit · ads · inventory · print — all data saved on this device</div>
+      <div class="sub">Dixie Motors AI Operations Manager — VIN decode · profit · ads · inventory · print</div>
     </div>
+    <a class="crmlink" href="/crm">🧲 Leads / CRM →</a>
   </header>
 
   <nav id="nav"></nav>
@@ -353,6 +355,28 @@ function nextId(){ idCounter++; return Date.now()*1000+idCounter; }
 
 function load(k,d){ try{ var v=JSON.parse(localStorage.getItem(k)); return v==null?d:v; }catch(e){ return d; } }
 function save(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+
+// Server-side inventory persistence — localStorage stays as an offline
+// cache/fallback, the server (data/inventory.json via /api/inventory) is
+// now the source of truth. This also fixes the CRM's AI auto-reply
+// vehicle context, which reads that same file and was always empty
+// before nothing wrote to it.
+function syncInventoryToServer(){
+  fetch("/api/inventory/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({items:inventory})}).catch(function(){});
+}
+function syncInventoryFromServer(cb){
+  fetch("/api/inventory").then(function(r){return r.json();}).then(function(d){
+    if(d && Array.isArray(d.items) && d.items.length){
+      inventory=d.items; save(INV_KEY,inventory);
+    } else if(inventory.length){
+      // Server has nothing yet but we have local data (first run after this
+      // change, or vehicles added while offline) — push it up rather than
+      // silently discarding it.
+      syncInventoryToServer();
+    }
+    if(cb) cb();
+  }).catch(function(){ if(cb) cb(); }); // offline-friendly: fall back to local-only silently
+}
 function $(id){ return document.getElementById(id); }
 function num(v){ var n=parseFloat(v); return isFinite(n)?n:0; }
 function money(v){ return "$"+Math.round(num(v)).toLocaleString(); }
@@ -778,14 +802,14 @@ function addCsvRow(i){
   var r=csvRows[i]; if(!r || !r.valid) return;
   inventory.unshift(rowToInventoryRecord(r));
   csvRows.splice(i,1);
-  save(INV_KEY,inventory); renderCsvResults(); renderInventory();
+  save(INV_KEY,inventory); syncInventoryToServer(); renderCsvResults(); renderInventory();
   toast("Added ✓");
 }
 function addAllValidToInventory(){
   var added=0;
   csvRows.forEach(function(r){ if(r.valid){ inventory.unshift(rowToInventoryRecord(r)); added++; } });
   csvRows=csvRows.filter(function(r){ return !r.valid; });
-  save(INV_KEY,inventory); renderCsvResults(); renderInventory();
+  save(INV_KEY,inventory); syncInventoryToServer(); renderCsvResults(); renderInventory();
   $("csvAddMsg").textContent=added+" vehicle"+(added!==1?"s":"")+" added to inventory.";
   toast(added+" added to inventory ✓");
 }
@@ -931,7 +955,7 @@ function reviewPhotos(){
      renderPhotoReview(d);
      if(v.vin){
        var i=inventory.findIndex(function(x){ return x.vin && x.vin===v.vin; });
-       if(i>=0){ inventory[i].photosOk=true; save(INV_KEY,inventory); }
+       if(i>=0){ inventory[i].photosOk=true; save(INV_KEY,inventory); syncInventoryToServer(); }
      }
    })
    .catch(function(e){ $("photoMsg").textContent="Photo review failed: "+e.message; })
@@ -974,7 +998,7 @@ function saveToInventory(){
   inventory.unshift({ id:nextId(), stock:"", vin:vehicle.vin||"", year:vehicle.year||"", make:vehicle.make||"", model:vehicle.model||"",
     trim:vehicle.trim||"", mileage:num(vehicle.mileage), cost:num(vehicle.cost), price:num(vehicle.price),
     engine:vehicle.engine||"", body:vehicle.body||"", fuel:vehicle.fuel||"", drive:vehicle.drive||"", photosOk:false });
-  save(INV_KEY,inventory); toast("Saved to inventory ✓");
+  save(INV_KEY,inventory); syncInventoryToServer(); toast("Saved to inventory ✓");
 }
 function renderInventory(){
   $("inv_sort").value=sortCol;
@@ -1029,9 +1053,9 @@ function saveVehicleForm(){
   if(!rec.vin && !rec.make){ toast("Enter at least a VIN or make."); return; }
   if(editId){ var i=inventory.findIndex(function(v){return v.id===editId;}); if(i>=0) inventory[i]=Object.assign({},inventory[i],rec); }
   else { rec.id=nextId(); inventory.unshift(rec); }
-  save(INV_KEY,inventory); hideForm(); renderInventory(); toast("Saved ✓");
+  save(INV_KEY,inventory); syncInventoryToServer(); hideForm(); renderInventory(); toast("Saved ✓");
 }
-function delVehicle(id){ if(!confirm("Delete this vehicle?")) return; inventory=inventory.filter(function(v){return v.id!==id;}); save(INV_KEY,inventory); renderInventory(); }
+function delVehicle(id){ if(!confirm("Delete this vehicle?")) return; inventory=inventory.filter(function(v){return v.id!==id;}); save(INV_KEY,inventory); syncInventoryToServer(); renderInventory(); }
 function hideForm(){ $("invForm").style.display="none"; editId=null; }
 
 function buildPrint(kind){
@@ -1165,7 +1189,8 @@ function finishReport(rows){
 buildNav();
 $("d_vin").value=vehicle.vin||""; $("d_mileage").value=vehicle.mileage||""; $("d_cost").value=vehicle.cost||""; $("d_price").value=vehicle.price||"";
 renderVehicleCard();
-renderInventory();
+renderInventory(); // render local/cached data immediately, don't block on network
+syncInventoryFromServer(function(){ renderInventory(); if($("t-dash").classList.contains("active")) renderDash(); });
 fetchApiStatus();
 </script>
 </body>
