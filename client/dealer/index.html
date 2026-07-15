@@ -166,6 +166,20 @@
         <span class="muted" id="invCount" style="font-size:13px"></span>
       </div>
       <div class="row" style="margin-bottom:6px">
+        <select id="inv_f_make" onchange="renderInventory()" style="max-width:150px"><option value="">All Makes</option></select>
+        <select id="inv_f_status" onchange="renderInventory()" style="max-width:150px">
+          <option value="">All Status</option>
+          <option value="draft">📝 Draft</option><option value="ready">✅ Ready</option>
+          <option value="posted">📤 Posted</option><option value="sold">💰 Sold</option>
+        </select>
+        <input id="inv_f_yearMin" type="number" placeholder="Year min" oninput="renderInventory()" style="max-width:110px" />
+        <input id="inv_f_yearMax" type="number" placeholder="Year max" oninput="renderInventory()" style="max-width:110px" />
+        <input id="inv_f_priceMin" type="number" placeholder="Price min" oninput="renderInventory()" style="max-width:120px" />
+        <input id="inv_f_priceMax" type="number" placeholder="Price max" oninput="renderInventory()" style="max-width:120px" />
+        <input id="inv_f_mileageMax" type="number" placeholder="Max mileage" oninput="renderInventory()" style="max-width:130px" />
+        <button class="btn ghost sm" onclick="clearInvFilters()">Clear Filters</button>
+      </div>
+      <div class="row" style="margin-bottom:6px">
         <label style="margin:0;text-transform:none;font-size:13px;color:var(--muted);align-self:center">Sort by</label>
         <select id="inv_sort" onchange="setInvSort()" style="max-width:160px">
           <option value="year">Year</option>
@@ -174,6 +188,7 @@
           <option value="profit">Profit</option>
           <option value="mileage">Mileage</option>
           <option value="make">Make</option>
+          <option value="createdAt">Date Listed</option>
         </select>
         <button class="btn ghost sm" onclick="toggleInvSortDir()" id="inv_sortDirBtn">▼</button>
       </div>
@@ -344,6 +359,12 @@
     <div class="card">
       <h2>👥 Leads <a class="crmlink" href="/crm" style="font-size:12px;margin-left:8px">Open CRM →</a></h2>
       <div class="grid g4" id="dashLeadStats"></div>
+    </div>
+    <div class="card">
+      <h2>📈 Analytics</h2>
+      <div class="grid g4" id="dashAnalytics" style="margin-bottom:12px"></div>
+      <div class="muted" style="font-size:12px;margin-bottom:8px">Leads per vehicle — approximate, matched by comparing each lead's free-text "vehicle" field to your inventory's year/make/model. Not a precise link, since leads don't reference a specific VIN.</div>
+      <div id="dashLeadsPerVehicle"></div>
     </div>
     <div class="card">
       <h2>Today</h2>
@@ -1249,19 +1270,49 @@ function saveToInventory(){
     status:"draft", createdAt:Date.now() });
   save(INV_KEY,inventory); syncInventoryToServer(); toast("Saved to inventory ✓");
 }
+function populateMakeFilter(){
+  var sel=$("inv_f_make"); var cur=sel.value;
+  var makes=Array.from(new Set(inventory.map(function(x){return x.make;}).filter(Boolean))).sort();
+  sel.innerHTML='<option value="">All Makes</option>'+makes.map(function(m){return '<option value="'+esc(m)+'">'+esc(m)+'</option>';}).join("");
+  if(makes.indexOf(cur)>=0) sel.value=cur;
+}
+function clearInvFilters(){
+  ["inv_f_make","inv_f_status","inv_f_yearMin","inv_f_yearMax","inv_f_priceMin","inv_f_priceMax","inv_f_mileageMax"].forEach(function(id){$(id).value="";});
+  renderInventory();
+}
 function renderInventory(){
   $("inv_sort").value=sortCol;
   $("inv_sortDirBtn").textContent=sortDir>0?"▲":"▼";
+  populateMakeFilter();
   var q=($("inv_search").value||"").toLowerCase();
-  var rows=inventory.filter(function(x){ return !q || [x.vin,x.make,x.model,x.trim,x.year].join(" ").toLowerCase().indexOf(q)>=0; });
+  var fMake=$("inv_f_make").value, fStatus=$("inv_f_status").value;
+  var fYearMin=num($("inv_f_yearMin").value), fYearMax=num($("inv_f_yearMax").value);
+  var fPriceMin=num($("inv_f_priceMin").value), fPriceMax=num($("inv_f_priceMax").value);
+  var fMileageMax=num($("inv_f_mileageMax").value);
+  var rows=inventory.filter(function(x){
+    if(q && [x.vin,x.make,x.model,x.trim,x.year].join(" ").toLowerCase().indexOf(q)<0) return false;
+    if(fMake && x.make!==fMake) return false;
+    if(fStatus && vehStatus(x)!==fStatus) return false;
+    if(fYearMin && num(x.year)<fYearMin) return false;
+    if(fYearMax && num(x.year)>fYearMax) return false;
+    if(fPriceMin && num(x.price)<fPriceMin) return false;
+    if(fPriceMax && num(x.price)>fPriceMax) return false;
+    if(fMileageMax && num(x.mileage)>fMileageMax) return false;
+    return true;
+  });
   rows.sort(function(a,b){
     var va=a[sortCol], vb=b[sortCol];
-    if(["mileage","cost","price","year"].indexOf(sortCol)>=0){ va=num(va); vb=num(vb); }
+    if(["mileage","cost","price","year","createdAt"].indexOf(sortCol)>=0){ va=num(va); vb=num(vb); }
     if(sortCol==="profit"){ va=vehProfit(a); vb=vehProfit(b); }
     if(va<vb) return -1*sortDir; if(va>vb) return 1*sortDir; return 0;
   });
-  $("invCount").textContent=rows.length+" vehicle"+(rows.length!==1?"s":"");
-  if(!rows.length){ $("invCards").innerHTML='<div class="empty">No vehicles yet. Decode a VIN and save it, or click Add Vehicle.</div>'; return; }
+  $("invCount").textContent=rows.length+" of "+inventory.length+" vehicle"+(inventory.length!==1?"s":"");
+  if(!rows.length){
+    $("invCards").innerHTML = inventory.length
+      ? '<div class="empty">No vehicles match your search/filters. <a href="#" onclick="clearInvFilters();return false" style="color:var(--primary)">Clear filters</a></div>'
+      : '<div class="empty">No vehicles yet. Decode a VIN and save it, or click Add Vehicle.</div>';
+    return;
+  }
   $("invCards").innerHTML=rows.map(function(x){
     var p=vehProfit(x), pc=p>=0?"var(--success)":"var(--danger)";
     var title=[x.year,x.make,x.model,x.trim].filter(Boolean).join(" ")||"Vehicle";
@@ -1395,7 +1446,48 @@ function loadLeadsSummary(){
       ["Negotiating",String(negCt),""],
       ["🔥 Hot (open)",String(hotCt),hotCt>0?"danger":"success"]
     ].map(statBox).join("");
-  }).catch(function(){ $("dashLeadStats").innerHTML='<div class="muted" style="font-size:12px">Could not load leads.</div>'; });
+    renderAnalytics(leads);
+  }).catch(function(){ $("dashLeadStats").innerHTML='<div class="muted" style="font-size:12px">Could not load leads.</div>'; renderAnalytics([]); });
+}
+
+// Analytics — real math over data already on the page, no new fetch beyond
+// the leads array loadLeadsSummary() already pulled. Listings-created and
+// posted/sold counts come straight from the status/createdAt/postedAt
+// fields Phase 2 already added; avg time-to-post needs both createdAt and
+// postedAt on the same record, so it's null (not zero) until at least one
+// vehicle has both.
+function renderAnalytics(leads){
+  var weekAgo=Date.now()-7*86400000, monthAgo=Date.now()-30*86400000;
+  var createdThisWeek=inventory.filter(function(x){return x.createdAt && x.createdAt>=weekAgo;}).length;
+  var createdThisMonth=inventory.filter(function(x){return x.createdAt && x.createdAt>=monthAgo;}).length;
+  var postedTotal=inventory.filter(function(x){return vehStatus(x)==="posted"||vehStatus(x)==="sold";}).length;
+  var soldTotal=inventory.filter(function(x){return vehStatus(x)==="sold";}).length;
+  var withBothTimes=inventory.filter(function(x){return x.createdAt && x.postedAt;});
+  var avgPostHrs = withBothTimes.length
+    ? (withBothTimes.reduce(function(s,x){return s+(x.postedAt-x.createdAt);},0)/withBothTimes.length)/3600000
+    : null;
+  $("dashAnalytics").innerHTML=[
+    ["Listed This Week",String(createdThisWeek),""],
+    ["Listed This Month",String(createdThisMonth),""],
+    ["Avg Time to Post",avgPostHrs!=null?(avgPostHrs<48?avgPostHrs.toFixed(1)+"h":(avgPostHrs/24).toFixed(1)+"d"):"—",""],
+    ["Sold",String(soldTotal),soldTotal>0?"success":""]
+  ].map(statBox).join("");
+
+  // Best-effort lead-to-vehicle text match — see the honesty note in the
+  // markup above. A vehicle "matches" a lead if the lead's free-text
+  // vehicle field contains that vehicle's year+make or make+model.
+  var counts=inventory.map(function(x){
+    var label=[x.year,x.make,x.model].filter(Boolean).join(" ");
+    var needle1=(x.make||"").toLowerCase(), needle2=(x.model||"").toLowerCase();
+    var n=leads.filter(function(l){
+      var v=(l.vehicle||"").toLowerCase();
+      return v && needle1 && needle2 && v.indexOf(needle1)>=0 && v.indexOf(needle2)>=0;
+    }).length;
+    return { label:label||"Vehicle", n:n };
+  }).filter(function(c){return c.n>0;}).sort(function(a,b){return b.n-a.n;}).slice(0,5);
+  $("dashLeadsPerVehicle").innerHTML = counts.length
+    ? counts.map(function(c){ return '<div class="spec"><span class="k">'+esc(c.label)+'</span><span class="val">'+c.n+' lead'+(c.n!==1?"s":"")+'</span></div>'; }).join("")
+    : '<div class="muted" style="font-size:12px">No leads matched to a specific vehicle yet.</div>';
 }
 
 // Inventory-wide Market Report — sequential price-beat scan per vehicle (same live engine as Price Beater),
