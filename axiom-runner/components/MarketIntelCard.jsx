@@ -24,7 +24,7 @@ export default function MarketIntelCard({ C, MONO, SANS, flowBias, flowCallNotio
   const fedColor = fed?.bias === "DOVISH" ? C.green : fed?.bias === "HAWKISH" ? C.red : C.amber;
 
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, height: "100%" }}>
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: C.shadow, padding: 14, height: "100%" }}>
       <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>MARKET INTELLIGENCE</div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>

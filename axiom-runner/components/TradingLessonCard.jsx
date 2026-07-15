@@ -22,7 +22,7 @@ export default function TradingLessonCard({ C, MONO, SANS }) {
   };
   useEffect(() => { fetchLesson(false); }, []);
 
-  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 };
+  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: C.shadow, padding: 14 };
 
   return (
     <div style={card}>

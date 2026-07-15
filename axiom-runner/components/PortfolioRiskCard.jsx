@@ -23,7 +23,7 @@ export default function PortfolioRiskCard({ C, MONO, SANS }) {
   }, []);
 
   if (state === "nokey") return null;
-  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column" };
+  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: C.shadow, padding: 14, display: "flex", flexDirection: "column" };
   const title = <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>PORTFOLIO RISK</div>;
 
   if (state === "loading") return <div style={card}>{title}<div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div></div>;

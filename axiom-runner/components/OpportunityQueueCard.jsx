@@ -29,7 +29,7 @@ export default function OpportunityQueueCard({ C, MONO, SANS, setTerminalSymbol,
   };
 
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, height: "100%" }}>
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: C.shadow, padding: 14, height: "100%" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em" }}>
           OPPORTUNITY QUEUE {lastRunAt && <span style={{ fontWeight: 400 }}>· scanned {new Date(lastRunAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}

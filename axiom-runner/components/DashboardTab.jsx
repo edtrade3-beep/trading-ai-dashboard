@@ -23,19 +23,36 @@ import AskAiBar from "./AskAiBar.jsx";
 import MarketIntelCard from "./MarketIntelCard.jsx";
 import TradingLessonCard from "./TradingLessonCard.jsx";
 import CeoAiCard from "./CeoAiCard.jsx";
+import ActivePositionsCard from "./ActivePositionsCard.jsx";
 
-// ── Shared card shell for the new 3-row grid ──────────────────────────────
-function Card({ C, title, children, style }) {
+// ── Shared card shell — every Dashboard card except CeoAiCard (which stays
+// its own deliberately-elevated hero treatment) renders through this, so
+// the whole page shares one consistent elevation instead of each card
+// hand-rolling (or omitting) its own shadow. `accent` draws a 2px colored
+// top border — a cheap, consistent way to color-code card categories.
+function Card({ C, title, children, style, accent }) {
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", ...style }}>
+    <div style={{
+      background: C.card, border: `1px solid ${C.border}`, borderRadius: 12,
+      boxShadow: C.shadow, padding: 14, display: "flex", flexDirection: "column",
+      ...(accent ? { borderTop: `2px solid ${accent}` } : {}),
+      ...style,
+    }}>
       {title && <div style={{ fontFamily: "inherit", fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>{title}</div>}
       {children}
     </div>
   );
 }
 
-// ── Row 1: Market Regime gauge (computeRegime + the existing 6-state playbook) ──
-function MarketRegimeCard({ C, MONO, SANS, macroData, distData }) {
+// ── Market Regime — merged with the former separate "AI Market Summary"
+// card. Both read computeRegime()'s gauge score (a VIX/SPY/QQQ formula)
+// and a rule-based factor-scoring bias (SPY/MA50/VIX/breadth/fear-greed/
+// news) — two different formulas that CAN legitimately disagree, which is
+// exactly what CEO AI exists to reconcile. They used to render as two
+// separate bordered boxes answering the same underlying question; now
+// they're one card, gauge + top 3 (not 5) factors, so the duplication is
+// visual, not informational — nothing here was cut.
+function MarketRegimeCard({ C, MONO, SANS, macroData, distData, factors, bias, biasColor }) {
   const spy = (macroData || []).find(m => m.symbol === "SPY");
   const qqq = (macroData || []).find(m => m.symbol === "QQQ");
   const vix = distData?.vix || 0;
@@ -53,36 +70,13 @@ function MarketRegimeCard({ C, MONO, SANS, macroData, distData }) {
   return (
     <Card C={C} title="MARKET REGIME">
       <RadialGauge C={C} MONO={MONO} value={regime.score} label={regLabel} sublabel="regime score" color={regColor} />
-      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 8, textAlign: "center" }}>{playbook}</div>
-    </Card>
-  );
-}
-
-// ── Row 1: AI Market Summary — reuses the same rule-based factor scoring ──
-// already used for the (kept, collapsed-by-default) Next Day Outlook card.
-// Deliberately NOT a live LLM call: that would add cost/latency/a Telegram
-// dependency to something that should be instant and free on every load.
-function AiMarketSummaryCard({ C, MONO, SANS, factors, bias, biasColor }) {
-  return (
-    <Card C={C} title="AI MARKET SUMMARY">
-      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: biasColor, marginBottom: 8 }}>{bias}</div>
-      <div style={{ flex: 1 }}>
-        {factors.slice(0, 5).map((f, i) => (
-          <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, padding: "3px 0", lineHeight: 1.4 }}>{f}</div>
+      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 8, marginBottom: 10, textAlign: "center" }}>{playbook}</div>
+      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: biasColor, marginBottom: 4 }}>{bias}</div>
+        {(factors || []).slice(0, 3).map((f, i) => (
+          <div key={i} style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, padding: "2px 0", lineHeight: 1.4 }}>{f}</div>
         ))}
-        {!factors.length && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Waiting for market data…</div>}
       </div>
-    </Card>
-  );
-}
-
-// ── Row 1: Today's Score — same A+ score as the Top Opportunity card /  ──
-// AI Copilot Insights panel (single fetch, shared via the onScore callback
-// below — not a second independent scan).
-function TodaysScoreCard({ C, MONO, aplusScore, aplusSymbol }) {
-  return (
-    <Card C={C} title="TODAY'S SCORE">
-      <RadialGauge C={C} MONO={MONO} value={aplusScore ?? 0} label={aplusSymbol ? `${aplusSymbol} SETUP` : "SCANNING…"} sublabel="opportunity score" color={C.accent} />
     </Card>
   );
 }
@@ -227,9 +221,8 @@ export default function DashboardTab({
   setTerminalSymbol, setScanResults, setActiveTab, setScanExpanded, loadDeepDive, loadDeepSocial,
   setTiltLocked, setSigLoading, setSigData, fetchFearGreed, setDistData, setFuturesData, setPreMktMovers,
 }) {
-  const [aplusScore, setAplusScore] = useState(null);
   const [aplusSymbol, setAplusSymbol] = useState(null);
-  const onScore = (row) => { setAplusScore(row ? row._aplus.score : null); setAplusSymbol(row ? row.symbol : null); };
+  const onScore = (row) => { setAplusSymbol(row ? row.symbol : null); };
 
   // Same next-day-bias factor scoring used by the (now collapsed, kept for
   // detail) Next Day Outlook card — computed once, shared by the new AI
@@ -285,67 +278,73 @@ export default function DashboardTab({
         <AskAiBar C={C} MONO={MONO} SANS={SANS} />
       </div>
 
-      {/* ── AI INTELLIGENCE — the two AI reads on "what's happening",     */}
-      {/* grouped together instead of split across the page.              */}
-      {sectionLabel("AI INTELLIGENCE")}
-      <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", alignItems: "stretch" }}>
-        <div style={{ flex: 2, minWidth: 340 }}>
-          <AiMorningBriefCard C={C} MONO={MONO} SANS={SANS} />
-        </div>
-        <div style={{ flex: 1, minWidth: 260 }}>
-          <MarketIntelCard C={C} MONO={MONO} SANS={SANS} flowBias={flowBias} flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional} setActiveTab={setActiveTab} />
-        </div>
-      </div>
+      {/* ── Two-column body — MAIN (chart/opportunities/watchlist/news, ── */}
+      {/* needs horizontal room) + SIDEBAR (portfolio/risk/status widgets, */}
+      {/* don't). Standard trading-terminal density instead of every       */}
+      {/* section forcing a full-width scroll. Wraps to one column under   */}
+      {/* the sidebar's minWidth on narrow viewports.                      */}
+      <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
 
-      {/* ── YOUR PORTFOLIO — account snapshot and the risk math that       */}
-      {/* already gates the autopilots, side by side instead of the risk   */}
-      {/* card living in an unrelated row.                                 */}
-      {sectionLabel("YOUR PORTFOLIO")}
-      <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", alignItems: "stretch" }}>
-        <div style={{ flex: 1, minWidth: 240 }}>
-          <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
-        </div>
-        <div style={{ flex: 1, minWidth: 260 }}>
-          <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} />
-        </div>
-      </div>
+        {/* ── MAIN ── */}
+        <div style={{ flex: "1 1 600px", minWidth: 0, display: "flex", flexDirection: "column" }}>
 
-      {/* ── MARKET PULSE — the compact gauge/status cards. ── */}
-      {sectionLabel("MARKET PULSE")}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10, marginBottom: 10 }}>
-        <MarketRegimeCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} distData={distData} />
-        <AiMarketSummaryCard C={C} MONO={MONO} SANS={SANS} factors={factors} bias={bias} biasColor={biasCol} />
-        <TodaysScoreCard C={C} MONO={MONO} aplusScore={aplusScore} aplusSymbol={aplusSymbol} />
-        <UpcomingEventsCard C={C} MONO={MONO} SANS={SANS} eventCountdowns={eventCountdowns} />
-        <TradingLessonCard C={C} MONO={MONO} SANS={SANS} />
-      </div>
+          {sectionLabel("AI INTELLIGENCE")}
+          <div style={{ marginBottom: 10 }}>
+            <AiMorningBriefCard C={C} MONO={MONO} SANS={SANS} />
+          </div>
 
-      {/* ── OPPORTUNITIES — the two ranked-signal engines, kept side by    */}
-      {/* side rather than merged (different universes/scoring).          */}
-      {sectionLabel("OPPORTUNITIES")}
-      <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", alignItems: "stretch" }}>
-        <div style={{ flex: 1, minWidth: 300 }}>
-          <OpportunityQueueCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+          {sectionLabel("WATCHLIST & CHART")}
+          <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", alignItems: "stretch" }}>
+            <WatchlistCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} sigData={sigData} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+            <DashboardChartCard C={C} MONO={MONO} SANS={SANS} symbol={aplusSymbol || "SPY"} />
+            <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} />
+          </div>
+
+          {/* ── OPPORTUNITIES — the two ranked-signal engines, kept side */}
+          {/* by side rather than merged (different universes/scoring). */}
+          {sectionLabel("OPPORTUNITIES")}
+          <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", alignItems: "stretch" }}>
+            <div style={{ flex: 1, minWidth: 300 }}>
+              <OpportunityQueueCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+            </div>
+            <div style={{ flex: 2, minWidth: 320 }}>
+              <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} />
+            </div>
+          </div>
+
+          {sectionLabel("NEWS")}
+          <div style={{ marginBottom: 14 }}>
+            <Card C={C} title="MARKET NEWS">
+              <RegimeNewsPanel C={C} MONO={MONO} SANS={SANS} />
+            </Card>
+          </div>
         </div>
-        <div style={{ flex: 2, minWidth: 320 }}>
-          <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} />
+
+        {/* ── SIDEBAR ── */}
+        <div style={{ flex: "1 1 320px", minWidth: 300, maxWidth: 420, display: "flex", flexDirection: "column" }}>
+
+          {/* ── YOUR PORTFOLIO — snapshot, the actual open positions      */}
+          {/* (previously missing from the Dashboard entirely), and the   */}
+          {/* risk math that already gates the autopilots — all together. */}
+          {sectionLabel("YOUR PORTFOLIO")}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
+            <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
+            <ActivePositionsCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+            <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} />
+          </div>
+
+          {sectionLabel("MARKET INTELLIGENCE")}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
+            <MarketRegimeCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} distData={distData} factors={factors} bias={bias} biasColor={biasCol} />
+            <MarketIntelCard C={C} MONO={MONO} SANS={SANS} flowBias={flowBias} flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional} setActiveTab={setActiveTab} />
+          </div>
+
+          {sectionLabel("TODAY")}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
+            <UpcomingEventsCard C={C} MONO={MONO} SANS={SANS} eventCountdowns={eventCountdowns} />
+            <TradingLessonCard C={C} MONO={MONO} SANS={SANS} />
+          </div>
         </div>
-      </div>
-
-      {/* ── WATCHLIST & CHART ── */}
-      {sectionLabel("WATCHLIST & CHART")}
-      <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", alignItems: "stretch" }}>
-        <WatchlistCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} sigData={sigData} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
-        <DashboardChartCard C={C} MONO={MONO} SANS={SANS} symbol={aplusSymbol || "SPY"} />
-        <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} />
-      </div>
-
-      {/* ── NEWS ── */}
-      {sectionLabel("NEWS")}
-      <div style={{ marginBottom: 14 }}>
-        <Card C={C} title="MARKET NEWS">
-          <RegimeNewsPanel C={C} MONO={MONO} SANS={SANS} />
-        </Card>
       </div>
 
       {/* ── MORE — everything from the previous layout that doesn't have a ── */}

@@ -15,7 +15,7 @@ export default function AskAiBar({ C, MONO, SANS }) {
     setQ("");
   };
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 10, display: "flex", alignItems: "center", gap: 8 }}>
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: C.shadow, padding: 10, display: "flex", alignItems: "center", gap: 8 }}>
       <span style={{ fontFamily: MONO, fontSize: 14 }}>🗣️</span>
       <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === "Enter") ask(); }}
         placeholder="Ask AI — “Review my portfolio”, “Why is NVDA moving?”, “Should I buy TSLA?”…"
