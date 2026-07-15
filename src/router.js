@@ -13,6 +13,8 @@ const handleJournal = require("./routes/journal");
 const handleAgent = require("./routes/agent");
 const handlePortfolio = require("./routes/portfolio");
 const handleDealership = require("./dealership/routes");
+const { loadInventory } = require("./inventory-store");
+const { renderVehiclePage } = require("./dealership/vehicle-feed");
 const handlePriceAlerts = require("./routes/price-alerts");
 const handleSettings = require("./routes/settings");
 const handlePlan = require("./routes/plan");
@@ -322,6 +324,18 @@ async function handleRequest(req, res) {
       } catch (e) {
         return writeJson(res, 500, { ok: false, error: e.message });
       }
+    }
+
+    // Public vehicle detail page — this is what the Meta vehicle feed's `url`
+    // field links to (see dealership/vehicle-feed.js). Read-only, no auth,
+    // by design: it's meant to be viewed by Marketplace shoppers.
+    if (pathname.startsWith("/vehicle/") && req.method === "GET") {
+      const id = pathname.slice("/vehicle/".length);
+      const inv = loadInventory() || [];
+      const v = inv.find(x => String(x.id) === id);
+      res.writeHead(v ? 200 : 404, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(renderVehiclePage(v));
+      return;
     }
 
     // Clean URL aliases

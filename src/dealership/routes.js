@@ -3,6 +3,7 @@ const { callAnthropicApi, callAnthropicWithSearch, anthropicRequest, MODELS } = 
 const { ANTHROPIC_API_KEY } = require("../config");
 const { getKey, setKey } = require("../runtime-keys");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("../telegram");
+const { buildVehicleFeedCsv } = require("./vehicle-feed");
 
 // Resolve the Anthropic key from runtime override → env → config (lets the UI set it).
 const anthropicKey = () => getKey("ANTHROPIC_API_KEY", ANTHROPIC_API_KEY);
@@ -464,6 +465,19 @@ async function handleDealership(req, res, requestUrl) {
       sendTelegramMessage(`🚀 *LISTING READY TO POST*\n\n${vehicleLabel}\n\nTitle, description, photos, and price are all set — open DIXIE and post it to Marketplace.`).catch(() => {});
     }
     return writeJson(res, 200, { ok: true });
+  }
+
+  // Meta vehicle catalog feed — register this URL in Commerce Manager's
+  // Vehicles catalog and Facebook posts/updates/removes Marketplace listings
+  // itself on its own schedule. No browser automation, nothing that touches
+  // Facebook's UI or account protections — this only produces data.
+  if (pathname === "/api/dealer/vehicle-feed.csv" && req.method === "GET") {
+    const proto = req.headers["x-forwarded-proto"] || "https";
+    const baseUrl = `${proto}://${req.headers.host}`;
+    const csv = buildVehicleFeedCsv(baseUrl);
+    res.writeHead(200, { "Content-Type": "text/csv; charset=utf-8", "Cache-Control": "public, max-age=300" });
+    res.end(csv);
+    return;
   }
 
   if (pathname === "/api/dealer/vin-decode") {
