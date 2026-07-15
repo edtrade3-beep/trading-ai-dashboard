@@ -269,59 +269,83 @@ export default function DashboardTab({
   const bias = score >= 25 ? "BULLISH" : score >= 5 ? "LEAN BULLISH" : score <= -25 ? "BEARISH" : score <= -5 ? "LEAN BEARISH" : "NEUTRAL";
   const biasCol = score >= 25 ? C.green : score >= 5 ? C.greenLight : score <= -25 ? C.red : score <= -5 ? C.redLight : C.amber;
 
+  const sectionLabel = (text) => (
+    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.1em", margin: "18px 0 8px" }}>{text}</div>
+  );
+
   return (
     <>
-      {/* ── MISSION CONTROL — the AI already runs on a schedule and already ── */}
-      {/* has real risk/opportunity data; this is the first on-screen home    */}
-      {/* for it instead of Telegram-only or a hidden chat bubble.            */}
+      {/* ── EXECUTIVE — the final word first, then a direct line to the ── */}
+      {/* copilot. Everything below feeds these two, not the other way    */}
+      {/* around, so they lead the page.                                  */}
       <div style={{ marginBottom: 10 }}>
         <CeoAiCard C={C} MONO={MONO} SANS={SANS} />
       </div>
-      <div style={{ marginBottom: 10 }}>
+      <div style={{ marginBottom: 6 }}>
         <AskAiBar C={C} MONO={MONO} SANS={SANS} />
       </div>
+
+      {/* ── AI INTELLIGENCE — the two AI reads on "what's happening",     */}
+      {/* grouped together instead of split across the page.              */}
+      {sectionLabel("AI INTELLIGENCE")}
       <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", alignItems: "stretch" }}>
         <div style={{ flex: 2, minWidth: 340 }}>
           <AiMorningBriefCard C={C} MONO={MONO} SANS={SANS} />
+        </div>
+        <div style={{ flex: 1, minWidth: 260 }}>
+          <MarketIntelCard C={C} MONO={MONO} SANS={SANS} flowBias={flowBias} flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional} setActiveTab={setActiveTab} />
+        </div>
+      </div>
+
+      {/* ── YOUR PORTFOLIO — account snapshot and the risk math that       */}
+      {/* already gates the autopilots, side by side instead of the risk   */}
+      {/* card living in an unrelated row.                                 */}
+      {sectionLabel("YOUR PORTFOLIO")}
+      <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", alignItems: "stretch" }}>
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
         </div>
         <div style={{ flex: 1, minWidth: 260 }}>
           <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} />
         </div>
       </div>
 
-      {/* ── ROW 1 ── */}
+      {/* ── MARKET PULSE — the compact gauge/status cards. ── */}
+      {sectionLabel("MARKET PULSE")}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10, marginBottom: 10 }}>
         <MarketRegimeCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} distData={distData} />
         <AiMarketSummaryCard C={C} MONO={MONO} SANS={SANS} factors={factors} bias={bias} biasColor={biasCol} />
         <TodaysScoreCard C={C} MONO={MONO} aplusScore={aplusScore} aplusSymbol={aplusSymbol} />
-        <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
         <UpcomingEventsCard C={C} MONO={MONO} SANS={SANS} eventCountdowns={eventCountdowns} />
         <TradingLessonCard C={C} MONO={MONO} SANS={SANS} />
       </div>
 
-      {/* ── ROW 2 ── */}
+      {/* ── OPPORTUNITIES — the two ranked-signal engines, kept side by    */}
+      {/* side rather than merged (different universes/scoring).          */}
+      {sectionLabel("OPPORTUNITIES")}
       <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", alignItems: "stretch" }}>
-        <WatchlistCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} sigData={sigData} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
-        <DashboardChartCard C={C} MONO={MONO} SANS={SANS} symbol={aplusSymbol || "SPY"} />
-        <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} />
-      </div>
-
-      {/* ── ROW 3 ── */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "stretch" }}>
         <div style={{ flex: 1, minWidth: 300 }}>
           <OpportunityQueueCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
         </div>
         <div style={{ flex: 2, minWidth: 320 }}>
           <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} />
         </div>
-        <div style={{ flex: 1, minWidth: 280 }}>
-          <Card C={C} title="MARKET NEWS" style={{ height: "100%" }}>
-            <RegimeNewsPanel C={C} MONO={MONO} SANS={SANS} />
-          </Card>
-        </div>
-        <div style={{ flex: 1, minWidth: 260 }}>
-          <MarketIntelCard C={C} MONO={MONO} SANS={SANS} flowBias={flowBias} flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional} setActiveTab={setActiveTab} />
-        </div>
+      </div>
+
+      {/* ── WATCHLIST & CHART ── */}
+      {sectionLabel("WATCHLIST & CHART")}
+      <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", alignItems: "stretch" }}>
+        <WatchlistCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} sigData={sigData} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+        <DashboardChartCard C={C} MONO={MONO} SANS={SANS} symbol={aplusSymbol || "SPY"} />
+        <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} />
+      </div>
+
+      {/* ── NEWS ── */}
+      {sectionLabel("NEWS")}
+      <div style={{ marginBottom: 14 }}>
+        <Card C={C} title="MARKET NEWS">
+          <RegimeNewsPanel C={C} MONO={MONO} SANS={SANS} />
+        </Card>
       </div>
 
       {/* ── MORE — everything from the previous layout that doesn't have a ── */}
