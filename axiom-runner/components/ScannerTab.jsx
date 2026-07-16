@@ -85,11 +85,25 @@ export default function ScannerTab({
                   </button>
                 ))}
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(120px, 1fr))", gap: 8, alignItems: "center" }}>
-                <input value={scannerFilters.minPrice} onChange={(e) => setScannerFilters((s) => ({ ...s, minPrice: e.target.value.replace(/[^\d.]/g, "") }))} placeholder="Min Price" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
-                <input value={scannerFilters.minChange} onChange={(e) => setScannerFilters((s) => ({ ...s, minChange: e.target.value.replace(/[^\d.-]/g, "") }))} placeholder="Min |CHG%|" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
-                <input value={scannerFilters.minRvol} onChange={(e) => setScannerFilters((s) => ({ ...s, minRvol: e.target.value.replace(/[^\d.]/g, "") }))} placeholder="Min RVOL" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
-                <input value={scannerFilters.minScore} onChange={(e) => setScannerFilters((s) => ({ ...s, minScore: e.target.value.replace(/[^\d]/g, "") }))} placeholder="Min Score" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+              {/* These 4 filters always carry a real value (presets/reset all
+                  populate one), so their `placeholder` text — the only
+                  labeling they had — was never actually visible: HTML
+                  placeholders only show on an empty field. A user just saw
+                  bare numbers (10, 0.5, 1, 55) with no indication what any
+                  of them meant. Persistent labels above each field instead. */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(120px, 1fr))", gap: 8, alignItems: "end" }}>
+                {[
+                  ["MIN PRICE", "minPrice", /[^\d.]/g],
+                  ["MIN |CHG%|", "minChange", /[^\d.-]/g],
+                  ["MIN RVOL", "minRvol", /[^\d.]/g],
+                  ["MIN SCORE", "minScore", /[^\d]/g],
+                ].map(([label, key, strip]) => (
+                  <div key={key}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: "0.05em", marginBottom: 3 }}>{label}</div>
+                    <input value={scannerFilters[key]} onChange={(e) => setScannerFilters((s) => ({ ...s, [key]: e.target.value.replace(strip, "") }))}
+                      style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
+                  </div>
+                ))}
                 <select value={scannerFilters.sector} onChange={(e) => setScannerFilters((s) => ({ ...s, sector: e.target.value }))} style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }}>
                   <option value="ALL">All Sectors</option>
                   {SECTOR_ETFS.map((s) => <option key={s.symbol} value={s.symbol}>{s.symbol}</option>)}
