@@ -24,7 +24,7 @@ export default function RotationTab({
                     onClick={() => {
                       const header = "Rank,Symbol,Name,RS vs SPY %,RVOL,Price,Tag\n";
                       const rows = rotationRank.slice(0, 20).map((q, i) =>
-                        `${i + 1},${q.symbol},"${q.name || ""}",${q.relVsSpy.toFixed(2)},${q.rvol.toFixed(2)},${q.price || ""},${i < 3 ? "LEADER" : i > 8 ? "LAGGER" : "NEUTRAL"}`
+                        `${i + 1},${q.symbol},"${q.name || ""}",${q.relVsSpy.toFixed(2)},${q.rvol.toFixed(2)},${q.price || ""},${q.relVsSpy >= 1 ? "LEADER" : q.relVsSpy <= -1 ? "LAGGER" : "NEUTRAL"}`
                       ).join("\n");
                       const blob = new Blob([header + rows], { type: "text/csv" });
                       const a = document.createElement("a");
@@ -71,8 +71,8 @@ export default function RotationTab({
                   <div style={{ fontFamily: MONO, fontSize: 15, color: C.textSec, fontWeight: 700 }}>
                     RVOL {q.rvol.toFixed(2)}x
                   </div>
-                  <Badge color={idx < 3 ? C.green : idx > 8 ? C.red : C.amber}>
-                    {idx < 3 ? "LEADER" : idx > 8 ? "LAGGER" : "NEUTRAL"}
+                  <Badge color={q.relVsSpy >= 1 ? C.green : q.relVsSpy <= -1 ? C.red : C.amber}>
+                    {q.relVsSpy >= 1 ? "LEADER" : q.relVsSpy <= -1 ? "LAGGER" : "NEUTRAL"}
                   </Badge>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button
@@ -105,7 +105,7 @@ export default function RotationTab({
                     >LOG</button>
                     <button
                       onClick={async () => {
-                        const msg = `🔄 *${q.symbol}* Rotation #${idx + 1}\nRS vs SPY: ${q.relVsSpy >= 0 ? "+" : ""}${q.relVsSpy.toFixed(2)}%  RVOL: ${q.rvol.toFixed(2)}x\nStatus: ${idx < 3 ? "LEADER" : idx > 8 ? "LAGGER" : "NEUTRAL"}`;
+                        const msg = `🔄 *${q.symbol}* Rotation #${idx + 1}\nRS vs SPY: ${q.relVsSpy >= 0 ? "+" : ""}${q.relVsSpy.toFixed(2)}%  RVOL: ${q.rvol.toFixed(2)}x\nStatus: ${q.relVsSpy >= 1 ? "LEADER" : q.relVsSpy <= -1 ? "LAGGER" : "NEUTRAL"}`;
                         try { await fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }); } catch {}
                       }}
                       style={{ border: `1px solid ${C.textDim}44`, background: C.surface, color: C.textDim, borderRadius: 6, padding: "5px 8px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}

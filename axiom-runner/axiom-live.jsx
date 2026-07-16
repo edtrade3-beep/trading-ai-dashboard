@@ -3739,9 +3739,11 @@ export default function App() {
       // Added with the SMART MONEY trim — SMARTMONEY (13F Lookup) already
       // had an alias below.
       DPHEAT: "dp-heatmap",
+      DARKPOOL: "darkpool",
       INSIDER: "insider",
       SHORTINT: "shortint",
       SHORTCHG: "short-changes",
+      DAYTRADE: "daytrade",
       SECFILINGS: "sec-filings",
       SOCIAL: "social",
       CORR: "correlation",
