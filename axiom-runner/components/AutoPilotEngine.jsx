@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { computeRegime, STOCK_TO_SECTOR } from "./market-helpers.js";
 import {
   computeGreenLight, logTradeNote, addPaperTrade, addPaperShort, optionValue,
-  addPaperOption, alpacaPlace, alpacaShort, alpacaClose, alpacaOption, GL_TRADES_KEY,
+  addPaperOption, alpacaPlace, alpacaClose, alpacaOption, GL_TRADES_KEY,
 } from "./trading-utils.js";
 
 export default function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
@@ -176,32 +176,24 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
           let shortsToday = 0;
           autoBoughtRef.current.forEach(k => { if (k.startsWith(today) && k.includes(":SH:")) shortsToday++; });
           if (shortsToday >= maxShorts) return;
-          const key = `${today}:${q.symbol}:SH:${broker}`;
-          if (!autoBoughtRef.current.has(key)) {
-            // Conservative PUTS: only the STRONGEST bearish setups (5/5) express as a single
-            // defined-risk PUT (max loss = premium). Weaker shorts use shares. Requires options on.
-            const conservativePut = doOptions && gl.shortPassed >= 5;
-            if (broker === "alpaca" && conservativePut) {
-              autoBoughtRef.current.add(key); slots--;
-              alpacaOption(q.symbol, "put", 1, gl.px).then(rr => {
-                if (rr?.ok) logTradeNote("buy", `📉 ALPACA PUT (conservative) — ${q.symbol} (${gl.shortPassed}/5)\n1 contract · strike $${rr.order?.strike} · exp ${rr.order?.expiry} · defined risk`);
-                else { autoBoughtRef.current.delete(key); }
-              });
-            } else if (broker === "alpaca") {
-              const entry = gl.px;
-              const atr = Math.min(0.05, Math.max(0.01, Number(gl.atrPct) || 0.025));
-              const stop = +(entry * (1 + atr * 1.5)).toFixed(2);   // stop above
-              const take = +(entry * (1 - atr * 3)).toFixed(2);     // target below
-              const riskPerShare = Math.max(0.01, stop - entry);
-              // Half the normal per-trade risk, capped at 0.5% — small, low-risk shorts.
-              const shortRiskFrac = Math.min(0.005, (riskPct / 100) * 0.5);
-              const qty = Math.max(1, Math.min(Math.floor((acct * shortRiskFrac) / riskPerShare), Math.floor(acct / entry)));
-              autoBoughtRef.current.add(key); slots--;
-              alpacaShort(q.symbol, qty, stop, take).then(r => {
-                if (r?.ok) logTradeNote("buy", `🔻 ALPACA SHORT (small · ${(shortRiskFrac * 100).toFixed(2)}% risk) — ${q.symbol} (${gl.shortPassed}/5)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} (above) · Target $${take} (below)`);
-                else { autoBoughtRef.current.delete(key); }
-              });
-            } else {
+          // Alpaca (both the conservative-PUT and plain-share paths below) is
+          // long-only at the server: POST /api/alpaca/order and /api/alpaca/
+          // option-order both unconditionally reject any order that would
+          // open a short, on purpose, for every caller including this one
+          // (see the "LONGS ONLY" comment in src/routes/alpaca.js). That
+          // guard is correct and isn't being touched here — but before this
+          // fix, this branch never checked for it: every scan cycle it would
+          // still size a full bracket short, mark the symbol as "shorted"
+          // for the day, and fire a real order that was guaranteed to be
+          // rejected, then quietly unmark it and try again next cycle.
+          // Nothing dangerous ever reached the journal (logTradeNote only
+          // fires on rr?.ok/r?.ok), but it burned a scan cycle and an API
+          // call on a broker path that can never succeed. Skip Alpaca here
+          // entirely and fall through to the local paper-short simulation
+          // below, which doesn't call the real broker and isn't blocked.
+          if (broker !== "alpaca") {
+            const key = `${today}:${q.symbol}:SH:${broker}`;
+            if (!autoBoughtRef.current.has(key)) {
               const res = addPaperShort(q.symbol, gl.px, { atrPct: gl.atrPct, glScore: gl.shortPassed });
               if (res === "OK") { autoBoughtRef.current.add(key); slots--; }
               else if (res === "DUP") autoBoughtRef.current.add(key);
