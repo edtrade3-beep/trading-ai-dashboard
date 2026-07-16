@@ -413,7 +413,9 @@ export default function JournalTab({
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 20, marginBottom: 14 }}>
                   <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text, marginBottom: 6 }}>⏱ PERFORMANCE BY TIME OF DAY</div>
                   <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, lineHeight: 1.6 }}>
-                    No trade data yet. Log closed trades in your <strong style={{ color: C.accent, cursor: "pointer" }} onClick={() => setActiveTab("journal")}>Journal</strong> tab and this chart will show your best and worst trading hours automatically.
+                    {closed.length === 0
+                      ? <>No trade data yet. Log closed trades in your <strong style={{ color: C.accent, cursor: "pointer" }} onClick={() => setActiveTab("journal")}>Journal</strong> tab and this chart will show your best and worst trading hours automatically.</>
+                      : <>{closed.length} closed trade{closed.length === 1 ? "" : "s"} logged, all in the same hour so far — comparing trading hours needs closes spread across at least 2 different hours. Keep logging as you trade different times of day.</>}
                   </div>
                 </div>
               );

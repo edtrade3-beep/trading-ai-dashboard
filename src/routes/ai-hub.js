@@ -16,6 +16,7 @@
 // POST /api/ai-hub/ceo-brief/refresh      — force-generate a fresh one
 const { writeJson, readRequestBody } = require("../utils");
 const { loadCoachLog } = require("../ai-coach-store");
+const { loadJournal } = require("../journal-store");
 const { buildApexBriefing } = require("../ai-coach");
 const { buildCeoRecommendation } = require("../ceo-ai");
 const {
@@ -131,8 +132,20 @@ async function handleAiHub(req, res, requestUrl) {
 
   if (pathname === "/api/ai-hub/journal-patterns" && req.method === "GET") {
     const ct = await getJson("/api/alpaca/closed-trades");
-    if (!ct || !ct.ok) return writeJson(res, 200, { ok: false, reason: ct?.reason || "no-alpaca-key" });
-    const trades = ct.trades || [];
+    let trades = (ct && ct.ok) ? (ct.trades || []) : [];
+    // Alpaca-linked autopilot fills are the primary source (real execution
+    // price/timing), but most users journal discretionary trades manually
+    // via the Journal tab's LOG buttons instead of an Alpaca-linked account
+    // — on a manual-only setup, /api/alpaca/closed-trades is permanently
+    // empty and this panel would say "not enough data" forever even with
+    // a full journal right above it on the same page. Fall back to the
+    // manual journal's closed entries, mapped into the same shape the
+    // pattern-mining functions already expect (symbol/pnl/openedAt/closedAt).
+    if (!trades.length) {
+      trades = loadJournal()
+        .filter((e) => e.status === "closed" && e.pnl != null && e.openedAt)
+        .map((e) => ({ symbol: e.ticker, pnl: e.pnl, openedAt: e.openedAt, closedAt: e.closedAt }));
+    }
     return writeJson(res, 200, {
       ok: true,
       tradeCount: trades.length,
