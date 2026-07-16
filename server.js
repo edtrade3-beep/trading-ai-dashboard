@@ -199,11 +199,13 @@ server.listen(PORT, HOST, () => {
   }, 60_000);
   console.log("[AI] Morning Brief 8:00 · CEO AI 8:10 · Game plan 9:40 · autopilot recap 4:05 · trade coach 4:15 PM — weekdays only");
 
-  // CarGurus lead auto-reply — poll Gmail every 3 min (only if GMAIL_USER/APP_PASSWORD set).
+  // Email lead auto-reply (CarGurus + direct customer emails + dealer
+  // website contact form — no longer CarGurus-only) — poll Gmail every 3
+  // min (only if GMAIL_USER/APP_PASSWORD set).
   if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
     pollGmailLeads().catch(() => {});
     setInterval(() => pollGmailLeads().catch(() => {}), 3 * 60_000);
-    console.log("[Leads] CarGurus Gmail auto-reply active — polling every 3 min");
+    console.log("[Leads] Email auto-reply active — polling every 3 min");
   }
 
   // Server-side autopilot — trades A+ buy-points on Alpaca paper with NO browser

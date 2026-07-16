@@ -646,4 +646,8 @@ function startCrmScheduler() {
   console.log("[CRM] Follow-up scheduler started (15-min checks + 8am daily summary)");
 }
 
-module.exports = { handleFbHub, startCrmScheduler };
+// buildInventorySummary/detectIntent/uid exported for reuse by other lead
+// channels (src/gmail-leads.js) — same "never invent cars/prices" grounding
+// and HUMAN_TAKEOVER safety net should apply everywhere leads get an AI
+// reply, not just Messenger.
+module.exports = { handleFbHub, startCrmScheduler, buildInventorySummary, detectIntent, uid };
