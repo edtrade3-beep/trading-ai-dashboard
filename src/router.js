@@ -380,8 +380,11 @@ async function handleRequest(req, res) {
       res.end();
       return;
     }
-    if (pathname === "/crm" || pathname === "/crm/") {
-      res.writeHead(302, { Location: "/client/dealer/crm.html" });
+    // AI CRM replaced the old bare Pipeline/Leads page (crm.html, kept on
+    // disk but no longer linked — "hide, don't delete") — /crm now aliases
+    // straight to it so old links/bookmarks keep working.
+    if (pathname === "/crm" || pathname === "/crm/" || pathname === "/ai-crm" || pathname === "/ai-crm/") {
+      res.writeHead(302, { Location: "/client/dealer/ai-crm.html" });
       res.end();
       return;
     }

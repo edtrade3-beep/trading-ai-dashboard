@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI CRM — Dixie Motors</title>
+<style>
+  :root{
+    --bg:#ffffff; --card:#f8fafc; --card2:#eef2f7; --primary:#2563eb;
+    --success:#22c55e; --warning:#f59e0b; --danger:#ef4444;
+    --text:#0f172a; --muted:#64748b; --border:#e2e8f0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1280px;margin:0 auto;padding:16px}
+  header{display:flex;align-items:center;gap:12px;padding:14px 0;flex-wrap:wrap}
+  header .logo{width:42px;height:42px;border-radius:12px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:22px}
+  header h1{font-size:20px;margin:0;font-weight:800}
+  header .sub{color:var(--muted);font-size:12px}
+  header a.back{color:var(--primary);text-decoration:none;font-weight:700;font-size:13px}
+  nav{display:flex;gap:6px;overflow-x:auto;padding:8px 0;scrollbar-width:thin}
+  nav button{flex:0 0 auto;background:var(--card);border:1px solid var(--border);color:var(--muted);
+    border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.15s}
+  nav button:hover{color:var(--text)}
+  nav button.active{background:var(--primary);border-color:var(--primary);color:#fff}
+  nav button .badge{background:var(--danger);color:#fff;border-radius:999px;padding:1px 6px;font-size:10px;margin-left:6px}
+  .tab{display:none}
+  .tab.active{display:block;animation:fade .2s}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px}
+  .card h2{margin:0 0 14px;font-size:16px;font-weight:800}
+  .grid{display:grid;gap:12px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:1fr 1fr 1fr}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:900px){.g4{grid-template-columns:1fr 1fr}}
+  @media(max-width:640px){.g2,.g3{grid-template-columns:1fr}}
+  label{display:block;font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:5px}
+  input,textarea,select{width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);
+    border-radius:10px;padding:10px 12px;font-size:14px;outline:none;font-family:inherit}
+  input:focus,textarea:focus,select:focus{border-color:var(--primary)}
+  textarea{resize:vertical;min-height:70px;line-height:1.55}
+  .btn{background:var(--primary);border:none;color:#fff;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer;transition:.15s}
+  .btn:hover{filter:brightness(1.1)}
+  .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .btn.success{background:var(--success)} .btn.danger{background:var(--danger)}
+  .btn.sm{padding:7px 12px;font-size:12px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .stat{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:14px}
+  .stat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+  .stat .v{font-size:22px;font-weight:900;margin-top:4px}
+  .pill{display:inline-block;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:800}
+  .pill.green{background:rgba(34,197,94,.18);color:var(--success)}
+  .pill.yellow{background:rgba(245,158,11,.18);color:var(--warning)}
+  .pill.red{background:rgba(239,68,68,.18);color:var(--danger)}
+  .pill.blue{background:rgba(37,99,235,.15);color:var(--primary)}
+  .muted{color:var(--muted)}
+  .empty{color:var(--muted);text-align:center;padding:30px;font-size:14px}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--success);color:#04210f;
+    padding:10px 18px;border-radius:10px;font-weight:800;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:50}
+  .toast.show{opacity:1}
+  .board{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;align-items:flex-start}
+  .col{flex:0 0 270px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;min-height:120px}
+  .col h3{margin:0 0 10px;font-size:13px;font-weight:800;display:flex;justify-content:space-between;align-items:center}
+  .col .count{background:var(--card2);border-radius:999px;padding:2px 9px;font-size:12px;color:var(--muted);font-weight:700}
+  .leadCard{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px}
+  .leadCard .name{font-weight:800;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:6px}
+  .leadCard .veh{font-size:12px;color:var(--muted);margin-top:2px}
+  .leadCard .notes{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.4}
+  .leadCard select{margin-top:8px;font-size:12px;padding:6px 8px}
+  .leadCard .row{margin-top:8px;gap:6px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+  th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  tbody tr:hover{background:var(--card2)}
+  .scrollx{overflow-x:auto}
+  /* Lead Inbox — unified list + thread panel */
+  .inboxRow{display:flex;align-items:center;gap:10px;padding:11px 10px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+  .inboxRow:hover{background:var(--card2)}
+  .inboxRow.active{background:var(--card2);border-color:var(--primary)}
+  .inboxRow .chan{font-size:18px;flex-shrink:0}
+  .inboxRow .body{flex:1;min-width:0}
+  .inboxRow .top{display:flex;justify-content:space-between;gap:8px}
+  .inboxRow .name{font-weight:800;font-size:13px}
+  .inboxRow .ts{font-size:11px;color:var(--muted);flex-shrink:0}
+  .inboxRow .preview{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+  .bubble{max-width:78%;padding:9px 12px;border-radius:14px;font-size:13px;line-height:1.45;margin-bottom:8px}
+  .bubble.customer{background:var(--card2);border:1px solid var(--border);margin-right:auto;border-bottom-left-radius:4px}
+  .bubble.page{background:var(--primary);color:#fff;margin-left:auto;border-bottom-right-radius:4px}
+  .bubble .t{font-size:10px;opacity:.65;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">🤖</div>
+    <div style="flex:1">
+      <h1>AI CRM</h1>
+      <div class="sub">Every lead, every channel, one inbox — Facebook, email, appointments, and follow-ups</div>
+    </div>
+    <a class="back" href="/dealer">← Back to DIXIE</a>
+  </header>
+
+  <nav id="nav"></nav>
+
+  <!-- ── LEAD INBOX ── -->
+  <div class="tab active" id="t-inbox">
+    <div class="grid g2" style="align-items:start">
+      <div class="card" style="max-height:640px;overflow-y:auto">
+        <h2>Inbox <span class="muted" id="inboxCount" style="font-weight:400;font-size:13px"></span></h2>
+        <div id="inboxList"></div>
+      </div>
+      <div class="card" id="inboxDetail">
+        <div class="empty">Select a conversation to view it here.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PIPELINE ── -->
+  <div class="tab" id="t-pipeline">
+    <div class="grid g4" id="pipeStats" style="margin-bottom:14px"></div>
+    <div class="board" id="board"></div>
+  </div>
+
+  <!-- ── ALL LEADS ── -->
+  <div class="tab" id="t-leads">
+    <div class="card">
+      <h2>All Leads</h2>
+      <div class="row" style="margin-bottom:12px">
+        <input id="leadSearch" placeholder="Search name / phone / vehicle…" oninput="renderLeadsTable()" style="max-width:300px" />
+        <button class="btn" onclick="newLeadForm()">＋ Add Lead</button>
+        <span class="muted" id="leadCount" style="font-size:13px"></span>
+      </div>
+      <div class="scrollx"><table id="leadsTable"><thead><tr>
+        <th>Name</th><th>Phone</th><th>Vehicle</th><th>Stage</th><th>Source</th><th>Added</th><th></th>
+      </tr></thead><tbody id="leadsTbody"></tbody></table></div>
+    </div>
+    <div class="card" id="leadForm" style="display:none">
+      <h2 id="leadFormTitle">Add Lead</h2>
+      <div class="grid g3">
+        <div><label>Name</label><input id="l_name" /></div>
+        <div><label>Phone</label><input id="l_phone" /></div>
+        <div><label>Vehicle interested in</label><input id="l_vehicle" placeholder="e.g. 2019 Toyota Camry" /></div>
+        <div><label>Budget</label><input id="l_budget" /></div>
+        <div><label>Down payment</label><input id="l_down" /></div>
+        <div><label>Stage</label>
+          <select id="l_stage">
+            <option value="NEW">New</option>
+            <option value="APPOINTMENT">Appointment</option>
+            <option value="NEGOTIATING">Negotiating</option>
+            <option value="SOLD">Sold</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:12px"><label>Notes</label><textarea id="l_notes" placeholder="Follow-up notes, what they said, when to call back…"></textarea></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;text-transform:none;letter-spacing:0;color:var(--text);margin-top:12px;cursor:pointer">
+        <input type="checkbox" id="l_hot" style="width:auto" />
+        🔥 Hot lead (gets a Telegram alert)
+      </label>
+      <div class="row" style="margin-top:14px">
+        <button class="btn success" onclick="saveLeadForm()">Save</button>
+        <button class="btn ghost" onclick="hideLeadForm()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── APPOINTMENTS ── -->
+  <div class="tab" id="t-appointments">
+    <div class="card">
+      <h2>📅 Appointments</h2>
+      <div class="muted" style="font-size:13px;margin-bottom:12px">Leads with a scheduled visit, or where a day/time was mentioned. Times are free-text (whatever the customer/AI actually said), not a calendar — not filtered to "today" since that can't be computed reliably from text.</div>
+      <div id="apptList"></div>
+    </div>
+  </div>
+
+  <!-- ── FOLLOW-UPS ── -->
+  <div class="tab" id="t-followups">
+    <div class="card">
+      <h2>🔔 Follow-ups Due</h2>
+      <div class="muted" style="font-size:13px;margin-bottom:12px">New leads with no activity in 2+ hours — the same threshold the automatic Telegram reminder already uses, shown here as an actionable list instead of a one-time ping.</div>
+      <div id="followList"></div>
+    </div>
+  </div>
+
+  <!-- ── DAILY REPORT ── -->
+  <div class="tab" id="t-report">
+    <div class="card">
+      <h2>📊 Daily Report</h2>
+      <div class="grid g4" id="reportStats" style="margin-bottom:14px"></div>
+      <div id="reportChannels" style="margin-bottom:14px"></div>
+      <div id="reportPipeline"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+var TABS = [["inbox","📥 Lead Inbox"],["pipeline","📋 Pipeline"],["leads","👥 All Leads"],["appointments","📅 Appointments"],["followups","🔔 Follow-ups"],["report","📊 Daily Report"]];
+var STAGES = [["NEW","🆕 New"],["APPOINTMENT","📅 Appointment"],["NEGOTIATING","🤝 Negotiating"],["SOLD","✅ Sold"]];
+var leads = [];
+var threads = [];
+var editId = null;
+var activeInboxKey = null;
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function toast(m){ var t=$("toast"); t.textContent=m; t.classList.add("show"); setTimeout(function(){t.classList.remove("show");},1600); }
+function fmtWhen(ts){ if(!ts) return ""; var d=new Date(ts); var diff=Date.now()-ts; if(diff<86400000 && d.getDate()===new Date().getDate()) return d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}); return d.toLocaleDateString(); }
+
+function buildNav(){
+  var nav=$("nav"); nav.innerHTML="";
+  TABS.forEach(function(t,i){
+    var b=document.createElement("button"); b.id="nav-"+t[0];
+    b.innerHTML=esc(t[1]);
+    if(i===0) b.className="active";
+    b.onclick=function(){ showTab(t[0]); };
+    nav.appendChild(b);
+  });
+}
+function showTab(id){
+  TABS.forEach(function(t){
+    $("t-"+t[0]).classList.toggle("active", t[0]===id);
+    $("nav-"+t[0]).classList.toggle("active", t[0]===id);
+  });
+  if(id==="inbox") renderInbox();
+  if(id==="pipeline") renderBoard();
+  if(id==="leads") renderLeadsTable();
+  if(id==="appointments") renderAppointments();
+  if(id==="followups") renderFollowups();
+  if(id==="report") renderReport();
+  window.scrollTo(0,0);
+}
+
+function loadAll(cb){
+  Promise.all([
+    fetch("/api/dealer/crm/leads").then(function(r){return r.json();}).catch(function(){return {leads:[]};}),
+    fetch("/api/dealer/fb/messages").then(function(r){return r.json();}).catch(function(){return [];}),
+  ]).then(function(res){
+    leads = (res[0] && Array.isArray(res[0].leads)) ? res[0].leads : [];
+    threads = Array.isArray(res[1]) ? res[1] : [];
+    if(cb) cb();
+  });
+}
+
+// ══════════════════ LEAD INBOX ══════════════════
+function inboxItems(){
+  var fbItems = threads.map(function(t){
+    var lastMsg = (t.messages && t.messages.length) ? t.messages[t.messages.length-1] : null;
+    return { type:"fb", key:"fb:"+t.threadId, name:t.senderName||"Facebook lead", preview:(lastMsg?lastMsg.text:t.preview)||"", ts:t.lastTs||0, unread:t.unread||0, thread:t };
+  });
+  var emailItems = leads.filter(function(l){ return l.source==="email"; }).map(function(l){
+    return { type:"email", key:"email:"+l.id, name:l.name||l.email||"Email lead", preview:(l.notes||"").replace(/^\[Email\]\s*"?/,"").replace(/"$/,""), ts:l.updatedAt||l.createdAt||0, unread:0, lead:l };
+  });
+  return fbItems.concat(emailItems).sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+}
+function renderInbox(){
+  var items = inboxItems();
+  $("inboxCount").textContent = items.length ? "("+items.length+")" : "";
+  if(!items.length){ $("inboxList").innerHTML='<div class="empty">No leads yet — Facebook and email leads will show up here automatically.</div>'; return; }
+  $("inboxList").innerHTML = items.map(function(it){
+    return '<div class="inboxRow'+(activeInboxKey===it.key?" active":"")+'" onclick="openInboxItem(\''+it.key+'\')">'
+      +'<span class="chan">'+(it.type==="fb"?"📘":"📧")+'</span>'
+      +'<div class="body">'
+        +'<div class="top"><span class="name">'+esc(it.name)+(it.unread>0?' <span class="pill red" style="padding:1px 7px;font-size:10px">'+it.unread+'</span>':'')+'</span><span class="ts">'+fmtWhen(it.ts)+'</span></div>'
+        +'<div class="preview">'+esc(it.preview||"(no message text)")+'</div>'
+      +'</div>'
+    +'</div>';
+  }).join("");
+}
+function openInboxItem(key){
+  activeInboxKey = key;
+  renderInbox();
+  var item = inboxItems().find(function(i){ return i.key===key; });
+  if(!item){ return; }
+  if(item.type==="fb"){
+    renderThreadDetail(item.thread);
+    fetch("/api/dealer/fb/messages/read",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({threadId:item.thread.threadId})}).then(function(){
+      item.thread.unread=0; renderInbox();
+    }).catch(function(){});
+  } else {
+    renderEmailDetail(item.lead);
+  }
+}
+function renderThreadDetail(t){
+  var msgs = (t.messages||[]).map(function(m){
+    return '<div class="bubble '+(m.from==="page"?"page":"customer")+'">'+esc(m.text)+'<div class="t">'+fmtWhen(m.ts)+'</div></div>';
+  }).join("") || '<div class="muted">No messages yet.</div>';
+  $("inboxDetail").innerHTML =
+    '<h2>📘 '+esc(t.senderName||"Facebook lead")+'</h2>'
+    +'<div style="max-height:400px;overflow-y:auto;display:flex;flex-direction:column;margin-bottom:12px">'+msgs+'</div>'
+    +'<div class="row"><textarea id="replyText" placeholder="Type a reply…" style="flex:1;min-height:50px"></textarea></div>'
+    +'<div class="row" style="margin-top:8px"><button class="btn success" onclick="sendReply(\''+esc(t.senderId)+'\',\''+esc(t.threadId)+'\')">Send Reply</button></div>';
+}
+function sendReply(senderId, threadId){
+  var text = ($("replyText").value||"").trim();
+  if(!text){ toast("Type a reply first."); return; }
+  fetch("/api/dealer/fb/reply",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({senderId:senderId,threadId:threadId,text:text})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d && d.ok){
+        var t = threads.find(function(x){return x.threadId===threadId;});
+        if(t){ t.messages=t.messages||[]; t.messages.push({from:"page",text:text,ts:Date.now()}); t.lastTs=Date.now(); renderThreadDetail(t); }
+        toast("Sent ✓");
+      } else { toast("Failed to send — "+(d&&d.error?d.error:"try again")); }
+    }).catch(function(){ toast("Failed to send — try again."); });
+}
+function renderEmailDetail(l){
+  $("inboxDetail").innerHTML =
+    '<h2>📧 '+esc(l.name||l.email||"Email lead")+'</h2>'
+    +'<div class="grid g2" style="margin-bottom:10px">'
+      +'<div><label>Email</label><div>'+esc(l.email||"—")+'</div></div>'
+      +'<div><label>Phone</label><div>'+esc(l.phone||"—")+'</div></div>'
+      +'<div><label>Vehicle</label><div>'+esc(l.vehicle||"—")+'</div></div>'
+      +'<div><label>Stage</label><div>'+esc(l.stage||"NEW")+'</div></div>'
+    +'</div>'
+    +'<label>Original inquiry</label><div class="muted" style="margin-bottom:12px">'+esc((l.notes||"").replace(/^\[Email\]\s*/,""))+'</div>'
+    +'<div class="muted" style="font-size:12px;margin-bottom:12px">Email has no live back-and-forth log here (unlike Facebook) — the AI already replied by email directly. Open this lead in All Leads to edit stage/notes.</div>'
+    +'<button class="btn ghost sm" onclick="showTab(\'leads\');$(\'leadSearch\').value=\''+esc((l.name||"").replace(/'/g,""))+'\';renderLeadsTable();">View in All Leads →</button>';
+}
+
+// ══════════════════ PIPELINE ══════════════════
+function statBox(s){
+  var col = s[2]==="success"?"var(--success)":s[2]==="danger"?"var(--danger)":s[2]==="warning"?"var(--warning)":"var(--text)";
+  return '<div class="stat"><div class="l">'+s[0]+'</div><div class="v" style="color:'+col+'">'+s[1]+'</div></div>';
+}
+function renderBoard(){
+  var newCt=leads.filter(function(l){return (l.stage||"NEW")==="NEW";}).length;
+  var apptCt=leads.filter(function(l){return l.stage==="APPOINTMENT";}).length;
+  var negCt=leads.filter(function(l){return l.stage==="NEGOTIATING";}).length;
+  var hotCt=leads.filter(function(l){return l.hot && l.stage!=="SOLD";}).length;
+  $("pipeStats").innerHTML=[
+    ["New Leads",String(newCt),newCt>0?"warning":""],
+    ["Appointments",String(apptCt),""],
+    ["Negotiating",String(negCt),""],
+    ["🔥 Hot (open)",String(hotCt),hotCt>0?"danger":"success"]
+  ].map(statBox).join("");
+
+  $("board").innerHTML = STAGES.map(function(s){
+    var stageKey=s[0], stageLabel=s[1];
+    var col=leads.filter(function(l){ return (l.stage||"NEW")===stageKey; });
+    var cards = col.length ? col.map(function(l){
+      var vehicleName=esc(l.vehicle||"—");
+      var when=l.createdAt?new Date(l.createdAt).toLocaleDateString():"";
+      return '<div class="leadCard">'
+        +'<div class="name">'+(l.hot?"🔥 ":"")+esc(l.name||l.phone||"Lead")+'<span class="muted" style="font-weight:400;font-size:11px">'+esc(when)+'</span></div>'
+        +'<div class="veh">'+vehicleName+(l.phone?' · '+esc(l.phone):'')+'</div>'
+        +(l.notes?'<div class="notes">'+esc(l.notes.slice(0,120))+'</div>':'')
+        +'<select onchange="moveStage(\''+l.id+'\',this.value)">'
+          +STAGES.map(function(x){return '<option value="'+x[0]+'"'+(x[0]===stageKey?" selected":"")+'>'+x[1]+'</option>';}).join("")
+        +'</select>'
+        +'<div class="row"><button class="btn ghost sm" onclick="editLead(\''+l.id+'\')">Edit</button></div>'
+        +'</div>';
+    }).join("") : '<div class="muted" style="font-size:12px;padding:10px 0">No leads in this stage.</div>';
+    return '<div class="col"><h3>'+stageLabel+' <span class="count">'+col.length+'</span></h3>'+cards+'</div>';
+  }).join("");
+}
+function moveStage(id, stage){
+  fetch("/api/dealer/crm/stage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id,stage:stage})})
+    .then(function(){ var l=leads.find(function(x){return x.id===id;}); if(l){ l.stage=stage; l.updatedAt=Date.now(); } renderBoard(); if($("t-leads").classList.contains("active")) renderLeadsTable(); toast("Moved to "+stage); })
+    .catch(function(){ toast("Failed to update — try again."); });
+}
+
+// ══════════════════ ALL LEADS ══════════════════
+function renderLeadsTable(){
+  var q=($("leadSearch").value||"").toLowerCase();
+  var rows=leads.filter(function(l){ return !q || [l.name,l.phone,l.vehicle].join(" ").toLowerCase().indexOf(q)>=0; });
+  $("leadCount").textContent=rows.length+" lead"+(rows.length!==1?"s":"");
+  if(!rows.length){ $("leadsTbody").innerHTML='<tr><td colspan="7" class="empty">No leads yet.</td></tr>'; return; }
+  $("leadsTbody").innerHTML=rows.map(function(l){
+    var stagePill='<span class="pill '+(l.stage==="SOLD"?"green":l.stage==="NEGOTIATING"?"yellow":l.stage==="APPOINTMENT"?"blue":"red")+'">'+(l.stage||"NEW")+'</span>';
+    var when=l.createdAt?new Date(l.createdAt).toLocaleDateString():"—";
+    return '<tr>'
+      +'<td>'+(l.hot?"🔥 ":"")+esc(l.name||"—")+'</td>'
+      +'<td>'+esc(l.phone||"—")+'</td>'
+      +'<td>'+esc(l.vehicle||"—")+'</td>'
+      +'<td>'+stagePill+'</td>'
+      +'<td>'+esc(l.source||"manual")+'</td>'
+      +'<td>'+when+'</td>'
+      +'<td><button class="btn ghost sm" onclick="editLead(\''+l.id+'\')">Edit</button> <button class="btn danger sm" onclick="deleteLead(\''+l.id+'\')">✕</button></td>'
+      +'</tr>';
+  }).join("");
+}
+function newLeadForm(){
+  editId=null; $("leadFormTitle").textContent="Add Lead";
+  ["name","phone","vehicle","budget","down","notes"].forEach(function(f){$("l_"+f).value="";});
+  $("l_stage").value="NEW"; $("l_hot").checked=false;
+  $("leadForm").style.display=""; $("leadForm").scrollIntoView({behavior:"smooth"});
+}
+function editLead(id){
+  var l=leads.find(function(x){return x.id===id;}); if(!l) return;
+  editId=id; $("leadFormTitle").textContent="Edit Lead";
+  $("l_name").value=l.name||""; $("l_phone").value=l.phone||""; $("l_vehicle").value=l.vehicle||"";
+  $("l_budget").value=l.budget||""; $("l_down").value=l.down||""; $("l_notes").value=l.notes||"";
+  $("l_stage").value=l.stage||"NEW"; $("l_hot").checked=!!l.hot;
+  showTab("leads");
+  $("leadForm").style.display=""; $("leadForm").scrollIntoView({behavior:"smooth"});
+}
+function hideLeadForm(){ $("leadForm").style.display="none"; editId=null; }
+function saveLeadForm(){
+  var lead={
+    name:$("l_name").value.trim(), phone:$("l_phone").value.trim(), vehicle:$("l_vehicle").value.trim(),
+    budget:$("l_budget").value.trim(), down:$("l_down").value.trim(), notes:$("l_notes").value.trim(),
+    stage:$("l_stage").value, hot:$("l_hot").checked, source:"manual"
+  };
+  if(!lead.name && !lead.phone){ toast("Enter a name or phone number."); return; }
+  if(editId) lead.id=editId;
+  fetch("/api/dealer/crm/leads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(lead)})
+    .then(function(r){return r.json();})
+    .then(function(){ hideLeadForm(); loadAll(function(){ renderLeadsTable(); renderBoard(); }); toast("Saved ✓"); })
+    .catch(function(){ toast("Save failed — try again."); });
+}
+function deleteLead(id){
+  if(!confirm("Delete this lead?")) return;
+  fetch("/api/dealer/crm/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id})})
+    .then(function(){ leads=leads.filter(function(l){return l.id!==id;}); renderLeadsTable(); renderBoard(); toast("Deleted"); })
+    .catch(function(){ toast("Delete failed — try again."); });
+}
+
+// ══════════════════ APPOINTMENTS ══════════════════
+function renderAppointments(){
+  var rows = leads.filter(function(l){ return l.stage==="APPOINTMENT" || (l.appt && l.appt.trim()); })
+    .sort(function(a,b){ return (b.updatedAt||0)-(a.updatedAt||0); });
+  if(!rows.length){ $("apptList").innerHTML='<div class="empty">No appointments scheduled yet.</div>'; return; }
+  $("apptList").innerHTML = rows.map(function(l){
+    return '<div class="leadCard" style="margin-bottom:10px">'
+      +'<div class="name">'+(l.hot?"🔥 ":"")+esc(l.name||l.phone||"Lead")+' <span class="pill blue">'+esc(l.appt||"time TBD")+'</span></div>'
+      +'<div class="veh">'+esc(l.vehicle||"—")+(l.phone?' · '+esc(l.phone):'')+(l.email?' · '+esc(l.email):'')+'</div>'
+      +'<div class="row" style="margin-top:8px"><button class="btn ghost sm" onclick="showTab(\'leads\');$(\'leadSearch\').value=\''+esc((l.name||"").replace(/'/g,""))+'\';renderLeadsTable();">Open in Leads →</button></div>'
+      +'</div>';
+  }).join("");
+}
+
+// ══════════════════ FOLLOW-UPS ══════════════════
+function renderFollowups(){
+  var STALE_MS = 2*3600*1000;
+  var rows = leads.filter(function(l){
+    return (l.stage||"NEW")==="NEW" && (Date.now()-(l.updatedAt||l.createdAt||0)) > STALE_MS;
+  }).sort(function(a,b){ return (a.updatedAt||a.createdAt||0)-(b.updatedAt||b.createdAt||0); });
+  if(!rows.length){ $("followList").innerHTML='<div class="empty">Nothing stale — every new lead has been touched recently. ✓</div>'; return; }
+  $("followList").innerHTML = rows.map(function(l){
+    var ageHrs = Math.floor((Date.now()-(l.updatedAt||l.createdAt||0))/3600000);
+    return '<div class="leadCard" style="margin-bottom:10px">'
+      +'<div class="name">'+(l.hot?"🔥 ":"")+esc(l.name||l.phone||"Lead")+' <span class="pill red">'+ageHrs+'h untouched</span></div>'
+      +'<div class="veh">'+esc(l.vehicle||"—")+(l.phone?' · '+esc(l.phone):'')+' · '+esc(l.source||"manual")+'</div>'
+      +'<div class="row" style="margin-top:8px">'
+        +'<button class="btn success sm" onclick="markFollowedUp(\''+l.id+'\')">✓ Mark Followed Up</button>'
+        +'<button class="btn ghost sm" onclick="showTab(\'leads\');$(\'leadSearch\').value=\''+esc((l.name||"").replace(/'/g,""))+'\';renderLeadsTable();">Open →</button>'
+      +'</div>'
+      +'</div>';
+  }).join("");
+}
+function markFollowedUp(id){
+  var l = leads.find(function(x){ return x.id===id; }); if(!l) return;
+  fetch("/api/dealer/crm/leads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(l)})
+    .then(function(){ l.updatedAt=Date.now(); renderFollowups(); toast("Marked followed up ✓"); })
+    .catch(function(){ toast("Failed — try again."); });
+}
+
+// ══════════════════ DAILY REPORT ══════════════════
+function renderReport(){
+  var today = new Date(); today.setHours(0,0,0,0);
+  var newToday = leads.filter(function(l){ return (l.createdAt||0) >= today.getTime(); }).length;
+  var STALE_MS = 2*3600*1000;
+  var stale = leads.filter(function(l){ return (l.stage||"NEW")==="NEW" && (Date.now()-(l.updatedAt||l.createdAt||0)) > STALE_MS; }).length;
+  var apptCt = leads.filter(function(l){ return l.stage==="APPOINTMENT" || (l.appt&&l.appt.trim()); }).length;
+  var soldToday = leads.filter(function(l){ return l.stage==="SOLD" && (l.updatedAt||0) >= today.getTime(); }).length;
+  $("reportStats").innerHTML = [
+    ["New Leads Today", String(newToday), newToday>0?"success":""],
+    ["Follow-ups Due", String(stale), stale>0?"danger":"success"],
+    ["Open Appointments", String(apptCt), ""],
+    ["Sold Today", String(soldToday), soldToday>0?"success":""],
+  ].map(statBox).join("");
+
+  var bySource = {};
+  leads.forEach(function(l){ var s=l.source||"manual"; bySource[s]=(bySource[s]||0)+1; });
+  $("reportChannels").innerHTML = '<div class="card"><h2 style="font-size:14px">By Channel (all-time)</h2><div class="row">'
+    + Object.keys(bySource).map(function(s){ return '<span class="pill blue">'+esc(s)+': '+bySource[s]+'</span>'; }).join("")
+    + '</div></div>';
+
+  $("reportPipeline").innerHTML = '<div class="card"><h2 style="font-size:14px">Pipeline Snapshot</h2><div class="grid g4">'
+    + STAGES.map(function(s){ var ct=leads.filter(function(l){return (l.stage||"NEW")===s[0];}).length; return statBox([s[1],String(ct),""]); }).join("")
+    + '</div></div>';
+}
+
+buildNav();
+loadAll(function(){ renderInbox(); });
+</script>
+</body>
+</html>

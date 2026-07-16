@@ -635,7 +635,7 @@ function startCrmScheduler() {
         const hotCt  = leads.filter(l => l.hot && l.stage !== "SOLD").length;
         if (leads.length > 0) {
           notifyLead("CRM", "",
-            `📊 *DAILY CRM SUMMARY*\n🆕 New: ${newCt}\n📅 Appointments: ${apptCt}\n🤝 Negotiating: ${negCt}\n🔥 Hot leads: ${hotCt}\n\nWork your pipeline → ${"/crm"}`);
+            `📊 *DAILY CRM SUMMARY*\n🆕 New: ${newCt}\n📅 Appointments: ${apptCt}\n🤝 Negotiating: ${negCt}\n🔥 Hot leads: ${hotCt}\n\nWork your pipeline → ${"/ai-crm"}`);
         }
       }
     } catch (e) { console.error("[CRM] scheduler error:", e.message); }
