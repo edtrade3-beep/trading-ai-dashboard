@@ -1165,8 +1165,15 @@ function buildAlerts({ watchlist, macro, regime, sectorData, customAlerts }) {
     const rangePos = yearHigh > yearLow ? (price - yearLow) / (yearHigh - yearLow) : 0.5;
     const relVsSpy = chg - spyChg;
     const sectorEtf = STOCK_TO_SECTOR[symbol];
-    const sectorChg = sectorEtf ? (sectorMap.get(sectorEtf)?.changesPercentage || 0) : 0;
-    const relVsSector = chg - sectorChg;
+    // null (not 0) when the symbol isn't in STOCK_TO_SECTOR — defaulting to
+    // "sector was flat" was a real bug: it fabricated a 0% baseline and
+    // compared the stock's own change against it, which could fire a false
+    // "outperforming sector" alert for any unmapped stock with a decent
+    // gain regardless of how its real sector actually did. relVsSector is
+    // null when unknown; `null > 0.8` below is false (null coerces to 0),
+    // so the alert correctly never fires without a real sector to compare.
+    const sectorChg = sectorEtf ? (sectorMap.get(sectorEtf)?.changesPercentage ?? null) : null;
+    const relVsSector = sectorChg != null ? chg - sectorChg : null;
 
     if (chg > 1.5 && rvol > 1.3 && relVsSpy > 0.8) {
       alerts.push({
@@ -1202,7 +1209,9 @@ function buildAlerts({ watchlist, macro, regime, sectorData, customAlerts }) {
         type: "opportunity",
         category: "rs-shift",
         score: 82,
-        text: `Relative strength shift: outperforming both sector (${sectorEtf || "n/a"}) and SPY.`,
+        // sectorEtf is always truthy here — relVsSector is null (and this
+        // condition false) whenever it isn't, see above.
+        text: `Relative strength shift: outperforming both sector (${sectorEtf}) and SPY.`,
       });
     }
 
