@@ -2720,16 +2720,19 @@ export default function App() {
     if (scanDeepData[ticker]) return;
     setScanDeepLoad(prev => ({ ...prev, [ticker]: true }));
     try {
-      const [fundR, newsR, shortR, insiderR, optionsR, smcR, fvR] = await Promise.allSettled([
+      // Dropped /api/yahoo/short-interest, /api/yahoo/insider, /api/yahoo/options
+      // from this batch (found during a wider data-source audit) — all three
+      // hit the same IP-blocked Yahoo v10 endpoint as fundamentals used to, and
+      // unlike fundamentals nothing in the UI actually reads deepData[ticker]
+      // .short/.insider/.options — they were three guaranteed-to-fail requests
+      // adding latency to every symbol expand for data nothing displays.
+      const [fundR, newsR, smcR, fvR] = await Promise.allSettled([
         // /api/market/fundamentals tries FMP then stockanalysis.com before
         // falling back to Yahoo — Yahoo's quoteSummary v10 is IP-blocked from
         // Render, so hitting it directly (the old /api/yahoo/fundamentals)
         // always returned all-null fields. Same response shape either way.
         fetch(`/api/market/fundamentals?symbol=${ticker}`).then(r => r.json()),
         fetch(`/api/yahoo/news?tickers=${ticker}&limit=6`).then(r => r.json()),
-        fetch(`/api/yahoo/short-interest?symbol=${ticker}`).then(r => r.json()),
-        fetch(`/api/yahoo/insider?symbol=${ticker}`).then(r => r.json()),
-        fetch(`/api/yahoo/options?symbol=${ticker}`).then(r => r.json()),
         fetch(`/api/market/smc?symbol=${ticker}`).then(r => r.json()),
         // Finviz stats — primary source for analyst data (Yahoo v10 returns 401)
         fetch(`/api/finviz/quote?symbol=${ticker}`).then(r => r.json()),
@@ -2760,9 +2763,6 @@ export default function App() {
         [ticker]: {
           fundamentals: fundR.status    === "fulfilled" ? fundR.value    : null,
           news:         newsR.status    === "fulfilled" ? (Array.isArray(newsR.value) ? newsR.value : []) : [],
-          short:        shortR.status   === "fulfilled" ? shortR.value   : null,
-          insider:      insiderR.status === "fulfilled" ? insiderR.value : null,
-          options:      optionsR.status === "fulfilled" ? optionsR.value : null,
           smc:          smcR.status     === "fulfilled" && smcR.value?.ok ? smcR.value : null,
           fv:           fvData,
         },
