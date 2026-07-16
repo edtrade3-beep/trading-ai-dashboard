@@ -29,7 +29,7 @@ export default function OpportunityQueueCard({ C, MONO, SANS, setTerminalSymbol,
   };
 
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: C.shadow, padding: 14, height: "100%" }}>
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: C.shadow, padding: 14, height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em" }}>
           OPPORTUNITY QUEUE {lastRunAt && <span style={{ fontWeight: 400 }}>· scanned {new Date(lastRunAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
@@ -43,8 +43,15 @@ export default function OpportunityQueueCard({ C, MONO, SANS, setTerminalSymbol,
       {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
       {state === "error" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>Couldn't load scanner status.</div>}
       {state === "ok" && !hits.length && (
-        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, lineHeight: 1.5 }}>
-          No symbols crossing a signal threshold right now — the scanner only surfaces setups that already qualify, so this is often empty between scans. Click Scan Now to check again.
+        // Centered in the remaining height instead of pinned top-left — this
+        // card sits beside Best Opportunities (usually populated, often
+        // tall), so an empty queue used to read as unstyled leftover space
+        // rather than a designed empty state.
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "0 12px" }}>
+          <div style={{ fontSize: 22, marginBottom: 8, opacity: 0.5 }}>🔍</div>
+          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, lineHeight: 1.5, maxWidth: 220 }}>
+            No symbols crossing a signal threshold right now — the scanner only surfaces setups that already qualify, so this is often empty between scans. Click Scan Now to check again.
+          </div>
         </div>
       )}
       {hits.slice(0, 8).map(h => (
