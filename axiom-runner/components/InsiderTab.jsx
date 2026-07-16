@@ -21,7 +21,7 @@ export default function InsiderTab({ C, MONO, SANS, setActiveTab }) {
         <div>
           <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>🏦 INSIDER BUY SCREENER</div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-            SEC Form 4 purchases — CEO/CFO/Director buying their own stock with real money · Last 14 days
+            SEC Form 4 purchases — CEO/CFO/Director buying their own stock with real money · Last 3 days
             {data?.updatedAt ? ` · ${new Date(data.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
           </div>
         </div>
@@ -60,8 +60,8 @@ export default function InsiderTab({ C, MONO, SANS, setActiveTab }) {
                   </td>
                   <td style={{ padding: "8px 10px", textAlign: "right", color: C.textDim }}>{r.date || "—"}</td>
                   <td style={{ padding: "8px 10px", textAlign: "right", color: C.text }}>{r.price > 0 ? `$${r.price}` : "—"}</td>
-                  <td style={{ padding: "8px 10px", textAlign: "right", color: r.chg >= 0 ? C.green : C.red, fontWeight: 700 }}>
-                    {r.chg !== undefined && r.price > 0 ? `${r.chg >= 0 ? "+" : ""}${r.chg}%` : "—"}
+                  <td style={{ padding: "8px 10px", textAlign: "right", color: r.chg != null ? (r.chg >= 0 ? C.green : C.red) : C.textDim, fontWeight: 700 }}>
+                    {r.chg != null && r.price > 0 ? `${r.chg >= 0 ? "+" : ""}${r.chg}%` : "—"}
                   </td>
                   <td style={{ padding: "8px 10px", textAlign: "right" }}>
                     <span style={{ background: `${C.green}20`, color: C.green, borderRadius: 4,
@@ -84,7 +84,7 @@ export default function InsiderTab({ C, MONO, SANS, setActiveTab }) {
 
       {!loading && data && data.results?.length === 0 && (
         <div style={{ padding: 30, textAlign: "center", fontFamily: SANS, fontSize: 13, color: C.textDim }}>
-          No insider purchases found in the last 14 days. Check back daily — this is the most valuable signal.
+          No insider purchases found in the last 3 days. Check back daily — this is the most valuable signal.
         </div>
       )}
     </div>
