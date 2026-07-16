@@ -41,5 +41,10 @@ export const formatNum = (n) => {
   if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
   if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
   if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  return `$${n.toLocaleString()}`;
+  // toLocaleString() with no options shows however many decimals the raw
+  // float happens to need (0-3) rather than a fixed format — the same
+  // dollar table could read "$20,075.6", "$110.845", and "$67.82" side by
+  // side depending on each value's exact binary float. Force 2, matching
+  // every other dollar amount in the app.
+  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
