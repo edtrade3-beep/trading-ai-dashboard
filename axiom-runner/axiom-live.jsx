@@ -3736,6 +3736,16 @@ export default function App() {
       WATCHLISTS: "rhpro-lists",
       HOLDINGS: "holdings",
       AICOACH: "rhpro-coach",
+      // rhpro-apex/rhpro-scan had real labeled entries ("TRADE PRO AI",
+      // "SNIPER SCANNER") in the old SubNavBar-based nav, but SubNavBar
+      // isn't rendered anywhere anymore (replaced by Sidebar.jsx) and
+      // these two never got a palette keyword when it was — same
+      // unreachable-by-oversight pattern already found/fixed for
+      // darkpool/daytrade. (rhpro-journal is deliberately NOT aliased
+      // here — its own file comment says it's intentionally orphaned,
+      // superseded by the journal embedded live inside GreenLightTab.)
+      APEX: "rhpro-apex",
+      SNIPER: "rhpro-scan",
       // Added with the SMART MONEY trim — SMARTMONEY (13F Lookup) already
       // had an alias below.
       DPHEAT: "dp-heatmap",

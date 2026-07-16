@@ -50,7 +50,19 @@ export default function RhProHeatMap({ C, MONO, SANS, sectorData, macroData }) {
       </div>
 
       {/* Rotation quadrants */}
-      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>SECTOR ROTATION · relative strength × momentum</div>
+      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginBottom: 2 }}>SECTOR ROTATION · relative strength × momentum</div>
+      {/* RS Rating here is a multi-week trend-strength percentile from the
+          trend-screen engine, not today's session — deliberately a
+          different timeframe than the "today" heat grid above and the
+          Strongest/Weakest boxes below. Without this line, a sector red
+          today (e.g. Technology -2%) could show up in LEADING here at the
+          same time it's listed under "avoid / short bias" a few rows down
+          for today's move — same "RS 99" number in both places — which
+          reads as a flat contradiction unless the timeframe difference is
+          spelled out. */}
+      <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 6 }}>
+        RS Rating = multi-week trend strength, not today's move — a sector can be LEADING here and still red today (see Weakest, below).
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
         {["leading", "weakening", "improving", "lagging"].map(k => {
           const q = quads[k];
@@ -71,12 +83,12 @@ export default function RhProHeatMap({ C, MONO, SANS, sectorData, macroData }) {
       {/* Strongest / weakest */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <div style={{ background: `${C.green}0d`, border: `1px solid ${C.green}44`, borderRadius: 10, padding: 12 }}>
-          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, marginBottom: 6 }}>💪 STRONGEST — favor longs here</div>
-          {ranked.slice(0, 3).map(s => <div key={s.symbol} style={{ fontFamily: SANS, fontSize: 13, color: C.text, padding: "2px 0" }}>{s.name} <span style={{ fontFamily: MONO, color: C.green }}>+{s.chg.toFixed(2)}%</span> {s.rs ? <span style={{ fontSize: 10, color: C.textDim }}>RS {s.rs}</span> : null}</div>)}
+          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, marginBottom: 6 }}>💪 STRONGEST TODAY — favor longs here</div>
+          {ranked.slice(0, 3).map(s => <div key={s.symbol} style={{ fontFamily: SANS, fontSize: 13, color: C.text, padding: "2px 0" }}>{s.name} <span style={{ fontFamily: MONO, color: C.green }}>+{s.chg.toFixed(2)}%</span> {s.rs ? <span style={{ fontSize: 10, color: C.textDim }}>RS {s.rs} (trend)</span> : null}</div>)}
         </div>
         <div style={{ background: `${C.red}0d`, border: `1px solid ${C.red}44`, borderRadius: 10, padding: 12 }}>
-          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.red, marginBottom: 6 }}>🩸 WEAKEST — avoid / short bias</div>
-          {ranked.slice(-3).reverse().map(s => <div key={s.symbol} style={{ fontFamily: SANS, fontSize: 13, color: C.text, padding: "2px 0" }}>{s.name} <span style={{ fontFamily: MONO, color: C.red }}>{s.chg.toFixed(2)}%</span> {s.rs ? <span style={{ fontSize: 10, color: C.textDim }}>RS {s.rs}</span> : null}</div>)}
+          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.red, marginBottom: 6 }}>🩸 WEAKEST TODAY — avoid / short bias</div>
+          {ranked.slice(-3).reverse().map(s => <div key={s.symbol} style={{ fontFamily: SANS, fontSize: 13, color: C.text, padding: "2px 0" }}>{s.name} <span style={{ fontFamily: MONO, color: C.red }}>{s.chg.toFixed(2)}%</span> {s.rs ? <span style={{ fontSize: 10, color: C.textDim }}>RS {s.rs} (trend)</span> : null}</div>)}
         </div>
       </div>
       <div style={{ marginTop: 10, fontFamily: SANS, fontSize: 10, color: C.textDim }}>Trade leaders in the Leading/Improving quadrants; avoid Lagging. Analysis only — no orders.</div>
