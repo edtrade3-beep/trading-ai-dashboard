@@ -544,11 +544,15 @@ export default function QuotesTab({
                                 </td>
                               );
                             })()}
-                            {!isTablet && <td style={{ padding: "8px 8px", fontFamily: MONO, fontSize: 12, textAlign: "right", borderBottom: `1px solid ${C.border}`, verticalAlign: "middle", color: (q.delta5m || 0) >= 0 ? C.green : C.red }}>
-                              {(q.delta5m || 0) >= 0 ? "+" : ""}{(q.delta5m || 0).toFixed(2)}%
+                            {/* delta5m/delta30m are null (not 0) until the server has
+                                accumulated enough real price history for this symbol —
+                                shown honestly as "—" rather than a fabricated "+0.00%"
+                                that would look identical to real flat price action. */}
+                            {!isTablet && <td style={{ padding: "8px 8px", fontFamily: MONO, fontSize: 12, textAlign: "right", borderBottom: `1px solid ${C.border}`, verticalAlign: "middle", color: q.delta5m == null ? C.textDim : q.delta5m >= 0 ? C.green : C.red }}>
+                              {q.delta5m == null ? "—" : `${q.delta5m >= 0 ? "+" : ""}${q.delta5m.toFixed(2)}%`}
                             </td>}
-                            {!isTablet && <td style={{ padding: "8px 8px", fontFamily: MONO, fontSize: 12, textAlign: "right", borderBottom: `1px solid ${C.border}`, verticalAlign: "middle", color: (q.delta30m || 0) >= 0 ? C.green : C.red }}>
-                              {(q.delta30m || 0) >= 0 ? "+" : ""}{(q.delta30m || 0).toFixed(2)}%
+                            {!isTablet && <td style={{ padding: "8px 8px", fontFamily: MONO, fontSize: 12, textAlign: "right", borderBottom: `1px solid ${C.border}`, verticalAlign: "middle", color: q.delta30m == null ? C.textDim : q.delta30m >= 0 ? C.green : C.red }}>
+                              {q.delta30m == null ? "—" : `${q.delta30m >= 0 ? "+" : ""}${q.delta30m.toFixed(2)}%`}
                             </td>}
                             <td style={{ padding: "8px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, verticalAlign: "middle" }}>
                               <TrendTag trend={trend} />

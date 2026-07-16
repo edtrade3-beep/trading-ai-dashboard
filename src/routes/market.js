@@ -18,6 +18,7 @@ const {
 const { fetchFinnhubQuotes, fetchFinnhubNews } = require("../providers/finnhub");
 const { fetchFmpQuotes, fetchFmpFundamentals, fetchFmpEarnings } = require("../providers/fmp");
 const { fetchPolygonQuotes, fetchPolygonNews } = require("../providers/polygon");
+const { applyMomentum } = require("../quote-momentum");
 const { fetchTradierOptionsFlow } = require("../providers/tradier");
 
 // --- Quote helpers ---
@@ -142,7 +143,18 @@ function buildLeaderboard(rows, n, at) {
   };
 }
 
+// Real delta5m/delta30m, computed from actual price history (see
+// src/quote-momentum.js) — every provider branch below still hardcodes
+// delta5m/delta30m: 0 (or, for Polygon, omits them entirely), left
+// untouched rather than threading a fix through every branch; this single
+// wrapper overwrites whatever they set with real computed values (or
+// `null` if there's not yet enough history for that symbol).
 async function fetchMarketQuotes(symbols, keys) {
+  const rows = await fetchMarketQuotesRaw(symbols, keys);
+  return applyMomentum(Array.isArray(rows) ? rows : []);
+}
+
+async function fetchMarketQuotesRaw(symbols, keys) {
   // Primary: REAL Alpaca snapshots (free, real-time IEX) — works when Yahoo is
   // IP-blocked from the cloud and no Finnhub/FMP key is set. Equities only;
   // crypto/indices fall through to Yahoo below and are merged in.

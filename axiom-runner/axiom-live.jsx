@@ -964,8 +964,12 @@ function normalizeTdQuote(data, fallbackSymbol) {
     changesPercentage: Number.isFinite(changesPercentage) ? changesPercentage : impliedChange,
     delta1d: Number.isFinite(Number(data?.delta1d)) ? Number(data?.delta1d) : (Number.isFinite(changesPercentage) ? changesPercentage : impliedChange),
     delta1w: Number.isFinite(Number(data?.delta1w)) ? Number(data?.delta1w) : 0,
-    delta5m: Number.isFinite(Number(data?.delta5m)) ? Number(data?.delta5m) : 0,
-    delta30m: Number.isFinite(Number(data?.delta30m)) ? Number(data?.delta30m) : 0,
+    // The server sends `null` (not 0) when it doesn't have enough real price
+    // history yet for this symbol — Number(null) is 0, so a naive
+    // Number.isFinite(Number(x)) check here would silently turn that honest
+    // "no data yet" back into a fake 0. Preserve null explicitly instead.
+    delta5m: data?.delta5m == null ? null : (Number.isFinite(Number(data.delta5m)) ? Number(data.delta5m) : null),
+    delta30m: data?.delta30m == null ? null : (Number.isFinite(Number(data.delta30m)) ? Number(data.delta30m) : null),
     open: Number.isFinite(Number(data?.open ?? data?.regularMarketOpen)) ? Number(data?.open ?? data?.regularMarketOpen) : 0,
     previousClose: Number.isFinite(prev) ? prev : 0,
     dayHigh: Number.isFinite(Number(data?.dayHigh ?? data?.regularMarketDayHigh)) ? Number(data?.dayHigh ?? data?.regularMarketDayHigh) : 0,

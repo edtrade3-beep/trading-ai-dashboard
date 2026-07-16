@@ -93,7 +93,7 @@ export default function ToolsTab({
                 {scannerRank.map((q, i) => (
                   <div key={`${q.symbol}-${i}`} style={{ display: "grid", gridTemplateColumns: "56px 1fr 66px", gap: 8, alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
                     <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{q.symbol}</span>
-                    <span style={{ fontSize: 12, color: C.textSec }}>5m {q.delta5m >= 0 ? "+" : ""}{(q.delta5m || 0).toFixed(2)}% · RS {q.rel >= 0 ? "+" : ""}{q.rel.toFixed(2)}%</span>
+                    <span style={{ fontSize: 12, color: C.textSec }}>5m {q.delta5m == null ? "—" : `${q.delta5m >= 0 ? "+" : ""}${q.delta5m.toFixed(2)}%`} · RS {q.rel >= 0 ? "+" : ""}{q.rel.toFixed(2)}%</span>
                     <span style={{ fontFamily: MONO, fontSize: 12, color: q.score >= 8 ? C.green : q.score >= 3 ? C.amber : C.red, textAlign: "right" }}>{q.score.toFixed(1)}</span>
                   </div>
                 ))}
