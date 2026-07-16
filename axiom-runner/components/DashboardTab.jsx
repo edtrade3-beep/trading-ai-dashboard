@@ -147,7 +147,7 @@ function WatchlistCard({ C, MONO, SANS, watchlistData, sigData, setTerminalSymbo
   const rows = (watchlistData || []).slice(0, 8);
   const sigOf = sym => (sigData?.signals || []).find(s => s.sym === sym);
   return (
-    <Card C={C} title="WATCHLIST" style={{ flex: 1 }}>
+    <Card C={C} title="WATCHLIST" style={{ flex: "1 1 260px", maxWidth: 300 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 1, overflowY: "auto" }}>
         {rows.map(q => {
           const chg = Number(q.changesPercentage || 0);
@@ -180,7 +180,7 @@ function DashboardChartCard({ C, MONO, SANS, symbol }) {
     return () => { alive = false; };
   }, [symbol]);
   return (
-    <Card C={C} title={`CHART — ${symbol}`} style={{ flex: 2, minWidth: 0 }}>
+    <Card C={C} title={`CHART — ${symbol}`} style={{ flex: 3, minWidth: 340 }}>
       {data ? <TrendChart data={data} C={C} MONO={MONO} SANS={SANS} height={340} />
         : <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: 40, textAlign: "center" }}>Loading chart…</div>}
     </Card>
@@ -197,7 +197,7 @@ function CopilotInsightsCard({ C, MONO, SANS, macroData, watchlistData, setActiv
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
   const mantra = COACH_LESSONS[dayOfYear % COACH_LESSONS.length]?.mantra;
   return (
-    <Card C={C} title="AI COPILOT INSIGHTS" style={{ flex: 1 }}>
+    <Card C={C} title="AI COPILOT INSIGHTS">
       <TopOpportunityCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} />
       {wl.length >= 2 && (
         <div style={{ marginTop: 8 }}>
@@ -293,11 +293,17 @@ export default function DashboardTab({
             <AiMorningBriefCard C={C} MONO={MONO} SANS={SANS} />
           </div>
 
+          {/* Was a 3-card row (Watchlist + Chart + Copilot Insights) — at
+              this column's real width, giving the chart enough room to not
+              collide with its own overlay badge left no room for a 3rd
+              variable-width card: it either stretched full-width alone or
+              wrapped leaving a large empty gap. Copilot Insights moved to
+              the sidebar (stacks cleanly there); this row is just the two
+              cards that actually need to sit side by side. */}
           {sectionLabel("WATCHLIST & CHART")}
           <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", alignItems: "stretch" }}>
             <WatchlistCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} sigData={sigData} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
             <DashboardChartCard C={C} MONO={MONO} SANS={SANS} symbol={aplusSymbol || "SPY"} />
-            <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} />
           </div>
 
           {/* ── OPPORTUNITIES — the two ranked-signal engines, kept side */}
@@ -337,6 +343,7 @@ export default function DashboardTab({
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
             <MarketRegimeCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} distData={distData} factors={factors} bias={bias} biasColor={biasCol} />
             <MarketIntelCard C={C} MONO={MONO} SANS={SANS} flowBias={flowBias} flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional} setActiveTab={setActiveTab} />
+            <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} />
           </div>
 
           {sectionLabel("TODAY")}

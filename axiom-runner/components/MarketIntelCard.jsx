@@ -25,7 +25,10 @@ export default function MarketIntelCard({ C, MONO, SANS, flowBias, flowCallNotio
 
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: C.shadow, padding: 14, height: "100%" }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>MARKET INTELLIGENCE</div>
+      {/* Was "MARKET INTELLIGENCE" — duplicated the sidebar section label
+          this card sits under (DashboardTab.jsx), reading as a repeated
+          heading. Renamed to describe what's actually in the card. */}
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>MACRO & FLOW</div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
         <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Fed stance</span>

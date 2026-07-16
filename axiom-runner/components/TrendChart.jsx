@@ -157,8 +157,11 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
       </div>
       {data && (
         // Top-LEFT so it never collides with the right price axis or the AI-TARGET label.
+        // Fully opaque background (not ~95%) — the chart's horizontal price-
+        // level reference lines span the full width and were faintly visible
+        // through the card, crossing right through the "OVERALL RATING" text.
         <div style={{ position: "absolute", top: 10, left: 12, pointerEvents: "none",
-          background: (C.card || "#fff") + "f2", border: `1px solid ${rColor}`, borderRadius: 12, padding: "8px 14px", boxShadow: "0 2px 10px rgba(0,0,0,0.18)", minWidth: 132 }}>
+          background: C.card || "#fff", border: `1px solid ${rColor}`, borderRadius: 12, padding: "8px 14px", boxShadow: "0 2px 10px rgba(0,0,0,0.18)", minWidth: 132 }}>
           <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 1 }}>OVERALL RATING</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
             <span style={{ fontFamily: SANS, fontSize: 30, fontWeight: 900, color: rColor, lineHeight: 1 }}>{rating}</span>
