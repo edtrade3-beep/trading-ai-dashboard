@@ -23,6 +23,10 @@ const {
   sectorCapExceeded, sizePositionByRisk,
 } = require("../risk-guardrails");
 
+// ET calendar date (YYYY-MM-DD), not UTC — see the comment on maybeResetDaily
+// below for why this matters here specifically.
+const todayET = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
+
 const CONFIG_PATH = path.join(ROOT, "data", "autoexec-config.json");
 const PENDING_PATH = path.join(ROOT, "data", "pending-trades.json");
 
@@ -83,8 +87,19 @@ function writePending(list) {
 // ── Daily reset (tradedToday list clears each calendar day, and we snapshot
 // start-of-day equity for the daily-loss breaker — Tradier's balances API has
 // no Alpaca-style last_equity field, so we have to persist our own). ────────
+//
+// Uses the ET trading-day date, not UTC. This function is also called from
+// GET /api/autoexec/config (no market-hours gate — a settings page load can
+// hit it any time of day) and from the manual-order/approve endpoints. ET is
+// 4-5h behind UTC, so any hit after ~7-8pm ET has already rolled into
+// "tomorrow" in UTC. A UTC-dated reset there would mark the reset as done
+// for a calendar day the actual ET trading day hasn't reached yet — then the
+// next morning's real reset (computed in ET, landing on the same UTC date
+// that evening's premature reset already used) would be silently skipped,
+// leaving tradedToday and startOfDayEquity stale from the night before
+// instead of a fresh snapshot for the new trading day.
 async function maybeResetDaily(cfg) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayET();
   if (cfg.lastResetDate !== today) {
     cfg.tradedToday  = [];
     cfg.lastResetDate = today;
