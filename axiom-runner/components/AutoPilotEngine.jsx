@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { computeRegime, STOCK_TO_SECTOR } from "./market-helpers.js";
 import {
   computeGreenLight, logTradeNote, addPaperTrade, addPaperShort, optionValue,
-  addPaperOption, alpacaPlace, alpacaClose, alpacaOption, GL_TRADES_KEY,
+  addPaperOption, alpacaPlace, alpacaClose, GL_TRADES_KEY,
 } from "./trading-utils.js";
 
 export default function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
@@ -245,21 +245,20 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
         if (slots <= 0) return;
 
         // ── OPTIONS (CALLS only — puts are disabled) ──
-        if (doOptions && bullish) {
+        // Same dead-branch pattern as the short-setup fix above: POST
+        // /api/alpaca/option-order rejects EVERY option order unconditionally
+        // ("OPTIONS DISABLED — opening option positions is turned off for
+        // safety... Long stocks only") — calls included, not just puts. The
+        // broker === "alpaca" branch below could never succeed; skip it and
+        // go straight to the local paper-option simulation, which doesn't
+        // touch the real broker and isn't affected by that guard.
+        if (doOptions && bullish && broker !== "alpaca") {
           const kind = "CALL";
           const key = `${today}:${q.symbol}:C:${broker}`;
           if (!autoBoughtRef.current.has(key)) {
-            if (broker === "alpaca") {
-              autoBoughtRef.current.add(key); slots--;
-              alpacaOption(q.symbol, "call", 1, gl.px).then(rr => {
-                if (rr?.ok) logTradeNote("buy", `📈 ALPACA CALL — ${q.symbol} (${gl.passed}/5)\n1 contract · strike $${rr.order.strike} · exp ${rr.order.expiry}`);
-                else { autoBoughtRef.current.delete(key); }
-              });
-            } else {
-              const res = addPaperOption(q.symbol, gl.px, kind, { glScore: gl.passed });
-              if (res === "OK") { autoBoughtRef.current.add(key); slots--; }
-              else if (res === "DUP") autoBoughtRef.current.add(key);
-            }
+            const res = addPaperOption(q.symbol, gl.px, kind, { glScore: gl.passed });
+            if (res === "OK") { autoBoughtRef.current.add(key); slots--; }
+            else if (res === "DUP") autoBoughtRef.current.add(key);
           }
         }
       });
