@@ -99,7 +99,7 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
           placeholder="Enter ticker — e.g. NVDA, TSLA, AMD"
           style={{flex:1,minWidth:200,padding:"12px 16px",fontFamily:MONO,fontSize:15,fontWeight:700,
             background:C.surface,border:`2px solid ${C.accent}`,color:C.text,borderRadius:10,outline:"none"}}/>
-        <button onClick={analyze} disabled={loading}
+        <button onClick={() => analyze()} disabled={loading}
           style={{fontFamily:MONO,fontSize:13,fontWeight:900,padding:"12px 28px",borderRadius:10,border:"none",
             background:loading?C.surface:C.accent,color:loading?C.textDim:"#fff",cursor:loading?"default":"pointer"}}>
           {loading?"⏳ Analyzing…":"📊 ANALYZE"}
