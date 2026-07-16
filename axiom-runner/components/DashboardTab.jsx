@@ -214,6 +214,38 @@ function CopilotInsightsCard({ C, MONO, SANS, macroData, watchlistData, setActiv
   );
 }
 
+// ── Dashboard sub-tabs — the page used to render everything (15 cards +
+// 6 collapsible sections) on one continuous scroll. Split into focused
+// sub-tabs per user feedback ("too much information") — every existing
+// card/section moved as-is into one of these, nothing removed or rebuilt,
+// same "hide, don't delete" precedent already used for MORE DETAIL below.
+const DASH_TABS = [
+  { id: "overview",    label: "OVERVIEW" },
+  { id: "watchlist",   label: "WATCHLIST & CHART" },
+  { id: "opportunities", label: "OPPORTUNITIES" },
+  { id: "news",        label: "NEWS & EVENTS" },
+  { id: "more",        label: "MORE" },
+];
+
+function DashSubNav({ C, MONO, active, setActive }) {
+  return (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+      {DASH_TABS.map(t => (
+        <button key={t.id} onClick={() => setActive(t.id)}
+          style={{
+            fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.04em",
+            padding: "7px 13px", borderRadius: 7, cursor: "pointer",
+            border: `1px solid ${active === t.id ? C.accent : C.border}`,
+            background: active === t.id ? `${C.accent}18` : C.card,
+            color: active === t.id ? C.accent : C.textSec,
+          }}>
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function DashboardTab({
   C, MONO, SANS, watchlistData, macroData, distData, fearGreedData, sigData, sigFilter,
   newsSentiment, socialSentiment, flowBias, flowCallNotional, flowPutNotional, eventCountdowns, preMktMovers, combinedAlerts,
@@ -223,6 +255,13 @@ export default function DashboardTab({
 }) {
   const [aplusSymbol, setAplusSymbol] = useState(null);
   const onScore = (row) => { setAplusSymbol(row ? row.symbol : null); };
+  const [dashTab, setDashTab] = useState(() => {
+    try { return localStorage.getItem("dash_subtab") || "overview"; } catch { return "overview"; }
+  });
+  const setDashTabPersist = (id) => {
+    setDashTab(id);
+    try { localStorage.setItem("dash_subtab", id); } catch {}
+  };
 
   // Same next-day-bias factor scoring used by the (now collapsed, kept for
   // detail) Next Day Outlook card — computed once, shared by the new AI
@@ -262,53 +301,56 @@ export default function DashboardTab({
   const bias = score >= 25 ? "BULLISH" : score >= 5 ? "LEAN BULLISH" : score <= -25 ? "BEARISH" : score <= -5 ? "LEAN BEARISH" : "NEUTRAL";
   const biasCol = score >= 25 ? C.green : score >= 5 ? C.greenLight : score <= -25 ? C.red : score <= -5 ? C.redLight : C.amber;
 
-  const sectionLabel = (text) => (
-    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.1em", margin: "18px 0 8px" }}>{text}</div>
-  );
-
   return (
     <>
-      {/* ── EXECUTIVE — the final word first, then a direct line to the ── */}
-      {/* copilot. Everything below feeds these two, not the other way    */}
-      {/* around, so they lead the page.                                  */}
-      <div style={{ marginBottom: 10 }}>
-        <CeoAiCard C={C} MONO={MONO} SANS={SANS} />
-      </div>
-      <div style={{ marginBottom: 6 }}>
-        <AskAiBar C={C} MONO={MONO} SANS={SANS} />
-      </div>
+      <DashSubNav C={C} MONO={MONO} active={dashTab} setActive={setDashTabPersist} />
 
-      {/* ── Two-column body — MAIN (chart/opportunities/watchlist/news, ── */}
-      {/* needs horizontal room) + SIDEBAR (portfolio/risk/status widgets, */}
-      {/* don't). Standard trading-terminal density instead of every       */}
-      {/* section forcing a full-width scroll. Wraps to one column under   */}
-      {/* the sidebar's minWidth on narrow viewports.                      */}
-      <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+      {/* ── OVERVIEW — the "open the app, know where you stand" tab: the ── */}
+      {/* AI's final word, a direct line to ask it anything, current regime,*/}
+      {/* your actual positions, and what's coming up. Everything else is  */}
+      {/* one click away in another tab instead of below the fold here.    */}
+      {dashTab === "overview" && (
+        <>
+          <div style={{ marginBottom: 10 }}>
+            <CeoAiCard C={C} MONO={MONO} SANS={SANS} />
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <AskAiBar C={C} MONO={MONO} SANS={SANS} />
+          </div>
+          <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+            <div style={{ flex: "1 1 320px", minWidth: 280, maxWidth: 420 }}>
+              <MarketRegimeCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} distData={distData} factors={factors} bias={bias} biasColor={biasCol} />
+            </div>
+            <div style={{ flex: "1 1 320px", minWidth: 300, display: "flex", flexDirection: "column", gap: 10 }}>
+              <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
+              <ActivePositionsCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+            </div>
+            <div style={{ flex: "1 1 280px", minWidth: 260, maxWidth: 380 }}>
+              <UpcomingEventsCard C={C} MONO={MONO} SANS={SANS} eventCountdowns={eventCountdowns} />
+            </div>
+          </div>
+        </>
+      )}
 
-        {/* ── MAIN ── */}
-        <div style={{ flex: "1 1 600px", minWidth: 0, display: "flex", flexDirection: "column" }}>
+      {/* ── WATCHLIST & CHART ── */}
+      {dashTab === "watchlist" && (
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
+          <WatchlistCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} sigData={sigData} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+          <DashboardChartCard C={C} MONO={MONO} SANS={SANS} symbol={aplusSymbol || "SPY"} />
+          <div style={{ flex: "1 1 300px", minWidth: 280, maxWidth: 380 }}>
+            <MarketIntelCard C={C} MONO={MONO} SANS={SANS} flowBias={flowBias} flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional} setActiveTab={setActiveTab} />
+          </div>
+        </div>
+      )}
 
-          {sectionLabel("AI INTELLIGENCE")}
+      {/* ── OPPORTUNITIES — the AI's morning brief plus the two ranked- ── */}
+      {/* signal engines, kept side by side rather than merged (different  */}
+      {/* universes/scoring). */}
+      {dashTab === "opportunities" && (
+        <>
           <div style={{ marginBottom: 10 }}>
             <AiMorningBriefCard C={C} MONO={MONO} SANS={SANS} />
           </div>
-
-          {/* Was a 3-card row (Watchlist + Chart + Copilot Insights) — at
-              this column's real width, giving the chart enough room to not
-              collide with its own overlay badge left no room for a 3rd
-              variable-width card: it either stretched full-width alone or
-              wrapped leaving a large empty gap. Copilot Insights moved to
-              the sidebar (stacks cleanly there); this row is just the two
-              cards that actually need to sit side by side. */}
-          {sectionLabel("WATCHLIST & CHART")}
-          <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", alignItems: "stretch" }}>
-            <WatchlistCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} sigData={sigData} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
-            <DashboardChartCard C={C} MONO={MONO} SANS={SANS} symbol={aplusSymbol || "SPY"} />
-          </div>
-
-          {/* ── OPPORTUNITIES — the two ranked-signal engines, kept side */}
-          {/* by side rather than merged (different universes/scoring). */}
-          {sectionLabel("OPPORTUNITIES")}
           <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", alignItems: "stretch" }}>
             <div style={{ flex: 1, minWidth: 300 }}>
               <OpportunityQueueCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
@@ -317,87 +359,71 @@ export default function DashboardTab({
               <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} />
             </div>
           </div>
+          <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} />
+        </>
+      )}
 
-          {sectionLabel("NEWS")}
+      {/* ── NEWS & EVENTS ── */}
+      {dashTab === "news" && (
+        <>
           <div style={{ marginBottom: 14 }}>
             <Card C={C} title="MARKET NEWS">
               <RegimeNewsPanel C={C} MONO={MONO} SANS={SANS} />
             </Card>
           </div>
-        </div>
-
-        {/* ── SIDEBAR ── */}
-        <div style={{ flex: "1 1 320px", minWidth: 300, maxWidth: 420, display: "flex", flexDirection: "column" }}>
-
-          {/* ── YOUR PORTFOLIO — snapshot, the actual open positions      */}
-          {/* (previously missing from the Dashboard entirely), and the   */}
-          {/* risk math that already gates the autopilots — all together. */}
-          {sectionLabel("YOUR PORTFOLIO")}
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
-            <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
-            <ActivePositionsCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
-            <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} />
-          </div>
-
-          {sectionLabel("MARKET INTELLIGENCE")}
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
-            <MarketRegimeCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} distData={distData} factors={factors} bias={bias} biasColor={biasCol} />
-            <MarketIntelCard C={C} MONO={MONO} SANS={SANS} flowBias={flowBias} flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional} setActiveTab={setActiveTab} />
-            <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} />
-          </div>
-
-          {sectionLabel("TODAY")}
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
-            <UpcomingEventsCard C={C} MONO={MONO} SANS={SANS} eventCountdowns={eventCountdowns} />
-            <TradingLessonCard C={C} MONO={MONO} SANS={SANS} />
-          </div>
-        </div>
-      </div>
-
-      {/* ── MORE — everything from the previous layout that doesn't have a ── */}
-      {/* Row 1-3 home yet. Collapsed by default, not deleted — same         */}
-      {/* "hide, don't delete" precedent already used throughout this app's  */}
-      {/* nav history (see SubNavBar.jsx). */}
-      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.1em", margin: "4px 0 8px" }}>MORE DETAIL</div>
-
-      <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={false}>
-        <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
-      </MonitorSection>
-
-      <MonitorSection C={C} MONO={MONO} label="🚦 MARKET MODE & FLOW" storeKey="mon_mode" defaultOpen={false}>
-        <RiskTrafficLight C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
-        <SpyVolumeWidget C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
-      </MonitorSection>
-
-      <MonitorSection C={C} MONO={MONO} label="🔔 PRIORITY ALERTS" storeKey="mon_alerts" defaultOpen={false}>
-        <PriorityAlertsCard C={C} MONO={MONO} SANS={SANS} alerts={combinedAlerts} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
-      </MonitorSection>
-
-      <MonitorSection C={C} MONO={MONO} label="🏛 CATALYSTS & EVENTS" storeKey="mon_catalysts" defaultOpen={false}>
-        <FedInterpreter C={C} MONO={MONO} SANS={SANS} />
-        <FedWatchWidget C={C} MONO={MONO} SANS={SANS} />
-        <MacroEventsWidget C={C} MONO={MONO} SANS={SANS} />
-      </MonitorSection>
-
-      {preMktMovers.length > 0 && (
-        <MonitorSection C={C} MONO={MONO} label="⚡ PRE-MARKET MOVERS" storeKey="mon_premkt" defaultOpen={false}>
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-            {preMktMovers.slice(0, 8).map(m => (
-              <div key={m.sym} style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent }}>{m.sym}</div>
-                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: m.chg >= 0 ? C.green : C.red }}>{m.chg >= 0 ? "+" : ""}{m.chg.toFixed(1)}%</div>
+          <MonitorSection C={C} MONO={MONO} label="🏛 CATALYSTS & EVENTS" storeKey="mon_catalysts" defaultOpen={true}>
+            <FedInterpreter C={C} MONO={MONO} SANS={SANS} />
+            <FedWatchWidget C={C} MONO={MONO} SANS={SANS} />
+            <MacroEventsWidget C={C} MONO={MONO} SANS={SANS} />
+          </MonitorSection>
+          {preMktMovers.length > 0 && (
+            <MonitorSection C={C} MONO={MONO} label="⚡ PRE-MARKET MOVERS" storeKey="mon_premkt" defaultOpen={true}>
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                {preMktMovers.slice(0, 8).map(m => (
+                  <div key={m.sym} style={{ textAlign: "center" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent }}>{m.sym}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: m.chg >= 0 ? C.green : C.red }}>{m.chg >= 0 ? "+" : ""}{m.chg.toFixed(1)}%</div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </MonitorSection>
+            </MonitorSection>
+          )}
+        </>
       )}
 
-      {tiltEnabled && (
-        <MonitorSection C={C} MONO={MONO} label="😤 TILT" storeKey="mon_tilt" defaultOpen={false}>
-          <div onClick={() => tiltLocked && setTiltLocked(false)} style={{ cursor: "pointer", fontFamily: MONO, fontSize: 13, fontWeight: 800, color: tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green }}>
-            {tiltLocked ? "🔒 LOCKED — click to override" : tiltStreak === 0 ? "✅ 0 consecutive losses today" : `⚠ ${tiltStreak}/3 consecutive losses`}
+      {/* ── MORE — supplementary widgets, same "hide, don't delete"       */}
+      {/* precedent already used throughout this app's nav history (see   */}
+      {/* SubNavBar.jsx) — collapsed accordions, nothing removed.         */}
+      {dashTab === "more" && (
+        <>
+          <div style={{ marginBottom: 10 }}>
+            <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} />
           </div>
-        </MonitorSection>
+          <div style={{ marginBottom: 10 }}>
+            <TradingLessonCard C={C} MONO={MONO} SANS={SANS} />
+          </div>
+
+          <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={false}>
+            <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
+          </MonitorSection>
+
+          <MonitorSection C={C} MONO={MONO} label="🚦 MARKET MODE & FLOW" storeKey="mon_mode" defaultOpen={false}>
+            <RiskTrafficLight C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
+            <SpyVolumeWidget C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
+          </MonitorSection>
+
+          <MonitorSection C={C} MONO={MONO} label="🔔 PRIORITY ALERTS" storeKey="mon_alerts" defaultOpen={false}>
+            <PriorityAlertsCard C={C} MONO={MONO} SANS={SANS} alerts={combinedAlerts} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+          </MonitorSection>
+
+          {tiltEnabled && (
+            <MonitorSection C={C} MONO={MONO} label="😤 TILT" storeKey="mon_tilt" defaultOpen={false}>
+              <div onClick={() => tiltLocked && setTiltLocked(false)} style={{ cursor: "pointer", fontFamily: MONO, fontSize: 13, fontWeight: 800, color: tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green }}>
+                {tiltLocked ? "🔒 LOCKED — click to override" : tiltStreak === 0 ? "✅ 0 consecutive losses today" : `⚠ ${tiltStreak}/3 consecutive losses`}
+              </div>
+            </MonitorSection>
+          )}
+        </>
       )}
     </>
   );
