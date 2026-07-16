@@ -84,6 +84,25 @@ async function yFetchWithCrumb(url, timeoutMs = 8000) {
   }
 }
 
+// Plain-then-crumb fallback for v10/finance/quoteSummary — every one of
+// fetchYahooMarketCapFromSummary/Fundamentals/ShortInterest/
+// InsiderTransactions/Institutional/AnalystRatings/DividendInfo/Earnings
+// called yFetch (no crumb) directly against this endpoint, which now 401s
+// ("Invalid Crumb") unconditionally on every request (confirmed via direct
+// curl, independent of any cloud-IP block) — the same root cause already
+// found and fixed for the squeeze screener's v7/finance/quote calls.
+// short interest, insider transactions, institutional ownership, analyst
+// ratings, and dividend info had NO other data source, so they were
+// silently returning empty/null 100% of the time with no indication
+// anything was wrong.
+async function yFetchQuoteSummary(url, timeoutMs = 8000) {
+  try {
+    const res = await yFetch(url, timeoutMs);
+    if (res.ok) return res;
+  } catch { /* fall through to crumb */ }
+  return yFetchWithCrumb(url, timeoutMs);
+}
+
 // ── Parse chart result into bar array ────────────────────────────────────────
 function parseYahooChartBars(payload) {
   const result = payload?.chart?.result?.[0];
@@ -254,7 +273,7 @@ async function fetchYahooChartMeta(symbol) {
 async function fetchYahooMarketCapFromSummary(symbol, price) {
   const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=price,defaultKeyStatistics`;
   try {
-    const response = await yFetch(url, 7000);
+    const response = await yFetchQuoteSummary(url, 7000);
     if (!response.ok) return 0;
     const payload = await response.json();
     const result = payload?.quoteSummary?.result?.[0] || {};
@@ -465,7 +484,7 @@ async function fetchYahooFundamentals(symbol) {
   }
 
   try {
-    const response = await yFetch(url, 10000);
+    const response = await yFetchQuoteSummary(url, 10000);
     if (!response.ok) {
       const cap = Number.isFinite(liveMarketCap) && liveMarketCap > 0
         ? liveMarketCap
@@ -667,7 +686,7 @@ async function fetchEstimatedOptionsFlow(symbols) {
 async function fetchYahooShortInterest(symbol) {
   const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=defaultKeyStatistics,summaryDetail`;
   try {
-    const res = await yFetch(url, 8000);
+    const res = await yFetchQuoteSummary(url, 8000);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const payload = await res.json();
     const stats = payload?.quoteSummary?.result?.[0]?.defaultKeyStatistics || {};
@@ -696,7 +715,7 @@ async function fetchYahooShortInterest(symbol) {
 async function fetchYahooInsiderTransactions(symbol) {
   const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=insiderTransactions,insiderHolders`;
   try {
-    const res = await yFetch(url, 10000);
+    const res = await yFetchQuoteSummary(url, 10000);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const payload = await res.json();
     const r = payload?.quoteSummary?.result?.[0] || {};
@@ -731,7 +750,7 @@ async function fetchYahooInsiderTransactions(symbol) {
 async function fetchYahooInstitutional(symbol) {
   const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=institutionalOwnership,majorHoldersBreakdown,fundOwnership`;
   try {
-    const res = await yFetch(url, 10000);
+    const res = await yFetchQuoteSummary(url, 10000);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const payload = await res.json();
     const r = payload?.quoteSummary?.result?.[0] || {};
@@ -766,7 +785,7 @@ async function fetchYahooInstitutional(symbol) {
 async function fetchYahooAnalystRatings(symbol) {
   const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=upgradeDowngradeHistory,recommendationTrend,financialData`;
   try {
-    const res = await yFetch(url, 10000);
+    const res = await yFetchQuoteSummary(url, 10000);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const payload = await res.json();
     const r = payload?.quoteSummary?.result?.[0] || {};
@@ -806,7 +825,7 @@ async function fetchYahooAnalystRatings(symbol) {
 async function fetchYahooDividendInfo(symbol) {
   const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=calendarEvents,summaryDetail`;
   try {
-    const res = await yFetch(url, 8000);
+    const res = await yFetchQuoteSummary(url, 8000);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const payload = await res.json();
     const r   = payload?.quoteSummary?.result?.[0] || {};
@@ -866,7 +885,7 @@ async function fetchStockTwitsSentiment(symbol) {
 async function fetchYahooEarnings(symbol) {
   const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=earnings,earningsTrend`;
   try {
-    const r = await yFetch(url, 10000);
+    const r = await yFetchQuoteSummary(url, 10000);
     if (!r.ok) return null;
     const j = await r.json();
     const result = j?.quoteSummary?.result?.[0] || {};
