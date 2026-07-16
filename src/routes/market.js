@@ -264,16 +264,29 @@ async function fetchMarketNews(tickers, limit, keys) {
         fetchYahooNews(ticker).catch(() => []),
         fetchGoogleNews(ticker, 10).catch(() => []),
       ]);
-      return [...yahoo, ...google].map((item) => ({ ...item, ticker: item.ticker || ticker }));
+      const combined = [...yahoo, ...google].map((item) => ({ ...item, ticker: item.ticker || ticker }));
+      // Dedupe by normalized title, but only WITHIN this ticker's own
+      // Yahoo+Google results (different outlets often carry the same
+      // story). Deliberately not deduped across different tickers: a
+      // per-ticker RSS search returns sector-adjacent stories, not just
+      // stories strictly about that company (e.g. a Micron-specific
+      // headline can legitimately surface from an "INTC stock" query
+      // during a week chip stocks are broadly in the news). Deduping
+      // globally picked whichever ticker was queried first and silently
+      // discarded the other, which could tag a Micron headline "INTC" and
+      // drop the correctly-tagged MU copy entirely. Keeping dedup scoped
+      // per-ticker means a story shared by two tickers' feeds shows twice,
+      // once under each accurate badge, instead of once under a coin-flip
+      // badge that's sometimes wrong.
+      const seenLocal = new Set();
+      return combined.filter((n) => {
+        const k = String(n.title || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 60);
+        if (!k || seenLocal.has(k)) return false;
+        seenLocal.add(k); return true;
+      });
     })
   );
-  // Dedupe by normalized title (different outlets carry the same story).
-  const seen = new Set();
-  const deduped = perTicker.flat().filter((n) => {
-    const k = String(n.title || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 60);
-    if (!k || seen.has(k)) return false;
-    seen.add(k); return true;
-  });
+  const deduped = perTicker.flat();
   return deduped
     .sort((a, b) => {
       const ta = a.publishedAt ? Date.parse(a.publishedAt) : 0;
