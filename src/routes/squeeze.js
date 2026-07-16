@@ -3,7 +3,8 @@
 // High short interest + rising price + high volume = squeeze candidate
 // Data: short interest from Finviz, quotes from Yahoo
 
-const { fetchJsonSafe, withTimeout, writeJson } = require("../utils");
+const { writeJson } = require("../utils");
+const { fetchYahooQuoteBatchWithFields } = require("../providers/yahoo");
 
 let _cache = null;
 let _cacheTs = 0;
@@ -20,29 +21,26 @@ const SQUEEZE_UNIVERSE = [
   "TSLA","NVDA","AMD","META","PLTR","SNOW","PATH","AI",
 ];
 
-async function fetchYahooQuote(sym) {
-  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${sym}&fields=regularMarketPrice,regularMarketChangePercent,regularMarketVolume,averageDailyVolume3Month,shortPercentOfFloat,shortRatio,fiftyTwoWeekHigh,fiftyTwoWeekLow,marketCap,floatShares`;
-  const d = await withTimeout(fetchJsonSafe(url), 6000, null);
-  return d?.quoteResponse?.result?.[0] || null;
-}
+const QUOTE_FIELDS = "regularMarketPrice,regularMarketChangePercent,regularMarketVolume,averageDailyVolume3Month,shortPercentOfFloat,shortRatio,fiftyTwoWeekHigh,fiftyTwoWeekLow,marketCap,floatShares";
 
 async function runSqueezeScreen() {
   if (_cache && Date.now() - _cacheTs < TTL) return _cache;
 
-  // Batch fetch in chunks of 15
+  // Batch fetch in chunks of 15. Previously called Yahoo's v7 quote endpoint
+  // directly with a plain fetch — that endpoint now 401s ("Invalid Crumb")
+  // unconditionally without a crumb+session-cookie handshake, so every
+  // chunk silently failed and this screener always returned zero results,
+  // regardless of actual market conditions. fetchYahooQuoteBatchWithFields
+  // reuses the same crumb-fallback flow the rest of the app already relies
+  // on for real Yahoo quote data.
   const CHUNK = 15;
   const chunks = [];
   for (let i = 0; i < SQUEEZE_UNIVERSE.length; i += CHUNK)
     chunks.push(SQUEEZE_UNIVERSE.slice(i, i + CHUNK));
 
-  const settled = await Promise.allSettled(chunks.map(c => {
-    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${c.join(",")}&fields=regularMarketPrice,regularMarketChangePercent,regularMarketVolume,averageDailyVolume3Month,shortPercentOfFloat,shortRatio,fiftyTwoWeekHigh,fiftyTwoWeekLow,marketCap,floatShares`;
-    return withTimeout(fetchJsonSafe(url), 8000, null);
-  }));
+  const settled = await Promise.allSettled(chunks.map(c => fetchYahooQuoteBatchWithFields(c, QUOTE_FIELDS)));
 
-  const quotes = settled.flatMap(r =>
-    r.status === "fulfilled" ? (r.value?.quoteResponse?.result || []) : []
-  );
+  const quotes = settled.flatMap(r => r.status === "fulfilled" ? r.value : []);
 
   const results = quotes
     .filter(q => q && q.regularMarketPrice > 0.5 && q.regularMarketPrice < 500)

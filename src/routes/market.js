@@ -2352,7 +2352,16 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     for (let i=1;i<sbars.length;i++) {
       const ret=((sbars[i].close-sbars[i-1].close)/sbars[i-1].close)*100;
       if (!Number.isFinite(ret)) continue;
-      const d=new Date(sbars[i].time*1000);
+      // bars[].time is already epoch milliseconds (fetchAlpacaBars uses
+      // .getTime(), parseYahooChartBars already does timestamps[i]*1000) —
+      // multiplying by 1000 again here pushed every date ~56,000 years into
+      // the future. getDay()/getMonth() still returned in-range 0-6/0-11
+      // indices for those dates (they cycle regardless of how far off the
+      // date is), so this silently scrambled every trading day into an
+      // unrelated weekday/month bucket instead of erroring — both the
+      // Monthly and Day-of-Week seasonality panels were built entirely from
+      // these mismatched buckets.
+      const d=new Date(sbars[i].time);
       monthly[d.getMonth()].push(ret);
       weekly[d.getDay()].push(ret);
     }

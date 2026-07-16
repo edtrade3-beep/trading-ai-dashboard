@@ -58,6 +58,13 @@ export default function SqueezeTab({ C, MONO, SANS, setActiveTab }) {
         </div>
       )}
 
+      {!sqLoading && sqData && rows.length === 0 && (
+        <div style={{ padding: 40, textAlign: "center", fontFamily: MONO, fontSize: 13, color: C.textDim }}>
+          No {sqFilter === "ALL" ? "" : sqFilter.toLowerCase() + "-tier "}squeeze candidates right now — nothing in the
+          tracked universe currently clears the short-interest/volume bar. Check back later or try a different filter.
+        </div>
+      )}
+
       {rows.length > 0 && (
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12 }}>

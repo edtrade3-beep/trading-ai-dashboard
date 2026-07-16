@@ -175,6 +175,40 @@ async function fetchYahooQuoteBatch(symbols) {
   }
 }
 
+// Same plain-then-crumb fallback as fetchYahooQuoteBatch, but for callers
+// that need fields beyond fetchYahooQuoteBatch's default set (e.g. the
+// squeeze screener needs shortPercentOfFloat/shortRatio/floatShares, which
+// aren't in the default response). Confirmed directly: Yahoo's v7 quote
+// endpoint now 401s ("Invalid Crumb") unconditionally, for every request,
+// not just from blocked cloud IPs — so without this crumb fallback, any
+// caller hitting v7/finance/quote gets zero results 100% of the time.
+async function fetchYahooQuoteBatchWithFields(symbols, fields) {
+  const list = symbols.map((s) => String(s || "").trim()).filter(Boolean).join(",");
+  if (!list) return [];
+  const fieldsQs = fields ? `&fields=${encodeURIComponent(fields)}` : "";
+  for (const host of ["query1", "query2"]) {
+    try {
+      const url = `https://${host}.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(list)}${fieldsQs}`;
+      const response = await yFetch(url, 7000);
+      if (!response.ok) continue;
+      const payload = await response.json();
+      const result = Array.isArray(payload?.quoteResponse?.result) ? payload.quoteResponse.result : [];
+      if (result.length > 0) return result;
+    } catch { continue; }
+  }
+  for (const host of ["query1", "query2"]) {
+    try {
+      const url = `https://${host}.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(list)}${fieldsQs}`;
+      const response = await yFetchWithCrumb(url, 8000);
+      if (!response.ok) continue;
+      const payload = await response.json();
+      const result = Array.isArray(payload?.quoteResponse?.result) ? payload.quoteResponse.result : [];
+      if (result.length > 0) return result;
+    } catch { continue; }
+  }
+  return [];
+}
+
 // Same job as fetchYahooQuoteBatch (raw Yahoo v7 quote objects — symbol,
 // regularMarketPrice, regularMarketChangePercent, fiftyDayAverage, etc.) but
 // falls back to Alpaca snapshots, reshaped onto the same field names, when
@@ -858,6 +892,7 @@ async function fetchYahooEarnings(symbol) {
 module.exports = {
   fetchYahooEarnings,
   fetchYahooBars, fetchYahooQuoteBatch, fetchYahooQuotes, fetchQuoteBatchWithFallback,
+  fetchYahooQuoteBatchWithFields,
   fetchYahooNews, fetchYahooRssNews,
   fetchYahooFundamentals, fetchYahooCandlesWithIndicators,
   fetchYahooOptionsFlowForSymbol, fetchEstimatedOptionsFlow,

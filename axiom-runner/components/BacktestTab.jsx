@@ -1,5 +1,16 @@
 import { Badge } from "./ui-atoms.jsx";
 
+// Each trade's `date` comes straight from the candle bar's `time` field
+// (axiom-live.jsx's runBacktest sets date: b.time || b.date), which is a
+// raw epoch-milliseconds number from /api/yahoo/candles, not an ISO
+// string — String(1768573800000).replace("T"," ") is a no-op on a plain
+// number, so every row rendered the raw millisecond timestamp instead of
+// a date. new Date(...) parses both a number and an ISO string correctly.
+function formatTradeDate(v) {
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? "—" : d.toISOString().replace("T", " ").slice(0, 16);
+}
+
 export default function BacktestTab({
   C, MONO, backtestSymbol, setBacktestSymbol, backtestTf, setBacktestTf,
   backtestLookback, setBacktestLookback, runBacktest, backtestLoading, backtestResult,
@@ -81,7 +92,7 @@ export default function BacktestTab({
                       <tbody>
                         {backtestResult.trades.map((t, i) => (
                           <tr key={`bt-${i}`}>
-                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, fontSize: 12, color: C.textSec }}>{String(t.date || "").replace("T", " ").slice(0, 16)}</td>
+                            <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, fontSize: 12, color: C.textSec }}>{formatTradeDate(t.date)}</td>
                             <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 12 }}>${Number(t.entry || 0).toFixed(2)}</td>
                             <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 12 }}>${Number(t.stop || 0).toFixed(2)}</td>
                             <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 12 }}>${Number(t.target || 0).toFixed(2)}</td>
