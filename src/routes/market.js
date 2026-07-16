@@ -345,12 +345,19 @@ async function fetchOptionsFlow(symbols, options = {}) {
     source = "estimated-from-price-volume";
   }
 
-  const flow = filterFlowRows(
+  // Filter once against the full (unsliced) row set so both the tape and
+  // the by-symbol breakdown agree on what "matches the active filters"
+  // means — filtering only the display-limited `flow` slice would let
+  // bySymbol silently keep showing pre-filter data (previously it wasn't
+  // filtered at all: it read straight from the raw `rows`, so toggling
+  // "Unusual only" or raising the notional floor emptied the Top Flow Tape
+  // while the BY SYMBOL panel kept showing every symbol's unfiltered
+  // call/put ratio and contracts, as if nothing had been filtered).
+  const filteredFlow = filterFlowRows(
     rows.flatMap((entry) => entry.flowRows || []),
     { flowType, minNotional, unusualOnly }
-  )
-    .sort((a, b) => (b.notional || 0) - (a.notional || 0))
-    .slice(0, limit);
+  );
+  const flow = [...filteredFlow].sort((a, b) => (b.notional || 0) - (a.notional || 0)).slice(0, limit);
 
   const summary = {
     totalContracts: flow.reduce((acc, row) => acc + (Number(row.volume) || 0), 0),
@@ -358,14 +365,31 @@ async function fetchOptionsFlow(symbols, options = {}) {
     putNotional: round2(flow.filter((row) => row.side === "PUT").reduce((acc, row) => acc + (Number(row.notional) || 0), 0)),
   };
 
+  const filteredBySymbol = new Map();
+  for (const row of filteredFlow) {
+    const list = filteredBySymbol.get(row.symbol) || [];
+    list.push(row);
+    filteredBySymbol.set(row.symbol, list);
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     source, filters: { flowType, minNotional, unusualOnly },
     symbols, summary,
-    bySymbol: rows.map((entry) => ({
-      symbol: entry.symbol, expiration: entry.expiration,
-      callPutRatio: entry.callPutRatio, topContracts: entry.flowRows.slice(0, 6),
-    })),
+    bySymbol: rows
+      .map((entry) => {
+        const symRows = (filteredBySymbol.get(entry.symbol) || []).sort((a, b) => (b.notional || 0) - (a.notional || 0));
+        const callNotional = symRows.filter((r) => r.side === "CALL").reduce((s, r) => s + (Number(r.notional) || 0), 0);
+        const putNotional = symRows.filter((r) => r.side === "PUT").reduce((s, r) => s + (Number(r.notional) || 0), 0);
+        return {
+          symbol: entry.symbol, expiration: entry.expiration,
+          callPutRatio: putNotional > 0 ? round2(callNotional / putNotional) : (callNotional > 0 ? null : entry.callPutRatio),
+          topContracts: symRows.slice(0, 6),
+        };
+      })
+      // A symbol with nothing left after filtering shouldn't still show a
+      // ratio/contract list computed from data the filter just excluded.
+      .filter((entry) => entry.topContracts.length > 0),
     flow,
   };
 }
