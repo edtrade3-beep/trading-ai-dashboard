@@ -282,6 +282,24 @@ export default function DashboardTab({
     try { localStorage.setItem("dash_subtab", id); } catch {}
   };
 
+  // Real SPY trend-template data for the next-day-bias "50D MA" factor below
+  // — watchlistData/macroData are fed by /api/market/quote, a fast
+  // price-only path that never populates priceAvg50 for any Alpaca-covered
+  // symbol (confirmed live this session, same root cause already fixed in
+  // PredictionsTab, Green Light, Early Entry Scanner, and the Autopilot
+  // trend-exit). Because the MA50 factor below was already gated behind
+  // `ma50 > 0`, this never produced a false "below 50D MA" reading — it
+  // just permanently zeroed out a real ±15-point factor on the dashboard's
+  // main regime score. One lightweight single-symbol fetch, not the whole
+  // watchlist.
+  const [spyTrend, setSpyTrend] = useState(null);
+  useEffect(() => {
+    fetch("/api/market/trend-screen?symbols=SPY")
+      .then(r => r.json())
+      .then(j => { const row = (j.results || [])[0]; if (row && !row.error) setSpyTrend(row); })
+      .catch(() => {});
+  }, []);
+
   // Same next-day-bias factor scoring used by the (now collapsed, kept for
   // detail) Next Day Outlook card — computed once, shared by the new AI
   // Market Summary card above.
@@ -289,8 +307,7 @@ export default function DashboardTab({
   const qqq = (macroData || []).find(m => m.symbol === "QQQ") || (watchlistData || []).find(w => w.symbol === "QQQ");
   const spyChg = Number(spy?.changesPercentage || 0);
   const qqqChg = Number(qqq?.changesPercentage || 0);
-  const spyPx = Number(spy?.price || 0);
-  const ma50 = Number(spy?.priceAvg50 || 0);
+  const spyStage = String(spyTrend?.stage || "");
   const vix = Number(distData?.vix || 0);
   const fg = Number(fearGreedData?.score || 0);
   const wlForBreadth = (watchlistData || []).filter(q => q.symbol && Number(q.price) > 0);
@@ -301,8 +318,8 @@ export default function DashboardTab({
   if (spyChg > 0.5) { score += 20; factors.push("✅ SPY closed green"); }
   else if (spyChg < -1) { score -= 25; factors.push("🔴 SPY closed down hard"); }
   else if (spyChg < 0) { score -= 10; factors.push("⚠️ SPY closed red"); }
-  if (ma50 > 0 && spyPx > ma50) { score += 15; factors.push("✅ SPY above 50D MA"); }
-  else if (ma50 > 0) { score -= 15; factors.push("🔴 SPY below 50D MA"); }
+  if (spyStage.startsWith("Stage 2")) { score += 15; factors.push("✅ SPY above 50D MA (real trend template)"); }
+  else if (spyStage.startsWith("Stage 3") || spyStage.startsWith("Stage 4")) { score -= 15; factors.push("🔴 SPY below 50D MA (real trend template)"); }
   if (vix > 25) { score -= 20; factors.push(`🔴 VIX high (${vix.toFixed(0)}) — fear elevated`); }
   else if (vix > 0 && vix < 16) { score += 12; factors.push(`✅ VIX low (${vix.toFixed(0)}) — calm`); }
   if (breadthPct >= 60) { score += 15; factors.push(`✅ Strong breadth (${breadthPct}% up)`); }
