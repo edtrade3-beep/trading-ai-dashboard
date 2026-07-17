@@ -112,7 +112,10 @@ export default function RhProDashboard({ C, MONO, SANS, macroData, sectorData })
         <Card title="QQQ"><Big v={trendTxt(qqq)} c={trendCol(qqq)} /><Sub v={qqq ? `$${Number(qqq.price || qqq.regularMarketPrice || 0).toFixed(2)}` : ""} /></Card>
         <Card title="IWM (small caps)"><Big v={trendTxt(iwm)} c={trendCol(iwm)} /></Card>
         <Card title="FEAR & GREED"><Big v={fg?.value ?? fg?.score ?? "—"} c={C.amber} /><Sub v={fg?.label || fg?.rating || fg?.classification || ""} /></Card>
-        <Card title="MARKET BREADTH"><Big v={breadth?.advancers != null ? `${breadth.advancers}/${breadth.decliners}` : (breadth?.breadth ?? "—")} c={C.text} /><Sub v="advancers / decliners" /></Card>
+        <Card title="MARKET BREADTH">
+          <Big v={breadth?.summary?.advancingPct != null ? `${breadth.summary.advancingPct}%` : "—"} c={breadth?.summary?.advancingPct >= 60 ? C.green : breadth?.summary?.advancingPct <= 40 ? C.red : C.amber} />
+          <Sub v={breadth?.summary?.adRatio != null ? `${breadth.summary.decliningPct}% declining · A/D ${breadth.summary.adRatio}` : "sector ETFs advancing"} />
+        </Card>
       </div>
 
       {/* Intraday index chart (real Alpaca data) */}
