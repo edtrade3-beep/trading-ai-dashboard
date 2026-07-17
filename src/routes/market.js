@@ -2325,16 +2325,31 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       return {sym,name,price:round2(cur),change,ma50,ma200,above50,above200,pos52w,status};
     });
     const sectors=results.slice(0,SECTORS.length), indices=results.slice(SECTORS.length);
-    const tot=sectors.length;
-    const adv=sectors.filter(s=>s.change>0).length;
-    const ab50=sectors.filter(s=>s.above50).length;
-    const ab200=sectors.filter(s=>s.above200).length;
+    // A sector whose bar fetch failed/timed out returns status:"N/A" with
+    // above50/above200 both null — .filter(s=>s.above50) treats null the
+    // same as false, so a transient Yahoo failure was silently counted as
+    // "confirmed below its MA" instead of being excluded, quietly skewing
+    // above50Pct/above200Pct downward whenever any sector failed (confirmed
+    // live: two consecutive calls returned above200Pct 90.91 then 81.82
+    // seconds apart, with the same 11 sectors and no real MA200 crossing
+    // happening in that window — a failed fetch, not a real market move).
+    // change>0 has the same false-when-unknown issue for advancingPct.
+    const usable = sectors.filter(s=>s.status!=="N/A");
+    const tot=sectors.length, usableTot=usable.length;
+    const adv=usable.filter(s=>s.change>0).length;
+    const ab50Usable=usable.filter(s=>s.above50!=null);
+    const ab200Usable=usable.filter(s=>s.above200!=null);
+    const ab50=ab50Usable.filter(s=>s.above50).length;
+    const ab200=ab200Usable.filter(s=>s.above200).length;
     return writeJson(res,200,{
       ok:true,fetchedAt:new Date().toISOString(),
       summary:{
-        advancingPct:round2((adv/tot)*100), decliningPct:round2(((tot-adv)/tot)*100),
-        above50Pct:round2((ab50/tot)*100), above200Pct:round2((ab200/tot)*100),
-        adRatio:round2(adv/Math.max(1,tot-adv)),
+        advancingPct: usableTot ? round2((adv/usableTot)*100) : null,
+        decliningPct: usableTot ? round2(((usableTot-adv)/usableTot)*100) : null,
+        above50Pct:  ab50Usable.length  ? round2((ab50/ab50Usable.length)*100)   : null,
+        above200Pct: ab200Usable.length ? round2((ab200/ab200Usable.length)*100) : null,
+        adRatio: usableTot ? round2(adv/Math.max(1,usableTot-adv)) : null,
+        sectorsReporting: usableTot, sectorsTotal: tot,
       },
       sectors, indices,
     });

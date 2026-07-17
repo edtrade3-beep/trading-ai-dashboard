@@ -20,18 +20,28 @@ export default function BreadthTab({
             {breadthLoading && <div style={{ ...card({padding:60, textAlign:"center"}) }}><span style={{ fontFamily:MONO, fontSize:12, color:C.textDim }}>Fetching sector data...</span></div>}
 
             {bd && !breadthLoading && !bd.error && sm && (() => {
-              const adColor    = sm.advancingPct >= 70 ? C.green : sm.advancingPct >= 50 ? "#22c55e" : sm.advancingPct >= 30 ? C.amber : C.red;
-              const ab50Color  = sm.above50Pct  >= 60 ? C.green : sm.above50Pct  >= 40 ? C.amber : C.red;
-              const ab200Color = sm.above200Pct >= 60 ? C.green : sm.above200Pct >= 40 ? C.amber : C.red;
-              const adRatioColor = sm.adRatio >= 2 ? C.green : sm.adRatio >= 1 ? C.amber : C.red;
+              // above50Pct/above200Pct/advancingPct/adRatio can now be null
+              // when every sector's fetch failed (was previously always a
+              // number, silently counting failed fetches as "not above" —
+              // fixed server-side; render an honest "—" instead of "null%").
+              const adColor    = sm.advancingPct  == null ? C.textDim : sm.advancingPct >= 70 ? C.green : sm.advancingPct >= 50 ? "#22c55e" : sm.advancingPct >= 30 ? C.amber : C.red;
+              const ab50Color  = sm.above50Pct    == null ? C.textDim : sm.above50Pct  >= 60 ? C.green : sm.above50Pct  >= 40 ? C.amber : C.red;
+              const ab200Color = sm.above200Pct   == null ? C.textDim : sm.above200Pct >= 60 ? C.green : sm.above200Pct >= 40 ? C.amber : C.red;
+              const adRatioColor = sm.adRatio     == null ? C.textDim : sm.adRatio >= 2 ? C.green : sm.adRatio >= 1 ? C.amber : C.red;
+              const incomplete = sm.sectorsReporting != null && sm.sectorsReporting < sm.sectorsTotal;
               return (
                 <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+                  {incomplete && (
+                    <div style={{ fontFamily:MONO, fontSize:11, color:C.amber, background:C.amberBg, borderRadius:8, padding:"8px 14px" }}>
+                      ⚠ Only {sm.sectorsReporting}/{sm.sectorsTotal} sector ETFs returned data this fetch — percentages below are computed over the {sm.sectorsReporting} that reported, not treated as "below MA."
+                    </div>
+                  )}
                   <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
                     {[
-                      { label:"ADVANCING",   value:sm.advancingPct+"%",  sub:sm.decliningPct+"% declining", color:adColor },
-                      { label:"ABOVE 50MA",  value:sm.above50Pct+"%",    sub:"of sectors",                  color:ab50Color },
-                      { label:"ABOVE 200MA", value:sm.above200Pct+"%",   sub:"of sectors",                  color:ab200Color },
-                      { label:"A/D RATIO",   value:sm.adRatio+"x",       sub:"adv / dec",                   color:adRatioColor },
+                      { label:"ADVANCING",   value:sm.advancingPct  == null ? "—" : sm.advancingPct+"%",  sub:sm.decliningPct == null ? "—" : sm.decliningPct+"% declining", color:adColor },
+                      { label:"ABOVE 50MA",  value:sm.above50Pct    == null ? "—" : sm.above50Pct+"%",    sub:"of sectors",                  color:ab50Color },
+                      { label:"ABOVE 200MA", value:sm.above200Pct   == null ? "—" : sm.above200Pct+"%",   sub:"of sectors",                  color:ab200Color },
+                      { label:"A/D RATIO",   value:sm.adRatio       == null ? "—" : sm.adRatio+"x",       sub:"adv / dec",                   color:adRatioColor },
                     ].map((item,i) => (
                       <div key={i} style={{ ...card({padding:18, textAlign:"center"}), borderTop:"3px solid " + item.color }}>
                         <div style={{ fontFamily:MONO, fontSize:9, color:C.textDim, marginBottom:6, letterSpacing:1 }}>{item.label}</div>
