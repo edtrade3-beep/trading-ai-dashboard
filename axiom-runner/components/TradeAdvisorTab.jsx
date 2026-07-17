@@ -1,15 +1,17 @@
 import { useState, useEffect, useMemo } from "react";
 import { computeMTFSignal, computeScores, r2 } from "./trading-utils.js";
 
-function generateSetup(q) {
+function generateSetup(q, trend) {
   if (!q || !q.price || q.price <= 0) return null;
 
   const price   = Number(q.price);
   const chg     = Number(q.changesPercentage || 0);
-  const sma50   = Number(q.priceAvg50  || 0);
-  const sma200  = Number(q.priceAvg200 || 0);
-  const yHigh   = Number(q.yearHigh || 0);
-  const yLow    = Number(q.yearLow  || 0);
+  // NOTE: q.priceAvg50/priceAvg200/yearHigh/yearLow come from /api/market/quote,
+  // a fast price-only path that never populates these fields for any
+  // Alpaca-covered symbol (confirmed live this session — same root cause
+  // fixed in PredictionsTab/GreenLight/DipBuy/EarlyEntryScanner/AutoPilot/
+  // Dashboard/Holdings). Real trend structure below comes from
+  // /api/market/trend-screen instead — those raw fields are unused here.
   const rvol    = q.avgVolume ? (q.volume / q.avgVolume) : 1;
   const mtf     = computeMTFSignal(q);
   const scores  = computeScores(q);
@@ -21,13 +23,21 @@ function generateSetup(q) {
   const isBear  = mtf.signal === "SELL";
   if (!isBull && !isBear) return null;
 
-  // ── Identify setup type ──
-  const nearYearHigh  = yHigh > 0 && price >= yHigh * 0.97;
-  const breakoutYHigh = yHigh > 0 && price >= yHigh * 0.995;
-  const aboveSma50    = sma50  > 0 && price > sma50;
-  const aboveSma200   = sma200 > 0 && price > sma200;
-  const goldenCross   = sma50  > 0 && sma200 > 0 && sma50 > sma200 && price > sma50;
-  const nearYearLow   = yLow  > 0 && price <= yLow * 1.05;
+  // ── Identify setup type — driven by real trend-screen stage/pctFromHigh,
+  // not the always-empty priceAvg50/priceAvg200/yearHigh/yearLow above ──
+  const stage         = String(trend?.stage || "");
+  const inUptrend      = stage.startsWith("Stage 2");
+  const inDowntrend     = stage.startsWith("Stage 3") || stage.startsWith("Stage 4");
+  // distToHigh is % BELOW the high (0 = at the high, larger = further below)
+  const distToHigh    = trend && Number.isFinite(Number(trend.pctFromHigh)) ? -Number(trend.pctFromHigh) : null;
+  const nearYearHigh  = distToHigh !== null && distToHigh >= 0 && distToHigh <= 3;
+  const breakoutYHigh = distToHigh !== null && distToHigh >= 0 && distToHigh <= 0.5;
+  const aboveSma50    = inUptrend;
+  const aboveSma200   = inUptrend;
+  const goldenCross    = inUptrend;
+  // No real 52-week-low analog exposed by trend-screen (pctFromHigh only) —
+  // dropped rather than fabricated, same precedent as EarlyEntryScanner.
+  const nearYearLow   = false;
   const highRvol      = rvol >= 1.5;
   const veryHighRvol  = rvol >= 2.5;
 
@@ -43,8 +53,13 @@ function generateSetup(q) {
     else if (aboveSma200 && chg > 0)      { setupType = "Bull Trend Entry"; conviction += 1; }
     else                                  { setupType = "Momentum"; }
   } else {
+    // Was `!aboveSma200 && chg < -2` — since aboveSma200 was always false
+    // (dead priceAvg200 field), that condition was unconditionally true,
+    // so "Bear Continuation" fired on ANY 2%+ down day regardless of real
+    // trend structure. Now requires genuine trend-screen confirmation of
+    // an actual Stage 3/4 downtrend.
     if (nearYearLow && highRvol)          { setupType = "Breakdown"; conviction += 2; }
-    else if (!aboveSma200 && chg < -2)    { setupType = "Bear Continuation"; conviction += 2; }
+    else if (inDowntrend && chg < -2)     { setupType = "Bear Continuation"; conviction += 2; }
     else if (veryHighRvol && chg < -2)    { setupType = "Distribution"; conviction += 2; }
     else                                  { setupType = "Short Signal"; }
   }
@@ -58,8 +73,12 @@ function generateSetup(q) {
 
   if (isBull) {
     entry   = price;
-    // Stop: 1.5× ATR below entry, or below SMA50 if close
-    const smaBuff = sma50 > 0 && price - sma50 < atr * 3 ? sma50 - atr * 0.5 : null;
+    // Stop: 1.5× ATR below entry, or below the real technical pivot if close
+    // (was `sma50 - atr*0.5`, but sma50 is always 0 from the dead
+    // priceAvg50 field — this was permanently dead code, always fell
+    // through to the plain ATR stop. trend.pivot is a real level.)
+    const pivot   = Number(trend?.pivot || 0);
+    const smaBuff = pivot > 0 && price - pivot < atr * 3 ? pivot - atr * 0.5 : null;
     stop    = smaBuff ? Math.min(price - atr * 1.5, smaBuff) : price - atr * 1.5;
     target1 = price + (price - stop) * 2;   // 2:1 R:R
     target2 = price + (price - stop) * 3.5; // 3.5:1 R:R
@@ -81,14 +100,15 @@ function generateSetup(q) {
   if (veryHighRvol)                  reasons.push(`🔥 Volume ${rvol.toFixed(1)}× avg — strong institutional interest`);
   else if (highRvol)                 reasons.push(`📈 Volume ${rvol.toFixed(1)}× avg — above-average activity`);
   if (breakoutYHigh)                 reasons.push(`🚀 Breaking 52-week high — new all-time territory, no overhead resistance`);
-  else if (nearYearHigh && isBull)   reasons.push(`⚡ Near 52-week high ($${yHigh?.toFixed(2)}) — momentum in control`);
-  if (goldenCross)                   reasons.push(`✨ Golden Cross: 50-day SMA above 200-day — long-term uptrend confirmed`);
-  else if (aboveSma50 && isBull)     reasons.push(`📊 Price above 50-day SMA ($${sma50?.toFixed(2)}) — medium-term trend bullish`);
-  if (aboveSma200 && isBull)         reasons.push(`🏔 Above 200-day SMA ($${sma200?.toFixed(2)}) — long-term structure intact`);
+  else if (nearYearHigh && isBull)   reasons.push(`⚡ Near 52-week high — momentum in control`);
+  if (goldenCross)                   reasons.push(`✨ Stage 2 uptrend confirmed — price in a real technical markup phase`);
   if (chg > 3 && isBull)             reasons.push(`💪 Up ${chg.toFixed(1)}% today — strong buying momentum`);
   else if (chg > 1 && isBull)        reasons.push(`📗 Up ${chg.toFixed(1)}% on the day — positive price action`);
-  if (nearYearLow && isBear)         reasons.push(`⚠️ Near 52-week low ($${yLow?.toFixed(2)}) — support failing`);
-  if (!aboveSma200 && isBear)        reasons.push(`📉 Below 200-day SMA — long-term downtrend`);
+  // Was `!aboveSma200` — since aboveSma200 was always false (dead
+  // priceAvg200 field), this fired on EVERY bearish setup unconditionally,
+  // fabricating a "long-term downtrend" claim regardless of real trend.
+  // Now requires genuine trend-screen Stage 3/4 confirmation.
+  if (inDowntrend && isBear)         reasons.push(`📉 Stage ${stage.startsWith("Stage 4") ? "4 downtrend" : "3 decline"} — real technical breakdown, not just a down day`);
   if (chg < -3 && isBear)            reasons.push(`🔴 Down ${Math.abs(chg).toFixed(1)}% today — heavy selling pressure`);
   // MTF alignment
   const bullTFs = mtf.timeframes.filter(t => !t.neutral && t.bull).map(t => t.label);
@@ -142,18 +162,42 @@ export default function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlis
   // Auto-alert from watchlist disabled — too noisy. Use server-side scan alerts only.
   // useEffect(() => { if (!autoAlert) ... }, [watchlistData, autoAlert]);
 
+  // Real trend structure (Stage 2 uptrend / Stage 3-4 downtrend) for
+  // generateSetup's setup classification — /api/market/quote (source of
+  // watchlistData) never populates priceAvg50/priceAvg200/yearHigh/yearLow
+  // for any Alpaca-covered symbol, so without this every bullish setup type
+  // besides "Volume Surge"/"Momentum" was unreachable, AND every bearish
+  // setup mis-classified as "Bear Continuation" with a fabricated "Below
+  // 200-day SMA" claim on any 2%+ down day (same root cause already fixed
+  // in Holdings/AutoPilot/Dashboard/EarlyEntryScanner this session).
+  const [trendMap, setTrendMap] = useState({});
+  const wlSyms = (watchlistSymbols?.length ? watchlistSymbols : (watchlistData || []).map(q => q.symbol))
+    .filter(Boolean);
+  const wlSymsKey = [...new Set(wlSyms)].sort().join(",");
+  useEffect(() => {
+    if (!wlSymsKey) return;
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(wlSymsKey)}`)
+      .then(r => r.json())
+      .then(j => {
+        const map = {};
+        (j.results || []).forEach(r => { if (!r.error) map[r.symbol] = r; });
+        setTrendMap(map);
+      })
+      .catch(() => {});
+  }, [wlSymsKey]);
+
   const setups = useMemo(() => {
     if (!watchlistData?.length) return [];
     return watchlistData
-      .map(generateSetup)
+      .map(q => generateSetup(q, trendMap[q.symbol]))
       .filter(Boolean)
       .filter(s => filter === "ALL" || s.side === filter)
       .filter(s => s.conviction >= minConv)
       .sort((a, b) => b.conviction - a.conviction || b.composite - a.composite);
-  }, [watchlistData, filter, minConv]);
+  }, [watchlistData, trendMap, filter, minConv]);
 
-  const longCount  = watchlistData ? watchlistData.map(generateSetup).filter(s => s?.side === "LONG").length : 0;
-  const shortCount = watchlistData ? watchlistData.map(generateSetup).filter(s => s?.side === "SHORT").length : 0;
+  const longCount  = watchlistData ? watchlistData.map(q => generateSetup(q, trendMap[q.symbol])).filter(s => s?.side === "LONG").length : 0;
+  const shortCount = watchlistData ? watchlistData.map(q => generateSetup(q, trendMap[q.symbol])).filter(s => s?.side === "SHORT").length : 0;
 
   const convBar = (n, max = 10) => (
     <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
