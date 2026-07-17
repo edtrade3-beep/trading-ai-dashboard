@@ -8,6 +8,7 @@ export const SIDEBAR_ITEMS = [
   { id: "market",    label: "Market",        icon: "🌐", tab: "mterminal" },
   { id: "watchlist", label: "Watchlist",     icon: "⭐", tab: "quotes" },
   { id: "copilot",   label: "AI Copilot",    icon: "🤖", tab: null, badge: "NEW" },
+  { id: "advisor-ai", label: "Advisor AI",   icon: "🏛️", tab: "advisor-ai", badge: "NEW" },
   { id: "flow",      label: "Options Flow",  icon: "📊", tab: "flow" },
   { id: "news",      label: "News",          icon: "📰", tab: "news" },
   { id: "alerts",    label: "Alerts",        icon: "🔔", tab: "alerts" },
