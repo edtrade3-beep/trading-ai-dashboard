@@ -3607,6 +3607,14 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
         date: ev.date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
         dte, countdown: dte <= 0 ? "TODAY" : dte === 1 ? "TOMORROW" : `in ${dte}d`,
         isUrgent: dte >= 0 && dte <= 2,
+        // Every date in this list is a hardcoded placeholder (see comment
+        // above — "in production would fetch from an API"), not a
+        // confirmed release date. Flagged explicitly so consumers (e.g.
+        // EconCalTab) can visually distinguish these from the real dates
+        // /api/market/econ-events returns when an FMP key is configured,
+        // instead of showing a precise "TODAY" countdown + an actionable
+        // "reduce position size" directive off a guessed date.
+        approximate: true,
       };
     }).filter(e => e.dte >= -1).sort((a,b) => a.dte - b.dte);
     return writeJson(res, 200, { ok: true, events });

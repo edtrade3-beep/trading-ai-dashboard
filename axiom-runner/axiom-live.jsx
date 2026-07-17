@@ -1361,6 +1361,7 @@ export default function App() {
   const [ecData,   setEcData]   = useState(null);
   const [ecLoad,   setEcLoad]   = useState(false);
   const [evData,   setEvData]   = useState(null);
+  const [evLiveData, setEvLiveData] = useState(null);
   const [jData,    setJData]    = useState(null);
   const [riskEntry, setRiskEntry] = useState("100");
   const [riskStop, setRiskStop] = useState("95");
@@ -2387,6 +2388,12 @@ export default function App() {
     }
     if (activeTab === "econ-cal" && !evData) {
       fetch("/api/market/econ-calendar").then(r=>r.json()).then(d=>{if(d.ok)setEvData(d);}).catch(()=>{});
+      // Real confirmed dates (when FMP_API_KEY is set) — econ-calendar's own
+      // dates are hardcoded placeholders (see its route comment), so
+      // EconCalTab merges this in to replace guessed dates with real ones
+      // wherever FMP actually has the event, instead of showing a false-
+      // confidence "TODAY" countdown off a guess.
+      fetch("/api/market/econ-events").then(r=>r.json()).then(d=>{if(d.ok)setEvLiveData(d.events||[]);}).catch(()=>{});
     }
     if (activeTab === "journal-stats" && !jData) {
       fetch("/api/journal").then(r=>r.json()).then(d=>{if(Array.isArray(d))setJData(d);else if(d.entries)setJData(d.entries);}).catch(()=>{});
@@ -6392,7 +6399,7 @@ export default function App() {
       )}
 
       {activeTab === "econ-cal" && (
-        <EconCalTab C={C} MONO={MONO} SANS={SANS} evData={evData} />
+        <EconCalTab C={C} MONO={MONO} SANS={SANS} evData={evData} evLiveData={evLiveData} />
       )}
 
       {activeTab === "journal-stats" && <JournalStatsTab C={C} MONO={MONO} SANS={SANS} jData={jData} />}
