@@ -158,7 +158,15 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
       fetch(`/api/finviz/quote?symbol=${sym}`).then(r => r.json()),
       fetch(`/api/yahoo/fundamentals?symbol=${sym}`).then(r => r.json()),
       fetch(`/api/yahoo/news?tickers=${sym}&limit=4`).then(r => r.json()),
-      fetch(`/api/market/chart?symbol=${sym}&interval=1d&range=90d`).then(r => r.json()),
+      // range=1y (not 90d) — the tech block below computes "MA200" as
+      // Math.min(200, closes.length) of whatever this fetch returns. A 90d
+      // range only ever returns ~90 closes, so the "MA200" shown (and its
+      // above/below bullish/bearish coloring) was silently a ~90-day
+      // average standing in for a real 200-day one — enough of a gap to
+      // misclassify longer-term trend direction. 1y matches this same
+      // codebase's own convention for a real 200-day MA elsewhere
+      // (GLBacktestTab, trend-screen's _buildTrendTemplate).
+      fetch(`/api/market/chart?symbol=${sym}&interval=1d&range=1y`).then(r => r.json()),
       fetch(`/api/market/chart?symbol=${sym}&interval=5m&range=1d`).then(r => r.json()),
     ]).then(([fvR, fundR, newsR, chartR, intraR]) => {
       const raw  = (fvR.status === "fulfilled" ? fvR.value?.raw : null) || {};
