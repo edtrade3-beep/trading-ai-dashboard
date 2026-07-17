@@ -14,11 +14,14 @@
 // POST /api/ai-hub/trading-lesson         — today's Learning AI lesson (generates once/day)
 // GET  /api/ai-hub/ceo-brief              — last persisted CEO AI recommendation
 // POST /api/ai-hub/ceo-brief/refresh      — force-generate a fresh one
+// GET  /api/ai-hub/advisor-brief          — last persisted ADVISOR AI research brief
+// POST /api/ai-hub/advisor-brief/refresh  — force-generate a fresh one
 const { writeJson, readRequestBody } = require("../utils");
 const { loadCoachLog } = require("../ai-coach-store");
 const { loadJournal } = require("../journal-store");
 const { buildApexBriefing } = require("../ai-coach");
 const { buildCeoRecommendation } = require("../ceo-ai");
+const { buildAdvisorBrief } = require("../advisor-ai");
 const {
   winRateByDayOfWeek, winRateByHour, avgHoldTime, sectorPerformance, bestWorstTrades,
 } = require("../journal-analytics");
@@ -172,6 +175,17 @@ async function handleAiHub(req, res, requestUrl) {
   if (pathname === "/api/ai-hub/ceo-brief/refresh" && req.method === "POST") {
     const built = await buildCeoRecommendation();
     if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate a CEO recommendation (ANTHROPIC_API_KEY not set or the AI call failed)." });
+    return writeJson(res, 200, { ok: true, brief: built });
+  }
+
+  if (pathname === "/api/ai-hub/advisor-brief" && req.method === "GET") {
+    const log = loadCoachLog();
+    return writeJson(res, 200, { ok: true, brief: log.advisor || null });
+  }
+
+  if (pathname === "/api/ai-hub/advisor-brief/refresh" && req.method === "POST") {
+    const built = await buildAdvisorBrief();
+    if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate an ADVISOR brief (ANTHROPIC_API_KEY not set or the AI call failed)." });
     return writeJson(res, 200, { ok: true, brief: built });
   }
 

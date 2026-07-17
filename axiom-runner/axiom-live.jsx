@@ -65,6 +65,7 @@ import TradeAdvisorTab from "./components/TradeAdvisorTab.jsx";
 import CompressionTab from "./components/CompressionTab.jsx";
 import AutoPilotEngine from "./components/AutoPilotEngine.jsx";
 import SmartMoneyBrief from "./components/SmartMoneyBrief.jsx";
+import AdvisorAiTab from "./components/AdvisorAiTab.jsx";
 import TrendTemplateTab from "./components/TrendTemplateTab.jsx";
 import EarlyEntryScanner from "./components/EarlyEntryScanner.jsx";
 import ChallengeTab from "./components/ChallengeTab.jsx";
@@ -3781,6 +3782,8 @@ export default function App() {
       BREADTH: "breadth",
       COT: "cot",
       SMBRIEF: "sm-brief",
+      ADVISORAI: "advisor-ai",
+      CIO: "advisor-ai",
       DEALS: "deals",
       DIPBUY: "dipbuy",
       TELEGRAM: "telegram",
@@ -5830,6 +5833,8 @@ export default function App() {
         )}
 
         {activeTab === "sm-brief" && <SmartMoneyBrief C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />}
+
+        {activeTab === "advisor-ai" && <AdvisorAiTab C={C} MONO={MONO} SANS={SANS} />}
 
         {activeTab === "darkpool" && (
           <DarkPoolTab
