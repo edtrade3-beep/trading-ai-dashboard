@@ -2689,48 +2689,53 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     if (!symbol) return writeJson(res, 400, { error: "symbol required" });
     try {
       const H = { "User-Agent": "axiom-platform/1.0 contact@example.com", "Accept": "application/json" };
-      // Step 1: resolve CIK from ticker
-      const tickerRes = await withTimeout(
-        fetch(`https://efts.sec.gov/LATEST/search-index?q=%22${encodeURIComponent(symbol)}%22&dateRange=custom&startdt=2020-01-01&forms=8-K,4,13F-HR&hits.hits._source.period_of_report=true`, { headers: H }),
-        8000, null
-      );
-      // Use the simpler company search endpoint
-      const cikRes = await withTimeout(
-        fetch(`https://efts.sec.gov/LATEST/search-index?q=%22${symbol}%22&forms=8-K,4&hits.hits.total.value=5`, { headers: H }),
-        8000, null
-      );
+      // Previously this queried EDGAR's full-text search for the literal
+      // string "AAPL" — a keyword search, not a "get this company's own
+      // filings" lookup. It returned whatever OTHER companies' filings
+      // happened to mention the ticker in their text (confirmed live: an
+      // AAPL search surfaced "Live Oak Investment Partners" and "Fintech
+      // Acquisition Corp V" 8-Ks, not anything Apple filed), with every
+      // form type blank since full-text search hits don't reliably carry
+      // it. Fixed to use SEC's real company-filings path: resolve ticker
+      // -> CIK via the official company_tickers.json map (cached 24h,
+      // ~10k entries, rarely changes), then pull that CIK's own recent
+      // filings from the submissions API — the actual company's real
+      // 10-Q/8-K/Form 4 history, not a keyword-match false positive.
+      const tCache = handleMarket._secTickerCache || (handleMarket._secTickerCache = { map: null, ts: 0 });
+      if (!tCache.map || Date.now() - tCache.ts > 24 * 3600 * 1000) {
+        const tmap = await withTimeout(
+          fetch("https://www.sec.gov/files/company_tickers.json", { headers: H }).then(r => r.ok ? r.json() : null).catch(() => null),
+          10000, null
+        );
+        if (tmap) {
+          const m = new Map();
+          Object.values(tmap).forEach(e => { if (e?.ticker && e?.cik_str != null) m.set(String(e.ticker).toUpperCase(), String(e.cik_str).padStart(10, "0")); });
+          tCache.map = m; tCache.ts = Date.now();
+        }
+      }
+      const cik = tCache.map?.get(symbol);
+      if (!cik) return writeJson(res, 200, { ok: true, symbol, filings: [], generatedAt: new Date().toISOString() });
 
-      // Fallback: use SEC full-text search API
-      const searchRes = await withTimeout(
-        fetch(`https://efts.sec.gov/LATEST/search-index?q=%22${symbol}%22&forms=8-K,4&dateRange=custom&startdt=2024-01-01`, { headers: H }).then(r => r.ok ? r.json() : null).catch(() => null),
+      const sub = await withTimeout(
+        fetch(`https://data.sec.gov/submissions/CIK${cik}.json`, { headers: H }).then(r => r.ok ? r.json() : null).catch(() => null),
         8000, null
       );
-
-      // Use EDGAR company search to get filings
-      const edgarSearch = await withTimeout(
-        fetch(`https://efts.sec.gov/LATEST/search-index?q="${symbol}"&forms=8-K,4&dateRange=custom&startdt=2025-01-01&hits.hits._source=period_of_report,entity_name,file_date,form_type,file_num`, { headers: H })
-          .then(r => r.ok ? r.json() : null).catch(() => null),
-        8000, null
-      );
-
-      // Best approach: use EDGAR full-text search
-      const ftSearch = await withTimeout(
-        fetch(`https://efts.sec.gov/LATEST/search-index?q=%22${symbol}%22&dateRange=custom&startdt=2025-01-01&forms=8-K%2C4%2C13F-HR`, { headers: H })
-          .then(r => r.ok ? r.json() : null).catch(() => null),
-        8000, null
-      );
-
-      const hits = ftSearch?.hits?.hits || [];
-      const filings = hits.slice(0, 10).map(h => {
-        const s = h._source || {};
-        return {
-          type:   s.form_type || "—",
-          date:   s.file_date || s.period_of_report || "",
-          entity: s.entity_name || symbol,
-          desc:   s.display_names ? s.display_names.join(", ") : (s.form_type || ""),
-          url:    `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${encodeURIComponent(symbol)}&type=${encodeURIComponent(s.form_type || "8-K")}&dateb=&owner=include&count=5`,
-        };
-      });
+      const recent = sub?.filings?.recent;
+      const filings = [];
+      if (recent && Array.isArray(recent.form)) {
+        const cikNum = Number(cik);
+        for (let i = 0; i < Math.min(10, recent.form.length); i++) {
+          const accNo = String(recent.accessionNumber?.[i] || "").replace(/-/g, "");
+          const doc = recent.primaryDocument?.[i] || "";
+          filings.push({
+            type:   recent.form[i] || "—",
+            date:   recent.filingDate?.[i] || "",
+            entity: sub.name || symbol,
+            desc:   recent.primaryDocDescription?.[i] || recent.form[i] || "",
+            url:    accNo && doc ? `https://www.sec.gov/Archives/edgar/data/${cikNum}/${accNo}/${doc}` : `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${cik}&type=&dateb=&owner=include&count=10`,
+          });
+        }
+      }
 
       return writeJson(res, 200, { ok: true, symbol, filings, generatedAt: new Date().toISOString() });
     } catch (err) {
