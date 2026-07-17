@@ -30,7 +30,20 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
       if (bars.length < 14) throw new Error("Not enough data");
 
       const price  = meta.regularMarketPrice || bars.at(-1).c;
-      const chg    = meta.regularMarketChangePercent || 0;
+      // /api/market/chart proxies v8/finance/chart directly — its meta
+      // object never contains regularMarketChangePercent (confirmed: only
+      // price/volume/range fields are present), so this always silently
+      // read as 0 — the plan's price line showed "+0.00%" for every symbol
+      // regardless of its real move today (same root cause as the Telegram
+      // /plan bot command's identical bug, fixed earlier this session).
+      // /api/market/quote (Alpaca-first, Yahoo-fallback, already used
+      // elsewhere in this app) has the real value under `changesPercentage`.
+      let chg = 0;
+      try {
+        const qResp = await fetch(`/api/market/quote?symbols=${encodeURIComponent(sym)}`);
+        const qJson = qResp.ok ? await qResp.json() : [];
+        chg = Number(qJson?.[0]?.changesPercentage || 0);
+      } catch {}
       const closes = bars.map(b => b.c);
 
       const ema = (n, arr) => { const k=2/(n+1); let e=arr.slice(0,n).reduce((s,v)=>s+v,0)/n; for(let i=n;i<arr.length;i++) e=arr[i]*k+e*(1-k); return r2(e); };
