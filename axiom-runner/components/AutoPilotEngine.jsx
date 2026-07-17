@@ -1,12 +1,48 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { computeRegime, STOCK_TO_SECTOR } from "./market-helpers.js";
 import {
   computeGreenLight, logTradeNote, addPaperTrade, addPaperShort, optionValue,
   addPaperOption, alpacaPlace, alpacaClose, GL_TRADES_KEY,
 } from "./trading-utils.js";
 
+// Real trend-reversal signal from /api/market/trend-screen's Stage
+// classification, replacing the always-empty q.priceAvg50 MA50 check used
+// by every "trend" exit-mode check below. watchlistData is fed by
+// /api/market/quote, a fast price-only path that never populates
+// priceAvg50 for any Alpaca-covered symbol (confirmed live this session,
+// same root cause already fixed in PredictionsTab, Green Light, and Early
+// Entry Scanner). Because that check was always gated behind `ma50 > 0`
+// (always false), it never caused a wrong exit — it just meant "trend
+// mode" positions only ever exited via stop-loss or the >3%/<-3%
+// single-day fallback, silently never via the intended graceful
+// "underlying's real trend crossed against the position" signal.
+function trendReversed(trend, wantsBullishExit) {
+  const stage = String(trend?.stage || "");
+  if (wantsBullishExit) return stage.startsWith("Stage 2");
+  return stage.startsWith("Stage 3") || stage.startsWith("Stage 4");
+}
+
 export default function AutoPilotEngine({ watchlistData, macroData, scanResults }) {
   const autoBoughtRef = useRef(new Set());
+  // Real trend data for open positions' "trend" exit-mode checks — see
+  // trendReversed() above. Refreshed whenever the watchlist symbol set
+  // changes; open Alpaca/paper positions are opened from within this same
+  // scanned universe elsewhere in this file, so it covers them too.
+  const [trendMap, setTrendMap] = useState({});
+  const trendMapRef = useRef({});
+  useEffect(() => { trendMapRef.current = trendMap; }, [trendMap]);
+  useEffect(() => {
+    const symbols = (watchlistData || []).map(q => q.symbol).filter(Boolean);
+    if (!symbols.length) return;
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent([...new Set(symbols)].sort().join(","))}`)
+      .then(r => r.json())
+      .then(j => {
+        const map = {};
+        (j.results || []).forEach(r => { if (!r.error) map[r.symbol] = r; });
+        setTrendMap(map);
+      })
+      .catch(() => {});
+  }, [(watchlistData || []).map(q => q.symbol).filter(Boolean).sort().join(",")]);
   const alpacaPosRef = useRef(0);
   const serverAutoRef = useRef(false);   // true when the SERVER autopilot is trading (browser stands down)
   // Detect server-side autopilot so the browser engine doesn't double-trade the same account.
@@ -340,8 +376,8 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
             return x;
           }
           if (exitMode === "trend") {  // cover all when the stock turns bullish
-            const ma50 = Number(q?.priceAvg50 || 0), chg = Number(q?.changesPercentage || 0);
-            if ((ma50 > 0 && px > ma50) || chg > 3) {
+            const chg = Number(q?.changesPercentage || 0);
+            if (trendReversed(trendMapRef.current[x.ticker], true) || chg > 3) {
               x.realized += x.remaining * (x.entry - px);
               x.remaining = 0; x.status = "CLOSED"; x.exit = +px.toFixed(2);
               x.closedAt = new Date().toISOString(); x.exitReason = "BULLISH"; changed = true;
@@ -383,14 +419,13 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
         if (exitMode === "trail") return x;
         // ── TREND mode: hold the runner; sell ALL when the trend turns against the position ──
         if (exitMode === "trend") {
-          const uPx  = tr.instrument === "OPTION" ? (priceOf(tr.ticker) || tr.uEntry) : px;
-          const ma50 = Number(q?.priceAvg50 || 0);
           const chg  = Number(q?.changesPercentage || 0);
           const isPut = tr.optType === "PUT";
+          const trend = trendMapRef.current[tr.ticker];
           // long (stock/CALL) reverses when underlying loses its uptrend; PUT reverses when it turns up
           const reversed = isPut
-            ? ((ma50 > 0 && uPx > ma50) || chg > 3)
-            : ((ma50 > 0 && uPx < ma50) || chg < -3);
+            ? (trendReversed(trend, true) || chg > 3)
+            : (trendReversed(trend, false) || chg < -3);
           if (reversed) {
             x.realized += x.remaining * (px - x.entry);
             x.remaining = 0; x.status = "CLOSED"; x.exit = +(x.entry + x.realized / x.shares).toFixed(2);
@@ -467,10 +502,11 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
         if (!r?.ok) return;
         for (const p of (r.positions || [])) {
           const q = (watchlistData || []).find(o => o.symbol === p.symbol);
-          const ma50 = Number(q?.priceAvg50 || 0), chg = Number(q?.changesPercentage || 0);
+          const chg = Number(q?.changesPercentage || 0);
           const isShort = p.side === "short" || Number(p.qty) < 0;
+          const trend = trendMapRef.current[p.symbol];
           // long covers on bearish reversal; short covers on bullish reversal
-          const reversed = isShort ? ((ma50 > 0 && p.current > ma50) || chg > 3) : ((ma50 > 0 && p.current < ma50) || chg < -3);
+          const reversed = isShort ? (trendReversed(trend, true) || chg > 3) : (trendReversed(trend, false) || chg < -3);
           if (reversed) {
             const cr = await alpacaClose(p.symbol);
             if (cr?.ok) logTradeNote("exit", `${isShort ? "📈 ALPACA COVER" : "📉 ALPACA TREND EXIT"} — ${p.symbol}\nTurned ${isShort ? "bullish" : "bearish"} — closed (paper) · P&L ${p.unrealizedPL >= 0 ? "+" : ""}$${p.unrealizedPL.toFixed(0)}`);
