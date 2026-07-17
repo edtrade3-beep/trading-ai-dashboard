@@ -73,10 +73,16 @@ export default function DcaTab({
                   <div style={{ ...card({ padding: 16 }) }}>
                     <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.green, marginBottom: 12 }}>EQUITY CURVE — {dcaTicker}</div>
                     <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 120, padding: "0 4px" }}>
+                      {/* Column flex packs children from the top by default, so the two
+                          segments used to hang from the ceiling of the 120px chart with a
+                          growing gap underneath — the opposite of a normal bar chart baseline.
+                          justifyContent: "flex-end" pushes each bar-pair to the bottom, and the
+                          DOM order is [growth, invested] so "invested" (the base layer) ends up
+                          touching the floor with "growth" stacked above it, matching the legend. */}
                       {curve.map((pt, i) => (
-                        <div key={i} title={`Month ${pt.month}: $${pt.value.toFixed(0)}`} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 1, height: "100%" }}>
-                          <div style={{ width: "100%", background: `${C.green}88`, borderRadius: "2px 2px 0 0", height: `${(pt.invested / maxVal) * 100}%`, minHeight: 2 }} />
-                          <div style={{ width: "100%", background: C.green, borderRadius: "2px 2px 0 0", height: `${Math.max(0, (pt.value - pt.invested) / maxVal * 100)}%`, marginTop: "-2px" }} />
+                        <div key={i} title={`Month ${pt.month}: $${pt.value.toFixed(0)}`} style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", gap: 1, height: "100%" }}>
+                          <div style={{ width: "100%", background: C.green, borderRadius: "2px 2px 0 0", height: `${Math.max(0, (pt.value - pt.invested) / maxVal * 100)}%` }} />
+                          <div style={{ width: "100%", background: `${C.green}88`, height: `${(pt.invested / maxVal) * 100}%`, minHeight: 2 }} />
                         </div>
                       ))}
                     </div>
