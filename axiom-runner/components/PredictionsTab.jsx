@@ -1,36 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { STOCK_TO_SECTOR } from "./market-helpers.js";
 
 // ─── PREDICTIONS TAB — stock / crypto / market price direction forecast ──────
-function computePrediction(q) {
-  const px    = Number(q.price || q.regularMarketPrice || 0);
+// computePrediction's trend/52-week/volume signals used to read q.priceAvg50,
+// q.priceAvg200, q.yearHigh, q.yearLow, q.avgVolume directly off the watchlist
+// quote — but /api/market/quote (the endpoint that feeds watchlistData) is a
+// fast, price-only path: for any symbol Alpaca covers (i.e. nearly every US
+// stock in normal use) it returns immediately without those fundamentals
+// fields at all, so they were always exactly 0. Each guard below happened to
+// require a positive value before scoring, so this never produced a WRONG
+// number — it silently produced NO signal, meaning real predictions were
+// driven almost entirely by today's % change alone while the UI still
+// claimed "trend + momentum + volume." Fixed by pulling the platform's own
+// already-real trend-template scan (/api/market/trend-screen — the same
+// engine ADVISOR AI, RhPro, and the Trading Copilot already trust) for stock
+// symbols, and using its real Stage classification, pctFromHigh, and
+// volRatio instead.
+function computePrediction(q, trend) {
+  const px  = Number(q.price || q.regularMarketPrice || 0);
   if (!px) return null;
-  const chg   = Number(q.changesPercentage || 0);
-  const ma50  = Number(q.priceAvg50 || 0);
-  const ma200 = Number(q.priceAvg200 || 0);
-  const hi52  = Number(q.yearHigh || 0), lo52 = Number(q.yearLow || 0);
-  const vol   = Number(q.volume || 0), avgVol = Number(q.avgVolume || 0);
-  const rvol  = avgVol > 0 ? vol / avgVol : 1;
-  const dayRange = (Number(q.dayHigh||0) - Number(q.dayLow||0));
-  const atrPct = px > 0 && dayRange > 0 ? (dayRange / px) : 0.025;
+  const chg = Number(q.changesPercentage || 0);
 
   let score = 0; const why = [];
-  if (ma50 > 0 && ma200 > 0) {
-    if (px > ma50 && ma50 > ma200) { score += 30; why.push("Strong uptrend (price > MA50 > MA200)"); }
-    else if (px > ma50)            { score += 15; why.push("Above MA50"); }
-    else if (px < ma50 && ma50 < ma200) { score -= 30; why.push("Downtrend (price < MA50 < MA200)"); }
-    else                           { score -= 12; why.push("Below MA50"); }
+
+  if (trend) {
+    const stage = String(trend.stage || "");
+    if (stage.startsWith("Stage 2"))      { score += 30; why.push("Stage 2 uptrend (real trend template)"); }
+    else if (stage.startsWith("Stage 4")) { score -= 30; why.push("Stage 4 downtrend (real trend template)"); }
+    else if (stage.startsWith("Stage 3")) { score -= 15; why.push("Stage 3 topping/distribution"); }
+
+    const pfh = Number(trend.pctFromHigh);
+    if (Number.isFinite(pfh)) {
+      if (pfh > -5)        { score += 12; why.push("Within 5% of 52W high — momentum"); }
+      else if (pfh < -40)  { score -= 10; why.push(`${Math.abs(pfh).toFixed(0)}% below 52W high — weak`); }
+    }
+
+    const vr = Number(trend.volRatio);
+    if (Number.isFinite(vr) && vr > 1.8) {
+      if (chg > 0)      { score += 15; why.push(`Volume surge ${vr.toFixed(1)}x on green`); }
+      else if (chg < 0) { score -= 15; why.push(`Volume surge ${vr.toFixed(1)}x on red`); }
+    }
   }
-  if (hi52 > lo52 && px > 0) {
-    const pos = (px - lo52) / (hi52 - lo52);
-    if (pos > 0.85)      { score += 12; why.push("Near 52W high — momentum"); }
-    else if (pos < 0.20) { score -= 10; why.push("Near 52W low — weak"); }
-  }
-  if (rvol > 1.8 && chg > 0)      { score += 15; why.push(`Volume surge ${rvol.toFixed(1)}x on green`); }
-  else if (rvol > 1.8 && chg < 0) { score -= 15; why.push(`Volume surge ${rvol.toFixed(1)}x on red`); }
   if (chg > 3)       { score += 10; why.push("Strong momentum today"); }
   else if (chg < -3) { score -= 10; why.push("Heavy selling today"); }
 
+  const dayRange = (Number(q.dayHigh||0) - Number(q.dayLow||0));
+  const atrPct = px > 0 && dayRange > 0 ? (dayRange / px) : 0.025;
   const conf = Math.min(90, 50 + Math.abs(score) / 2);
   const dir  = score >= 20 ? "BULLISH" : score >= 8 ? "LEAN UP" : score <= -20 ? "BEARISH" : score <= -8 ? "LEAN DOWN" : "NEUTRAL";
   // Cap the ATR so a single huge-move day doesn't produce absurd targets
@@ -45,16 +60,38 @@ function computePrediction(q) {
 
 export default function PredictionsTab({ C, MONO, SANS, watchlistData, macroData }) {
   const [filter, setFilter] = useState("ALL");
+  const [trendMap, setTrendMap] = useState({});
   const CRYPTO = ["BTC-USD","ETH-USD","BTCUSD","ETHUSD","SOL-USD","SOLUSD"];
   const INDEX  = ["SPY","QQQ","IWM","DIA"];
 
   const all = [...(watchlistData || []), ...(macroData || [])];
+  const seen0 = new Set();
+  const stockSymbols = [];
+  all.forEach(q => {
+    if (!q.symbol || seen0.has(q.symbol)) return;
+    seen0.add(q.symbol);
+    if (!INDEX.includes(q.symbol) && !CRYPTO.includes(q.symbol)) stockSymbols.push(q.symbol);
+  });
+  const stockKey = stockSymbols.slice(0, 30).sort().join(",");
+
+  useEffect(() => {
+    if (!stockKey) return;
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(stockKey)}`)
+      .then(r => r.json())
+      .then(j => {
+        const map = {};
+        (j.results || []).forEach(r => { if (!r.error) map[r.symbol] = r; });
+        setTrendMap(map);
+      })
+      .catch(() => {});
+  }, [stockKey]);
+
   const seen = new Set();
   const preds = [];
   all.forEach(q => {
     if (!q.symbol || seen.has(q.symbol)) return;
     seen.add(q.symbol);
-    const p = computePrediction(q);
+    const p = computePrediction(q, trendMap[q.symbol]);
     if (!p) return;
     const cat = INDEX.includes(q.symbol) ? "MARKET" : CRYPTO.includes(q.symbol) ? "CRYPTO" : "STOCK";
     const sector = q.sector || STOCK_TO_SECTOR[q.symbol] || (cat === "CRYPTO" ? "Cryptocurrency" : cat === "MARKET" ? "Index ETF" : "");
