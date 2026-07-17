@@ -22,7 +22,12 @@ function glSimulate(sym, c, spyMap, threshold, trades, spyTrendMap) {
     const ma50 = glAvg(close, i - 49, i), ma200 = glAvg(close, i - 199, i);
     let g = 0, l = 0; for (let j = i - 13; j <= i; j++) { const dd = close[j] - close[j - 1]; dd > 0 ? g += dd : l += -dd; }
     const rsi = l === 0 ? 100 : 100 - 100 / (1 + (g / 14) / (l / 14));
-    const av = glAvg(vol, i - 19, i), rvol = av > 0 ? vol[i] / av : 1;
+    // 20-day baseline excludes today (i-20..i-1), matching the platform's
+    // own daytrade-scan convention (daily.slice(-21,-1)) — including today
+    // in its own average dilutes the ratio and systematically understates
+    // real volume surges, silently making the rvol >= 1.2 entry check
+    // harder to pass than intended.
+    const av = glAvg(vol, i - 20, i - 1), rvol = av > 0 ? vol[i] / av : 1;
     let tr = 0; for (let j = i - 13; j <= i; j++) tr += Math.max(high[j] - low[j], Math.abs(high[j] - close[j - 1]), Math.abs(low[j] - close[j - 1]));
     const atr = tr / 14;
     const spy = spyMap[ts[i]] ?? 0;
