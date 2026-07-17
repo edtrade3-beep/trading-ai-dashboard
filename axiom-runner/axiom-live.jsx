@@ -3225,7 +3225,14 @@ export default function App() {
     const breakEven    = isCall ? strike + premium : strike - premium;
     const intrinsic    = isCall ? Math.max(0, stock - strike) : Math.max(0, strike - stock);
     const timeValue    = Math.max(0, premium - intrinsic);
-    const currentPnL   = stock ? (isCall ? (stock - breakEven) * 100 : (breakEven - stock) * 100) : null;
+    // A long option's loss is capped at the premium paid — it can never go
+    // below that no matter how far out-of-the-money the stock moves.
+    // (stock - breakEven) / (breakEven - stock) only matches that once the
+    // option is in-the-money; OTM it keeps growing unbounded (was showing a
+    // -$1300 "current P&L" on a $150-strike/$3-premium call with the stock
+    // at $140 — a real max loss of $300, a 4x overstatement). Deriving from
+    // the already-floored `intrinsic` value is correct in both cases.
+    const currentPnL   = stock ? (intrinsic - premium) * 100 : null;
     const maxProfit    = isCall ? "Unlimited" : ((strike - premium) * 100).toFixed(2);
     const maxLoss      = (premium * 100).toFixed(2);
     const daysToExpiry = optionExpiry ? Math.max(0, Math.round((new Date(optionExpiry) - new Date()) / 86400000)) : null;
