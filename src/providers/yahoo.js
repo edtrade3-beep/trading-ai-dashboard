@@ -42,27 +42,39 @@ const CRUMB_TTL = 30 * 60 * 1000;
 // production-only failure (e.g. Render's outbound IP being blocked at a step
 // that a non-cloud dev sandbox never hits) can be told apart from a code bug.
 async function diagnoseYahooCrumb() {
-  const out = { step1: null, step2: null };
+  const out = { finance_yahoo_com: null, fc_yahoo_com: null, getcrumb_with_fc_cookie: null };
   try {
     const pageRes = await fetch("https://finance.yahoo.com/", {
       headers: { "User-Agent": YAHOO_HEADERS["User-Agent"], "Accept": "text/html" },
       signal: AbortSignal.timeout(8000),
     });
-    const cookie = (pageRes.headers.get("set-cookie") || "")
+    out.finance_yahoo_com = { status: pageRes.status, ok: pageRes.ok };
+  } catch (e) {
+    out.finance_yahoo_com = { error: e.message };
+  }
+  let fcCookie = "";
+  try {
+    const fcRes = await fetch("https://fc.yahoo.com/", {
+      headers: { "User-Agent": YAHOO_HEADERS["User-Agent"] },
+      signal: AbortSignal.timeout(8000),
+    });
+    fcCookie = (fcRes.headers.get("set-cookie") || "")
       .split(",").map(s => s.trim().split(";")[0]).filter(Boolean).join("; ");
-    out.step1 = { status: pageRes.status, ok: pageRes.ok, cookieLen: cookie.length };
+    out.fc_yahoo_com = { status: fcRes.status, cookieLen: fcCookie.length };
+  } catch (e) {
+    out.fc_yahoo_com = { error: e.message };
+  }
+  if (fcCookie) {
     try {
       const crumbRes = await fetch("https://query1.finance.yahoo.com/v1/test/getcrumb", {
-        headers: { ...YAHOO_HEADERS, ...(cookie ? { "Cookie": cookie } : {}) },
+        headers: { ...YAHOO_HEADERS, "Cookie": fcCookie },
         signal: AbortSignal.timeout(5000),
       });
       const text = await crumbRes.text();
-      out.step2 = { status: crumbRes.status, ok: crumbRes.ok, bodyPreview: text.slice(0, 60) };
-    } catch (e2) {
-      out.step2 = { error: e2.message };
+      out.getcrumb_with_fc_cookie = { status: crumbRes.status, ok: crumbRes.ok, bodyPreview: text.slice(0, 60) };
+    } catch (e) {
+      out.getcrumb_with_fc_cookie = { error: e.message };
     }
-  } catch (e1) {
-    out.step1 = { error: e1.message };
   }
   return out;
 }
