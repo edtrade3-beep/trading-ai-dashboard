@@ -37,54 +37,19 @@ async function yFetch(url, timeoutMs = 8000) {
 let _crumbCache = null; // { crumb, cookie, ts }
 const CRUMB_TTL = 30 * 60 * 1000;
 
-// Diagnostic-only: mirrors getYahooCrumb's two steps but returns the raw
-// status/error at each step instead of collapsing everything to null, so a
-// production-only failure (e.g. Render's outbound IP being blocked at a step
-// that a non-cloud dev sandbox never hits) can be told apart from a code bug.
-async function diagnoseYahooCrumb() {
-  const out = { finance_yahoo_com: null, fc_yahoo_com: null, getcrumb_with_fc_cookie: null };
-  try {
-    const pageRes = await fetch("https://finance.yahoo.com/", {
-      headers: { "User-Agent": YAHOO_HEADERS["User-Agent"], "Accept": "text/html" },
-      signal: AbortSignal.timeout(8000),
-    });
-    out.finance_yahoo_com = { status: pageRes.status, ok: pageRes.ok };
-  } catch (e) {
-    out.finance_yahoo_com = { error: e.message };
-  }
-  let fcCookie = "";
-  try {
-    const fcRes = await fetch("https://fc.yahoo.com/", {
-      headers: { "User-Agent": YAHOO_HEADERS["User-Agent"] },
-      signal: AbortSignal.timeout(8000),
-    });
-    fcCookie = (fcRes.headers.get("set-cookie") || "")
-      .split(",").map(s => s.trim().split(";")[0]).filter(Boolean).join("; ");
-    out.fc_yahoo_com = { status: fcRes.status, cookieLen: fcCookie.length };
-  } catch (e) {
-    out.fc_yahoo_com = { error: e.message };
-  }
-  if (fcCookie) {
-    try {
-      const crumbRes = await fetch("https://query1.finance.yahoo.com/v1/test/getcrumb", {
-        headers: { ...YAHOO_HEADERS, "Cookie": fcCookie },
-        signal: AbortSignal.timeout(5000),
-      });
-      const text = await crumbRes.text();
-      out.getcrumb_with_fc_cookie = { status: crumbRes.status, ok: crumbRes.ok, bodyPreview: text.slice(0, 60) };
-    } catch (e) {
-      out.getcrumb_with_fc_cookie = { error: e.message };
-    }
-  }
-  return out;
-}
-
 async function getYahooCrumb() {
   if (_crumbCache && Date.now() - _crumbCache.ts < CRUMB_TTL) return _crumbCache;
   try {
-    // Step 1: hit the main page to get a session cookie
-    const pageRes = await fetch("https://finance.yahoo.com/", {
-      headers: { "User-Agent": YAHOO_HEADERS["User-Agent"], "Accept": "text/html" },
+    // Step 1: get a session cookie. Confirmed via direct production testing
+    // that https://finance.yahoo.com/ (the full site, behind heavier bot
+    // protection) is unreachable from Render at the connection level
+    // ("fetch failed", not an HTTP error) even though the query1/query2 API
+    // hosts used below are fine. fc.yahoo.com is a lighter, cookie-only host
+    // (404s — no real page — but still sets the session cookie) that other
+    // Yahoo crumb implementations use for exactly this reason; confirmed
+    // reachable from Render and its cookie works for step 2 below.
+    const pageRes = await fetch("https://fc.yahoo.com/", {
+      headers: { "User-Agent": YAHOO_HEADERS["User-Agent"] },
       signal: AbortSignal.timeout(8000),
     });
     const cookie = (pageRes.headers.get("set-cookie") || "")
@@ -951,7 +916,6 @@ async function fetchYahooEarnings(symbol) {
 }
 
 module.exports = {
-  diagnoseYahooCrumb,
   fetchYahooEarnings,
   fetchYahooBars, fetchYahooQuoteBatch, fetchYahooQuotes, fetchQuoteBatchWithFallback,
   fetchYahooQuoteBatchWithFields,
