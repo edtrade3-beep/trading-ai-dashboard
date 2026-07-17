@@ -11,6 +11,8 @@
 // everything below this extraction step (parseBig/parseNum/recKey/the
 // return shape) is unchanged.
 
+const { decodeXmlEntities } = require("../utils");
+
 // Parse "4.77T" / "253.49B" / "24.22M" / "1,234" → number.
 function parseBig(v) {
   if (v == null) return null;
@@ -51,6 +53,12 @@ function extractNum(html, name) {
   const m = html.match(new RegExp(`\\b${name}:(-?[\\d.]+)(?=[,}])`));
   return m ? parseFloat(m[1]) : null;
 }
+// Sector/Industry live in the page's "stock info" table as {t:"Label",v:"Value"}
+// pairs, a different shape from the marketCap/revenue/etc. fields above.
+function extractLabeledValue(html, label) {
+  const m = html.match(new RegExp(`t:"${label}",v:"([^"]*)"`));
+  return m ? m[1] : null;
+}
 
 async function fetchStockAnalysis(symbol) {
   const sym = String(symbol || "").trim().toUpperCase();
@@ -78,8 +86,13 @@ async function fetchStockAnalysis(symbol) {
       analysts: extractStr(html, "analysts"),
       earningsDate: extractStr(html, "earningsDate"),
       description: extractStr(html, "description"),
+      sector: extractLabeledValue(html, "Sector"),
+      industry: extractLabeledValue(html, "Industry"),
     };
     if (!d.marketCap && !d.revenue) return null; // page didn't contain the expected data at all
+
+    const titleM = html.match(/<title>([^<(]+?)\s*\(/);
+    const companyName = titleM ? decodeXmlEntities(titleM[1].trim()) : null;
 
     const analystTargetM = html.match(/analystTarget:\{target:"([^"]+)",change:"([^"]+)",changeWord:"([^"]+)"\}/);
     const analystChartM = html.match(/analystChart:\{strongBuy:(\d+),buy:(\d+),hold:(\d+),sell:(\d+),strongSell:(\d+)\}/);
@@ -93,6 +106,9 @@ async function fetchStockAnalysis(symbol) {
 
     return {
       symbol: sym,
+      name: companyName,
+      sector: d.sector || null,
+      industry: d.industry || null,
       marketCap: parseBig(d.marketCap) || 0,
       pe: parseNum(d.peRatio),
       trailingPE: parseNum(d.peRatio),

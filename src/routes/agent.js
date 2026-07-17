@@ -177,10 +177,13 @@ function halalScreening(ticker, fundamentals) {
   }
   if (!sectorFlag) passes.push(`✅ Sector (${fundamentals?.sector || "N/A"}) appears permissible`);
 
-  // 2. Debt ratio
-  const mktCap   = Number(fundamentals?.marketCap || 0);
-  const debt     = Number(fundamentals?.totalDebt || 0);
-  if (mktCap > 0 && debt > 0) {
+  // 2. Debt ratio — totalDebt isn't returned by any current fundamentals
+  // provider, so treat it as genuinely unknown (not a verified zero) rather
+  // than silently claiming a pass no data actually supports.
+  const mktCap = Number(fundamentals?.marketCap || 0);
+  const hasDebt = fundamentals?.totalDebt != null;
+  const debt = Number(fundamentals?.totalDebt || 0);
+  if (mktCap > 0 && hasDebt && debt > 0) {
     const debtRatio = debt / mktCap;
     if (debtRatio > 0.33) {
       issues.push(`⚠️ DEBT: Debt/Market Cap = ${(debtRatio * 100).toFixed(0)}% (AAOIFI limit: 33%). Excessive debt may involve interest.`);
@@ -188,8 +191,10 @@ function halalScreening(ticker, fundamentals) {
     } else {
       passes.push(`✅ Debt/Market Cap = ${(debtRatio * 100).toFixed(0)}% (within 33% limit)`);
     }
-  } else if (mktCap > 0) {
+  } else if (mktCap > 0 && hasDebt) {
     passes.push("✅ No significant debt reported");
+  } else if (mktCap > 0) {
+    issues.push("❔ DEBT: Data unavailable — debt ratio not verified, checked manually before relying on this screen.");
   }
 
   // 3. Cash & near-cash (to avoid interest income from excess cash)
@@ -204,10 +209,14 @@ function halalScreening(ticker, fundamentals) {
     }
   }
 
-  // 4. Revenue from non-compliant sources (proxy: interest income)
+  // 4. Revenue from non-compliant sources (proxy: interest income) —
+  // interestIncome isn't returned by any current fundamentals provider,
+  // so flag this as unverified rather than omitting it silently (an
+  // omission reads as "nothing to report" when it's actually "not checked").
   const revenue = Number(fundamentals?.revenue || 0);
+  const hasInterestIncome = fundamentals?.interestIncome != null;
   const interestIncome = Number(fundamentals?.interestIncome || 0);
-  if (revenue > 0 && interestIncome > 0) {
+  if (revenue > 0 && hasInterestIncome) {
     const intRatio = interestIncome / revenue;
     if (intRatio > 0.05) {
       issues.push(`⚠️ INTEREST INCOME: ${(intRatio * 100).toFixed(1)}% of revenue (AAOIFI limit: 5%). Consider purification.`);
@@ -215,6 +224,8 @@ function halalScreening(ticker, fundamentals) {
     } else {
       passes.push(`✅ Interest income < 5% of revenue`);
     }
+  } else if (revenue > 0) {
+    issues.push("❔ INTEREST INCOME: Data unavailable — non-compliant revenue share not verified, checked manually before relying on this screen.");
   }
 
   // 5. Profitability indicator

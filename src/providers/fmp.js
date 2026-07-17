@@ -92,6 +92,7 @@ async function fetchFmpFundamentals(symbol, fmpKey) {
     recommendationKey: null,
     numberOfAnalystOpinions: null,
     // Company profile
+    name: profile?.companyName || null,
     sector: profile?.sector || null,
     industry: profile?.industry || null,
     description: profile?.description || null,

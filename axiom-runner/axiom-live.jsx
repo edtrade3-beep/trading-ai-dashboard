@@ -2944,13 +2944,20 @@ export default function App() {
   async function fetchHalalCheck(ticker) {
     setHalalLoading(true); setHalalError(""); setHalalReport(null);
     try {
-      // Fetch fundamentals first
-      const fRes = await fetch(`/api/market/fundamentals?ticker=${encodeURIComponent(ticker)}`).catch(() => null);
+      // Fetch fundamentals first. halalScreening (server-side) expects the
+      // raw fundamentals shape (sector/industry/name/marketCap/totalCash/
+      // revenue/trailingPE) under a `fundamentals` key — a previous version
+      // of this call used the wrong query param name (`ticker` instead of
+      // `symbol`, which /api/market/fundamentals actually reads) AND sent a
+      // different, flattened body shape the backend never read, so every
+      // check ran against an empty {} and silently defaulted to a false
+      // "HALAL ✅ 100/100" verdict for every single ticker checked.
+      const fRes = await fetch(`/api/market/fundamentals?symbol=${encodeURIComponent(ticker)}`).catch(() => null);
       let fund = {};
       if (fRes?.ok) { try { fund = await fRes.json(); } catch {} }
       const res = await fetch("/api/agent/halal", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticker, company: fund.name || ticker, sector: fund.sector || "Unknown", description: fund.description || "", debtRatio: fund.debtRatio, interestRatio: fund.interestRatio, cashRatio: fund.cashRatio }),
+        body: JSON.stringify({ ticker, fundamentals: fund }),
       });
       const data = await res.json();
       if (data.ok) setHalalReport({ ticker, report: data.report, at: data.generatedAt });
