@@ -868,10 +868,18 @@ async function fetchStockTwitsSentiment(symbol) {
     const bullCount = messages.filter(m => m.entities?.sentiment?.basic === "Bullish").length;
     const bearCount = messages.filter(m => m.entities?.sentiment?.basic === "Bearish").length;
     const total = messages.length;
+    // Most StockTwits posts carry no explicit Bullish/Bearish tag (confirmed
+    // live: a real TSLA pull had 30 total messages but only 13 tagged) — the
+    // previous bullPct = bullCount/total silently treated every untagged/
+    // neutral post as bearish once the frontend computed bearPct = 100 -
+    // bullPct, badly overstating bear sentiment on every query with any
+    // untagged posts, not just an edge case. bullPct is now a share of
+    // OPINIONATED posts only; null (not a fabricated 50) when there are none.
+    const opinionated = bullCount + bearCount;
     return {
       symbol: symbol.toUpperCase(),
       bullCount, bearCount, total,
-      bullPct: total > 0 ? Math.round(bullCount / total * 100) : 50,
+      bullPct: opinionated > 0 ? Math.round(bullCount / opinionated * 100) : null,
       messages: messages.slice(0, 15).map(m => ({
         body:      String(m.body  || "").slice(0, 200),
         sentiment: m.entities?.sentiment?.basic || "Neutral",
@@ -881,7 +889,7 @@ async function fetchStockTwitsSentiment(symbol) {
       })),
     };
   } catch {
-    return { symbol: symbol.toUpperCase(), bullCount: 0, bearCount: 0, total: 0, bullPct: 50, messages: [] };
+    return { symbol: symbol.toUpperCase(), bullCount: 0, bearCount: 0, total: 0, bullPct: null, messages: [] };
   }
 }
 

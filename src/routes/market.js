@@ -2218,7 +2218,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     const ticker = (searchParams.get("ticker") || "").trim().toUpperCase();
     if (!ticker) return writeJson(res, 400, { error: "ticker required" });
     const [stwits] = await Promise.all([
-      fetchStockTwitsSentiment(ticker).catch(() => ({ symbol: ticker, bullPct: 50, total: 0, messages: [] })),
+      fetchStockTwitsSentiment(ticker).catch(() => ({ symbol: ticker, bullPct: null, bullCount: 0, bearCount: 0, total: 0, messages: [] })),
     ]);
     // Reddit WSB mentions (best-effort)
     let redditCount = 0;

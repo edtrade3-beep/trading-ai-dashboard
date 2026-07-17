@@ -29,22 +29,28 @@ export default function SocialTab({
             </div>
             {socialLoading && <div style={{ ...card({ padding: 40, textAlign: "center" }) }}><span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Fetching social data…</span></div>}
             {socialData && !socialLoading && (() => {
-              // Backend returns { ok, ticker, stocktwits: {bullPct(0-100), total, messages,...}, redditMentions }
+              // Backend returns { ok, ticker, stocktwits: {bullPct(0-100 or null), bullCount, bearCount, total, messages,...}, redditMentions }
+              // bullPct is null when no post carried an explicit Bullish/
+              // Bearish tag (common — most StockTwits posts are untagged) —
+              // render that honestly instead of a fabricated 50/50, and
+              // instead of silently folding untagged posts into "bearish."
               const stwits  = socialData.stocktwits || {};
-              const bullPct = stwits.bullPct ?? 50;   // already 0-100
-              const bearPct = 100 - bullPct;
+              const bullPct = stwits.bullPct;
+              const hasSentiment = bullPct != null;
+              const bearPct = hasSentiment ? 100 - bullPct : null;
               const total   = stwits.total   ?? 0;
+              const opinionated = (stwits.bullCount ?? 0) + (stwits.bearCount ?? 0);
               const msgs    = stwits.messages ?? [];
               return (
                 <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                   {/* Gauge row */}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
                     <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.green}` }) }}>
-                      <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.green }}>{bullPct.toFixed(0)}%</div>
+                      <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: hasSentiment ? C.green : C.textDim }}>{hasSentiment ? bullPct.toFixed(0) + "%" : "—"}</div>
                       <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>🟢 BULLISH</div>
                     </div>
                     <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.red}` }) }}>
-                      <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: C.red }}>{bearPct.toFixed(0)}%</div>
+                      <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: hasSentiment ? C.red : C.textDim }}>{hasSentiment ? bearPct.toFixed(0) + "%" : "—"}</div>
                       <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>🔴 BEARISH</div>
                     </div>
                     <div style={{ ...card({ padding: 18, textAlign: "center" }) }}>
@@ -58,13 +64,20 @@ export default function SocialTab({
                       </div>
                     )}
                   </div>
-                  {/* Sentiment bar */}
+                  {/* Sentiment bar — bull/bear % is of the opinionated subset,
+                      not all posts (most posts carry no sentiment tag at all) */}
                   <div style={{ ...card({ padding: "12px 16px" }) }}>
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 8 }}>SENTIMENT DISTRIBUTION — {total > 0 ? `${total} posts analyzed` : "no sentiment data"}</div>
-                    <div style={{ display: "flex", height: 24, borderRadius: 6, overflow: "hidden" }}>
-                      <div style={{ width: `${bullPct}%`, background: C.green, minWidth: bullPct > 0 ? 4 : 0 }} />
-                      <div style={{ flex: 1, background: C.red }} />
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 8 }}>
+                      SENTIMENT DISTRIBUTION — {hasSentiment ? `${opinionated} of ${total} posts tagged` : "no tagged posts to analyze"}
                     </div>
+                    {hasSentiment ? (
+                      <div style={{ display: "flex", height: 24, borderRadius: 6, overflow: "hidden" }}>
+                        <div style={{ width: `${bullPct}%`, background: C.green, minWidth: bullPct > 0 ? 4 : 0 }} />
+                        <div style={{ flex: 1, background: C.red }} />
+                      </div>
+                    ) : (
+                      <div style={{ height: 24, borderRadius: 6, background: C.surface, border: `1px dashed ${C.border}` }} />
+                    )}
                   </div>
                   {/* Recent messages */}
                   {msgs.length > 0 && (
