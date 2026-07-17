@@ -723,34 +723,6 @@ function weatherCodeLabel(code) {
   return "Mixed";
 }
 
-function buildMacroEventCalendar(now = new Date()) {
-  const ref = new Date(now);
-  const fed = nextFedCycleOccurrence(ref);
-  const cpi = nextDayOfMonthOccurrence(12, 8, 30, ref);
-  const jobs = nextFirstFridayOccurrence(8, 30, ref);
-  const pce = nextDayOfMonthOccurrence(28, 8, 30, ref);
-  const fomcMins = new Date(fed.getTime() + 21 * 24 * 60 * 60 * 1000);
-  const ecb = nextDayOfMonthOccurrence(6, 8, 15, ref);
-  const boe = nextDayOfMonthOccurrence(20, 7, 0, ref);
-  const boj = nextDayOfMonthOccurrence(18, 23, 0, ref);
-  const chinaCpi = nextDayOfMonthOccurrence(10, 21, 30, ref);
-
-  const events = [
-    { id: "fed", title: "Fed Decision / Presser", tag: "FED", severity: "high", time: fed, riskNote: "Reduce gross and avoid fresh size 60–90m pre-event.", estimated: true },
-    { id: "cpi", title: "US CPI Release", tag: "CPI", severity: "high", time: cpi, riskNote: "Tighten stops and cut leverage into print.", estimated: true },
-    { id: "jobs", title: "US Jobs (NFP)", tag: "JOBS", severity: "high", time: jobs, riskNote: "Expect index/FX vol spikes; reduce into event.", estimated: true },
-    { id: "pce", title: "PCE Inflation", tag: "PCE", severity: "medium", time: pce, riskNote: "Trim high-beta if regime is fragile.", estimated: true },
-    { id: "fomc-mins", title: "FOMC Minutes", tag: "MINUTES", severity: "medium", time: fomcMins, riskNote: "Keep optionality; avoid oversized adds.", estimated: true },
-  ].map((e) => {
-    const tteMs = e.time.getTime() - ref.getTime();
-    const mins = tteMs / 60000;
-    const phase = mins <= 0 ? "live" : mins <= 60 ? "imminent" : mins <= 180 ? "near" : "scheduled";
-    return { ...e, tteMs, phase };
-  });
-
-  return events.sort((a, b) => a.time.getTime() - b.time.getTime());
-}
-
 function buildMacroEventCalendarV2(now = new Date()) {
   const ref = new Date(now);
   const fed = nextFedCycleOccurrence(ref);
