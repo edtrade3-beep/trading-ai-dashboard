@@ -5,8 +5,8 @@
 
 "use strict";
 
-const https  = require("https");
 const { writeJson } = require("../utils");
+const { fetchYahooBars, fetchYahooFundamentals, fetchQuoteBatchWithFallback } = require("../providers/yahoo");
 
 let _cache = null, _cacheTs = 0;
 const TTL = 5 * 60 * 1000; // 5 min — shorter so results stay fresh
@@ -33,29 +33,28 @@ const UNIVERSE = [
   "QUBT","QBTS","RGTI","NNE","SMR",
 ];
 
-function fetchQuote(sym) {
-  return new Promise(resolve => {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=60d`;
-    const req = https.get(url, { headers: { "User-Agent": "Mozilla/5.0" } }, res => {
-      let d = ""; res.on("data", c => d += c);
-      res.on("end", () => {
-        try {
-          const j    = JSON.parse(d);
-          const r    = j?.chart?.result?.[0];
-          const meta = r?.meta || {};
-          const ts   = r?.timestamp || [];
-          const q    = r?.indicators?.quote?.[0] || {};
-          const bars = ts.map((t, i) => ({
-            c: q.close?.[i] || 0, h: q.high?.[i] || 0, l: q.low?.[i] || 0,
-            v: q.volume?.[i] || 0, o: q.open?.[i] || 0,
-          })).filter(b => b.c > 0);
-          resolve({ sym, meta, bars });
-        } catch { resolve({ sym, meta: {}, bars: [] }); }
-      });
-    });
-    req.on("error", () => resolve({ sym, meta: {}, bars: [] }));
-    req.setTimeout(7000, () => { req.destroy(); resolve({ sym, meta: {}, bars: [] }); });
-  });
+// Bars + real fundamentals for one symbol. Previously this fetched raw
+// v8/finance/chart directly via https.get and read forwardPE/trailingPE/
+// priceToBook/revenueGrowth/earningsGrowth/marketCap off its `meta` object —
+// confirmed directly that v8/finance/chart's meta NEVER contains any of
+// those fields (only price/volume/range meta), so the entire Fundamental
+// Score (0-30, one of this scanner's three advertised scoring dimensions)
+// was silently 0 for every single stock, every time — confirmed live
+// against production: 38/38 results had fundScore:0, pe:null, mktCapM:null.
+// fetchYahooBars (Alpaca-first, Yahoo-fallback) + fetchYahooFundamentals
+// (real quoteSummary data, the same crumb-fixed path used elsewhere this
+// session) actually have this data.
+async function fetchSymbolData(sym) {
+  const [rawBars, fund] = await Promise.all([
+    fetchYahooBars(sym, "3mo", "1d").catch(() => []),
+    fetchYahooFundamentals(sym).catch(() => null),
+  ]);
+  // Remap to the {o,h,l,c,v} shape the existing scoring math below expects,
+  // so nothing downstream (RSI/EMA/ATR/volume-trend) needs to change.
+  const bars = rawBars
+    .map(b => ({ o: b.open, h: b.high, l: b.low, c: b.close, v: b.volume }))
+    .filter(b => b.c > 0);
+  return { sym, bars, fund };
 }
 
 function calcEMA(closes, n) {
@@ -77,21 +76,21 @@ function calcRSI(closes, n = 14) {
   return Math.round(100 - 100 / (1 + rs));
 }
 
-function scoreStock(sym, meta, bars) {
-  const price = Number(meta.regularMarketPrice || bars.at(-1)?.c || 0);
+function scoreStock(sym, quoteRow, fund, bars) {
+  const price = Number(quoteRow?.regularMarketPrice || bars.at(-1)?.c || 0);
   if (!price || price <= 0 || price > 50) return null; // only under $50
 
-  // Calculate avgVol from bars (more reliable than meta which often missing)
+  // Calculate avgVol from bars (more reliable than a single quote snapshot)
   const recentVols = bars.slice(-20).map(b => b.v).filter(v => v > 0);
   const avgVol   = recentVols.length ? Math.round(recentVols.reduce((a,b)=>a+b,0) / recentVols.length) : 0;
-  const currVol  = Number(meta.regularMarketVolume || bars.at(-1)?.v || 0);
-  const mktCap   = Number(meta.marketCap || 0);
+  const currVol  = Number(quoteRow?.regularMarketVolume || bars.at(-1)?.v || 0);
+  const mktCap   = Number(fund?.marketCap || 0);
 
   // Quality filters — relaxed to not miss good stocks
   if (avgVol > 0 && avgVol < 100_000) return null; // extremely illiquid only
 
-  const hi52   = Number(meta.fiftyTwoWeekHigh || 0);
-  const lo52   = Number(meta.fiftyTwoWeekLow  || 0);
+  const hi52   = Number(quoteRow?.fiftyTwoWeekHigh || 0);
+  const lo52   = Number(quoteRow?.fiftyTwoWeekLow  || 0);
   const closes = bars.map(b => b.c);
   const ema9   = calcEMA(closes, 9);
   const ema21  = calcEMA(closes, 21);
@@ -124,11 +123,11 @@ function scoreStock(sym, meta, bars) {
 
   // ── FUNDAMENTAL SCORE (0-30) ──
   let fundScore = 0;
-  const pe       = Number(meta.forwardPE || meta.trailingPE || 0);
-  const pb       = Number(meta.priceToBook || 0);
-  const revGrowth = Number(meta.revenueGrowth || 0);
-  const earnGrowth= Number(meta.earningsGrowth || 0);
-  const beta     = Number(meta.beta || 1);
+  const pe       = Number(fund?.pe || 0);
+  const pb       = Number(fund?.priceToBook || 0);
+  const revGrowth = Number(fund?.revenueGrowth || 0);
+  const earnGrowth= Number(fund?.earningsGrowth || 0);
+  const beta     = Number(fund?.beta || 1);
 
   if (pe > 0 && pe < 30)               fundScore += 8;  // reasonable valuation
   if (pb > 0 && pb < 3)                fundScore += 5;  // book value support
@@ -163,7 +162,7 @@ function scoreStock(sym, meta, bars) {
   if (revGrowth > 0.15)                      signals.push(`Revenue +${(revGrowth*100).toFixed(0)}% YoY`);
   if (rvol > 2)                              signals.push(`Vol spike ${rvol}x`);
 
-  const chgPct = Number(meta.regularMarketChangePercent || 0);
+  const chgPct = Number(quoteRow?.regularMarketChangePercent || 0);
 
   return {
     sym, price: Math.round(price * 100) / 100,
@@ -185,11 +184,17 @@ async function runUnder10Scan(watchlistSyms) {
   const all = [...new Set([...(watchlistSyms || []), ...UNIVERSE])].slice(0, 70);
   const results = [];
 
-  // Batch of 8
+  // One batched quote fetch for price/volume/52w-range/change% across the
+  // whole universe (cheap, same resilient Alpaca-first path other scanners
+  // already use), then bars + real fundamentals per symbol in chunks of 8.
+  const quotes = await fetchQuoteBatchWithFallback(all).catch(() => []);
+  const quoteBySym = new Map(quotes.map(q => [String(q.symbol || "").toUpperCase(), q]));
+
   for (let i = 0; i < all.length; i += 8) {
-    const batch = await Promise.all(all.slice(i, i + 8).map(s => fetchQuote(s)));
-    for (const { sym, meta, bars } of batch) {
-      const r = scoreStock(sym, meta, bars);
+    const batch = await Promise.all(all.slice(i, i + 8).map(s => fetchSymbolData(s)));
+    for (const { sym, bars, fund } of batch) {
+      const quoteRow = quoteBySym.get(sym);
+      const r = scoreStock(sym, quoteRow, fund, bars);
       if (r) results.push(r);
     }
   }
