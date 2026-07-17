@@ -16,11 +16,28 @@ const DEFAULT_HOLDINGS = [
   { symbol: "HIVE", shares: 125, cost: 4.34 }, { symbol: "SOUN", shares: 45, cost: 7.71 },
 ];
 
+// ── Portfolio AI helpers ──────────────────────────────────────────────────
+// Same Pearson-correlation formula as computeCorrelation() (axiom-live.jsx,
+// used by CorrelationTab) — reused here, not reinvented, just applied to the
+// user's actual held symbols' daily returns instead of whatever's loaded in
+// Smart Scan's scanDeepData.
+function pearson(a, b) {
+  const n = a.length;
+  const ma = a.reduce((s, v) => s + v, 0) / n, mb = b.reduce((s, v) => s + v, 0) / n;
+  let num = 0, da = 0, db = 0;
+  for (let i = 0; i < n; i++) { num += (a[i] - ma) * (b[i] - mb); da += (a[i] - ma) ** 2; db += (b[i] - mb) ** 2; }
+  return da && db ? num / Math.sqrt(da * db) : 0;
+}
+
 export default function HoldingsTab({ C, MONO, SANS, macroData }) {
   const [holdings, setHoldings] = useState(() => { try { return JSON.parse(localStorage.getItem(HOLDINGS_KEY)) || DEFAULT_HOLDINGS; } catch { return DEFAULT_HOLDINGS; } });
   const [quotes, setQuotes] = useState({});
   const [form, setForm] = useState({ symbol: "", shares: "", cost: "" });
   const [syncedAt, setSyncedAt] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [sectorMap, setSectorMap] = useState({});
+  const [corrData, setCorrData] = useState(null);
   const save = (h, push = true) => {
     setHoldings(h); localStorage.setItem(HOLDINGS_KEY, JSON.stringify(h));
     if (push) fetch("/api/holdings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ holdings: h, source: "manual" }) }).catch(() => {});
@@ -89,6 +106,113 @@ export default function HoldingsTab({ C, MONO, SANS, macroData }) {
   const totalValue = rows.reduce((s, r) => s + (r.value || 0), 0);
   const totalPnl = rows.reduce((s, r) => s + (r.pnl || 0), 0);
 
+  // ── Portfolio AI: sector exposure + correlation need data this component
+  // doesn't already fetch (per-symbol sector, daily candles) — gated behind
+  // a button rather than auto-fetched on every load/quote-refresh, same
+  // on-demand pattern CorrelationTab already uses for its own fetch.
+  const runPortfolioAnalysis = async () => {
+    const readyRows = rows.filter(r => !r.loading);
+    if (readyRows.length < 1) return;
+    setAiLoading(true); setAiError("");
+    try {
+      const stockSyms = readyRows.filter(r => !r.isCrypto).map(r => r.symbol);
+      const CONC = 4;
+      const sectors = {};
+      for (let i = 0; i < stockSyms.length; i += CONC) {
+        const batch = stockSyms.slice(i, i + CONC);
+        const results = await Promise.all(batch.map(async sym => {
+          try {
+            const r = await fetch(`/api/market/fundamentals?symbol=${encodeURIComponent(sym)}`);
+            const d = r.ok ? await r.json() : {};
+            return [sym, d.sector || "Unknown"];
+          } catch { return [sym, "Unknown"]; }
+        }));
+        results.forEach(([sym, sector]) => { sectors[sym] = sector; });
+      }
+      setSectorMap(sectors);
+
+      const returnsBySym = {};
+      for (let i = 0; i < stockSyms.length; i += CONC) {
+        const batch = stockSyms.slice(i, i + CONC);
+        const results = await Promise.all(batch.map(async sym => {
+          try {
+            const r = await fetch(`/api/market/candles?ticker=${encodeURIComponent(sym)}&timeframe=1D`);
+            const d = r.ok ? await r.json() : null;
+            const bars = Array.isArray(d?.bars) ? d.bars : [];
+            if (bars.length < 20) return [sym, null];
+            const closes = bars.map(b => b.close).filter(Number.isFinite);
+            const returns = closes.slice(1).map((c, i2) => (c - closes[i2]) / closes[i2]);
+            return [sym, returns];
+          } catch { return [sym, null]; }
+        }));
+        results.forEach(([sym, returns]) => { if (returns) returnsBySym[sym] = returns; });
+      }
+      const corrSyms = Object.keys(returnsBySym);
+      if (corrSyms.length >= 2) {
+        const minLen = Math.min(...corrSyms.map(s => returnsBySym[s].length));
+        const trimmed = {};
+        for (const s of corrSyms) trimmed[s] = returnsBySym[s].slice(-minLen);
+        const matrix = {};
+        for (const s1 of corrSyms) { matrix[s1] = {}; for (const s2 of corrSyms) matrix[s1][s2] = Number(pearson(trimmed[s1], trimmed[s2]).toFixed(2)); }
+        setCorrData({ syms: corrSyms, matrix, computedAt: new Date().toISOString() });
+      } else {
+        setCorrData({ syms: [], matrix: {}, computedAt: new Date().toISOString() });
+      }
+    } catch (e) {
+      setAiError(e.message || "Portfolio analysis failed");
+    }
+    setAiLoading(false);
+  };
+
+  // Position concentration — flag anything over 20% of portfolio (single-name risk)
+  const concentrationFlags = rows
+    .filter(r => !r.loading && totalValue > 0)
+    .map(r => ({ symbol: r.symbol, pct: (r.value / totalValue) * 100 }))
+    .filter(r => r.pct >= 20)
+    .sort((a, b) => b.pct - a.pct);
+
+  // Sector exposure — only meaningful once sectorMap is populated
+  const sectorExposure = (() => {
+    if (!Object.keys(sectorMap).length || totalValue <= 0) return [];
+    const bySector = {};
+    rows.filter(r => !r.loading).forEach(r => {
+      const sector = r.isCrypto ? "Crypto" : (sectorMap[r.symbol] || "Unknown");
+      bySector[sector] = (bySector[sector] || 0) + r.value;
+    });
+    return Object.entries(bySector)
+      .map(([sector, value]) => ({ sector, value, pct: (value / totalValue) * 100 }))
+      .sort((a, b) => b.pct - a.pct);
+  })();
+
+  // Portfolio heat — total $ at risk if every stop were hit simultaneously
+  const heatRows = rows.filter(r => !r.loading && r.stop > 0);
+  const totalAtRisk = heatRows.reduce((s, r) => s + Math.max(0, (r.px - r.stop) * r.shares), 0);
+  const heatPct = totalValue > 0 ? (totalAtRisk / totalValue) * 100 : 0;
+  const breachedStops = rows.filter(r => !r.loading && r.px <= r.stop);
+
+  // High-correlation clusters (pairwise > 0.7) — "this isn't N positions, it's 1"
+  const corrClusters = (() => {
+    if (!corrData?.syms || corrData.syms.length < 2) return [];
+    const pairs = [];
+    for (let i = 0; i < corrData.syms.length; i++) {
+      for (let j = i + 1; j < corrData.syms.length; j++) {
+        const s1 = corrData.syms[i], s2 = corrData.syms[j];
+        const v = corrData.matrix[s1][s2];
+        if (v >= 0.7) pairs.push([s1, s2, v]);
+      }
+    }
+    return pairs.sort((a, b) => b[2] - a[2]);
+  })();
+
+  const suggestions = [];
+  if (breachedStops.length) suggestions.push({ sev: "high", text: `🔴 ${breachedStops.map(r => r.symbol).join(", ")} ${breachedStops.length > 1 ? "are" : "is"} already below its suggested stop — re-evaluate now, not after the analysis.` });
+  if (heatPct > 15) suggestions.push({ sev: "high", text: `🔥 Portfolio heat is ${heatPct.toFixed(1)}% — if every stop hit today you'd give back $${totalAtRisk.toLocaleString(undefined, { maximumFractionDigits: 0 })}. That's high total risk for one account; consider trimming size or tightening stops.` });
+  else if (heatPct > 8) suggestions.push({ sev: "med", text: `🔥 Portfolio heat is ${heatPct.toFixed(1)}% ($${totalAtRisk.toLocaleString(undefined, { maximumFractionDigits: 0 })} at risk if every stop hit) — worth watching, not yet alarming.` });
+  concentrationFlags.forEach(f => suggestions.push({ sev: f.pct >= 30 ? "high" : "med", text: `⚖️ ${f.symbol} is ${f.pct.toFixed(0)}% of your portfolio — a single-name move against you has outsized account impact.` }));
+  sectorExposure.filter(s => s.pct >= 40).forEach(s => suggestions.push({ sev: "med", text: `🏭 ${s.pct.toFixed(0)}% of your portfolio is in ${s.sector} — this is a concentrated sector bet, not a diversified book.` }));
+  corrClusters.slice(0, 3).forEach(([s1, s2, v]) => suggestions.push({ sev: "low", text: `🔗 ${s1} and ${s2} move together (${v.toFixed(2)} correlation) — effectively one bet, not two.` }));
+  if (!suggestions.length && corrData) suggestions.push({ sev: "low", text: "✅ No major concentration, heat, or correlation flags — this looks reasonably balanced." });
+
   return (
     <div style={{ padding: "16px 20px", maxWidth: 1000, margin: "0 auto" }}>
       <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 4 }}>📊 MY HOLDINGS</div>
@@ -145,6 +269,103 @@ export default function HoldingsTab({ C, MONO, SANS, macroData }) {
       </div>
       <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 14 }}>
         🛑 stop = volatility-sized (1.5× ATR) below price. 🟠 below MA50 = momentum weakening. 🔴 below stop = your risk level breached. Not investment advice — for big allocation decisions, consult a licensed advisor.
+      </div>
+
+      {/* ── Portfolio AI ── */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, marginTop: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: aiError || corrData ? 14 : 0 }}>
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>🧠 PORTFOLIO AI</div>
+            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 2 }}>Concentration · sector exposure · correlation · total risk across everything you own</div>
+          </div>
+          <button onClick={runPortfolioAnalysis} disabled={aiLoading || rows.every(r => r.loading)}
+            style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, fontWeight: 700,
+              background: aiLoading ? C.surface : C.accent, border: "none",
+              color: aiLoading ? C.textDim : "#fff", borderRadius: 6, padding: "9px 18px",
+              cursor: aiLoading ? "default" : "pointer" }}>
+            {aiLoading ? "ANALYZING…" : corrData ? "RE-ANALYZE" : "🧠 ANALYZE PORTFOLIO"}
+          </button>
+        </div>
+
+        {aiError && <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>{aiError}</div>}
+
+        {corrData && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Portfolio heat */}
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+              <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 14px" }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>PORTFOLIO HEAT</div>
+                <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: heatPct > 15 ? C.red : heatPct > 8 ? C.amber : C.green }}>{heatPct.toFixed(1)}%</div>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>${totalAtRisk.toLocaleString(undefined, { maximumFractionDigits: 0 })} at risk if every stop hits</div>
+              </div>
+              <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 14px" }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>LARGEST POSITION</div>
+                <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.text }}>{concentrationFlags[0]?.symbol || rows.filter(r => !r.loading).sort((a, b) => b.value - a.value)[0]?.symbol || "—"}</div>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{totalValue > 0 ? ((rows.filter(r => !r.loading).sort((a, b) => b.value - a.value)[0]?.value || 0) / totalValue * 100).toFixed(0) : 0}% of portfolio</div>
+              </div>
+            </div>
+
+            {/* Sector exposure */}
+            {sectorExposure.length > 0 && (
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim, marginBottom: 8 }}>SECTOR EXPOSURE</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {sectorExposure.map(s => (
+                    <div key={s.sector} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 110, fontFamily: MONO, fontSize: 11, color: C.text, flexShrink: 0 }}>{s.sector}</div>
+                      <div style={{ flex: 1, height: 8, background: C.surface, borderRadius: 4, overflow: "hidden" }}>
+                        <div style={{ width: `${Math.min(100, s.pct)}%`, height: "100%", background: s.pct >= 40 ? C.red : s.pct >= 25 ? C.amber : C.accent, borderRadius: 4 }} />
+                      </div>
+                      <div style={{ width: 42, fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text, textAlign: "right" }}>{s.pct.toFixed(0)}%</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Correlation matrix */}
+            {corrData.syms.length >= 2 ? (
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim, marginBottom: 8 }}>CORRELATION — {corrData.syms.length} symbols with daily candle data</div>
+                <div style={{ overflow: "auto" }}>
+                  <table style={{ borderCollapse: "separate", borderSpacing: 3 }}>
+                    <thead>
+                      <tr>
+                        <th></th>
+                        {corrData.syms.map(s => <th key={s} style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, padding: "2px 6px" }}>{s}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {corrData.syms.map(s1 => (
+                        <tr key={s1}>
+                          <td style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim, padding: "2px 6px", textAlign: "right" }}>{s1}</td>
+                          {corrData.syms.map(s2 => {
+                            const v = corrData.matrix[s1][s2];
+                            const isDiag = s1 === s2;
+                            const bg = isDiag ? `${C.accent}22` : v >= 0.7 ? "rgba(220,38,38,0.35)" : v >= 0.3 ? "rgba(220,38,38,0.15)" : v <= -0.3 ? "rgba(5,150,105,0.15)" : "transparent";
+                            return <td key={s2} style={{ background: bg, border: `1px solid ${C.border}33`, borderRadius: 4, fontFamily: MONO, fontSize: 10, fontWeight: isDiag ? 800 : 500, color: C.text, padding: "4px 6px", textAlign: "center" }}>{isDiag ? "—" : v.toFixed(2)}</td>;
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Need ≥2 non-crypto holdings with candle data for a correlation matrix.</div>
+            )}
+
+            {/* Suggestions */}
+            <div>
+              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim, marginBottom: 8 }}>SUGGESTIONS</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {suggestions.map((s, i) => (
+                  <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.text, background: C.surface, borderLeft: `3px solid ${s.sev === "high" ? C.red : s.sev === "med" ? C.amber : C.border}`, borderRadius: 6, padding: "8px 12px" }}>{s.text}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
