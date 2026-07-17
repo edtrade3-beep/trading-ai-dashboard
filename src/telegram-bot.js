@@ -1067,7 +1067,14 @@ const COMMANDS = {
       if (bars.length < 14) return reply(`Not enough data for ${sym}`);
 
       const price  = meta.regularMarketPrice || bars.at(-1).c;
-      const chg    = meta.regularMarketChangePercent || 0;
+      // /api/market/chart proxies v8/finance/chart directly — confirmed its
+      // `meta` object never contains regularMarketChangePercent at all (only
+      // price/volume/range fields), so this always silently read as 0: /plan
+      // reported "+0.00%" for every single symbol regardless of its real
+      // move today. fetchYahooQuoteBatch (imported above, previously unused)
+      // is the real source for this field.
+      const quoteRows = await fetchYahooQuoteBatch([sym]).catch(() => []);
+      const chg    = Number(quoteRows[0]?.regularMarketChangePercent || 0);
       const closes = bars.map(b => b.c);
 
       const ema = (n, arr) => { const k = 2/(n+1); let e = arr.slice(0,n).reduce((s,v)=>s+v,0)/n; for (let i=n;i<arr.length;i++) e = arr[i]*k+e*(1-k); return round2(e); };
