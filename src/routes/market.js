@@ -1784,7 +1784,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
 
   if (pathname === "/api/market/trend-screen" && req.method === "GET") {
     const symbols = (searchParams.get("symbols") || "")
-      .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 60);
+      .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 90);
     if (!symbols.length) return writeJson(res, 400, { error: "symbols required" });
     try {
       const results = await screenTrendTemplate(symbols);
