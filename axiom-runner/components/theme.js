@@ -33,6 +33,11 @@ export const THEME_LIGHT = {
   amberBg:    "rgba(201,111,0,0.10)",
   cyan:       "#0882a8",
   purple:     "#6d32cc",
+  // Highest-conviction / CEO-pick marker — distinct from `accent` (routine
+  // info/navigation blue) and from `amber` (caution). Reserved for the
+  // single best idea on a page, not general emphasis.
+  gold:       "#9c7a1f",
+  goldBg:     "rgba(156,122,31,0.10)",
   // Standard card elevation — a subtle ambient lift, same pattern already
   // used ad-hoc in SoccerWatchTab/CryptoTab/SecFilingsTab, promoted to a
   // shared token so every card can opt in consistently instead of each
@@ -66,6 +71,9 @@ export const THEME_DARK = {
   amberBg:    "rgba(240,168,48,0.13)",
   cyan:       "#42c9d8",   // teal-cyan — softer
   purple:     "#a57ff0",   // soft violet
+  // Highest-conviction / CEO-pick marker — see THEME_LIGHT.gold for rationale.
+  gold:       "#d6ac47",
+  goldBg:     "rgba(214,172,71,0.14)",
   // Standard card elevation — see THEME_LIGHT.shadow for rationale.
   shadow:     "0 1px 3px rgba(0,0,0,0.32), 0 1px 2px rgba(0,0,0,0.26)",
 };

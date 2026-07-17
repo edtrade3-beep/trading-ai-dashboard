@@ -27,23 +27,25 @@ export default function CeoAiCard({ C, MONO, SANS }) {
     }).catch(() => setState("error")).finally(() => setGenerating(false));
   };
 
-  // Deliberately styled to be unmissable — thicker glowing border, gradient
-  // tint, a filled badge instead of an outline button — every other Dashboard
-  // card is a plain bordered box; this is the one card meant to look like the
-  // final word, not another data panel.
+  // Deliberately styled to be unmissable — gold border/glow (this app's
+  // reserved "highest conviction / CEO pick" color, per the executive
+  // command-center design system — every other Dashboard card uses the
+  // routine info-blue accent), a filled badge instead of an outline button.
+  // This is the one card meant to read as the final word, not another data
+  // panel; visual hierarchy dominance is the point, not decoration.
   return (
     <div style={{
-      background: `linear-gradient(135deg, ${C.accentGlow}, ${C.card} 55%)`,
-      border: `2px solid ${C.accent}`,
+      background: `linear-gradient(135deg, ${C.goldBg}, ${C.card} 55%)`,
+      border: `2px solid ${C.gold}`,
       borderRadius: 14, padding: "18px 20px",
-      boxShadow: `0 0 0 1px ${C.accentGlow}, 0 12px 30px -10px ${C.accentGlow}`,
+      boxShadow: `0 0 0 1px ${C.goldBg}, 0 12px 30px -10px ${C.goldBg}`,
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: "50%", background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>👔</div>
+          <div style={{ width: 34, height: 34, borderRadius: "50%", background: C.gold, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>👔</div>
           <div>
             <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text, letterSpacing: "0.03em" }}>CEO AI</div>
-            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.1em" }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.gold, letterSpacing: "0.1em" }}>
               TODAY'S CALL{brief?.generatedAt && <span style={{ color: C.textDim, fontWeight: 400, letterSpacing: "normal" }}>
                 {" "}· {new Date(brief.generatedAt).toLocaleString([], { hour: "2-digit", minute: "2-digit" })}
               </span>}
@@ -52,7 +54,7 @@ export default function CeoAiCard({ C, MONO, SANS }) {
         </div>
         <button onClick={generate} disabled={generating}
           style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 16px", borderRadius: 8, cursor: generating ? "default" : "pointer",
-            border: "none", background: generating ? C.surface : C.accent, color: generating ? C.textDim : "#fff", opacity: generating ? 0.7 : 1 }}>
+            border: "none", background: generating ? C.surface : C.gold, color: generating ? C.textDim : "#fff", opacity: generating ? 0.7 : 1 }}>
           {generating ? "Synthesizing…" : brief ? "↻ New Call" : "Generate"}
         </button>
       </div>

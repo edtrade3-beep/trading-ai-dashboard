@@ -24,6 +24,8 @@ import MarketIntelCard from "./MarketIntelCard.jsx";
 import TradingLessonCard from "./TradingLessonCard.jsx";
 import CeoAiCard from "./CeoAiCard.jsx";
 import ActivePositionsCard from "./ActivePositionsCard.jsx";
+import CapitalAllocationCard from "./CapitalAllocationCard.jsx";
+import MissionStatusCard from "./MissionStatusCard.jsx";
 
 // ── Shared card shell — every Dashboard card except CeoAiCard (which stays
 // its own deliberately-elevated hero treatment) renders through this, so
@@ -44,6 +46,21 @@ function Card({ C, title, children, style, accent }) {
   );
 }
 
+// Single source of truth for the RISK ON/CHOP/RISK OFF label — used by both
+// MarketRegimeCard and MissionStatusCard so they can't silently disagree
+// (hoisted out, not duplicated, when the "Executive Command Center" pass
+// added a second consumer of this same read).
+function computeRegimeLabel(C, { spy, qqq, vix, loaded }) {
+  const spyChg = Number(spy?.changesPercentage || 0);
+  const qqqChg = Number(qqq?.changesPercentage || 0);
+  if (!loaded) return { regLabel: "LOADING…", regColor: C.textDim, playbook: "Waiting for market data…" };
+  if (vix > 30 || spyChg < -1.5) return { regLabel: "RISK OFF", regColor: C.red, playbook: "Reduce size, cash or shorts only." };
+  if (vix < 16 && spyChg > 0.3 && qqqChg > 0.3) return { regLabel: "RISK ON", regColor: C.green, playbook: "Full size on A+ setups, let winners run." };
+  if (Math.abs(spyChg) < 0.3 && vix < 22) return { regLabel: "CHOP", regColor: C.amber, playbook: "Reduce size, take profits faster." };
+  if (spyChg > 0.5) return { regLabel: "CAUTIOUS BULL", regColor: C.greenLight, playbook: "Normal size on confirmed setups." };
+  return { regLabel: "DEFENSIVE", regColor: C.amber, playbook: "Smaller size, favor defensive sectors." };
+}
+
 // ── Market Regime — merged with the former separate "AI Market Summary"
 // card. Both read computeRegime()'s gauge score (a VIX/SPY/QQQ formula)
 // and a rule-based factor-scoring bias (SPY/MA50/VIX/breadth/fear-greed/
@@ -56,19 +73,11 @@ function MarketRegimeCard({ C, MONO, SANS, macroData, distData, factors, bias, b
   const spy = (macroData || []).find(m => m.symbol === "SPY");
   const qqq = (macroData || []).find(m => m.symbol === "QQQ");
   const vix = distData?.vix || 0;
-  const spyChg = Number(spy?.changesPercentage || 0);
-  const qqqChg = Number(qqq?.changesPercentage || 0);
   const loaded = !!spy;
   const regime = computeRegime(macroData);
-  let regLabel, regColor, playbook;
-  if (!loaded) { regLabel = "LOADING…"; regColor = C.textDim; playbook = "Waiting for market data…"; }
-  else if (vix > 30 || spyChg < -1.5) { regLabel = "RISK OFF"; regColor = C.red; playbook = "Reduce size, cash or shorts only."; }
-  else if (vix < 16 && spyChg > 0.3 && qqqChg > 0.3) { regLabel = "RISK ON"; regColor = C.green; playbook = "Full size on A+ setups, let winners run."; }
-  else if (Math.abs(spyChg) < 0.3 && vix < 22) { regLabel = "CHOP"; regColor = C.amber; playbook = "Reduce size, take profits faster."; }
-  else if (spyChg > 0.5) { regLabel = "CAUTIOUS BULL"; regColor = C.greenLight; playbook = "Normal size on confirmed setups."; }
-  else { regLabel = "DEFENSIVE"; regColor = C.amber; playbook = "Smaller size, favor defensive sectors."; }
+  const { regLabel, regColor, playbook } = computeRegimeLabel(C, { spy, qqq, vix, loaded });
   return (
-    <Card C={C} title="MARKET REGIME">
+    <Card C={C} title="MARKET HEALTH">
       <RadialGauge C={C} MONO={MONO} value={regime.score} label={regLabel} sublabel="regime score" color={regColor} />
       <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 8, marginBottom: 10, textAlign: "center" }}>{playbook}</div>
       <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
@@ -187,10 +196,13 @@ function DashboardChartCard({ C, MONO, SANS, symbol }) {
   );
 }
 
-// ── Row 2: AI Copilot Insights — best setup (TopOpportunityCard, shared ──
-// fetch with Today's Score via onScore) + watchlist breadth donut (from data
-// already in props, no new fetch) + today's rotating coach mantra.
-function CopilotInsightsCard({ C, MONO, SANS, macroData, watchlistData, setActiveTab, setTerminalSymbol, onScore }) {
+// ── Row 2: AI Copilot Insights — watchlist breadth donut (from data already
+// in props, no new fetch) + today's rotating coach mantra. TopOpportunityCard
+// itself now lives once, prominently, on the Overview tab (it owns the only
+// live scan/fetch loop) — this card reads the already-scored `topPick` it
+// hands up via onScore, instead of mounting a second copy (which would have
+// meant two independent /api/market/trend-screen scans running at once).
+function CopilotInsightsCard({ C, MONO, SANS, watchlistData, setActiveTab, setTerminalSymbol, topPick }) {
   const wl = (watchlistData || []).filter(q => q.symbol && Number(q.price) > 0);
   const adv = wl.filter(q => Number(q.changesPercentage || 0) > 0).length;
   const dec = wl.length - adv;
@@ -198,7 +210,13 @@ function CopilotInsightsCard({ C, MONO, SANS, macroData, watchlistData, setActiv
   const mantra = COACH_LESSONS[dayOfYear % COACH_LESSONS.length]?.mantra;
   return (
     <Card C={C} title="AI COPILOT INSIGHTS">
-      <TopOpportunityCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} />
+      {topPick && (
+        <div onClick={() => { setTerminalSymbol?.(topPick.symbol); try { localStorage.setItem("mterminal_load_sym", topPick.symbol); } catch {} setActiveTab?.("mterminal"); }}
+          style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: C.goldBg, border: `1px solid ${C.gold}55`, borderRadius: 8, marginBottom: 10, cursor: "pointer" }}>
+          <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.gold }}>{topPick.symbol}</span>
+          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>top pick · A+ {topPick._aplus?.score ?? "—"}</span>
+        </div>
+      )}
       {wl.length >= 2 && (
         <div style={{ marginTop: 8 }}>
           <DonutChart C={C} MONO={MONO} centerLabel="WATCHLIST" centerValue={wl.length}
@@ -253,8 +271,9 @@ export default function DashboardTab({
   setTerminalSymbol, setScanResults, setActiveTab, setScanExpanded, loadDeepDive, loadDeepSocial,
   setTiltLocked, setSigLoading, setSigData, fetchFearGreed, setDistData, setFuturesData, setPreMktMovers,
 }) {
-  const [aplusSymbol, setAplusSymbol] = useState(null);
-  const onScore = (row) => { setAplusSymbol(row ? row.symbol : null); };
+  const [topPick, setTopPick] = useState(null); // full trend-screen row incl. confidence/riskState — not just the symbol
+  const onScore = (row) => { setTopPick(row || null); };
+  const aplusSymbol = topPick?.symbol || null;
   const [dashTab, setDashTab] = useState(() => {
     try { return localStorage.getItem("dash_subtab") || "overview"; } catch { return "overview"; }
   });
@@ -300,27 +319,57 @@ export default function DashboardTab({
   }
   const bias = score >= 25 ? "BULLISH" : score >= 5 ? "LEAN BULLISH" : score <= -25 ? "BEARISH" : score <= -5 ? "LEAN BEARISH" : "NEUTRAL";
   const biasCol = score >= 25 ? C.green : score >= 5 ? C.greenLight : score <= -25 ? C.red : score <= -5 ? C.redLight : C.amber;
+  const { regLabel: overviewRegLabel } = computeRegimeLabel(C, { spy, qqq, vix, loaded: !!spy });
+  const conf = Number(topPick?.confidence);
+  const confColor = conf >= 70 ? C.green : conf >= 40 ? C.amber : C.red;
 
   return (
     <>
       <DashSubNav C={C} MONO={MONO} active={dashTab} setActive={setDashTabPersist} />
 
-      {/* ── OVERVIEW — the "open the app, know where you stand" tab: the ── */}
-      {/* AI's final word, a direct line to ask it anything, current regime,*/}
-      {/* your actual positions, and what's coming up. Everything else is  */}
-      {/* one click away in another tab instead of below the fold here.    */}
+      {/* ── OVERVIEW — the executive command center. Priority order top to  */}
+      {/* bottom: CEO's synthesized call, then the 4 numbers that answer    */}
+      {/* "what's the state of play" at a glance, then the single highest-  */}
+      {/* conviction idea, then supporting detail. Everything here is real  */}
+      {/* data already computed elsewhere in the app — restyled/reordered,  */}
+      {/* nothing fabricated to fill a gauge. */}
       {dashTab === "overview" && (
         <>
-          <div style={{ marginBottom: 10 }}>
+          <div style={{ marginBottom: 14 }}>
             <CeoAiCard C={C} MONO={MONO} SANS={SANS} />
           </div>
+
+          {/* Executive status row — Market Health owns the one regime gauge */}
+          {/* (moved here from "supporting analysis", not duplicated) alongside */}
+          {/* Capital Allocation / AI Confidence / Mission Status. */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 14, alignItems: "stretch" }}>
+            <MarketRegimeCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} distData={distData} factors={factors} bias={bias} biasColor={biasCol} />
+            <Card C={C} title="CAPITAL ALLOCATION">
+              <CapitalAllocationCard C={C} MONO={MONO} SANS={SANS} />
+            </Card>
+            <Card C={C} title="AI CONFIDENCE" accent={C.purple}>
+              {topPick && Number.isFinite(conf) ? (
+                <RadialGauge C={C} MONO={MONO} value={conf} label={topPick.symbol} sublabel="top pick confidence" color={confColor} />
+              ) : (
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center", padding: 20 }}>Scanning for a top pick…</div>
+              )}
+            </Card>
+            <Card C={C} title="MISSION STATUS">
+              <MissionStatusCard C={C} MONO={MONO} SANS={SANS} regimeLabel={overviewRegLabel} tiltEnabled={tiltEnabled} tiltLocked={tiltLocked} tiltStreak={tiltStreak} />
+            </Card>
+          </div>
+
+          {/* Highest-conviction opportunity — the single idea, not a list */}
+          <div style={{ marginBottom: 14 }}>
+            <TopOpportunityCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} />
+          </div>
+
           <div style={{ marginBottom: 14 }}>
             <AskAiBar C={C} MONO={MONO} SANS={SANS} />
           </div>
+
+          {/* Supporting analysis */}
           <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
-            <div style={{ flex: "1 1 320px", minWidth: 280, maxWidth: 420 }}>
-              <MarketRegimeCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} distData={distData} factors={factors} bias={bias} biasColor={biasCol} />
-            </div>
             <div style={{ flex: "1 1 320px", minWidth: 300, display: "flex", flexDirection: "column", gap: 10 }}>
               <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
               <ActivePositionsCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
@@ -359,7 +408,7 @@ export default function DashboardTab({
               <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} />
             </div>
           </div>
-          <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} />
+          <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} topPick={topPick} />
         </>
       )}
 
