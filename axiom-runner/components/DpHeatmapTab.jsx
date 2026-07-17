@@ -8,18 +8,21 @@ export default function DpHeatmapTab({
             <div style={{ padding: "16px 20px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                 <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>🏦 DARK POOL HEAT MAP</span>
-                <button onClick={() => { setDpLoad(true); fetch("/api/market/darkpool-heatmap").then(r=>r.json()).then(d=>{ if(d.ok) setDpHeatData(d); }).catch(()=>{}).finally(()=>setDpLoad(false)); }}
+                <button onClick={() => { setDpLoad(true); fetch("/api/market/darkpool-heatmap").then(r=>r.json()).then(d=>setDpHeatData(d)).catch(()=>{}).finally(()=>setDpLoad(false)); }}
                   style={{ fontFamily: MONO, fontSize: 12, border: `1px solid ${C.accent}`, background: `${C.accent}18`, color: C.accent, borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}>
                   {dpLoad ? "⌛" : "↺ REFRESH"}
                 </button>
-                {dpHeatData && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Updated: {new Date(dpHeatData.scannedAt).toLocaleTimeString()}</span>}
+                {dpHeatData?.scannedAt && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Updated: {new Date(dpHeatData.scannedAt).toLocaleTimeString()}</span>}
               </div>
               <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 16 }}>
                 Most active dark pool tickers by total premium today. Institutions buy/sell in dark pools before moving the public market.
               </div>
               {dpHeatLoad && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>⌛ Loading dark pool activity…</div>}
-              {dpHeatData && dpHeatData.stocks.length === 0 && (
-                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>No dark pool data. Check UNUSUAL_WHALES_API_KEY in settings.</div>
+              {dpHeatData && !dpHeatData.error && dpHeatData.stocks.length === 0 && (
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>No dark pool activity found right now.</div>
+              )}
+              {dpHeatData?.error && (
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>⚠ {dpHeatData.error === "Unusual Whales key not configured" ? "No dark pool data. Check UNUSUAL_WHALES_API_KEY in settings." : dpHeatData.error}</div>
               )}
               {dpHeatData && dpHeatData.stocks.length > 0 && (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>

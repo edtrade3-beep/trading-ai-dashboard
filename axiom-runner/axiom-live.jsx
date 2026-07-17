@@ -2399,7 +2399,13 @@ export default function App() {
       fetch("/api/market/short-changes").then(r=>r.json()).then(d=>{ if(d.ok) setShortChgData(d); }).catch(()=>{});
     }
     if (activeTab === "dp-heatmap" && !dpHeatData) {
-      fetch("/api/market/darkpool-heatmap").then(r=>r.json()).then(d=>{ if(d.ok) setDpHeatData(d); }).catch(()=>{});
+      // Always store the response, not just on ok:true — the backend
+      // returns a real 200 {ok:false, error:"...", stocks:[]} when
+      // UNUSUAL_WHALES_API_KEY isn't configured, which DpHeatmapTab has its
+      // own honest "check your API key" message for. Gating on d.ok meant
+      // dpHeatData never got set in that case, so the tab was stuck showing
+      // "Loading dark pool activity…" forever instead of that message.
+      fetch("/api/market/darkpool-heatmap").then(r=>r.json()).then(d=>setDpHeatData(d)).catch(()=>{});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
