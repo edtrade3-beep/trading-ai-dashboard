@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { computeRegime } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore } from "./market-helpers.js";
+import { BEST_OPP_UNIVERSE } from "./terminal-panels.jsx";
 
 // 🗣️ Trading Copilot — floating chat that knows your context + can search live news
 export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymbols }) {
@@ -8,9 +9,30 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [positions, setPositions] = useState([]);
+  const [setups, setSetups] = useState([]);
   const [queuedQuery, setQueuedQuery] = useState(null);
   const endRef = useRef(null);
   useEffect(() => { if (open) fetch("/api/alpaca/positions").then(r => r.json()).then(d => { if (d?.ok) setPositions(d.positions || []); }).catch(() => {}); }, [open]);
+  // The system prompt (src/routes/market.js POST /api/market/ai-copilot)
+  // has always referenced "Today's A+ setups: ${ctx.setups}", but nothing
+  // here ever populated it — the copilot could never actually answer its
+  // own suggested question "What's strong today?" with a real setup, since
+  // ctx.setups was always empty. Same real scan/rank TopOpportunityCard
+  // already uses (trend-screen + computeAPlusScore), fetched once per panel
+  // open rather than per-message.
+  useEffect(() => {
+    if (!open) return;
+    const regime = computeRegime(macroData);
+    fetch("/api/market/trend-screen?symbols=" + encodeURIComponent(BEST_OPP_UNIVERSE.join(",")))
+      .then(r => r.json())
+      .then(j => {
+        const res = (j.results || []).filter(r => !r.error && Number(r.entry) > Number(r.stop));
+        const ranked = res.map(r => ({ symbol: r.symbol, aScore: computeAPlusScore(r, regime).score }))
+          .sort((a, b) => b.aScore - a.aScore).slice(0, 10);
+        setSetups(ranked);
+      })
+      .catch(() => {});
+  }, [open]); // eslint-disable-line
   // Opened from the sidebar's "AI Copilot" item, or from the command palette
   // routing free-text queries here — event-based rather than a lifted prop,
   // matching the existing window-event pattern used elsewhere (e.g.
@@ -57,6 +79,7 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
       regime: (typeof computeRegime === "function" ? computeRegime(macroData).score : null),
       watchlist: watchlistSymbols || [],
       positions,
+      setups,
     };
     fetch("/api/market/ai-copilot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next, context: ctx }) })
       .then(async r => {
@@ -101,7 +124,7 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
           <div style={{ display: "flex", gap: 6, padding: 10, borderTop: `1px solid ${C.border}` }}>
             <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") send(); }}
               placeholder="Ask your copilot…" style={{ flex: 1, fontFamily: SANS, fontSize: 13, padding: "9px 11px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.text, outline: "none" }} />
-            <button onClick={send} disabled={busy} style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "0 16px", borderRadius: 8, cursor: "pointer", border: "none", background: C.accent, color: "#fff" }}>➤</button>
+            <button onClick={() => send()} disabled={busy} style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "0 16px", borderRadius: 8, cursor: "pointer", border: "none", background: C.accent, color: "#fff" }}>➤</button>
           </div>
         </div>
       )}
