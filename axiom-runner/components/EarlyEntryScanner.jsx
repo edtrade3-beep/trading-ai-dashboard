@@ -1,18 +1,28 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { C, MONO, SANS } from "./theme.js";
 
 // ═══════════════════════════════════════════════════════════════
 // EARLY ENTRY SCANNER
 // ═══════════════════════════════════════════════════════════════
 
-function computeEarlyScore(q, spyChg, qqqChg) {
+// trend is the platform's own real trend-template scan row for this symbol
+// (/api/market/trend-screen — same engine ADVISOR AI, Green Light, and the
+// Trading Copilot already trust). q.priceAvg50/priceAvg200/yearHigh are NOT
+// real signals here: watchlistData is fed by /api/market/quote, a fast,
+// price-only path that never populates fundamentals fields for any symbol
+// Alpaca covers (confirmed live this session — same root cause already
+// fixed in PredictionsTab and Green Light's deep-dive). Those fields were
+// always exactly 0, which didn't just silently skip factor #2 below — the
+// EMA-alignment check's final else branch actively pushed a "Below key
+// EMAs" flag onto every single scanned stock regardless of its real trend,
+// and that false flag fed directly into the "Avoid / Trap Zone"
+// classification (flags.length >= 2). Routing in real stage/pctFromHigh/
+// abovePivotPct data from trend-screen fixes the false negative, not just
+// the missing bonus points.
+function computeEarlyScore(q, spyChg, qqqChg, trend) {
   if (!q || !q.price) return { score: 0, breakdown: {}, reasons: [], flags: [] };
   const price  = Number(q.price || 0);
   const open   = Number(q.open  || price);
-  const avg50  = Number(q.priceAvg50  || 0);
-  const avg200 = Number(q.priceAvg200 || 0);
-  const yHigh  = Number(q.yearHigh || 0);
-  const yLow   = Number(q.yearLow  || 0);
   const vol    = Number(q.volume    || 0);
   const avgVol = Number(q.avgVolume || 1);
   const chg    = Number(q.changesPercentage || 0);
@@ -34,21 +44,28 @@ function computeEarlyScore(q, spyChg, qqqChg) {
     bd.vwap = 0;  flags.push("Below VWAP");
   }
 
-  // 2. Bullish EMA alignment (15 pts)
-  if (avg50 > 0 && avg200 > 0 && price > avg50 && avg50 > avg200) {
-    bd.ema = 15; reasons.push("Bullish EMA alignment");
-  } else if (avg50 > 0 && price > avg50) {
-    bd.ema = 8;  reasons.push("Above 50 EMA");
-  } else if (avg200 > 0 && price > avg200) {
-    bd.ema = 4;  reasons.push("Above 200 EMA");
+  // 2. Bullish trend structure (15 pts) — real Stage classification
+  // (Stage 2 IS "price > MA50 > MA200 and trending up", the exact thing
+  // this factor is meant to test) instead of the always-empty q.priceAvg50/
+  // priceAvg200. No trend data available (fetch still pending/failed) is
+  // treated as "unknown," not "bearish" — it stays neutral, no flag.
+  const stage = String(trend?.stage || "");
+  if (stage.startsWith("Stage 2")) {
+    bd.ema = 15; reasons.push("Bullish trend structure (Stage 2, real trend template)");
+  } else if (stage.startsWith("Stage 1")) {
+    bd.ema = 6;  reasons.push("Base-building (Stage 1)");
+  } else if (stage.startsWith("Stage 3") || stage.startsWith("Stage 4")) {
+    bd.ema = 0;  flags.push("Downtrend / topping structure (real trend template)");
   } else {
-    bd.ema = 0;  flags.push("Below key EMAs");
+    bd.ema = 0; // unknown — no trend data yet, not a false accusation
   }
 
-  // 3. Near breakout level (15 pts) — within 1-3% of 52wk high
+  // 3. Near breakout level (15 pts) — within 1-3% of 52wk high, from
+  // trend-screen's real pctFromHigh (negative when below the real 52-week
+  // high) instead of the always-empty q.yearHigh.
   let distToHigh = 100;
-  if (yHigh > 0) {
-    distToHigh = ((yHigh - price) / yHigh) * 100;
+  if (trend && Number.isFinite(Number(trend.pctFromHigh))) {
+    distToHigh = -Number(trend.pctFromHigh);
     if (distToHigh >= 0.3 && distToHigh <= 3)       { bd.breakout = 15; reasons.push("Near 52W breakout zone"); }
     else if (distToHigh > 3 && distToHigh <= 6)     { bd.breakout = 8; }
     else if (distToHigh < 0.3 && distToHigh >= -2)  { bd.breakout = 5;  flags.push("Just broke out — extended"); }
@@ -69,12 +86,14 @@ function computeEarlyScore(q, spyChg, qqqChg) {
   else if (relRS >= -1) { bd.rs = 2; }
   else                  { bd.rs = 0; flags.push("Weaker than market"); }
 
-  // 6. Pullback held support (10 pts)
-  if (avg50 > 0) {
-    const distTo50 = Math.abs(price - avg50) / avg50 * 100;
-    if (distTo50 <= 2 && chg > 0)      { bd.pullback = 10; reasons.push("Bouncing off 50 EMA support"); }
-    else if (distTo50 <= 4 && chg > 0) { bd.pullback = 5; }
-    else if (distTo50 <= 1.5 && chg < 0) { bd.pullback = 2; flags.push("Testing support — watch closely"); }
+  // 6. Pullback held support (10 pts) — real distance above the
+  // trend-screen pivot (a genuine technical support/trigger level) instead
+  // of the always-empty q.priceAvg50.
+  if (trend && Number.isFinite(Number(trend.abovePivotPct))) {
+    const abovePivot = Number(trend.abovePivotPct);
+    if (abovePivot >= 0 && abovePivot <= 3 && chg > 0)      { bd.pullback = 10; reasons.push("Holding near real support (trend-template pivot)"); }
+    else if (abovePivot > 3 && abovePivot <= 6 && chg > 0)  { bd.pullback = 5; }
+    else if (abovePivot < 0 && abovePivot >= -3 && chg < 0) { bd.pullback = 2; flags.push("Testing support — watch closely"); }
     else { bd.pullback = 0; }
   } else { bd.pullback = 0; }
 
@@ -91,28 +110,30 @@ function computeEarlyScore(q, spyChg, qqqChg) {
 
   const score = Math.min(100, Object.values(bd).reduce((s, v) => s + v, 0));
 
-  // Extra trap flags
-  if (yHigh > 0 && yLow > 0) {
-    const rng = yHigh - yLow;
-    const yPos = rng > 0 ? (price - yLow) / rng : 0.5;
-    if (yPos < 0.25) flags.push("Near 52W low — downtrend");
-  }
+  // Extra trap flags — "near 52W low" dropped: trend-screen exposes real
+  // pctFromHigh but not pctFromLow, and q.yearLow is the same always-empty
+  // field as the others above, so there's no real data left to check this
+  // against. Omitted rather than left silently wired to a fabricated 0.
   if (rvol >= 1.5 && chg < -1.5) flags.push("High-volume sell-off — trap risk");
   if (distToHigh < -2)            flags.push("Extended above breakout");
 
   return { score, breakdown: bd, reasons, flags, rvol, relRS, distToHigh };
 }
 
-function classifyEarlySetup(q, scored) {
+function classifyEarlySetup(q, scored, trend) {
   const { score, breakdown: bd, rvol, distToHigh } = scored;
   const chg   = Number(q.changesPercentage || 0);
   const price = Number(q.price || 0);
   const open  = Number(q.open  || price);
-  const avg50 = Number(q.priceAvg50 || 0);
+  // Same fix as computeEarlyScore: q.priceAvg50 is always empty, so this
+  // used trend-screen's real abovePivotPct (distance above the real
+  // technical pivot) as the "near a support level" proxy instead — this
+  // classification could otherwise never fire.
+  const nearPivot = trend && Number.isFinite(Number(trend.abovePivotPct)) && Math.abs(Number(trend.abovePivotPct)) <= 3;
 
   if (score < 50 || (bd.vwap === 0 && bd.ema === 0)) return "Avoid / Trap Zone";
   if (bd.vwap === 15 && rvol >= 1.5 && chg > 0 && price > open * 1.001)       return "VWAP Reclaim";
-  if (bd.ema >= 15 && avg50 > 0 && Math.abs(price - avg50) / avg50 * 100 <= 3) return "21 EMA Pullback";
+  if (bd.ema >= 15 && nearPivot)                                              return "21 EMA Pullback";
   if (distToHigh >= 0.3 && distToHigh <= 3 && bd.breakout >= 15)               return "Pre-Breakout Compression";
   if (bd.rs >= 10 && score >= 65)                                               return "Relative Strength Leader";
   if (rvol >= 2.0 && bd.obv >= 5 && score >= 60)                               return "Volume Before Price";
@@ -147,25 +168,50 @@ export default function EarlyEntryScanner({ watchlistData, macroData, sectorData
     return { label: "Neutral", color: "#ffb340" };
   }, [spyChg, qqqChg]);
 
+  // Real trend-template data (stage, pctFromHigh, abovePivotPct) — see the
+  // comment above computeEarlyScore for why this replaces watchlistData's
+  // always-empty priceAvg50/priceAvg200/yearHigh fields.
+  const [trendMap, setTrendMap] = useState({});
+  const watchSymbolsKey = (watchlistData || []).map(q => q.symbol).filter(Boolean).sort().join(",");
+  useEffect(() => {
+    if (!watchSymbolsKey) return;
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(watchSymbolsKey)}`)
+      .then(r => r.json())
+      .then(j => {
+        const map = {};
+        (j.results || []).forEach(r => { if (!r.error) map[r.symbol] = r; });
+        setTrendMap(map);
+      })
+      .catch(() => {});
+  }, [watchSymbolsKey]);
+
   // Score every watchlist symbol
   const scoredRows = useMemo(() => {
     if (!watchlistData || !watchlistData.length) return [];
     return watchlistData.map(q => {
-      const scored  = computeEarlyScore(q, spyChg, qqqChg);
-      const setup   = classifyEarlySetup(q, scored);
+      const trend   = trendMap[q.symbol];
+      const scored  = computeEarlyScore(q, spyChg, qqqChg, trend);
+      const setup   = classifyEarlySetup(q, scored, trend);
       const lbl     = earlyScoreLabel(scored.score);
       const price   = Number(q.price || 0);
-      const avg50   = Number(q.priceAvg50 || 0);
-      const yHigh   = Number(q.yearHigh   || 0);
       const atr     = price > 0 ? ((Number(q.dayHigh || price) - Number(q.dayLow || price)) / price) * 100 : 1;
-      const entry   = avg50 > 0 && Math.abs(price - avg50) / avg50 * 100 <= 3 ? avg50 * 1.005 : price * 1.003;
+      // Real technical pivot from trend-screen when available (the actual
+      // breakout trigger level this platform's own scanner computes),
+      // falling back to the old flat +0.3%-above-price estimate otherwise.
+      const pivot   = trend && Number(trend.pivot) > 0 ? Number(trend.pivot) : null;
+      const entry   = pivot && Math.abs(price - pivot) / pivot * 100 <= 5 ? pivot * 1.005 : price * 1.003;
       const stop    = entry * (setup === "VWAP Reclaim" ? 0.977 : 0.972);
       const t1      = entry * (setup === "Pre-Breakout Compression" ? 1.045 : 1.055);
       const t2      = entry * (setup === "Pre-Breakout Compression" ? 1.085 : 1.10);
       const rr      = entry > stop ? (t1 - entry) / Math.max(0.01, entry - stop) : 0;
+      // Real 52W high derived from trend-screen's real pctFromHigh
+      // (yHigh = price / (1 + pctFromHigh/100)) rather than the always-0
+      // q.yearHigh — used only for display in the alert text.
+      const pctFromHigh = trend != null ? Number(trend.pctFromHigh) : null;
+      const yHigh   = Number.isFinite(pctFromHigh) && (1 + pctFromHigh / 100) > 0 ? price / (1 + pctFromHigh / 100) : 0;
       return { q, scored, setup, lbl, entry, stop, t1, t2, rr, atr, yHigh };
     }).sort((a, b) => b.scored.score - a.scored.score);
-  }, [watchlistData, spyChg, qqqChg]);
+  }, [watchlistData, spyChg, qqqChg, trendMap]);
 
   const earlyEntries    = useMemo(() => scoredRows.filter(r => r.scored.score >= 65 && r.setup !== "Avoid / Trap Zone"), [scoredRows]);
   const preBreakout     = useMemo(() => scoredRows.filter(r => r.setup === "Pre-Breakout Compression" || (r.scored.distToHigh >= 0 && r.scored.distToHigh <= 5)), [scoredRows]);
@@ -516,7 +562,7 @@ Risk small and follow the stop.`
           </table>
           <div style={{ padding: "8px 14px", borderTop: `1px solid ${C.border}`, background: C.surface }}>
             <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>
-              Qualifies: price above 200 EMA · EMA 9 > 21 > 50 · pulling near 50D<br />
+              Qualifies: price above 200 EMA · EMA 9 {'>'} 21 {'>'} 50 · pulling near 50D<br />
               low selling volume · green bounce from support
             </div>
           </div>
