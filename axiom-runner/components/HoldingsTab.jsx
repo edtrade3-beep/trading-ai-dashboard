@@ -52,6 +52,29 @@ export default function HoldingsTab({ C, MONO, SANS, macroData }) {
     }).catch(() => {});
   }, []);
 
+  // Real trend-template data for the "BELOW MA50" status tier below —
+  // /api/market/quote (used just above for stockArr) is a fast price-only
+  // path that never populates priceAvg50 for any Alpaca-covered symbol
+  // (confirmed live this session, same root cause fixed in
+  // PredictionsTab/Green Light/Early Entry Scanner/Autopilot/Dashboard).
+  // Since belowMA was already gated behind `ma50 > 0`, this never
+  // mislabeled a holding — it just meant the "🟠 BELOW MA50" middle status
+  // tier could never appear for any real holding, only the binary
+  // "🔴 BELOW STOP" / "🟢 TREND OK" outcomes.
+  const [trendMap, setTrendMap] = useState({});
+  useEffect(() => {
+    const stockSyms = holdings.filter(h => !HOLDINGS_CRYPTO.has(h.symbol)).map(h => h.symbol);
+    if (!stockSyms.length) return;
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent([...new Set(stockSyms)].sort().join(","))}`)
+      .then(r => r.json())
+      .then(j => {
+        const map = {};
+        (j.results || []).forEach(r => { if (!r.error) map[r.symbol] = r; });
+        setTrendMap(map);
+      })
+      .catch(() => {});
+  }, [holdings.filter(h => !HOLDINGS_CRYPTO.has(h.symbol)).map(h => h.symbol).sort().join(",")]);
+
   useEffect(() => {
     if (!holdings.length) return;
     const load = () => {
@@ -95,13 +118,13 @@ export default function HoldingsTab({ C, MONO, SANS, macroData }) {
       return { ...h, q, px, stop, pnl, pnlPct, status, isCrypto: true, value: px * h.shares };
     }
     const gl = computeGreenLight(q, spyChg, null);
-    const ma50 = Number(q.priceAvg50 || 0);
+    const trendStage = String(trendMap[h.symbol]?.stage || "");
     const atrPct = Math.min(0.05, Math.max(0.01, Number(gl.atrPct) || 0.025));
     const stop = +(px * (1 - atrPct * 1.5)).toFixed(2);
     const belowStop = px <= stop;
-    const belowMA = ma50 > 0 && px < ma50;
+    const belowMA = trendStage.startsWith("Stage 3") || trendStage.startsWith("Stage 4");
     const status = belowStop ? { t: "🔴 BELOW STOP", c: C.red } : belowMA ? { t: "🟠 BELOW MA50", c: C.amber } : { t: "🟢 TREND OK", c: C.green };
-    return { ...h, q, px, ma50, stop, pnl, pnlPct, status, signal: gl.signal, value: px * h.shares };
+    return { ...h, q, px, stop, pnl, pnlPct, status, signal: gl.signal, value: px * h.shares };
   });
   const totalValue = rows.reduce((s, r) => s + (r.value || 0), 0);
   const totalPnl = rows.reduce((s, r) => s + (r.pnl || 0), 0);
