@@ -38,7 +38,21 @@ export default function OptionsPayoffTool({ C, MONO, SANS }) {
   const N = 80;
   const pts = Array.from({ length: N + 1 }, (_, i) => { const price = pMin + (pMax - pMin) * i / N; return { price, pl: payoffShare(price) * 100 }; });
   const pls = pts.map(p => p.pl);
-  let maxP = Math.max(...pls), minP = Math.min(...pls);
+  // The chart only samples ±40% around the current price — a sensible
+  // viewing window, but MAX PROFIT/MAX LOSS must be the true worst/best
+  // case, not just whatever the visible window happens to capture. Any
+  // strategy with real exposure to the stock going to $0 (Long Put's max
+  // profit, Covered Call / Cash-Secured Put's max loss) has its true
+  // extreme entirely outside a ±40% band — confirmed live: Cash-Secured
+  // Put showed -$3500 "MAX LOSS" from the sampled window when the real
+  // worst case (stock -> $0) is -$9500. $0 is a real, reachable value for
+  // a stock (not an asymptote), so evaluating payoffShare(0) exactly is
+  // the correct floor, not an approximation — just missing from the
+  // sampled set before.
+  const zeroPl = payoffShare(0) * 100;
+  let maxP = Math.max(...pls, zeroPl), minP = Math.min(...pls, zeroPl);
+  const worstAtZero = minP === zeroPl && zeroPl < Math.min(...pls);
+  const bestAtZero  = maxP === zeroPl && zeroPl > Math.max(...pls);
   const uncapped = strat === "Long Call";  // upside unbounded
   const yHi = Math.max(maxP, 0) * 1.15 || 100, yLo = Math.min(minP, 0) * 1.15 || -100;
   // breakevens: sign changes
@@ -84,8 +98,8 @@ export default function OptionsPayoffTool({ C, MONO, SANS }) {
         <text x={4} y={yOf(yLo)} fill={C.textDim} fontSize="9" fontFamily={MONO}>-${Math.abs(Math.round(yLo))}</text>
       </svg>
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 12 }}>
-        <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>MAX PROFIT</div><div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.green }}>{uncapped ? "Unlimited ↑" : `$${Math.round(maxP)}`}</div></div>
-        <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>MAX LOSS</div><div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.red }}>${Math.round(minP)}</div></div>
+        <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>MAX PROFIT</div><div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.green }}>{uncapped ? "Unlimited ↑" : `$${Math.round(maxP)}`}</div>{bestAtZero && <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim }}>if stock → $0 (off-chart)</div>}</div>
+        <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>MAX LOSS</div><div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.red }}>${Math.round(minP)}</div>{worstAtZero && <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim }}>if stock → $0 (off-chart)</div>}</div>
         <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>BREAKEVEN</div><div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.amber }}>{bes.length ? bes.map(b => `$${b.toFixed(1)}`).join(" · ") : "—"}</div></div>
       </div>
     </div>
