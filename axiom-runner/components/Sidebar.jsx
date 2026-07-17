@@ -6,18 +6,19 @@
 export const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "Dashboard",     icon: "🏠", tab: "dashboard" },
   { id: "market",    label: "Market",        icon: "🌐", tab: "mterminal" },
-  { id: "scanner",   label: "Scanner",       icon: "🔎", tab: "scanner" },
   { id: "watchlist", label: "Watchlist",     icon: "⭐", tab: "quotes" },
-  { id: "portfolio", label: "Portfolio",     icon: "💼", tab: "portfolio" },
   { id: "copilot",   label: "AI Copilot",    icon: "🤖", tab: null, badge: "NEW" },
   { id: "flow",      label: "Options Flow",  icon: "📊", tab: "flow" },
   { id: "news",      label: "News",          icon: "📰", tab: "news" },
   { id: "alerts",    label: "Alerts",        icon: "🔔", tab: "alerts" },
-  { id: "journal",   label: "Journal",       icon: "📓", tab: "journal" },
   { id: "coach",     label: "Coach",         icon: "🧭", tab: "coach" },
   { id: "learn",     label: "Learn",         icon: "🎓", tab: "education" },
   { id: "quran",     label: "Quran",         icon: "☪️", tab: "quran" },
 ];
+// Scanner/Journal/Portfolio removed from the visible sidebar (2026-07-17,
+// user request) — still fully reachable via the command palette (SCANNER/
+// JOURNAL/PORTFOLIO), same "hide, don't delete" convention as everything
+// else not listed above.
 
 export default function Sidebar({ C, MONO, SANS, activeTab, setActiveTab, topOffset, width, bottomOffset, scannerBadge, setPaletteOpen, rootRef }) {
   return (
