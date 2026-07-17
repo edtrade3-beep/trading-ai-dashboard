@@ -164,7 +164,17 @@ Write the full ADVISOR brief now, following the structure exactly.`;
 
   let report;
   try {
-    report = await callAnthropicWithSearch(prompt + "\n\n" + system, KEY(), { model: "claude-sonnet-4-6", maxTokens: 1800, maxSearches: 4 });
+    // max_tokens is a per-turn budget that also covers the model's
+    // web_search tool-use content (queries + returned results), not just
+    // the final report text, and callAnthropicWithSearch only returns the
+    // LAST turn's text (not accumulated) — if that turn hits max_tokens
+    // mid-report (stop_reason "max_tokens", not "pause_turn"), the loop
+    // breaks and silently returns a truncated report. Confirmed live: 1800
+    // cut the real report off before SMART MONEY READ / CEO ACTION PLAN
+    // ever rendered, even with a ~900-word cap in the system prompt —
+    // models don't reliably self-limit, so this needs real headroom above
+    // the target, not exactly the target.
+    report = await callAnthropicWithSearch(prompt + "\n\n" + system, KEY(), { model: "claude-sonnet-4-6", maxTokens: 4500, maxSearches: 4 });
   } catch {
     return null;
   }

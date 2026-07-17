@@ -33,18 +33,27 @@ const SECTIONS = [
 ];
 
 // Splits ADVISOR's structured text response into labeled sections (see the
-// system prompt in src/advisor-ai.js) — same regex-lookahead technique
-// SmartMoneyBrief's parseBrief() uses, extended to 9 labels.
+// system prompt in src/advisor-ai.js). Index-based rather than a strict
+// "label(paren)?:" regex — the model doesn't always follow the exact
+// header punctuation it was asked for (observed live: "5-YEAR THEMATIC
+// THESIS (web-search grounded, not a scored trade)" with no trailing
+// colon at all), so this just finds where each label starts and slices
+// the text between consecutive labels, then trims off any leftover
+// parenthetical/colon debris from the header line.
 function parseReport(text) {
   const clean = stripMarkdown(text);
-  const labels = SECTIONS.map(([label]) => label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  const out = {};
-  for (let i = 0; i < SECTIONS.length; i++) {
-    const [label, key] = SECTIONS[i];
-    const rest = labels.slice(i + 1);
-    const re = new RegExp(`${labels[i]}\\s*(?:\\([^)]*\\))?:\\s*([\\s\\S]*?)(?=(?:${rest.join("|")})\\s*(?:\\([^)]*\\))?:|$)`, "i");
+  const positions = [];
+  for (const [label, key] of SECTIONS) {
+    const re = new RegExp(`\\b${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
     const m = clean.match(re);
-    out[key] = m ? m[1].trim() : "";
+    if (m) positions.push({ key, start: m.index, headerEnd: m.index + m[0].length });
+  }
+  positions.sort((a, b) => a.start - b.start);
+  const out = {};
+  for (let i = 0; i < positions.length; i++) {
+    const nextStart = i + 1 < positions.length ? positions[i + 1].start : clean.length;
+    out[positions[i].key] = clean.slice(positions[i].headerEnd, nextStart)
+      .replace(/^\s*\([^)]*\)/, "").replace(/^\s*:/, "").trim();
   }
   const hasAny = Object.values(out).some(v => v);
   return hasAny ? out : null;
