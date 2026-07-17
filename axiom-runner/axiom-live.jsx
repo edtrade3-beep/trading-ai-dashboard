@@ -2812,7 +2812,7 @@ export default function App() {
           ema9v:      row.ema9v,
           ema21v:     row.ema21v,
           livePrice:  row.quote?.price,
-          liveChg:    row.quote?.changePercent,
+          liveChg:    row.quote?.changesPercentage,
           ref:        row.ref,
           fundamentals: deep.fundamentals || null,
           news:         deep.news || [],

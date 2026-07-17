@@ -455,7 +455,12 @@ export default function SmartScanTab({
                         const composite = (row.score || 50) * 0.35 + _ttScore * 0.35 + _macdScore * 0.15 + 50 * 0.15;
                         const verdictColor = composite >= 72 ? "#00e676" : composite >= 62 ? C.green : composite >= 53 ? C.amber : composite >= 40 ? C.red : "#ff2244";
                         const verdictLabel = composite >= 72 ? "STRONG BUY" : composite >= 62 ? "BUY" : composite >= 53 ? "WATCH" : composite >= 40 ? "AVOID" : "SELL/SHORT";
-                        const liveChg   = Number(row.quote?.changePercent || 0);
+                        // The real field on the smart-scan quote shape is changesPercentage
+                        // (see fetchYahooQuotes in src/providers/yahoo.js) — changePercent
+                        // doesn't exist until axiom-live.jsx's live-price-tick merge writes
+                        // it in later, so reading it directly here showed a flat 0.00% for
+                        // every ticker right after a fresh scan.
+                        const liveChg   = Number(row.quote?.changesPercentage || 0);
                         const yH = Number(row.quote?.yearHigh || 0);
                         const yL = Number(row.quote?.yearLow  || 0);
 
@@ -477,7 +482,7 @@ export default function SmartScanTab({
                             const trg = livePrice * 1.05;  // +5%  above
                             const stp = livePrice * 0.75;  // -25% stop
                             // For a flat current price, show zone relative to day change
-                            const chg = Number(row.quote?.changePercent || 0);
+                            const chg = Number(row.quote?.changesPercentage || 0);
                             if      (chg >= 5)   { zoneLbl = "🔶 ABOVE";   zoneCol = "#ff9900"; }
                             else if (chg >= 1)   { zoneLbl = "🔵 STARTER"; zoneCol = "#26a69a"; }
                             else if (chg >= -3)  { zoneLbl = "WATCH";      zoneCol = C.textSec; }
@@ -629,7 +634,7 @@ export default function SmartScanTab({
                                     if (d50 > 20)  chips.push({ txt: `+${d50.toFixed(0)}% vs MA50`, col: C.red,   title: "Far above 50MA — extended high" });
                                   }
                                   // ── ADVANCED PATTERN SIGNALS ─────────────────────────────
-                                  const chg1d = Number(row.quote?.changePercent || row.chgPct || 0);
+                                  const chg1d = Number(row.quote?.changesPercentage || 0);
                                   const ma200 = Number(row.quote?.priceAvg200 || 0);
 
                                   // POSSIBLE BOTTOM — oversold + near low + volume
@@ -1158,7 +1163,7 @@ export default function SmartScanTab({
                                                 target: (px * 1.08).toFixed(2),
                                                 side: "BUY", timeframe: "1D",
                                                 style: "Breakout", notes: `Smart Scan · Score ${row.score}`,
-                                                score: row.score, chg: row.quote?.changePercent || 0, rvol: 0
+                                                score: row.score, chg: row.quote?.changesPercentage || 0, rvol: 0
                                               });
                                             }} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
                                               border: `1px solid ${C.green}55`, background: `${C.green}12`,
@@ -1185,7 +1190,7 @@ export default function SmartScanTab({
                                               const t1   = r2(px * 1.08);
                                               const t2   = r2(px * 1.15);
                                               const rr   = r2((t1 - px) / Math.max(px - stop, 0.01));
-                                              const chg  = Number(row.quote?.changePercent || 0);
+                                              const chg  = Number(row.quote?.changesPercentage || 0);
                                               const msg  = [
                                                 `📊 ${row.ticker} SETUP — $${px} (${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%)`,
                                                 `Score: ${row.score}/100  Signal: ${row.signal || "WATCH"}`,
