@@ -1,25 +1,33 @@
 export default function JournalStatsTab({ C, MONO, SANS, jData }) {
-        const trades = (jData || []).filter(e => e.side && e.outcome);
-        const wins   = trades.filter(e => e.outcome === "WIN" || e.pnl > 0);
-        const losses = trades.filter(e => e.outcome === "LOSS" || e.pnl < 0);
+        // Real journal entries never carry a "outcome" or "date" field (that
+        // was this component's own invention) — the actual schema, used
+        // consistently everywhere else in JournalTab.jsx, is status==="closed"
+        // + pnl (win/loss is derived from pnl>0, there's no separate outcome
+        // enum) + closedAt for the close timestamp + style for the setup
+        // category. Because e.outcome was never real, this whole tab always
+        // filtered every real entry out and permanently showed "No completed
+        // trades yet" regardless of how many trades were actually logged.
+        const trades = (jData || []).filter(e => e.status === "closed" && e.pnl != null);
+        const wins   = trades.filter(e => e.pnl > 0);
+        const losses = trades.filter(e => e.pnl < 0);
         const winRate = trades.length ? Math.round(wins.length / trades.length * 100) : 0;
         const avgWin  = wins.length ? wins.reduce((a,e) => a + Number(e.pnl||0), 0) / wins.length : 0;
         const avgLoss = losses.length ? Math.abs(losses.reduce((a,e) => a + Number(e.pnl||0), 0) / losses.length) : 0;
         const rrRatio = avgLoss > 0 ? (avgWin / avgLoss).toFixed(2) : "—";
         const totalPnl = trades.reduce((a,e) => a + Number(e.pnl||0), 0);
-        // By setup
+        // By style
         const bySetup = {};
         trades.forEach(e => {
-          const s = e.setup || e.source || "Unknown";
+          const s = e.style || "Other";
           if (!bySetup[s]) bySetup[s] = { wins:0, total:0 };
           bySetup[s].total++;
-          if (e.outcome === "WIN" || e.pnl > 0) bySetup[s].wins++;
+          if (e.pnl > 0) bySetup[s].wins++;
         });
         // By day of week
         const byDay = {Sun:0,Mon:0,Tue:0,Wed:0,Thu:0,Fri:0,Sat:0};
         const byDayTotal = {Sun:0,Mon:0,Tue:0,Wed:0,Thu:0,Fri:0,Sat:0};
         trades.forEach(e => {
-          if (e.date) { const d = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][new Date(e.date).getDay()]; byDayTotal[d]++; if(e.outcome==="WIN"||e.pnl>0) byDay[d]++; }
+          if (e.closedAt) { const d = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][new Date(e.closedAt).getDay()]; byDayTotal[d]++; if(e.pnl>0) byDay[d]++; }
         });
         const Stat = ({label, value, col}) => (
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 20px", textAlign: "center" }}>
@@ -47,7 +55,7 @@ export default function JournalStatsTab({ C, MONO, SANS, jData }) {
                 </div>
                 {Object.keys(bySetup).length > 0 && (
                   <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 10 }}>Win Rate by Setup</div>
+                    <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 10 }}>Win Rate by Style</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       {Object.entries(bySetup).sort((a,b) => b[1].total - a[1].total).map(([setup, data]) => {
                         const pct = Math.round(data.wins / data.total * 100);
