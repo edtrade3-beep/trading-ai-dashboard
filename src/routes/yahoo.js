@@ -7,6 +7,7 @@ const {
   fetchYahooShortInterest,
   fetchYahooInsiderTransactions,
   fetchYahooOptionsFlowForSymbol,
+  diagnoseYahooCrumb,
 } = require("../providers/yahoo");
 
 async function handleYahoo(req, res, requestUrl) {
@@ -91,6 +92,15 @@ async function handleYahoo(req, res, requestUrl) {
     if (!symbol) return writeJson(res, 400, { error: "Symbol is required." });
     const payload = await fetchYahooOptionsFlowForSymbol(symbol);
     return writeJson(res, 200, payload || { symbol, callPutRatio: null, flowRows: [] });
+  }
+
+  // Temporary diagnostic: isolate WHERE the crumb handshake fails in
+  // production (Render's outbound IP is a cloud/hosting range Yahoo may
+  // block earlier than a residential/dev-sandbox IP hits any block at all).
+  // Remove once the production regression is root-caused.
+  if (pathname === "/api/yahoo/_crumb-diag") {
+    const payload = await diagnoseYahooCrumb();
+    return writeJson(res, 200, payload);
   }
 
   return writeJson(res, 404, { error: "Unknown Yahoo endpoint." });

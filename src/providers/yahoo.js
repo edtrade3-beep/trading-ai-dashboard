@@ -37,6 +37,36 @@ async function yFetch(url, timeoutMs = 8000) {
 let _crumbCache = null; // { crumb, cookie, ts }
 const CRUMB_TTL = 30 * 60 * 1000;
 
+// Diagnostic-only: mirrors getYahooCrumb's two steps but returns the raw
+// status/error at each step instead of collapsing everything to null, so a
+// production-only failure (e.g. Render's outbound IP being blocked at a step
+// that a non-cloud dev sandbox never hits) can be told apart from a code bug.
+async function diagnoseYahooCrumb() {
+  const out = { step1: null, step2: null };
+  try {
+    const pageRes = await fetch("https://finance.yahoo.com/", {
+      headers: { "User-Agent": YAHOO_HEADERS["User-Agent"], "Accept": "text/html" },
+      signal: AbortSignal.timeout(8000),
+    });
+    const cookie = (pageRes.headers.get("set-cookie") || "")
+      .split(",").map(s => s.trim().split(";")[0]).filter(Boolean).join("; ");
+    out.step1 = { status: pageRes.status, ok: pageRes.ok, cookieLen: cookie.length };
+    try {
+      const crumbRes = await fetch("https://query1.finance.yahoo.com/v1/test/getcrumb", {
+        headers: { ...YAHOO_HEADERS, ...(cookie ? { "Cookie": cookie } : {}) },
+        signal: AbortSignal.timeout(5000),
+      });
+      const text = await crumbRes.text();
+      out.step2 = { status: crumbRes.status, ok: crumbRes.ok, bodyPreview: text.slice(0, 60) };
+    } catch (e2) {
+      out.step2 = { error: e2.message };
+    }
+  } catch (e1) {
+    out.step1 = { error: e1.message };
+  }
+  return out;
+}
+
 async function getYahooCrumb() {
   if (_crumbCache && Date.now() - _crumbCache.ts < CRUMB_TTL) return _crumbCache;
   try {
@@ -909,6 +939,7 @@ async function fetchYahooEarnings(symbol) {
 }
 
 module.exports = {
+  diagnoseYahooCrumb,
   fetchYahooEarnings,
   fetchYahooBars, fetchYahooQuoteBatch, fetchYahooQuotes, fetchQuoteBatchWithFallback,
   fetchYahooQuoteBatchWithFields,
