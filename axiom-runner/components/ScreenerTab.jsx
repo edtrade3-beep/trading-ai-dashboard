@@ -5,7 +5,7 @@ export default function ScreenerTab({
         const FIELDS = [
           { id: "score",    label: "AI Score",    get: r => r.score },
           { id: "rsi",      label: "RSI",         get: r => r.rsiVal },
-          { id: "change",   label: "Change %",    get: r => r.quote?.changePercent },
+          { id: "change",   label: "Change %",    get: r => r.quote?.changesPercentage },
           { id: "price",    label: "Price",       get: r => r.quote?.price },
           { id: "rvol",     label: "Rel Volume",  get: r => r.quote?.volume && r.quote?.avgVolume ? r.quote.volume / r.quote.avgVolume : null },
           { id: "mktcap",   label: "Mkt Cap ($B)",get: r => r.quote?.marketCap ? r.quote.marketCap / 1e9 : null },
@@ -109,7 +109,7 @@ export default function ScreenerTab({
                       </thead>
                       <tbody>
                         {screenerResults.map((row, i) => {
-                          const chg = row.quote?.changePercent || 0;
+                          const chg = row.quote?.changesPercentage || 0;
                           const rvol = row.quote?.volume && row.quote?.avgVolume ? row.quote.volume / row.quote.avgVolume : null;
                           return (
                             <tr key={row.ticker} style={{ borderTop: `1px solid ${C.border}33`, background: i % 2 === 0 ? "transparent" : (themeMode === "dark" ? "#ffffff04" : "#00000003") }}>
