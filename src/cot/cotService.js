@@ -100,6 +100,30 @@ async function updateCOTData() {
       }
     }
 
+    // dataStale (set above) only reflects whether the WHOLE report-type
+    // download had to fall back to last year's archive — it says nothing
+    // about whether a specific market's own matched row is actually current.
+    // Confirmed live: dow/sp500/nasdaq/russell are all TFF (same single
+    // fetch, same dataStale=false), but dow's matched "MICRO E-MINI DJIA"
+    // row was dated a full month behind sp500/nasdaq/russell's row from the
+    // very same successful download — CFTC just hadn't published a fresh
+    // row for that specific (thin) contract, and the UI had no way to know.
+    // Second pass: flag any market whose own reportDate lags more than 10
+    // days behind the freshest reportDate seen across this whole update
+    // (weekly release cadence + buffer) as stale, overriding the coarser
+    // report-type-level flag when it's the stricter read.
+    const freshestDate = allResults.map(r => r.reportDate).filter(Boolean).sort().pop();
+    if (freshestDate) {
+      const freshestMs = new Date(freshestDate).getTime();
+      for (const r of allResults) {
+        if (!r.reportDate) continue;
+        const ageDays = (freshestMs - new Date(r.reportDate).getTime()) / 86400000;
+        if (ageDays > 10 && !r.dataStale) {
+          saveBias(r.biasKey, { ...r, dataStale: true });
+        }
+      }
+    }
+
     // Only record lastFetchAt when at least one market was updated
     // so that a failed / empty run doesn't mask the stale warning
     const meta = {

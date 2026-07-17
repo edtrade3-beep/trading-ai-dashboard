@@ -212,11 +212,16 @@ export default function CotTab({
                     <tbody>
                       {Object.entries(allBiases).map(([key, b]) => {
                         const sc = b.score || 0;
-                        const col = scoreColor(sc);
+                        // dataStale means THIS market's own matched CFTC row is
+                        // meaningfully older than its peers from the same fetch
+                        // (e.g. a thinly-traded contract CFTC hasn't re-published
+                        // recently) — dim the score/bias so a month-old read
+                        // doesn't read as equally confident as a fresh one.
+                        const col = b.dataStale ? dim : scoreColor(sc);
                         const extreme = b.positioningExtreme;
                         return (
                           <tr key={key} style={{ borderBottom: `1px solid ${C.border}22`,
-                            background: extreme ? `${yellow}08` : "transparent" }}>
+                            background: b.dataStale ? `${yellow}0a` : extreme ? `${yellow}08` : "transparent" }}>
                             <td style={{ padding: "6px 10px", color: C.text, fontWeight: 700, whiteSpace: "nowrap" }}>
                               {b.name || key}
                             </td>
@@ -227,7 +232,7 @@ export default function CotTab({
                               {sc > 0 ? "+" : ""}{sc}
                             </td>
                             <td style={{ padding: "6px 10px" }}>
-                              {biasTag(b.label || "—")}
+                              {b.dataStale ? biasTag("Stale — low confidence") : biasTag(b.label || "—")}
                             </td>
                             <td style={{ padding: "6px 10px", color: dim }}>
                               {b.primaryPct13 !== undefined ? `${b.primaryPct13}%` : "—"}
@@ -245,11 +250,13 @@ export default function CotTab({
                                 ? (b.weekChange > 0 ? "+" : "") + Number(b.weekChange).toLocaleString()
                                 : "—"}
                             </td>
-                            <td style={{ padding: "6px 10px", color: dim, fontSize: 12 }}>
+                            <td style={{ padding: "6px 10px", color: b.dataStale ? yellow : dim, fontSize: 12 }}>
                               {b.reportDate || "—"}
                             </td>
                             <td style={{ padding: "6px 10px", fontSize: 12 }}>
-                              {extreme
+                              {b.dataStale
+                                ? <span style={{ color: yellow }}>⚠️ STALE</span>
+                                : extreme
                                 ? <span style={{ color: yellow }}>⚠️ EXTREME</span>
                                 : <span style={{ color: `${green}88` }}>OK</span>}
                             </td>
@@ -271,10 +278,10 @@ export default function CotTab({
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 16 }}>
                   {Object.entries(allBiases).map(([key, b]) => {
                     const sc = b.score || 0;
-                    const col = scoreColor(sc);
+                    const col = b.dataStale ? dim : scoreColor(sc);
                     const pct = Math.max(0, Math.min(100, ((sc + 100) / 200) * 100));
                     return (
-                      <div key={key} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
+                      <div key={key} style={{ background: C.card, border: `1px solid ${b.dataStale ? `${yellow}44` : C.border}`, borderRadius: 8,
                         padding: "10px 14px" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                           <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>
@@ -293,8 +300,9 @@ export default function CotTab({
                           <span style={{ fontFamily: MONO, fontSize: 12, color: dim }}>NEUTRAL</span>
                           <span style={{ fontFamily: MONO, fontSize: 12, color: green }}>BULLISH</span>
                         </div>
-                        {b.crowdedLong  && <div style={{ fontFamily: MONO, fontSize: 12, color: yellow, marginTop: 3 }}>⚠️ Crowded Long — monitor for reversal</div>}
-                        {b.crowdedShort && <div style={{ fontFamily: MONO, fontSize: 12, color: yellow, marginTop: 3 }}>⚠️ Crowded Short — squeeze risk</div>}
+                        {b.dataStale && <div style={{ fontFamily: MONO, fontSize: 12, color: yellow, marginTop: 3 }}>⚠️ Stale report ({b.reportDate}) — low confidence, ignore crowding flags below</div>}
+                        {!b.dataStale && b.crowdedLong  && <div style={{ fontFamily: MONO, fontSize: 12, color: yellow, marginTop: 3 }}>⚠️ Crowded Long — monitor for reversal</div>}
+                        {!b.dataStale && b.crowdedShort && <div style={{ fontFamily: MONO, fontSize: 12, color: yellow, marginTop: 3 }}>⚠️ Crowded Short — squeeze risk</div>}
                       </div>
                     );
                   })}
