@@ -3,51 +3,109 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>html,body{margin:0;padding:0;height:100%;background:transparent;overflow:hidden}#tv{width:100%;height:100vh}</style>
+  <style>html,body{margin:0;padding:0;height:100%;background:transparent;overflow:hidden}#tv{width:100%;height:100vh}.tradingview-widget-container,.tradingview-widget-container__widget{width:100%;height:100%}</style>
 </head>
 <body>
   <div id="tv"></div>
-  <script src="https://s3.tradingview.com/tv.js"></script>
   <script>
     (function () {
       var q = new URLSearchParams(location.search);
       var symbol = (q.get("s") || "SPY").toUpperCase();
       var iv = q.get("iv") || "D";            // "1","5","15","60","D","W"
       var theme = (q.get("t") || "light").toLowerCase() === "dark" ? "dark" : "light";
+      var w = (q.get("w") || "advanced-chart").toLowerCase();
       var st = (q.get("st") || "").split(",").map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean);
-      // Friendly study names → TradingView study configs (with EMA lengths).
-      function mapStudy(name) {
-        if (name === "ema9")  return { id: "MAExp@tv-basicstudies", inputs: { length: 9 } };
-        if (name === "ema21") return { id: "MAExp@tv-basicstudies", inputs: { length: 21 } };
-        if (name === "ema50") return { id: "MAExp@tv-basicstudies", inputs: { length: 50 } };
-        if (name === "vwap")  return "VWAP@tv-basicstudies";
-        if (name === "volume") return "Volume@tv-basicstudies";
-        if (name === "rsi")   return "RSI@tv-basicstudies";
-        if (name === "macd")  return "MACD@tv-basicstudies";
-        return name;   // pass through raw study ids
+
+      // "advanced-chart" is the only caller of TradingView's classic tv.js
+      // constructor API (new TradingView.widget(...)). Every other widget
+      // type below (events/economic-calendar, mini-symbol-overview,
+      // symbol-info, technical-analysis, financials, timeline) is one of
+      // TradingView's newer self-contained embed-widget-*.js scripts — a
+      // completely different embedding mechanism where the <script> tag's
+      // own text content IS its JSON config, not a JS constructor call.
+      // This file previously only ever built the chart widget regardless
+      // of ?w=, so every non-chart request silently rendered a full SPY/
+      // whatever-symbol chart instead — CalendarTab's "economic calendar"
+      // was actually just a chart, SmartScanTab's per-row mini overview
+      // was a full chart, and 4 of OpenStockTab's 5 widget panels
+      // (symbol-info, technical-analysis, financials, timeline) were all
+      // silently duplicating the advanced-chart panel.
+      if (w === "advanced-chart") {
+        function mapStudy(name) {
+          if (name === "ema9")  return { id: "MAExp@tv-basicstudies", inputs: { length: 9 } };
+          if (name === "ema21") return { id: "MAExp@tv-basicstudies", inputs: { length: 21 } };
+          if (name === "ema50") return { id: "MAExp@tv-basicstudies", inputs: { length: 50 } };
+          if (name === "vwap")  return "VWAP@tv-basicstudies";
+          if (name === "volume") return "Volume@tv-basicstudies";
+          if (name === "rsi")   return "RSI@tv-basicstudies";
+          if (name === "macd")  return "MACD@tv-basicstudies";
+          return name;   // pass through raw study ids
+        }
+        var studies = st.length
+          ? st.map(mapStudy)
+          : ["MASimple@tv-basicstudies", "Volume@tv-basicstudies"];
+        var tvjs = document.createElement("script");
+        tvjs.src = "https://s3.tradingview.com/tv.js";
+        tvjs.onload = function () {
+          new TradingView.widget({
+            container_id: "tv",
+            symbol: symbol,
+            interval: iv,
+            autosize: true,
+            timezone: "America/New_York",
+            theme: theme,
+            style: "1",              // candles
+            locale: "en",
+            hide_side_toolbar: false,
+            allow_symbol_change: true,
+            withdateranges: true,
+            studies: studies,
+            backgroundColor: theme === "dark" ? "#0f1318" : "#ffffff"
+          });
+        };
+        document.body.appendChild(tvjs);
+        return;
       }
-      var studies = st.length
-        ? st.map(mapStudy)
-        : ["MASimple@tv-basicstudies", "Volume@tv-basicstudies"];
-      function build() {
-        if (!window.TradingView) { setTimeout(build, 200); return; }
-        new TradingView.widget({
-          container_id: "tv",
-          symbol: symbol,
-          interval: iv,
-          autosize: true,
-          timezone: "America/New_York",
-          theme: theme,
-          style: "1",              // candles
-          locale: "en",
-          hide_side_toolbar: false,
-          allow_symbol_change: true,
-          withdateranges: true,
-          studies: studies,
-          backgroundColor: theme === "dark" ? "#0f1318" : "#ffffff"
-        });
-      }
-      build();
+
+      var EMBED = {
+        "events": {
+          file: "embed-widget-events.js",
+          cfg: { colorTheme: theme, isTransparent: false, width: "100%", height: "100%", locale: "en", importanceFilter: "-1,0,1", countryFilter: "us" },
+        },
+        "mini-symbol-overview": {
+          file: "embed-widget-mini-symbol-overview.js",
+          cfg: { symbol: symbol, width: "100%", height: "100%", locale: "en", dateRange: "12M", colorTheme: theme, isTransparent: false, autosize: true },
+        },
+        "symbol-info": {
+          file: "embed-widget-symbol-info.js",
+          cfg: { symbol: symbol, width: "100%", colorTheme: theme, isTransparent: false, locale: "en" },
+        },
+        "technical-analysis": {
+          file: "embed-widget-technical-analysis.js",
+          cfg: { interval: "1D", width: "100%", isTransparent: false, height: "100%", symbol: symbol, showIntervalTabs: true, locale: "en", colorTheme: theme },
+        },
+        "financials": {
+          file: "embed-widget-financials.js",
+          cfg: { symbol: symbol, colorTheme: theme, isTransparent: false, displayMode: "regular", width: "100%", height: "100%", locale: "en" },
+        },
+        "timeline": {
+          file: "embed-widget-timeline.js",
+          cfg: { feedMode: "symbol", symbol: symbol, colorTheme: theme, isTransparent: false, displayMode: "regular", width: "100%", height: "100%", locale: "en" },
+        },
+      };
+      var picked = EMBED[w] || EMBED["mini-symbol-overview"];
+      var container = document.createElement("div");
+      container.className = "tradingview-widget-container";
+      var inner = document.createElement("div");
+      inner.className = "tradingview-widget-container__widget";
+      container.appendChild(inner);
+      document.getElementById("tv").appendChild(container);
+      var s2 = document.createElement("script");
+      s2.type = "text/javascript";
+      s2.src = "https://s3.tradingview.com/external-embedding/" + picked.file;
+      s2.async = true;
+      s2.text = JSON.stringify(picked.cfg);
+      container.appendChild(s2);
     })();
   </script>
 </body>
