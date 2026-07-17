@@ -3805,7 +3805,6 @@ export default function App() {
       FEARGREED: "feargreed",
       BRIEFING: "briefing",
       DIVIDEND: "ipo",
-      IPO: "ipo",
       RECAP: "recap",
       ADOL22: "adol22",
       GAP: "gap",
