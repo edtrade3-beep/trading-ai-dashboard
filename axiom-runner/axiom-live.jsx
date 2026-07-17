@@ -2217,7 +2217,16 @@ export default function App() {
   }, [watchlistSymbols]);
 
   useEffect(() => {
-    if (activeTab === "sectors" && !marketMovers && !marketMoversLoading) {
+    // WorkflowTab is the only consumer of marketMovers (SectorsTab doesn't
+    // receive it as a prop) — this condition said "sectors" until now, a
+    // stale leftover from before this data moved to the Workflow tab's
+    // "WATCHLIST MOVERS" panel. Since the effect never fired for the tab
+    // that actually renders it, marketMovers stayed null forever unless a
+    // user happened to visit "sectors" first in the same session — and the
+    // panel's empty-state text says "Loading…" (not an actionable "click
+    // Refresh"), so it looked permanently stuck rather than simply
+    // unfetched.
+    if (activeTab === "workflow" && !marketMovers && !marketMoversLoading) {
       fetchMarketMovers();
     }
   }, [activeTab, marketMovers, marketMoversLoading, fetchMarketMovers]);
@@ -4635,6 +4644,12 @@ export default function App() {
     }
 
     return Object.values(bySymbol)
+      // Every ticker with ANY news item gets a {beats:0, misses:0} entry
+      // above, whether or not it actually had beat/miss language — without
+      // this filter, the tracker padded its top-6 with arbitrary
+      // unrelated-news tickers showing a meaningless "Beat 0 · Miss 0 ·
+      // INLINE" instead of an actually-detected earnings surprise.
+      .filter((r) => r.beats > 0 || r.misses > 0)
       .map((r) => ({
         ...r,
         status: r.beats > r.misses ? "BEAT" : r.misses > r.beats ? "MISS" : "INLINE",

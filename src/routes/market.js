@@ -3417,25 +3417,52 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
         "HOOD","MARA","RIOT","SOFI","UPST","AFRM","CRWD","NET","SNOW","DDOG",
         "BBAI","SERV","RKLB","ASTS","IONQ","RGTI","OKLO","SMR","CEG","GEV",
         "IBIT","HYG","SPY","QQQ","IWM","SMH","XLK","ABNB","UBER","DASH"];
-      const chunks = [];
-      for (let i = 0; i < UNIVERSE.length; i += 20) chunks.push(UNIVERSE.slice(i, i + 20));
-      const settled = await Promise.allSettled(chunks.map(c => fetchYahooQuoteBatch(c)));
-      const quotes = settled.flatMap(r => r.status === "fulfilled" ? r.value : []);
+      // Two data needs, two sources: price comes from one cheap batched
+      // v7/finance/quote call; real short-interest (including the prior-
+      // month comparison this route is named for) has to come from
+      // v10/finance/quoteSummary per symbol — confirmed directly that v7's
+      // batch endpoint never returns shortPercentOfFloat OR
+      // sharesShortPriorMonth regardless of the fields= list requested
+      // (sharesShort/shortRatio DO come back, but not those two), while
+      // fetchYahooShortInterest's v10 module reliably has all of them
+      // (verified: a real GME lookup returned sharesShortPrior). The old
+      // code read shortPercentOfFloat/sharesShortPriorMonth from the batch
+      // response — both always undefined there — so shortFloat always
+      // computed to 0 and the shortFloat > 0 filter wiped out every row,
+      // every time, regardless of real short-interest data.
+      const priceQuotes = await fetchYahooQuoteBatch(UNIVERSE).catch(() => []);
+      const priceBySym = new Map(priceQuotes.map(q => [String(q.symbol || "").toUpperCase(), Number(q.regularMarketPrice || 0)]));
 
-      const stocks = quotes.map(q => {
-        const sym    = String(q.symbol || "").toUpperCase();
-        const price  = round2(Number(q.regularMarketPrice || 0));
-        const sfRaw  = Number(q.shortPercentOfFloat || 0);
-        const sf     = sfRaw > 1 ? round2(sfRaw) : round2(sfRaw * 100);
-        const days   = round2(Number(q.shortRatio || 0));
-        const shares = Number(q.sharesShortPriorMonth || 0);
-        const curr   = Number(q.sharesShort || 0);
-        const chgPct = (shares > 0 && curr > 0) ? round2((curr - shares) / shares * 100) : 0;
+      const CONCURRENCY = 4;
+      const siResults = [];
+      for (let i = 0; i < UNIVERSE.length; i += CONCURRENCY) {
+        const batch = UNIVERSE.slice(i, i + CONCURRENCY);
+        const settled = await Promise.allSettled(batch.map(sym => fetchYahooShortInterest(sym)));
+        for (const r of settled) if (r.status === "fulfilled" && r.value) siResults.push(r.value);
+      }
+
+      const stocks = siResults.map(si => {
+        const sym    = si.symbol;
+        const price  = round2(priceBySym.get(sym) || 0);
+        const sf     = Number(si.shortFloat) || 0; // already a real percent (e.g. 13.64), not a fraction
+        const days   = Number(si.shortRatio) || 0;
+        const curr   = Number(si.sharesShort) || 0;
+        const prior  = Number(si.sharesShortPrior) || 0;
+        // Honest null (not a fabricated 0) when the prior-month figure
+        // isn't available for this symbol — a real "no change" and "no
+        // data to compare" must not look identical in a ranked list.
+        const chgPct = (prior > 0 && curr > 0) ? round2((curr - prior) / prior * 100) : null;
         return { sym, price, shortFloat: sf, daysToCover: days, shortChange: chgPct };
       }).filter(s => s.price > 0 && s.shortFloat > 0);
 
-      const increasing = [...stocks].sort((a,b) => b.shortChange - a.shortChange).slice(0, 8);
-      const covering   = [...stocks].sort((a,b) => a.shortChange - b.shortChange).slice(0, 8);
+      // increasing/covering rank by week-over-week change specifically, so
+      // a symbol with no prior-month figure (shortChange: null) has
+      // nothing meaningful to rank by — exclude rather than let it sort
+      // arbitrarily (null - number is NaN). highShort doesn't need
+      // shortChange at all, so it keeps every symbol with real short float.
+      const withChange = stocks.filter(s => s.shortChange != null);
+      const increasing = [...withChange].sort((a,b) => b.shortChange - a.shortChange).slice(0, 8);
+      const covering   = [...withChange].sort((a,b) => a.shortChange - b.shortChange).slice(0, 8);
       const highShort  = [...stocks].sort((a,b) => b.shortFloat - a.shortFloat).slice(0, 10);
 
       return writeJson(res, 200, { ok: true, increasing, covering, highShort, scannedAt: new Date().toISOString() });

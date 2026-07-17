@@ -189,7 +189,7 @@ export default function WorkflowTab({
                     {marketMoversLoading ? "…" : "REFRESH"}
                   </button>
                 </div>
-                {!marketMovers && !marketMoversLoading && <div style={{ fontSize: 12, color: C.textDim }}>Loading…</div>}
+                {!marketMovers && !marketMoversLoading && <div style={{ fontSize: 12, color: C.textDim }}>No data yet — click REFRESH.</div>}
                 {marketMoversLoading && <div style={{ fontSize: 12, color: C.textDim }}>Fetching movers…</div>}
                 {marketMovers && (
                   <>
