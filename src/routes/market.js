@@ -2244,8 +2244,16 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
         withTimeout(fetchYahooBars("TLT",  "3mo", "1d"), 6000, []),
         withTimeout(fetchYahooBars("HYG",  "3mo", "1d"), 10000, []),
       ]);
+      // VIX carries the single heaviest weight (30%) in this composite — if
+      // its fetch genuinely failed (empty bars, distinct from "market's
+      // just calm today"), defaulting to a fabricated vix=20 silently
+      // produced a fake ~71-point GREED-leaning score built on data that
+      // was never actually read, with nothing telling the user it wasn't
+      // real. Fail the whole endpoint honestly instead — the same
+      // treatment the outer catch block already gives any other failure.
+      if (!vixBars.length) return writeJson(res, 422, { error: "VIX data unavailable — can't compute a real Fear & Greed score without it." });
       const { computeRSI } = require("../indicators");
-      const vix = vixBars.at(-1)?.close ?? 20;
+      const vix = vixBars.at(-1).close;
       const vixScore = Math.max(0, Math.min(100, Math.round(100 - ((vix - 10) / 35) * 100)));
       const spyCloses = spyBars.map(b => b.close);
       const spyCurrent = spyCloses.at(-1) ?? 0;
