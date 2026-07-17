@@ -111,18 +111,13 @@ export default function GapFillTab({ C, MONO, SANS, setActiveTab }) {
                   </div>
                 </div>
 
-                {/* Probability bar */}
-                <div style={{ marginBottom: 8 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                    <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>Fill probability</span>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: gColor, fontWeight: 700 }}>
-                      {urgent ? "~80%" : g.daysOpen < 7 ? "~70%" : g.daysOpen < 30 ? "~60%" : "~50%"}
-                    </span>
-                  </div>
-                  <div style={{ height: 5, background: C.border, borderRadius: 3, overflow: "hidden" }}>
-                    <div style={{ width: urgent ? "80%" : g.daysOpen < 7 ? "70%" : "60%",
-                      height: "100%", background: gColor, borderRadius: 3 }} />
-                  </div>
+                {/* Urgency note — distToFill/daysOpen below are real, computed
+                    from actual price data; this line is a rule-of-thumb read
+                    on them, not a modeled probability, and shouldn't look
+                    like one (no fabricated "~80%" precision, no data bar
+                    styled the same as the genuinely computed fields above) */}
+                <div style={{ marginBottom: 8, fontFamily: SANS, fontSize: 10, color: C.textDim }}>
+                  {urgent ? "Very close to fill — highest-probability zone" : g.daysOpen < 7 ? "Recent gap, still likely to fill soon" : g.daysOpen < 30 ? "Aging gap — fill less certain" : "Old gap — lower odds of a clean fill"}
                 </div>
 
                 <button onClick={() => { navigator.clipboard?.writeText(g.sym).catch(()=>{}); setActiveTab("smartscan"); }}
