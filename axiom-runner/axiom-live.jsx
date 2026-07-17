@@ -41,6 +41,7 @@ import TradingLockedOverlay from "./components/TradingLockedOverlay.jsx";
 import QuickLogModal from "./components/QuickLogModal.jsx";
 import CommandPaletteModal from "./components/CommandPaletteModal.jsx";
 import IstighfarWidget, { ISTIGHFAR_BAR_H } from "./components/IstighfarWidget.jsx";
+import CompactMarketMode from "./components/CompactMarketMode.jsx";
 import RealityCheckWidget from "./components/RealityCheckWidget.jsx";
 import Sidebar, { SIDEBAR_ITEMS } from "./components/Sidebar.jsx";
 import StatusBar, { STATUS_BAR_H } from "./components/StatusBar.jsx";
@@ -5380,6 +5381,7 @@ export default function App() {
               }}
             />
           </div>
+          {!isMobile && <CompactMarketMode C={C} MONO={MONO} macroData={macroData} setActiveTab={setActiveTab} />}
           {/* Nav pills moved to the persistent left Sidebar (below). Mobile
               still uses the hamburger+drawer, restyled to the same 13-item
               list — see Sidebar.jsx and the mobile drawer render below. */}

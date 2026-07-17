@@ -11,6 +11,51 @@ export const ISTIGHFAR_BAR_H = 40; // shared with the Top Bar's own sticky offse
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
+// Compact "next prayer" readout for the left edge of this bar — a small,
+// read-only subset of MonitorAthan.jsx's GPS+timings fetch (same
+// api.aladhan.com source), deliberately NOT importing MonitorAthan itself:
+// that component owns auto-athan playback + user sound/auto settings, and
+// this bar is mounted globally on every page, so reusing it here would run
+// a second copy of that playback logic everywhere instead of only where
+// the user actually opened the full Prayer Times panel (Dashboard → More).
+function CompactPrayerNext({ dim }) {
+  const [times, setTimes] = useState(null);
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    let done = false;
+    const loadByCoords = (lat, lng) => {
+      fetch(`https://api.aladhan.com/v1/timings?latitude=${lat}&longitude=${lng}&method=2`)
+        .then(r => r.json()).then(d => { if (d.data) setTimes(d.data.timings); }).catch(() => {});
+    };
+    const fallback = () => { if (!done) { done = true; loadByCoords(21.4225, 39.8262); } }; // Makkah
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => { done = true; loadByCoords(pos.coords.latitude, pos.coords.longitude); },
+        fallback, { timeout: 8000, maximumAge: 3600000 }
+      );
+      setTimeout(fallback, 9000);
+    } else fallback();
+  }, []);
+
+  useEffect(() => { const t = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(t); }, []);
+
+  if (!times) return null;
+  const PRAYER_AR = { Fajr: "الفجر", Sunrise: "الشروق", Dhuhr: "الظهر", Asr: "العصر", Maghrib: "المغرب", Isha: "العشاء" };
+  const mins = h => { const [hh, mm] = (times[h] || "0:0").split(":").map(Number); return hh * 60 + mm; };
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const order = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"];
+  let nextPrayer = null, countdown = "";
+  for (const p of order) { if (mins(p) > nowMin) { nextPrayer = p; const diff = mins(p) - nowMin; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`; break; } }
+  if (!nextPrayer) { nextPrayer = "Fajr"; countdown = "tomorrow"; }
+
+  return (
+    <span title="Next prayer" style={{ fontFamily: MONO, fontSize: 11, color: dim, whiteSpace: "nowrap", flexShrink: 0, display: "flex", alignItems: "center", gap: 4 }}>
+      🕌 <span dir="rtl" style={{ color: "#14b8a6", fontWeight: 700 }}>{PRAYER_AR[nextPrayer]}</span> {countdown}
+    </span>
+  );
+}
+
 export default function IstighfarWidget({ C, themeMode, isMobile }) {
   const [todayCount, setTodayCount] = useState(() => {
     try {
@@ -116,6 +161,7 @@ export default function IstighfarWidget({ C, themeMode, isMobile }) {
         transition: "box-shadow 1.2s ease", overflow: "hidden",
       }}
     >
+      {!isMobile && <CompactPrayerNext dim={dim} />}
       <span style={{ fontSize: 14, color: GOLD, flexShrink: 0 }}>☪</span>
       <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "baseline", gap: 10, overflow: "hidden" }} dir="rtl">
         <span title={AR_PRIMARY}
