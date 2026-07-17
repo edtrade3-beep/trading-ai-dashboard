@@ -44,7 +44,14 @@ export default function DipBuyTab({ C, MONO, SANS, watchlistData, macroData, ope
       for (const batch of batches) {
         const results2 = await Promise.allSettled(
           batch.map(sym =>
-            fetch(`/api/market/chart?symbol=${sym}&interval=1d&range=90d`)
+            // range=1y (not 90d) — ma200 below is Math.min(200, closes.length)
+            // of whatever this returns; 90d only ever gives ~90 closes, so
+            // "Above 200D MA — uptrend intact" was actually testing a ~90-day
+            // average and feeding real points (10 vs 3) into the dip-buy
+            // score off a mislabeled signal. Same bug class as the Green
+            // Light Deep Dive MA200 fix — this fetch feeds an active score,
+            // not just a display value, so it's the more severe instance.
+            fetch(`/api/market/chart?symbol=${sym}&interval=1d&range=1y`)
               .then(r => r.json()).then(d => ({ sym, data: d }))
           )
         );
@@ -58,12 +65,19 @@ export default function DipBuyTab({ C, MONO, SANS, watchlistData, macroData, ope
           const vols   = bars.volume || [];
           if (closes.length < 10) continue;
 
-          // Use last 2 closes for today's change (more reliable than meta fields)
+          // meta.chartPreviousClose from this chart proxy has been observed
+          // live to be badly stale (e.g. reporting AAPL's previous close as
+          // $259.88 when the real prior daily bar — and the actual quote
+          // endpoint — both agreed on ~$333). closes.at(-2) is the real
+          // prior daily bar from the same series just fetched, so it's
+          // authoritative whenever it's available; the "whichever gives a
+          // bigger move" heuristic this replaced was backwards — a big
+          // disagreement between the two is a sign of BAD data, not a more
+          // accurate one, and it was preferring the stale field almost
+          // every time by construction.
           const px       = Number(meta.regularMarketPrice || closes.at(-1));
           const prev1    = closes.at(-2) || px;
-          const prev2    = Number(meta.chartPreviousClose) || prev1;
-          // Use whichever gives a bigger move (chart prev close often more accurate)
-          const prevClose = Math.abs(px - prev2) > Math.abs(px - prev1) ? prev2 : prev1;
+          const prevClose = closes.length >= 2 ? prev1 : (Number(meta.chartPreviousClose) || prev1);
           const todayChg  = prevClose > 0 && prevClose !== px ? ((px - prevClose) / prevClose * 100) : 0;
           const hi52  = Number(meta.fiftyTwoWeekHigh  || 0) || Math.max(...closes.slice(-252));
           const lo52  = Number(meta.fiftyTwoWeekLow   || 0) || Math.min(...closes.slice(-252));
