@@ -1494,7 +1494,11 @@ Return ONLY valid JSON, no markdown: {"firstName":"","customerEmail":"","custome
 
     if (insider?.ok && insider.results?.length) {
       const top = insider.results.slice(0, 8).map(r => r.ticker || r.symbol).filter(Boolean).join(", ");
-      lines.push(`Insider buying (Form 4, last 14 days) — active names: ${top}.`);
+      // The scanner covers 3 days (see routes/insider.js — a real SEC
+      // rate-limit constraint, not an arbitrary choice), not 14. This line
+      // said "14 days" until now, a stale claim from before that fix —
+      // wrong on a feature whose whole pitch is "not what the headlines say."
+      lines.push(`Insider buying (Form 4, last 3 days) — active names: ${top}.`);
     } else lines.push("Insider buying: no notable Form 4 buys scanned this run.");
 
     if (dp?.ok && dp.prints?.length) {
