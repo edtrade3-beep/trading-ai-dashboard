@@ -4,9 +4,16 @@ export default function HeatmapTab({
         const positions = (portfolioHoldings || []).filter(h => h.shares > 0);
         const enriched = positions.map(h => {
           const live = (watchlistData || []).find(q => q.symbol === h.symbol) || {};
-          const price = Number(live.price || h.avgPrice || h.cost || 0);
+          const avgCost = Number(h.avgCost || 0);
+          // portfolioHoldings' real field is avgCost (see DEFAULT_PORTFOLIO /
+          // PortfolioTab.jsx / RiskLabTab.jsx — every other consumer in the
+          // app reads it) — this tab was the one place reading avgPrice/cost
+          // instead, which don't exist on the object, so every position's
+          // cost basis and P&L silently rendered as $0.00 / 0.00% no matter
+          // what was actually entered in the Portfolio tab.
+          const price = Number(live.price || avgCost || 0);
           const value = price * h.shares;
-          const pnl = price && h.avgPrice ? (price - h.avgPrice) / h.avgPrice * 100 : 0;
+          const pnl = price && avgCost ? (price - avgCost) / avgCost * 100 : 0;
           return { ...h, price, value, pnlPct: pnl };
         });
         const totalValue = enriched.reduce((s, h) => s + h.value, 0);
@@ -77,7 +84,7 @@ export default function HeatmapTab({
                   {sorted.map(h => (
                     <div key={h.symbol} style={{ ...card({ padding: "10px 14px" }), borderLeft: `3px solid ${h.pnlPct >= 0 ? C.green : C.red}` }}>
                       <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{h.symbol}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>{h.shares} shares @ ${Number(h.avgPrice || 0).toFixed(2)}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>{h.shares} shares @ ${Number(h.avgCost || 0).toFixed(2)}</div>
                       <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: h.pnlPct >= 0 ? C.green : C.red, marginTop: 4 }}>
                         {h.pnlPct >= 0 ? "▲" : "▼"} {Math.abs(h.pnlPct).toFixed(2)}%
                       </div>
