@@ -1,6 +1,9 @@
-// ── agent.js — Rule-based AI features (no API key required) ────────────────
+// ── agent.js — AI features, with a rule-based fallback when no API key is
+// configured (or the call fails) ────────────────────────────────────────────
 const { writeJson, readRequestBody } = require("../utils");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("../telegram");
+const { callAnthropicApi } = require("../anthropic");
+const { ANTHROPIC_API_KEY } = require("../config");
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt2  = (n) => Number(n || 0).toFixed(2);
@@ -831,6 +834,60 @@ async function handleAgent(req, res, requestUrl) {
   if (pathname === "/api/agent" && req.method === "POST") {
     let body;
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON" }); }
+
+    // Five real frontend features (TerminalWorkspace's AI Insight, CoachTab,
+    // ChallengeTab's weekly review, the AI Agent tab, Morning Brief) all POST
+    // a free-text `prompt` here expecting a real Claude response, each with
+    // their own "try AI first, fall back to a heuristic if data.output is
+    // falsy" logic already built client-side. This branch was missing
+    // entirely — every one of those 5 callers was silently getting back
+    // generateBriefing()'s deterministic market-briefing template instead
+    // (built from body.regime/body.topLongs, fields most of those 5 callers
+    // don't even send), which is always non-empty, so the client-side
+    // "fall back to heuristic" check never fired and users saw a fabricated,
+    // unrelated wall of text in place of the coaching/analysis they asked
+    // for. Confirmed live before this fix: POSTing an unrelated prompt
+    // ("write a haiku about pizza") returned a full PRE-MARKET BRIEFING
+    // template with every field zeroed/"Unknown", not the requested prompt.
+    if (typeof body.prompt === "string" && body.prompt.trim()) {
+      if (!ANTHROPIC_API_KEY) return writeJson(res, 200, { output: null, error: "AI not configured" });
+      // Some callers (AI Agent tab, Morning Brief) send a short/generic
+      // prompt plus real structured context fields alongside it (regime,
+      // index moves, real ranked top-long/top-risk symbols, active alerts,
+      // a focus symbol) — without folding those in, Claude would have no
+      // real numbers to reason over and could only hallucinate them. Other
+      // callers (TerminalWorkspace, CoachTab, ChallengeTab) embed everything
+      // directly in the prompt string and send no extra fields, so this
+      // block is simply empty for them.
+      const ctxLines = [];
+      if (body.regime != null) ctxLines.push(`Regime: ${body.regime}`);
+      if (body.macroTone) ctxLines.push(`Macro tone: ${body.macroTone}`);
+      if (body.session) ctxLines.push(`Session: ${body.session}`);
+      if (body.flowBias) ctxLines.push(`Options flow bias: ${body.flowBias} (calls $${fmt2(body.flowCallNotional)} vs puts $${fmt2(body.flowPutNotional)})`);
+      if (Array.isArray(body.indexRows) && body.indexRows.length) {
+        ctxLines.push(`Indexes: ${body.indexRows.map((r) => `${r.label} ${fmtPct(r.value)}`).join(" | ")}`);
+      }
+      if (Array.isArray(body.topLongs) && body.topLongs.length) {
+        ctxLines.push(`Top longs (real, ranked by relative strength): ${body.topLongs.map((r) => `${r.symbol} (RS ${fmtPct(r.relVsSpy)})`).join(", ")}`);
+      }
+      if (Array.isArray(body.topRisks) && body.topRisks.length) {
+        ctxLines.push(`Top risk/weak names: ${body.topRisks.map((r) => `${r.symbol} (RS ${fmtPct(r.relVsSpy)})`).join(", ")}`);
+      }
+      if (Array.isArray(body.alerts) && body.alerts.length) {
+        ctxLines.push(`Active alerts: ${body.alerts.map((a) => a.text || a.symbol).filter(Boolean).slice(0, 5).join("; ")}`);
+      }
+      if (body.focus) {
+        ctxLines.push(`Focus symbol: ${body.focus.symbol} $${fmt2(body.focus.price)} (${fmtPct(body.focus.changesPercentage)}), trend ${body.focus.trend || "?"}, score ${body.focus.score ?? "?"}/100`);
+      }
+      const fullPrompt = ctxLines.length ? `${body.prompt}\n\nREAL DATA:\n${ctxLines.join("\n")}` : body.prompt;
+      try {
+        const output = await callAnthropicApi(fullPrompt, ANTHROPIC_API_KEY, { maxTokens: 2000 });
+        return writeJson(res, 200, { output, generatedAt: now() });
+      } catch (err) {
+        return writeJson(res, 200, { output: null, error: err instanceof Error ? err.message : "AI call failed" });
+      }
+    }
+
     const briefing = generateBriefing({ macro: body, regime: body.regime, watchlist: body.topLongs || [], earnings: [] });
     return writeJson(res, 200, { output: briefing, generatedAt: now() });
   }

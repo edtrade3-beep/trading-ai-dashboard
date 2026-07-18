@@ -33,13 +33,6 @@ export default function Adol22Tab({ C, MONO, SANS }) {
     finally { setScanning(false); }
   };
 
-  // Live alert feed from localStorage (written by Telegram dispatch)
-  const addAlert = (alert) => {
-    const updated = [{ ...alert, id: Date.now() }, ...alerts].slice(0, 20);
-    setAlerts(updated);
-    try { localStorage.setItem("adol22_alerts", JSON.stringify(updated)); } catch {}
-  };
-
   const PATTERNS_BULL = ["Bullish Engulfing","Hammer","Breakout Candle","Inside Bar Breakout","Morning Star"];
   const PATTERNS_BEAR = ["Bearish Engulfing","Shooting Star","Breakdown Candle","Inside Bar Breakdown","Evening Star"];
   const CONFIRMS = ["VWAP position","EMA 9 vs 21","Volume spike","1h trend","SPY/QQQ direction","VIX level","5m confirmation"];
