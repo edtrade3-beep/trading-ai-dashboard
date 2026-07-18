@@ -77,6 +77,7 @@ function relStrength(sd, spyChg) {
 function attachRealData(pick, rankedMap) {
   const row = rankedMap.get(String(pick?.symbol || "").toUpperCase());
   if (!row) return null;
+  const f = row.fund || null;
   return {
     symbol: row.symbol,
     why: String(pick.why || "").slice(0, 240),
@@ -90,6 +91,30 @@ function attachRealData(pick, rankedMap) {
     stop: row.stop,
     target: row.target2,
     atBuyPoint: !!row.atBuyPoint,
+    // Real fundamentals from /api/yahoo/fundamentals — null fields where
+    // Yahoo doesn't have the data, never a guessed/interpolated value.
+    fundamentals: f ? {
+      marketCap: Number.isFinite(f.marketCap) ? f.marketCap : null,
+      pe: Number.isFinite(f.pe) ? f.pe : null,
+      pegRatio: Number.isFinite(f.pegRatio) ? f.pegRatio : null,
+      revenueGrowth: Number.isFinite(f.revenueGrowth) ? f.revenueGrowth : null,
+      earningsGrowth: Number.isFinite(f.earningsGrowth) ? f.earningsGrowth : null,
+      grossMargin: Number.isFinite(f.grossMargin) ? f.grossMargin : null,
+      profitMargin: Number.isFinite(f.profitMargin) ? f.profitMargin : null,
+      debtToEquity: Number.isFinite(f.debtToEquity) ? f.debtToEquity : null,
+      freeCashflow: Number.isFinite(f.freeCashflow) ? f.freeCashflow : null,
+    } : null,
+    // Bear/base/bull proxy from real Wall Street analyst price targets —
+    // not AI-generated scenario modeling. targetLow/Mean/HighPrice and the
+    // analyst count are genuine data from Yahoo's recommendationTrend/
+    // financialData modules, not an invented probability distribution.
+    priceTargets: f && (Number.isFinite(f.targetLowPrice) || Number.isFinite(f.targetMeanPrice) || Number.isFinite(f.targetHighPrice)) ? {
+      bear: Number.isFinite(f.targetLowPrice) ? f.targetLowPrice : null,
+      base: Number.isFinite(f.targetMeanPrice) ? f.targetMeanPrice : null,
+      bull: Number.isFinite(f.targetHighPrice) ? f.targetHighPrice : null,
+      recommendation: f.recommendationKey || null,
+      analystCount: Number.isFinite(f.numberOfAnalystOpinions) ? f.numberOfAnalystOpinions : null,
+    } : null,
   };
 }
 
@@ -133,9 +158,33 @@ async function buildAdvisorBrief() {
     .map(r => ({ ...r, aplus: computeAPlusScore(r, regime), next: computeNextAction(r) }))
     .sort((a, b) => b.aplus.score - a.aplus.score)
     .slice(0, 25);
+
+  // Real per-stock fundamentals + analyst price targets, attached to each
+  // ranked setup. /api/yahoo/fundamentals is single-symbol (confirmed live:
+  // real marketCap/pe/epsForward/revenueGrowth/earningsGrowth/margins/
+  // debtToEquity/freeCashflow/pegRatio, plus real analyst targetLow/Mean/
+  // HighPrice + numberOfAnalystOpinions — a genuine, non-fabricated bear/
+  // base/bull proxy). Bounded to the already-narrowed top-25 ranked list
+  // (not the full 90-symbol scan universe) to keep this to 25 parallel
+  // requests, same bounded-fan-out pattern used elsewhere in this app.
+  const fundArr = await Promise.all(ranked.map(r => getJson(`/api/yahoo/fundamentals?symbol=${r.symbol}`)));
+  ranked.forEach((r, i) => { r.fund = fundArr[i] || null; });
   const rankedMap = new Map(ranked.map(r => [r.symbol, r]));
+
+  const fundSnippet = (f) => {
+    if (!f) return "";
+    const bits = [];
+    if (Number.isFinite(f.marketCap) && f.marketCap > 0) bits.push(`mkt cap $${(f.marketCap / 1e9).toFixed(1)}B`);
+    if (Number.isFinite(f.pe) && f.pe > 0) bits.push(`P/E ${f.pe.toFixed(1)}`);
+    if (Number.isFinite(f.pegRatio) && f.pegRatio > 0) bits.push(`PEG ${f.pegRatio.toFixed(2)}`);
+    if (Number.isFinite(f.revenueGrowth)) bits.push(`rev growth ${(f.revenueGrowth * 100).toFixed(1)}%`);
+    if (Number.isFinite(f.profitMargin)) bits.push(`profit margin ${(f.profitMargin * 100).toFixed(1)}%`);
+    if (Number.isFinite(f.debtToEquity)) bits.push(`D/E ${f.debtToEquity.toFixed(0)}`);
+    if (f.recommendationKey) bits.push(`analyst: ${f.recommendationKey}${Number.isFinite(f.numberOfAnalystOpinions) ? ` (${f.numberOfAnalystOpinions} analysts)` : ""}`);
+    return bits.length ? ` [${bits.join(", ")}]` : "";
+  };
   const setupLines = ranked.map(r =>
-    `${r.symbol}: A+ ${r.aplus.score}/100, ${r.next.action} (${r.next.reason}), RS ${r.rsRating}, ${r.passCount}/8 trend template, stage "${(r.stage || "").replace(/ —.*/, "")}", entry $${r.entry} stop $${r.stop} target $${r.target2}, ${r.atBuyPoint ? "AT buy point" : "not yet at buy point"}.`
+    `${r.symbol}: A+ ${r.aplus.score}/100, ${r.next.action} (${r.next.reason}), RS ${r.rsRating}, ${r.passCount}/8 trend template, stage "${(r.stage || "").replace(/ —.*/, "")}", entry $${r.entry} stop $${r.stop} target $${r.target2}, ${r.atBuyPoint ? "AT buy point" : "not yet at buy point"}.${fundSnippet(r.fund)}`
   ).join("\n");
 
   // Same real insider/COT/short-interest synthesis smart-money-brief already
@@ -162,13 +211,15 @@ async function buildAdvisorBrief() {
   const vix = Number(macroArr.find(m => m.symbol === "VIXY")?.changesPercentage || 0);
   const macroLines = macroArr.map(m => `${m.symbol}: ${Number(m.changesPercentage || 0) >= 0 ? "+" : ""}${Number(m.changesPercentage || 0).toFixed(2)}%`).join(", ");
 
-  const system = `You are ADVISOR — an institutional-grade Chief Investment Strategist writing a real research brief for one trader, not a marketing document. You are given REAL data below (regime score, real sector performance, a real ranked list of A+ trade setups from this platform's own trend-template scan, real insider Form 4 buys, real CFTC positioning, real short-interest changes, real headlines). For the 5-year thematic section, where you genuinely don't have live data, you have a web_search tool — use it and speak in terms of what you found.
+  const system = `You are ADVISOR — an institutional-grade Chief Investment Strategist writing a real research brief for one trader, not a marketing document. You are given REAL data below (regime score, real sector performance, a real ranked list of A+ trade setups from this platform's own trend-template scan, each with real fundamentals — market cap, P/E, PEG, revenue/earnings growth, margins, debt/equity — and real Wall Street analyst price targets where available, real insider Form 4 buys, real CFTC positioning, real short-interest changes, real headlines). For the 5-year thematic section, where you genuinely don't have live data, you have a web_search tool — use it and speak in terms of what you found.
 
 Hard rules:
-- Never invent a 13F filing, a Congress trade, a patent count, or any price/score/entry/stop/target number — you do not type numbers, you only SELECT symbols from the real list below and explain why in prose. The platform attaches the real numbers itself after you respond.
+- Never invent a 13F filing, a Congress trade, a patent count, or any price/score/entry/stop/target/fundamental number — you do not type numbers, you only SELECT symbols from the real list below and explain why in prose. The platform attaches the real numbers itself after you respond.
 - Every symbol in tactical/swing/position/core must come from the real A+ setups list below — never invent a ticker outside it. Pick 2-4 names per horizon where they genuinely fit; if fewer than 2 genuinely fit, return fewer — never pad with a weak justification.
+- Use the real fundamentals in each setup's line (in brackets) to inform your "why" where relevant — e.g. don't call something "attractively valued" if its P/E and PEG are both stretched; a name with real revenue/earnings growth is a stronger "core" (1-year) candidate than one that's purely technical.
 - The 5-year section is an explicitly thematic, web-search-informed thesis, not a scored trade. Tickers there may come from the real list OR be well-known real public companies in that theme (label which is which is not needed — just don't invent obscure/fake tickers).
 - Be willing to disagree with the obvious read of the data if the evidence supports it. State uncertainty explicitly rather than projecting false confidence.
+- actionPlan's "action" must be one of: BUY_NOW, ACCUMULATE, BUY_ON_PULLBACK, WAIT, WATCH, AVOID. There is no REDUCE/SELL — this brief has no visibility into what the trader currently holds, so never imply they should trim or exit an assumed existing position.
 - Return ONLY valid JSON, no markdown fences, no commentary before or after. Every "why"/"reason" string is plain prose, one sentence, no markdown.
 
 Return exactly this JSON shape:
@@ -185,7 +236,7 @@ Return exactly this JSON shape:
   ],
   "smartMoneyRead": "2-3 sentences synthesizing the real insider/COT/short-interest data — what it implies, not just restating it",
   "actionPlan": [
-    {"symbol":"XXX","action":"BUY_NOW|ACCUMULATE|WAIT|WATCH|AVOID","reason":"one clause"}
+    {"symbol":"XXX","action":"BUY_NOW|ACCUMULATE|BUY_ON_PULLBACK|WAIT|WATCH|AVOID","reason":"one clause"}
   ]
 }
 thesis5y should have 2-3 themes. actionPlan should cover 6-10 of the most relevant real names from the setups list.`;
@@ -253,7 +304,12 @@ Return the JSON now.`;
       const row = rankedMap.get(String(p?.symbol || "").toUpperCase());
       if (!row) return null;
       const action = String(p?.action || "").toUpperCase().replace(/\s+/g, "_");
-      if (!["BUY_NOW", "ACCUMULATE", "WAIT", "WATCH", "AVOID"].includes(action)) return null;
+      // REDUCE/SELL deliberately excluded — this brief has no portfolio-
+      // holdings context (no fetch of the user's actual positions), so the
+      // model would have to guess what's held to justify trimming/exiting
+      // it. BUY_ON_PULLBACK is safe to add: like the other 5, it's purely
+      // about entering a new position, not about an assumed existing one.
+      if (!["BUY_NOW", "ACCUMULATE", "BUY_ON_PULLBACK", "WAIT", "WATCH", "AVOID"].includes(action)) return null;
       return { symbol: row.symbol, action, reason: String(p?.reason || "").slice(0, 200), score: row.aplus.score };
     }).filter(Boolean).slice(0, 12);
 

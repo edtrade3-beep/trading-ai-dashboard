@@ -12,11 +12,12 @@ import { cardStyle, buttonChrome } from "./ui-helpers.js";
 // multi-pick coverage per horizon instead of one name each.
 
 const ACTION_META = {
-  BUY_NOW:    { label: "BUY NOW",    key: "gold" },
-  ACCUMULATE: { label: "ACCUMULATE", key: "green" },
-  WAIT:       { label: "WAIT",       key: "amber" },
-  WATCH:      { label: "WATCH",      key: "accent" },
-  AVOID:      { label: "AVOID",      key: "red" },
+  BUY_NOW:         { label: "BUY NOW",         key: "gold" },
+  ACCUMULATE:      { label: "ACCUMULATE",      key: "green" },
+  BUY_ON_PULLBACK: { label: "BUY ON PULLBACK", key: "green" },
+  WAIT:            { label: "WAIT",            key: "amber" },
+  WATCH:           { label: "WATCH",           key: "accent" },
+  AVOID:           { label: "AVOID",           key: "red" },
 };
 
 const HORIZONS = [
@@ -61,6 +62,25 @@ function PickCard({ p, C, MONO, SANS }) {
         <span style={{ color: C.textDim }}>TGT <b style={{ color: C.green }}>${p.target}</b></span>
         <span style={{ color: C.textDim }}>RS <b style={{ color: C.text }}>{p.rsRating}</b></span>
       </div>
+      {/* Real fundamentals from Yahoo — null fields simply don't render, never a guessed value */}
+      {p.fundamentals && (p.fundamentals.pe != null || p.fundamentals.pegRatio != null || p.fundamentals.revenueGrowth != null) && (
+        <div style={{ display: "flex", gap: 12, fontFamily: MONO, fontSize: 10, flexWrap: "wrap", marginBottom: 6, color: C.textDim }}>
+          {p.fundamentals.marketCap != null && <span>MCAP <b style={{ color: C.textSec }}>${(p.fundamentals.marketCap / 1e9).toFixed(1)}B</b></span>}
+          {p.fundamentals.pe != null && <span>P/E <b style={{ color: C.textSec }}>{p.fundamentals.pe.toFixed(1)}</b></span>}
+          {p.fundamentals.pegRatio != null && <span>PEG <b style={{ color: C.textSec }}>{p.fundamentals.pegRatio.toFixed(2)}</b></span>}
+          {p.fundamentals.revenueGrowth != null && <span>REV GR <b style={{ color: p.fundamentals.revenueGrowth >= 0 ? C.green : C.red }}>{(p.fundamentals.revenueGrowth * 100).toFixed(1)}%</b></span>}
+        </div>
+      )}
+      {/* Real Wall Street analyst price-target range — bear/base/bull proxy, not AI-generated */}
+      {p.priceTargets && (p.priceTargets.bear != null || p.priceTargets.base != null || p.priceTargets.bull != null) && (
+        <div style={{ display: "flex", gap: 12, fontFamily: MONO, fontSize: 10, flexWrap: "wrap", marginBottom: 6 }}>
+          <span style={{ color: C.textDim }}>ANALYST TARGET</span>
+          {p.priceTargets.bear != null && <span style={{ color: C.red }}>${p.priceTargets.bear.toFixed(0)}</span>}
+          {p.priceTargets.base != null && <span style={{ color: C.text, fontWeight: 800 }}>${p.priceTargets.base.toFixed(0)}</span>}
+          {p.priceTargets.bull != null && <span style={{ color: C.green }}>${p.priceTargets.bull.toFixed(0)}</span>}
+          {p.priceTargets.analystCount != null && <span style={{ color: C.textDim }}>({p.priceTargets.analystCount} analysts)</span>}
+        </div>
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}55`, paddingTop: 6 }}>
         <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>{p.stage} · {p.passCount}/8</span>
         <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: actionCol }}>{p.action}</span>
