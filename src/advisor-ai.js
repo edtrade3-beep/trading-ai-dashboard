@@ -93,8 +93,15 @@ function attachRealData(pick, rankedMap) {
     atBuyPoint: !!row.atBuyPoint,
     // Real fundamentals from /api/yahoo/fundamentals — null fields where
     // Yahoo doesn't have the data, never a guessed/interpolated value.
+    // marketCap specifically needs a `> 0` guard (not just isFinite): when
+    // fetchYahooFundamentals's primary lookup fails, its own fallback path
+    // computes cap from a second live-quote call, and if THAT also comes up
+    // empty it defaults to a literal 0 — confirmed live (a transient Yahoo
+    // hiccup returned marketCap:0 for AMD, a real ~$800B company, in one
+    // production run). 0 is never a legitimate market cap for any real
+    // listed company, so treat it the same as missing data.
     fundamentals: f ? {
-      marketCap: Number.isFinite(f.marketCap) ? f.marketCap : null,
+      marketCap: Number.isFinite(f.marketCap) && f.marketCap > 0 ? f.marketCap : null,
       pe: Number.isFinite(f.pe) ? f.pe : null,
       pegRatio: Number.isFinite(f.pegRatio) ? f.pegRatio : null,
       revenueGrowth: Number.isFinite(f.revenueGrowth) ? f.revenueGrowth : null,
