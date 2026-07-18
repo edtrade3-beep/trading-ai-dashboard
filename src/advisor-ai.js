@@ -307,6 +307,21 @@ async function buildAdvisorBrief() {
     unrealizedPL: Number(p.unrealizedPL || 0), unrealizedPLpc: Number(p.unrealizedPLpc || 0),
     weightPct: totalMv > 0 ? row2((Number(p.marketValue || 0) / totalMv) * 100) : 0,
   })).sort((a, b) => b.marketValue - a.marketValue);
+
+  // Real per-holding volatility (beta) for the Risk Command Center below.
+  // Same /api/yahoo/fundamentals endpoint the ranked setups use, fetched
+  // separately here since a real holding isn't guaranteed to be inside
+  // SCAN_UNIVERSE (confirmed: a real test holding, OKTA, wasn't) — bounded
+  // to the real holdings list (typically well under 20 positions), same
+  // bounded-fan-out pattern used everywhere else in this file.
+  const holdingFund = await Promise.all(holdings.map(h => getJson(`/api/yahoo/fundamentals?symbol=${h.symbol}`)));
+  holdings.forEach((h, i) => { h.beta = Number.isFinite(holdingFund[i]?.beta) ? holdingFund[i].beta : null; });
+  const betaKnown = holdings.filter(h => h.beta != null && totalMv > 0);
+  const weightedBetaDenom = betaKnown.reduce((s, h) => s + h.weightPct, 0);
+  const weightedBeta = betaKnown.length && weightedBetaDenom > 0
+    ? row2(betaKnown.reduce((s, h) => s + h.beta * h.weightPct, 0) / weightedBetaDenom)
+    : null;
+
   const portfolio = (riskSnap?.ok || holdings.length) ? {
     equity: Number(riskSnap?.equity ?? null),
     cash: Number(riskSnap?.cash ?? null),
@@ -320,6 +335,26 @@ async function buildAdvisorBrief() {
     top3WeightPct: row2(holdings.slice(0, 3).reduce((s, h) => s + h.weightPct, 0)),
     totalUnrealizedPL: row2(posArr.reduce((s, p) => s + Number(p.unrealizedPL || 0), 0)),
     holdings: holdings.slice(0, 20),
+  } : null;
+
+  // Risk Command Center — only the risk types this app can honestly
+  // quantify from real data: concentration (real position weights),
+  // volatility (real portfolio-weighted beta from Yahoo fundamentals),
+  // sector concentration and daily-loss/open-risk (both real, the same
+  // math already gating the autopilots). Tail/systemic/credit/currency/
+  // political/geopolitical/black-swan risk have NO real quantifiable
+  // source anywhere in this app — listed as explicitly not covered rather
+  // than silently dropped or, worse, presented as scored data with
+  // invented numbers.
+  const riskCommandCenter = portfolio ? {
+    concentrationRisk: portfolio.topHoldingWeightPct == null ? null : portfolio.topHoldingWeightPct >= 25 ? "HIGH" : portfolio.topHoldingWeightPct >= 15 ? "MODERATE" : "LOW",
+    topHoldingWeightPct: portfolio.topHoldingWeightPct,
+    volatilityRisk: weightedBeta == null ? null : weightedBeta >= 1.5 ? "HIGH" : weightedBeta >= 1.1 ? "MODERATE" : "LOW",
+    weightedBeta,
+    sectorConcentration: portfolio.sectorConcentration,
+    openRiskPct: portfolio.openRiskPct,
+    dailyBreakerTripped: portfolio.dailyBreakerTripped,
+    notCovered: ["Tail risk", "Systemic risk", "Credit risk", "Currency risk", "Political/geopolitical risk", "Black swan risk"],
   } : null;
 
   // Record today's snapshot now that regime/capitalFlow/portfolio are all
@@ -421,7 +456,7 @@ thesis5y should have 2-3 themes. actionPlan should cover 6-10 of the most releva
 
   const avoidLines = avoidList.map(a => `${a.symbol}: A+ ${a.score}/100, ${a.reasons.join(", ")}${a.stage ? `, stage "${a.stage}"` : ""}`).join("\n");
   const portfolioLines = portfolio
-    ? `Equity $${fmt0(portfolio.equity)}, cash $${fmt0(portfolio.cash)}, ${portfolio.positionCount} open positions, open risk ${portfolio.openRiskPct}% (daily loss breaker: ${portfolio.dailyBreakerTripped ? "TRIPPED" : "ok"}), largest position ${portfolio.topHoldingWeightPct}% of book, top 3 positions ${portfolio.top3WeightPct}% of book, total unrealized P&L ${portfolio.totalUnrealizedPL >= 0 ? "+" : "-"}$${fmt0(Math.abs(portfolio.totalUnrealizedPL))}. Holdings: ${portfolio.holdings.slice(0, 10).map(h => `${h.symbol} (${h.weightPct}% of book, ${h.unrealizedPLpc >= 0 ? "+" : ""}${h.unrealizedPLpc.toFixed(1)}%)`).join(", ")}.`
+    ? `Equity $${fmt0(portfolio.equity)}, cash $${fmt0(portfolio.cash)}, ${portfolio.positionCount} open positions, open risk ${portfolio.openRiskPct}% (daily loss breaker: ${portfolio.dailyBreakerTripped ? "TRIPPED" : "ok"}), largest position ${portfolio.topHoldingWeightPct}% of book, top 3 positions ${portfolio.top3WeightPct}% of book, total unrealized P&L ${portfolio.totalUnrealizedPL >= 0 ? "+" : "-"}$${fmt0(Math.abs(portfolio.totalUnrealizedPL))}. Holdings: ${portfolio.holdings.slice(0, 10).map(h => `${h.symbol} (${h.weightPct}% of book, ${h.unrealizedPLpc >= 0 ? "+" : ""}${h.unrealizedPLpc.toFixed(1)}%${h.beta != null ? `, beta ${h.beta.toFixed(2)}` : ""})`).join(", ")}.${weightedBeta != null ? ` Portfolio-weighted beta: ${weightedBeta.toFixed(2)} (${riskCommandCenter.volatilityRisk} volatility risk).` : ""}`
     : "No live Alpaca account connected — portfolio-aware commentary not available this run.";
 
   const prompt = `MARKET REGIME: ${regime.label} (${regime.score}/100). SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}% today, VIXY ${vix >= 0 ? "+" : ""}${vix.toFixed(2)}%.
@@ -526,6 +561,7 @@ Return the JSON now.`;
     actionPlan,
     avoidList,
     portfolio,
+    riskCommandCenter,
     whatChanged,
     scenarios,
     regime: { score: regime.score, label: regime.label },

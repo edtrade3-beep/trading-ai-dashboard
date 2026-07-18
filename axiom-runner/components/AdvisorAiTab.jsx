@@ -358,6 +358,7 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
                       <span style={{ fontWeight: 800, color: C.text, minWidth: 55 }}>{h.symbol}</span>
                       <span style={{ color: C.textDim, minWidth: 55 }}>{h.weightPct}% book</span>
                       <span style={{ color: C.textDim }}>${h.current}</span>
+                      {h.beta != null && <span style={{ color: C.textDim }}>β {h.beta.toFixed(2)}</span>}
                       <span style={{ color: h.unrealizedPLpc >= 0 ? C.green : C.red, marginLeft: "auto" }}>
                         {h.unrealizedPLpc >= 0 ? "+" : ""}{h.unrealizedPLpc.toFixed(1)}% (${h.unrealizedPL >= 0 ? "+" : ""}{h.unrealizedPL.toFixed(0)})
                       </span>
@@ -365,6 +366,36 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Risk Command Center — only the risk types this app can honestly
+              quantify from real data; the rest are listed as not covered
+              rather than silently omitted or invented */}
+          {brief.riskCommandCenter && (
+            <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
+              <SectionLabel icon="🛡️" text="RISK COMMAND CENTER" color={C.red} C={C} MONO={MONO} />
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                {brief.riskCommandCenter.concentrationRisk && (
+                  <StatPill label="CONCENTRATION" value={`${brief.riskCommandCenter.concentrationRisk} (${brief.riskCommandCenter.topHoldingWeightPct}%)`}
+                    color={brief.riskCommandCenter.concentrationRisk === "HIGH" ? C.red : brief.riskCommandCenter.concentrationRisk === "MODERATE" ? C.amber : C.green} C={C} MONO={MONO} />
+                )}
+                {brief.riskCommandCenter.volatilityRisk && (
+                  <StatPill label="VOLATILITY" value={`${brief.riskCommandCenter.volatilityRisk} (β ${brief.riskCommandCenter.weightedBeta})`}
+                    color={brief.riskCommandCenter.volatilityRisk === "HIGH" ? C.red : brief.riskCommandCenter.volatilityRisk === "MODERATE" ? C.amber : C.green} C={C} MONO={MONO} />
+                )}
+                <StatPill label="OPEN RISK" value={`${brief.riskCommandCenter.openRiskPct}%`} color={C.textDim} C={C} MONO={MONO} />
+              </div>
+              {brief.riskCommandCenter.sectorConcentration && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                  {Object.entries(brief.riskCommandCenter.sectorConcentration).map(([sec, count]) => (
+                    <span key={sec} style={{ fontFamily: MONO, fontSize: 10, padding: "3px 8px", borderRadius: 6, background: C.surface, border: `1px solid ${C.border}`, color: C.textSec }}>{sec}: {count}</span>
+                  ))}
+                </div>
+              )}
+              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, lineHeight: 1.5 }}>
+                Not covered (no real data source in this app): {brief.riskCommandCenter.notCovered?.join(", ")}.
+              </div>
             </div>
           )}
 
