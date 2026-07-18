@@ -3170,7 +3170,12 @@ export default function App() {
     setScenarioLoading(true);
     setScenarioResult(null);
     try {
-      const holdings = portfolioRows.slice(0, 10).map(p => ({ ticker: p.ticker, shares: p.shares, value: (p.shares * (p.currentPrice || p.avgCost)) }));
+      // portfolioRows items key on `symbol` (never `ticker`) and carry a
+      // real live price nested at `live.price`, not a top-level
+      // `currentPrice` — both were wrong, so every holding rendered as
+      // "undefined" in the scenario's portfolio-exposure section and the
+      // dollar value silently used cost basis instead of live market value.
+      const holdings = portfolioRows.slice(0, 10).map(p => ({ ticker: p.symbol, shares: p.shares, value: p.marketValue || (p.shares * (p.live?.price || p.avgCost)) }));
       const res = await fetch("/api/agent/macro-scenario", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -3208,16 +3213,20 @@ export default function App() {
     setSessionRecapLoad(true);
     setSessionRecapResult(null);
     try {
+      // Real journal entries use `status`/`closedAt` (never `exitDate`, which
+      // was never a real field — this filter matched zero entries always,
+      // silently falling back to the last 5 entries of ANY status/age
+      // below, mislabeled as "today's session").
       const closedToday = journalEntries.filter(e => {
-        if (!e.exitDate) return false;
-        const d = new Date(e.exitDate);
+        if (e.status !== "closed" || !e.closedAt) return false;
+        const d = new Date(e.closedAt);
         const today = new Date();
         return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
       });
       const res = await fetch("/api/agent/session-recap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ trades: closedToday.length > 0 ? closedToday : journalEntries.slice(-5), macroRegime: regime }),
+        body: JSON.stringify({ trades: closedToday.length > 0 ? closedToday : journalEntries.filter(e => e.status === "closed").slice(-5), macroRegime: regime }),
       });
       const data = res.ok ? await res.json() : { error: "AI request failed" };
       setSessionRecapResult(data);

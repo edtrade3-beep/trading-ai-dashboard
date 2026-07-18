@@ -798,7 +798,13 @@ function generateSessionRecap(trades, regime) {
     };
   }
 
-  const pnls = trades.map(t => ((Number(t.exitPrice || t.entryPrice) - Number(t.entryPrice)) * Number(t.shares || 1)));
+  // Real journal entries (src/routes/journal.js) store P&L directly at
+  // close time — there's no exitPrice/entryPrice/shares to recompute it
+  // from (those were never real fields; the real ones are closePrice/
+  // entry/size). Recomputing from the wrong fields produced NaN for every
+  // trade, every time — $NaN P&L and an always-0% win rate regardless of
+  // real performance.
+  const pnls = trades.map(t => Number(t.pnl) || 0);
   const totalPnl = pnls.reduce((a, b) => a + b, 0);
   const wins  = pnls.filter(p => p > 0).length;
   const total = trades.length;
@@ -811,7 +817,7 @@ function generateSessionRecap(trades, regime) {
     `Trades: ${total}  |  Wins: ${wins}  |  Win Rate: ${(wins/total*100).toFixed(0)}%`,
     ``,
     `TRADES TODAY`,
-    ...trades.map((t, i) => `  ${i + 1}. ${t.ticker} — ${pnls[i] >= 0 ? "+" : ""}$${fmt2(pnls[i])} (${t.entryPrice ? `@$${t.entryPrice}` : ""})`),
+    ...trades.map((t, i) => `  ${i + 1}. ${t.ticker} — ${pnls[i] >= 0 ? "+" : ""}$${fmt2(pnls[i])} (${t.entry ? `@$${t.entry}` : ""})`),
     ``,
     `NOTES`,
     totalPnl > 0 ? "✅ Positive session — stick to your rules that worked today." : "📌 Negative session — review each trade. Was the thesis valid at entry?",
