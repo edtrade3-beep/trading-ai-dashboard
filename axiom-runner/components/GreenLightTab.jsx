@@ -138,6 +138,27 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
   // Sector strength: rank the 11 SPDR sector ETFs by today's move; top half = "strong" (Step 2 of the A+ spec).
   const sectorsRanked = [...(sectorData || [])].map(s => ({ sym: s.symbol, name: s._sectorName || s.symbol, chg: Number(s.changesPercentage || 0) })).sort((a, b) => b.chg - a.chg);
   const strongSectors = new Set(sectorsRanked.slice(0, Math.ceil(sectorsRanked.length / 2)).map(s => s.sym));
+  // Real trend structure for computeGreenLight below — q.priceAvg50/
+  // priceAvg200/yearHigh/yearLow (from /api/market/quote, the source of
+  // watchlistData) are always 0 for any Alpaca-covered symbol, which
+  // silently zeroed out the "Uptrend"/"Downtrend" 5-check factors (capping
+  // the true GREEN LIGHT 5/5 signal — and its dedicated Telegram alert —
+  // at permanently unreachable), most of the A+ Institutional trend
+  // sub-score, and the displayed "% off 52w high" stat (same root cause
+  // fixed elsewhere this session).
+  const [trendMap, setTrendMap] = useState({});
+  const wlSymsKey = [...new Set((watchlistData || []).map(q => q.symbol).filter(Boolean))].sort().join(",");
+  useEffect(() => {
+    if (!wlSymsKey) return;
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(wlSymsKey)}`)
+      .then(r => r.json())
+      .then(j => {
+        const map = {};
+        (j.results || []).forEach(r => { if (!r.error) map[r.symbol] = r; });
+        setTrendMap(map);
+      })
+      .catch(() => {});
+  }, [wlSymsKey]);
   const [glExpanded, setGlExpanded] = useState(null); // ticker whose details are shown
   const [candOpen, setCandOpen] = useState(null);     // candidate (calls/puts/watch) expanded to full card
   const [aiScan, setAiScan] = useState(null);         // null | "loading" | text | {error}
@@ -227,7 +248,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
   // Build results from watchlist + scan data
   const results = (watchlistData || []).map(q => {
     const scanRow = (scanResults || []).find(r => r.ticker === q.symbol);
-    const gl = computeGreenLight(q, spyChg, scanRow, regime.score);
+    const gl = computeGreenLight(q, spyChg, scanRow, regime.score, trendMap[q.symbol]);
     const sec = STOCK_TO_SECTOR[q.symbol];
     return { ...gl, symbol: q.symbol, name: q.name, q, sector: sec || null, strongSector: sec ? strongSectors.has(sec) : null };
   }).filter(r => r.px > 0).sort((a, b) => b.aScore - a.aScore || b.passed - a.passed);
@@ -846,7 +867,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
                 background: r.bottomReady ? `${C.green}10` : C.surface, border: `1px solid ${r.bottomReady ? C.green + "55" : C.border}` }}>
                 <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: "#0891b2", minWidth: 30 }}>{r.bottomScore}</span>
                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent }}>{r.symbol}</span>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.red }}>{r.offHigh}%</span>
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.red }}>{r.offHigh != null ? `${r.offHigh}%` : "—"}</span>
                 <span style={{ fontFamily: MONO, fontSize: 10, color: r.chg >= 0 ? C.green : C.red }}>{r.chg >= 0 ? "+" : ""}{r.chg.toFixed(1)}%</span>
                 <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 8.5, fontWeight: 800, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap",
                   color: r.bottomReady ? "#fff" : C.amber, background: r.bottomReady ? C.green : `${C.amber}18`, border: `1px solid ${r.bottomReady ? C.green : C.amber + "55"}` }}>

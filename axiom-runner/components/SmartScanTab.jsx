@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { computeGreenLight } from "./trading-utils.js";
 import { smartScanZoneOf, exportSmartScanZonePDF } from "./smartscan-shared.js";
 import { FIVEX_REF } from "./fivex-data.js";
@@ -16,6 +17,25 @@ export default function SmartScanTab({
   addScanTicker, removeScanTicker, scoreTicker, toggleFavorite, fetchTradeSetup, loadDeepDive, loadDeepSocial,
   runSmartScan, FIVEX_TICKERS, themeMode,
 }) {
+          // Real trend structure for the "Quick Read" Green Light chip below
+          // — row.quote's priceAvg50/priceAvg200/yearHigh/yearLow are always
+          // 0 for any Alpaca-covered symbol (same root cause fixed elsewhere
+          // this session), which permanently capped the chip's "passed" count
+          // and hid the true GREEN LIGHT 5/5 signal.
+          const [smartScanTrendMap, setSmartScanTrendMap] = useState({});
+          const scanTickersKey = [...new Set((scanResults || []).map(r => r.ticker).filter(Boolean))].sort().join(",");
+          useEffect(() => {
+            if (!scanTickersKey) return;
+            fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(scanTickersKey)}`)
+              .then(r => r.json())
+              .then(j => {
+                const map = {};
+                (j.results || []).forEach(r => { if (!r.error) map[r.symbol] = r; });
+                setSmartScanTrendMap(map);
+              })
+              .catch(() => {});
+          }, [scanTickersKey]);
+
           // ── Signal badge style helper ─────────────────────────────────────
           const SIG_STYLE = (sColor) => ({
             display: "inline-block", fontFamily: MONO, fontSize: 12, fontWeight: 800,
@@ -599,7 +619,7 @@ export default function SmartScanTab({
                                   // ── 🟢 GREEN LIGHT SYSTEM — same engine as the Green Light card ──
                                   (() => {
                                     const spyChgGL = Number((macroData || []).find(m => m.symbol === "SPY")?.changesPercentage || 0);
-                                    const passed = computeGreenLight({ ...(row.quote || {}), price: px }, spyChgGL, row).passed;
+                                    const passed = computeGreenLight({ ...(row.quote || {}), price: px }, spyChgGL, row, null, smartScanTrendMap[row.ticker]).passed;
                                     if (passed >= 4)      chips.push({ txt: `🟢 GREEN LIGHT ${passed}/5`, col: C.green, title: "Green Light System: 4+ checks passed — BUY zone" });
                                     else if (passed === 3) chips.push({ txt: `🟡 ALMOST ${passed}/5`,     col: C.amber, title: "Green Light System: 3/5 — watch, almost ready" });
                                   })();

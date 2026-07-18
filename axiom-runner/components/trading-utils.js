@@ -162,7 +162,19 @@ export function computeScores(q, trend) {
   return { tech, fund, macro, composite };
 }
 
-export function computeGreenLight(q, spyChg, scanRow, regime = null) {
+// trend: optional row from /api/market/trend-screen ({stage, pctFromHigh,
+// abovePivotPct, pivot, ...}). q.priceAvg50/priceAvg200/yearHigh/yearLow
+// come from /api/market/quote, a fast price-only path that never populates
+// them for any Alpaca-covered symbol (same root cause fixed in
+// computeScores/computeMTFSignal above and elsewhere this session). This
+// function was already largely ema21/ema9-preferring (scanRow's real
+// technicals) where a fallback existed, but several checks — "Uptrend"
+// (5-check system), the A+ Institutional Trend sub-score, the bearish
+// "Downtrend"/support-break checks, and the displayed offHigh stat — had
+// NO fallback at all and were permanently dead/zero. When ma50/ma200/hi52
+// are genuinely present they're used exactly as before (purely additive);
+// otherwise, if a real trend row is supplied, it substitutes.
+export function computeGreenLight(q, spyChg, scanRow, regime = null, trend = null) {
   const px     = Number(q?.price || q?.regularMarketPrice || 0);
   const ma50   = Number(q?.priceAvg50 || q?.fiftyDayAverage || 0);
   const ma200  = Number(q?.priceAvg200 || q?.twoHundredDayAverage || 0);
@@ -174,6 +186,7 @@ export function computeGreenLight(q, spyChg, scanRow, regime = null) {
   const avgVol = Number(q?.avgVolume || 0);
   const rvol   = avgVol > 0 ? vol / avgVol : 0;
   const chg    = Number(q?.changesPercentage || 0);
+  const { inUptrend, inDowntrend, distToHigh, abovePivotPct } = _trendSignals(trend);
 
   // Volatility for ATR-based stops/targets. Prefer today's range; if missing,
   // estimate daily volatility from the 52-week range; else a 2.5% default. Floor 1% / cap 5%.
@@ -191,8 +204,8 @@ export function computeGreenLight(q, spyChg, scanRow, regime = null) {
   const checks = [
     { label: "Market safe",  pass: spyChg > -0.5,
       tip: `SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}% — buy only when the tape is safe` },
-    { label: "Uptrend",      pass: ma50 > 0 && px > ma50 && (ma200 > 0 ? ma50 > ma200 : true),
-      tip: (ma50 > 0 && ma200 > 0) ? `Price > MA50 $${ma50.toFixed(2)} > MA200 $${ma200.toFixed(2)} (aligned)` : (ma50 > 0 ? `Price > MA50 $${ma50.toFixed(2)}` : "No MA data") },
+    { label: "Uptrend",      pass: ma50 > 0 ? (px > ma50 && (ma200 > 0 ? ma50 > ma200 : true)) : (trend ? inUptrend : false),
+      tip: (ma50 > 0 && ma200 > 0) ? `Price > MA50 $${ma50.toFixed(2)} > MA200 $${ma200.toFixed(2)} (aligned)` : (ma50 > 0 ? `Price > MA50 $${ma50.toFixed(2)}` : trend ? (inUptrend ? "Stage 2 uptrend confirmed (real trend structure)" : inDowntrend ? "Stage 3/4 downtrend — not an uptrend" : "Trend stage unclear — no signal") : "No MA data") },
     { label: rsiKnown ? `Momentum · RSI ${rsi.toFixed(0)}` : "Momentum",  pass: momentumPass,
       tip: rsiKnown ? `RSI ${rsi.toFixed(0)} (>50 = bullish momentum)` : `Up ${chg >= 0 ? "+" : ""}${chg.toFixed(1)}% today` },
     { label: rvol > 0 ? `Volume ${rvol.toFixed(1)}x` : "Volume active",  pass: rvol >= 1.5 || vol === 0,
@@ -213,9 +226,12 @@ export function computeGreenLight(q, spyChg, scanRow, regime = null) {
   const rrPass = rr >= 2.5;   // hard filter: skip mediocre risk/reward
 
   // ── BEST ENTRY price ──
-  // Ideal entry = at the support (EMA21 or MA50), capped just below current price.
-  // If price is already at/below support, current price IS the entry.
-  const support = ema21 > 0 ? ema21 : (ma50 > 0 ? ma50 : px * 0.985);
+  // Ideal entry = at the support (EMA21 or MA50, else the real trend-screen
+  // pivot, else an arbitrary 1.5%-below-price guess), capped just below
+  // current price. If price is already at/below support, current price IS
+  // the entry.
+  const trendPivot = Number(trend?.pivot || 0);
+  const support = ema21 > 0 ? ema21 : (ma50 > 0 ? ma50 : (trendPivot > 0 ? trendPivot : px * 0.985));
   let bestEntry = px;
   let entryNote = "at market";
   if (px > support * 1.005) {
@@ -233,16 +249,27 @@ export function computeGreenLight(q, spyChg, scanRow, regime = null) {
   const atEntry = entryNote.includes("support");  // price is at the buy zone (not "wait for pullback")
 
   // ── A+ INSTITUTIONAL SCORE (0-100): Trend 30 · Momentum 20 · Volume 15 · Structure 20 · Risk 15 ──
-  // Trend (30)
+  // Trend (30) — both ma200/ma50-vs-ma200 factors were permanently dead for
+  // any Alpaca-covered symbol (always 0), capping this sub-score at 10/30
+  // in practice. Real trend-screen substitutes below: inUptrend (Stage 2)
+  // for the "above 200" factor, abovePivotPct for the "50 > 200" (medium-
+  // vs-long-term structure) factor — kept distinct rather than both
+  // collapsing to the same signal.
   let pTrend = 0;
   if (ma200 > 0 && px > ma200) pTrend += 10;                       // above 200 EMA/MA
+  else if (ma200 <= 0 && trend && inUptrend) pTrend += 10;
   if (ma50 > 0 && ma200 > 0 && ma50 > ma200) pTrend += 10;         // 50 > 200
+  else if ((ma50 <= 0 || ma200 <= 0) && abovePivotPct !== null && abovePivotPct > 0) pTrend += 10;
   if (ema9 > 0 && ema21 > 0 && ema9 > ema21) pTrend += 10;         // 9 > 21
   // Momentum (20)
   let pMom = 0;
   if (rsi >= 50 && rsi <= 65) pMom += 5;                           // RSI sweet spot
   if (macdBull === true) pMom += 5;                               // MACD bullish
-  const trendingStrong = px > ma50 && ma50 > ma200 && ema9 > 0 && ema9 > ema21;
+  // trendingStrong required ma50>ma200, which is 0>0=false whenever both are
+  // dead — mathematically guaranteed unreachable, not just under-triggered.
+  const trendingStrong = ma50 > 0 && ma200 > 0
+    ? (px > ma50 && ma50 > ma200 && ema9 > 0 && ema9 > ema21)
+    : (trend ? (inUptrend && ema9 > 0 && ema9 > ema21) : false);
   if (trendingStrong) pMom += 5;                                  // ADX>25 proxy (clean aligned trend)
   if (relStrength >= 1) pMom += 5;                                // relative strength high
   // Volume (15)
@@ -264,7 +291,9 @@ export function computeGreenLight(q, spyChg, scanRow, regime = null) {
   // ── BEAR SCORE — put-candidate quality (5 × 20). For momentum breakdowns on red days. ──
   // VWAP isn't available client-side, so EMA21 is used as the intraday-mean proxy; 50-MA = support.
   const belowMean   = ema21 > 0 ? px < ema21 : (ma50 > 0 ? px < ma50 : chg < 0);   // "below VWAP"
-  const supportBreak = ma50 > 0 ? px < ma50 : chg < -1;                            // broke the 50-day
+  // supportBreak had no trend fallback at all (ma50<=0 → blind chg<-1 proxy
+  // always) — real trend-screen Stage 3/4 confirmation now substitutes.
+  const supportBreak = ma50 > 0 ? px < ma50 : (trend ? inDowntrend : chg < -1);   // broke the 50-day
   const bMarket = regime != null ? (regime < 60 ? 20 : regime < 80 ? 10 : 0) : (spyChg < -0.3 ? 20 : spyChg < 0.2 ? 10 : 0);
   const bVwap   = belowMean ? 20 : 0;
   const bWeak   = relStrength <= -2 ? 20 : relStrength < 0 ? 12 : 0;
@@ -277,11 +306,19 @@ export function computeGreenLight(q, spyChg, scanRow, regime = null) {
   const putRR     = (putStop - px) > 0 ? +((px - putTarget) / (putStop - px)).toFixed(1) : 0;
   const bearTradeable = bearScore > 80 && putRR >= 2;
   // ── BOTTOM / REVERSAL score — capitulation + washout (oversold bounce candidates). ──
-  const offHigh = hi52 > 0 ? (px / hi52 - 1) * 100 : 0;   // negative = below the 52w high
+  // offHigh silently defaulted to 0 (not "no data") whenever hi52 was dead —
+  // a real numeric stat returned/displayed to the user that read as "at the
+  // 52-week high" for every single Alpaca-covered symbol. trend.pctFromHigh
+  // is the exact same quantity (negative when below the high), no fallback
+  // math needed. No real 52w-low analog exists, so nearLow's fallback stays
+  // a sentinel — it only feeds an already-false-gated internal check, never
+  // returned/displayed directly.
+  const offHigh = hi52 > 0 ? (px / hi52 - 1) * 100
+    : (trend && Number.isFinite(Number(trend.pctFromHigh)) ? Number(trend.pctFromHigh) : null);
   const nearLow = lo52 > 0 ? (px / lo52 - 1) * 100 : 999; // small = near the 52w low
   const bottomChecks = [
     { label: "Oversold (RSI<35)", pass: rsiKnown ? rsi < 35 : chg < -3 },
-    { label: "Washed out (−25%+ off high)", pass: offHigh <= -25 },
+    { label: "Washed out (−25%+ off high)", pass: offHigh !== null && offHigh <= -25 },
     { label: "Near 52w low", pass: nearLow <= 15 },
     { label: "Capitulation volume (>2x)", pass: rvol >= 2 },
     { label: "Stabilizing (selling slowing)", pass: chg >= -1 },
@@ -303,8 +340,8 @@ export function computeGreenLight(q, spyChg, scanRow, regime = null) {
   const shortChecks = [
     { label: "Tape ok to short", pass: spyChg < 0.5,
       tip: `SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}% — short when the market isn't ripping up` },
-    { label: "Downtrend", pass: ma50 > 0 && px < ma50 && (ma200 > 0 ? ma50 < ma200 : true),
-      tip: (ma50 > 0 && ma200 > 0) ? `Price < MA50 $${ma50.toFixed(2)} < MA200 $${ma200.toFixed(2)}` : (ma50 > 0 ? `Price < MA50 $${ma50.toFixed(2)}` : "No MA data") },
+    { label: "Downtrend", pass: ma50 > 0 ? (px < ma50 && (ma200 > 0 ? ma50 < ma200 : true)) : (trend ? inDowntrend : false),
+      tip: (ma50 > 0 && ma200 > 0) ? `Price < MA50 $${ma50.toFixed(2)} < MA200 $${ma200.toFixed(2)}` : (ma50 > 0 ? `Price < MA50 $${ma50.toFixed(2)}` : trend ? (inDowntrend ? "Stage 3/4 downtrend confirmed (real trend structure)" : inUptrend ? "Stage 2 uptrend — not a downtrend" : "Trend stage unclear — no signal") : "No MA data") },
     { label: rsiKnown ? `Weak · RSI ${rsi.toFixed(0)}` : "Weak momentum", pass: rsiKnown ? rsi <= 50 : chg < 0,
       tip: rsiKnown ? `RSI ${rsi.toFixed(0)} (<50 = bearish)` : `Down ${chg.toFixed(1)}% today` },
     { label: rvol > 0 ? `Volume ${rvol.toFixed(1)}x` : "Volume active", pass: rvol >= 1.2 || vol === 0,
@@ -323,7 +360,7 @@ export function computeGreenLight(q, spyChg, scanRow, regime = null) {
     aScore, grade, confRisk, aPlus, marketPass,
     scoreParts: { trend: pTrend, momentum: pMom, volume: pVol, structure: pStruct, risk: pRisk },
     bearScore, bearChecks, putStop, putTarget, putRR, bearTradeable,
-    bottomScore, bottomChecks, reversal, bottomReady, offHigh: +offHigh.toFixed(1),
+    bottomScore, bottomChecks, reversal, bottomReady, offHigh: offHigh !== null ? +offHigh.toFixed(1) : null,
   };
 }
 

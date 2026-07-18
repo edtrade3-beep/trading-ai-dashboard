@@ -117,7 +117,7 @@ export default function HoldingsTab({ C, MONO, SANS, macroData }) {
       const status = belowStop ? { t: "🔴 BELOW STOP", c: C.red } : chg < -5 ? { t: "🟠 DROPPING", c: C.amber } : { t: "🟢 OK", c: C.green };
       return { ...h, q, px, stop, pnl, pnlPct, status, isCrypto: true, value: px * h.shares };
     }
-    const gl = computeGreenLight(q, spyChg, null);
+    const gl = computeGreenLight(q, spyChg, null, null, trendMap[h.symbol]);
     const trendStage = String(trendMap[h.symbol]?.stage || "");
     const atrPct = Math.min(0.05, Math.max(0.01, Number(gl.atrPct) || 0.025));
     const stop = +(px * (1 - atrPct * 1.5)).toFixed(2);
