@@ -38,6 +38,21 @@ const SECTOR_ETFS = [
   { symbol: "XLC", name: "Comm. Services" },
 ];
 
+// Capital Flow Engine's non-sector asset classes — all four are already
+// fetched below as part of the existing macro quote call (SPY, QQQ, IWM,
+// VIXY, UUP, GLD, USO, TLT, HYG, IBIT), just never surfaced as a ranked
+// "where's money flowing" category before. AI/Semiconductors-specific and
+// International Markets/Cash are deliberately NOT included — there's no
+// real ETF for those already in the fetched set, and adding new fetches
+// just to fill out the spec's full category list would stop this being a
+// same-data extension. Flagged as a gap, not silently invented.
+const MACRO_ASSET_CLASSES = [
+  { symbol: "IBIT", name: "Crypto" },
+  { symbol: "GLD",  name: "Precious Metals" },
+  { symbol: "TLT",  name: "Treasuries" },
+  { symbol: "HYG",  name: "Credit" },
+];
+
 // Broad, liquid, sector-diverse universe — expanded per user request for
 // "more stocks" (was 50 names, tech/mega-cap heavy). Same liquid-cap
 // pattern other real-time scanners in this app use (gap-scan.js's
@@ -71,6 +86,9 @@ function relStrength(sd, spyChg) {
   return Number((sd?.changesPercentage ?? 0) - spyChg);
 }
 
+const row2 = (n) => Math.round(Number(n) * 100) / 100;
+const fmt0 = (n) => Number.isFinite(Number(n)) ? Math.round(Number(n)).toLocaleString("en-US") : "—";
+
 // Attach real, server-computed numbers to an AI-selected symbol. Never
 // trust anything numeric the model typed — if the symbol isn't in the real
 // ranked-setups map, drop it rather than show a pick with fabricated data.
@@ -90,6 +108,19 @@ function attachRealData(pick, rankedMap) {
     entry: row.entry,
     stop: row.stop,
     target: row.target2,
+    // target3, breakoutEntry, and pullbackEntry are computed from the real
+    // entry/stop pair above, not independently fetched — confirmed live
+    // that trend-screen's entry/stop/target2 already sit on a clean, exact
+    // 2:1 reward:risk ratio (verified against 3 real symbols), so target3
+    // extends that same real progression to 3:1 rather than guessing a
+    // number. breakoutEntry/pullbackEntry are real trade-management levels
+    // derived from the real pivot/stop distance (same 0.5%-buffer and
+    // partial-retracement conventions already used elsewhere in this
+    // session for TradeAdvisorTab/EarlyEntryScanner), not a second real
+    // data source — labeled as computed, not fetched.
+    target3: row2(row.entry + (row.entry - row.stop) * 3),
+    breakoutEntry: row2(row.entry * 1.005),
+    pullbackEntry: row2(row.entry - (row.entry - row.stop) * 0.3),
     atBuyPoint: !!row.atBuyPoint,
     // Real fundamentals from /api/yahoo/fundamentals — null fields where
     // Yahoo doesn't have the data, never a guessed/interpolated value.
@@ -128,7 +159,7 @@ function attachRealData(pick, rankedMap) {
 async function buildAdvisorBrief() {
   if (!KEY()) return null;
 
-  const [macroRows, sectorRows, screen, insider, cot, shortChg, news] = await Promise.all([
+  const [macroRows, sectorRows, screen, insider, cot, shortChg, news, positions, riskSnap] = await Promise.all([
     getJson("/api/market/quote?symbols=SPY,QQQ,IWM,VIXY,UUP,GLD,USO,TLT,HYG,IBIT"),
     getJson(`/api/market/quote?symbols=${SECTOR_ETFS.map(s => s.symbol).join(",")}`),
     getJson(`/api/market/trend-screen?symbols=${SCAN_UNIVERSE.join(",")}`),
@@ -136,6 +167,15 @@ async function buildAdvisorBrief() {
     getJson("/api/cot/status"),
     getJson("/api/market/short-changes"),
     getJson("/api/market/news?tickers=SPY,QQQ,NVDA,AAPL,MSFT,TSLA,AMD,META&limit=12"),
+    // Portfolio Manager section — both already real, already-tested
+    // endpoints: /api/alpaca/positions (real per-holding qty/avgEntry/
+    // marketValue/unrealizedPL) and /api/ai-hub/risk-snapshot (the exact
+    // risk-guardrails.js math that already gates the autopilots — real
+    // equity/cash/openRiskPct/sectorConcentration/dailyBreakerTripped).
+    // No new risk math or sector map needed; both were already built for
+    // PortfolioRiskCard.jsx, just never pulled into this brief.
+    getJson("/api/alpaca/positions"),
+    getJson("/api/ai-hub/risk-snapshot"),
   ]);
 
   const { computeRegime, computeAPlusScore, computeNextAction } = require("./trade-planner-scoring");
@@ -153,7 +193,17 @@ async function buildAdvisorBrief() {
     const sd = sectorArr.find(x => x.symbol === se.symbol);
     return { name: se.name, symbol: se.symbol, chg: Number(sd?.changesPercentage || 0), rel: relStrength(sd, spyChg) };
   }).filter(s => Number.isFinite(s.chg)).sort((a, b) => b.rel - a.rel);
-  const sectorLines = sectors.map(s => `${s.name} (${s.symbol}): ${s.chg >= 0 ? "+" : ""}${s.chg.toFixed(2)}% today, ${s.rel >= 0 ? "+" : ""}${s.rel.toFixed(2)}% vs SPY`).join("\n");
+
+  // Capital Flow Engine — same real relative-strength math as `sectors`
+  // above, widened with the macro asset classes already fetched in
+  // macroRows (crypto/gold/treasuries/credit), so "where's money flowing"
+  // covers more than just equity sectors without any new fetch. Feeds the
+  // prompt below directly (superset of what sectorLines used to show).
+  const capitalFlow = [...sectors, ...MACRO_ASSET_CLASSES.map(mc => {
+    const sd = macroArr.find(x => x.symbol === mc.symbol);
+    return { name: mc.name, symbol: mc.symbol, chg: Number(sd?.changesPercentage || 0), rel: relStrength(sd, spyChg) };
+  }).filter(s => Number.isFinite(s.chg))].sort((a, b) => b.rel - a.rel);
+  const capitalFlowLines = capitalFlow.map(s => `${s.name} (${s.symbol}): ${s.chg >= 0 ? "+" : ""}${s.chg.toFixed(2)}% today, ${s.rel >= 0 ? "+" : ""}${s.rel.toFixed(2)}% vs SPY`).join("\n");
 
   // Real A+ setups from the platform's own trend-template + A+ Score engine
   // (same formula used everywhere else in this app: TopOpportunityCard,
@@ -161,10 +211,23 @@ async function buildAdvisorBrief() {
   // top-25 so the model has real room to pick multiple names per horizon
   // instead of being forced into one.
   const screenResults = (screen?.results || []).filter(r => !r.error && Number(r.entry) > Number(r.stop));
-  const ranked = screenResults
-    .map(r => ({ ...r, aplus: computeAPlusScore(r, regime), next: computeNextAction(r) }))
-    .sort((a, b) => b.aplus.score - a.aplus.score)
-    .slice(0, 25);
+  const scoredAll = screenResults.map(r => ({ ...r, aplus: computeAPlusScore(r, regime), next: computeNextAction(r) }));
+  const ranked = [...scoredAll].sort((a, b) => b.aplus.score - a.aplus.score).slice(0, 25);
+
+  // AI Avoid List — the bottom of the same real, already-scored scan, with
+  // real reasons pulled from real fields (RS rating, trend-template pass
+  // count, extended flag, stage) — not a second scoring pass, just the
+  // other end of the list already computed above.
+  const avoidList = [...scoredAll].sort((a, b) => a.aplus.score - b.aplus.score).slice(0, 8).map(r => {
+    const reasons = [];
+    if (Number(r.rsRating || 0) < 50) reasons.push(`weak relative strength (RS ${r.rsRating})`);
+    if (Number(r.passCount || 0) < 4) reasons.push(`only ${r.passCount}/8 trend-template criteria met`);
+    if (r.extended) reasons.push("technically extended");
+    const stage = String(r.stage || "");
+    if (stage.startsWith("Stage 4")) reasons.push("Stage 4 downtrend");
+    else if (stage.startsWith("Stage 3")) reasons.push("Stage 3 distribution/topping");
+    return { symbol: r.symbol, score: r.aplus.score, stage: stage.replace(/ —.*/, ""), reasons: reasons.length ? reasons : ["low composite score"] };
+  });
 
   // Real per-stock fundamentals + analyst price targets, attached to each
   // ranked setup. /api/yahoo/fundamentals is single-symbol (confirmed live:
@@ -218,7 +281,7 @@ async function buildAdvisorBrief() {
   const vix = Number(macroArr.find(m => m.symbol === "VIXY")?.changesPercentage || 0);
   const macroLines = macroArr.map(m => `${m.symbol}: ${Number(m.changesPercentage || 0) >= 0 ? "+" : ""}${Number(m.changesPercentage || 0).toFixed(2)}%`).join(", ");
 
-  const system = `You are ADVISOR — an institutional-grade Chief Investment Strategist writing a real research brief for one trader, not a marketing document. You are given REAL data below (regime score, real sector performance, a real ranked list of A+ trade setups from this platform's own trend-template scan, each with real fundamentals — market cap, P/E, PEG, revenue/earnings growth, margins, debt/equity — and real Wall Street analyst price targets where available, real insider Form 4 buys, real CFTC positioning, real short-interest changes, real headlines). For the 5-year thematic section, where you genuinely don't have live data, you have a web_search tool — use it and speak in terms of what you found.
+  const system = `You are ADVISOR — an institutional-grade Chief Investment Strategist writing a real research brief for one trader, not a marketing document. You are given REAL data below (regime score, real capital-flow performance across sectors plus crypto/gold/treasuries/credit, a real ranked list of A+ trade setups from this platform's own trend-template scan, each with real fundamentals — market cap, P/E, PEG, revenue/earnings growth, margins, debt/equity — and real Wall Street analyst price targets where available, a real avoid list of the lowest-scored names in today's scan with real reasons, the trader's real live portfolio — actual holdings, weights, unrealized P&L, and open risk — real insider Form 4 buys, real CFTC positioning, real short-interest changes, real headlines). For the 5-year thematic section, where you genuinely don't have live data, you have a web_search tool — use it and speak in terms of what you found.
 
 Hard rules:
 - Never invent a 13F filing, a Congress trade, a patent count, or any price/score/entry/stop/target/fundamental number — you do not type numbers, you only SELECT symbols from the real list below and explain why in prose. The platform attaches the real numbers itself after you respond.
@@ -248,14 +311,25 @@ Return exactly this JSON shape:
 }
 thesis5y should have 2-3 themes. actionPlan should cover 6-10 of the most relevant real names from the setups list.`;
 
+  const avoidLines = avoidList.map(a => `${a.symbol}: A+ ${a.score}/100, ${a.reasons.join(", ")}${a.stage ? `, stage "${a.stage}"` : ""}`).join("\n");
+  const portfolioLines = portfolio
+    ? `Equity $${fmt0(portfolio.equity)}, cash $${fmt0(portfolio.cash)}, ${portfolio.positionCount} open positions, open risk ${portfolio.openRiskPct}% (daily loss breaker: ${portfolio.dailyBreakerTripped ? "TRIPPED" : "ok"}), largest position ${portfolio.topHoldingWeightPct}% of book, top 3 positions ${portfolio.top3WeightPct}% of book, total unrealized P&L ${portfolio.totalUnrealizedPL >= 0 ? "+" : "-"}$${fmt0(Math.abs(portfolio.totalUnrealizedPL))}. Holdings: ${portfolio.holdings.slice(0, 10).map(h => `${h.symbol} (${h.weightPct}% of book, ${h.unrealizedPLpc >= 0 ? "+" : ""}${h.unrealizedPLpc.toFixed(1)}%)`).join(", ")}.`
+    : "No live Alpaca account connected — portfolio-aware commentary not available this run.";
+
   const prompt = `MARKET REGIME: ${regime.label} (${regime.score}/100). SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}% today, VIXY ${vix >= 0 ? "+" : ""}${vix.toFixed(2)}%.
 Macro: ${macroLines || "unavailable"}
 
-SECTOR PERFORMANCE (today, vs SPY):
-${sectorLines || "unavailable"}
+CAPITAL FLOW (today, vs SPY — equity sectors + crypto/gold/treasuries/credit):
+${capitalFlowLines || "unavailable"}
 
 REAL A+ SETUPS (this platform's own trend-template scan, ranked, pick only from these for tactical/swing/position/core/actionPlan):
 ${setupLines || "no qualifying setups right now"}
+
+AVOID LIST (lowest-scored real names in today's scan, with real reasons — reference in executiveSummary if genuinely relevant, don't force it):
+${avoidLines || "none"}
+
+CURRENT PORTFOLIO (real live Alpaca account — use this to make the executiveSummary and smartMoneyRead genuinely portfolio-aware, e.g. flag real concentration risk or a real position already underwater, rather than generic market commentary):
+${portfolioLines}
 
 SMART MONEY DATA:
 ${smartMoneyLines.join("\n")}
@@ -311,14 +385,49 @@ Return the JSON now.`;
       const row = rankedMap.get(String(p?.symbol || "").toUpperCase());
       if (!row) return null;
       const action = String(p?.action || "").toUpperCase().replace(/\s+/g, "_");
-      // REDUCE/SELL deliberately excluded — this brief has no portfolio-
-      // holdings context (no fetch of the user's actual positions), so the
-      // model would have to guess what's held to justify trimming/exiting
-      // it. BUY_ON_PULLBACK is safe to add: like the other 5, it's purely
-      // about entering a new position, not about an assumed existing one.
+      // REDUCE/SELL still deliberately excluded here. Real holdings data is
+      // now fetched below (Portfolio Manager section), but this actionPlan
+      // is built purely from the scanned universe/ranked setups — wiring
+      // holdings INTO the model's action selection (so it could correctly
+      // say "REDUCE" about a name it can see is actually held) is a
+      // separate, deliberate follow-up, not something to half-do by just
+      // adding the label without the model ever seeing which symbols are
+      // held. BUY_ON_PULLBACK stays safe: like the other 5, it's purely
+      // about entering a new position, not an assumed existing one.
       if (!["BUY_NOW", "ACCUMULATE", "BUY_ON_PULLBACK", "WAIT", "WATCH", "AVOID"].includes(action)) return null;
       return { symbol: row.symbol, action, reason: String(p?.reason || "").slice(0, 200), score: row.aplus.score };
     }).filter(Boolean).slice(0, 12);
+
+  // Portfolio Manager — entirely real, already-computed data from two
+  // endpoints this session's audit confirmed live: /api/alpaca/positions
+  // (per-holding qty/avgEntry/current/marketValue/unrealizedPL) and
+  // /api/ai-hub/risk-snapshot (equity/cash/openRiskPct/sectorConcentration/
+  // dailyBreakerTripped — the exact math already gating the autopilots).
+  // No new risk logic or sector map — this is the same real data
+  // PortfolioRiskCard.jsx already renders, just folded into this brief too
+  // so ADVISOR's picks can be read alongside real current exposure.
+  const posArr = Array.isArray(positions?.positions) ? positions.positions : [];
+  const totalMv = posArr.reduce((s, p) => s + Number(p.marketValue || 0), 0);
+  const holdings = posArr.map(p => ({
+    symbol: p.symbol, qty: Number(p.qty || 0), avgEntry: Number(p.avgEntry || 0),
+    current: Number(p.current || 0), marketValue: Number(p.marketValue || 0),
+    unrealizedPL: Number(p.unrealizedPL || 0), unrealizedPLpc: Number(p.unrealizedPLpc || 0),
+    weightPct: totalMv > 0 ? row2((Number(p.marketValue || 0) / totalMv) * 100) : 0,
+  })).sort((a, b) => b.marketValue - a.marketValue);
+  const portfolio = (riskSnap?.ok || holdings.length) ? {
+    equity: Number(riskSnap?.equity ?? null),
+    cash: Number(riskSnap?.cash ?? null),
+    buyingPower: Number(riskSnap?.buyingPower ?? null),
+    openRiskPct: Number(riskSnap?.openRiskPct ?? null),
+    dailyBreakerTripped: !!riskSnap?.dailyBreakerTripped,
+    accountHealthy: riskSnap?.accountHealth?.ok !== false,
+    positionCount: holdings.length,
+    sectorConcentration: riskSnap?.sectorConcentration || null,
+    topHoldingWeightPct: holdings[0]?.weightPct ?? null,
+    top3WeightPct: row2(holdings.slice(0, 3).reduce((s, h) => s + h.weightPct, 0)),
+    totalUnrealizedPL: row2(posArr.reduce((s, p) => s + Number(p.unrealizedPL || 0), 0)),
+    holdings: holdings.slice(0, 20),
+  } : null;
 
   const built = {
     executiveSummary: String(parsed.executiveSummary || "").slice(0, 1200),
@@ -331,8 +440,11 @@ Return the JSON now.`;
     thesis5y,
     smartMoneyRead: String(parsed.smartMoneyRead || "").slice(0, 800),
     actionPlan,
+    avoidList,
+    portfolio,
     regime: { score: regime.score, label: regime.label },
     sectors,
+    capitalFlow,
     universeSize: SCAN_UNIVERSE.length,
     setupsScanned: ranked.length,
     generatedAt: Date.now(),

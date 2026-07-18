@@ -62,6 +62,16 @@ function PickCard({ p, C, MONO, SANS }) {
         <span style={{ color: C.textDim }}>TGT <b style={{ color: C.green }}>${p.target}</b></span>
         <span style={{ color: C.textDim }}>RS <b style={{ color: C.text }}>{p.rsRating}</b></span>
       </div>
+      {/* target3/breakoutEntry/pullbackEntry are computed from the real entry/stop
+          above (a real 3:1 R:R extension + real pivot-derived trade-management
+          levels), not a second data source — shown as a secondary, quieter row */}
+      {(p.target3 != null || p.breakoutEntry != null || p.pullbackEntry != null) && (
+        <div style={{ display: "flex", gap: 12, fontFamily: MONO, fontSize: 9.5, flexWrap: "wrap", marginBottom: 6, color: C.textDim }}>
+          {p.pullbackEntry != null && <span>PULLBACK ${p.pullbackEntry}</span>}
+          {p.breakoutEntry != null && <span>BREAKOUT ${p.breakoutEntry}</span>}
+          {p.target3 != null && <span>TGT3 <b style={{ color: C.green }}>${p.target3}</b></span>}
+        </div>
+      )}
       {/* Real fundamentals from Yahoo — null fields simply don't render, never a guessed value */}
       {p.fundamentals && (p.fundamentals.pe != null || p.fundamentals.pegRatio != null || p.fundamentals.revenueGrowth != null) && (
         <div style={{ display: "flex", gap: 12, fontFamily: MONO, fontSize: 10, flexWrap: "wrap", marginBottom: 6, color: C.textDim }}>
@@ -85,6 +95,19 @@ function PickCard({ p, C, MONO, SANS }) {
         <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>{p.stage} · {p.passCount}/8</span>
         <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: actionCol }}>{p.action}</span>
       </div>
+    </div>
+  );
+}
+
+function AvoidCard({ a, C, MONO, SANS }) {
+  return (
+    <div style={{ background: `${C.red}0a`, border: `1px solid ${C.red}33`, borderRadius: 9, padding: "10px 13px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
+        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>{a.symbol}</span>
+        <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.red }}>{a.score}/100</span>
+      </div>
+      <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, lineHeight: 1.5 }}>{a.reasons.join(" · ")}</div>
+      {a.stage && <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginTop: 4 }}>{a.stage}</div>}
     </div>
   );
 }
@@ -132,7 +155,11 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
   };
 
   const regimeCol = brief?.regime?.label === "GREEN" ? C.green : brief?.regime?.label === "YELLOW" ? C.amber : C.red;
-  const maxAbsRel = brief ? Math.max(0.1, ...(brief.sectors || []).map(s => Math.abs(s.rel))) : 0.1;
+  // capitalFlow is the real sectors ranking widened with crypto/gold/
+  // treasuries/credit — falls back to the older `sectors`-only field for
+  // any cached brief generated before this widening shipped.
+  const flowRows = brief?.capitalFlow?.length ? brief.capitalFlow : (brief?.sectors || []);
+  const maxAbsRel = brief ? Math.max(0.1, ...flowRows.map(s => Math.abs(s.rel))) : 0.1;
 
   return (
     <div style={{ padding: "16px 20px", maxWidth: 1180, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -235,11 +262,50 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
             </div>
           )}
 
-          {/* Sector rankings — real, computed data */}
-          {brief.sectors?.length > 0 && (
+          {/* Capital Flow — real sector + macro-asset-class ranking (crypto/gold/treasuries/credit) */}
+          {flowRows.length > 0 && (
             <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
-              <SectionLabel icon="📊" text="SECTOR RANKINGS · REAL, TODAY VS SPY" color={C.accent} C={C} MONO={MONO} />
-              <div>{brief.sectors.map(s => <SectorBar key={s.symbol} s={s} maxAbs={maxAbsRel} C={C} MONO={MONO} />)}</div>
+              <SectionLabel icon="📊" text="CAPITAL FLOW · REAL, TODAY VS SPY" color={C.accent} C={C} MONO={MONO} />
+              <div>{flowRows.map(s => <SectorBar key={s.symbol} s={s} maxAbs={maxAbsRel} C={C} MONO={MONO} />)}</div>
+            </div>
+          )}
+
+          {/* AI Avoid List — bottom of the same real scan, real reasons */}
+          {brief.avoidList?.length > 0 && (
+            <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
+              <SectionLabel icon="🚫" text="AVOID LIST · LOWEST-SCORED IN TODAY'S SCAN" color={C.red} C={C} MONO={MONO} />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
+                {brief.avoidList.map(a => <AvoidCard key={a.symbol} a={a} C={C} MONO={MONO} SANS={SANS} />)}
+              </div>
+            </div>
+          )}
+
+          {/* Portfolio Manager — real live Alpaca account, only renders when connected */}
+          {brief.portfolio && (
+            <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
+              <SectionLabel icon="💼" text="PORTFOLIO" color={C.purple} C={C} MONO={MONO} />
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                <StatPill label="EQUITY" value={`$${Math.round(brief.portfolio.equity).toLocaleString()}`} color={C.text} C={C} MONO={MONO} />
+                <StatPill label="CASH" value={`$${Math.round(brief.portfolio.cash).toLocaleString()}`} color={C.textDim} C={C} MONO={MONO} />
+                <StatPill label="OPEN RISK" value={`${brief.portfolio.openRiskPct}%`} color={brief.portfolio.openRiskPct >= 6 ? C.red : brief.portfolio.openRiskPct >= 4 ? C.amber : C.green} C={C} MONO={MONO} />
+                <StatPill label="" value={brief.portfolio.dailyBreakerTripped ? "🔴 DAILY BREAKER TRIPPED" : "✅ Daily breaker OK"} color={brief.portfolio.dailyBreakerTripped ? C.red : C.green} C={C} MONO={MONO} />
+                <StatPill label="TOP HOLDING" value={`${brief.portfolio.topHoldingWeightPct}% of book`} color={brief.portfolio.topHoldingWeightPct >= 30 ? C.amber : C.textDim} C={C} MONO={MONO} />
+                <StatPill label="P&L" value={`${brief.portfolio.totalUnrealizedPL >= 0 ? "+" : ""}$${Math.round(brief.portfolio.totalUnrealizedPL).toLocaleString()}`} color={brief.portfolio.totalUnrealizedPL >= 0 ? C.green : C.red} C={C} MONO={MONO} />
+              </div>
+              {brief.portfolio.holdings?.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {brief.portfolio.holdings.map(h => (
+                    <div key={h.symbol} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 8px", background: C.surface, borderRadius: 6, fontFamily: MONO, fontSize: 11 }}>
+                      <span style={{ fontWeight: 800, color: C.text, minWidth: 55 }}>{h.symbol}</span>
+                      <span style={{ color: C.textDim, minWidth: 55 }}>{h.weightPct}% book</span>
+                      <span style={{ color: C.textDim }}>${h.current}</span>
+                      <span style={{ color: h.unrealizedPLpc >= 0 ? C.green : C.red, marginLeft: "auto" }}>
+                        {h.unrealizedPLpc >= 0 ? "+" : ""}{h.unrealizedPLpc.toFixed(1)}% (${h.unrealizedPL >= 0 ? "+" : ""}{h.unrealizedPL.toFixed(0)})
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
