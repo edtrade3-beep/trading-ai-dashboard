@@ -105,7 +105,7 @@ function PickCard({ p, C, MONO, SANS }) {
             CONFIDENCE {p.confidence.composite}
           </span>
           <span style={{ color: C.textDim, fontSize: 9.5 }}>
-            ({p.confidence.basedOn.map(k => k === "technical" ? "tech" : k === "fundamental" ? "fund" : "smart money").join(" + ")})
+            ({p.confidence.basedOn.map(k => k === "technical" ? "tech" : k === "fundamental" ? "fund" : k === "portfolioFit" ? "fit" : "smart money").join(" + ")})
           </span>
         </div>
       )}
@@ -378,7 +378,7 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
             })}
           </div>
           <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, fontStyle: "italic", marginTop: -6 }}>
-            CONFIDENCE is a real composite of technical (this platform's A+ scan), fundamental, and symbol-specific smart-money signals only where each actually resolves — not a full institutional-grade model.
+            CONFIDENCE is a real composite of technical (this platform's A+ scan), fundamental, symbol-specific smart-money, and real-portfolio sector fit — only where each actually resolves. Not a full institutional-grade model.
           </div>
 
           {/* 5-year thematic thesis */}

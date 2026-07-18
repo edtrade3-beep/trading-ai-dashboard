@@ -18,6 +18,7 @@ const { callAnthropicWithSearch } = require("./anthropic");
 const { saveCoachOutput, loadCoachLog } = require("./ai-coach-store");
 const { loadHistory, appendSnapshot, snapshotDaysAgo } = require("./advisor-history-store");
 const { PORT } = require("./config");
+const { sectorOf } = require("./risk-guardrails");
 
 const KEY = () => (process.env.ANTHROPIC_API_KEY || "").trim();
 const BASE = () => process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
@@ -156,17 +157,20 @@ function buildRegimeDetail(regime) {
 // the honest subset this app can back with real data: technical (this
 // platform's own real A+ trend-template score), fundamental (a transparent,
 // simple point score over real growth/margin/valuation/leverage fields —
-// not a professional quant model, just a disclosed heuristic), and
-// smart-money (a real, symbol-specific check against today's real insider
-// Form 4 buys and real short-interest changes — not the market-wide
-// narrative, an actual match on THIS symbol). The other 11 named scores in
-// the spec (institutional positioning, execution quality, catalyst timing,
-// portfolio-fit, sentiment, etc.) have no real quantifiable source anywhere
-// in this app. Any sub-score with no real supporting data is null, never a
+// not a professional quant model, just a disclosed heuristic), smart-money
+// (a real, symbol-specific check against today's real insider Form 4 buys
+// and real short-interest changes — not the market-wide narrative, an
+// actual match on THIS symbol), and portfolio-fit (real: does this
+// symbol's real sector — the exact sectorOf() classification already
+// backing Risk Command Center's sectorConcentration — already have real
+// concentration in the real live portfolio). The remaining 10 named scores
+// in the spec (institutional positioning, execution quality, catalyst
+// timing, sentiment, etc.) have no real quantifiable source anywhere in
+// this app. Any sub-score with no real supporting data is null, never a
 // guessed neutral value, and the composite only averages the sub-scores
 // that actually resolved — so a stock with only a technical read isn't
-// penalized (or flattered) by pretending the other two are neutral.
-const CONFIDENCE_NOT_COVERED = ["Institutional positioning (name-specific)", "Execution quality", "Catalyst timing", "Portfolio-fit", "Sentiment"];
+// penalized (or flattered) by pretending the others are neutral.
+const CONFIDENCE_NOT_COVERED = ["Institutional positioning (name-specific)", "Execution quality", "Catalyst timing", "Sentiment"];
 
 function computeFundamentalScore(f) {
   if (!f) return null;
@@ -192,15 +196,30 @@ function computeSmartMoneyScore(symbol, insider, shortChg) {
   return Math.max(0, Math.min(100, score));
 }
 
-function computeConfidence(r, insider, shortChg) {
+// Fewer real existing holdings in this real sector = better real
+// diversification fit. Requires a real connected portfolio (sectorConcentration
+// comes from the real live account) — with no portfolio there's no real
+// book to assess fit against, so this stays null rather than assuming
+// "no portfolio" means "no concentration".
+function computeFitScore(symbol, sectorConcentration) {
+  if (!sectorConcentration) return null;
+  const count = sectorConcentration[sectorOf(symbol)] || 0;
+  if (count === 0) return 100;
+  if (count === 1) return 75;
+  if (count === 2) return 50;
+  return 25;
+}
+
+function computeConfidence(r, insider, shortChg, sectorConcentration) {
   const technical = Number.isFinite(r?.aplus?.score) ? r.aplus.score : null;
   const fundamental = computeFundamentalScore(r.fund);
   const smartMoney = computeSmartMoneyScore(r.symbol, insider, shortChg);
-  const parts = [["technical", technical], ["fundamental", fundamental], ["smartMoney", smartMoney]].filter(([, v]) => v != null);
+  const portfolioFit = computeFitScore(r.symbol, sectorConcentration);
+  const parts = [["technical", technical], ["fundamental", fundamental], ["smartMoney", smartMoney], ["portfolioFit", portfolioFit]].filter(([, v]) => v != null);
   if (!parts.length) return null;
   return {
     composite: Math.round(parts.reduce((s, [, v]) => s + v, 0) / parts.length),
-    technical, fundamental, smartMoney,
+    technical, fundamental, smartMoney, portfolioFit,
     basedOn: parts.map(([k]) => k),
     notCovered: CONFIDENCE_NOT_COVERED,
   };
@@ -497,7 +516,7 @@ async function buildAdvisorBrief() {
   // requests, same bounded-fan-out pattern used elsewhere in this app.
   const fundArr = await Promise.all(ranked.map(r => getJson(`/api/yahoo/fundamentals?symbol=${r.symbol}`)));
   ranked.forEach((r, i) => { r.fund = fundArr[i] || null; });
-  ranked.forEach(r => { r.confidence = computeConfidence(r, insider, shortChg); });
+  ranked.forEach(r => { r.confidence = computeConfidence(r, insider, shortChg, riskCommandCenter.sectorConcentration); });
   const rankedMap = new Map(ranked.map(r => [r.symbol, r]));
 
   const fundSnippet = (f) => {
