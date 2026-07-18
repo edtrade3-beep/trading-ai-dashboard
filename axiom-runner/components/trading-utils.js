@@ -15,7 +15,25 @@ export function classifyTrend(q) {
   return "Down";
 }
 
-export function computeScores(q) {
+// trend: optional row from /api/market/trend-screen ({stage, pctFromHigh,
+// abovePivotPct, pivot, ...}). q.priceAvg50/priceAvg200/yearHigh/yearLow
+// come from /api/market/quote, a fast price-only path that never populates
+// them for any Alpaca-covered symbol (confirmed live this session — same
+// root cause fixed in PredictionsTab/GreenLight deep-dive/DipBuy/
+// EarlyEntryScanner/AutoPilot/Dashboard/Holdings/TradeAdvisor). When ma50/
+// ma200/hi52/lo52 are genuinely present (non-Alpaca symbol, Yahoo overlay
+// ran) they're used as before; otherwise, if a real trend row was passed,
+// it substitutes for the dead fields instead of just going dark.
+function _trendSignals(trend) {
+  const stage = String(trend?.stage || "");
+  const inUptrend   = stage.startsWith("Stage 2");
+  const inDowntrend = stage.startsWith("Stage 3") || stage.startsWith("Stage 4");
+  const distToHigh  = trend && Number.isFinite(Number(trend.pctFromHigh)) ? -Number(trend.pctFromHigh) : null; // % below the high
+  const abovePivotPct = trend && Number.isFinite(Number(trend.abovePivotPct)) ? Number(trend.abovePivotPct) : null;
+  return { inUptrend, inDowntrend, distToHigh, abovePivotPct };
+}
+
+export function computeScores(q, trend) {
   if (!q) return { tech: 0, fund: 0, macro: 0, composite: 0 };
 
   const price  = Number(q.price  || q.regularMarketPrice || 0);
@@ -29,6 +47,7 @@ export function computeScores(q) {
   const pe     = Number(q.pe          || q.trailingPE         || 0);
   const mcap   = Number(q.marketCap   || 0);
   const beta   = Number(q.beta        || 0);
+  const { inUptrend, inDowntrend, distToHigh, abovePivotPct } = _trendSignals(trend);
 
   // ── TECHNICAL SCORE (0-100) ────────────────────────────────────────────────
   let tech = 40; // neutral base
@@ -40,6 +59,12 @@ export function computeScores(q) {
     else if (price > ma200)                 tech += 6;  // above 200 only
     else if (price < ma50 && ma50 < ma200) tech -= 15; // perfect downtrend
     else                                    tech -= 6;  // mixed bearish
+  } else if (trend) {
+    // ma50/ma200 dead — fall back to real Weinstein-stage structure instead
+    // of silently losing the whole factor. Ambiguous stages (e.g. "Stage
+    // 1/3 — Transition") intentionally get neither bonus nor penalty.
+    if (inUptrend)        tech += 18; // real confirmed uptrend (analog of "perfect uptrend")
+    else if (inDowntrend) tech -= 15; // real confirmed downtrend
   }
 
   // Distance from MA50 — stretched or at support
@@ -49,6 +74,12 @@ export function computeScores(q) {
     else if (d50 > 5 && d50 < 15) tech += 5; // healthy above
     else if (d50 > 20)          tech -= 5;  // stretched too high
     else if (d50 < -15)         tech -= 8;  // far below
+  } else if (abovePivotPct !== null) {
+    // Real distance above the trend-screen's own technical pivot, same idea
+    if (abovePivotPct > -2 && abovePivotPct < 5)   tech += 8;
+    else if (abovePivotPct > 5 && abovePivotPct < 15) tech += 5;
+    else if (abovePivotPct > 20)          tech -= 5;
+    else if (abovePivotPct < -15)         tech -= 8;
   }
 
   // 52W range position
@@ -58,6 +89,12 @@ export function computeScores(q) {
     else if (pos > 0.55) tech += 5;
     else if (pos < 0.20) tech -= 8;  // near lows — weakness
     else if (pos < 0.35) tech -= 3;
+  } else if (distToHigh !== null) {
+    // No real 52w-low analog from trend-screen (pctFromHigh only), so the
+    // "near lows — weakness" branch is dropped rather than fabricated —
+    // same precedent as EarlyEntryScanner/TradeAdvisorTab this session.
+    if (distToHigh <= 3)       tech += 10; // real near-high strength
+    else if (distToHigh <= 15) tech += 5;
   }
 
   // Volume confirmation
@@ -105,11 +142,16 @@ export function computeScores(q) {
   if (price > 0 && ma200 > 0) {
     if (price > ma200) macro += 15;
     else               macro -= 10;
+  } else if (trend) {
+    if (inUptrend)        macro += 15;
+    else if (inDowntrend) macro -= 10;
   }
 
   // Trend strength from weekly + monthly signals
-  if (chgPct > 0 && price > ma50) macro += 8;
-  if (hi52 > 0 && price > hi52 * 0.85) macro += 7; // near highs = market likes it
+  if (chgPct > 0 && price > ma50)              macro += 8;
+  else if (chgPct > 0 && abovePivotPct !== null && abovePivotPct > 0) macro += 8;
+  if (hi52 > 0 && price > hi52 * 0.85)         macro += 7; // near highs = market likes it
+  else if (distToHigh !== null && distToHigh <= 15) macro += 7;
 
   // Clamp all
   tech  = Math.max(0, Math.min(100, Math.round(tech)));
@@ -482,9 +524,10 @@ export async function alpacaOption(underlying, type, qty, underlyingPx) {
   } catch { return null; }
 }
 
-// Multi-timeframe signal — uses price action data already in each quote row
+// Multi-timeframe signal — uses price action data already in each quote row.
+// trend: optional row from /api/market/trend-screen (see _trendSignals above).
 // Returns { signal: "BUY"|"HOLD"|"SELL", score, timeframes: [{label,bull}] }
-export function computeMTFSignal(q) {
+export function computeMTFSignal(q, trend) {
   if (!q || !q.price) return { signal: "HOLD", score: 0, timeframes: [] };
 
   const price   = Number(q.price);
@@ -496,8 +539,16 @@ export function computeMTFSignal(q) {
   const yHigh   = Number(q.yearHigh || 0);
   const yLow    = Number(q.yearLow  || 0);
   const rvol    = q.avgVolume ? q.volume / q.avgVolume : 1;
+  const { inUptrend, inDowntrend, distToHigh, abovePivotPct } = _trendSignals(trend);
 
-  // Each timeframe: label shown in the badge row, and whether it's bullish
+  // Each timeframe: label shown in the badge row, and whether it's bullish.
+  // "1W"/"1M" prefer real sma50/sma200 when present (non-Alpaca symbol,
+  // Yahoo overlay ran); otherwise, if a real trend row is available, use it
+  // instead of the old blind `chg > 0` fallback (which just repeated the
+  // 1D signal and could never be neutral). abovePivotPct (a real short-term
+  // support distance) stands in for the weekly proxy; stage (a real
+  // Weinstein-stage read) stands in for the monthly proxy — an ambiguous
+  // stage (e.g. "Stage 1/3 — Transition") is genuinely neutral, not guessed.
   const tfs = [
     {
       label: "5M",
@@ -515,14 +566,14 @@ export function computeMTFSignal(q) {
       neutral: Math.abs(chg) < 0.15,
     },
     {
-      label: "1W",    // proxy: price vs 50D SMA
-      bull: sma50 > 0 ? price > sma50 : chg > 0,
-      neutral: sma50 > 0 ? Math.abs(price / sma50 - 1) < 0.005 : false,
+      label: "1W",    // proxy: price vs 50D SMA, else real distance above trend-screen's pivot
+      bull: sma50 > 0 ? price > sma50 : (abovePivotPct !== null ? abovePivotPct > 0 : chg > 0),
+      neutral: sma50 > 0 ? Math.abs(price / sma50 - 1) < 0.005 : (abovePivotPct !== null ? Math.abs(abovePivotPct) < 0.5 : false),
     },
     {
-      label: "1M",    // proxy: price vs 200D SMA
-      bull: sma200 > 0 ? price > sma200 : chg > 0,
-      neutral: sma200 > 0 ? Math.abs(price / sma200 - 1) < 0.005 : false,
+      label: "1M",    // proxy: price vs 200D SMA, else real trend-screen stage
+      bull: sma200 > 0 ? price > sma200 : (trend ? inUptrend : chg > 0),
+      neutral: sma200 > 0 ? Math.abs(price / sma200 - 1) < 0.005 : (trend ? (!inUptrend && !inDowntrend) : false),
     },
   ];
 
@@ -540,6 +591,10 @@ export function computeMTFSignal(q) {
     const pos = (price - yLow) / (yHigh - yLow);
     if (pos > 0.75) score += 1;
     else if (pos < 0.25) score -= 1;
+  } else if (distToHigh !== null) {
+    // No real 52w-low analog from trend-screen — near-high tie-breaker only,
+    // same "don't fabricate the missing half" precedent used throughout.
+    if (distToHigh <= 5) score += 1;
   }
 
   let signal;

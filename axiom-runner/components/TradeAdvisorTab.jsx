@@ -13,8 +13,8 @@ function generateSetup(q, trend) {
   // Dashboard/Holdings). Real trend structure below comes from
   // /api/market/trend-screen instead — those raw fields are unused here.
   const rvol    = q.avgVolume ? (q.volume / q.avgVolume) : 1;
-  const mtf     = computeMTFSignal(q);
-  const scores  = computeScores(q);
+  const mtf     = computeMTFSignal(q, trend);
+  const scores  = computeScores(q, trend);
 
   if (mtf.signal === "HOLD" && scores.composite < 65) return null;
   if (mtf.score === 0) return null;
@@ -409,7 +409,7 @@ export default function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlis
                   <div style={{ marginTop: 14 }}>
                     <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700, marginBottom: 8, letterSpacing: "0.06em" }}>TIMEFRAME ALIGNMENT</div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {computeMTFSignal(s.q).timeframes.map(tf => {
+                      {computeMTFSignal(s.q, trendMap[s.symbol]).timeframes.map(tf => {
                         const col = tf.neutral ? C.textDim : (tf.bull ? C.green : C.red);
                         const label = tf.neutral ? "—" : (tf.bull ? "▲" : "▼");
                         return (

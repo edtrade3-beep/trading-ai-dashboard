@@ -1372,6 +1372,32 @@ export default function App() {
   const [riskSlipBps, setRiskSlipBps] = useState("10");
   const [riskSetupQuality, setRiskSetupQuality] = useState("A");
   const [watchlistData, setWatchlistData] = useState([]);
+  // Real trend structure (Stage 2 uptrend / Stage 3-4 downtrend, real
+  // pctFromHigh/abovePivotPct) for computeScores/computeMTFSignal below —
+  // /api/market/quote (source of watchlistData) never populates
+  // priceAvg50/priceAvg200/yearHigh/yearLow for any Alpaca-covered symbol,
+  // which silently zeroed out large parts of both scoring functions app-wide
+  // (confirmed live this session, same root cause fixed in Holdings/
+  // AutoPilot/Dashboard/EarlyEntryScanner/TradeAdvisor).
+  const [trendMap, setTrendMap] = useState({});
+  // Mirrors trendMap for use inside useCallback/setInterval closures (e.g.
+  // fetchAll below) that don't list trendMap as a dependency and would
+  // otherwise close over a permanently-stale/empty value — same pattern
+  // used for AutoPilotEngine's live exit-trigger fix this session.
+  const trendMapRef = useRef({});
+  useEffect(() => { trendMapRef.current = trendMap; }, [trendMap]);
+  const wlSymsKey = [...new Set((watchlistSymbols || []).filter(Boolean))].sort().join(",");
+  useEffect(() => {
+    if (!wlSymsKey) return;
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(wlSymsKey)}`)
+      .then(r => r.json())
+      .then(j => {
+        const map = {};
+        (j.results || []).forEach(r => { if (!r.error) map[r.symbol] = r; });
+        setTrendMap(map);
+      })
+      .catch(() => {});
+  }, [wlSymsKey]);
   const prevScoresRef = useRef({});  // symbol → last composite score, for crossing-70 detection
   const prevGreenRef = useRef({});   // symbol → was green light, for green-light transition alerts
   const regimeRef = useRef(null);    // last known Risk-On/Risk-Off regime, for change alerts
@@ -1415,7 +1441,7 @@ export default function App() {
     if (!selectedStock) return;
     const sym = selectedStock.symbol || selectedStock.ticker;
     if (!sym) { setSelectedStock(null); return; }
-    const sc = computeScores(selectedStock).composite || 50;
+    const sc = computeScores(selectedStock, trendMap[sym]).composite || 50;
     setScanResults(prev => prev.some(r => r.ticker === sym) ? prev : [{
       ticker: sym, score: sc, signal: "WATCH", scannerScore: sc, signals: [], sColor: "#f59e0b",
       quote: { price: selectedStock.price || 0, changePercent: selectedStock.changesPercentage || 0,
@@ -4068,7 +4094,7 @@ export default function App() {
             fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
           }
           prevGreenRef.current[sym] = isGreen;   // always track so we catch the next transition
-          prevScoresRef.current[sym] = computeScores(q).composite;
+          prevScoresRef.current[sym] = computeScores(q, trendMapRef.current[sym]).composite;
         });
       }
       else wl = [];
@@ -4185,8 +4211,8 @@ export default function App() {
   const sorted = useMemo(() => {
     return [...watchlistData].sort((a, b) => {
       let va, vb;
-      const scA = computeScores(a);
-      const scB = computeScores(b);
+      const scA = computeScores(a, trendMap[a.symbol]);
+      const scB = computeScores(b, trendMap[b.symbol]);
       switch (sortCol) {
         case "symbol": return sortDir === "asc" ? a.symbol.localeCompare(b.symbol) : b.symbol.localeCompare(a.symbol);
         case "price": va = a.price; vb = b.price; break;
@@ -4201,12 +4227,12 @@ export default function App() {
       }
       return sortDir === "asc" ? va - vb : vb - va;
     });
-  }, [watchlistData, sortCol, sortDir]);
+  }, [watchlistData, trendMap, sortCol, sortDir]);
 
   const signalFiltered = useMemo(() => {
     return sorted.filter(q => {
       // Signal
-      if (signalFilter !== "ALL" && computeMTFSignal(q).signal !== signalFilter) return false;
+      if (signalFilter !== "ALL" && computeMTFSignal(q, trendMap[q.symbol]).signal !== signalFilter) return false;
       // Trend
       if (trendFilter !== "ALL" && classifyTrend(q) !== trendFilter) return false;
       // Volume (RVOL)
@@ -4218,7 +4244,7 @@ export default function App() {
       }
       // Score
       if (scoreFilter !== "ALL") {
-        const s = computeScores(q).composite;
+        const s = computeScores(q, trendMap[q.symbol]).composite;
         if (scoreFilter === "70+" && s < 70)  return false;
         if (scoreFilter === "60+" && s < 60)  return false;
         if (scoreFilter === "50+" && s < 50)  return false;
@@ -4533,7 +4559,7 @@ export default function App() {
     const sector = scannerFilters.sector || "ALL";
     return sourceRows
       .map((q) => {
-        const scores = computeScores(q);
+        const scores = computeScores(q, trendMap[q.symbol]);
         const rvol = q.avgVolume ? q.volume / q.avgVolume : 0;
         const sectorEtf = STOCK_TO_SECTOR[q.symbol] || "";
         return {
@@ -4551,7 +4577,7 @@ export default function App() {
       .filter((q) => q.scannerScore >= minScore)
       .filter((q) => sector === "ALL" || q.sectorEtf === sector)
       .sort((a, b) => b.scannerScore - a.scannerScore);
-  }, [watchlistData, marketUniverseData, scannerFilters]);
+  }, [watchlistData, marketUniverseData, scannerFilters, trendMap]);
   const scannerBadge = useMemo(() => scannerRows.filter(r => r.scannerScore >= 70).length || null, [scannerRows]);
   const marketSession = useMemo(() => getMarketSessionET(new Date()), [lastUpdate, loading]);
   const sessionCountdown = useMemo(() => getSessionCountdownSecs(new Date(clockNow)), [clockNow]);
@@ -4910,7 +4936,7 @@ export default function App() {
       const allSyms = Array.from(new Set([...wl.map((q) => q.symbol), ...rotationRank.map((q) => q.symbol)]));
       const matchedSymbol = allSyms.find((s) => prompt.toUpperCase().includes(s));
       const focus = matchedSymbol ? findBySym(matchedSymbol) : null;
-      const focusScore = focus ? computeScores(focus) : null;
+      const focusScore = focus ? computeScores(focus, trendMap[focus.symbol]) : null;
       const focusTrend = focus ? classifyTrend(focus) : null;
 
       // Try the server-side Claude AI endpoint first; fall back to heuristic if not configured.
@@ -5028,7 +5054,7 @@ export default function App() {
     const candidates = (sourceRows || [])
       .filter((q) => Number(q?.price || 0) > 0)
       .map((q) => {
-        const scores = computeScores(q);
+        const scores = computeScores(q, trendMapRef.current[q.symbol]);
         const rvol = q.avgVolume ? q.volume / q.avgVolume : 0;
         const change = Number(q.changesPercentage || 0);
         const delta30 = Number(q.delta30m || 0);
@@ -5792,6 +5818,7 @@ export default function App() {
             wlistRenameVal={wlistRenameVal} wlistRenaming={wlistRenaming} wlSearchFocused={wlSearchFocused}
             wlSearchQuery={wlSearchQuery}
             sorted={sorted} signalFiltered={signalFiltered} sortCol={sortCol} sortDir={sortDir} handleSort={handleSort}
+            trendMap={trendMap}
             MARKET_UNIVERSE_SYMBOLS={MARKET_UNIVERSE_SYMBOLS}
             setActiveTab={setActiveTab} setActiveWlistId={setActiveWlistId} setLoading={setLoading}
             setOpenAlertSymbol={setOpenAlertSymbol} setOpenNoteSymbol={setOpenNoteSymbol}

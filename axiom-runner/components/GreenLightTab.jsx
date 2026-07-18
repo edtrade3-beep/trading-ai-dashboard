@@ -491,7 +491,11 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
         ];
         const d = glDeep[r.symbol];
         const t = d?.tech;
-        const mom = (() => { try { return computeScores(r.q || {}).composite; } catch { return null; } })();
+        // r.q's priceAvg50/priceAvg200 are dead for Alpaca-covered symbols
+        // (same root cause fixed elsewhere this session) — t.ma50/t.ma200
+        // above are real, independently computed from actual 1y chart
+        // closes, so reuse them here instead of a second fetch.
+        const mom = (() => { try { return computeScores(t ? { ...(r.q || {}), priceAvg50: t.ma50, priceAvg200: t.ma200 } : (r.q || {})).composite; } catch { return null; } })();
         const rsiV = t?.rsi != null ? t.rsi : (r.rsi || null);
         const ld = glDeepLoad ? "…" : "—";
         const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 };

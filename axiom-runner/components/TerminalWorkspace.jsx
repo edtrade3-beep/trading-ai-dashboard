@@ -13,6 +13,26 @@ export default function TerminalWorkspace({
 }) {
   const selected = watchlistData.find((q) => q.symbol === selectedSymbol) || watchlistData[0] || null;
 
+  // Real trend structure for computeScores/stop calc below — watchlistData
+  // (from /api/market/quote) never populates priceAvg50/priceAvg200/
+  // yearHigh/yearLow for any Alpaca-covered symbol, which silently zeroed
+  // out most of the composite score, the MA50-anchored stop-loss, and the
+  // "52W High"/"MA 50" stat rows (same root cause fixed elsewhere this
+  // session).
+  const [trendMap, setTrendMap] = useState({});
+  const wlSymsKey = [...new Set((watchlistData || []).map(q => q.symbol).filter(Boolean))].sort().join(",");
+  useEffect(() => {
+    if (!wlSymsKey) return;
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(wlSymsKey)}`)
+      .then(r => r.json())
+      .then(j => {
+        const map = {};
+        (j.results || []).forEach(r => { if (!r.error) map[r.symbol] = r; });
+        setTrendMap(map);
+      })
+      .catch(() => {});
+  }, [wlSymsKey]);
+
   // ── Watchlist add/remove ─────────────────────────────────────────────────
   const [wlAddInput, setWlAddInput] = useState("");
   const wlAddTicker = () => {
@@ -164,12 +184,12 @@ export default function TerminalWorkspace({
     insightPrevRef.current = selected.symbol;
     const price = Number(selected.price || 0);
     const change = Number(selected.changesPercentage || 0);
-    if (price > 0) runInsight(selected.symbol, price, change, computeScores(selected));
+    if (price > 0) runInsight(selected.symbol, price, change, computeScores(selected, trendMap[selected.symbol]));
   }, [selected?.symbol]); // eslint-disable-line
 
   if (!selected) return null;
   const chg = selected.changesPercentage || 0;
-  const scores = computeScores(selected);
+  const scores = computeScores(selected, trendMap[selected.symbol]);
   const rvol = selected.avgVolume ? (selected.volume / selected.avgVolume) : 0;
   const leaderTape = macroData.filter((q) => ["SPY", "QQQ", "IWM", "DIA", "UUP", "USO", "GLD", "TLT", "BTCUSD"].includes(q.symbol));
   const topNews = newsData.filter((n) => !selected?.symbol || n.ticker === selected.symbol).slice(0, 6);
@@ -185,7 +205,7 @@ export default function TerminalWorkspace({
     const spy = Number(macroData.find((q) => q.symbol === "SPY")?.changesPercentage || 0);
     return [...(watchlistData || [])]
       .map((q) => {
-        const s = computeScores(q);
+        const s = computeScores(q, trendMap[q.symbol]);
         const rel = Number(q.changesPercentage || 0) - spy;
         const r = q.avgVolume ? (q.volume / q.avgVolume) : 0;
         const alertBoost = Number(terminalAlertMap.get(q.symbol) || 0) * 0.2;
@@ -193,7 +213,7 @@ export default function TerminalWorkspace({
         return { ...q, s, rel, r, rankScore };
       })
       .sort((a, b) => b.rankScore - a.rankScore);
-  }, [watchlistData, macroData, terminalAlertMap]);
+  }, [watchlistData, macroData, terminalAlertMap, trendMap]);
   const executionRows = useMemo(() => {
     return terminalRankRows.slice(0, 6).map((q) => {
       const entry = Number(q.price || 0);
@@ -283,7 +303,7 @@ export default function TerminalWorkspace({
 
   if (!selected) return null;
 
-  const scores2 = computeScores(selected);
+  const scores2 = computeScores(selected, trendMap[selected.symbol]);
   // ── Chart indicators state ────────────────────────────────────────────────
   const sig2 = scores2.composite >= 72 ? "BUY" : scores2.composite >= 55 ? "WATCH" : scores2.composite >= 40 ? "HOLD" : "AVOID";
   const sigCol2 = sig2 === "BUY" ? C.green : sig2 === "WATCH" ? C.amber : sig2 === "HOLD" ? C.textDim : C.red;
@@ -294,7 +314,14 @@ export default function TerminalWorkspace({
   const hi52v = Number(selected.yearHigh || 0);
   const lo52v = Number(selected.yearLow  || 0);
   const rvolV = selected.avgVolume > 0 ? (selected.volume / selected.avgVolume) : 0;
-  const stopV = px2 > 0 ? (Math.min(px2 * 0.97, ma50v > 0 && ma50v < px2 ? ma50v * 0.98 : px2 * 0.97)) : 0;
+  // Real fallback when ma50v/hi52v are dead (Alpaca-covered symbol) — the
+  // trend-screen's own technical pivot/pctFromHigh, same substitution used
+  // in TradeAdvisorTab/EarlyEntryScanner this session.
+  const selTrend = trendMap[selected.symbol];
+  const pivotV = Number(selTrend?.pivot || 0);
+  const distToHighV = selTrend && Number.isFinite(Number(selTrend.pctFromHigh)) ? -Number(selTrend.pctFromHigh) : null;
+  const stopV = px2 > 0 ? (Math.min(px2 * 0.97,
+    ma50v > 0 && ma50v < px2 ? ma50v * 0.98 : (pivotV > 0 && pivotV < px2 ? pivotV * 0.98 : px2 * 0.97))) : 0;
   const t1V   = px2 > 0 ? px2 + (px2 - stopV) * 1.5 : 0;
   const t2V   = px2 > 0 ? px2 + (px2 - stopV) * 3   : 0;
 
@@ -321,7 +348,7 @@ export default function TerminalWorkspace({
               const chgPct = q.changesPercentage || 0;
               const up = chgPct >= 0;
               const active = q.symbol === selected.symbol;
-              const scores = computeScores(q);
+              const scores = computeScores(q, trendMap[q.symbol]);
               const sig = scores.composite >= 72 ? "BUY" : scores.composite >= 55 ? "WATCH" : scores.composite >= 40 ? "HOLD" : "AVOID";
               const sigColor = sig === "BUY" ? C.green : sig === "WATCH" ? C.amber : sig === "HOLD" ? C.textDim : C.red;
               const rvol = q.avgVolume > 0 ? q.volume / q.avgVolume : 0;
@@ -459,11 +486,16 @@ export default function TerminalWorkspace({
             <>
               <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", padding: "10px 0 4px" }}>KEY LEVELS</div>
               {[
-                hi52v > 0 && ["52W High", `$${hi52v.toFixed(2)}`, px2 >= hi52v*0.95 ? C.amber : C.text],
+                // hi52v/ma50v/ma200v/lo52v are dead (0) for any Alpaca-covered
+                // symbol — real substitutes below from trend-screen, else the
+                // row is dropped rather than showing a fabricated value.
+                hi52v > 0 ? ["52W High", `$${hi52v.toFixed(2)}`, px2 >= hi52v*0.95 ? C.amber : C.text]
+                  : (distToHighV !== null && distToHighV >= 0 && ["52W High (est.)", `$${(px2/(1-Math.min(distToHighV,99)/100)).toFixed(2)}`, distToHighV <= 5 ? C.amber : C.text]),
                 ma50v > 0 && ["MA 50",   `$${ma50v.toFixed(2)}`,  px2 > ma50v ? C.green : C.red],
                             ["Price",    `$${px2.toFixed(2)}`,    C.accent],
                 ma200v > 0 && ["MA 200", `$${ma200v.toFixed(2)}`, px2 > ma200v ? C.green : C.red],
                 lo52v > 0 && ["52W Low", `$${lo52v.toFixed(2)}`,  px2 <= lo52v*1.08 ? C.amber : C.text],
+                ma50v <= 0 && pivotV > 0 && ["Pivot (support)", `$${pivotV.toFixed(2)}`, px2 > pivotV ? C.green : C.red],
               ].filter(Boolean).map(([l,v,col]) => (
                 <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
                   <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>

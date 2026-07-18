@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { computeScores } from "./trading-utils.js";
 
 export default function MultiTfTab({
@@ -7,6 +8,20 @@ export default function MultiTfTab({
         const tvTheme = themeMode === "dark" ? "dark" : "light";
         // Use the currently selected terminal symbol as default
         const sym = (multitfSymbol || terminalSymbol || "SPY").toUpperCase();
+        // Real trend structure for computeScores below — watchlistData (from
+        // /api/market/quote) never populates priceAvg50/priceAvg200/
+        // yearHigh/yearLow for any Alpaca-covered symbol, which silently
+        // zeroed out most of the composite score used for the alignment
+        // verdict (same root cause fixed elsewhere this session).
+        const [symTrend, setSymTrend] = useState(null);
+        useEffect(() => {
+          if (!sym) return;
+          setSymTrend(null);
+          fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(sym)}`)
+            .then(r => r.json())
+            .then(j => setSymTrend((j.results || []).find(r => r.symbol === sym && !r.error) || null))
+            .catch(() => {});
+        }, [sym]);
         const TFS = [
           { key: "5",   label: "5M",    interval: "5",   desc: "Intraday — entries & exits" },
           { key: "15",  label: "15M",   interval: "15",  desc: "Short-term — trend confirmation" },
@@ -16,7 +31,7 @@ export default function MultiTfTab({
         const align = (() => {
           const wl = watchlistData.find(q => q.symbol === sym);
           if (!wl) return null;
-          const scores = computeScores(wl);
+          const scores = computeScores(wl, symTrend);
           return scores.composite >= 65 ? { txt: "✅ BULLISH ALIGNMENT", col: C.green }
                : scores.composite <= 40 ? { txt: "🔴 BEARISH ALIGNMENT", col: C.red }
                : { txt: "⚠️ MIXED — WAIT FOR CLARITY", col: C.amber };

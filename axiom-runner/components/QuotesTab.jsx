@@ -8,7 +8,7 @@ export default function QuotesTab({
   activeWlistId, openAlertSymbol, openNoteSymbol,
   scoreFilter, signalFilter, trendFilter, volumeFilter,
   wlAlertDir, wlAlertPrice, wlCardView, wlistRenameVal, wlistRenaming, wlSearchFocused, wlSearchQuery,
-  sorted, signalFiltered, sortCol, sortDir, handleSort,
+  sorted, signalFiltered, sortCol, sortDir, handleSort, trendMap,
   setActiveTab, setActiveWlistId, setLoading, setOpenAlertSymbol, setOpenNoteSymbol, setQuickLogModal,
   setScanExpanded, setScanResults, setScoreFilter, setSelectedStock, setSettings, setSignalFilter,
   setTerminalSymbol, setTrendFilter, setVolumeFilter, setWatchlistInput, setWatchlistNotes,
@@ -369,10 +369,10 @@ export default function QuotesTab({
                   {signalFiltered.map(q => {
                     const chg    = q.changesPercentage || 0;
                     const isUp   = chg >= 0;
-                    const scores = computeScores(q);
+                    const scores = computeScores(q, trendMap?.[q.symbol]);
                     const trend  = classifyTrend(q);
                     const rvol   = q.avgVolume ? (q.volume / q.avgVolume) : 0;
-                    const mtf    = computeMTFSignal(q);
+                    const mtf    = computeMTFSignal(q, trendMap?.[q.symbol]);
                     const sigCol = mtf.signal === "BUY" ? C.green : mtf.signal === "SELL" ? C.red : C.amber;
                     const trendArrow = trend.includes("Up") ? "▲" : trend.includes("Down") ? "▼" : "─";
                     const trendCol   = trend.includes("Up") ? C.green : trend.includes("Down") ? C.red : C.textDim;
@@ -450,10 +450,10 @@ export default function QuotesTab({
                       {signalFiltered.map(q => {
                         const chg = q.changesPercentage || 0;
                         const isUp = chg >= 0;
-                        const scores = computeScores(q);
+                        const scores = computeScores(q, trendMap?.[q.symbol]);
                         const trend = classifyTrend(q);
                         const rvol = q.avgVolume ? (q.volume / q.avgVolume) : 0;
-                        const mtf = computeMTFSignal(q);
+                        const mtf = computeMTFSignal(q, trendMap?.[q.symbol]);
                         const colSpan = ((marketSession === "PREMARKET" || marketSession === "AFTERMARKET") ? 15 : 14) - (isTablet ? 4 : 0);
                         return (
                           <React.Fragment key={q.symbol}>
