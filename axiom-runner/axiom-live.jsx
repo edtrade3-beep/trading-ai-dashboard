@@ -2874,16 +2874,31 @@ export default function App() {
       const decliners = wl.filter(q => chg(q) < 0).length;
       const breadthPct = wl.length ? Math.round(advancers / wl.length * 100) : 50;
 
+      // rvol/relVsSpy/composite are NOT real fields on a raw watchlistData
+      // quote (that array is set directly from fetchQuotes — see
+      // setWatchlistData(wl) in fetchAll) — they only exist on the
+      // separately-computed rotationRank array. Reading them off `wl`
+      // directly silently defaulted every row to relVsSpy=0/rvol=1, which
+      // (a) made topLongs' sort a no-op (every row scored the same,
+      // 0+1=0+1), so "top 8 longs by relative strength" was really just
+      // filter order, not a real ranking, and (b) showed a fabricated-
+      // looking "RS +0.0%, RVOL 1.0x" for every single name in the real
+      // Pre-Market Briefing's "LONG IDEAS"/"SHORT IDEAS" sections
+      // (generateBriefing's longIdeas/shortIdeas, src/routes/agent.js)
+      // regardless of the stock's real relative strength or volume.
+      const rrMap = new Map((rotationRank || []).map(r => [r.symbol, r]));
+      const rv = (q) => Number(rrMap.get(q.symbol)?.rvol ?? 1);
+      const rs = (q) => Number(rrMap.get(q.symbol)?.relVsSpy ?? 0);
       const topGainers = [...wl].sort((a,b) => chg(b)-chg(a)).slice(0,5)
-        .map(q => ({ symbol: q.symbol, chg: chg(q), rvol: Number(q.rvol||1) }));
+        .map(q => ({ symbol: q.symbol, chg: chg(q), rvol: rv(q) }));
       const topLosers  = [...wl].sort((a,b) => chg(a)-chg(b)).slice(0,5)
-        .map(q => ({ symbol: q.symbol, chg: chg(q), rvol: Number(q.rvol||1) }));
+        .map(q => ({ symbol: q.symbol, chg: chg(q), rvol: rv(q) }));
       const topLongs   = [...wl].filter(q=>chg(q)>0)
-        .sort((a,b)=>(Number(b.relVsSpy||0)+Number(b.rvol||1))-(Number(a.relVsSpy||0)+Number(a.rvol||1)))
-        .slice(0,8).map(q=>({ symbol: q.symbol, relVsSpy: Number(q.relVsSpy||0), rvol: Number(q.rvol||1), composite: Number(q.composite||0), chg: chg(q) }));
+        .sort((a,b)=>(rs(b)+rv(b))-(rs(a)+rv(a)))
+        .slice(0,8).map(q=>({ symbol: q.symbol, relVsSpy: rs(q), rvol: rv(q), composite: Number(q.composite||0), chg: chg(q) }));
       const topRisks   = [...wl].filter(q=>chg(q)<-1)
         .sort((a,b)=>chg(a)-chg(b)).slice(0,5)
-        .map(q=>({ symbol: q.symbol, chg: chg(q), rvol: Number(q.rvol||1) }));
+        .map(q=>({ symbol: q.symbol, chg: chg(q), rvol: rv(q) }));
       const rotation   = (rotationRank||[]).slice(0,8).map(q=>({ symbol:q.symbol, relVsSpy:Number(q.relVsSpy||0), rvol:Number(q.rvol||1) }));
 
       const indexMoves = md.slice(0,8).map(m => ({ label: m.symbol||"", value: chg(m), price: Number(m.price||0) }));
