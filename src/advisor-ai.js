@@ -116,6 +116,60 @@ function buildScenarios(regime) {
   };
 }
 
+// AI Confidence Engine — the spec's 14-named-score composite, reduced to
+// the honest subset this app can back with real data: technical (this
+// platform's own real A+ trend-template score), fundamental (a transparent,
+// simple point score over real growth/margin/valuation/leverage fields —
+// not a professional quant model, just a disclosed heuristic), and
+// smart-money (a real, symbol-specific check against today's real insider
+// Form 4 buys and real short-interest changes — not the market-wide
+// narrative, an actual match on THIS symbol). The other 11 named scores in
+// the spec (institutional positioning, execution quality, catalyst timing,
+// portfolio-fit, sentiment, etc.) have no real quantifiable source anywhere
+// in this app. Any sub-score with no real supporting data is null, never a
+// guessed neutral value, and the composite only averages the sub-scores
+// that actually resolved — so a stock with only a technical read isn't
+// penalized (or flattered) by pretending the other two are neutral.
+const CONFIDENCE_NOT_COVERED = ["Institutional positioning (name-specific)", "Execution quality", "Catalyst timing", "Portfolio-fit", "Sentiment"];
+
+function computeFundamentalScore(f) {
+  if (!f) return null;
+  const checks = [];
+  if (Number.isFinite(f.revenueGrowth)) checks.push(f.revenueGrowth >= 0.20 ? 20 : f.revenueGrowth >= 0.10 ? 14 : f.revenueGrowth >= 0 ? 8 : 0);
+  if (Number.isFinite(f.earningsGrowth)) checks.push(f.earningsGrowth >= 0.20 ? 20 : f.earningsGrowth >= 0.10 ? 14 : f.earningsGrowth >= 0 ? 8 : 0);
+  if (Number.isFinite(f.pegRatio) && f.pegRatio > 0) checks.push(f.pegRatio < 1 ? 20 : f.pegRatio < 2 ? 14 : f.pegRatio < 3 ? 8 : 0);
+  if (Number.isFinite(f.profitMargin)) checks.push(f.profitMargin >= 0.20 ? 20 : f.profitMargin >= 0.10 ? 14 : f.profitMargin >= 0 ? 8 : 0);
+  if (Number.isFinite(f.debtToEquity)) checks.push(f.debtToEquity < 50 ? 20 : f.debtToEquity < 100 ? 14 : f.debtToEquity < 200 ? 8 : 0);
+  if (!checks.length) return null;
+  return Math.round((checks.reduce((s, v) => s + v, 0) / checks.length) * 5); // each check maxes at 20 -> scale to /100
+}
+
+function computeSmartMoneyScore(symbol, insider, shortChg) {
+  const insiderBuy = !!(insider?.ok && (insider.results || []).some(r => (r.ticker || r.symbol) === symbol));
+  const shortCovering = !!(shortChg?.ok && (shortChg.covering || []).some(s => s.sym === symbol));
+  const shortIncreasing = !!(shortChg?.ok && (shortChg.increasing || []).some(s => s.sym === symbol));
+  if (!insiderBuy && !shortCovering && !shortIncreasing) return null; // no real signal for THIS symbol — not "neutral", just unknown
+  let score = 50;
+  if (insiderBuy) score += 25;
+  if (shortCovering) score += 15;
+  if (shortIncreasing) score -= 25;
+  return Math.max(0, Math.min(100, score));
+}
+
+function computeConfidence(r, insider, shortChg) {
+  const technical = Number.isFinite(r?.aplus?.score) ? r.aplus.score : null;
+  const fundamental = computeFundamentalScore(r.fund);
+  const smartMoney = computeSmartMoneyScore(r.symbol, insider, shortChg);
+  const parts = [["technical", technical], ["fundamental", fundamental], ["smartMoney", smartMoney]].filter(([, v]) => v != null);
+  if (!parts.length) return null;
+  return {
+    composite: Math.round(parts.reduce((s, [, v]) => s + v, 0) / parts.length),
+    technical, fundamental, smartMoney,
+    basedOn: parts.map(([k]) => k),
+    notCovered: CONFIDENCE_NOT_COVERED,
+  };
+}
+
 // Attach real, server-computed numbers to an AI-selected symbol. Never
 // trust anything numeric the model typed — if the symbol isn't in the real
 // ranked-setups map, drop it rather than show a pick with fabricated data.
@@ -180,6 +234,7 @@ function attachRealData(pick, rankedMap) {
       recommendation: f.recommendationKey || null,
       analystCount: Number.isFinite(f.numberOfAnalystOpinions) ? f.numberOfAnalystOpinions : null,
     } : null,
+    confidence: row.confidence || null,
   };
 }
 
@@ -405,6 +460,7 @@ async function buildAdvisorBrief() {
   // requests, same bounded-fan-out pattern used elsewhere in this app.
   const fundArr = await Promise.all(ranked.map(r => getJson(`/api/yahoo/fundamentals?symbol=${r.symbol}`)));
   ranked.forEach((r, i) => { r.fund = fundArr[i] || null; });
+  ranked.forEach(r => { r.confidence = computeConfidence(r, insider, shortChg); });
   const rankedMap = new Map(ranked.map(r => [r.symbol, r]));
 
   const fundSnippet = (f) => {
@@ -568,7 +624,7 @@ Return the JSON now.`;
       const row = rankedMap.get(symbol);
       if (!row) return null;
       if (!["BUY_NOW", "ACCUMULATE", "BUY_ON_PULLBACK", "WAIT", "WATCH", "AVOID"].includes(action)) return null;
-      return { symbol: row.symbol, action, reason, score: row.aplus.score, held: heldMap.has(row.symbol) };
+      return { symbol: row.symbol, action, reason, score: row.aplus.score, confidence: row.confidence || null, held: heldMap.has(row.symbol) };
     }).filter(Boolean).slice(0, 12);
 
   const picks = {

@@ -93,6 +93,22 @@ function PickCard({ p, C, MONO, SANS }) {
           {p.priceTargets.analystCount != null && <span style={{ color: C.textDim }}>({p.priceTargets.analystCount} analysts)</span>}
         </div>
       )}
+      {/* AI Confidence — a real composite of technical (this platform's own
+          A+ score) + fundamental (transparent point score) + smart-money
+          (real, symbol-specific insider/short-interest match), averaged
+          only over whichever of those three actually resolved for this
+          symbol. Not the full 14-factor engine — basedOn discloses which
+          real inputs fed it. */}
+      {p.confidence && (
+        <div style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: MONO, fontSize: 10, flexWrap: "wrap", marginBottom: 6 }}>
+          <span style={{ fontWeight: 900, color: p.confidence.composite >= 70 ? C.green : p.confidence.composite >= 50 ? C.amber : C.textDim }}>
+            CONFIDENCE {p.confidence.composite}
+          </span>
+          <span style={{ color: C.textDim, fontSize: 9.5 }}>
+            ({p.confidence.basedOn.map(k => k === "technical" ? "tech" : k === "fundamental" ? "fund" : "smart money").join(" + ")})
+          </span>
+        </div>
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}55`, paddingTop: 6 }}>
         <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>{p.stage} · {p.passCount}/8</span>
         <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: actionCol }}>{p.action}</span>
@@ -345,6 +361,9 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
               );
             })}
           </div>
+          <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, fontStyle: "italic", marginTop: -6 }}>
+            CONFIDENCE is a real composite of technical (this platform's A+ scan), fundamental, and symbol-specific smart-money signals only where each actually resolves — not a full institutional-grade model.
+          </div>
 
           {/* 5-year thematic thesis */}
           {brief.thesis5y?.length > 0 && (
@@ -514,6 +533,7 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
                       {/* REDUCE/SELL are enriched from real portfolio holdings, not a
                           scanned setup score — show real weight/P&L instead */}
                       {a.score != null && <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, minWidth: 40 }}>{a.score}/100</span>}
+                      {a.confidence && <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: a.confidence.composite >= 70 ? C.green : a.confidence.composite >= 50 ? C.amber : C.textDim }}>conf {a.confidence.composite}</span>}
                       {a.weightPct != null && <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, minWidth: 90 }}>{a.weightPct}% of book</span>}
                       {a.unrealizedPLpc != null && <span style={{ fontFamily: MONO, fontSize: 10.5, color: a.unrealizedPLpc >= 0 ? C.green : C.red }}>{a.unrealizedPLpc >= 0 ? "+" : ""}{a.unrealizedPLpc.toFixed(1)}%</span>}
                       {a.held && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.purple, background: `${C.purple}18`, borderRadius: 4, padding: "1px 5px" }}>HELD</span>}
