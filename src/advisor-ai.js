@@ -548,14 +548,97 @@ Return the JSON now.`;
       return { symbol: row.symbol, action, reason, score: row.aplus.score, held: heldMap.has(row.symbol) };
     }).filter(Boolean).slice(0, 12);
 
+  const picks = {
+    tactical: mapPicks(parsed.picks?.tactical),
+    swing: mapPicks(parsed.picks?.swing),
+    position: mapPicks(parsed.picks?.position),
+    core: mapPicks(parsed.picks?.core),
+  };
+
+  // CEO Executive Brief — the spec's "one-page dashboard" concept, built as
+  // a pure re-assembly of data that's already real and already computed
+  // above (regime, capitalFlow, actionPlan, avoidList, ranked fundamentals,
+  // picks, riskCommandCenter/portfolio holdings, scenarios). No new AI call,
+  // no new data source, and nothing here is a number the model typed —
+  // every field below traces back to a real endpoint or real platform math.
+  const topOpportunities = actionPlan
+    .filter(a => ["BUY_NOW", "ACCUMULATE", "BUY_ON_PULLBACK"].includes(a.action))
+    .slice(0, 5);
+  const topRisks = [
+    ...actionPlan.filter(a => ["REDUCE", "SELL"].includes(a.action)).map(a => ({
+      symbol: a.symbol, type: "portfolio", action: a.action, reason: a.reason,
+    })),
+    ...avoidList.slice(0, 3).map(a => ({
+      symbol: a.symbol, type: "avoid", reason: a.reasons.join(", "),
+    })),
+  ].slice(0, 6);
+
+  // Best growth/value from the same real fundamentals already attached to
+  // `ranked` above — highest real revenue growth, lowest real PEG — never a
+  // separate score, just picking the max/min of a real field.
+  const withGrowth = ranked.filter(r => r.fund && Number.isFinite(r.fund.revenueGrowth));
+  const bestGrowth = withGrowth.length
+    ? withGrowth.reduce((best, r) => (r.fund.revenueGrowth > best.fund.revenueGrowth ? r : best))
+    : null;
+  const bestGrowthStock = bestGrowth ? {
+    symbol: bestGrowth.symbol, score: bestGrowth.aplus.score,
+    revenueGrowthPct: row2(bestGrowth.fund.revenueGrowth * 100),
+  } : null;
+
+  const withPeg = ranked.filter(r => r.fund && Number.isFinite(r.fund.pegRatio) && r.fund.pegRatio > 0);
+  const bestValue = withPeg.length
+    ? withPeg.reduce((best, r) => (r.fund.pegRatio < best.fund.pegRatio ? r : best))
+    : null;
+  const bestValueStock = bestValue ? {
+    symbol: bestValue.symbol, score: bestValue.aplus.score,
+    pegRatio: row2(bestValue.fund.pegRatio),
+    pe: Number.isFinite(bestValue.fund.pe) ? row2(bestValue.fund.pe) : null,
+  } : null;
+
+  // Highest-risk asset: highest real beta among real held positions; falls
+  // back to the weakest name on the real avoid list only when there's no
+  // live portfolio (or no holding has a known beta) to draw from.
+  const heldWithBeta = (portfolio?.holdings || []).filter(h => h.beta != null);
+  const highestRiskHolding = heldWithBeta.length
+    ? heldWithBeta.reduce((max, h) => (h.beta > max.beta ? h : max))
+    : null;
+  const highestRiskAsset = highestRiskHolding
+    ? { symbol: highestRiskHolding.symbol, type: "held", beta: highestRiskHolding.beta, weightPct: highestRiskHolding.weightPct }
+    : (avoidList[0] ? { symbol: avoidList[0].symbol, type: "avoid", score: avoidList[0].score, reasons: avoidList[0].reasons } : null);
+
+  // Cash stance is a qualitative label deterministically derived from the
+  // real regime score (same GREEN/YELLOW/RED thresholds computeRegime
+  // already uses) — not a fabricated target cash percentage. The real
+  // current cash % (if a live account is connected) is reported alongside
+  // it as fact, not prescription.
+  const cashStance = {
+    label: regime.score >= 75 ? "Fully deployed" : regime.score >= 55 ? "Moderately deployed" : "Defensive",
+    desc: regime.score >= 75
+      ? "GREEN regime supports aggressive capital deployment; low cash drag favored."
+      : regime.score >= 55
+      ? "YELLOW regime warrants selective additions — keep some dry powder for confirmation."
+      : "RED regime favors capital preservation — elevated cash allocation, avoid forcing new risk.",
+    currentCashPct: portfolio && Number(portfolio.equity) > 0 ? row2((portfolio.cash / portfolio.equity) * 100) : null,
+  };
+
+  const ceoBrief = {
+    marketRegime: { label: regime.label, score: regime.score },
+    bestSector: capitalFlow[0] || null,
+    worstSector: capitalFlow[capitalFlow.length - 1] || null,
+    topOpportunities,
+    topRisks,
+    bestGrowthStock,
+    bestValueStock,
+    bestSwingTrade: picks.swing[0] || null,
+    bestLongTermInvestment: picks.core[0] || null,
+    highestRiskAsset,
+    cashStance,
+    invalidationConditions: scenarios.shiftConditions || [],
+  };
+
   const built = {
     executiveSummary: String(parsed.executiveSummary || "").slice(0, 1200),
-    picks: {
-      tactical: mapPicks(parsed.picks?.tactical),
-      swing: mapPicks(parsed.picks?.swing),
-      position: mapPicks(parsed.picks?.position),
-      core: mapPicks(parsed.picks?.core),
-    },
+    picks,
     thesis5y,
     smartMoneyRead: String(parsed.smartMoneyRead || "").slice(0, 800),
     actionPlan,
@@ -564,6 +647,7 @@ Return the JSON now.`;
     riskCommandCenter,
     whatChanged,
     scenarios,
+    ceoBrief,
     regime: { score: regime.score, label: regime.label },
     sectors,
     capitalFlow,

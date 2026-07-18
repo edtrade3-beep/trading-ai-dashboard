@@ -218,6 +218,81 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
             <div style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.6 }}>{brief.executiveSummary || "—"}</div>
           </div>
 
+          {/* CEO Executive Brief — a one-page-dashboard re-assembly of data
+              already computed elsewhere in this same brief (regime, capital
+              flow, action plan, avoid list, ranked fundamentals, picks, risk
+              command center, scenarios) — no new AI call, nothing here is a
+              number the model typed. Fields are individually optional since
+              some (bestSwingTrade, highestRiskAsset, etc.) only resolve when
+              the underlying real data supports them. */}
+          {brief.ceoBrief && (
+            <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
+              <SectionLabel icon="🧭" text="CEO EXECUTIVE BRIEF" color={C.gold} C={C} MONO={MONO} />
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                <StatPill label="CASH STANCE" value={brief.ceoBrief.cashStance?.label}
+                  color={brief.ceoBrief.cashStance?.label === "Fully deployed" ? C.green : brief.ceoBrief.cashStance?.label === "Defensive" ? C.red : C.amber} C={C} MONO={MONO} />
+                {brief.ceoBrief.cashStance?.currentCashPct != null && (
+                  <StatPill label="CURRENT CASH" value={`${brief.ceoBrief.cashStance.currentCashPct}%`} color={C.textDim} C={C} MONO={MONO} />
+                )}
+                {brief.ceoBrief.bestSector && <StatPill label="BEST FLOW" value={brief.ceoBrief.bestSector.name} color={C.green} C={C} MONO={MONO} />}
+                {brief.ceoBrief.worstSector && <StatPill label="WORST FLOW" value={brief.ceoBrief.worstSector.name} color={C.red} C={C} MONO={MONO} />}
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, lineHeight: 1.5, marginBottom: 12 }}>{brief.ceoBrief.cashStance?.desc}</div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, marginBottom: 12 }}>
+                {[
+                  ["📈 Best Growth", brief.ceoBrief.bestGrowthStock, s => `${s.symbol} · ${s.revenueGrowthPct}% rev growth`],
+                  ["💰 Best Value", brief.ceoBrief.bestValueStock, s => `${s.symbol} · PEG ${s.pegRatio}`],
+                  ["📊 Best Swing", brief.ceoBrief.bestSwingTrade, s => `${s.symbol} · ${s.score}/100`],
+                  ["🏛️ Best Long-Term", brief.ceoBrief.bestLongTermInvestment, s => `${s.symbol} · ${s.score}/100`],
+                  ["⚠️ Highest Risk Asset", brief.ceoBrief.highestRiskAsset, s => s.type === "held" ? `${s.symbol} · β ${s.beta.toFixed(2)}, ${s.weightPct}% of book` : `${s.symbol} · ${s.score}/100 (avoid list)`],
+                ].map(([label, val, fmt]) => (
+                  <div key={label} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 5 }}>{label.toUpperCase()}</div>
+                    {val ? (
+                      <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: C.text }}>{fmt(val)}</div>
+                    ) : (
+                      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, fontStyle: "italic" }}>No real data fits right now</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.green, letterSpacing: "0.05em", marginBottom: 6 }}>TOP OPPORTUNITIES</div>
+                  {brief.ceoBrief.topOpportunities?.length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {brief.ceoBrief.topOpportunities.map(o => (
+                        <div key={o.symbol} style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>
+                          <b style={{ color: C.text }}>{o.symbol}</b> — {ACTION_META[o.action]?.label || o.action}
+                        </div>
+                      ))}
+                    </div>
+                  ) : <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, fontStyle: "italic" }}>None flagged this run</div>}
+                </div>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.red, letterSpacing: "0.05em", marginBottom: 6 }}>TOP RISKS</div>
+                  {brief.ceoBrief.topRisks?.length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {brief.ceoBrief.topRisks.map(r => (
+                        <div key={r.symbol + r.type} style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>
+                          <b style={{ color: C.text }}>{r.symbol}</b> — {r.type === "portfolio" ? `${ACTION_META[r.action]?.label || r.action}: ${r.reason}` : r.reason}
+                        </div>
+                      ))}
+                    </div>
+                  ) : <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, fontStyle: "italic" }}>None flagged this run</div>}
+                </div>
+              </div>
+
+              {brief.ceoBrief.invalidationConditions?.length > 0 && (
+                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, lineHeight: 1.5, fontStyle: "italic", borderTop: `1px solid ${C.border}55`, paddingTop: 10 }}>
+                  What would invalidate this outlook: {brief.ceoBrief.invalidationConditions.join(" ")}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* What Changed? — real regime-score/leadership deltas vs real past
               snapshots. A horizon with no snapshot that far back yet (this
               history only starts accumulating the day this feature shipped)
