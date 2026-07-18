@@ -116,6 +116,42 @@ function buildScenarios(regime) {
   };
 }
 
+// Market Regime Engine, widened — computeRegime already returns a real
+// `factors` array (which of the 5 real checks passed/failed) and a real
+// `vixVal` (the actual VIX level, not just the <20 boolean it's reduced to
+// for the 3-bucket score), neither of which was ever surfaced beyond the
+// GREEN/YELLOW/RED label. This adds a finer real state purely by combining
+// those two already-computed real reads — no new fetch, no new model, and
+// the underlying GREEN/YELLOW/RED contract other code (computeAPlusScore,
+// the regime pill color) depends on is untouched. VIX's magnitude only
+// really supports 4 honest buckets (not a spuriously precise scale), so
+// this yields ~7-8 real combined states, not a padded-out 11 — a state this
+// data can't actually distinguish isn't invented just to hit a count.
+function classifyVolRegime(vixVal) {
+  if (!Number.isFinite(vixVal) || vixVal <= 0) return null;
+  if (vixVal < 13) return "Low";
+  if (vixVal < 20) return "Normal";
+  if (vixVal < 30) return "Elevated";
+  return "Panic";
+}
+
+function buildRegimeDetail(regime) {
+  const factorsPassed = (regime.factors || []).filter(f => f.pass).map(f => f.label);
+  const factorsFailed = (regime.factors || []).filter(f => !f.pass).map(f => f.label);
+  const volRegime = classifyVolRegime(regime.vixVal);
+  let state;
+  if (regime.label === "GREEN" && volRegime === "Low") state = "Strong Bull — Low Volatility";
+  else if (regime.label === "GREEN" && (volRegime === "Elevated" || volRegime === "Panic")) state = "Bull — Volatility Divergence";
+  else if (regime.label === "GREEN") state = "Bull";
+  else if (regime.label === "YELLOW" && (volRegime === "Elevated" || volRegime === "Panic")) state = "Choppy — Volatility Rising";
+  else if (regime.label === "YELLOW") state = "Choppy / Transitional";
+  else if (regime.label === "RED" && volRegime === "Panic") state = "Bear — Panic/Capitulation";
+  else if (regime.label === "RED" && volRegime === "Elevated") state = "Bear — Elevated Volatility";
+  else if (regime.label === "RED") state = "Bear — Orderly Decline";
+  else state = regime.label; // VIX unavailable this run — fall back to the real 3-bucket label rather than guess a volatility state
+  return { state, volRegime, vixVal: Number.isFinite(regime.vixVal) ? row2(regime.vixVal) : null, factorsPassed, factorsFailed };
+}
+
 // AI Confidence Engine — the spec's 14-named-score composite, reduced to
 // the honest subset this app can back with real data: technical (this
 // platform's own real A+ trend-template score), fundamental (a transparent,
@@ -263,6 +299,7 @@ async function buildAdvisorBrief() {
   const { computeRegime, computeAPlusScore, computeNextAction } = require("./trade-planner-scoring");
   const macroArr = Array.isArray(macroRows) ? macroRows : [];
   const regime = computeRegime(macroArr);
+  const regimeDetail = buildRegimeDetail(regime);
   const spy = macroArr.find(m => m.symbol === "SPY");
   const spyChg = Number(spy?.changesPercentage || 0);
   const scenarios = buildScenarios(regime);
@@ -701,7 +738,7 @@ Return the JSON now.`;
   };
 
   const ceoBrief = {
-    marketRegime: { label: regime.label, score: regime.score },
+    marketRegime: { label: regime.label, score: regime.score, detail: regimeDetail },
     bestSector: capitalFlow[0] || null,
     worstSector: capitalFlow[capitalFlow.length - 1] || null,
     topOpportunities,
@@ -727,7 +764,7 @@ Return the JSON now.`;
     whatChanged,
     scenarios,
     ceoBrief,
-    regime: { score: regime.score, label: regime.label },
+    regime: { score: regime.score, label: regime.label, detail: regimeDetail },
     sectors,
     capitalFlow,
     universeSize: SCAN_UNIVERSE.length,

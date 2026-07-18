@@ -222,11 +222,27 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
           {/* Meta strip */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <StatPill label="REGIME" value={`${brief.regime?.label} (${brief.regime?.score}/100)`} color={regimeCol} C={C} MONO={MONO} />
+            {/* Widened Market Regime Engine — same real score/label, plus the
+                real per-factor breakdown and real VIX level computeRegime
+                already computes but never surfaced beyond GREEN/YELLOW/RED */}
+            {brief.regime?.detail?.state && (
+              <StatPill label="" value={brief.regime.detail.state} color={regimeCol} C={C} MONO={MONO} />
+            )}
+            {brief.regime?.detail?.vixVal != null && (
+              <StatPill label="VIX" value={`${brief.regime.detail.vixVal} (${brief.regime.detail.volRegime})`} color={C.textDim} C={C} MONO={MONO} />
+            )}
             <StatPill label="SCANNED" value={`${brief.setupsScanned ?? "—"} of ${brief.universeSize ?? "—"} stocks`} color={C.accent} C={C} MONO={MONO} />
             {(brief.sectors || []).slice(0, 2).map((s, i) => (
               <StatPill key={s.symbol} label={i === 0 ? "LEADING" : "LAGGING"} value={s.name} color={i === 0 ? C.green : C.red} C={C} MONO={MONO} />
             ))}
           </div>
+          {(brief.regime?.detail?.factorsPassed?.length > 0 || brief.regime?.detail?.factorsFailed?.length > 0) && (
+            <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim }}>
+              {brief.regime.detail.factorsPassed.length > 0 && <span style={{ color: C.green }}>✓ {brief.regime.detail.factorsPassed.join(", ")}</span>}
+              {brief.regime.detail.factorsPassed.length > 0 && brief.regime.detail.factorsFailed.length > 0 && <span> · </span>}
+              {brief.regime.detail.factorsFailed.length > 0 && <span style={{ color: C.red }}>✗ {brief.regime.detail.factorsFailed.join(", ")}</span>}
+            </div>
+          )}
 
           {/* Executive summary hero */}
           <div style={{ background: `linear-gradient(135deg, ${C.goldBg}, ${C.card} 60%)`, border: `1px solid ${C.gold}55`, borderRadius: 12, padding: "16px 18px" }}>
