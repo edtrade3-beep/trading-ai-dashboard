@@ -229,6 +229,41 @@ async function buildAdvisorBrief() {
     return { symbol: r.symbol, score: r.aplus.score, stage: stage.replace(/ —.*/, ""), reasons: reasons.length ? reasons : ["low composite score"] };
   });
 
+  // Portfolio Manager — entirely real, already-computed data from two
+  // endpoints this session's audit confirmed live: /api/alpaca/positions
+  // (per-holding qty/avgEntry/current/marketValue/unrealizedPL) and
+  // /api/ai-hub/risk-snapshot (equity/cash/openRiskPct/sectorConcentration/
+  // dailyBreakerTripped — the exact math already gating the autopilots).
+  // No new risk logic or sector map — this is the same real data
+  // PortfolioRiskCard.jsx already renders, just folded into this brief too
+  // so ADVISOR's picks can be read alongside real current exposure.
+  // Computed here (before the prompt is built) since portfolioLines below
+  // needs it — was previously placed after the AI call by mistake, causing
+  // a "Cannot access 'portfolio' before initialization" crash on every run
+  // (caught live: the very first real end-to-end test of this build).
+  const posArr = Array.isArray(positions?.positions) ? positions.positions : [];
+  const totalMv = posArr.reduce((s, p) => s + Number(p.marketValue || 0), 0);
+  const holdings = posArr.map(p => ({
+    symbol: p.symbol, qty: Number(p.qty || 0), avgEntry: Number(p.avgEntry || 0),
+    current: Number(p.current || 0), marketValue: Number(p.marketValue || 0),
+    unrealizedPL: Number(p.unrealizedPL || 0), unrealizedPLpc: Number(p.unrealizedPLpc || 0),
+    weightPct: totalMv > 0 ? row2((Number(p.marketValue || 0) / totalMv) * 100) : 0,
+  })).sort((a, b) => b.marketValue - a.marketValue);
+  const portfolio = (riskSnap?.ok || holdings.length) ? {
+    equity: Number(riskSnap?.equity ?? null),
+    cash: Number(riskSnap?.cash ?? null),
+    buyingPower: Number(riskSnap?.buyingPower ?? null),
+    openRiskPct: Number(riskSnap?.openRiskPct ?? null),
+    dailyBreakerTripped: !!riskSnap?.dailyBreakerTripped,
+    accountHealthy: riskSnap?.accountHealth?.ok !== false,
+    positionCount: holdings.length,
+    sectorConcentration: riskSnap?.sectorConcentration || null,
+    topHoldingWeightPct: holdings[0]?.weightPct ?? null,
+    top3WeightPct: row2(holdings.slice(0, 3).reduce((s, h) => s + h.weightPct, 0)),
+    totalUnrealizedPL: row2(posArr.reduce((s, p) => s + Number(p.unrealizedPL || 0), 0)),
+    holdings: holdings.slice(0, 20),
+  } : null;
+
   // Real per-stock fundamentals + analyst price targets, attached to each
   // ranked setup. /api/yahoo/fundamentals is single-symbol (confirmed live:
   // real marketCap/pe/epsForward/revenueGrowth/earningsGrowth/margins/
@@ -397,37 +432,6 @@ Return the JSON now.`;
       if (!["BUY_NOW", "ACCUMULATE", "BUY_ON_PULLBACK", "WAIT", "WATCH", "AVOID"].includes(action)) return null;
       return { symbol: row.symbol, action, reason: String(p?.reason || "").slice(0, 200), score: row.aplus.score };
     }).filter(Boolean).slice(0, 12);
-
-  // Portfolio Manager — entirely real, already-computed data from two
-  // endpoints this session's audit confirmed live: /api/alpaca/positions
-  // (per-holding qty/avgEntry/current/marketValue/unrealizedPL) and
-  // /api/ai-hub/risk-snapshot (equity/cash/openRiskPct/sectorConcentration/
-  // dailyBreakerTripped — the exact math already gating the autopilots).
-  // No new risk logic or sector map — this is the same real data
-  // PortfolioRiskCard.jsx already renders, just folded into this brief too
-  // so ADVISOR's picks can be read alongside real current exposure.
-  const posArr = Array.isArray(positions?.positions) ? positions.positions : [];
-  const totalMv = posArr.reduce((s, p) => s + Number(p.marketValue || 0), 0);
-  const holdings = posArr.map(p => ({
-    symbol: p.symbol, qty: Number(p.qty || 0), avgEntry: Number(p.avgEntry || 0),
-    current: Number(p.current || 0), marketValue: Number(p.marketValue || 0),
-    unrealizedPL: Number(p.unrealizedPL || 0), unrealizedPLpc: Number(p.unrealizedPLpc || 0),
-    weightPct: totalMv > 0 ? row2((Number(p.marketValue || 0) / totalMv) * 100) : 0,
-  })).sort((a, b) => b.marketValue - a.marketValue);
-  const portfolio = (riskSnap?.ok || holdings.length) ? {
-    equity: Number(riskSnap?.equity ?? null),
-    cash: Number(riskSnap?.cash ?? null),
-    buyingPower: Number(riskSnap?.buyingPower ?? null),
-    openRiskPct: Number(riskSnap?.openRiskPct ?? null),
-    dailyBreakerTripped: !!riskSnap?.dailyBreakerTripped,
-    accountHealthy: riskSnap?.accountHealth?.ok !== false,
-    positionCount: holdings.length,
-    sectorConcentration: riskSnap?.sectorConcentration || null,
-    topHoldingWeightPct: holdings[0]?.weightPct ?? null,
-    top3WeightPct: row2(holdings.slice(0, 3).reduce((s, h) => s + h.weightPct, 0)),
-    totalUnrealizedPL: row2(posArr.reduce((s, p) => s + Number(p.unrealizedPL || 0), 0)),
-    holdings: holdings.slice(0, 20),
-  } : null;
 
   const built = {
     executiveSummary: String(parsed.executiveSummary || "").slice(0, 1200),
