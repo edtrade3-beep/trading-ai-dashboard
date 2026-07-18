@@ -881,7 +881,17 @@ async function handleAgent(req, res, requestUrl) {
       }
       const fullPrompt = ctxLines.length ? `${body.prompt}\n\nREAL DATA:\n${ctxLines.join("\n")}` : body.prompt;
       try {
-        const output = await callAnthropicApi(fullPrompt, ANTHROPIC_API_KEY, { maxTokens: 2000 });
+        // callAnthropicApi's own default timeout (30s) confirmed live to be
+        // too tight for the heaviest of the 5 callers (the AI Agent tab's
+        // "market regime + top 5 longs + top 3 risks + execution plan"
+        // request, which pairs a large REAL DATA context block with a
+        // ~2000-token completion) — it hit "Anthropic API timeout" in
+        // production, correctly triggering the client's heuristic fallback
+        // (proving that path works) but denying the user the real analysis
+        // they asked for. None of the 5 frontend callers wrap this fetch in
+        // their own AbortController/timeout, so there's no client-side
+        // ceiling forcing this to stay short.
+        const output = await callAnthropicApi(fullPrompt, ANTHROPIC_API_KEY, { maxTokens: 2000, timeout: 55000 });
         return writeJson(res, 200, { output, generatedAt: now() });
       } catch (err) {
         return writeJson(res, 200, { output: null, error: err instanceof Error ? err.message : "AI call failed" });
