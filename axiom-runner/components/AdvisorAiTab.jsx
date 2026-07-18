@@ -459,7 +459,24 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
                   <StatPill label="VOLATILITY" value={`${brief.riskCommandCenter.volatilityRisk} (β ${brief.riskCommandCenter.weightedBeta})`}
                     color={brief.riskCommandCenter.volatilityRisk === "HIGH" ? C.red : brief.riskCommandCenter.volatilityRisk === "MODERATE" ? C.amber : C.green} C={C} MONO={MONO} />
                 )}
-                <StatPill label="OPEN RISK" value={`${brief.riskCommandCenter.openRiskPct}%`} color={C.textDim} C={C} MONO={MONO} />
+                {brief.riskCommandCenter.openRiskPct != null && (
+                  <StatPill label="OPEN RISK" value={`${brief.riskCommandCenter.openRiskPct}%`} color={C.textDim} C={C} MONO={MONO} />
+                )}
+                {/* Real market-wide reads from HYG/UUP/TLT — single-day % moves,
+                    not a proper spread/curve calc, shown alongside the real
+                    underlying number rather than as a bare label */}
+                {brief.riskCommandCenter.creditRisk && (
+                  <StatPill label="CREDIT" value={`${brief.riskCommandCenter.creditRisk} (HYG ${brief.riskCommandCenter.creditHygChgPct >= 0 ? "+" : ""}${brief.riskCommandCenter.creditHygChgPct}%)`}
+                    color={brief.riskCommandCenter.creditRisk === "ELEVATED" ? C.red : brief.riskCommandCenter.creditRisk === "WATCH" ? C.amber : C.green} C={C} MONO={MONO} />
+                )}
+                {brief.riskCommandCenter.currencyRisk && (
+                  <StatPill label="CURRENCY" value={`${brief.riskCommandCenter.currencyRisk} (UUP ${brief.riskCommandCenter.currencyUupChgPct >= 0 ? "+" : ""}${brief.riskCommandCenter.currencyUupChgPct}%)`}
+                    color={brief.riskCommandCenter.currencyRisk === "ELEVATED" ? C.red : brief.riskCommandCenter.currencyRisk === "WATCH" ? C.amber : C.green} C={C} MONO={MONO} />
+                )}
+                {brief.riskCommandCenter.interestRateRisk && (
+                  <StatPill label="RATES" value={`${brief.riskCommandCenter.interestRateRisk} (TLT ${brief.riskCommandCenter.interestRateTltChgPct >= 0 ? "+" : ""}${brief.riskCommandCenter.interestRateTltChgPct}%)`}
+                    color={brief.riskCommandCenter.interestRateRisk === "ELEVATED" ? C.red : brief.riskCommandCenter.interestRateRisk === "WATCH" ? C.amber : C.green} C={C} MONO={MONO} />
+                )}
               </div>
               {brief.riskCommandCenter.sectorConcentration && (
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>

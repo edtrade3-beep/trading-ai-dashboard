@@ -337,25 +337,48 @@ async function buildAdvisorBrief() {
     holdings: holdings.slice(0, 20),
   } : null;
 
+  // Real market-wide risk reads pulled from real quotes already fetched
+  // above (HYG/TLT already in capitalFlow, UUP already in macroArr) — no
+  // new fetch. HYG (high-yield credit ETF) selling off is a real
+  // credit-spread-widening signal; TLT (20+yr Treasuries) selling off
+  // sharply is a real sign of a fast rate move; UUP (dollar index) is a
+  // real currency-strength read. These are single-day % moves, not a
+  // proper credit-spread/yield-curve calculation, so they're reported as
+  // "elevated/watch/normal today" signals, not a calibrated risk score —
+  // same honesty standard as the rest of this file. Market-wide, so
+  // available even when no live portfolio is connected.
+  const hygEntry = capitalFlow.find(s => s.symbol === "HYG");
+  const tltEntry = capitalFlow.find(s => s.symbol === "TLT");
+  const uupEntry = macroArr.find(m => m.symbol === "UUP");
+  const hygChg = hygEntry ? hygEntry.chg : null;
+  const tltChg = tltEntry ? tltEntry.chg : null;
+  const uupChg = Number.isFinite(Number(uupEntry?.changesPercentage)) ? row2(Number(uupEntry.changesPercentage)) : null;
+  const creditRisk = hygChg == null ? null : hygChg <= -0.5 ? "ELEVATED" : hygChg <= -0.2 ? "WATCH" : "NORMAL";
+  const currencyRisk = uupChg == null ? null : Math.abs(uupChg) >= 0.5 ? "ELEVATED" : Math.abs(uupChg) >= 0.25 ? "WATCH" : "NORMAL";
+  const interestRateRisk = tltChg == null ? null : tltChg <= -0.7 ? "ELEVATED" : tltChg <= -0.35 ? "WATCH" : "NORMAL";
+
   // Risk Command Center — only the risk types this app can honestly
   // quantify from real data: concentration (real position weights),
   // volatility (real portfolio-weighted beta from Yahoo fundamentals),
   // sector concentration and daily-loss/open-risk (both real, the same
-  // math already gating the autopilots). Tail/systemic/credit/currency/
-  // political/geopolitical/black-swan risk have NO real quantifiable
-  // source anywhere in this app — listed as explicitly not covered rather
-  // than silently dropped or, worse, presented as scored data with
-  // invented numbers.
-  const riskCommandCenter = portfolio ? {
-    concentrationRisk: portfolio.topHoldingWeightPct == null ? null : portfolio.topHoldingWeightPct >= 25 ? "HIGH" : portfolio.topHoldingWeightPct >= 15 ? "MODERATE" : "LOW",
-    topHoldingWeightPct: portfolio.topHoldingWeightPct,
+  // math already gating the autopilots), plus the real credit/currency/
+  // rate reads above. Tail/systemic/political/geopolitical/black-swan risk
+  // still have NO real quantifiable source anywhere in this app — listed
+  // as explicitly not covered rather than silently dropped or, worse,
+  // presented as scored data with invented numbers.
+  const riskCommandCenter = {
+    concentrationRisk: portfolio && portfolio.topHoldingWeightPct != null ? (portfolio.topHoldingWeightPct >= 25 ? "HIGH" : portfolio.topHoldingWeightPct >= 15 ? "MODERATE" : "LOW") : null,
+    topHoldingWeightPct: portfolio?.topHoldingWeightPct ?? null,
     volatilityRisk: weightedBeta == null ? null : weightedBeta >= 1.5 ? "HIGH" : weightedBeta >= 1.1 ? "MODERATE" : "LOW",
     weightedBeta,
-    sectorConcentration: portfolio.sectorConcentration,
-    openRiskPct: portfolio.openRiskPct,
-    dailyBreakerTripped: portfolio.dailyBreakerTripped,
-    notCovered: ["Tail risk", "Systemic risk", "Credit risk", "Currency risk", "Political/geopolitical risk", "Black swan risk"],
-  } : null;
+    sectorConcentration: portfolio?.sectorConcentration ?? null,
+    openRiskPct: portfolio?.openRiskPct ?? null,
+    dailyBreakerTripped: portfolio?.dailyBreakerTripped ?? null,
+    creditRisk, creditHygChgPct: hygChg,
+    currencyRisk, currencyUupChgPct: uupChg,
+    interestRateRisk, interestRateTltChgPct: tltChg,
+    notCovered: ["Tail risk", "Systemic risk", "Political/geopolitical risk", "Black swan risk"],
+  };
 
   // Record today's snapshot now that regime/capitalFlow/portfolio are all
   // computed — feeds tomorrow's (and next week's/month's/quarter's)
