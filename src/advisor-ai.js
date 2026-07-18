@@ -16,6 +16,7 @@
 // hallucinated number can never reach the UI even if the model tried.
 const { callAnthropicWithSearch } = require("./anthropic");
 const { saveCoachOutput, loadCoachLog } = require("./ai-coach-store");
+const { loadHistory, appendSnapshot, snapshotDaysAgo } = require("./advisor-history-store");
 const { PORT } = require("./config");
 
 const KEY = () => (process.env.ANTHROPIC_API_KEY || "").trim();
@@ -88,6 +89,32 @@ function relStrength(sd, spyChg) {
 
 const row2 = (n) => Math.round(Number(n) * 100) / 100;
 const fmt0 = (n) => Number.isFinite(Number(n)) ? Math.round(Number(n)).toLocaleString("en-US") : "—";
+
+// Market Scenario Engine — grounded in the exact same real 5-factor system
+// computeRegime already uses (SPY up, QQQ up, VIX<20, breadth+, trend day;
+// GREEN >=75, YELLOW >=55, else RED), not a separate invented model. The
+// probabilities are a deliberately simple, transparent function of today's
+// real score's distance from those real thresholds — explicitly labeled as
+// illustrative, not a calibrated statistical forecast, since this app has
+// no real historical hit-rate data to calibrate against.
+function buildScenarios(regime) {
+  const score = regime.score;
+  const bullProb = Math.max(5, Math.min(85, Math.round(score * 0.85)));
+  const bearProb = Math.max(5, Math.min(85, Math.round((100 - score) * 0.85)));
+  const baseProb = Math.max(5, 100 - bullProb - bearProb);
+  return {
+    best: { label: "Best case", probability: bullProb,
+      desc: "Regime confirms GREEN (score ≥75): SPY and QQQ both trending up, VIX under 20, breadth positive." },
+    base: { label: "Base case", probability: baseProb,
+      desc: `Regime holds near today's read — ${regime.label} (${score}/100) — without a clean confirmation either direction.` },
+    worst: { label: "Worst case", probability: bearProb,
+      desc: "Regime confirms RED (score ≤40): VIX spikes above 20 with SPY and QQQ both breaking down and breadth deteriorating." },
+    shiftConditions: [
+      "Turns more bullish if SPY/QQQ both trend up, VIX falls under 20, and breadth turns positive — the same real factors computeRegime already checks daily.",
+      "Turns more bearish if VIX spikes above 20 while SPY/QQQ both roll over and breadth deteriorates.",
+    ],
+  };
+}
 
 // Attach real, server-computed numbers to an AI-selected symbol. Never
 // trust anything numeric the model typed — if the symbol isn't in the real
@@ -183,6 +210,7 @@ async function buildAdvisorBrief() {
   const regime = computeRegime(macroArr);
   const spy = macroArr.find(m => m.symbol === "SPY");
   const spyChg = Number(spy?.changesPercentage || 0);
+  const scenarios = buildScenarios(regime);
 
   // Real sector rankings — relative strength vs SPY today, same value-based
   // math RotationTab uses. Sent to the UI as real structured data directly
@@ -204,6 +232,36 @@ async function buildAdvisorBrief() {
     return { name: mc.name, symbol: mc.symbol, chg: Number(sd?.changesPercentage || 0), rel: relStrength(sd, spyChg) };
   }).filter(s => Number.isFinite(s.chg))].sort((a, b) => b.rel - a.rel);
   const capitalFlowLines = capitalFlow.map(s => `${s.name} (${s.symbol}): ${s.chg >= 0 ? "+" : ""}${s.chg.toFixed(2)}% today, ${s.rel >= 0 ? "+" : ""}${s.rel.toFixed(2)}% vs SPY`).join("\n");
+
+  // What Changed? — real day/week/month/quarter comparisons. ai-coach-log.json
+  // only ever kept the latest brief per report type (overwritten each run),
+  // so there was no real history anywhere to diff against before this —
+  // advisor-history-store.js is a new, dedicated rolling snapshot store
+  // (real regime score + capital-flow leaders/laggards + portfolio state,
+  // one entry per calendar day). Deltas are computed from real past
+  // snapshots only; any horizon with no data that far back is honestly
+  // null (e.g. every quarter/month comparison on day 1 of this feature
+  // existing), never guessed or interpolated.
+  const historyDays = loadHistory();
+  const buildDelta = (label, snap) => {
+    if (!snap) return null;
+    return {
+      label, asOf: snap.date,
+      regimeScoreThen: snap.regimeScore, regimeScoreDelta: row2(regime.score - snap.regimeScore),
+      spyChgThen: snap.spyChg,
+      topFlowThen: snap.topFlow || [], bottomFlowThen: snap.bottomFlow || [],
+      portfolioEquityThen: snap.portfolioEquity ?? null,
+    };
+  };
+  const whatChanged = {
+    vsYesterday: buildDelta("yesterday", snapshotDaysAgo(historyDays, 1)),
+    vsLastWeek: buildDelta("last week", snapshotDaysAgo(historyDays, 7)),
+    vsLastMonth: buildDelta("last month", snapshotDaysAgo(historyDays, 30)),
+    vsLastQuarter: buildDelta("last quarter", snapshotDaysAgo(historyDays, 90)),
+  };
+  const whatChangedLines = Object.values(whatChanged).filter(Boolean).map(d =>
+    `${d.label} (${d.asOf}): regime was ${d.regimeScoreThen}/100 (now ${regime.score}/100, ${d.regimeScoreDelta >= 0 ? "+" : ""}${d.regimeScoreDelta}), SPY was ${d.spyChgThen >= 0 ? "+" : ""}${d.spyChgThen}% that day, leaders then: ${(d.topFlowThen || []).map(f => f.name).join(", ") || "n/a"}, laggards then: ${(d.bottomFlowThen || []).map(f => f.name).join(", ") || "n/a"}.`
+  ).join("\n") || "No prior snapshots yet — this history builds up starting today, so day/week/month/quarter comparisons aren't available until the corresponding time has actually passed.";
 
   // Real A+ setups from the platform's own trend-template + A+ Score engine
   // (same formula used everywhere else in this app: TopOpportunityCard,
@@ -263,6 +321,21 @@ async function buildAdvisorBrief() {
     totalUnrealizedPL: row2(posArr.reduce((s, p) => s + Number(p.unrealizedPL || 0), 0)),
     holdings: holdings.slice(0, 20),
   } : null;
+
+  // Record today's snapshot now that regime/capitalFlow/portfolio are all
+  // computed — feeds tomorrow's (and next week's/month's/quarter's)
+  // "What Changed?" real comparison. Recorded before the AI call so a
+  // failed/timed-out generation still leaves today's real market state on
+  // the record for future runs to diff against.
+  try {
+    appendSnapshot({
+      regimeScore: regime.score, regimeLabel: regime.label, spyChg,
+      topFlow: capitalFlow.slice(0, 3).map(s => ({ name: s.name, rel: s.rel })),
+      bottomFlow: capitalFlow.slice(-3).map(s => ({ name: s.name, rel: s.rel })),
+      portfolioEquity: portfolio?.equity ?? null,
+      portfolioOpenRiskPct: portfolio?.openRiskPct ?? null,
+    });
+  } catch { /* best-effort — a history-write failure shouldn't break the brief */ }
 
   // Real per-stock fundamentals + analyst price targets, attached to each
   // ranked setup. /api/yahoo/fundamentals is single-symbol (confirmed live:
@@ -324,7 +397,7 @@ Hard rules:
 - Use the real fundamentals in each setup's line (in brackets) to inform your "why" where relevant — e.g. don't call something "attractively valued" if its P/E and PEG are both stretched; a name with real revenue/earnings growth is a stronger "core" (1-year) candidate than one that's purely technical.
 - The 5-year section is an explicitly thematic, web-search-informed thesis, not a scored trade. Tickers there may come from the real list OR be well-known real public companies in that theme (label which is which is not needed — just don't invent obscure/fake tickers).
 - Be willing to disagree with the obvious read of the data if the evidence supports it. State uncertainty explicitly rather than projecting false confidence.
-- actionPlan's "action" must be one of: BUY_NOW, ACCUMULATE, BUY_ON_PULLBACK, WAIT, WATCH, AVOID. There is no REDUCE/SELL — this brief has no visibility into what the trader currently holds, so never imply they should trim or exit an assumed existing position.
+- actionPlan's "action" must be one of: BUY_NOW, ACCUMULATE, BUY_ON_PULLBACK, WAIT, WATCH, AVOID, REDUCE, SELL. REDUCE/SELL are ONLY valid for a symbol that appears in CURRENT PORTFOLIO below — never say REDUCE or SELL about a name that isn't a real, currently-held position (the platform will silently drop it if you do). For a held position, REDUCE/SELL should reflect its real state shown in CURRENT PORTFOLIO (e.g. real unrealized loss, real concentration weight) alongside the setup data, not a generic call.
 - Return ONLY valid JSON, no markdown fences, no commentary before or after. Every "why"/"reason" string is plain prose, one sentence, no markdown.
 
 Return exactly this JSON shape:
@@ -341,7 +414,7 @@ Return exactly this JSON shape:
   ],
   "smartMoneyRead": "2-3 sentences synthesizing the real insider/COT/short-interest data — what it implies, not just restating it",
   "actionPlan": [
-    {"symbol":"XXX","action":"BUY_NOW|ACCUMULATE|BUY_ON_PULLBACK|WAIT|WATCH|AVOID","reason":"one clause"}
+    {"symbol":"XXX","action":"BUY_NOW|ACCUMULATE|BUY_ON_PULLBACK|WAIT|WATCH|AVOID|REDUCE|SELL","reason":"one clause"}
   ]
 }
 thesis5y should have 2-3 themes. actionPlan should cover 6-10 of the most relevant real names from the setups list.`;
@@ -356,6 +429,9 @@ Macro: ${macroLines || "unavailable"}
 
 CAPITAL FLOW (today, vs SPY — equity sectors + crypto/gold/treasuries/credit):
 ${capitalFlowLines || "unavailable"}
+
+WHAT CHANGED (real regime-score and leadership deltas vs real past snapshots — reference in executiveSummary only where a horizon actually has data; do not mention a comparison horizon that says "no prior snapshots yet"):
+${whatChangedLines}
 
 REAL A+ SETUPS (this platform's own trend-template scan, ranked, pick only from these for tactical/swing/position/core/actionPlan):
 ${setupLines || "no qualifying setups right now"}
@@ -415,22 +491,26 @@ Return the JSON now.`;
     }),
   })).filter(t => t.theme);
 
+  // REDUCE/SELL are enriched from real portfolio holdings, not the scanned-
+  // setups map — a real held position (e.g. OKTA in a real test portfolio)
+  // isn't guaranteed to be inside SCAN_UNIVERSE/rankedMap, so requiring a
+  // `row` there would silently drop a legitimate REDUCE/SELL call. Every
+  // other action still requires the symbol to be a real scanned setup.
+  const heldMap = new Map((portfolio?.holdings || []).map(h => [h.symbol, h]));
   const actionPlan = (Array.isArray(parsed.actionPlan) ? parsed.actionPlan : [])
     .map(p => {
-      const row = rankedMap.get(String(p?.symbol || "").toUpperCase());
-      if (!row) return null;
+      const symbol = String(p?.symbol || "").toUpperCase();
       const action = String(p?.action || "").toUpperCase().replace(/\s+/g, "_");
-      // REDUCE/SELL still deliberately excluded here. Real holdings data is
-      // now fetched below (Portfolio Manager section), but this actionPlan
-      // is built purely from the scanned universe/ranked setups — wiring
-      // holdings INTO the model's action selection (so it could correctly
-      // say "REDUCE" about a name it can see is actually held) is a
-      // separate, deliberate follow-up, not something to half-do by just
-      // adding the label without the model ever seeing which symbols are
-      // held. BUY_ON_PULLBACK stays safe: like the other 5, it's purely
-      // about entering a new position, not an assumed existing one.
+      const reason = String(p?.reason || "").slice(0, 200);
+      if (["REDUCE", "SELL"].includes(action)) {
+        const holding = heldMap.get(symbol);
+        if (!holding) return null; // not a real currently-held position — drop rather than guess
+        return { symbol, action, reason, held: true, weightPct: holding.weightPct, unrealizedPLpc: holding.unrealizedPLpc };
+      }
+      const row = rankedMap.get(symbol);
+      if (!row) return null;
       if (!["BUY_NOW", "ACCUMULATE", "BUY_ON_PULLBACK", "WAIT", "WATCH", "AVOID"].includes(action)) return null;
-      return { symbol: row.symbol, action, reason: String(p?.reason || "").slice(0, 200), score: row.aplus.score };
+      return { symbol: row.symbol, action, reason, score: row.aplus.score, held: heldMap.has(row.symbol) };
     }).filter(Boolean).slice(0, 12);
 
   const built = {
@@ -446,6 +526,8 @@ Return the JSON now.`;
     actionPlan,
     avoidList,
     portfolio,
+    whatChanged,
+    scenarios,
     regime: { score: regime.score, label: regime.label },
     sectors,
     capitalFlow,

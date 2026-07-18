@@ -18,6 +18,8 @@ const ACTION_META = {
   WAIT:            { label: "WAIT",            key: "amber" },
   WATCH:           { label: "WATCH",           key: "accent" },
   AVOID:           { label: "AVOID",           key: "red" },
+  REDUCE:          { label: "REDUCE",          key: "amber" },
+  SELL:            { label: "SELL",            key: "red" },
 };
 
 const HORIZONS = [
@@ -216,6 +218,36 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
             <div style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.6 }}>{brief.executiveSummary || "—"}</div>
           </div>
 
+          {/* What Changed? — real regime-score/leadership deltas vs real past
+              snapshots. A horizon with no snapshot that far back yet (this
+              history only starts accumulating the day this feature shipped)
+              is shown honestly as "not enough history yet", never guessed. */}
+          {brief.whatChanged && (
+            <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
+              <SectionLabel icon="🕰️" text="WHAT CHANGED?" color={C.accent} C={C} MONO={MONO} />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+                {[["vsYesterday", "Yesterday"], ["vsLastWeek", "Last Week"], ["vsLastMonth", "Last Month"], ["vsLastQuarter", "Last Quarter"]].map(([k, label]) => {
+                  const d = brief.whatChanged[k];
+                  return (
+                    <div key={k} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 6 }}>{label}</div>
+                      {d ? (
+                        <>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>
+                            Regime {d.regimeScoreThen}→{brief.regime?.score} <span style={{ color: d.regimeScoreDelta >= 0 ? C.green : C.red }}>({d.regimeScoreDelta >= 0 ? "+" : ""}{d.regimeScoreDelta})</span>
+                          </div>
+                          {d.topFlowThen?.length > 0 && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 4 }}>Led by {d.topFlowThen.map(f => f.name).join(", ")}</div>}
+                        </>
+                      ) : (
+                        <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, fontStyle: "italic" }}>Not enough history yet</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Picks grid — one card per horizon, each holding multiple real picks */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))", gap: 12 }}>
             {HORIZONS.map(h => {
@@ -267,6 +299,33 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
             <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
               <SectionLabel icon="📊" text="CAPITAL FLOW · REAL, TODAY VS SPY" color={C.accent} C={C} MONO={MONO} />
               <div>{flowRows.map(s => <SectorBar key={s.symbol} s={s} maxAbs={maxAbsRel} C={C} MONO={MONO} />)}</div>
+            </div>
+          )}
+
+          {/* Scenario Engine — grounded in the real 5-factor regime system;
+              probabilities are a transparent function of today's real
+              score, explicitly labeled illustrative, not a statistical fit */}
+          {brief.scenarios && (
+            <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
+              <SectionLabel icon="🔀" text="SCENARIO ENGINE" color={C.purple} C={C} MONO={MONO} />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginBottom: 10 }}>
+                {[["best", C.green], ["base", C.textDim], ["worst", C.red]].map(([k, col]) => {
+                  const s = brief.scenarios[k];
+                  return (
+                    <div key={k} style={{ background: `${col}0c`, border: `1px solid ${col}33`, borderRadius: 8, padding: 11 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
+                        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: col }}>{s.label}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: col }}>{s.probability}%</span>
+                      </div>
+                      <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, lineHeight: 1.45 }}>{s.desc}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, lineHeight: 1.5, fontStyle: "italic" }}>
+                {brief.scenarios.shiftConditions?.join(" ")}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginTop: 8 }}>Illustrative probabilities from today's real regime score — not a calibrated statistical forecast.</div>
             </div>
           )}
 
@@ -329,7 +388,12 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
                     <div key={a.symbol} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: C.surface, borderRadius: 8, flexWrap: "wrap" }}>
                       <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, padding: "3px 9px", borderRadius: 6, background: `${col}20`, color: col, minWidth: 90, textAlign: "center" }}>{meta.label}</span>
                       <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, minWidth: 52 }}>{a.symbol}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, minWidth: 40 }}>{a.score}/100</span>
+                      {/* REDUCE/SELL are enriched from real portfolio holdings, not a
+                          scanned setup score — show real weight/P&L instead */}
+                      {a.score != null && <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, minWidth: 40 }}>{a.score}/100</span>}
+                      {a.weightPct != null && <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, minWidth: 90 }}>{a.weightPct}% of book</span>}
+                      {a.unrealizedPLpc != null && <span style={{ fontFamily: MONO, fontSize: 10.5, color: a.unrealizedPLpc >= 0 ? C.green : C.red }}>{a.unrealizedPLpc >= 0 ? "+" : ""}{a.unrealizedPLpc.toFixed(1)}%</span>}
+                      {a.held && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.purple, background: `${C.purple}18`, borderRadius: 4, padding: "1px 5px" }}>HELD</span>}
                       <span style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, flex: 1, minWidth: 160 }}>{a.reason}</span>
                     </div>
                   );
