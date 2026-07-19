@@ -1880,17 +1880,48 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     }
   }
 
-  // Real US 10Y Treasury yield — from FRED (fred.js), a free public source
-  // with no API key or paid tier. Closes the gap flagged in the Dashboard
-  // Overview redesign, where the KPI strip previously had to show IEF (a
-  // bond ETF price) labeled "10Y Treasury (Proxy)" because none of this
-  // app's quote providers expose the actual yield.
+  // Real US 10Y/2Y Treasury yields + real Brent spot — from FRED (fred.js),
+  // a free public source with no API key or paid tier. Closes the gaps
+  // where this app could only show ETF proxies (IEF/SHY/BNO) because none
+  // of its quote providers expose actual yields or a real commodity spot
+  // price: IEF/SHY are bond ETF prices, not yields; BNO is an oil ETN that
+  // diverges from spot Brent via contango/roll costs.
   if (pathname === "/api/market/us10y" && req.method === "GET") {
     try {
       const yieldData = await require("../fred").fetchUS10Y();
       return writeJson(res, 200, { ok: true, ...yieldData });
     } catch (err) {
       return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "FRED fetch failed" });
+    }
+  }
+
+  if (pathname === "/api/market/us2y" && req.method === "GET") {
+    try {
+      const yieldData = await require("../fred").fetchUS2Y();
+      return writeJson(res, 200, { ok: true, ...yieldData });
+    } catch (err) {
+      return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "FRED fetch failed" });
+    }
+  }
+
+  if (pathname === "/api/market/brent-oil" && req.method === "GET") {
+    try {
+      const oilData = await require("../fred").fetchBrentOil();
+      return writeJson(res, 200, { ok: true, ...oilData });
+    } catch (err) {
+      return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "FRED fetch failed" });
+    }
+  }
+
+  // Real market-wide BTC dominance — CoinGecko (coingecko.js), free, no
+  // key. Replaces the app's own BTC/(BTC+ETH+SOL) 3-coin proxy, which only
+  // reflects the coins this app happens to track, not the real market.
+  if (pathname === "/api/market/btc-dominance" && req.method === "GET") {
+    try {
+      const dom = await require("../coingecko").fetchBtcDominance();
+      return writeJson(res, 200, { ok: true, ...dom });
+    } catch (err) {
+      return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "CoinGecko fetch failed" });
     }
   }
 

@@ -1,4 +1,37 @@
+import { useState, useEffect } from "react";
 import { Badge } from "./ui-atoms.jsx";
+
+// Real 10Y/2Y Treasury yields + real Brent spot (FRED) and real market-wide
+// BTC dominance (CoinGecko) — both free, no API key. These override the
+// ALL INSTRUMENTS grid's IEF/SHY/BNO tiles (bond/oil ETF *prices*, not the
+// yields/spot they're standing in for) and the crypto card's 3-coin
+// dominance proxy. Falls back to the existing honest proxy display (still
+// real data, just an imperfect stand-in) if the real fetch fails — never a
+// silent blank.
+function useRealMacroOverrides() {
+  const [fred, setFred] = useState({ us10y: null, us2y: null, brent: null });
+  const [btcDom, setBtcDom] = useState(null);
+  useEffect(() => {
+    const load = () => {
+      fetch("/api/market/us10y").then(r => r.json()).then(d => { if (d?.ok) setFred(f => ({ ...f, us10y: d })); }).catch(() => {});
+      fetch("/api/market/us2y").then(r => r.json()).then(d => { if (d?.ok) setFred(f => ({ ...f, us2y: d })); }).catch(() => {});
+      fetch("/api/market/brent-oil").then(r => r.json()).then(d => { if (d?.ok) setFred(f => ({ ...f, brent: d })); }).catch(() => {});
+      fetch("/api/market/btc-dominance").then(r => r.json()).then(d => { if (d?.ok) setBtcDom(d); }).catch(() => {});
+    };
+    load();
+    const t = setInterval(load, 30 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+  return { fred, btcDom };
+}
+
+// Per-symbol override for the ALL INSTRUMENTS grid: real value/label/unit
+// in place of the ETF price, only once the real fetch has actually landed.
+const REAL_OVERRIDES = {
+  IEF: (fred) => fred.us10y && { label: "10Y Treasury", value: fred.us10y.value, changePct: fred.us10y.changePct, unit: "%" },
+  SHY: (fred) => fred.us2y && { label: "2Y Treasury", value: fred.us2y.value, changePct: fred.us2y.changePct, unit: "%" },
+  BNO: (fred) => fred.brent && { label: "Brent Oil", value: fred.brent.value, changePct: fred.brent.changePct, unit: "$" },
+};
 
 function formatCountdown(ms) {
   const n = Math.max(0, Number(ms || 0));
@@ -16,6 +49,7 @@ export default function MacroTab({
   C, MONO, macroTone, macroData, macroEventCalendar, macroEventAlerts, cryptoSnapshot,
   watchlistSymbols, setWatchlistSymbols, setTerminalSymbol, setActiveTab,
 }) {
+  const { fred, btcDom } = useRealMacroOverrides();
   return (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -129,11 +163,11 @@ export default function MacroTab({
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10, marginBottom: 12 }}>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>BTC DOMINANCE (PROXY)</span>
-                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>BTC / (BTC+ETH+SOL)</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{btcDom ? "BTC DOMINANCE" : "BTC DOMINANCE (PROXY)"}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{btcDom ? "real market-wide" : "BTC / (BTC+ETH+SOL)"}</span>
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 800, color: C.accent }}>
-                  {Number(cryptoSnapshot.btcDomProxy || 0).toFixed(1)}%
+                  {btcDom ? btcDom.btcDominance.toFixed(1) : Number(cryptoSnapshot.btcDomProxy || 0).toFixed(1)}%
                 </div>
                 <div style={{ marginTop: 6, fontFamily: MONO, fontSize: 12, color: C.textSec }}>
                   Alt momentum spread:
@@ -172,15 +206,20 @@ export default function MacroTab({
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
               {macroData.map((q) => {
-                const chg = q.changesPercentage || 0;
+                const override = REAL_OVERRIDES[q.symbol]?.(fred);
+                const chg = override ? (override.changePct ?? 0) : (q.changesPercentage || 0);
                 const up = chg >= 0;
+                const displayLabel = override ? override.label : (q._label || q.symbol);
+                const displayValue = override
+                  ? (override.unit === "%" ? `${override.value.toFixed(2)}%` : `$${override.value.toFixed(2)}`)
+                  : `$${q.price?.toFixed(2)}`;
                 return (
                   <div key={q.symbol} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 16 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>{q._label || q.symbol}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>{displayLabel}</span>
                       <Badge color={up ? C.green : C.red}>{up ? "UP" : "DOWN"}</Badge>
                     </div>
-                    <div style={{ fontFamily: MONO, fontSize: 30, fontWeight: 800, color: C.text }}>${q.price?.toFixed(2)}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 30, fontWeight: 800, color: C.text }}>{displayValue}</div>
                     <div style={{ marginTop: 6, marginBottom: 10, fontFamily: MONO, fontSize: 15, color: up ? C.green : C.red, fontWeight: 700 }}>
                       {up ? "+" : ""}{chg.toFixed(2)}%
                     </div>
