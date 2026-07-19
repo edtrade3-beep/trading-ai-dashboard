@@ -22,6 +22,10 @@ export default function ActivePositionsCard({ C, MONO, SANS, setTerminalSymbol, 
     return () => clearInterval(t);
   }, []);
 
+  // Stays a silent null here (not a duplicate message) -- PortfolioSnapshotCard,
+  // which sits directly above this on the Portfolio tab, now shows the
+  // "No brokerage connected" explanation for the same nokey state, so a
+  // second identical message right below it would just be noise.
   if (state === "nokey") return null;
 
   return (

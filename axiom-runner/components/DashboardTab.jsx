@@ -116,7 +116,12 @@ export function PortfolioSnapshotCard({ C, MONO, SANS }) {
     const t = setInterval(load, 60000);
     return () => clearInterval(t);
   }, []);
-  if (state === "nokey") return null;
+  // Was `return null` — fine when this card sat amid other Overview
+  // content, but it's now the sole content of its own dedicated Portfolio
+  // tab (2026-07-19), so a no-key account silently rendered a totally
+  // blank page with zero explanation. Same "no brokerage connected"
+  // message CapitalAllocationCard already shows for the identical state.
+  if (state === "nokey") return <Card C={C} title="PORTFOLIO SNAPSHOT"><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center", padding: 20 }}>No brokerage connected.</div></Card>;
   if (state === "loading") return <Card C={C} title="PORTFOLIO SNAPSHOT"><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Connecting…</div></Card>;
   if (state === "error" || !acct) return <Card C={C} title="PORTFOLIO SNAPSHOT"><div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>Couldn't load account.</div></Card>;
   const dayChg = (Number(acct.equity) || 0) - (Number(acct.lastEquity) || Number(acct.equity) || 0);
