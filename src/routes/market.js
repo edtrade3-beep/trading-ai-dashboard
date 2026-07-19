@@ -1565,8 +1565,12 @@ Return ONLY valid JSON, no markdown: {"firstName":"","customerEmail":"","custome
     } else lines.push("Dark pool: unavailable this run (no data provider configured).");
 
     if (shortChg?.ok && (shortChg.increasing?.length || shortChg.covering?.length)) {
-      const inc = (shortChg.increasing || []).slice(0, 4).map(s => s.symbol).join(", ");
-      const cov = (shortChg.covering || []).slice(0, 4).map(s => s.symbol).join(", ");
+      // /api/market/short-changes returns { sym, ... } not { symbol, ... } —
+      // reading .symbol here silently produced "" for every entry, so this
+      // line rendered as "increasing short bets in , , ,": commas with
+      // nothing between them, joined from an array of undefined.
+      const inc = (shortChg.increasing || []).slice(0, 4).map(s => s.sym).join(", ");
+      const cov = (shortChg.covering || []).slice(0, 4).map(s => s.sym).join(", ");
       lines.push(`Short interest changes: increasing short bets in ${inc || "none notable"}; short covering in ${cov || "none notable"}.`);
     } else lines.push("Short interest changes: unavailable this run.");
 
