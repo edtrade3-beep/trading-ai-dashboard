@@ -1,9 +1,16 @@
 // Server-side trailing stops for Alpaca PAPER longs. Once a position is up enough,
 // ratchet its stop UP as price rises so winners that run get protected — the stop
-// only ever moves up, never down. Runs even with no browser open. PAPER only.
+// only ever moves up, never down. Also extends the bracket's target leg (also
+// only ever up) to preserve the platform's own house 2:1 reward:risk rule
+// (the same ratio already stated in Trading Copilot's system prompt) measured
+// off the newly-raised stop, so a winner that's earned a tighter stop also
+// earns more room to run rather than getting capped at its original target.
+// Runs even with no browser open. PAPER only.
 const { isOn } = require("./utils");
+const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
 const ACTIVATE_PCT = Number(process.env.TRAIL_ACTIVATE_PCT) || 4;   // start trailing after +4%
 const TRAIL_PCT    = Number(process.env.TRAIL_PCT) || 3;           // keep stop 3% below the high price
+const TARGET_R_MULTIPLE = Number(process.env.TRAIL_TARGET_R) || 2; // extend target to this multiple of the new stop's risk distance
 
 const APCA = "https://paper-api.alpaca.markets";
 function keys() {
@@ -46,7 +53,7 @@ async function runTrailingStops() {
   const allOrders = [];
   for (const o of orders) { allOrders.push(o); if (Array.isArray(o.legs)) allOrders.push(...o.legs); }
 
-  let raised = 0;
+  const changes = [];
   for (const p of positions) {
     if (Number(p.qty) <= 0) continue;                 // longs only
     const entry = Number(p.avg_entry_price), price = Number(p.current_price);
@@ -58,14 +65,50 @@ async function runTrailingStops() {
     // find this symbol's open STOP order (the protective sell-stop leg)
     const stopOrder = allOrders.find(o => o.symbol === p.symbol && o.side === "sell" &&
       (o.type === "stop" || o.order_type === "stop" || o.stop_price != null));
-    if (!stopOrder) continue;
-    const curStop = Number(stopOrder.stop_price);
-    if (!(newStop > curStop + 0.01)) continue;         // only ever raise the stop, with a small buffer
+    // ...and its TARGET order (the bracket's take-profit limit leg) — same
+    // detection heuristic as the stop leg above, just for limit_price.
+    const targetOrder = allOrders.find(o => o.symbol === p.symbol && o.side === "sell" && o !== stopOrder &&
+      (o.type === "limit" || o.order_type === "limit" || o.limit_price != null));
 
-    const res = await apca(`/v2/orders/${stopOrder.id}`, "PATCH", { stop_price: String(newStop) });
-    if (res && res.ok) raised++;
+    let change = null;
+
+    if (stopOrder) {
+      const curStop = Number(stopOrder.stop_price);
+      if (newStop > curStop + 0.01) {                 // only ever raise the stop, with a small buffer
+        const res = await apca(`/v2/orders/${stopOrder.id}`, "PATCH", { stop_price: String(newStop) });
+        if (res && res.ok) {
+          change = { symbol: p.symbol, gainPct, oldStop: curStop, newStop };
+        }
+      }
+    }
+
+    if (targetOrder) {
+      const curTarget = Number(targetOrder.limit_price);
+      const newTarget = +(price + (price - newStop) * TARGET_R_MULTIPLE).toFixed(2);
+      if (newTarget > curTarget + 0.01) {              // only ever raise the target, same rule as the stop
+        const res = await apca(`/v2/orders/${targetOrder.id}`, "PATCH", { limit_price: String(newTarget) });
+        if (res && res.ok) {
+          change = change || { symbol: p.symbol, gainPct };
+          change.oldTarget = curTarget; change.newTarget = newTarget;
+        }
+      }
+    }
+
+    if (change) changes.push(change);
   }
-  if (raised) console.log(`[Trailing stops] raised ${raised} stop(s)`);
+
+  if (changes.length) {
+    console.log(`[Trailing stops] adjusted ${changes.length} position(s)`);
+    if (telegramConfigured()) {
+      const lines = changes.map(c => {
+        const bits = [`${c.symbol} +${c.gainPct.toFixed(1)}%`];
+        if (c.newStop != null) bits.push(`stop $${c.oldStop}→$${c.newStop}`);
+        if (c.newTarget != null) bits.push(`target $${c.oldTarget}→$${c.newTarget}`);
+        return bits.join(" · ");
+      });
+      await sendTelegramMessage(`📈 TRAILING STOPS — winner(s) running, protection raised:\n${lines.join("\n")}`);
+    }
+  }
 }
 
 module.exports = { runTrailingStops };
