@@ -322,6 +322,268 @@ function MarketPulseCard({ C, MONO, SANS, rotationRank, flowBias, flowCallNotion
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// New Overview layout (user-provided reference design) — real data only,
+// same discipline as the rest of this app. Two real gaps were resolved
+// with the user directly rather than guessed: no real market-wide
+// Confidence%/Risk Level exists (only per-stock), so AI Market Bias omits
+// those; no real US 10Y yield exists anywhere in this codebase (only IEF,
+// a bond-ETF price), so it's shown honestly as "10Y Treasury (Proxy)" —
+// that label already exists verbatim in MACRO_SYMBOLS, not invented here.
+// ═══════════════════════════════════════════════════════════════════════
+
+const KPI_SYMBOLS = ["SPY", "QQQ", "IWM", "DIA", "VIXY", "GLD", "IEF", "BTCUSD"];
+
+function KpiStrip({ C, MONO, SANS, macroData }) {
+  const rows = KPI_SYMBOLS.map(sym => (macroData || []).find(m => m.symbol === sym)).filter(Boolean);
+  if (!rows.length) return null;
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginBottom: 14 }}>
+      {rows.map(m => {
+        const chg = Number(m.changesPercentage || 0);
+        const col = chg >= 0 ? C.green : C.red;
+        return (
+          <div key={m.symbol} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px" }}>
+            <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m._label || m.symbol}</div>
+            <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: C.text }}>{Number(m.price) > 0 ? (m.symbol === "BTCUSD" ? `$${Math.round(m.price).toLocaleString()}` : m.price.toFixed(2)) : "—"}</div>
+            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// AI Market Bias — the real factor-scored bias/label/reasons already
+// computed above in this component (spy/qqq/vix/breadth/fear-greed/news),
+// just given the mockup's card treatment. Confidence%/Risk Level are
+// deliberately omitted (user's own call) — no real market-wide number
+// for either exists anywhere in this app, only a per-stock top-pick
+// confidence that would misrepresent the whole market if reused here.
+function AiMarketBiasCard({ C, MONO, SANS, bias, biasCol, factors }) {
+  const icon = /BULLISH/.test(bias) ? "🐂" : /BEARISH/.test(bias) ? "🐻" : "➖";
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>AI MARKET BIAS</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+        <div style={{ width: 44, height: 44, borderRadius: "50%", background: `${biasCol}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{icon}</div>
+        <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: biasCol }}>{bias}</div>
+      </div>
+      {factors?.length > 0 && (
+        <div style={{ background: `${biasCol}0c`, border: `1px solid ${biasCol}33`, borderRadius: 8, padding: 10 }}>
+          <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 4 }}>KEY TAKEAWAY</div>
+          <div style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.5 }}>{factors.slice(0, 3).join(" · ")}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Watchlist Breadth — real, but scoped to the user's own watchlist, not
+// the full market (disclosed in the label itself, per the user's own
+// choice, rather than implying a market-wide reading that doesn't exist).
+function WatchlistBreadthCard({ C, MONO, SANS, breadthPct, advCount, declCount, unchCount, total }) {
+  const label = breadthPct >= 55 ? "Bullish" : breadthPct <= 45 ? "Bearish" : "Neutral";
+  const col = breadthPct >= 55 ? C.green : breadthPct <= 45 ? C.red : C.amber;
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 4 }}>WATCHLIST BREADTH</div>
+      {total > 0 ? (
+        <>
+          <RadialGauge C={C} MONO={MONO} value={breadthPct} label={label} color={col} size={130} />
+          <div style={{ display: "flex", justifyContent: "space-around", marginTop: 8, fontFamily: MONO, fontSize: 11 }}>
+            <div style={{ textAlign: "center" }}><div style={{ color: C.green, fontWeight: 800 }}>{advCount}</div><div style={{ color: C.textDim, fontSize: 9.5 }}>Advancing</div></div>
+            <div style={{ textAlign: "center" }}><div style={{ color: C.red, fontWeight: 800 }}>{declCount}</div><div style={{ color: C.textDim, fontSize: 9.5 }}>Declining</div></div>
+            <div style={{ textAlign: "center" }}><div style={{ color: C.textDim, fontWeight: 800 }}>{unchCount}</div><div style={{ color: C.textDim, fontSize: 9.5 }}>Unchanged</div></div>
+          </div>
+        </>
+      ) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, padding: "20px 0", textAlign: "center" }}>Add symbols to your watchlist to see breadth.</div>}
+    </div>
+  );
+}
+
+// Top Sectors Today — real 11-sector-ETF data (sectorData), not the
+// stock-level rotationRank MarketPulseCard uses. "Relative strength" here
+// is a real min-max normalization of today's real sector %changes against
+// each other (0-100) -- an honest relative ranking derived from real
+// numbers, not an external metric this app doesn't have.
+function TopSectorsTodayCard({ C, MONO, SANS, sectorData, setActiveTab, setTerminalSymbol }) {
+  const rows = (sectorData || []).filter(s => s.symbol && Number.isFinite(Number(s.changesPercentage)))
+    .map(s => ({ symbol: s.symbol, name: s._sectorName || s.symbol, chg: Number(s.changesPercentage) }))
+    .sort((a, b) => b.chg - a.chg);
+  const chgs = rows.map(r => r.chg);
+  const max = Math.max(...chgs, 0), min = Math.min(...chgs, 0);
+  const relStrength = (chg) => (max === min ? 50 : Math.round(((chg - min) / (max - min)) * 100));
+
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>TOP SECTORS TODAY</div>
+      {rows.length ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {rows.map(r => {
+            const rs = relStrength(r.chg);
+            return (
+              <div key={r.symbol} onClick={() => { setTerminalSymbol?.(r.symbol); try { localStorage.setItem("mterminal_load_sym", r.symbol); } catch {} setActiveTab?.("mterminal"); }}
+                style={{ display: "grid", gridTemplateColumns: "1fr auto 60px 70px", gap: 10, alignItems: "center", cursor: "pointer" }}>
+                <span style={{ fontFamily: SANS, fontSize: 12.5, color: C.text }}>{r.name}</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, color: r.chg >= 0 ? C.green : C.red }}>{r.chg >= 0 ? "▲" : "▼"}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: r.chg >= 0 ? C.green : C.red, textAlign: "right" }}>{r.chg >= 0 ? "+" : ""}{r.chg.toFixed(2)}%</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ flex: 1, height: 5, background: C.surface, borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{ width: `${rs}%`, height: "100%", background: r.chg >= 0 ? C.green : C.red }} />
+                  </div>
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, minWidth: 18, textAlign: "right" }}>{rs}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Loading sector data…</div>}
+    </div>
+  );
+}
+
+// Market Heatmap — same real sectorData, tiled. Strong/Neutral/Weak uses
+// the same ±0.5% real-change threshold already established for sector
+// bars elsewhere in this app (AdvisorAiTab.jsx's SectorBar), reused for
+// consistency rather than a new arbitrary cutoff.
+function MarketHeatmapGrid({ C, MONO, SANS, sectorData }) {
+  const rows = (sectorData || []).filter(s => s.symbol && Number.isFinite(Number(s.changesPercentage)))
+    .map(s => ({ symbol: s.symbol, name: s._sectorName || s.symbol, chg: Number(s.changesPercentage) }))
+    .sort((a, b) => b.chg - a.chg);
+  const tag = (chg) => chg >= 0.5 ? { label: "Strong", col: C.green } : chg <= -0.5 ? { label: "Weak", col: C.red } : { label: "Neutral", col: C.amber };
+
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>MARKET HEATMAP</div>
+      {rows.length ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
+          {rows.map(r => {
+            const t = tag(r.chg);
+            return (
+              <div key={r.symbol} style={{ background: `${t.col}12`, border: `1px solid ${t.col}33`, borderRadius: 8, padding: "10px 12px" }}>
+                <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginBottom: 4 }}>{r.name.toUpperCase()}</div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: t.col }}>{r.chg >= 0 ? "+" : ""}{r.chg.toFixed(2)}%</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: t.col }}>{t.label}</div>
+              </div>
+            );
+          })}
+        </div>
+      ) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Loading sector data…</div>}
+    </div>
+  );
+}
+
+// AI Top Opportunities table — reuses TopOpportunityCard's real full-scan
+// data (already computed for the Top Opportunity hero card + MarketPulseCard's
+// avoid list, same fetch, no new one). Ticker only, no company name — that
+// would need a separate real per-symbol fetch not currently joined into
+// this scan, and every other ranked list in this app already shows ticker-only.
+function AiTopOpportunitiesCard({ C, MONO, SANS, fullScan, setActiveTab, setTerminalSymbol }) {
+  const rows = [...(fullScan || [])].filter(r => Number.isFinite(r?._aplus?.score)).sort((a, b) => b._aplus.score - a._aplus.score).slice(0, 5);
+  // screenTrendTemplate's rows (fullScan) carry no real daily %change field
+  // at all (only price/passCount/RS/stage/momentum) — showing a silent
+  // "0.0%" fallback would look like real data when it isn't. Instead, a
+  // small bounded real quote fetch (top 5 symbols only) gets the real
+  // number; a symbol with no real match shows "—", never a fabricated 0.
+  const [chgMap, setChgMap] = useState({});
+  const symKey = rows.map(r => r.symbol).join(",");
+  useEffect(() => {
+    if (!symKey) return;
+    fetch("/api/market/quote?symbols=" + encodeURIComponent(symKey)).then(r => r.json()).then(j => {
+      const m = {};
+      (Array.isArray(j) ? j : []).forEach(q => { if (Number.isFinite(Number(q.changesPercentage))) m[q.symbol] = Number(q.changesPercentage); });
+      setChgMap(m);
+    }).catch(() => {});
+  }, [symKey]);
+
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>AI TOP OPPORTUNITIES</div>
+      {rows.length ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "26px 1fr 60px auto 70px 60px", gap: 8, fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.04em", padding: "0 0 6px" }}>
+            <span>#</span><span>TICKER</span><span>SCORE</span><span></span><span style={{ textAlign: "right" }}>PRICE</span><span style={{ textAlign: "right" }}>CHG</span>
+          </div>
+          {rows.map((r, i) => {
+            const chg = chgMap[r.symbol];
+            const hasChg = Number.isFinite(chg);
+            const scoreCol = r._aplus.score >= 85 ? C.gold : r._aplus.score >= 70 ? C.green : r._aplus.score >= 55 ? C.amber : C.textDim;
+            return (
+              <div key={r.symbol} onClick={() => { setTerminalSymbol?.(r.symbol); try { localStorage.setItem("mterminal_load_sym", r.symbol); } catch {} setActiveTab?.("mterminal"); }}
+                style={{ display: "grid", gridTemplateColumns: "26px 1fr 60px auto 70px 60px", gap: 8, alignItems: "center", padding: "7px 0", borderTop: `1px solid ${C.border}55`, cursor: "pointer" }}>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{i + 1}</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>{r.symbol}</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "2px 6px", borderRadius: 5, background: `${scoreCol}18`, color: scoreCol, textAlign: "center" }}>{r._aplus.score}</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, color: hasChg ? (chg >= 0 ? C.green : C.red) : C.textDim }}>{hasChg ? (chg >= 0 ? "↗" : "↘") : "—"}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, textAlign: "right" }}>${r.price}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: hasChg ? (chg >= 0 ? C.green : C.red) : C.textDim, textAlign: "right" }}>{hasChg ? `${chg >= 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}</span>
+              </div>
+            );
+          })}
+        </div>
+      ) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Scanning for setups…</div>}
+    </div>
+  );
+}
+
+// News Sentiment donut — real bull/bear counts (newsSentiment, already
+// computed elsewhere from real classified headlines); Neutral is the real
+// remainder (total real headlines minus real bull minus real bear), not a
+// separately-fabricated bucket.
+function NewsSentimentCard({ C, MONO, SANS, newsSentiment, setActiveTab }) {
+  const bull = Number(newsSentiment?.bull || 0), bear = Number(newsSentiment?.bear || 0);
+  const total = Number(newsSentiment?.total || (bull + bear)) || (bull + bear);
+  const neutral = Math.max(0, total - bull - bear);
+  const hasData = (bull + bear + neutral) > 0;
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>NEWS SENTIMENT</div>
+      {hasData ? (
+        <DonutChart C={C} MONO={MONO} size={110} segments={[
+          { label: "Positive", value: bull, color: C.green },
+          { label: "Neutral", value: neutral, color: C.textDim },
+          { label: "Negative", value: bear, color: C.red },
+        ]} />
+      ) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No headlines scanned yet.</div>}
+      <button onClick={() => setActiveTab?.("news")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>View news →</button>
+    </div>
+  );
+}
+
+// Volatility Index — same real VIX read the AI Market Bias/regime already
+// use, just its own small card matching the mockup's layout. No mini
+// chart (would need a new historical fetch — same gap as KPI sparklines).
+function VolatilityIndexCard({ C, MONO, SANS, distData, setActiveTab }) {
+  const vix = Number(distData?.vix || 0);
+  const col = vix >= 25 ? C.red : vix <= 16 ? C.green : C.amber;
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>VOLATILITY INDEX</div>
+      <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: col }}>{vix > 0 ? vix.toFixed(2) : "—"}</div>
+      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 2 }}>{vix >= 25 ? "Elevated fear" : vix <= 16 ? "Calm" : "Normal range"}</div>
+      <button onClick={() => setActiveTab?.("mterminal")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>View chart →</button>
+    </div>
+  );
+}
+
+// AI Copilot launcher — fires the same real window event every other
+// "open the copilot" affordance in this app already uses, rather than
+// building a second copilot instance.
+function AiCopilotLauncherCard({ C, MONO, SANS }) {
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>AI COPILOT</div>
+      <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginBottom: 10 }}>Ask anything about the market…</div>
+      <button
+        onClick={() => window.dispatchEvent(new CustomEvent("open-ai-copilot", { detail: {} }))}
+        style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "9px 14px", borderRadius: 8, border: "none", background: C.accent, color: "#fff", cursor: "pointer", width: "100%" }}>
+        ✳ Ask Copilot
+      </button>
+    </div>
+  );
+}
+
 // ── Dashboard sub-tabs — the page used to render everything (15 cards +
 // 6 collapsible sections) on one continuous scroll. Split into focused
 // sub-tabs per user feedback ("too much information") — every existing
@@ -356,7 +618,7 @@ function DashSubNav({ C, MONO, active, setActive }) {
 
 export default function DashboardTab({
   C, MONO, SANS, watchlistData, macroData, distData, fearGreedData, sigData, sigFilter,
-  newsSentiment, socialSentiment, flowBias, flowCallNotional, flowPutNotional, rotationRank, eventCountdowns, preMktMovers, combinedAlerts,
+  newsSentiment, socialSentiment, flowBias, flowCallNotional, flowPutNotional, rotationRank, sectorData, eventCountdowns, preMktMovers, combinedAlerts,
   tiltEnabled, tiltLocked, tiltStreak,
   setTerminalSymbol, setScanResults, setActiveTab, setScanExpanded, loadDeepDive, loadDeepSocial,
   setTiltLocked, setSigLoading, setSigData, fetchFearGreed, setDistData, setFuturesData, setPreMktMovers,
@@ -406,6 +668,8 @@ export default function DashboardTab({
   const fg = Number(fearGreedData?.score || 0);
   const wlForBreadth = (watchlistData || []).filter(q => q.symbol && Number(q.price) > 0);
   const advForBreadth = wlForBreadth.filter(q => Number(q.changesPercentage || 0) > 0).length;
+  const unchForBreadth = wlForBreadth.filter(q => Number(q.changesPercentage || 0) === 0).length;
+  const declForBreadth = wlForBreadth.length - advForBreadth - unchForBreadth;
   const breadthPct = wlForBreadth.length ? Math.round(advForBreadth / wlForBreadth.length * 100) : 50;
   let score = 0;
   const factors = [];
@@ -446,6 +710,31 @@ export default function DashboardTab({
       {/* nothing fabricated to fill a gauge. */}
       {dashTab === "overview" && (
         <>
+          {/* New reference-design layout — real data throughout (see the
+              component definitions above for exactly which real source
+              feeds each card, and the two real gaps deliberately left out
+              rather than fabricated: market-wide Confidence%/Risk Level,
+              and a real US 10Y yield). Existing cards below (CEO AI brief,
+              Capital Allocation, Mission Status, Portfolio) are kept, not
+              deleted, per "hide, don't delete" — they're real, working,
+              and not represented in the new reference design at all. */}
+          <KpiStrip C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 14, alignItems: "stretch" }}>
+            <AiMarketBiasCard C={C} MONO={MONO} SANS={SANS} bias={bias} biasCol={biasCol} factors={factors} />
+            <WatchlistBreadthCard C={C} MONO={MONO} SANS={SANS} breadthPct={breadthPct} advCount={advForBreadth} declCount={declForBreadth} unchCount={unchForBreadth} total={wlForBreadth.length} />
+            <TopSectorsTodayCard C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 12, marginBottom: 14, alignItems: "stretch" }}>
+            <AiTopOpportunitiesCard C={C} MONO={MONO} SANS={SANS} fullScan={fullScan} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
+            <MarketHeatmapGrid C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 14 }}>
+            <UpcomingEventsCard C={C} MONO={MONO} SANS={SANS} eventCountdowns={eventCountdowns} />
+            <NewsSentimentCard C={C} MONO={MONO} SANS={SANS} newsSentiment={newsSentiment} setActiveTab={setActiveTab} />
+            <VolatilityIndexCard C={C} MONO={MONO} SANS={SANS} distData={distData} setActiveTab={setActiveTab} />
+            <AiCopilotLauncherCard C={C} MONO={MONO} SANS={SANS} />
+          </div>
+
           <div style={{ marginBottom: 14 }}>
             <CeoAiCard C={C} MONO={MONO} SANS={SANS} />
           </div>
@@ -484,14 +773,13 @@ export default function DashboardTab({
             <AskAiBar C={C} MONO={MONO} SANS={SANS} />
           </div>
 
-          {/* Supporting analysis */}
+          {/* Supporting analysis — Upcoming Events dropped from here since
+              it's already shown once in the new top section now; showing
+              it twice on the same page would be duplicate real info. */}
           <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
             <div style={{ flex: "1 1 320px", minWidth: 300, display: "flex", flexDirection: "column", gap: 10 }}>
               <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
               <ActivePositionsCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
-            </div>
-            <div style={{ flex: "1 1 280px", minWidth: 260, maxWidth: 380 }}>
-              <UpcomingEventsCard C={C} MONO={MONO} SANS={SANS} eventCountdowns={eventCountdowns} />
             </div>
           </div>
         </>
