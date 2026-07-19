@@ -99,7 +99,11 @@ import RiskTrafficLight from "./components/RiskTrafficLight.jsx";
 import FedWatchWidget from "./components/FedWatchWidget.jsx";
 import FedInterpreter from "./components/FedInterpreter.jsx";
 import RegimeNewsPanel from "./components/RegimeNewsPanel.jsx";
-import DashboardTab from "./components/DashboardTab.jsx";
+import DashboardTab, { MarketPulseCard, PortfolioSnapshotCard, computeRegimeLabel, Card } from "./components/DashboardTab.jsx";
+import TopOpportunityCard from "./components/TopOpportunityCard.jsx";
+import CapitalAllocationCard from "./components/CapitalAllocationCard.jsx";
+import MissionStatusCard from "./components/MissionStatusCard.jsx";
+import ActivePositionsCard from "./components/ActivePositionsCard.jsx";
 import SmartScanTab from "./components/SmartScanTab.jsx";
 import JournalTab from "./components/JournalTab.jsx";
 import QuotesTab from "./components/QuotesTab.jsx";
@@ -3843,6 +3847,14 @@ export default function App() {
       ADVISORAI: "advisor-ai",
       CIO: "advisor-ai",
       CEOAI: "ceo-ai",
+      // New sidebar tabs (2026-07-19). PORTFOLIO above already maps to the
+      // legacy "portfolio" tab (PortfolioTab.jsx) — PORTFOLIOTAB avoids
+      // colliding with it while still reaching the new Portfolio Snapshot
+      // + Active Positions sidebar tab.
+      PORTFOLIOTAB: "portfolio-tab",
+      CAPITALALLOCATION: "capital-allocation",
+      MISSIONSTATUS: "mission-status",
+      MARKETPULSE: "market-pulse",
       DEALS: "deals",
       DIPBUY: "dipbuy",
       TELEGRAM: "telegram",
@@ -4552,6 +4564,14 @@ export default function App() {
     [watchlistData, macroData, regime, sectorData, customAlerts]
   );
   const macroTone = useMemo(() => classifyMacroTone(macroData), [macroData]);
+  // Real top-opportunity scan state — lifted here (2026-07-19, was local to
+  // DashboardTab.jsx) so it keeps running via the hidden TopOpportunityCard
+  // mounted below regardless of which top-level tab is active, instead of
+  // resetting every time Dashboard itself unmounts.
+  const [topPick, setTopPick] = useState(null);
+  const onScore = (row) => setTopPick(row || null);
+  const [fullScan, setFullScan] = useState([]);
+  const onFullScan = (rows) => setFullScan(Array.isArray(rows) ? rows : []);
   const rotationRank = useMemo(() => {
     const spy = macroData.find((q) => q.symbol === "SPY")?.changesPercentage || 0;
     return [...watchlistData]
@@ -5801,13 +5821,21 @@ export default function App() {
         setWatchlistSymbols={setWatchlistSymbols} setWatchlistInput={setWatchlistInput}
       />
 
+        {/* Real top-opportunity scan — mounted once, unconditionally, so it
+            keeps running (and topPick/fullScan stay fresh) no matter which
+            top-level tab is active. Was previously mounted hidden inside
+            DashboardTab's Overview only, which meant it reset every time
+            you left Dashboard entirely — the new Portfolio/Market Pulse
+            sidebar tabs need the same real data Overview does. */}
+        <TopOpportunityCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} onFullScan={onFullScan} hidden />
+
         {activeTab === "dashboard" && (
           <DashboardTab
             C={C} MONO={MONO} SANS={SANS}
             watchlistData={watchlistData} macroData={macroData} distData={distData} fearGreedData={fearGreedData}
             sigData={sigData} sigFilter={sigFilter} newsSentiment={newsSentiment} socialSentiment={socialSentiment}
             flowBias={flowBias} flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional}
-            rotationRank={rotationRank} sectorData={sectorData}
+            rotationRank={rotationRank} sectorData={sectorData} topPick={topPick} fullScan={fullScan}
             eventCountdowns={eventCountdowns} preMktMovers={preMktMovers} combinedAlerts={combinedAlerts}
             tiltEnabled={tiltEnabled} tiltLocked={tiltLocked} tiltStreak={tiltStreak}
             setTerminalSymbol={setTerminalSymbol} setScanResults={setScanResults} setActiveTab={setActiveTab}
@@ -5906,6 +5934,53 @@ export default function App() {
         {activeTab === "ceo-ai" && (
           <div style={{ padding: "16px 20px", maxWidth: 900, margin: "0 auto" }}>
             <CeoAiCard C={C} MONO={MONO} SANS={SANS} />
+          </div>
+        )}
+
+        {/* Portfolio / Capital Allocation / Mission Status / Market Pulse —
+            restored as their own sidebar tabs (2026-07-19, user request:
+            "Restore specific trimmed cards" → all four selected) after
+            being trimmed from the Dashboard Overview's new reference-design
+            layout. Same real cards/data as before, same "own sidebar spot"
+            pattern already used for CEO AI above — not rebuilt, just given
+            a dedicated, discoverable location. */}
+        {activeTab === "portfolio-tab" && (
+          <div style={{ padding: "16px 20px", maxWidth: 700, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12 }}>
+            <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
+            <ActivePositionsCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+          </div>
+        )}
+
+        {activeTab === "capital-allocation" && (
+          <div style={{ padding: "16px 20px", maxWidth: 500, margin: "0 auto" }}>
+            <Card C={C} title="CAPITAL ALLOCATION">
+              <CapitalAllocationCard C={C} MONO={MONO} SANS={SANS} />
+            </Card>
+          </div>
+        )}
+
+        {activeTab === "mission-status" && (() => {
+          const spy = (macroData || []).find(m => m.symbol === "SPY");
+          const qqq = (macroData || []).find(m => m.symbol === "QQQ");
+          const vix = distData?.vix || 0;
+          const { regLabel, regColor } = computeRegimeLabel(C, { spy, qqq, vix, loaded: !!spy });
+          return (
+            <div style={{ padding: "16px 20px", maxWidth: 500, margin: "0 auto" }}>
+              <Card C={C} title="MISSION STATUS">
+                <MissionStatusCard C={C} MONO={MONO} SANS={SANS}
+                  regimeLabel={regLabel} regimeColor={regColor}
+                  tiltEnabled={tiltEnabled} tiltLocked={tiltLocked} tiltStreak={tiltStreak} />
+              </Card>
+            </div>
+          );
+        })()}
+
+        {activeTab === "market-pulse" && (
+          <div style={{ padding: "16px 20px", maxWidth: 1100, margin: "0 auto" }}>
+            <MarketPulseCard C={C} MONO={MONO} SANS={SANS}
+              rotationRank={rotationRank} flowBias={flowBias}
+              flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional}
+              fullScan={fullScan} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
           </div>
         )}
 

@@ -6,6 +6,10 @@
 export const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "Dashboard",     icon: "🏠", tab: "dashboard" },
   { id: "ceo-ai",    label: "CEO AI",        icon: "🧠", tab: "ceo-ai" },
+  { id: "portfolio-tab", label: "Portfolio", icon: "💼", tab: "portfolio-tab" },
+  { id: "capital-allocation", label: "Capital Allocation", icon: "💰", tab: "capital-allocation" },
+  { id: "mission-status", label: "Mission Status", icon: "🎯", tab: "mission-status" },
+  { id: "market-pulse", label: "Market Pulse", icon: "📈", tab: "market-pulse" },
   { id: "market",    label: "Market",        icon: "🌐", tab: "mterminal" },
   { id: "watchlist", label: "Watchlist",     icon: "⭐", tab: "quotes" },
   { id: "copilot",   label: "AI Copilot",    icon: "🤖", tab: null, badge: "NEW" },

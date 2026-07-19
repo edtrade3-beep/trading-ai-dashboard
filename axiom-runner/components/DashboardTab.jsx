@@ -7,7 +7,6 @@ import FedInterpreter from "./FedInterpreter.jsx";
 import FedWatchWidget from "./FedWatchWidget.jsx";
 import MacroEventsWidget from "./MacroEventsWidget.jsx";
 import RegimeNewsPanel from "./RegimeNewsPanel.jsx";
-import TopOpportunityCard from "./TopOpportunityCard.jsx";
 import PriorityAlertsCard from "./PriorityAlertsCard.jsx";
 import RadialGauge from "./RadialGauge.jsx";
 import DonutChart from "./DonutChart.jsx";
@@ -24,16 +23,16 @@ import MarketIntelCard from "./MarketIntelCard.jsx";
 import TradingLessonCard from "./TradingLessonCard.jsx";
 import AplusScoreTrackCard from "./AplusScoreTrackCard.jsx";
 import CeoAiCard from "./CeoAiCard.jsx";
-import ActivePositionsCard from "./ActivePositionsCard.jsx";
-import CapitalAllocationCard from "./CapitalAllocationCard.jsx";
-import MissionStatusCard from "./MissionStatusCard.jsx";
 
 // ── Shared card shell — every Dashboard card except CeoAiCard (which stays
 // its own deliberately-elevated hero treatment) renders through this, so
 // the whole page shares one consistent elevation instead of each card
 // hand-rolling (or omitting) its own shadow. `accent` draws a 2px colored
 // top border — a cheap, consistent way to color-code card categories.
-function Card({ C, title, children, style, accent }) {
+// Exported (2026-07-19) so the new top-level Capital Allocation/Mission
+// Status tabs in axiom-live.jsx can wrap their cards in the same shell
+// instead of re-implementing it.
+export function Card({ C, title, children, style, accent }) {
   return (
     <div style={{
       background: C.card, border: `1px solid ${C.border}`, borderRadius: 12,
@@ -51,7 +50,10 @@ function Card({ C, title, children, style, accent }) {
 // MarketRegimeCard and MissionStatusCard so they can't silently disagree
 // (hoisted out, not duplicated, when the "Executive Command Center" pass
 // added a second consumer of this same read).
-function computeRegimeLabel(C, { spy, qqq, vix, loaded }) {
+// Exported for reuse by the new top-level "Mission Status" tab in
+// axiom-live.jsx (2026-07-19), which needs the same real regime label off
+// the same real spy/qqq/vix inputs already available at that level.
+export function computeRegimeLabel(C, { spy, qqq, vix, loaded }) {
   const spyChg = Number(spy?.changesPercentage || 0);
   const qqqChg = Number(qqq?.changesPercentage || 0);
   if (!loaded) return { regLabel: "LOADING…", regColor: C.textDim, playbook: "Waiting for market data…" };
@@ -93,8 +95,9 @@ function MarketRegimeCard({ C, MONO, SANS, macroData, distData, factors, bias, b
 
 // ── Row 1: Portfolio Snapshot — self-contained, mirrors MyTradesTab's ──
 // AlpacaPanel fetch (account + positions), condensed, + an equity sparkline
-// from /api/alpaca/history.
-function PortfolioSnapshotCard({ C, MONO, SANS }) {
+// from /api/alpaca/history. Exported (2026-07-19) for the new top-level
+// "Portfolio" sidebar tab.
+export function PortfolioSnapshotCard({ C, MONO, SANS }) {
   const [acct, setAcct] = useState(null);
   const [openCount, setOpenCount] = useState(0);
   const [equityHist, setEquityHist] = useState([]);
@@ -157,7 +160,7 @@ function WatchlistCard({ C, MONO, SANS, watchlistData, sigData, setTerminalSymbo
   const rows = (watchlistData || []).slice(0, 8);
   const sigOf = sym => (sigData?.signals || []).find(s => s.sym === sym);
   return (
-    <Card C={C} title="WATCHLIST" style={{ flex: "1 1 260px", maxWidth: 300 }}>
+    <Card C={C} title="WATCHLIST" style={{ width: "100%" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 1, overflowY: "auto" }}>
         {rows.map(q => {
           const chg = Number(q.changesPercentage || 0);
@@ -190,7 +193,7 @@ function DashboardChartCard({ C, MONO, SANS, symbol }) {
     return () => { alive = false; };
   }, [symbol]);
   return (
-    <Card C={C} title={`CHART — ${symbol}`} style={{ flex: 3, minWidth: 340 }}>
+    <Card C={C} title={`CHART — ${symbol}`} style={{ flex: "3 1 560px", minWidth: 420 }}>
       {data ? <TrendChart data={data} C={C} MONO={MONO} SANS={SANS} height={340} />
         : <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: 40, textAlign: "center" }}>Loading chart…</div>}
     </Card>
@@ -251,7 +254,15 @@ function fmtFlowNotional(n) {
   return `$${v.toFixed(0)}`;
 }
 
-function MarketPulseCard({ C, MONO, SANS, rotationRank, flowBias, flowCallNotional, flowPutNotional, fullScan, setActiveTab, setTerminalSymbol }) {
+// Exported (2026-07-19) so it can be mounted as its own sidebar tab, same
+// as CEO AI was. Fixed a real mislabeling while restoring it: rotationRank
+// is stock-level relative-strength/RVOL data (individual watchlist
+// symbols vs SPY/sector), not sector-level rotation -- the card's own
+// header called it "Sector Rotation," which would have been genuinely
+// misleading now that Overview's real 11-sector-ETF "Top Sectors Today"
+// card exists right next to it. Relabeled to describe what this data
+// actually is; the real data itself is unchanged.
+export function MarketPulseCard({ C, MONO, SANS, rotationRank, flowBias, flowCallNotional, flowPutNotional, fullScan, setActiveTab, setTerminalSymbol }) {
   const rr = rotationRank || [];
   const leaders = rr.filter(q => q.relVsSpy >= 1).slice(0, 3);
   const laggers = [...rr].sort((a, b) => a.relVsSpy - b.relVsSpy).slice(0, 3);
@@ -278,7 +289,7 @@ function MarketPulseCard({ C, MONO, SANS, rotationRank, flowBias, flowCallNotion
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
-      <Card C={C} title="🔄 SECTOR ROTATION" accent={C.purple}>
+      <Card C={C} title="🔄 MOMENTUM LEADERS" accent={C.purple}>
         {rr.length > 0 ? (
           <>
             <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 4 }}>LEADERS</div>
@@ -619,17 +630,18 @@ function DashSubNav({ C, MONO, active, setActive }) {
 export default function DashboardTab({
   C, MONO, SANS, watchlistData, macroData, distData, fearGreedData, sigData, sigFilter,
   newsSentiment, socialSentiment, flowBias, flowCallNotional, flowPutNotional, rotationRank, sectorData, eventCountdowns, preMktMovers, combinedAlerts,
-  tiltEnabled, tiltLocked, tiltStreak,
+  tiltEnabled, tiltLocked, tiltStreak, topPick, fullScan,
   setTerminalSymbol, setScanResults, setActiveTab, setScanExpanded, loadDeepDive, loadDeepSocial,
   setTiltLocked, setSigLoading, setSigData, fetchFearGreed, setDistData, setFuturesData, setPreMktMovers,
 }) {
-  const [topPick, setTopPick] = useState(null); // full trend-screen row incl. confidence/riskState — not just the symbol
-  const onScore = (row) => { setTopPick(row || null); };
+  // topPick/fullScan are now lifted to axiom-live.jsx (2026-07-19) so the
+  // real scan they come from keeps running regardless of which top-level
+  // tab is active -- the new "Portfolio"/"Market Pulse" sidebar tabs need
+  // the same real data this Overview tab does, and it previously only
+  // existed while Overview itself was mounted (its hidden TopOpportunityCard
+  // would unmount, and the data would go stale, the moment you left
+  // Dashboard entirely).
   const aplusSymbol = topPick?.symbol || null;
-  // Full scored scan (incl. genuinely weak names) from the SAME TopOpportunityCard
-  // fetch — feeds MarketPulseCard's "Stocks to Avoid" without a second fetch loop.
-  const [fullScan, setFullScan] = useState([]);
-  const onFullScan = (rows) => setFullScan(Array.isArray(rows) ? rows : []);
   const [dashTab, setDashTab] = useState(() => {
     try { return localStorage.getItem("dash_subtab") || "overview"; } catch { return "overview"; }
   });
@@ -716,18 +728,16 @@ export default function DashboardTab({
               rather than fabricated: market-wide Confidence%/Risk Level,
               and a real US 10Y yield). The previous Overview cards (CEO AI
               brief, Market Health/Capital Allocation/AI Confidence/Mission
-              Status row, Top Opportunity hero, Sector Rotation/Money Flow/
+              Status row, Top Opportunity hero, Momentum Leaders/Money Flow/
               Avoid, Ask AI bar, Portfolio Snapshot/Active Positions) are
               trimmed from this view per explicit request to match the
-              reference mockup closer -- not deleted (their components
-              still exist, just unmounted here), same "hide, don't delete"
-              precedent used throughout this app's nav history. Confirmed
-              none of them are rendered anywhere else in the app before
-              removing. TopOpportunityCard is the one exception: it's kept
-              mounted (with hidden={true}) because it's also the real data
-              source AiTopOpportunitiesCard's onFullScan depends on -- its
-              scan keeps running, it just renders nothing now. */}
-          <TopOpportunityCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} onFullScan={onFullScan} hidden />
+              reference mockup closer -- not deleted, and several are now
+              their own top-level sidebar tabs instead (same "hide, don't
+              delete" precedent, just relocated rather than only hidden).
+              TopOpportunityCard's real scan (topPick/fullScan) is now
+              mounted once at the axiom-live.jsx level instead of hidden
+              inside this tab, so it keeps running no matter which
+              top-level tab is active. */}
           <KpiStrip C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 14, alignItems: "stretch" }}>
             <AiMarketBiasCard C={C} MONO={MONO} SANS={SANS} bias={bias} biasCol={biasCol} factors={factors} />
@@ -748,12 +758,15 @@ export default function DashboardTab({
       )}
 
       {/* ── WATCHLIST & CHART ── */}
+      {/* Chart extended to the left (wider, more room), Watchlist moved
+          under Macro & Flow in a stacked right column — per explicit
+          request. */}
       {dashTab === "watchlist" && (
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
-          <WatchlistCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} sigData={sigData} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
           <DashboardChartCard C={C} MONO={MONO} SANS={SANS} symbol={aplusSymbol || "SPY"} />
-          <div style={{ flex: "1 1 300px", minWidth: 280, maxWidth: 380 }}>
+          <div style={{ flex: "1 1 320px", minWidth: 280, maxWidth: 380, display: "flex", flexDirection: "column", gap: 10 }}>
             <MarketIntelCard C={C} MONO={MONO} SANS={SANS} flowBias={flowBias} flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional} setActiveTab={setActiveTab} />
+            <WatchlistCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} sigData={sigData} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
           </div>
         </div>
       )}
