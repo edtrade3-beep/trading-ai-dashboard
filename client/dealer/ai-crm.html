@@ -176,8 +176,13 @@
   <!-- ── FOLLOW-UPS ── -->
   <div class="tab" id="t-followups">
     <div class="card">
-      <h2>🔔 Follow-ups Due</h2>
-      <div class="muted" style="font-size:13px;margin-bottom:12px">New leads with no activity in 2+ hours — the same threshold the automatic Telegram reminder already uses, shown here as an actionable list instead of a one-time ping.</div>
+      <h2>🤖 Auto Follow-Up Sequence</h2>
+      <div class="muted" style="font-size:13px;margin-bottom:12px">Real messages sent automatically through Facebook when a lead goes quiet — 24h, then +3 days, then +4 days more, then it stops. Pause any lead you want to handle yourself.</div>
+      <div id="autoFollowList"></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h2>✋ Needs Manual Outreach</h2>
+      <div class="muted" style="font-size:13px;margin-bottom:12px">No Facebook channel to auto-sequence through (email or manually-added leads) — new leads with no activity in 2+ hours, same threshold the Telegram reminder uses.</div>
       <div id="followList"></div>
     </div>
   </div>
@@ -435,8 +440,39 @@ function renderAppointments(){
 // ══════════════════ FOLLOW-UPS ══════════════════
 function renderFollowups(){
   var STALE_MS = 2*3600*1000;
+
+  // Leads with a real Facebook senderId are already auto-sequenced by the
+  // backend (fb-hub.js runFollowUpSequence) — show its real status here,
+  // not a second guess at it. Any non-SOLD stage is eligible, same scope
+  // the backend itself uses (not just NEW).
+  var autoRows = leads.filter(function(l){ return l.senderId && l.stage !== "SOLD"; })
+    .sort(function(a,b){ return (b.lastFollowUpAt||b.updatedAt||b.createdAt||0)-(a.lastFollowUpAt||a.updatedAt||a.createdAt||0); });
+
+  $("autoFollowList").innerHTML = autoRows.length ? autoRows.map(function(l){
+    var step = l.followUpStep||0;
+    var statusText, statusPill;
+    if (l.followUpsPaused) { statusText = "⏸ Paused"; statusPill = "pill yellow"; }
+    else if (l.followUpsExhausted) { statusText = "Sequence complete (3/3, no reply)"; statusPill = "pill red"; }
+    else if (step > 0) {
+      var sinceHrs = l.lastFollowUpAt ? Math.floor((Date.now()-l.lastFollowUpAt)/3600000) : 0;
+      statusText = "Step "+step+"/3 sent "+sinceHrs+"h ago"; statusPill = "pill blue";
+    } else {
+      statusText = "Not started yet"; statusPill = "pill green";
+    }
+    return '<div class="leadCard" style="margin-bottom:10px">'
+      +'<div class="name">'+(l.hot?"🔥 ":"")+esc(l.name||l.phone||"Lead")+' <span class="'+statusPill+'">'+statusText+'</span></div>'
+      +'<div class="veh">'+esc(l.vehicle||"—")+' · '+esc(l.source||"facebook-bot")+'</div>'
+      +'<div class="row" style="margin-top:8px">'
+        +'<button class="btn '+(l.followUpsPaused?"success":"ghost")+' sm" onclick="toggleFollowUps(\''+l.id+'\')">'+(l.followUpsPaused?"▶ Resume":"⏸ Pause")+' Auto Follow-Up</button>'
+        +'<button class="btn ghost sm" onclick="showTab(\'leads\');$(\'leadSearch\').value=\''+esc((l.name||"").replace(/'/g,""))+'\';renderLeadsTable();">Open →</button>'
+      +'</div>'
+      +'</div>';
+  }).join("") : '<div class="empty">No active Facebook leads to auto-sequence right now.</div>';
+
+  // Leads with NO senderId (email/manual) have no automated channel — same
+  // manual "stale NEW" flag this tab always had.
   var rows = leads.filter(function(l){
-    return (l.stage||"NEW")==="NEW" && (Date.now()-(l.updatedAt||l.createdAt||0)) > STALE_MS;
+    return !l.senderId && (l.stage||"NEW")==="NEW" && (Date.now()-(l.updatedAt||l.createdAt||0)) > STALE_MS;
   }).sort(function(a,b){ return (a.updatedAt||a.createdAt||0)-(b.updatedAt||b.createdAt||0); });
   if(!rows.length){ $("followList").innerHTML='<div class="empty">Nothing stale — every new lead has been touched recently. ✓</div>'; return; }
   $("followList").innerHTML = rows.map(function(l){
@@ -455,6 +491,17 @@ function markFollowedUp(id){
   var l = leads.find(function(x){ return x.id===id; }); if(!l) return;
   fetch("/api/dealer/crm/leads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(l)})
     .then(function(){ l.updatedAt=Date.now(); renderFollowups(); toast("Marked followed up ✓"); })
+    .catch(function(){ toast("Failed — try again."); });
+}
+function toggleFollowUps(id){
+  var l = leads.find(function(x){ return x.id===id; }); if(!l) return;
+  var next = !l.followUpsPaused;
+  // Send the whole lead object (not just {id, followUpsPaused}) — the
+  // backend's upsert requires a real name or phone on every POST, which a
+  // bare partial-field update wouldn't have.
+  var payload = Object.assign({}, l, { followUpsPaused: next });
+  fetch("/api/dealer/crm/leads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)})
+    .then(function(){ l.followUpsPaused = next; renderFollowups(); toast(next?"Auto follow-up paused":"Auto follow-up resumed"); })
     .catch(function(){ toast("Failed — try again."); });
 }
 
