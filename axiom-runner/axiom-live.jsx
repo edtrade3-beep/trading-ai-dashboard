@@ -3147,8 +3147,12 @@ export default function App() {
   async function fetchDividendCalendar() {
     setDividendLoading(true);
     try {
+      // watchlistData rows use .symbol everywhere else in this file — .ticker
+      // doesn't exist on them, so this always sent an all-commas tickers
+      // param, which the backend rejects (400), silently showing an empty
+      // dividend calendar instead of the user's real watchlist.
       const tickers = watchlistData.length > 0
-        ? watchlistData.slice(0, 20).map(w => w.ticker).join(",")
+        ? watchlistData.slice(0, 20).map(w => w.symbol).join(",")
         : "AAPL,MSFT,JNJ,PG,KO,VZ,T,XOM,CVX,MCD,DIS,HD,WMT,PFE,MRK";
       const res = await fetch(`/api/market/dividends?tickers=${encodeURIComponent(tickers)}`);
       const data = res.ok ? await res.json() : {};

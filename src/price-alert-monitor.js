@@ -87,7 +87,12 @@ async function checkT1Alerts() {
 
     const symbols = [...new Set(open.map(e => e.ticker))];
     const prices  = {};
-    for (const sym of symbols) prices[sym] = await fetchLivePrice(sym);
+    // fetchLivePrice doesn't exist — was never defined anywhere in this file
+    // or the codebase, so every call here threw a ReferenceError, silently
+    // swallowed by this function's own try/catch. Net effect: this whole
+    // T1/target-hit Telegram alert has never fired once since it was
+    // written. fetchQuote (above) is this same file's real quote fetcher.
+    for (const sym of symbols) prices[sym] = (await fetchQuote(sym)).price;
 
     const now = Date.now();
     for (const trade of open) {

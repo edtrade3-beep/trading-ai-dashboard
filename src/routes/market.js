@@ -1560,7 +1560,11 @@ Return ONLY valid JSON, no markdown: {"firstName":"","customerEmail":"","custome
     } else lines.push("Insider buying: no notable Form 4 buys scanned this run.");
 
     if (dp?.ok && dp.prints?.length) {
-      const biggest = dp.prints.slice(0, 5).map(p => `${p.symbol} $${Math.round((p.value || p.premium || 0) / 1e6)}M`).join(", ");
+      // GET /api/market/darkpool's prints are shaped { ticker, ... }, not
+      // { symbol, ... } — same bug class as the short-interest fix above,
+      // just masked locally since this branch only fires with a real
+      // Unusual Whales key configured.
+      const biggest = dp.prints.slice(0, 5).map(p => `${p.ticker} $${Math.round((p.value || 0) / 1e6)}M`).join(", ");
       lines.push(`Dark pool prints: ${biggest}.`);
     } else lines.push("Dark pool: unavailable this run (no data provider configured).");
 
