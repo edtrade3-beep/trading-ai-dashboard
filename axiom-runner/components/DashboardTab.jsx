@@ -637,9 +637,9 @@ function AiCopilotLauncherCard({ C, MONO, SANS }) {
 // card/section moved as-is into one of these, nothing removed or rebuilt,
 // same "hide, don't delete" precedent already used for MORE DETAIL below.
 const DASH_TABS = [
+  { id: "opportunities", label: "OPPORTUNITIES" },
   { id: "overview",    label: "OVERVIEW" },
   { id: "watchlist",   label: "WATCHLIST & CHART" },
-  { id: "opportunities", label: "OPPORTUNITIES" },
   { id: "news",        label: "NEWS & EVENTS" },
   { id: "more",        label: "MORE" },
 ];
@@ -678,8 +678,10 @@ export default function DashboardTab({
   // would unmount, and the data would go stale, the moment you left
   // Dashboard entirely).
   const aplusSymbol = topPick?.symbol || null;
+  // Opportunities made the default/first sub-tab (2026-07-19, user request:
+  // "need opportunities right away... not late") -- was Overview.
   const [dashTab, setDashTab] = useState(() => {
-    try { return localStorage.getItem("dash_subtab") || "overview"; } catch { return "overview"; }
+    try { return localStorage.getItem("dash_subtab") || "opportunities"; } catch { return "opportunities"; }
   });
   const setDashTabPersist = (id) => {
     setDashTab(id);

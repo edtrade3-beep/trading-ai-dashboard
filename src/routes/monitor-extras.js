@@ -116,7 +116,27 @@ function getEventCountdowns() {
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
-async function handleMonitorExtras(req, res, pathname) {
+async function handleMonitorExtras(req, res, pathname, requestUrl) {
+  // Real current price for a bounded, caller-supplied symbol list — reuses
+  // fetchChartQuote, the same v8-chart-API path already proven reliable
+  // from the cloud (used by Pre-Market Movers/Futures above). Unlike this
+  // app's primary /api/market/quote (Alpaca-first, whose free/IEX feed
+  // doesn't carry real pre-market trades), Yahoo's meta.regularMarketPrice
+  // updates live through pre-market/after-hours too, so this is what
+  // Opportunities-tab consumers overlay for a real "right now" price.
+  if (pathname === "/api/market/live-quote") {
+    const symbols = (requestUrl?.searchParams.get("symbols") || "")
+      .split(",").map(s => s.trim().toUpperCase()).filter(Boolean).slice(0, 10);
+    if (!symbols.length) return writeJson(res, 400, { ok: false, error: "symbols required" });
+    try {
+      const quotes = await Promise.all(symbols.map(sym =>
+        cached(`live:${sym}`, 60_000, () => fetchChartQuote(sym))
+      ));
+      return writeJson(res, 200, { ok: true, quotes: quotes.filter(q => q.price > 0) });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, quotes: [], error: e.message });
+    }
+  }
   if (pathname === "/api/market/futures") {
     try {
       const futures = await fetchFutures();

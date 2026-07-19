@@ -762,6 +762,12 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
   const [onlyStrong, setOnlyStrong] = useState(true);   // RS ≥ 70 quality filter
   const [lastScan, setLastScan] = useState(0);
   const [notifyOn, setNotifyOn] = useState(() => localStorage.getItem("bestopp_notify") === "on");
+  // trend-screen's r.price is the last DAILY bar close, so during pre-market
+  // it still shows yesterday's number. Overlay a real current price (same
+  // Yahoo v8-chart path already proven reliable from the cloud for
+  // Pre-Market Movers/Futures -- meta.regularMarketPrice updates live
+  // through pre/post-market too) for the visible rows only.
+  const [liveMap, setLiveMap] = useState({});
   const seenGo = React.useRef(new Set());   // GO symbols already alerted (avoid repeats)
   const isGo = (r) => r.verdict === "GO" || (r.atBuyPoint && r.volConfirmed);
   const regime = computeRegime(macroData);
@@ -796,6 +802,14 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
           try { new Notification("🎯 New buy-point: " + newGo.join(", "), { body: "A new GO setup just appeared in Best Opportunities." }); } catch {}
         }
         setRows(top); setState(top.length ? "ok" : "none"); setLastScan(Date.now());
+        const syms = top.map(r => r.symbol).join(",");
+        if (syms) {
+          fetch("/api/market/live-quote?symbols=" + encodeURIComponent(syms)).then(r => r.json()).then(j => {
+            const m = {};
+            (j?.quotes || []).forEach(q => { m[q.sym] = q; });
+            setLiveMap(m);
+          }).catch(() => {});
+        }
       })
       .catch(() => setState(s => s === "ok" ? "ok" : "err"));
   };
@@ -854,6 +868,7 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
           {rows.map((r, i) => {
             const [badge, bc] = vBadge(r);
             const ac = r._aplus.score >= 80 ? "#0d9465" : r._aplus.score >= 60 ? "#d6a312" : "#c8282a";
+            const live = liveMap[r.symbol];
             return (
               <div key={r.symbol} onClick={() => onPick && onPick(r.symbol)}
                 style={{ display: "flex", gap: 12, alignItems: "center", padding: "11px 12px", cursor: "pointer", borderRadius: 10, background: C.bg, border: `1px solid ${r._new ? "#7c5cff" : C.border}`, boxShadow: r._new ? "0 0 0 3px rgba(124,92,255,0.15)" : "none", marginBottom: 8 }}>
@@ -861,6 +876,11 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontFamily: SANS, fontSize: 17, fontWeight: 900, color: C.text }}>{r.symbol}</span>
+                    {live && (
+                      <span title="Real-time price (incl. pre/post-market)" style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: live.chg >= 0 ? "#0d9465" : "#c8282a" }}>
+                        ${live.price.toFixed(2)} {live.chg >= 0 ? "+" : ""}{live.chg.toFixed(1)}%
+                      </span>
+                    )}
                     <span title={r._aplus.reasons.join(" · ")} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#fff", background: ac, borderRadius: 5, padding: "2px 8px", cursor: "help" }}>A+ {r._aplus.score}</span>
                     {r._new && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#fff", background: "#7c5cff", borderRadius: 4, padding: "1px 6px" }}>NEW</span>}
                     <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: bc, background: `${bc}18`, borderRadius: 5, padding: "2px 8px" }}>{badge}</span>

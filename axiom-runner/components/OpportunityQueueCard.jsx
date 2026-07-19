@@ -13,12 +13,29 @@ export default function OpportunityQueueCard({ C, MONO, SANS, setTerminalSymbol,
   const [lastRunAt, setLastRunAt] = useState(null);
   const [state, setState] = useState("loading"); // loading | ok | error
   const [scanning, setScanning] = useState(false);
+  // market-scanner.js's price/chgPct come from the last DAILY bar close, so
+  // during pre-market they still show yesterday's numbers. Overlay a real
+  // current price (GET /api/market/live-quote, the same Yahoo v8-chart path
+  // already proven reliable from the cloud for Pre-Market Movers/Futures --
+  // meta.regularMarketPrice updates live through pre/post-market too) for
+  // the visible rows only. Honest fallback to the daily-close value if the
+  // live fetch hasn't landed yet, never a blank.
+  const [liveMap, setLiveMap] = useState({});
 
   const load = () => {
     fetch("/api/scanner/status").then(r => r.json()).then(d => {
-      setHits(Array.isArray(d?.lastHits) ? [...d.lastHits].sort((a, b) => (b.composite || 0) - (a.composite || 0)) : []);
+      const sorted = Array.isArray(d?.lastHits) ? [...d.lastHits].sort((a, b) => (b.composite || 0) - (a.composite || 0)) : [];
+      setHits(sorted);
       setLastRunAt(d?.lastRunAt || null);
       setState("ok");
+      const syms = sorted.slice(0, 8).map(h => h.symbol).join(",");
+      if (syms) {
+        fetch("/api/market/live-quote?symbols=" + encodeURIComponent(syms)).then(r => r.json()).then(j => {
+          const m = {};
+          (j?.quotes || []).forEach(q => { m[q.sym] = q; });
+          setLiveMap(m);
+        }).catch(() => {});
+      }
     }).catch(() => setState("error"));
   };
   useEffect(() => { load(); const t = setInterval(load, 60000); return () => clearInterval(t); }, []);
@@ -54,17 +71,22 @@ export default function OpportunityQueueCard({ C, MONO, SANS, setTerminalSymbol,
           </div>
         </div>
       )}
-      {hits.slice(0, 8).map(h => (
-        <div key={h.symbol} onClick={() => { setTerminalSymbol?.(h.symbol); setActiveTab?.("mterminal"); }}
-          style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 4px", borderBottom: `1px solid ${C.border}`, cursor: "pointer" }}>
-          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: h.signal === "BUY" ? C.green : C.red, minWidth: 32 }}>{h.signal === "BUY" ? "🟢" : "🔴"}</span>
-          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, minWidth: 55 }}>{h.symbol}</span>
-          <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>${Number(h.price || 0).toFixed(2)}</span>
-          <span style={{ fontFamily: MONO, fontSize: 11, color: (h.chgPct || 0) >= 0 ? C.green : C.red, minWidth: 50 }}>{(h.chgPct || 0) >= 0 ? "+" : ""}{Number(h.chgPct || 0).toFixed(2)}%</span>
-          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: "auto" }}>RVOL {Number(h.rvol || 0).toFixed(1)}x</span>
-          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text, minWidth: 28, textAlign: "right" }}>{Math.round(h.composite || 0)}</span>
-        </div>
-      ))}
+      {hits.slice(0, 8).map(h => {
+        const live = liveMap[h.symbol];
+        const price = live ? live.price : Number(h.price || 0);
+        const chgPct = live ? live.chg : Number(h.chgPct || 0);
+        return (
+          <div key={h.symbol} onClick={() => { setTerminalSymbol?.(h.symbol); setActiveTab?.("mterminal"); }}
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 4px", borderBottom: `1px solid ${C.border}`, cursor: "pointer" }}>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: h.signal === "BUY" ? C.green : C.red, minWidth: 32 }}>{h.signal === "BUY" ? "🟢" : "🔴"}</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, minWidth: 55 }}>{h.symbol}</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }} title={live ? "Real-time (incl. pre/post-market)" : "Last daily close"}>${price.toFixed(2)}</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: chgPct >= 0 ? C.green : C.red, minWidth: 50 }}>{chgPct >= 0 ? "+" : ""}{chgPct.toFixed(2)}%</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: "auto" }}>RVOL {Number(h.rvol || 0).toFixed(1)}x</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text, minWidth: 28, textAlign: "right" }}>{Math.round(h.composite || 0)}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

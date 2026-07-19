@@ -147,8 +147,9 @@ async function handleRequest(req, res) {
 
     if (pathname === "/api/market/futures" ||
         pathname === "/api/market/premarket-movers" ||
-        pathname === "/api/market/event-countdowns") {
-      return await handleMonitorExtras(req, res, pathname);
+        pathname === "/api/market/event-countdowns" ||
+        pathname === "/api/market/live-quote") {
+      return await handleMonitorExtras(req, res, pathname, requestUrl);
     }
 
     if (pathname.startsWith("/api/market/") || pathname === "/api/live") {
