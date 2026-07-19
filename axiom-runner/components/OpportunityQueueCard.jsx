@@ -21,6 +21,25 @@ export default function OpportunityQueueCard({ C, MONO, SANS, setTerminalSymbol,
   // the visible rows only. Honest fallback to the daily-close value if the
   // live fetch hasn't landed yet, never a blank.
   const [liveMap, setLiveMap] = useState({});
+  // Per-row "why is this moving" — same real web-searched /api/market/ai-why
+  // AiWhyPanel already uses on the chart page. On-demand per row, not
+  // auto-fetched for every hit on every scan.
+  const [whyOpen, setWhyOpen] = useState(null);
+  const [whyState, setWhyState] = useState({});
+  const [whyReply, setWhyReply] = useState({});
+  const askWhy = (sym, price, chgPct) => {
+    if (whyOpen === sym) { setWhyOpen(null); return; }
+    setWhyOpen(sym);
+    if (whyState[sym] === "ok") return;
+    setWhyState(s => ({ ...s, [sym]: "loading" }));
+    fetch("/api/market/ai-why", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol: sym, price, changePct: chgPct }),
+    }).then(res => res.json()).then(j => {
+      if (j.ok) { setWhyReply(w => ({ ...w, [sym]: j.reply })); setWhyState(s => ({ ...s, [sym]: "ok" })); }
+      else setWhyState(s => ({ ...s, [sym]: "err" }));
+    }).catch(() => setWhyState(s => ({ ...s, [sym]: "err" })));
+  };
 
   const load = () => {
     fetch("/api/scanner/status").then(r => r.json()).then(d => {
@@ -75,15 +94,31 @@ export default function OpportunityQueueCard({ C, MONO, SANS, setTerminalSymbol,
         const live = liveMap[h.symbol];
         const price = live ? live.price : Number(h.price || 0);
         const chgPct = live ? live.chg : Number(h.chgPct || 0);
+        const isWhyOpen = whyOpen === h.symbol;
         return (
-          <div key={h.symbol} onClick={() => { setTerminalSymbol?.(h.symbol); setActiveTab?.("mterminal"); }}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 4px", borderBottom: `1px solid ${C.border}`, cursor: "pointer" }}>
-            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: h.signal === "BUY" ? C.green : C.red, minWidth: 32 }}>{h.signal === "BUY" ? "🟢" : "🔴"}</span>
-            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, minWidth: 55 }}>{h.symbol}</span>
-            <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }} title={live ? "Real-time (incl. pre/post-market)" : "Last daily close"}>${price.toFixed(2)}</span>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: chgPct >= 0 ? C.green : C.red, minWidth: 50 }}>{chgPct >= 0 ? "+" : ""}{chgPct.toFixed(2)}%</span>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: "auto" }}>RVOL {Number(h.rvol || 0).toFixed(1)}x</span>
-            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text, minWidth: 28, textAlign: "right" }}>{Math.round(h.composite || 0)}</span>
+          <div key={h.symbol}>
+            <div onClick={() => { setTerminalSymbol?.(h.symbol); setActiveTab?.("mterminal"); }}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 4px", borderBottom: isWhyOpen ? "none" : `1px solid ${C.border}`, cursor: "pointer" }}>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: h.signal === "BUY" ? C.green : C.red, minWidth: 32 }}>{h.signal === "BUY" ? "🟢" : "🔴"}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, minWidth: 55 }}>{h.symbol}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }} title={live ? "Real-time (incl. pre/post-market)" : "Last daily close"}>${price.toFixed(2)}</span>
+              <span style={{ fontFamily: MONO, fontSize: 11, color: chgPct >= 0 ? C.green : C.red, minWidth: 50 }}>{chgPct >= 0 ? "+" : ""}{chgPct.toFixed(2)}%</span>
+              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginLeft: "auto" }}>RVOL {Number(h.rvol || 0).toFixed(1)}x</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text, minWidth: 28, textAlign: "right" }}>{Math.round(h.composite || 0)}</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); askWhy(h.symbol, price, chgPct); }}
+                title={`Why is ${h.symbol} moving? — real web-searched catalyst`}
+                style={{ flexShrink: 0, fontFamily: MONO, fontSize: 10, fontWeight: 800, border: "1px solid #7c5cff", background: isWhyOpen ? "rgba(124,92,255,0.22)" : "rgba(124,92,255,0.14)", color: "#a78bfa", borderRadius: 5, padding: "3px 6px", cursor: "pointer" }}>
+                🤖{whyState[h.symbol] === "loading" ? "…" : ""}
+              </button>
+            </div>
+            {isWhyOpen && (
+              <div style={{ borderBottom: `1px solid ${C.border}`, padding: "4px 4px 10px", background: `#7c5cff08` }}>
+                {whyState[h.symbol] === "loading" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Searching for the real catalyst…</div>}
+                {whyState[h.symbol] === "err" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>⚠ Couldn't fetch — try again.</div>}
+                {whyState[h.symbol] === "ok" && <div style={{ fontFamily: SANS, fontSize: 12, lineHeight: 1.5, color: C.text, whiteSpace: "pre-wrap" }}>{whyReply[h.symbol]}</div>}
+              </div>
+            )}
           </div>
         );
       })}

@@ -768,6 +768,26 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
   // Pre-Market Movers/Futures -- meta.regularMarketPrice updates live
   // through pre/post-market too) for the visible rows only.
   const [liveMap, setLiveMap] = useState({});
+  // Per-row "why is this moving" — same real web-searched /api/market/ai-why
+  // AiWhyPanel already uses on the chart page, just compact/inline for a
+  // row list. On-demand per row (not auto-fetched for all 5 on every scan)
+  // so it only spends AI+web-search tokens when actually asked.
+  const [whyOpen, setWhyOpen] = useState(null); // symbol currently expanded, or null
+  const [whyState, setWhyState] = useState({}); // symbol -> "loading" | "ok" | "err"
+  const [whyReply, setWhyReply] = useState({}); // symbol -> reply text
+  const askWhy = (r, live) => {
+    if (whyOpen === r.symbol) { setWhyOpen(null); return; } // toggle closed
+    setWhyOpen(r.symbol);
+    if (whyState[r.symbol] === "ok") return; // already fetched, just reopening
+    setWhyState(s => ({ ...s, [r.symbol]: "loading" }));
+    fetch("/api/market/ai-why", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol: r.symbol, price: live ? live.price : r.price, changePct: live ? live.chg : undefined }),
+    }).then(res => res.json()).then(j => {
+      if (j.ok) { setWhyReply(w => ({ ...w, [r.symbol]: j.reply })); setWhyState(s => ({ ...s, [r.symbol]: "ok" })); }
+      else setWhyState(s => ({ ...s, [r.symbol]: "err" }));
+    }).catch(() => setWhyState(s => ({ ...s, [r.symbol]: "err" })));
+  };
   const seenGo = React.useRef(new Set());   // GO symbols already alerted (avoid repeats)
   const isGo = (r) => r.verdict === "GO" || (r.atBuyPoint && r.volConfirmed);
   const regime = computeRegime(macroData);
@@ -869,36 +889,52 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
             const [badge, bc] = vBadge(r);
             const ac = r._aplus.score >= 80 ? "#0d9465" : r._aplus.score >= 60 ? "#d6a312" : "#c8282a";
             const live = liveMap[r.symbol];
+            const isWhyOpen = whyOpen === r.symbol;
             return (
-              <div key={r.symbol} onClick={() => onPick && onPick(r.symbol)}
-                style={{ display: "flex", gap: 12, alignItems: "center", padding: "11px 12px", cursor: "pointer", borderRadius: 10, background: C.bg, border: `1px solid ${r._new ? "#7c5cff" : C.border}`, boxShadow: r._new ? "0 0 0 3px rgba(124,92,255,0.15)" : "none", marginBottom: 8 }}>
-                <div style={{ fontFamily: NUM, fontSize: 26, fontWeight: 700, color: C.textDim, minWidth: 26 }}>{i + 1}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <span style={{ fontFamily: SANS, fontSize: 17, fontWeight: 900, color: C.text }}>{r.symbol}</span>
-                    {live && (
-                      <span title="Real-time price (incl. pre/post-market)" style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: live.chg >= 0 ? "#0d9465" : "#c8282a" }}>
-                        ${live.price.toFixed(2)} {live.chg >= 0 ? "+" : ""}{live.chg.toFixed(1)}%
-                      </span>
-                    )}
-                    <span title={r._aplus.reasons.join(" · ")} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#fff", background: ac, borderRadius: 5, padding: "2px 8px", cursor: "help" }}>A+ {r._aplus.score}</span>
-                    {r._new && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#fff", background: "#7c5cff", borderRadius: 4, padding: "1px 6px" }}>NEW</span>}
-                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: bc, background: `${bc}18`, borderRadius: 5, padding: "2px 8px" }}>{badge}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>R:R {r._rr.toFixed(1)}:1</span>
+              <div key={r.symbol} style={{ marginBottom: 8 }}>
+                <div onClick={() => onPick && onPick(r.symbol)}
+                  style={{ display: "flex", gap: 12, alignItems: "center", padding: "11px 12px", cursor: "pointer", borderRadius: isWhyOpen ? "10px 10px 0 0" : 10, background: C.bg, border: `1px solid ${r._new ? "#7c5cff" : C.border}`, boxShadow: r._new ? "0 0 0 3px rgba(124,92,255,0.15)" : "none" }}>
+                  <div style={{ fontFamily: NUM, fontSize: 26, fontWeight: 700, color: C.textDim, minWidth: 26 }}>{i + 1}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontFamily: SANS, fontSize: 17, fontWeight: 900, color: C.text }}>{r.symbol}</span>
+                      {live && (
+                        <span title="Real-time price (incl. pre/post-market)" style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: live.chg >= 0 ? "#0d9465" : "#c8282a" }}>
+                          ${live.price.toFixed(2)} {live.chg >= 0 ? "+" : ""}{live.chg.toFixed(1)}%
+                        </span>
+                      )}
+                      <span title={r._aplus.reasons.join(" · ")} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#fff", background: ac, borderRadius: 5, padding: "2px 8px", cursor: "help" }}>A+ {r._aplus.score}</span>
+                      {r._new && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#fff", background: "#7c5cff", borderRadius: 4, padding: "1px 6px" }}>NEW</span>}
+                      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: bc, background: `${bc}18`, borderRadius: 5, padding: "2px 8px" }}>{badge}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>R:R {r._rr.toFixed(1)}:1</span>
+                    </div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 2 }}>{why(r)}</div>
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 2 }}>{why(r)}</div>
+                  <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 11, whiteSpace: "nowrap" }}>
+                    <div style={{ color: C.accent }}>Buy ${r.entry}</div>
+                    <div style={{ color: "#c8282a" }}>Stop ${r.stop}</div>
+                    <div style={{ color: "#0d9465" }}>Target ${r.target2}</div>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); askWhy(r, live); }}
+                    title={`Why is ${r.symbol} moving? — real web-searched catalyst`}
+                    style={{ flexShrink: 0, fontFamily: MONO, fontSize: 11, fontWeight: 800, border: `1px solid #7c5cff`, background: isWhyOpen ? "rgba(124,92,255,0.22)" : "rgba(124,92,255,0.14)", color: "#a78bfa", borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
+                    🤖 Why{whyState[r.symbol] === "loading" ? "…" : ""}
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); try { localStorage.setItem("tradeplanner_load_sym", r.symbol); } catch {} setActiveTab && setActiveTab("tradeplanner"); }}
+                    title={`Plan this trade — opens Trade Planner with ${r.symbol} loaded`}
+                    style={{ flexShrink: 0, fontFamily: MONO, fontSize: 11, fontWeight: 800, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
+                    🎯 Plan
+                  </button>
                 </div>
-                <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 11, whiteSpace: "nowrap" }}>
-                  <div style={{ color: C.accent }}>Buy ${r.entry}</div>
-                  <div style={{ color: "#c8282a" }}>Stop ${r.stop}</div>
-                  <div style={{ color: "#0d9465" }}>Target ${r.target2}</div>
-                </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); try { localStorage.setItem("tradeplanner_load_sym", r.symbol); } catch {} setActiveTab && setActiveTab("tradeplanner"); }}
-                  title={`Plan this trade — opens Trade Planner with ${r.symbol} loaded`}
-                  style={{ flexShrink: 0, fontFamily: MONO, fontSize: 11, fontWeight: 800, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
-                  🎯 Plan
-                </button>
+                {isWhyOpen && (
+                  <div style={{ border: `1px solid #7c5cff55`, borderTop: "none", borderRadius: "0 0 10px 10px", padding: "10px 14px", background: C.card }}>
+                    {whyState[r.symbol] === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Searching for the real catalyst…</div>}
+                    {whyState[r.symbol] === "err" && <div style={{ fontFamily: MONO, fontSize: 12, color: "#c8282a" }}>⚠ Couldn't fetch — try again.</div>}
+                    {whyState[r.symbol] === "ok" && <div style={{ fontFamily: SANS, fontSize: 13, lineHeight: 1.5, color: C.text, whiteSpace: "pre-wrap" }}>{whyReply[r.symbol]}</div>}
+                  </div>
+                )}
               </div>
             );
           })}
