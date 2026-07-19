@@ -818,10 +818,14 @@ export default function DashboardTab({
           <div style={{ marginBottom: 10 }}>
             <AiMorningBriefCard C={C} MONO={MONO} SANS={SANS} />
           </div>
+          {/* Best Opportunities listed first (2026-07-19, user request) --
+              it's almost always populated with real ranked setups, while
+              Opportunity Queue's stricter BUY/SELL-crossing threshold means
+              it's frequently empty between scans (confirmed repeatedly in
+              testing) -- leading with the empty-more-often card wasn't a
+              good use of the top slot, especially on mobile where this row
+              wraps to a vertical stack and "first" really means first. */}
           <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", alignItems: "stretch" }}>
-            <div style={{ flex: 1, minWidth: 300 }}>
-              <OpportunityQueueCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
-            </div>
             <div style={{ flex: 2, minWidth: 320 }}>
               {/* onPick was missing here (unlike MarketTerminalTab.jsx's use
                   of the same component, which passes it) — every row's
@@ -832,6 +836,9 @@ export default function DashboardTab({
                   by every other clickable symbol row in this file. */}
               <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab}
                 onPick={(sym) => { setTerminalSymbol?.(sym); try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab?.("mterminal"); }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 300 }}>
+              <OpportunityQueueCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
             </div>
           </div>
           <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} topPick={topPick} />

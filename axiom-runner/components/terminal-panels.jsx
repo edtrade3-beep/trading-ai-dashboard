@@ -893,9 +893,9 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
             return (
               <div key={r.symbol} style={{ marginBottom: 8 }}>
                 <div onClick={() => onPick && onPick(r.symbol)}
-                  style={{ display: "flex", gap: 12, alignItems: "center", padding: "11px 12px", cursor: "pointer", borderRadius: isWhyOpen ? "10px 10px 0 0" : 10, background: C.bg, border: `1px solid ${r._new ? "#7c5cff" : C.border}`, boxShadow: r._new ? "0 0 0 3px rgba(124,92,255,0.15)" : "none" }}>
+                  style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", padding: "11px 12px", cursor: "pointer", borderRadius: isWhyOpen ? "10px 10px 0 0" : 10, background: C.bg, border: `1px solid ${r._new ? "#7c5cff" : C.border}`, boxShadow: r._new ? "0 0 0 3px rgba(124,92,255,0.15)" : "none" }}>
                   <div style={{ fontFamily: NUM, fontSize: 26, fontWeight: 700, color: C.textDim, minWidth: 26 }}>{i + 1}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ flex: "1 1 180px", minWidth: 180 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <span style={{ fontFamily: SANS, fontSize: 17, fontWeight: 900, color: C.text }}>{r.symbol}</span>
                       {live && (
