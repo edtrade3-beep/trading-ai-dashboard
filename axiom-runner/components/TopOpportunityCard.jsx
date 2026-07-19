@@ -6,7 +6,7 @@ import { BEST_OPP_UNIVERSE } from "./terminal-panels.jsx";
 // Dashboard's "should I trade today" top-opportunity card — same scan/rank
 // logic as BestOpportunities (MarketTerminalTab), but surfaces only the #1
 // setup as a single punchy verdict rather than a list of 5.
-export default function TopOpportunityCard({ C, MONO, SANS, macroData, setActiveTab, setTerminalSymbol, onScore, onFullScan }) {
+export default function TopOpportunityCard({ C, MONO, SANS, macroData, setActiveTab, setTerminalSymbol, onScore, onFullScan, hidden }) {
   const [row, setRow] = useState(null);
   const [state, setState] = useState("idle"); // idle | loading | ok | none | err
   const regime = computeRegime(macroData);
@@ -47,6 +47,13 @@ export default function TopOpportunityCard({ C, MONO, SANS, macroData, setActive
 
   const goToChart = () => { if (!row) return; setTerminalSymbol && setTerminalSymbol(row.symbol); try { localStorage.setItem("mterminal_load_sym", row.symbol); } catch {} setActiveTab && setActiveTab("mterminal"); };
   const goToPlan = (e) => { e.stopPropagation(); if (!row) return; try { localStorage.setItem("tradeplanner_load_sym", row.symbol); } catch {} setActiveTab && setActiveTab("tradeplanner"); };
+
+  // hidden: this card is also the data source for AiTopOpportunitiesCard's
+  // onFullScan (real scan results) -- stays mounted so its scan/interval
+  // effect above keeps running, just renders nothing when the visual hero
+  // isn't wanted (e.g. the new Overview layout, which shows the same real
+  // data as a ranked table instead).
+  if (hidden) return null;
 
   return (
     <div style={{ marginBottom: 10, border: `2px solid ${C.accent}`, borderRadius: 12, background: `${C.accent}0a`, overflow: "hidden" }}>

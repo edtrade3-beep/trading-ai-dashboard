@@ -714,10 +714,20 @@ export default function DashboardTab({
               component definitions above for exactly which real source
               feeds each card, and the two real gaps deliberately left out
               rather than fabricated: market-wide Confidence%/Risk Level,
-              and a real US 10Y yield). Existing cards below (CEO AI brief,
-              Capital Allocation, Mission Status, Portfolio) are kept, not
-              deleted, per "hide, don't delete" — they're real, working,
-              and not represented in the new reference design at all. */}
+              and a real US 10Y yield). The previous Overview cards (CEO AI
+              brief, Market Health/Capital Allocation/AI Confidence/Mission
+              Status row, Top Opportunity hero, Sector Rotation/Money Flow/
+              Avoid, Ask AI bar, Portfolio Snapshot/Active Positions) are
+              trimmed from this view per explicit request to match the
+              reference mockup closer -- not deleted (their components
+              still exist, just unmounted here), same "hide, don't delete"
+              precedent used throughout this app's nav history. Confirmed
+              none of them are rendered anywhere else in the app before
+              removing. TopOpportunityCard is the one exception: it's kept
+              mounted (with hidden={true}) because it's also the real data
+              source AiTopOpportunitiesCard's onFullScan depends on -- its
+              scan keeps running, it just renders nothing now. */}
+          <TopOpportunityCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} onFullScan={onFullScan} hidden />
           <KpiStrip C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 14, alignItems: "stretch" }}>
             <AiMarketBiasCard C={C} MONO={MONO} SANS={SANS} bias={bias} biasCol={biasCol} factors={factors} />
@@ -733,54 +743,6 @@ export default function DashboardTab({
             <NewsSentimentCard C={C} MONO={MONO} SANS={SANS} newsSentiment={newsSentiment} setActiveTab={setActiveTab} />
             <VolatilityIndexCard C={C} MONO={MONO} SANS={SANS} distData={distData} setActiveTab={setActiveTab} />
             <AiCopilotLauncherCard C={C} MONO={MONO} SANS={SANS} />
-          </div>
-
-          <div style={{ marginBottom: 14 }}>
-            <CeoAiCard C={C} MONO={MONO} SANS={SANS} />
-          </div>
-
-          {/* Executive status row — Market Health owns the one regime gauge */}
-          {/* (moved here from "supporting analysis", not duplicated) alongside */}
-          {/* Capital Allocation / AI Confidence / Mission Status. */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 14, alignItems: "stretch" }}>
-            <MarketRegimeCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} distData={distData} factors={factors} bias={bias} biasColor={biasCol} />
-            <Card C={C} title="CAPITAL ALLOCATION">
-              <CapitalAllocationCard C={C} MONO={MONO} SANS={SANS} />
-            </Card>
-            <Card C={C} title="AI CONFIDENCE" accent={C.purple}>
-              {topPick && Number.isFinite(conf) ? (
-                <RadialGauge C={C} MONO={MONO} value={conf} label={topPick.symbol} sublabel="top pick confidence" color={confColor} />
-              ) : (
-                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center", padding: 20 }}>Scanning for a top pick…</div>
-              )}
-            </Card>
-            <Card C={C} title="MISSION STATUS">
-              <MissionStatusCard C={C} MONO={MONO} SANS={SANS} regimeLabel={overviewRegLabel} tiltEnabled={tiltEnabled} tiltLocked={tiltLocked} tiltStreak={tiltStreak} />
-            </Card>
-          </div>
-
-          {/* Highest-conviction opportunity — the single idea, not a list */}
-          <div style={{ marginBottom: 14 }}>
-            <TopOpportunityCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} onFullScan={onFullScan} />
-          </div>
-
-          {/* Sector Rotation / Money Flow / Stocks to Avoid — real data reuse, see MarketPulseCard above */}
-          <div style={{ marginBottom: 14 }}>
-            <MarketPulseCard C={C} MONO={MONO} SANS={SANS} rotationRank={rotationRank} flowBias={flowBias} flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional} fullScan={fullScan} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
-          </div>
-
-          <div style={{ marginBottom: 14 }}>
-            <AskAiBar C={C} MONO={MONO} SANS={SANS} />
-          </div>
-
-          {/* Supporting analysis — Upcoming Events dropped from here since
-              it's already shown once in the new top section now; showing
-              it twice on the same page would be duplicate real info. */}
-          <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
-            <div style={{ flex: "1 1 320px", minWidth: 300, display: "flex", flexDirection: "column", gap: 10 }}>
-              <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
-              <ActivePositionsCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
-            </div>
           </div>
         </>
       )}
