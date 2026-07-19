@@ -272,6 +272,17 @@ export default function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                 {autoAlert ? "🔔 Auto-alert: ON" : "🔕 Auto-alert: OFF"}
               </button>
             </div>
+            {/* This table has 12 columns (Sym/Score/RS/VCP/Price/Pivot/vs Pivot/
+                Entry/Stop/Risk/State) — on a narrow mobile viewport it's wider
+                than the screen. The card's own overflow:"hidden" (above, kept
+                for its rounded corners) was clipping columns past the visible
+                width instead of letting them scroll, so on mobile several
+                columns (Price/Pivot/vs Pivot/Entry/Stop/Risk/State) were
+                genuinely inaccessible, not just visually cramped. Same
+                overflowX:"auto" wrapper pattern already used correctly by
+                every other table in this app (ShortIntTab, SqueezeTab,
+                Under10Tab, ScreenerTab, TelegramAlertsTab). */}
+            <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12 }}>
               <thead><tr style={{ color: C.textDim, textAlign: "left" }}>
                 {["", "Sym", "Score", "RS", "VCP", "Price", "Pivot", "vs Pivot", "Entry", "Stop", "Risk", "State"].map((h, i) => (
@@ -326,7 +337,7 @@ export default function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                         <td colSpan={12} style={{ padding: "0 10px 12px", background: `${C.accent}08` }}>
                           {rowLoading === r.symbol && <div style={{ padding: 16, color: C.textDim, fontFamily: SANS, fontSize: 12 }}>Loading {r.symbol} chart…</div>}
                           {rd && (
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 220px", gap: 12, paddingTop: 8 }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, paddingTop: 8 }}>
                               <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
                                 <TrendChart data={rd} C={C} MONO={MONO} SANS={SANS} height={360} />
                               </div>
@@ -382,6 +393,7 @@ export default function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                 })}
               </tbody>
             </table>
+            </div>
             </>
             );
           })()}
@@ -545,7 +557,7 @@ export default function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
         );
       })()}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
         <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
           <div style={{ display: "flex", gap: 6, padding: "8px 10px", borderBottom: `1px solid ${C.border}` }}>
             {[["analysis", "📊 Analysis"], ["tv", "📺 TradingView (live)"]].map(([v, l]) => (
