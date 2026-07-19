@@ -335,15 +335,45 @@ export function MarketPulseCard({ C, MONO, SANS, rotationRank, flowBias, flowCal
 
 // ═══════════════════════════════════════════════════════════════════════
 // New Overview layout (user-provided reference design) — real data only,
-// same discipline as the rest of this app. Two real gaps were resolved
+// same discipline as the rest of this app. One real gap remains, resolved
 // with the user directly rather than guessed: no real market-wide
 // Confidence%/Risk Level exists (only per-stock), so AI Market Bias omits
-// those; no real US 10Y yield exists anywhere in this codebase (only IEF,
-// a bond-ETF price), so it's shown honestly as "10Y Treasury (Proxy)" —
-// that label already exists verbatim in MACRO_SYMBOLS, not invented here.
+// those. The other flagged gap — no real US 10Y yield, only IEF (a bond-
+// ETF price) — is now closed (2026-07-19) via fred.js/GET /api/market/
+// us10y, a free FRED CSV endpoint with no API key or paid tier involved.
 // ═══════════════════════════════════════════════════════════════════════
 
-const KPI_SYMBOLS = ["SPY", "QQQ", "IWM", "DIA", "VIXY", "GLD", "IEF", "BTCUSD"];
+const KPI_SYMBOLS = ["SPY", "QQQ", "IWM", "DIA", "VIXY", "GLD", "BTCUSD"];
+
+// Real US 10Y Treasury yield — separate fetch from the macroData tape
+// (which is all ETF/index quotes off this app's regular providers, none
+// of which carry a real yield field). FRED updates DGS10 ~once/day, so
+// polling every 30 minutes is already more than enough.
+function Us10yKpi({ C, MONO, SANS }) {
+  const [data, setData] = useState(null);
+  const [state, setState] = useState("loading"); // loading | ok | err
+  useEffect(() => {
+    const load = () => {
+      fetch("/api/market/us10y").then(r => r.json()).then(d => {
+        if (d?.ok) { setData(d); setState("ok"); } else setState("err");
+      }).catch(() => setState("err"));
+    };
+    load();
+    const t = setInterval(load, 30 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+  const chg = data?.changePct;
+  const col = chg == null ? C.textDim : chg >= 0 ? C.green : C.red;
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px" }}>
+      <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>10Y Treasury</div>
+      <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: C.text }}>
+        {state === "ok" && data ? `${data.value.toFixed(2)}%` : state === "err" ? "—" : "…"}
+      </div>
+      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col }}>{chg == null ? "—" : `${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%`}</div>
+    </div>
+  );
+}
 
 function KpiStrip({ C, MONO, SANS, macroData }) {
   const rows = KPI_SYMBOLS.map(sym => (macroData || []).find(m => m.symbol === sym)).filter(Boolean);
@@ -361,6 +391,7 @@ function KpiStrip({ C, MONO, SANS, macroData }) {
           </div>
         );
       })}
+      <Us10yKpi C={C} MONO={MONO} SANS={SANS} />
     </div>
   );
 }
@@ -724,9 +755,10 @@ export default function DashboardTab({
         <>
           {/* New reference-design layout — real data throughout (see the
               component definitions above for exactly which real source
-              feeds each card, and the two real gaps deliberately left out
-              rather than fabricated: market-wide Confidence%/Risk Level,
-              and a real US 10Y yield). The previous Overview cards (CEO AI
+              feeds each card; one real gap deliberately left out rather
+              than fabricated: market-wide Confidence%/Risk Level — the
+              other flagged gap, real US 10Y yield, is now closed via
+              fred.js/Us10yKpi). The previous Overview cards (CEO AI
               brief, Market Health/Capital Allocation/AI Confidence/Mission
               Status row, Top Opportunity hero, Momentum Leaders/Money Flow/
               Avoid, Ask AI bar, Portfolio Snapshot/Active Positions) are

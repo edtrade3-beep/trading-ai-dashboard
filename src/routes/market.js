@@ -1880,6 +1880,20 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     }
   }
 
+  // Real US 10Y Treasury yield — from FRED (fred.js), a free public source
+  // with no API key or paid tier. Closes the gap flagged in the Dashboard
+  // Overview redesign, where the KPI strip previously had to show IEF (a
+  // bond ETF price) labeled "10Y Treasury (Proxy)" because none of this
+  // app's quote providers expose the actual yield.
+  if (pathname === "/api/market/us10y" && req.method === "GET") {
+    try {
+      const yieldData = await require("../fred").fetchUS10Y();
+      return writeJson(res, 200, { ok: true, ...yieldData });
+    } catch (err) {
+      return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "FRED fetch failed" });
+    }
+  }
+
   if (pathname === "/api/market/quote") {
     const symbols = (searchParams.get("symbols") || "")
       .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
