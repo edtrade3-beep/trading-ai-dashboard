@@ -232,6 +232,95 @@ function CopilotInsightsCard({ C, MONO, SANS, watchlistData, setActiveTab, setTe
   );
 }
 
+// ── Sector Rotation / Money Flow / Stocks-to-Avoid — the CEO Command
+// Center spec's remaining named pieces. Built as real reuses of data
+// already computed elsewhere, not new subsystems: rotationRank (already
+// computed at App() top level, feeds the full RotationTab), flowBias/
+// flowCallNotional/flowPutNotional (already computed for FlowTab and
+// already rendered elsewhere by MarketIntelCard), and the weak end of the
+// SAME real scan TopOpportunityCard already runs (via its onFullScan
+// callback — a second independent fetch loop over the same universe would
+// have been a duplicate-fetch regression, same class of bug already
+// caught once before on this page).
+function fmtFlowNotional(n) {
+  const v = Number(n) || 0;
+  if (v >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
+  if (v >= 1e3) return `$${(v / 1e3).toFixed(0)}K`;
+  return `$${v.toFixed(0)}`;
+}
+
+function MarketPulseCard({ C, MONO, SANS, rotationRank, flowBias, flowCallNotional, flowPutNotional, fullScan, setActiveTab, setTerminalSymbol }) {
+  const rr = rotationRank || [];
+  const leaders = rr.filter(q => q.relVsSpy >= 1).slice(0, 3);
+  const laggers = [...rr].sort((a, b) => a.relVsSpy - b.relVsSpy).slice(0, 3);
+  const flowColor = flowBias === "CALL BIAS" ? C.green : flowBias === "PUT BIAS" ? C.red : C.textDim;
+
+  // Same real-reasons pattern already used for ADVISOR AI's avoid list —
+  // weak relative strength, few trend-template passes, extended, or a
+  // Stage 3/4 stage — applied here to this dashboard's own scan universe.
+  const avoidList = [...(fullScan || [])]
+    .filter(r => Number.isFinite(r?._aplus?.score))
+    .sort((a, b) => a._aplus.score - b._aplus.score)
+    .slice(0, 3)
+    .map(r => {
+      const reasons = [];
+      if ((r.rsRating || 0) < 50) reasons.push(`weak RS ${r.rsRating}`);
+      if ((r.passCount || 0) < 4) reasons.push(`${r.passCount}/8 trend template`);
+      if (r.extended) reasons.push("extended");
+      if (String(r.stage || "").startsWith("Stage 4")) reasons.push("Stage 4 downtrend");
+      else if (String(r.stage || "").startsWith("Stage 3")) reasons.push("Stage 3 distribution");
+      return { symbol: r.symbol, score: r._aplus.score, reason: reasons[0] || "low composite score" };
+    });
+
+  const goToChart = (sym) => { setTerminalSymbol?.(sym); try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab?.("mterminal"); };
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
+      <Card C={C} title="🔄 SECTOR ROTATION" accent={C.purple}>
+        {rr.length > 0 ? (
+          <>
+            <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 4 }}>LEADERS</div>
+            {leaders.length ? leaders.map(q => (
+              <div key={q.symbol} onClick={() => goToChart(q.symbol)} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", cursor: "pointer" }}>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{q.symbol}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>+{q.relVsSpy.toFixed(2)}%</span>
+              </div>
+            )) : <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>None ≥1% vs SPY today</div>}
+            <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", margin: "8px 0 4px" }}>LAGGARDS</div>
+            {laggers.map(q => (
+              <div key={q.symbol} onClick={() => goToChart(q.symbol)} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", cursor: "pointer" }}>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{q.symbol}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>{q.relVsSpy.toFixed(2)}%</span>
+              </div>
+            ))}
+            <button onClick={() => setActiveTab?.("rotation")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>Full Rotation →</button>
+          </>
+        ) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Scanning…</div>}
+      </Card>
+
+      <Card C={C} title="💰 MONEY FLOW" accent={C.purple}>
+        <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: flowColor, marginBottom: 6 }}>{flowBias || "—"}</div>
+        {(flowCallNotional || flowPutNotional) ? (
+          <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim }}>
+            Calls {fmtFlowNotional(flowCallNotional)} · Puts {fmtFlowNotional(flowPutNotional)}
+          </div>
+        ) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No flow data yet.</div>}
+        <button onClick={() => setActiveTab?.("flow")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>Full Flow →</button>
+      </Card>
+
+      <Card C={C} title="🚫 STOCKS TO AVOID" accent={C.red}>
+        {avoidList.length > 0 ? avoidList.map(a => (
+          <div key={a.symbol} onClick={() => goToChart(a.symbol)} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "4px 0", borderBottom: `1px solid ${C.border}33`, cursor: "pointer" }}>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{a.symbol} <span style={{ color: C.textDim, fontWeight: 400 }}>{a.score}</span></span>
+            <span style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, textAlign: "right" }}>{a.reason}</span>
+          </div>
+        )) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Scanning…</div>}
+      </Card>
+    </div>
+  );
+}
+
 // ── Dashboard sub-tabs — the page used to render everything (15 cards +
 // 6 collapsible sections) on one continuous scroll. Split into focused
 // sub-tabs per user feedback ("too much information") — every existing
@@ -266,7 +355,7 @@ function DashSubNav({ C, MONO, active, setActive }) {
 
 export default function DashboardTab({
   C, MONO, SANS, watchlistData, macroData, distData, fearGreedData, sigData, sigFilter,
-  newsSentiment, socialSentiment, flowBias, flowCallNotional, flowPutNotional, eventCountdowns, preMktMovers, combinedAlerts,
+  newsSentiment, socialSentiment, flowBias, flowCallNotional, flowPutNotional, rotationRank, eventCountdowns, preMktMovers, combinedAlerts,
   tiltEnabled, tiltLocked, tiltStreak,
   setTerminalSymbol, setScanResults, setActiveTab, setScanExpanded, loadDeepDive, loadDeepSocial,
   setTiltLocked, setSigLoading, setSigData, fetchFearGreed, setDistData, setFuturesData, setPreMktMovers,
@@ -274,6 +363,10 @@ export default function DashboardTab({
   const [topPick, setTopPick] = useState(null); // full trend-screen row incl. confidence/riskState — not just the symbol
   const onScore = (row) => { setTopPick(row || null); };
   const aplusSymbol = topPick?.symbol || null;
+  // Full scored scan (incl. genuinely weak names) from the SAME TopOpportunityCard
+  // fetch — feeds MarketPulseCard's "Stocks to Avoid" without a second fetch loop.
+  const [fullScan, setFullScan] = useState([]);
+  const onFullScan = (rows) => setFullScan(Array.isArray(rows) ? rows : []);
   const [dashTab, setDashTab] = useState(() => {
     try { return localStorage.getItem("dash_subtab") || "overview"; } catch { return "overview"; }
   });
@@ -378,7 +471,12 @@ export default function DashboardTab({
 
           {/* Highest-conviction opportunity — the single idea, not a list */}
           <div style={{ marginBottom: 14 }}>
-            <TopOpportunityCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} />
+            <TopOpportunityCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} onFullScan={onFullScan} />
+          </div>
+
+          {/* Sector Rotation / Money Flow / Stocks to Avoid — real data reuse, see MarketPulseCard above */}
+          <div style={{ marginBottom: 14 }}>
+            <MarketPulseCard C={C} MONO={MONO} SANS={SANS} rotationRank={rotationRank} flowBias={flowBias} flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional} fullScan={fullScan} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
           </div>
 
           <div style={{ marginBottom: 14 }}>

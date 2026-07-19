@@ -5805,6 +5805,7 @@ export default function App() {
             watchlistData={watchlistData} macroData={macroData} distData={distData} fearGreedData={fearGreedData}
             sigData={sigData} sigFilter={sigFilter} newsSentiment={newsSentiment} socialSentiment={socialSentiment}
             flowBias={flowBias} flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional}
+            rotationRank={rotationRank}
             eventCountdowns={eventCountdowns} preMktMovers={preMktMovers} combinedAlerts={combinedAlerts}
             tiltEnabled={tiltEnabled} tiltLocked={tiltLocked} tiltStreak={tiltStreak}
             setTerminalSymbol={setTerminalSymbol} setScanResults={setScanResults} setActiveTab={setActiveTab}
