@@ -22,6 +22,7 @@ import OpportunityQueueCard from "./OpportunityQueueCard.jsx";
 import AskAiBar from "./AskAiBar.jsx";
 import MarketIntelCard from "./MarketIntelCard.jsx";
 import TradingLessonCard from "./TradingLessonCard.jsx";
+import AplusScoreTrackCard from "./AplusScoreTrackCard.jsx";
 import CeoAiCard from "./CeoAiCard.jsx";
 import ActivePositionsCard from "./ActivePositionsCard.jsx";
 import CapitalAllocationCard from "./CapitalAllocationCard.jsx";
@@ -565,6 +566,9 @@ export default function DashboardTab({
           </div>
           <div style={{ marginBottom: 10 }}>
             <TradingLessonCard C={C} MONO={MONO} SANS={SANS} />
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <AplusScoreTrackCard C={C} MONO={MONO} SANS={SANS} />
           </div>
 
           <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={false}>

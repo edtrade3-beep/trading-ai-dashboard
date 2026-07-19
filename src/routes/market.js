@@ -1867,6 +1867,19 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     }
   }
 
+  // A+ Score forward-tracking report — real bucketed forward returns from
+  // the daily snapshot log (aplus-score-history.js). A pure forward log,
+  // not a historical backtest: any horizon with no real snapshot that far
+  // back yet reports null rather than a guessed/reconstructed number.
+  if (pathname === "/api/market/aplus-track" && req.method === "GET") {
+    try {
+      const report = await require("../aplus-score-history").buildForwardReturnReport();
+      return writeJson(res, 200, { ok: true, ...report });
+    } catch (err) {
+      return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "report failed" });
+    }
+  }
+
   if (pathname === "/api/market/quote") {
     const symbols = (searchParams.get("symbols") || "")
       .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
@@ -3767,3 +3780,5 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
 
 module.exports = handleMarket;
 module.exports.runAiScanTool = runAiScanTool; // exposed for reuse/testing — handleMarket itself remains the default callable export
+module.exports.screenTrendTemplate = screenTrendTemplate; // exposed for aplus-score-history.js's daily snapshot job
+module.exports.fetchMarketQuotes = fetchMarketQuotes; // exposed for the same job's regime calc + forward-return current-price lookup
