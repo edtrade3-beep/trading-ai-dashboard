@@ -6032,7 +6032,7 @@ export default function App() {
 
         {activeTab === "openstock" && (
           <OpenStockTab
-            C={C} MONO={MONO} themeMode={themeMode} isMobile={isMobile}
+            C={C} MONO={MONO} SANS={SANS} themeMode={themeMode} isMobile={isMobile}
             tvOsSymbol={tvOsSymbol} tvOsInput={tvOsInput} setTvOsInput={setTvOsInput} setTvOsSymbol={setTvOsSymbol}
           />
         )}

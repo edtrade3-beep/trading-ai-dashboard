@@ -38,6 +38,26 @@ export default function HoldingsTab({ C, MONO, SANS, macroData }) {
   const [aiError, setAiError] = useState("");
   const [sectorMap, setSectorMap] = useState({});
   const [corrData, setCorrData] = useState(null);
+  // "Why is this position moving" — real web-searched /api/market/ai-why,
+  // same on-demand pattern used on the Opportunities tab and Smart Scan
+  // deep-dive. Real positions had zero explanation of any kind before this
+  // — only a bulk portfolio-risk analysis, nothing per-symbol.
+  const [whyOpen, setWhyOpen] = useState(null);
+  const [whyState, setWhyState] = useState({});
+  const [whyReply, setWhyReply] = useState({});
+  const askWhy = (symbol, price, changePct) => {
+    if (whyOpen === symbol) { setWhyOpen(null); return; }
+    setWhyOpen(symbol);
+    if (whyState[symbol] === "ok") return;
+    setWhyState(s => ({ ...s, [symbol]: "loading" }));
+    fetch("/api/market/ai-why", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol, price, changePct }),
+    }).then(r => r.json()).then(j => {
+      if (j.ok) { setWhyReply(w => ({ ...w, [symbol]: j.reply })); setWhyState(s => ({ ...s, [symbol]: "ok" })); }
+      else setWhyState(s => ({ ...s, [symbol]: "err" }));
+    }).catch(() => setWhyState(s => ({ ...s, [symbol]: "err" })));
+  };
   const save = (h, push = true) => {
     setHoldings(h); localStorage.setItem(HOLDINGS_KEY, JSON.stringify(h));
     if (push) fetch("/api/holdings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ holdings: h, source: "manual" }) }).catch(() => {});
@@ -266,29 +286,48 @@ export default function HoldingsTab({ C, MONO, SANS, macroData }) {
 
       {/* Rows */}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {rows.map(r => (
-          <div key={r.symbol} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${r.status ? r.status.c : C.border}`, borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-            <div style={{ minWidth: 90 }}>
-              <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>{r.symbol}</span>
-              {r.isCrypto && <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: "#f7931a", background: "#f7931a18", borderRadius: 3, padding: "1px 4px", marginLeft: 4 }}>₿ CRYPTO</span>}
-              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{r.shares} {r.isCrypto ? "" : "sh "}@ ${r.cost}</div>
-            </div>
-            {r.loading ? <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>loading…</span> : (<>
+        {rows.map(r => {
+          const dayChgPct = Number(r.q?.changesPercentage);
+          const isWhyOpen = whyOpen === r.symbol;
+          return (
+          <div key={r.symbol}>
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${r.status ? r.status.c : C.border}`, borderRadius: isWhyOpen ? "8px 8px 0 0" : 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
               <div style={{ minWidth: 90 }}>
-                <span style={{ fontFamily: MONO, fontSize: 14, color: C.text }}>${r.px.toFixed(2)}</span>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: r.pnl >= 0 ? C.green : C.red }}>{r.pnl >= 0 ? "+" : ""}${r.pnl.toFixed(0)} ({r.pnlPct >= 0 ? "+" : ""}{r.pnlPct.toFixed(1)}%)</div>
+                <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>{r.symbol}</span>
+                {r.isCrypto && <span style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: "#f7931a", background: "#f7931a18", borderRadius: 3, padding: "1px 4px", marginLeft: 4 }}>₿ CRYPTO</span>}
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{r.shares} {r.isCrypto ? "" : "sh "}@ ${r.cost}</div>
               </div>
-              <div style={{ minWidth: 110 }}>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>🛑 SUGGESTED STOP</div>
-                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.red }}>${r.stop} <span style={{ fontSize: 9, color: C.textDim }}>({((r.stop - r.px) / r.px * 100).toFixed(1)}%)</span></div>
+              {r.loading ? <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>loading…</span> : (<>
+                <div style={{ minWidth: 90 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 14, color: C.text }}>${r.px.toFixed(2)}</span>
+                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: r.pnl >= 0 ? C.green : C.red }}>{r.pnl >= 0 ? "+" : ""}${r.pnl.toFixed(0)} ({r.pnlPct >= 0 ? "+" : ""}{r.pnlPct.toFixed(1)}%)</div>
+                </div>
+                <div style={{ minWidth: 110 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>🛑 SUGGESTED STOP</div>
+                  <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.red }}>${r.stop} <span style={{ fontSize: 9, color: C.textDim }}>({((r.stop - r.px) / r.px * 100).toFixed(1)}%)</span></div>
+                </div>
+                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: r.status.c, background: `${r.status.c}14`, borderRadius: 5, padding: "3px 9px" }}>{r.status.t}</span>
+                  <button
+                    onClick={() => askWhy(r.symbol, r.px, Number.isFinite(dayChgPct) ? dayChgPct : undefined)}
+                    title={`Why is ${r.symbol} moving? — real web-searched catalyst`}
+                    style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, border: "1px solid #7c5cff", background: isWhyOpen ? "rgba(124,92,255,0.22)" : "rgba(124,92,255,0.14)", color: "#a78bfa", borderRadius: 5, padding: "3px 8px", cursor: "pointer" }}>
+                    🤖 Why{whyState[r.symbol] === "loading" ? "…" : ""}
+                  </button>
+                  <button onClick={() => removeHolding(r.symbol)} style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", fontSize: 14 }}>✕</button>
+                </div>
+              </>)}
+            </div>
+            {isWhyOpen && (
+              <div style={{ border: `1px solid #7c5cff55`, borderTop: "none", borderRadius: "0 0 8px 8px", padding: "10px 14px", background: C.surface }}>
+                {whyState[r.symbol] === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Searching for the real catalyst…</div>}
+                {whyState[r.symbol] === "err" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>⚠ Couldn't fetch — try again.</div>}
+                {whyState[r.symbol] === "ok" && <div style={{ fontFamily: SANS, fontSize: 13, lineHeight: 1.5, color: C.text, whiteSpace: "pre-wrap" }}>{whyReply[r.symbol]}</div>}
               </div>
-              <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: r.status.c, background: `${r.status.c}14`, borderRadius: 5, padding: "3px 9px" }}>{r.status.t}</span>
-                <button onClick={() => removeHolding(r.symbol)} style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", fontSize: 14 }}>✕</button>
-              </div>
-            </>)}
+            )}
           </div>
-        ))}
+          );
+        })}
       </div>
       <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 14 }}>
         🛑 stop = volatility-sized (1.5× ATR) below price. 🟠 below MA50 = momentum weakening. 🔴 below stop = your risk level breached. Not investment advice — for big allocation decisions, consult a licensed advisor.

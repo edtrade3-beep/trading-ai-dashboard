@@ -23,6 +23,24 @@ export default function SmartScanTab({
           // this session), which permanently capped the chip's "passed" count
           // and hid the true GREEN LIGHT 5/5 signal.
           const [smartScanTrendMap, setSmartScanTrendMap] = useState({});
+          // "Why is this moving" — real web-searched /api/market/ai-why, same
+          // on-demand pattern already used on the Opportunities tab. This
+          // deep-dive expanded row is the SHARED destination MoversTab/
+          // GreenLightTab/DipBuyTab/DayTradeTab all navigate to via
+          // openDeepDiveFor(), so one implementation here covers all of them.
+          const [whyState, setWhyState] = useState({}); // ticker -> "loading" | "ok" | "err"
+          const [whyReply, setWhyReply] = useState({}); // ticker -> reply text
+          const askWhy = (ticker, price, changePct) => {
+            if (whyState[ticker] === "ok" || whyState[ticker] === "loading") return; // already fetched/fetching
+            setWhyState(s => ({ ...s, [ticker]: "loading" }));
+            fetch("/api/market/ai-why", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ symbol: ticker, price, changePct }),
+            }).then(r => r.json()).then(j => {
+              if (j.ok) { setWhyReply(w => ({ ...w, [ticker]: j.reply })); setWhyState(s => ({ ...s, [ticker]: "ok" })); }
+              else setWhyState(s => ({ ...s, [ticker]: "err" }));
+            }).catch(() => setWhyState(s => ({ ...s, [ticker]: "err" })));
+          };
           const scanTickersKey = [...new Set((scanResults || []).map(r => r.ticker).filter(Boolean))].sort().join(",");
           useEffect(() => {
             if (!scanTickersKey) return;
@@ -888,7 +906,21 @@ export default function SmartScanTab({
                                     <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: liveChg >= 0 ? C.green : C.red }}>
                                       {row.ticker} ${livePrice > 0 ? livePrice.toFixed(2) : "—"} {liveChg >= 0 ? "+" : ""}{liveChg.toFixed(2)}%
                                     </span>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); askWhy(row.ticker, livePrice, liveChg); }}
+                                      disabled={whyState[row.ticker] === "loading"}
+                                      title={`Why is ${row.ticker} moving? — real web-searched catalyst`}
+                                      style={{ marginLeft: "auto", flexShrink: 0, fontFamily: MONO, fontSize: 10, fontWeight: 800, border: "1px solid #7c5cff", background: "rgba(124,92,255,0.14)", color: "#a78bfa", borderRadius: 5, padding: "3px 8px", cursor: whyState[row.ticker] === "loading" ? "wait" : "pointer" }}>
+                                      🤖 Why{whyState[row.ticker] === "loading" ? "…" : ""}
+                                    </button>
                                   </div>
+                                  {whyState[row.ticker] && (
+                                    <div style={{ border: "1px solid #7c5cff33", borderRadius: 8, padding: "8px 10px", marginBottom: 8, background: "#7c5cff08" }}>
+                                      {whyState[row.ticker] === "loading" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Searching for the real catalyst…</div>}
+                                      {whyState[row.ticker] === "err" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>⚠ Couldn't fetch — try again.</div>}
+                                      {whyState[row.ticker] === "ok" && <div style={{ fontFamily: SANS, fontSize: 12, lineHeight: 1.5, color: C.text, whiteSpace: "pre-wrap" }}>{whyReply[row.ticker]}</div>}
+                                    </div>
+                                  )}
 
                                   {isLoading ? (
                                     <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim,

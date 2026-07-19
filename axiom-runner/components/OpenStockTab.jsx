@@ -1,6 +1,27 @@
+import { useState } from "react";
+
 export default function OpenStockTab({
-  C, MONO, themeMode, isMobile, tvOsSymbol, tvOsInput, setTvOsInput, setTvOsSymbol,
+  C, MONO, SANS, themeMode, isMobile, tvOsSymbol, tvOsInput, setTvOsInput, setTvOsSymbol,
 }) {
+          // "Why is this moving" — real web-searched /api/market/ai-why, same
+          // on-demand pattern used elsewhere (Opportunities, Holdings, Smart
+          // Scan deep-dive). This tab is pure TradingView iframes with no
+          // price/%change available in JS (widgets are opaque, self-contained)
+          // -- the endpoint handles missing price/change fine, it's optional
+          // context for the search prompt, not required.
+          const [whyState, setWhyState] = useState({});
+          const [whyReply, setWhyReply] = useState({});
+          const askWhy = (symbol) => {
+            if (whyState[symbol] === "ok" || whyState[symbol] === "loading") return;
+            setWhyState(s => ({ ...s, [symbol]: "loading" }));
+            fetch("/api/market/ai-why", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ symbol }),
+            }).then(r => r.json()).then(j => {
+              if (j.ok) { setWhyReply(w => ({ ...w, [symbol]: j.reply })); setWhyState(s => ({ ...s, [symbol]: "ok" })); }
+              else setWhyState(s => ({ ...s, [symbol]: "err" }));
+            }).catch(() => setWhyState(s => ({ ...s, [symbol]: "err" })));
+          };
           const tvTheme = themeMode === "dark" ? "dark" : "light";
           const bgColor = C.bg;
 
@@ -77,14 +98,31 @@ export default function OpenStockTab({
                     </button>
                   ))}
                 </div>
+                <button
+                  onClick={() => askWhy(sym)}
+                  disabled={whyState[sym] === "loading"}
+                  title={`Why is ${sym} moving? — real web-searched catalyst`}
+                  style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, fontWeight: 700,
+                    border: "1px solid #7c5cff", background: "rgba(124,92,255,0.14)", color: "#a78bfa",
+                    borderRadius: 6, padding: "6px 12px", cursor: whyState[sym] === "loading" ? "wait" : "pointer" }}>
+                  🤖 Why{whyState[sym] === "loading" ? "…" : ""}
+                </button>
                 <a href={`https://www.tradingview.com/chart/?symbol=${sym}`}
                   target="_blank" rel="noopener noreferrer"
-                  style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, color: C.textDim,
+                  style={{ fontFamily: MONO, fontSize: 12, color: C.textDim,
                     textDecoration: "none", border: `1px solid ${C.border}`,
                     borderRadius: 6, padding: "5px 10px" }}>
                   Open in TradingView ↗
                 </a>
               </div>
+
+              {whyState[sym] && (
+                <div key={`why-${sym}`} style={{ ...card(), padding: "10px 14px" }}>
+                  {whyState[sym] === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Searching for the real catalyst…</div>}
+                  {whyState[sym] === "err" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.red || "#c8282a" }}>⚠ Couldn't fetch — try again.</div>}
+                  {whyState[sym] === "ok" && <div style={{ fontFamily: SANS, fontSize: 13, lineHeight: 1.5, color: C.text, whiteSpace: "pre-wrap" }}>{whyReply[sym]}</div>}
+                </div>
+              )}
 
               {/* ── Symbol info strip (price, change, key stats) ── */}
               <div key={`si-${sym}-${tvTheme}`} style={card()}>
