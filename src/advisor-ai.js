@@ -799,4 +799,4 @@ function loadAdvisorBrief() {
   return log.advisor || null;
 }
 
-module.exports = { buildAdvisorBrief, loadAdvisorBrief };
+module.exports = { buildAdvisorBrief, loadAdvisorBrief, SCAN_UNIVERSE };

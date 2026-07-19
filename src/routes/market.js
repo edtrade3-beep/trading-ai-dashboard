@@ -1274,6 +1274,64 @@ async function screenTrendTemplate(symbols) {
   return out;
 }
 
+// 🗣️ TRADING COPILOT tool — lets the model actually RUN a live scan instead
+// of only reasoning over the small context blob passed in. Reuses the same
+// real pipeline advisor-ai.js already uses (screenTrendTemplate + the real
+// regime from a real SPY/QQQ/VIXY quote fetch + computeAPlusScore), called
+// directly in-process rather than a self-HTTP round trip. The model may
+// only SELECT/FILTER/RANK from these real, server-computed results — it
+// never gets to type its own price or score, same discipline as every
+// other AI feature in this app. Defined at module scope (not per-request)
+// since neither this function nor the tool schema below it depend on
+// anything request-specific.
+async function runAiScanTool(args) {
+  const { SCAN_UNIVERSE } = require("../advisor-ai");
+  const { computeRegime, computeAPlusScore, computeNextAction } = require("../trade-planner-scoring");
+  const maxPrice = Number.isFinite(Number(args?.maxPrice)) ? Number(args.maxPrice) : null;
+  const minScore = Number.isFinite(Number(args?.minScore)) ? Number(args.minScore) : null;
+  const limit = Math.max(1, Math.min(50, Number(args?.limit) || 25));
+
+  const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams()));
+  const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
+
+  const results = await screenTrendTemplate(SCAN_UNIVERSE);
+  let scored = results
+    .filter(r => !r.error && Number(r.entry) > Number(r.stop))
+    .map(r => ({ ...r, aplus: computeAPlusScore(r, regime), next: computeNextAction(r) }));
+
+  if (maxPrice != null) scored = scored.filter(r => Number(r.price) <= maxPrice);
+  if (minScore != null) scored = scored.filter(r => r.aplus.score >= minScore);
+
+  const ranked = scored.sort((a, b) => b.aplus.score - a.aplus.score).slice(0, limit);
+  return {
+    regime: { score: regime.score, label: regime.label },
+    universeSize: SCAN_UNIVERSE.length,
+    matchCount: ranked.length,
+    results: ranked.map(r => ({
+      symbol: r.symbol, price: r.price, score: r.aplus.score, action: r.next.action,
+      rsRating: r.rsRating, passCount: r.passCount,
+      stage: (r.stage || "").replace(/ —.*/, ""),
+      entry: r.entry, stop: r.stop, target: r.target2, atBuyPoint: !!r.atBuyPoint,
+    })),
+  };
+}
+
+const AI_COPILOT_TOOLS = [
+  { type: "web_search_20250305", name: "web_search", max_uses: 3 },
+  {
+    name: "run_scan",
+    description: "Run a LIVE scan across this platform's real tracked stock universe (~90 symbols spanning mega-cap tech, semis, software, fintech, consumer, industrials/defense, energy, healthcare, and momentum small/mid-caps) and get back each match's REAL current price, A+ Score (0-100, this platform's own trend+RS+regime+setup composite), RS rating, trend stage, and next action. Use this whenever asked to find, screen, filter, or rank stocks by ANY criteria (price, score, momentum, 'strong right now', etc) instead of guessing from memory. For a THEMATIC ask (e.g. 'AI stocks under $20'), call this with the numeric filter (maxPrice), then use your own knowledge of which real symbols in the returned list fit the theme — you may only ever report the real price/score/action this tool actually returned for a symbol, never a number you typed yourself.",
+    input_schema: {
+      type: "object",
+      properties: {
+        maxPrice: { type: "number", description: "Only return real stocks trading at or below this price" },
+        minScore: { type: "number", description: "Only return real stocks with an A+ Score at or above this (0-100)" },
+        limit: { type: "number", description: "Max results to return (default 25, max 50)" },
+      },
+    },
+  },
+];
+
 async function handleMarket(req, res, requestUrl) {
   const { pathname, searchParams } = requestUrl;
 
@@ -1533,7 +1591,7 @@ Return ONLY valid JSON, no markdown: {"firstName":"","customerEmail":"","custome
     const wl = (ctx.watchlist || []).slice(0, 40).join(", ");
     const pos = (ctx.positions || []).slice(0, 30).map(p => `${p.symbol} ${p.qty}@${p.avgEntry} (${p.unrealizedPL >= 0 ? "+" : ""}${Math.round(p.unrealizedPL)})`).join(", ");
     const setups = (ctx.setups || []).slice(0, 10).map(s => `${s.symbol} A+${s.aScore}`).join(", ");
-    const system = `You are the user's trading copilot inside their platform. Be concise, direct, and practical — like a sharp trading desk colleague, not a chatbot. You can use web_search for anything time-sensitive (why a stock is moving today, latest news, earnings reactions). Always tie answers to their actual context below.
+    const system = `You are the user's trading copilot inside their platform. Be concise, direct, and practical — like a sharp trading desk colleague, not a chatbot. You can use web_search for anything time-sensitive (why a stock is moving today, latest news, earnings reactions), and run_scan to actually RUN a live scan of the platform's real tracked universe (find/filter/rank real stocks by price, score, or momentum — never guess a ticker or number from memory when run_scan can get you the real one). Always tie answers to their actual context below.
 
 THEIR CONTEXT:
 - Account: $${ctx.account || "?"} · risk ${ctx.riskPct || 1}% per trade
@@ -1543,17 +1601,32 @@ THEIR CONTEXT:
 - Today's A+ setups: ${setups || "none"}
 
 RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at the buy zone; reward:risk ≥2:1; risk 1% per trade; cut losers fast, let winners run; cash is a position. If asked to plan a trade, give entry / stop / target / share size for their account & risk. You are not a licensed advisor — frame trade ideas as educational, not personalized financial advice. Keep most answers under 150 words unless they ask for depth.`;
-    const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }];
     try {
       const messages = history.slice();
       let text = "";
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 6; i++) {
         const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 700,
-          system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools }, key, 60000);
+          system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools: AI_COPILOT_TOOLS }, key, 60000);
         const content = resp.content || [];
         const t = content.filter(c => c.type === "text").map(c => c.text).join("");
         if (t) text = t;
+
         if (resp.stop_reason === "pause_turn") { messages.push({ role: "assistant", content }); continue; }
+
+        if (resp.stop_reason === "tool_use") {
+          messages.push({ role: "assistant", content });
+          const toolResults = [];
+          for (const tu of content.filter(c => c.type === "tool_use")) {
+            let payload;
+            try {
+              payload = tu.name === "run_scan" ? await runAiScanTool(tu.input || {}) : { error: `Unknown tool: ${tu.name}` };
+            } catch (e) { payload = { error: e.message || "tool failed" }; }
+            toolResults.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(payload) });
+          }
+          messages.push({ role: "user", content: toolResults });
+          continue;
+        }
+
         break;
       }
       return writeJson(res, 200, { ok: true, reply: (text || "").trim() || "(no answer)" });
@@ -3693,3 +3766,4 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
 }
 
 module.exports = handleMarket;
+module.exports.runAiScanTool = runAiScanTool; // exposed for reuse/testing — handleMarket itself remains the default callable export
