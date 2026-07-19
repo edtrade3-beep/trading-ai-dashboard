@@ -816,7 +816,15 @@ export default function DashboardTab({
               <OpportunityQueueCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
             </div>
             <div style={{ flex: 2, minWidth: 320 }}>
-              <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} />
+              {/* onPick was missing here (unlike MarketTerminalTab.jsx's use
+                  of the same component, which passes it) — every row's
+                  onClick does `onPick && onPick(...)`, so it silently
+                  no-opped despite the card's own footer text promising
+                  "Tap any name to open its chart + full setup." Same
+                  setTerminalSymbol+localStorage+setActiveTab pattern used
+                  by every other clickable symbol row in this file. */}
+              <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab}
+                onPick={(sym) => { setTerminalSymbol?.(sym); try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab?.("mterminal"); }} />
             </div>
           </div>
           <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} topPick={topPick} />
