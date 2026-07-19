@@ -5,6 +5,7 @@
 // visibility (see the "hide, don't delete" comments in SubNavBar.jsx).
 export const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "Dashboard",     icon: "🏠", tab: "dashboard" },
+  { id: "ceo-ai",    label: "CEO AI",        icon: "🧠", tab: "ceo-ai" },
   { id: "market",    label: "Market",        icon: "🌐", tab: "mterminal" },
   { id: "watchlist", label: "Watchlist",     icon: "⭐", tab: "quotes" },
   { id: "copilot",   label: "AI Copilot",    icon: "🤖", tab: null, badge: "NEW" },

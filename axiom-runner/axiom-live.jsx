@@ -66,6 +66,7 @@ import CompressionTab from "./components/CompressionTab.jsx";
 import AutoPilotEngine from "./components/AutoPilotEngine.jsx";
 import SmartMoneyBrief from "./components/SmartMoneyBrief.jsx";
 import AdvisorAiTab from "./components/AdvisorAiTab.jsx";
+import CeoAiCard from "./components/CeoAiCard.jsx";
 import TrendTemplateTab from "./components/TrendTemplateTab.jsx";
 import EarlyEntryScanner from "./components/EarlyEntryScanner.jsx";
 import ChallengeTab from "./components/ChallengeTab.jsx";
@@ -3841,6 +3842,7 @@ export default function App() {
       SMBRIEF: "sm-brief",
       ADVISORAI: "advisor-ai",
       CIO: "advisor-ai",
+      CEOAI: "ceo-ai",
       DEALS: "deals",
       DIPBUY: "dipbuy",
       TELEGRAM: "telegram",
@@ -5894,6 +5896,18 @@ export default function App() {
         {activeTab === "sm-brief" && <SmartMoneyBrief C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />}
 
         {activeTab === "advisor-ai" && <AdvisorAiTab C={C} MONO={MONO} SANS={SANS} />}
+
+        {/* CEO AI — given its own sidebar spot (2026-07-19, user request:
+            "where is ceo ai i can not find it put it under dashboard on
+            left") after being trimmed out of the Dashboard Overview's new
+            reference-design layout. Same real CeoAiCard, not rebuilt --
+            just reachable from a dedicated location instead of buried
+            inside Overview. */}
+        {activeTab === "ceo-ai" && (
+          <div style={{ padding: "16px 20px", maxWidth: 900, margin: "0 auto" }}>
+            <CeoAiCard C={C} MONO={MONO} SANS={SANS} />
+          </div>
+        )}
 
         {activeTab === "darkpool" && (
           <DarkPoolTab
