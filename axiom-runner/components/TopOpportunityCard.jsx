@@ -6,7 +6,7 @@ import { BEST_OPP_UNIVERSE } from "./terminal-panels.jsx";
 // Dashboard's "should I trade today" top-opportunity card — same scan/rank
 // logic as BestOpportunities (MarketTerminalTab), but surfaces only the #1
 // setup as a single punchy verdict rather than a list of 5.
-export default function TopOpportunityCard({ C, MONO, SANS, macroData, setActiveTab, setTerminalSymbol, onScore }) {
+export default function TopOpportunityCard({ C, MONO, SANS, macroData, setActiveTab, setTerminalSymbol, onScore, onFullScan }) {
   const [row, setRow] = useState(null);
   const [state, setState] = useState("idle"); // idle | loading | ok | none | err
   const regime = computeRegime(macroData);
@@ -18,17 +18,31 @@ export default function TopOpportunityCard({ C, MONO, SANS, macroData, setActive
     fetch("/api/market/trend-screen?symbols=" + encodeURIComponent(BEST_OPP_UNIVERSE.join(",")))
       .then(r => r.json())
       .then(j => {
-        const res = (j.results || []).filter(r => !r.error && Number(r.entry) > Number(r.stop) && (r.passCount || 0) >= 6 && !r.extended && (r.rsRating || 0) >= 70);
-        const top = res.map(r => ({ ...r, _aplus: computeAPlusScore(r, regimeRef.current) })).sort((a, b) => b._aplus.score - a._aplus.score)[0] || null;
+        // allScored = every valid row in the scan, real A+ score attached —
+        // includes genuinely weak names (low RS, few trend-template passes),
+        // unlike `res` below which is pre-filtered to already-decent setups.
+        // A "stocks to avoid" consumer needs THIS array, not `res` — the
+        // weak end of an already-good-only list isn't actually a real
+        // avoid-worthy name, just the least-good good one.
+        const allScored = (j.results || []).filter(r => !r.error).map(r => ({ ...r, _aplus: computeAPlusScore(r, regimeRef.current) }));
+        const res = allScored.filter(r => Number(r.entry) > Number(r.stop) && (r.passCount || 0) >= 6 && !r.extended && (r.rsRating || 0) >= 70);
+        const top = [...res].sort((a, b) => b._aplus.score - a._aplus.score)[0] || null;
         setRow(top); setState(top ? "ok" : "none");
         if (onScore) onScore(top);
+        if (onFullScan) onFullScan(allScored);
       })
       .catch(() => setState(s => s === "ok" ? "ok" : "err"));
   };
+  // Scan immediately on mount (no artificial delay) and refresh every 60s —
+  // matches the dominant real-time-card convention already used elsewhere
+  // (DayTradeTab, ActivePositionsCard, CapitalAllocationCard, HoldingsTab,
+  // MissionStatusCard all poll at 60s). This card previously waited 1.6s
+  // before its first scan and only refreshed every 5 minutes — too slow
+  // for something billed as "the one thing to check right now."
   useEffect(() => {
-    const kick = setTimeout(scan, 1600);
-    const t = setInterval(scan, 5 * 60 * 1000);
-    return () => { clearTimeout(kick); clearInterval(t); };
+    scan();
+    const t = setInterval(scan, 60_000);
+    return () => clearInterval(t);
   }, []); // eslint-disable-line
 
   const goToChart = () => { if (!row) return; setTerminalSymbol && setTerminalSymbol(row.symbol); try { localStorage.setItem("mterminal_load_sym", row.symbol); } catch {} setActiveTab && setActiveTab("mterminal"); };
