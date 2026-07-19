@@ -324,6 +324,15 @@ async function processMessagingEvent(event) {
 
   saveJson(MSG_FILE, messages.slice(0, 200)); // keep last 200 threads
 
+  // The customer just went active again — reset any in-progress follow-up
+  // sequence for their lead (if one exists) so tomorrow's silence, not
+  // today's, is what the next auto follow-up would measure.
+  try {
+    const crmForReset = readJsonFile(CRM_FILE, []);
+    const leadForReset = crmForReset.find(l => l.senderId === senderId);
+    if (leadForReset) { resetFollowUpState(leadForReset); saveJson(CRM_FILE, crmForReset); }
+  } catch {}
+
   // ── Auto-reply: keyword rule first, then smart rule-based reply (no AI key needed) ──
   const rules = readJson(RULES_FILE, []);
   const aiCfg = readJson(AI_CFG_FILE, {});
@@ -526,6 +535,13 @@ async function handleFbHub(req, res, pathname, searchParams, body) {
         t.lastTs = Date.now();
         saveJson(MSG_FILE, messages);
       }
+      // Staff replied manually — same reset as an inbound customer message,
+      // since we've just re-engaged and the silence clock should restart.
+      try {
+        const crmForReset = readJson(CRM_FILE, []);
+        const leadForReset = crmForReset.find(l => l.senderId === senderId);
+        if (leadForReset) { resetFollowUpState(leadForReset); saveJson(CRM_FILE, crmForReset); }
+      } catch {}
       return writeJson(res, 200, { ok: true });
     } catch (e) {
       return writeJson(res, 422, { error: e.message });
@@ -599,11 +615,80 @@ async function handleFbHub(req, res, pathname, searchParams, body) {
   return null; // not handled here
 }
 
+// ── Automated no-response follow-up sequencing ────────────────────────────────
+// Fixed templates (not AI-generated) — this fires unprompted, with no inbound
+// customer message to ground a live AI reply against, so a deterministic
+// template that only ever interpolates real lead fields (name/vehicle) is
+// safer than letting a model improvise an outbound sales message. 3 steps,
+// then the sequence stops rather than pestering a cold lead forever.
+const FOLLOWUP_TEMPLATES = [
+  null,
+  (l) => `Hey ${l.name || "there"}! Just checking in — still interested in the ${l.vehicle || "car you asked about"}? Happy to answer any questions or set up a time to come take a look 🙂`,
+  (l) => `Hi ${l.name || "there"} — the ${l.vehicle || "vehicle you were asking about"} is still available and won't be around forever at this price. Want me to hold it for a test drive this week?`,
+  (l) => `Hey ${l.name || "there"}, last check-in on the ${l.vehicle || "car you were looking at"} — let me know if you'd still like to come by, or if your plans have changed. Either way, we're here if you need us! 🚗`,
+];
+// Step N fires this long after the lead went quiet (step 1) or after the
+// previous step was sent with still no reply (steps 2-3): 24h, then +3 days,
+// then +4 days more — full sequence spans about a week of real silence.
+const FOLLOWUP_DELAYS_MS = [null, 24 * 3600_000, 72 * 3600_000, 96 * 3600_000];
+
+// Called whenever the customer (or staff, replying manually) touches a lead
+// again — restarts the "how long have they been silent" clock rather than
+// leaving stale followUpStep/lastFollowUpAt state that would otherwise make
+// the next tick think a reply is still overdue when it isn't.
+function resetFollowUpState(lead) {
+  lead.followUpStep = 0;
+  lead.followUpsExhausted = false;
+  lead.lastFollowUpAt = null;
+  lead.updatedAt = Date.now();
+}
+
+// Only leads with a real senderId (Facebook) have a working automated send
+// channel — email leads (no OAuth2 yet, see project notes) and manually
+// added leads with no senderId are intentionally skipped here rather than
+// silently failing a send; the CRM UI surfaces them as needing manual
+// outreach instead.
+async function runFollowUpSequence(leads) {
+  if (!process.env.FB_PAGE_ACCESS_TOKEN) return false;
+  let changed = false;
+  const now = Date.now();
+  for (const l of leads) {
+    if (!l.senderId) continue;
+    if (l.stage === "SOLD") continue;
+    if (l.followUpsPaused) continue;
+    if (l.followUpsExhausted) continue;
+    const step = l.followUpStep || 0;
+    if (step >= 3) { l.followUpsExhausted = true; changed = true; continue; }
+    const sinceBase = step === 0 ? now - (l.updatedAt || l.createdAt || now) : now - (l.lastFollowUpAt || now);
+    if (sinceBase < FOLLOWUP_DELAYS_MS[step + 1]) continue;
+    const nextStep = step + 1;
+    const text = FOLLOWUP_TEMPLATES[nextStep](l);
+    try {
+      await sendReply(l.senderId, text);
+      const messages = readJsonFile(MSG_FILE, []);
+      const t = messages.find(m => m.senderId === l.senderId);
+      if (t) {
+        t.messages = t.messages || [];
+        t.messages.push({ from: "page", text, ts: now, auto: true, followUp: true });
+        t.lastTs = now;
+        saveJson(MSG_FILE, messages);
+      }
+      l.followUpStep = nextStep;
+      l.lastFollowUpAt = now;
+      if (nextStep >= 3) l.followUpsExhausted = true;
+      changed = true;
+    } catch (e) {
+      console.error("[CRM] follow-up send failed:", e.message);
+    }
+  }
+  return changed;
+}
+
 // ── CRM auto follow-up + daily summary scheduler ──────────────────────────────
 function startCrmScheduler() {
   // Check every 15 min for stale leads + send daily summary at 8am ET
   let lastSummaryDate = "";
-  const tick = () => {
+  const tick = async () => {
     try {
       const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
       const h = et.getHours(), m = et.getMinutes(), wd = et.getDay();
@@ -638,16 +723,23 @@ function startCrmScheduler() {
             `📊 *DAILY CRM SUMMARY*\n🆕 New: ${newCt}\n📅 Appointments: ${apptCt}\n🤝 Negotiating: ${negCt}\n🔥 Hot leads: ${hotCt}\n\nWork your pipeline → ${"/ai-crm"}`);
         }
       }
+
+      // 3) Automated no-response follow-up sequence — real, customer-facing
+      // messages (not just an owner-facing Telegram ping like #1 above),
+      // sent through the real FB Graph API on the same `leads` array
+      // already loaded this tick.
+      const seqChanged = await runFollowUpSequence(leads);
+      if (seqChanged) saveJson(CRM_FILE, leads);
     } catch (e) { console.error("[CRM] scheduler error:", e.message); }
   };
   tick();
   const iv = setInterval(tick, 15 * 60_000);
   if (iv.unref) iv.unref();
-  console.log("[CRM] Follow-up scheduler started (15-min checks + 8am daily summary)");
+  console.log("[CRM] Follow-up scheduler started (15-min checks + 8am daily summary + automated follow-up sequence)");
 }
 
 // buildInventorySummary/detectIntent/uid exported for reuse by other lead
 // channels (src/gmail-leads.js) — same "never invent cars/prices" grounding
 // and HUMAN_TAKEOVER safety net should apply everywhere leads get an AI
 // reply, not just Messenger.
-module.exports = { handleFbHub, startCrmScheduler, buildInventorySummary, detectIntent, uid };
+module.exports = { handleFbHub, startCrmScheduler, buildInventorySummary, detectIntent, uid, runFollowUpSequence, resetFollowUpState };
