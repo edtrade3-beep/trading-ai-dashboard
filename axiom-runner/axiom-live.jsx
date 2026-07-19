@@ -100,6 +100,7 @@ import FedWatchWidget from "./components/FedWatchWidget.jsx";
 import FedInterpreter from "./components/FedInterpreter.jsx";
 import RegimeNewsPanel from "./components/RegimeNewsPanel.jsx";
 import DashboardTab, { MarketPulseCard, PortfolioSnapshotCard, computeRegimeLabel, Card } from "./components/DashboardTab.jsx";
+import { BestOpportunities } from "./components/terminal-panels.jsx";
 import TopOpportunityCard from "./components/TopOpportunityCard.jsx";
 import CapitalAllocationCard from "./components/CapitalAllocationCard.jsx";
 import MissionStatusCard from "./components/MissionStatusCard.jsx";
@@ -3851,6 +3852,8 @@ export default function App() {
       ADVISORAI: "advisor-ai",
       CIO: "advisor-ai",
       CEOAI: "ceo-ai",
+      BESTOPPORTUNITIES: "best-opportunities",
+      BESTOPP: "best-opportunities",
       // New sidebar tabs (2026-07-19). PORTFOLIO above already maps to the
       // legacy "portfolio" tab (PortfolioTab.jsx) — PORTFOLIOTAB avoids
       // colliding with it while still reaching the new Portfolio Snapshot
@@ -5938,6 +5941,17 @@ export default function App() {
         {activeTab === "ceo-ai" && (
           <div style={{ padding: "16px 20px", maxWidth: 900, margin: "0 auto" }}>
             <CeoAiCard C={C} MONO={MONO} SANS={SANS} />
+          </div>
+        )}
+
+        {/* Best Opportunities — moved out of the Dashboard Opportunities
+            sub-tab into its own dedicated sidebar spot, right under CEO AI
+            (2026-07-19, user request). Same real BestOpportunities
+            component/scan MarketTerminalTab already uses, not rebuilt. */}
+        {activeTab === "best-opportunities" && (
+          <div style={{ padding: "16px 20px", maxWidth: 900, margin: "0 auto" }}>
+            <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab}
+              onPick={(sym) => { setTerminalSymbol?.(sym); try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab?.("mterminal"); }} />
           </div>
         )}
 

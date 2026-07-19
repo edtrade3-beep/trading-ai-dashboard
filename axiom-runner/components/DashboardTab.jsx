@@ -12,7 +12,6 @@ import RadialGauge from "./RadialGauge.jsx";
 import DonutChart from "./DonutChart.jsx";
 import Sparkline from "./Sparkline.jsx";
 import TrendChart from "./TrendChart.jsx";
-import { BestOpportunities } from "./terminal-panels.jsx";
 import { computeRegime } from "./market-helpers.js";
 import { COACH_LESSONS } from "./CoachTab.jsx";
 import AiMorningBriefCard from "./AiMorningBriefCard.jsx";
@@ -810,36 +809,16 @@ export default function DashboardTab({
         </div>
       )}
 
-      {/* ── OPPORTUNITIES — the AI's morning brief plus the two ranked- ── */}
-      {/* signal engines, kept side by side rather than merged (different  */}
-      {/* universes/scoring). */}
+      {/* ── OPPORTUNITIES — the AI's morning brief plus the Opportunity   */}
+      {/* Queue signal engine. Best Opportunities Now moved out to its own */}
+      {/* dedicated sidebar tab, under CEO AI (2026-07-19, user request).  */}
       {dashTab === "opportunities" && (
         <>
           <div style={{ marginBottom: 10 }}>
             <AiMorningBriefCard C={C} MONO={MONO} SANS={SANS} />
           </div>
-          {/* Best Opportunities listed first (2026-07-19, user request) --
-              it's almost always populated with real ranked setups, while
-              Opportunity Queue's stricter BUY/SELL-crossing threshold means
-              it's frequently empty between scans (confirmed repeatedly in
-              testing) -- leading with the empty-more-often card wasn't a
-              good use of the top slot, especially on mobile where this row
-              wraps to a vertical stack and "first" really means first. */}
-          <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", alignItems: "stretch" }}>
-            <div style={{ flex: 2, minWidth: 320 }}>
-              {/* onPick was missing here (unlike MarketTerminalTab.jsx's use
-                  of the same component, which passes it) — every row's
-                  onClick does `onPick && onPick(...)`, so it silently
-                  no-opped despite the card's own footer text promising
-                  "Tap any name to open its chart + full setup." Same
-                  setTerminalSymbol+localStorage+setActiveTab pattern used
-                  by every other clickable symbol row in this file. */}
-              <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab}
-                onPick={(sym) => { setTerminalSymbol?.(sym); try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab?.("mterminal"); }} />
-            </div>
-            <div style={{ flex: 1, minWidth: 300 }}>
-              <OpportunityQueueCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
-            </div>
+          <div style={{ marginBottom: 10, maxWidth: 500 }}>
+            <OpportunityQueueCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
           </div>
           <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} topPick={topPick} />
         </>
