@@ -6351,6 +6351,15 @@ export default function App() {
       {/* ══════════════════ QURAN TAB ══════════════════ */}
       {activeTab === "quran" && (
         <>
+        {/* Prayer Times — moved out of the Dashboard MORE sub-tab
+            (2026-07-19, user request to split MORE up); same real widget,
+            given the tab that already exists for Islamic content. Placed
+            above the Quran reader per follow-up request (2026-07-20). */}
+        <div style={{ maxWidth: 760, margin: "0 auto 14px" }}>
+          <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={true}>
+            <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
+          </MonitorSection>
+        </div>
         <QuranTab
           C={C} MONO={MONO} SANS={SANS}
           quranSurah={quranSurah} setQuranSurah={setQuranSurah}
@@ -6368,14 +6377,6 @@ export default function App() {
           quranText={quranText}
           hasanat={hasanat} setHasanat={setHasanat} HASANAT_GOAL={HASANAT_GOAL} creditSurah={creditSurah}
         />
-        {/* Prayer Times — moved out of the Dashboard MORE sub-tab
-            (2026-07-19, user request to split MORE up); same real widget,
-            given the tab that already exists for Islamic content. */}
-        <div style={{ marginTop: 14 }}>
-          <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={false}>
-            <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
-          </MonitorSection>
-        </div>
         </>
       )}
 
