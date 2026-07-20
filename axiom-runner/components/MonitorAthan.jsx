@@ -1,15 +1,17 @@
-// ─── Prayer times widget (Monitor) — GPS auto times + Makkah/Medinah athan ───
-const ATHAN_SOUNDS = {
-  Makkah: "https://www.islamcan.com/audio/adhan/azan2.mp3",   // Makkah-style full athan
-  Medina: "https://www.islamcan.com/audio/adhan/azan1.mp3",   // Medina-style athan
-};
-export default function MonitorAthan({ C, MONO, SANS }) {
-  const [athanSrc, setAthanSrc] = React.useState(() => localStorage.getItem("monitor_athan_sound") || "Makkah");
-  const [autoOn, setAutoOn] = React.useState(() => localStorage.getItem("monitor_athan_auto") === "on");
-  const [times, setTimes] = React.useState(null);
-  const [locName, setLocName] = React.useState("");
+// ─── Prayer times widget (Monitor) — thin display over the app-wide athan
+// state (axiom-live.jsx: athanTimes/athanSoundOn/playAthan). Previously this
+// component ran its own separate GPS fetch + its own auto-play timer, off
+// by default and scoped to this component's mount — meaning athan only
+// ever fired while the user happened to be sitting on the Quran tab with
+// auto-play manually turned on. The real auto-play effect already lives at
+// the top of the app (tab-independent, sound on by default) but had
+// nothing to check against unless the user separately visited the hidden
+// Athan tab. Fixed at the source (axiom-live.jsx auto-loads athanTimes on
+// mount now) — this widget just shows/controls that one shared state so
+// there's a single athan clock, not two competing ones (2026-07-20).
+export default function MonitorAthan({ C, MONO, SANS, times, athanCity, soundOn, setSoundOn, playAthan }) {
   const [now, setNow] = React.useState(new Date());
-  const audioRef = React.useRef(null);
+  React.useEffect(() => { const t = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(t); }, []);
 
   const PRAYERS = [
     { key: "Fajr",    ar: "الفجر",   color: "#3b82f6" },
@@ -19,69 +21,6 @@ export default function MonitorAthan({ C, MONO, SANS }) {
     { key: "Maghrib", ar: "المغرب",  color: "#a855f7" },
     { key: "Isha",    ar: "العشاء",  color: "#6366f1" },
   ];
-
-  // Fetch prayer times for given coords
-  const loadByCoords = React.useCallback((lat, lng, name) => {
-    fetch(`https://api.aladhan.com/v1/timings?latitude=${lat}&longitude=${lng}&method=2`)
-      .then(r => r.json()).then(d => { if (d.data) { setTimes(d.data.timings); if (name) setLocName(name); } }).catch(() => {});
-  }, []);
-
-  // Auto: try GPS, fall back to Makkah
-  React.useEffect(() => {
-    let done = false;
-    const fallback = () => { if (!done) { done = true; setLocName("Makkah (default)"); loadByCoords(21.4225, 39.8262, "Makkah"); } };
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          done = true;
-          const { latitude, longitude } = pos.coords;
-          // Reverse geocode for city name (best-effort)
-          fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`)
-            .then(r => r.json()).then(g => loadByCoords(latitude, longitude, g.city || g.locality || "Your location"))
-            .catch(() => loadByCoords(latitude, longitude, "Your location"));
-        },
-        fallback,
-        { timeout: 8000, maximumAge: 3600000 }
-      );
-      setTimeout(fallback, 9000); // safety
-    } else fallback();
-  }, [loadByCoords]);
-
-  React.useEffect(() => { const t = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(t); }, []);
-
-  const playAthan = () => {
-    try {
-      audioRef.current = new Audio(ATHAN_SOUNDS[athanSrc] || ATHAN_SOUNDS.Makkah);
-      audioRef.current.currentTime = 0; audioRef.current.play().catch(() => {});
-    } catch {}
-  };
-
-  // ── AUTO-PLAY athan when a prayer time arrives ──
-  const athanFiredRef = React.useRef(new Set());
-  React.useEffect(() => {
-    if (!times || !autoOn) return;
-    const check = () => {
-      const n = new Date();
-      const today = n.toISOString().slice(0, 10);
-      const nowMin = n.getHours() * 60 + n.getMinutes();
-      ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].forEach(p => {
-        const [hh, mm] = (times[p] || "0:0").split(":").map(Number);
-        const pMin = hh * 60 + mm;
-        // fire within the first minute of the prayer time
-        if (nowMin === pMin) {
-          const key = `${today}:${p}`;
-          if (!athanFiredRef.current.has(key)) {
-            athanFiredRef.current.add(key);
-            playAthan();
-          }
-        }
-      });
-    };
-    check();
-    const t = setInterval(check, 20000); // check every 20s
-    return () => clearInterval(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [times, athanSrc, autoOn]);
 
   // Find next prayer + countdown
   let nextPrayer = null, countdown = "";
@@ -97,30 +36,19 @@ export default function MonitorAthan({ C, MONO, SANS }) {
     <div style={{ marginBottom: 10, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
         <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: "#14b8a6", letterSpacing: "0.06em" }}>🕌 أوقات الصلاة</span>
-        {locName && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>📍 {locName}</span>}
+        {athanCity && <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>📍 {athanCity}</span>}
         {nextPrayer && (
           <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
             التالية: <span style={{ color: "#14b8a6", fontWeight: 700 }}>{PRAYERS.find(p=>p.key===nextPrayer)?.ar}</span> خلال {countdown}
           </span>
         )}
-        {/* Athan sound source */}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>أذان:</span>
-          <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: `1px solid ${C.border}` }}>
-            {["Makkah", "Medina"].map(c => (
-              <button key={c} onClick={() => { setAthanSrc(c); localStorage.setItem("monitor_athan_sound", c); }}
-                style={{ background: athanSrc === c ? "#14b8a6" : C.surface, color: athanSrc === c ? "#fff" : C.textSec, border: "none",
-                  fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "4px 9px", cursor: "pointer" }}>
-                {c === "Makkah" ? "🕋 مكة" : "🕌 المدينة"}
-              </button>
-            ))}
-          </div>
-          <button onClick={() => { setAutoOn(v => { const nv = !v; localStorage.setItem("monitor_athan_auto", nv ? "on" : "off"); if (nv) playAthan(); return nv; }); }}
-            title="تشغيل الأذان تلقائياً عند دخول الوقت"
-            style={{ background: autoOn ? "#14b8a6" : C.surface, color: autoOn ? "#fff" : C.textSec,
-              border: `1px solid ${autoOn ? "#14b8a6" : C.border}`, borderRadius: 6,
+          <button onClick={() => setSoundOn(v => { const nv = !v; localStorage.setItem("athan_sound", nv ? "on" : "off"); if (nv) playAthan(); return nv; })}
+            title="تشغيل الأذان تلقائياً عند دخول الوقت — يعمل في كل التبويبات"
+            style={{ background: soundOn ? "#14b8a6" : C.surface, color: soundOn ? "#fff" : C.textSec,
+              border: `1px solid ${soundOn ? "#14b8a6" : C.border}`, borderRadius: 6,
               fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>
-            {autoOn ? "🔔 تلقائي ON" : "🔕 تلقائي"}
+            {soundOn ? "🔔 تلقائي ON" : "🔕 تلقائي"}
           </button>
           <button onClick={playAthan} title="تشغيل الأذان الآن"
             style={{ background: `#14b8a618`, border: `1px solid #14b8a644`, color: "#14b8a6", borderRadius: 6,

@@ -1897,15 +1897,34 @@ export default function App() {
     setAthanLoading(false);
   }, [athanMethod]);
 
-  // Auto-load prayer times when athan tab opens with a saved city
+  // Auto-load prayer times once on app mount — independent of which tab is
+  // open, so the athan-at-prayer-time effect below (also tab-independent)
+  // always has real times to check against. Previously this only fired
+  // after visiting the hidden Athan tab, so athan silently never played
+  // for anyone who hadn't been there yet (2026-07-20, user request: "make
+  // sure athan call every time prayer time comes on/off" — i.e. reliably,
+  // regardless of which tab is active).
   const athanAutoLoaded = useRef(false);
   useEffect(() => {
-    if (activeTab !== "athan" || athanTimes || athanLoading || athanAutoLoaded.current) return;
+    if (athanTimes || athanLoading || athanAutoLoaded.current) return;
     athanAutoLoaded.current = true;
     if (athanCity && athanCountry) {
       fetchPrayerTimes(null, null, athanCity, athanCountry);
+      return;
     }
-  }, [activeTab, athanTimes, athanLoading, athanCity, athanCountry, fetchPrayerTimes]);
+    // No saved city — try GPS, fall back to Makkah so athan still works
+    // for a brand-new user with zero setup.
+    let done = false;
+    const fallback = () => { if (!done) { done = true; fetchPrayerTimes(21.4225, 39.8262, null, null); } };
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => { done = true; fetchPrayerTimes(pos.coords.latitude, pos.coords.longitude, null, null); },
+        fallback,
+        { timeout: 8000, maximumAge: 3600000 }
+      );
+      setTimeout(fallback, 9000);
+    } else fallback();
+  }, [athanTimes, athanLoading, athanCity, athanCountry, fetchPrayerTimes]);
 
   // Prayer time reminder — fires browser notification N min before each prayer
   useEffect(() => {
@@ -6357,7 +6376,8 @@ export default function App() {
             above the Quran reader per follow-up request (2026-07-20). */}
         <div style={{ maxWidth: 760, margin: "0 auto 14px" }}>
           <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={true}>
-            <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
+            <MonitorAthan C={C} MONO={MONO} SANS={SANS}
+              times={athanTimes} athanCity={athanCity} soundOn={athanSoundOn} setSoundOn={setAthanSoundOn} playAthan={playAthan} />
           </MonitorSection>
         </div>
         <QuranTab
