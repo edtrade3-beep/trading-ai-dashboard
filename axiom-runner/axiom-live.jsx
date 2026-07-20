@@ -1859,6 +1859,14 @@ export default function App() {
   // ── Athan State ──
   const [athanCity, setAthanCity] = useState(() => localStorage.getItem("athan_city") || "");
   const [athanCountry, setAthanCountry] = useState(() => localStorage.getItem("athan_country") || "");
+  // Separate from athanCity (the SAVED manual-settings preference, which
+  // the auto-load effect below now only falls back to if GPS itself
+  // fails) — this is what's actually displayed, so the label always
+  // honestly reflects which source the current athanTimes came from
+  // rather than showing a stale saved city while GPS coordinates were
+  // really what got used (2026-07-20, found verifying "make athan and
+  // prayer automatic based on gps").
+  const [athanLocationLabel, setAthanLocationLabel] = useState("");
   const [athanMethod, setAthanMethod] = useState(() => Number(localStorage.getItem("athan_method") || "4"));
   const [athanSoundOn, setAthanSoundOn] = useState(() => localStorage.getItem("athan_sound") !== "off");
   const [athanReminder, setAthanReminder] = useState(() => Number(localStorage.getItem("athan_reminder") || "10"));
@@ -1901,26 +1909,37 @@ export default function App() {
 
   // Auto-load prayer times once on app mount — independent of which tab is
   // open, so the athan-at-prayer-time effect below (also tab-independent)
-  // always has real times to check against. Previously this only fired
-  // after visiting the hidden Athan tab, so athan silently never played
-  // for anyone who hadn't been there yet (2026-07-20, user request: "make
-  // sure athan call every time prayer time comes on/off" — i.e. reliably,
-  // regardless of which tab is active).
+  // always has real times to check against. GPS is the primary source,
+  // tried on every load (2026-07-20, user request: "make athan and prayer
+  // automatic based on gps") — a saved manual city (set via the Athan
+  // tab's settings) is only used as a fallback if geolocation itself is
+  // denied/unsupported/times out, never preferred over a real current
+  // position. Makkah is the final fallback if neither works, so a
+  // brand-new user with zero setup and no GPS still gets real times.
   const athanAutoLoaded = useRef(false);
   useEffect(() => {
     if (athanTimes || athanLoading || athanAutoLoaded.current) return;
     athanAutoLoaded.current = true;
-    if (athanCity && athanCountry) {
-      fetchPrayerTimes(null, null, athanCity, athanCountry);
-      return;
-    }
-    // No saved city — try GPS, fall back to Makkah so athan still works
-    // for a brand-new user with zero setup.
     let done = false;
-    const fallback = () => { if (!done) { done = true; fetchPrayerTimes(21.4225, 39.8262, null, null); } };
+    const fallback = () => {
+      if (done) return;
+      done = true;
+      if (athanCity && athanCountry) { fetchPrayerTimes(null, null, athanCity, athanCountry); setAthanLocationLabel(athanCity); }
+      else { fetchPrayerTimes(21.4225, 39.8262, null, null); setAthanLocationLabel("Makkah (default)"); }
+    };
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        pos => { done = true; fetchPrayerTimes(pos.coords.latitude, pos.coords.longitude, null, null); },
+        pos => {
+          done = true;
+          const { latitude, longitude } = pos.coords;
+          fetchPrayerTimes(latitude, longitude, null, null);
+          setAthanLocationLabel("Current location");
+          // Best-effort friendly city name — same free/keyless reverse-geocode
+          // endpoint the old widget-local GPS lookup already used; purely
+          // cosmetic, athanTimes itself is already real and correct either way.
+          fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`)
+            .then(r => r.json()).then(g => { const name = g.city || g.locality; if (name) setAthanLocationLabel(name); }).catch(() => {});
+        },
         fallback,
         { timeout: 8000, maximumAge: 3600000 }
       );
@@ -6434,7 +6453,7 @@ export default function App() {
         <div style={{ maxWidth: 760, margin: "0 auto 14px" }}>
           <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={true}>
             <MonitorAthan C={C} MONO={MONO} SANS={SANS}
-              times={athanTimes} athanCity={athanCity} soundOn={athanSoundOn} setSoundOn={setAthanSoundOn} playAthan={playAthan} />
+              times={athanTimes} athanCity={athanLocationLabel} soundOn={athanSoundOn} setSoundOn={setAthanSoundOn} playAthan={playAthan} />
           </MonitorSection>
         </div>
         <QuranTab
