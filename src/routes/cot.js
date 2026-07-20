@@ -101,6 +101,21 @@ async function handleCOT(req, res, requestUrl) {
     return writeJson(res, 200, { ok: true, results });
   }
 
+  // ── GET /api/cot/ai-take — last persisted AI take (what to do / avoid) ────
+  if (pathname === "/api/cot/ai-take" && req.method === "GET") {
+    const { loadCoachLog } = require("../ai-coach-store");
+    const log = loadCoachLog();
+    return writeJson(res, 200, { ok: true, take: log.cotAiTake || null });
+  }
+
+  // ── POST /api/cot/ai-take/refresh — force-generate a fresh AI take ────────
+  if (pathname === "/api/cot/ai-take/refresh" && req.method === "POST") {
+    const { buildCotAiTake } = require("../cot-ai-take");
+    const built = await buildCotAiTake();
+    if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate an AI take (ANTHROPIC_API_KEY not set, no COT data loaded yet, or the AI call failed)." });
+    return writeJson(res, 200, { ok: true, take: built });
+  }
+
   // ── POST /api/cot/telegram/test ───────────────────────────────────────────
   if (pathname === "/api/cot/telegram/test" && req.method === "POST") {
     if (!telegramConfigured()) {

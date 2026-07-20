@@ -6362,7 +6362,7 @@ export default function App() {
 
       {activeTab === "cot" && (
         <CotTab
-          C={C} MONO={MONO} cotData={cotData} cotError={cotError} cotLastSent={cotLastSent}
+          C={C} MONO={MONO} SANS={SANS} cotData={cotData} cotError={cotError} cotLastSent={cotLastSent}
           cotLoading={cotLoading} cotRunning={cotRunning} isMobile={isMobile}
           setCotData={setCotData} setCotLastSent={setCotLastSent} setCotRunning={setCotRunning}
         />
