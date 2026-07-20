@@ -5453,7 +5453,18 @@ export default function App() {
           .mobile-nav-btn { min-height: 44px !important; min-width: 44px !important; padding: 10px 11px !important; font-size: 11px !important; }
           .tablet-nav-btn { min-height: 44px !important; padding: 8px 12px !important; font-size: 11px !important; }
           .mobile-subnav-btn { min-height: 40px !important; padding: 8px 12px !important; font-size: 10px !important; }
-          .mobile-content { padding: 10px 10px 24px !important; }
+          /* Bottom padding cleared for the floating action-button cluster
+             (TradingCopilot chat bubble, RealityCheckWidget, Floating
+             Checklist button — all position:fixed bottom-right, reaching up
+             to ~76px from the viewport edge) which sits above the status
+             bar. The old flat 24px only cleared the status bar itself, not
+             this taller cluster — confirmed clipping trailing content on
+             multiple tabs (COT's Bitcoin card badge, Daily Target
+             Calculator's warning line), verified via real scroll-to-bottom
+             boundingBox checks, not guessed. This is an !important global
+             override (not the inline style above), so it has to be fixed
+             here, not there. */
+          .mobile-content { padding: 10px 10px ${statusBarH + 90}px !important; }
         `}</style>
       )}
 
@@ -5842,6 +5853,9 @@ export default function App() {
           fixing it once here is far lower-risk than touching all of them. */}
       <div className={isMobile ? "mobile-content" : ""} style={{
         paddingTop: isMobile ? 10 : 14, paddingLeft: isMobile ? 10 : 18, paddingRight: isMobile ? 10 : 18,
+        // Mobile's real bottom clearance comes from the .mobile-content
+        // !important CSS rule below (this inline value gets overridden by
+        // it on mobile) — kept in sync there, see the comment on that rule.
         paddingBottom: 24 + statusBarH,
         maxWidth: LAYOUT.pageMaxWidth, marginTop: 0, marginBottom: 0, marginRight: "auto", marginLeft: !isMobile ? sidebarW : "auto",
         width: !isMobile ? `calc(100% - ${sidebarW}px)` : "100%", overflowX: "hidden", boxSizing: "border-box",
