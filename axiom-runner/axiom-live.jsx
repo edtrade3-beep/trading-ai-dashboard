@@ -1550,7 +1550,7 @@ export default function App() {
   const [signalFilter, setSignalFilter] = useState("ALL"); // ALL | BUY | HOLD | SELL
   const [trendFilter,  setTrendFilter]  = useState("ALL"); // ALL | Strong Up | Up | Flat | Weak | Down
   const [volumeFilter, setVolumeFilter] = useState("ALL"); // ALL | HIGH | NORMAL | LOW
-  const [scoreFilter,  setScoreFilter]  = useState("ALL"); // ALL | 70+ | 60+ | 50+ | <50
+  const [scoreFilter,  setScoreFilter]  = useState("70+"); // ALL | 70+ | 60+ | 50+ | <50
   const [sortDir, setSortDir] = useState("desc");
   // Default card view on tablet AND mobile (better for touch)
   const [wlCardView, setWlCardView] = useState(() => typeof window !== "undefined" && window.innerWidth <= 1100);
