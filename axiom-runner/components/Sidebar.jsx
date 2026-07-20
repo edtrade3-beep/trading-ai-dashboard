@@ -28,14 +28,32 @@ export const SIDEBAR_ITEMS = [
 // JOURNAL/PORTFOLIO), same "hide, don't delete" convention as everything
 // else not listed above.
 
-export default function Sidebar({ C, MONO, SANS, activeTab, setActiveTab, topOffset, width, bottomOffset, scannerBadge, setPaletteOpen, rootRef }) {
+// Icon-only rail width when collapsed — wide enough for the 16px icon +
+// its own 9-10px horizontal padding without the button feeling cramped.
+export const SIDEBAR_COLLAPSED_WIDTH = 56;
+
+export default function Sidebar({ C, MONO, SANS, activeTab, setActiveTab, topOffset, width, bottomOffset, scannerBadge, setPaletteOpen, rootRef, collapsed, onToggleCollapsed }) {
   return (
     <div ref={rootRef} style={{
       position: "fixed", top: topOffset, left: 0, bottom: bottomOffset || 0, width,
       background: C.surface, borderRight: `1px solid ${C.border}`,
-      display: "flex", flexDirection: "column", zIndex: 39, overflowY: "auto",
+      display: "flex", flexDirection: "column", zIndex: 39, overflowY: "auto", overflowX: "hidden",
+      transition: "width 0.15s ease",
     }}>
-      <div style={{ flex: 1, padding: "10px 8px" }}>
+      <div style={{ flex: 1, padding: collapsed ? "10px 6px" : "10px 8px" }}>
+        {/* Collapse/expand toggle — always the first row so it's never
+            scrolled out of view regardless of how many tabs are listed. */}
+        <button
+          onClick={onToggleCollapsed}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          style={{
+            width: "100%", display: "flex", alignItems: "center", justifyContent: collapsed ? "center" : "flex-end",
+            gap: 8, border: "none", cursor: "pointer", background: "transparent", color: C.textDim,
+            borderRadius: 8, padding: "7px 10px", marginBottom: 6,
+          }}
+        >
+          <span style={{ fontSize: 14 }}>{collapsed ? "»" : "«"}</span>
+        </button>
         {SIDEBAR_ITEMS.map(item => {
           const isActive = item.tab && activeTab === item.tab;
           const badgeCount = item.id === "scanner" ? scannerBadge : null;
@@ -46,23 +64,29 @@ export default function Sidebar({ C, MONO, SANS, activeTab, setActiveTab, topOff
                 if (item.tab) setActiveTab(item.tab);
                 else if (item.id === "copilot") window.dispatchEvent(new Event("open-ai-copilot"));
               }}
+              title={collapsed ? item.label : undefined}
               style={{
                 width: "100%", display: "flex", alignItems: "center", gap: 10,
+                justifyContent: collapsed ? "center" : "flex-start",
                 border: "none", textAlign: "left", cursor: "pointer",
                 background: isActive ? `${C.accent}18` : "transparent",
                 color: isActive ? C.accent : C.textSec,
-                borderRadius: 8, padding: "9px 10px", marginBottom: 2,
+                borderRadius: 8, padding: collapsed ? "9px 0" : "9px 10px", marginBottom: 2,
                 fontFamily: SANS, fontSize: 13, fontWeight: isActive ? 700 : 500,
+                position: "relative",
               }}
             >
               <span style={{ fontSize: 16, width: 20, textAlign: "center", flexShrink: 0 }}>{item.icon}</span>
-              <span style={{ flex: 1 }}>{item.label}</span>
-              {item.badge && (
+              {!collapsed && <span style={{ flex: 1 }}>{item.label}</span>}
+              {!collapsed && item.badge && (
                 <span style={{ background: C.accent, color: "#fff", borderRadius: 5, padding: "1px 6px", fontFamily: MONO, fontSize: 9, fontWeight: 800 }}>{item.badge}</span>
               )}
-              {badgeCount ? (
+              {!collapsed && badgeCount ? (
                 <span style={{ background: C.green, color: "#fff", borderRadius: 10, padding: "2px 6px", fontFamily: MONO, fontSize: 10, fontWeight: 800 }}>{badgeCount}</span>
               ) : null}
+              {collapsed && (item.badge || badgeCount) && (
+                <span style={{ position: "absolute", top: 4, right: 4, width: 7, height: 7, borderRadius: "50%", background: item.badge ? C.accent : C.green }} />
+              )}
             </button>
           );
         })}
@@ -74,18 +98,21 @@ export default function Sidebar({ C, MONO, SANS, activeTab, setActiveTab, topOff
       <div style={{ borderTop: `1px solid ${C.border}`, padding: "8px" }}>
         <button
           onClick={() => setPaletteOpen(true)}
+          title={collapsed ? "Settings" : undefined}
           style={{
             width: "100%", display: "flex", alignItems: "center", gap: 10,
+            justifyContent: collapsed ? "center" : "flex-start",
             border: "none", textAlign: "left", cursor: "pointer", background: "transparent", color: C.textSec,
             borderRadius: 8, padding: "9px 10px", marginBottom: 6, fontFamily: SANS, fontSize: 13, fontWeight: 500,
           }}
         >
           <span style={{ fontSize: 16, width: 20, textAlign: "center", flexShrink: 0 }}>⚙️</span>
-          <span>Settings</span>
+          {!collapsed && <span>Settings</span>}
         </button>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px" }}>
-          <img src="/axiom-runner/assets/avatar.jpg" alt="" style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", objectPosition: "center 15%", border: `2px solid ${C.accent}`, flexShrink: 0 }} />
-          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>AM Trader</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", justifyContent: collapsed ? "center" : "flex-start" }}>
+          <img src="/axiom-runner/assets/avatar.jpg" alt="" title={collapsed ? "AM Trader" : undefined}
+            style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", objectPosition: "center 15%", border: `2px solid ${C.accent}`, flexShrink: 0 }} />
+          {!collapsed && <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>AM Trader</span>}
         </div>
       </div>
     </div>

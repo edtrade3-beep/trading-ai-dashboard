@@ -43,7 +43,7 @@ import CommandPaletteModal from "./components/CommandPaletteModal.jsx";
 import IstighfarWidget, { ISTIGHFAR_BAR_H } from "./components/IstighfarWidget.jsx";
 import CompactMarketMode from "./components/CompactMarketMode.jsx";
 import RealityCheckWidget from "./components/RealityCheckWidget.jsx";
-import Sidebar, { SIDEBAR_ITEMS } from "./components/Sidebar.jsx";
+import Sidebar, { SIDEBAR_ITEMS, SIDEBAR_COLLAPSED_WIDTH } from "./components/Sidebar.jsx";
 import StatusBar, { STATUS_BAR_H } from "./components/StatusBar.jsx";
 import TerminalChartArea from "./components/TerminalChartArea.jsx";
 import {
@@ -5357,6 +5357,22 @@ export default function App() {
   // of alignment with the sidebar at tablet widths — content rendered
   // underneath/behind the sidebar instead of beside it. Fixed the same way
   // topBarH is: measure the real box, don't trust the authored constant.
+  // Collapsible sidebar (2026-07-20, user request "make left tabs
+  // hideable") — persisted across sessions. Collapsing only changes the
+  // rendered width (full label list → icon-only rail); everything that
+  // depends on the sidebar's width already re-measures it live via the
+  // ResizeObserver below, so no other layout math needed to change.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem("sidebar_collapsed") === "1"; } catch { return false; }
+  });
+  const toggleSidebarCollapsed = () => {
+    setSidebarCollapsed(v => {
+      const nv = !v;
+      try { localStorage.setItem("sidebar_collapsed", nv ? "1" : "0"); } catch {}
+      return nv;
+    });
+  };
+
   const sidebarRef = useRef(null);
   const [sidebarW, setSidebarW] = useState(LAYOUT.sidebarWidth);
   useEffect(() => {
@@ -5367,7 +5383,7 @@ export default function App() {
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [isMobile, isTablet]);
+  }, [isMobile, isTablet, sidebarCollapsed]);
 
   // Same zoom-vs-fixed-position risk applies to the bottom StatusBar's
   // height as the Sidebar's width above — measure it rather than trust
@@ -5686,8 +5702,9 @@ export default function App() {
           comment above for why the raw constant isn't safe to trust here. */}
       {!isMobile && (
         <Sidebar C={C} MONO={MONO} SANS={SANS} activeTab={activeTab} setActiveTab={setActiveTab}
-          topOffset={ISTIGHFAR_BAR_H + topBarH} width={LAYOUT.sidebarWidth} bottomOffset={statusBarH}
-          scannerBadge={scannerBadge} setPaletteOpen={setPaletteOpen} rootRef={sidebarRef} />
+          topOffset={ISTIGHFAR_BAR_H + topBarH} width={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : LAYOUT.sidebarWidth} bottomOffset={statusBarH}
+          scannerBadge={scannerBadge} setPaletteOpen={setPaletteOpen} rootRef={sidebarRef}
+          collapsed={sidebarCollapsed} onToggleCollapsed={toggleSidebarCollapsed} />
       )}
 
       {/* Bottom status bar — connection/integration badges, latency, paper-
