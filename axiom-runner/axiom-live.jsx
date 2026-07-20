@@ -99,6 +99,10 @@ import RiskTrafficLight from "./components/RiskTrafficLight.jsx";
 import FedWatchWidget from "./components/FedWatchWidget.jsx";
 import FedInterpreter from "./components/FedInterpreter.jsx";
 import RegimeNewsPanel from "./components/RegimeNewsPanel.jsx";
+import PriorityAlertsCard from "./components/PriorityAlertsCard.jsx";
+import PortfolioRiskCard from "./components/PortfolioRiskCard.jsx";
+import TradingLessonCard from "./components/TradingLessonCard.jsx";
+import AplusScoreTrackCard from "./components/AplusScoreTrackCard.jsx";
 import DashboardTab, { MarketPulseCard, PortfolioSnapshotCard, computeRegimeLabel, Card } from "./components/DashboardTab.jsx";
 import { BestOpportunities } from "./components/terminal-panels.jsx";
 import TopOpportunityCard from "./components/TopOpportunityCard.jsx";
@@ -5983,12 +5987,27 @@ export default function App() {
           const vix = distData?.vix || 0;
           const { regLabel, regColor } = computeRegimeLabel(C, { spy, qqq, vix, loaded: !!spy });
           return (
-            <div style={{ padding: "16px 20px", maxWidth: 500, margin: "0 auto" }}>
+            <div style={{ padding: "16px 20px", maxWidth: 700, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12 }}>
               <Card C={C} title="MISSION STATUS">
                 <MissionStatusCard C={C} MONO={MONO} SANS={SANS}
                   regimeLabel={regLabel} regimeColor={regColor}
                   tiltEnabled={tiltEnabled} tiltLocked={tiltLocked} tiltStreak={tiltStreak} />
+                {/* Tilt override — moved out of the Dashboard MORE sub-tab
+                    (2026-07-19, user request to split MORE up). Mission
+                    Status already shows the read-only tilt streak/lock
+                    above; this is the one actionable control (manual
+                    override), which belongs right next to that status. */}
+                {tiltEnabled && (
+                  <div onClick={() => tiltLocked && setTiltLocked(false)} style={{ marginTop: 10, cursor: "pointer", fontFamily: MONO, fontSize: 13, fontWeight: 800, color: tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green }}>
+                    {tiltLocked ? "🔒 LOCKED — click to override" : tiltStreak === 0 ? "✅ 0 consecutive losses today" : `⚠ ${tiltStreak}/3 consecutive losses`}
+                  </div>
+                )}
               </Card>
+              {/* Portfolio Risk + A+ Score Track — moved out of MORE, same
+                  reasoning: these are both performance/risk-health cards,
+                  a natural fit right below Mission Status. */}
+              <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} />
+              <AplusScoreTrackCard C={C} MONO={MONO} SANS={SANS} />
             </div>
           );
         })()}
@@ -5999,6 +6018,16 @@ export default function App() {
               rotationRank={rotationRank} flowBias={flowBias}
               flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional}
               fullScan={fullScan} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
+            {/* Market Mode & Flow — moved out of the Dashboard MORE sub-tab
+                (2026-07-19, user request to split MORE up); same real
+                cards, just given the tab that already exists for this
+                exact topic instead of a new sidebar entry. */}
+            <div style={{ marginTop: 12 }}>
+              <MonitorSection C={C} MONO={MONO} label="🚦 MARKET MODE & FLOW" storeKey="mon_mode" defaultOpen={true}>
+                <RiskTrafficLight C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
+                <SpyVolumeWidget C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
+              </MonitorSection>
+            </div>
           </div>
         )}
 
@@ -6131,21 +6160,33 @@ export default function App() {
         )}
 
         {activeTab === "alerts" && (
-          <AlertsTab
-            C={C} MONO={MONO}
-            tvWebhookRows={tvWebhookRows} combinedAlerts={combinedAlerts} telegramOk={telegramOk}
-            customAlertSymbol={customAlertSymbol} setCustomAlertSymbol={setCustomAlertSymbol}
-            customAlertMin={customAlertMin} setCustomAlertMin={setCustomAlertMin} setCustomAlerts={setCustomAlerts}
-            setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} setQuickLogModal={setQuickLogModal}
-            priceAlerts={priceAlerts} paSymbol={paSymbol} setPaSymbol={setPaSymbol}
-            paDirection={paDirection} setPaDirection={setPaDirection} paTarget={paTarget} setPaTarget={setPaTarget}
-            paNote={paNote} setPaNote={setPaNote} loadPriceAlertList={loadPriceAlertList} watchlistData={watchlistData}
-            tvWebhookFilter={tvWebhookFilter} setTvWebhookFilter={setTvWebhookFilter}
-            alertSoundEnabled={alertSoundEnabled} setAlertSoundEnabled={setAlertSoundEnabled}
-            setTvWebhookRows={setTvWebhookRows}
-            tvWebhookSecured={tvWebhookSecured} tvWebhookLoggedRows={tvWebhookLoggedRows}
-            setTvWebhookLoggedRows={setTvWebhookLoggedRows}
-          />
+          <>
+            <AlertsTab
+              C={C} MONO={MONO}
+              tvWebhookRows={tvWebhookRows} combinedAlerts={combinedAlerts} telegramOk={telegramOk}
+              customAlertSymbol={customAlertSymbol} setCustomAlertSymbol={setCustomAlertSymbol}
+              customAlertMin={customAlertMin} setCustomAlertMin={setCustomAlertMin} setCustomAlerts={setCustomAlerts}
+              setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} setQuickLogModal={setQuickLogModal}
+              priceAlerts={priceAlerts} paSymbol={paSymbol} setPaSymbol={setPaSymbol}
+              paDirection={paDirection} setPaDirection={setPaDirection} paTarget={paTarget} setPaTarget={setPaTarget}
+              paNote={paNote} setPaNote={setPaNote} loadPriceAlertList={loadPriceAlertList} watchlistData={watchlistData}
+              tvWebhookFilter={tvWebhookFilter} setTvWebhookFilter={setTvWebhookFilter}
+              alertSoundEnabled={alertSoundEnabled} setAlertSoundEnabled={setAlertSoundEnabled}
+              setTvWebhookRows={setTvWebhookRows}
+              tvWebhookSecured={tvWebhookSecured} tvWebhookLoggedRows={tvWebhookLoggedRows}
+              setTvWebhookLoggedRows={setTvWebhookLoggedRows}
+            />
+            {/* Priority Alerts — moved out of the Dashboard MORE sub-tab
+                (2026-07-19, user request to split MORE up); same real card,
+                given the tab that already exists for alerts. No extra
+                padding here — the shared content wrapper already pads
+                every tab, matching AlertsTab's own bare-div root above. */}
+            <div style={{ marginTop: 14 }}>
+              <MonitorSection C={C} MONO={MONO} label="🔔 PRIORITY ALERTS" storeKey="mon_alerts" defaultOpen={true}>
+                <PriorityAlertsCard C={C} MONO={MONO} SANS={SANS} alerts={combinedAlerts} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+              </MonitorSection>
+            </div>
+          </>
         )}
 
         {activeTab === "agent" && (
@@ -6309,6 +6350,7 @@ export default function App() {
 
       {/* ══════════════════ QURAN TAB ══════════════════ */}
       {activeTab === "quran" && (
+        <>
         <QuranTab
           C={C} MONO={MONO} SANS={SANS}
           quranSurah={quranSurah} setQuranSurah={setQuranSurah}
@@ -6326,6 +6368,15 @@ export default function App() {
           quranText={quranText}
           hasanat={hasanat} setHasanat={setHasanat} HASANAT_GOAL={HASANAT_GOAL} creditSurah={creditSurah}
         />
+        {/* Prayer Times — moved out of the Dashboard MORE sub-tab
+            (2026-07-19, user request to split MORE up); same real widget,
+            given the tab that already exists for Islamic content. */}
+        <div style={{ marginTop: 14 }}>
+          <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={false}>
+            <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
+          </MonitorSection>
+        </div>
+        </>
       )}
 
       {activeTab === "athan" && (
@@ -6391,7 +6442,20 @@ export default function App() {
       {activeTab === "holdings" && <HoldingsTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} />}
       {activeTab === "gl-backtest" && <GLBacktestTab C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "predictions" && <PredictionsTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} />}
-      {activeTab === "coach" && <CoachTab C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "coach" && (
+        <>
+          <CoachTab C={C} MONO={MONO} SANS={SANS} />
+          {/* Trading Lesson of the Day — moved out of the Dashboard MORE
+              sub-tab (2026-07-19, user request to split MORE up); same
+              real card, given the tab that already exists for daily
+              lessons (distinct English trading content vs. Coach's
+              Arabic life-coaching lessons above, but same "lesson" shape,
+              same tab). */}
+          <div style={{ padding: "0 18px 18px", maxWidth: 700, margin: "0 auto" }}>
+            <TradingLessonCard C={C} MONO={MONO} SANS={SANS} />
+          </div>
+        </>
+      )}
       {activeTab === "rhpro" && <RhProDashboard C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} />}
       {activeTab === "rhpro-apex" && <RhProApex C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} />}
       {activeTab === "rhpro-scan" && <RhProScanner C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} />}

@@ -1,13 +1,9 @@
 import { useState, useEffect } from "react";
 import MonitorSection from "./MonitorSection.jsx";
-import MonitorAthan from "./MonitorAthan.jsx";
-import RiskTrafficLight from "./RiskTrafficLight.jsx";
-import SpyVolumeWidget from "./SpyVolumeWidget.jsx";
 import FedInterpreter from "./FedInterpreter.jsx";
 import FedWatchWidget from "./FedWatchWidget.jsx";
 import MacroEventsWidget from "./MacroEventsWidget.jsx";
 import RegimeNewsPanel from "./RegimeNewsPanel.jsx";
-import PriorityAlertsCard from "./PriorityAlertsCard.jsx";
 import RadialGauge from "./RadialGauge.jsx";
 import DonutChart from "./DonutChart.jsx";
 import Sparkline from "./Sparkline.jsx";
@@ -15,12 +11,9 @@ import TrendChart from "./TrendChart.jsx";
 import { computeRegime } from "./market-helpers.js";
 import { COACH_LESSONS } from "./CoachTab.jsx";
 import AiMorningBriefCard from "./AiMorningBriefCard.jsx";
-import PortfolioRiskCard from "./PortfolioRiskCard.jsx";
 import OpportunityQueueCard from "./OpportunityQueueCard.jsx";
 import AskAiBar from "./AskAiBar.jsx";
 import MarketIntelCard from "./MarketIntelCard.jsx";
-import TradingLessonCard from "./TradingLessonCard.jsx";
-import AplusScoreTrackCard from "./AplusScoreTrackCard.jsx";
 import CeoAiCard from "./CeoAiCard.jsx";
 
 // ── Shared card shell — every Dashboard card except CeoAiCard (which stays
@@ -640,7 +633,6 @@ const DASH_TABS = [
   { id: "overview",    label: "OVERVIEW" },
   { id: "watchlist",   label: "WATCHLIST & CHART" },
   { id: "news",        label: "NEWS & EVENTS" },
-  { id: "more",        label: "MORE" },
 ];
 
 function DashSubNav({ C, MONO, active, setActive }) {
@@ -680,7 +672,10 @@ export default function DashboardTab({
   // Opportunities made the default/first sub-tab (2026-07-19, user request:
   // "need opportunities right away... not late") -- was Overview.
   const [dashTab, setDashTab] = useState(() => {
-    try { return localStorage.getItem("dash_subtab") || "opportunities"; } catch { return "opportunities"; }
+    // "more" was removed (2026-07-19, split into existing tabs) — stale
+    // localStorage from before that change must not resolve to a
+    // dead/blank sub-tab.
+    try { const saved = localStorage.getItem("dash_subtab"); return (saved && saved !== "more") ? saved : "opportunities"; } catch { return "opportunities"; }
   });
   const setDashTabPersist = (id) => {
     setDashTab(id);
@@ -852,43 +847,6 @@ export default function DashboardTab({
         </>
       )}
 
-      {/* ── MORE — supplementary widgets, same "hide, don't delete"       */}
-      {/* precedent already used throughout this app's nav history (see   */}
-      {/* SubNavBar.jsx) — collapsed accordions, nothing removed.         */}
-      {dashTab === "more" && (
-        <>
-          <div style={{ marginBottom: 10 }}>
-            <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} />
-          </div>
-          <div style={{ marginBottom: 10 }}>
-            <TradingLessonCard C={C} MONO={MONO} SANS={SANS} />
-          </div>
-          <div style={{ marginBottom: 10 }}>
-            <AplusScoreTrackCard C={C} MONO={MONO} SANS={SANS} />
-          </div>
-
-          <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={false}>
-            <MonitorAthan C={C} MONO={MONO} SANS={SANS} />
-          </MonitorSection>
-
-          <MonitorSection C={C} MONO={MONO} label="🚦 MARKET MODE & FLOW" storeKey="mon_mode" defaultOpen={false}>
-            <RiskTrafficLight C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
-            <SpyVolumeWidget C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
-          </MonitorSection>
-
-          <MonitorSection C={C} MONO={MONO} label="🔔 PRIORITY ALERTS" storeKey="mon_alerts" defaultOpen={false}>
-            <PriorityAlertsCard C={C} MONO={MONO} SANS={SANS} alerts={combinedAlerts} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
-          </MonitorSection>
-
-          {tiltEnabled && (
-            <MonitorSection C={C} MONO={MONO} label="😤 TILT" storeKey="mon_tilt" defaultOpen={false}>
-              <div onClick={() => tiltLocked && setTiltLocked(false)} style={{ cursor: "pointer", fontFamily: MONO, fontSize: 13, fontWeight: 800, color: tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green }}>
-                {tiltLocked ? "🔒 LOCKED — click to override" : tiltStreak === 0 ? "✅ 0 consecutive losses today" : `⚠ ${tiltStreak}/3 consecutive losses`}
-              </div>
-            </MonitorSection>
-          )}
-        </>
-      )}
     </>
   );
 }
