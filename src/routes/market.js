@@ -9,7 +9,7 @@ const {
 const {
   fetchYahooQuotes, fetchYahooQuoteBatch, fetchYahooBars,
   fetchYahooNews, fetchYahooFundamentals,
-  fetchYahooOptionsFlowForSymbol, fetchEstimatedOptionsFlow,
+  fetchYahooOptionsFlowForSymbol, fetchEstimatedOptionsFlow, fetchYahooOptionsChain,
   fetchYahooShortInterest,
   fetchYahooInsiderTransactions, fetchYahooInstitutional,
   fetchYahooAnalystRatings, fetchYahooDividendInfo,
@@ -2714,8 +2714,17 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     const requestedExpiry = searchParams.get("expiry") || null;
     const polyKey = process.env.POLYGON_API_KEY || "";
 
+    // No Polygon key — fall back to Yahoo's free options chain (same
+    // crumb-authed endpoint fetchYahooOptionsFlowForSymbol already uses).
+    // No greeks (delta) since Yahoo's v7 chain doesn't return them, but
+    // strike/price/volume/OI/IV are all real.
     if (!polyKey) {
-      return writeJson(res, 503, { error: "POLYGON_API_KEY not set — add it in Render → Environment." });
+      try {
+        const chain = await fetchYahooOptionsChain(symbol, requestedExpiry);
+        return writeJson(res, 200, { ok: true, ...chain, generatedAt: new Date().toISOString() });
+      } catch (err) {
+        return writeJson(res, 502, { error: "Options data unavailable: " + err?.message });
+      }
     }
 
     try {

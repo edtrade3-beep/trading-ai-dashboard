@@ -623,7 +623,12 @@ function normalizeOptionContract(symbol, raw, side) {
 async function fetchYahooOptionsFlowForSymbol(symbol) {
   const url = `https://query2.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}`;
   try {
-    const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+    // v7/finance/options now 401s ("Invalid Crumb") unconditionally without
+    // crumb auth, same root cause already fixed for v10/finance/quoteSummary
+    // above — this call was never updated, so it silently returned null on
+    // every request, permanently degrading the Options Flow tab to its
+    // synthetic "estimated-from-price-volume" fallback instead of real data.
+    const response = await yFetchWithCrumb(url);
     if (!response.ok) return null;
     const payload = await response.json();
     const optionRoot = payload?.optionChain?.result?.[0];
@@ -647,6 +652,69 @@ async function fetchYahooOptionsFlowForSymbol(symbol) {
   } catch {
     return null;
   }
+}
+
+// Full options chain (all strikes, one expiry) for OptionsChainTab — the
+// free fallback when POLYGON_API_KEY isn't configured. Same v7 endpoint as
+// fetchYahooOptionsFlowForSymbol above, but returns the whole chain rather
+// than just a top-12 flow slice, shaped to match what the Polygon-backed
+// /api/market/options route already returns so the frontend needs no changes.
+async function fetchYahooOptionsChain(symbol, requestedExpiry) {
+  const base = `https://query2.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}`;
+  const firstRes = await yFetchWithCrumb(base);
+  if (!firstRes.ok) throw new Error(`Yahoo returned ${firstRes.status}`);
+  const firstPayload = await firstRes.json();
+  const firstRoot = firstPayload?.optionChain?.result?.[0];
+  if (!firstRoot) throw new Error("No options chain returned");
+
+  const expiryDates = (firstRoot.expirationDates || [])
+    .map((ts) => new Date(ts * 1000).toISOString().slice(0, 10));
+  if (!expiryDates.length) throw new Error(`No options found for ${symbol}.`);
+
+  const underlying = round2(firstRoot.quote?.regularMarketPrice || 0);
+  const chosenExpiry = requestedExpiry && expiryDates.includes(requestedExpiry)
+    ? requestedExpiry : expiryDates[0];
+
+  // First response is already the nearest expiry — only re-fetch with
+  // &date= when a different one was explicitly requested.
+  let root = firstRoot;
+  if (chosenExpiry !== expiryDates[0]) {
+    const chosenTs = firstRoot.expirationDates[expiryDates.indexOf(chosenExpiry)];
+    const expRes = await yFetchWithCrumb(`${base}?date=${chosenTs}`);
+    if (expRes.ok) {
+      const expPayload = await expRes.json();
+      root = expPayload?.optionChain?.result?.[0] || root;
+    }
+  }
+
+  const optionSet = root.options?.[0] || {};
+  const mapRow = (raw, isCall) => {
+    if (!raw) return null;
+    const strike = round2(raw.strike || 0);
+    if (!strike) return null;
+    const itm = underlying > 0 && (isCall ? strike <= underlying : strike >= underlying);
+    return {
+      contractSymbol: raw.contractSymbol || "",
+      strike,
+      lastPrice: round2(raw.lastPrice || 0),
+      bid: round2(raw.bid || 0),
+      ask: round2(raw.ask || 0),
+      change: round2(raw.change || 0),
+      changePct: round2(raw.percentChange || 0),
+      volume: Number(raw.volume) || 0,
+      openInterest: Number(raw.openInterest) || 0,
+      iv: round2((raw.impliedVolatility || 0) * 100),
+      inTheMoney: !!raw.inTheMoney || itm,
+      expiry: raw.expiration ? new Date(raw.expiration * 1000).toISOString().slice(0, 10) : chosenExpiry,
+      delta: null, // Yahoo's v7 chain doesn't include greeks (Polygon does)
+    };
+  };
+
+  const calls = (optionSet.calls || []).map((c) => mapRow(c, true)).filter(Boolean).sort((a, b) => a.strike - b.strike);
+  const puts = (optionSet.puts || []).map((p) => mapRow(p, false)).filter(Boolean).sort((a, b) => a.strike - b.strike);
+  if (!calls.length && !puts.length) throw new Error(`No options found for ${symbol}.`);
+
+  return { symbol, underlying, expiryDates, selectedExpiry: chosenExpiry, calls, puts, source: "yahoo" };
 }
 
 async function fetchEstimatedOptionsFlow(symbols) {
@@ -929,7 +997,7 @@ module.exports = {
   fetchYahooQuoteBatchWithFields,
   fetchYahooNews, fetchYahooRssNews,
   fetchYahooFundamentals, fetchYahooCandlesWithIndicators,
-  fetchYahooOptionsFlowForSymbol, fetchEstimatedOptionsFlow,
+  fetchYahooOptionsFlowForSymbol, fetchEstimatedOptionsFlow, fetchYahooOptionsChain,
   fetchYahooMarketCapFromSummary, fetchYahooChartMeta,
   resolveMarketCap, MARKET_CAP_CACHE,
   fetchYahooShortInterest,
