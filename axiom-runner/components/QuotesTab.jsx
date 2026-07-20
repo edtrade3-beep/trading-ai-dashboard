@@ -277,8 +277,8 @@ export default function QuotesTab({
 
                     <Sep />
 
-                    {/* Volume */}
-                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>VOL</span>
+                    {/* Volume — filter is actually relative volume (rvol = volume / avgVolume), not raw volume */}
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>RVOL</span>
                     {[
                       { v: "ALL",    label: "ALL",    col: C.text,  bg: C.card    },
                       { v: "HIGH",   label: "HIGH",   col: C.green, bg: C.greenBg },
