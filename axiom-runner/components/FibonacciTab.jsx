@@ -62,13 +62,13 @@ export default function FibonacciTab({
                     const dist = Math.abs(fibData.lastPrice - lvl.price);
                     const distPct = ((dist / fibData.lastPrice) * 100).toFixed(1);
                     return (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px",
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "10px 16px",
                         borderTop: i > 0 ? `1px solid ${C.border}33` : "none",
                         background: isCurrent ? `${C.amber}18` : lvl.isKey ? `${C.accent}08` : "transparent" }}>
                         {/* Level indicator bar */}
                         <div style={{ width: 4, height: 28, borderRadius: 2, flexShrink: 0,
                           background: lvl.isExt ? C.purple : lvl.isKey ? C.amber : lvl.ratio === 0 || lvl.ratio === 1 ? C.textDim : C.border }} />
-                        <div style={{ flex: 1 }}>
+                        <div style={{ flex: "1 1 90px", minWidth: 90 }}>
                           <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: lvl.isKey ? C.amber : lvl.isExt ? C.purple : C.textSec }}>
                             {lvl.label} {isCurrent && <span style={{ color: C.amber }}>◄ PRICE IS HERE</span>}
                           </div>
