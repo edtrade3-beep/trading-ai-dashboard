@@ -17,9 +17,17 @@ async function handleCommandCenter(req, res, requestUrl) {
   }
 
   if (pathname === "/api/command-center/refresh" && req.method === "POST") {
-    const built = await buildCommandCenter();
-    if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate a Command Center report (ANTHROPIC_API_KEY not set, no ADVISOR AI brief generated yet, or the AI call failed)." });
-    return writeJson(res, 200, { ok: true, brief: built });
+    try {
+      const built = await buildCommandCenter();
+      if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate a Command Center report (ANTHROPIC_API_KEY not set, or no ADVISOR AI brief generated yet)." });
+      return writeJson(res, 200, { ok: true, brief: built });
+    } catch (e) {
+      // Temporary: surfaces command-center-ai.js's real thrown reason
+      // (AI call/parse detail) instead of a generic message — no local
+      // ANTHROPIC_API_KEY to reproduce production-only failures with, so
+      // this is the fastest honest way to see what actually happened.
+      return writeJson(res, 200, { ok: false, error: "Could not generate a Command Center report — AI call failed.", debug: e.message });
+    }
   }
 
   if (pathname === "/api/command-center/track-record" && req.method === "GET") {

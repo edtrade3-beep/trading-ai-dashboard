@@ -210,22 +210,25 @@ Search for real, current news now and return the JSON.`;
   let parsed;
   let rawForDebug = "";
   try {
-    // callAnthropicWithSearch has no separate `system` param — same
-    // prompt+"\n\n"+system concatenation advisor-ai.js already uses for
-    // this exact function. max_tokens covers the model's web_search
-    // tool-use content too, not just the final JSON (same headroom lesson
-    // advisor-ai.js already learned the hard way — its own comment
-    // documents 1800 silently truncating a SMALLER schema than this one:
-    // up to 8 events with a 9-asset impact block each, plus tradeNotes for
-    // ~8 tickers, plus the executive summary). Confirmed live: 5000 here
-    // truncated mid-JSON on the very first production run.
-    const raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), { model: "claude-sonnet-4-6", maxTokens: 8000, maxSearches: 6 });
+    // maxSearches trimmed 6->3: fewer web_search rounds means less tool-use
+    // content eating into the same max_tokens budget as the final JSON —
+    // cheaper AND less likely to truncate, not a tradeoff between the two.
+    // Confirmed live: even 8000 tokens still failed at 6 searches (121s
+    // runtime, still no valid JSON) — the search rounds themselves, not
+    // just event/idea count, were the dominant cost eating the budget.
+    const raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), { model: "claude-sonnet-4-6", maxTokens: 8000, maxSearches: 3 });
     rawForDebug = raw || "";
     const m = (raw || "").match(/\{[\s\S]*\}/);
     parsed = JSON.parse(m ? m[0] : raw);
   } catch (e) {
-    console.error("[Command Center] AI call/parse failed:", e.message, "| raw length:", rawForDebug.length, "| raw tail:", rawForDebug.slice(-200));
-    return null;
+    // Re-thrown (not swallowed to null) so the route can surface the real
+    // reason during this rollout instead of the generic catch-all message —
+    // debugging blind against a production-only failure (no local
+    // ANTHROPIC_API_KEY to reproduce with) wasted real diagnosis time
+    // already. Safe to revert to a plain `return null` once this is
+    // confirmed stable.
+    const err = new Error(`AI call/parse failed: ${e.message} | raw length: ${rawForDebug.length} | raw tail: ${rawForDebug.slice(-300)}`);
+    throw err;
   }
   if (!parsed) return null;
 
