@@ -658,22 +658,26 @@ export default function QuotesTab({
                                 );
                               })()}
                             </td>
-                            {/* Quick Alert button */}
+                            {/* Quick Alert button — was POSTing to /api/alerts/price,
+                                which doesn't exist anywhere in the backend (confirmed
+                                live: 404 "Not found"). Every click silently failed --
+                                the fetch's own .catch(()=>{}) swallowed the error, so
+                                a user filling in the prompt() dialog and clicking OK
+                                got no feedback that nothing happened. This row already
+                                has a real, working alert mechanism a few columns over
+                                (the "⚡"-adjacent ALERT text button, openAlertSymbol +
+                                POST /api/price-alerts) -- routed this one through the
+                                same real toggle instead of the dead endpoint + a
+                                second, redundant prompt()-based UI. */}
                             <td style={{ padding: "6px 8px", borderTop: `1px solid ${C.border}`, textAlign: "center" }}>
                               <button
                                 onClick={e => {
                                   e.stopPropagation();
-                                  const price = Number(q.price || 0);
-                                  const alertPx = prompt(`Set price alert for ${q.symbol} (current: $${price.toFixed(2)})`, price.toFixed(2));
-                                  if (alertPx && !isNaN(Number(alertPx))) {
-                                    const dir = Number(alertPx) >= price ? "above" : "below";
-                                    fetch("/api/alerts/price", { method: "POST", headers: {"Content-Type":"application/json"},
-                                      body: JSON.stringify({ symbol: q.symbol, target: Number(alertPx), direction: dir, note: `Quick alert from watchlist` })
-                                    }).catch(() => {});
-                                  }
+                                  if (openAlertSymbol === q.symbol) { setOpenAlertSymbol(null); }
+                                  else { setOpenAlertSymbol(q.symbol); setWlAlertDir("above"); setWlAlertPrice(q.price ? (q.price * 1.02).toFixed(2) : ""); }
                                 }}
                                 style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
-                                  border: `1px solid ${C.amber}44`, background: `${C.amber}12`,
+                                  border: `1px solid ${openAlertSymbol === q.symbol ? C.amber + "99" : C.amber + "44"}`, background: openAlertSymbol === q.symbol ? `${C.amber}22` : `${C.amber}12`,
                                   color: C.amber, borderRadius: 5, padding: "4px 7px", cursor: "pointer" }}
                                 title="Set price alert">
                                 🔔
