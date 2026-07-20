@@ -10,6 +10,15 @@ import { cardStyle, buttonChrome } from "./ui-helpers.js";
 // Structured JSON in, structured cards out (no prose-parsing) — rebuilt
 // per user request for a clearer, more professional layout with real
 // multi-pick coverage per horizon instead of one name each.
+//
+// Sub-tabbed (2026-07-20, user request "organise advisor ai") — the brief
+// had grown to 12 stacked sections on one continuous scroll (same "wall of
+// data" shape as the Dashboard MORE sub-tab this session already split
+// up). Grouped into 4 reading-order tabs instead of removing anything:
+// SUMMARY (what to do), PICKS (the per-horizon trade ideas), PORTFOLIO &
+// RISK (account + exposure), MACRO & THESIS (bigger-picture context). The
+// meta strip stays always-visible above the tabs since every section
+// depends on that same regime/scan context.
 
 const ACTION_META = {
   BUY_NOW:         { label: "BUY NOW",         key: "gold" },
@@ -28,6 +37,32 @@ const HORIZONS = [
   { key: "position", label: "POSITION", sub: "Next 6 Months", icon: "🏗️" },
   { key: "core",     label: "CORE",     sub: "Next 1 Year",   icon: "🏛️" },
 ];
+
+const ADV_TABS = [
+  { id: "summary",        label: "SUMMARY" },
+  { id: "picks",          label: "PICKS" },
+  { id: "portfolio-risk", label: "PORTFOLIO & RISK" },
+  { id: "macro-thesis",   label: "MACRO & THESIS" },
+];
+
+function AdvSubNav({ C, MONO, active, setActive }) {
+  return (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      {ADV_TABS.map(t => (
+        <button key={t.id} onClick={() => setActive(t.id)}
+          style={{
+            fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.04em",
+            padding: "7px 13px", borderRadius: 7, cursor: "pointer",
+            border: `1px solid ${active === t.id ? C.accent : C.border}`,
+            background: active === t.id ? `${C.accent}18` : C.card,
+            color: active === t.id ? C.accent : C.textSec,
+          }}>
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function SectionLabel({ icon, text, color, C, MONO }) {
   return (
@@ -155,6 +190,10 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [state, setState] = useState("loading"); // loading | ok | empty | error
+  const [advTab, setAdvTab] = useState(() => {
+    try { return localStorage.getItem("advisor_subtab") || "summary"; } catch { return "summary"; }
+  });
+  const setAdvTabPersist = (id) => { setAdvTab(id); try { localStorage.setItem("advisor_subtab", id); } catch {} };
 
   useEffect(() => {
     fetch("/api/ai-hub/advisor-brief").then(r => r.json()).then(d => {
@@ -219,7 +258,8 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
 
       {brief && !loading && (
         <>
-          {/* Meta strip */}
+          {/* Meta strip — always visible above the tabs since every section
+              below depends on this same regime/scan context */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <StatPill label="REGIME" value={`${brief.regime?.label} (${brief.regime?.score}/100)`} color={regimeCol} C={C} MONO={MONO} />
             {/* Widened Market Regime Engine — same real score/label, plus the
@@ -244,321 +284,339 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
             </div>
           )}
 
-          {/* Executive summary hero */}
-          <div style={{ background: `linear-gradient(135deg, ${C.goldBg}, ${C.card} 60%)`, border: `1px solid ${C.gold}55`, borderRadius: 12, padding: "16px 18px" }}>
-            <SectionLabel icon="📋" text="EXECUTIVE SUMMARY" color={C.gold} C={C} MONO={MONO} />
-            <div style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.6 }}>{brief.executiveSummary || "—"}</div>
-          </div>
+          <AdvSubNav C={C} MONO={MONO} active={advTab} setActive={setAdvTabPersist} />
 
-          {/* CEO Executive Brief — a one-page-dashboard re-assembly of data
-              already computed elsewhere in this same brief (regime, capital
-              flow, action plan, avoid list, ranked fundamentals, picks, risk
-              command center, scenarios) — no new AI call, nothing here is a
-              number the model typed. Fields are individually optional since
-              some (bestSwingTrade, highestRiskAsset, etc.) only resolve when
-              the underlying real data supports them. */}
-          {brief.ceoBrief && (
-            <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
-              <SectionLabel icon="🧭" text="CEO EXECUTIVE BRIEF" color={C.gold} C={C} MONO={MONO} />
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                <StatPill label="CASH STANCE" value={brief.ceoBrief.cashStance?.label}
-                  color={brief.ceoBrief.cashStance?.label === "Fully deployed" ? C.green : brief.ceoBrief.cashStance?.label === "Defensive" ? C.red : C.amber} C={C} MONO={MONO} />
-                {brief.ceoBrief.cashStance?.currentCashPct != null && (
-                  <StatPill label="CURRENT CASH" value={`${brief.ceoBrief.cashStance.currentCashPct}%`} color={C.textDim} C={C} MONO={MONO} />
-                )}
-                {brief.ceoBrief.bestSector && <StatPill label="BEST FLOW" value={brief.ceoBrief.bestSector.name} color={C.green} C={C} MONO={MONO} />}
-                {brief.ceoBrief.worstSector && <StatPill label="WORST FLOW" value={brief.ceoBrief.worstSector.name} color={C.red} C={C} MONO={MONO} />}
+          {advTab === "summary" && (
+            <>
+              {/* Executive summary hero */}
+              <div style={{ background: `linear-gradient(135deg, ${C.goldBg}, ${C.card} 60%)`, border: `1px solid ${C.gold}55`, borderRadius: 12, padding: "16px 18px" }}>
+                <SectionLabel icon="📋" text="EXECUTIVE SUMMARY" color={C.gold} C={C} MONO={MONO} />
+                <div style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.6 }}>{brief.executiveSummary || "—"}</div>
               </div>
-              <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, lineHeight: 1.5, marginBottom: 12 }}>{brief.ceoBrief.cashStance?.desc}</div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, marginBottom: 12 }}>
-                {[
-                  ["📈 Best Growth", brief.ceoBrief.bestGrowthStock, s => `${s.symbol} · ${s.revenueGrowthPct}% rev growth`],
-                  ["💰 Best Value", brief.ceoBrief.bestValueStock, s => `${s.symbol} · PEG ${s.pegRatio}`],
-                  ["📊 Best Swing", brief.ceoBrief.bestSwingTrade, s => `${s.symbol} · ${s.score}/100`],
-                  ["🏛️ Best Long-Term", brief.ceoBrief.bestLongTermInvestment, s => `${s.symbol} · ${s.score}/100`],
-                  ["⚠️ Highest Risk Asset", brief.ceoBrief.highestRiskAsset, s => s.type === "held" ? `${s.symbol} · β ${s.beta.toFixed(2)}, ${s.weightPct}% of book` : `${s.symbol} · ${s.score}/100 (avoid list)`],
-                ].map(([label, val, fmt]) => (
-                  <div key={label} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 5 }}>{label.toUpperCase()}</div>
-                    {val ? (
-                      <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: C.text }}>{fmt(val)}</div>
-                    ) : (
-                      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, fontStyle: "italic" }}>No real data fits right now</div>
+              {/* CEO Executive Brief — a one-page-dashboard re-assembly of data
+                  already computed elsewhere in this same brief (regime, capital
+                  flow, action plan, avoid list, ranked fundamentals, picks, risk
+                  command center, scenarios) — no new AI call, nothing here is a
+                  number the model typed. Fields are individually optional since
+                  some (bestSwingTrade, highestRiskAsset, etc.) only resolve when
+                  the underlying real data supports them. */}
+              {brief.ceoBrief && (
+                <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
+                  <SectionLabel icon="🧭" text="CEO EXECUTIVE BRIEF" color={C.gold} C={C} MONO={MONO} />
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                    <StatPill label="CASH STANCE" value={brief.ceoBrief.cashStance?.label}
+                      color={brief.ceoBrief.cashStance?.label === "Fully deployed" ? C.green : brief.ceoBrief.cashStance?.label === "Defensive" ? C.red : C.amber} C={C} MONO={MONO} />
+                    {brief.ceoBrief.cashStance?.currentCashPct != null && (
+                      <StatPill label="CURRENT CASH" value={`${brief.ceoBrief.cashStance.currentCashPct}%`} color={C.textDim} C={C} MONO={MONO} />
                     )}
+                    {brief.ceoBrief.bestSector && <StatPill label="BEST FLOW" value={brief.ceoBrief.bestSector.name} color={C.green} C={C} MONO={MONO} />}
+                    {brief.ceoBrief.worstSector && <StatPill label="WORST FLOW" value={brief.ceoBrief.worstSector.name} color={C.red} C={C} MONO={MONO} />}
                   </div>
-                ))}
-              </div>
+                  <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, lineHeight: 1.5, marginBottom: 12 }}>{brief.ceoBrief.cashStance?.desc}</div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, marginBottom: 12 }}>
-                <div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.green, letterSpacing: "0.05em", marginBottom: 6 }}>TOP OPPORTUNITIES</div>
-                  {brief.ceoBrief.topOpportunities?.length > 0 ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      {brief.ceoBrief.topOpportunities.map(o => (
-                        <div key={o.symbol} style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>
-                          <b style={{ color: C.text }}>{o.symbol}</b> — {ACTION_META[o.action]?.label || o.action}
-                        </div>
-                      ))}
-                    </div>
-                  ) : <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, fontStyle: "italic" }}>None flagged this run</div>}
-                </div>
-                <div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.red, letterSpacing: "0.05em", marginBottom: 6 }}>TOP RISKS</div>
-                  {brief.ceoBrief.topRisks?.length > 0 ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      {brief.ceoBrief.topRisks.map(r => (
-                        <div key={r.symbol + r.type} style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>
-                          <b style={{ color: C.text }}>{r.symbol}</b> — {r.type === "portfolio" ? `${ACTION_META[r.action]?.label || r.action}: ${r.reason}` : r.reason}
-                        </div>
-                      ))}
-                    </div>
-                  ) : <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, fontStyle: "italic" }}>None flagged this run</div>}
-                </div>
-              </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, marginBottom: 12 }}>
+                    {[
+                      ["📈 Best Growth", brief.ceoBrief.bestGrowthStock, s => `${s.symbol} · ${s.revenueGrowthPct}% rev growth`],
+                      ["💰 Best Value", brief.ceoBrief.bestValueStock, s => `${s.symbol} · PEG ${s.pegRatio}`],
+                      ["📊 Best Swing", brief.ceoBrief.bestSwingTrade, s => `${s.symbol} · ${s.score}/100`],
+                      ["🏛️ Best Long-Term", brief.ceoBrief.bestLongTermInvestment, s => `${s.symbol} · ${s.score}/100`],
+                      ["⚠️ Highest Risk Asset", brief.ceoBrief.highestRiskAsset, s => s.type === "held" ? `${s.symbol} · β ${s.beta.toFixed(2)}, ${s.weightPct}% of book` : `${s.symbol} · ${s.score}/100 (avoid list)`],
+                    ].map(([label, val, fmt]) => (
+                      <div key={label} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
+                        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 5 }}>{label.toUpperCase()}</div>
+                        {val ? (
+                          <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: C.text }}>{fmt(val)}</div>
+                        ) : (
+                          <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, fontStyle: "italic" }}>No real data fits right now</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
 
-              {brief.ceoBrief.invalidationConditions?.length > 0 && (
-                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, lineHeight: 1.5, fontStyle: "italic", borderTop: `1px solid ${C.border}55`, paddingTop: 10 }}>
-                  What would invalidate this outlook: {brief.ceoBrief.invalidationConditions.join(" ")}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, marginBottom: 12 }}>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.green, letterSpacing: "0.05em", marginBottom: 6 }}>TOP OPPORTUNITIES</div>
+                      {brief.ceoBrief.topOpportunities?.length > 0 ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {brief.ceoBrief.topOpportunities.map(o => (
+                            <div key={o.symbol} style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>
+                              <b style={{ color: C.text }}>{o.symbol}</b> — {ACTION_META[o.action]?.label || o.action}
+                            </div>
+                          ))}
+                        </div>
+                      ) : <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, fontStyle: "italic" }}>None flagged this run</div>}
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.red, letterSpacing: "0.05em", marginBottom: 6 }}>TOP RISKS</div>
+                      {brief.ceoBrief.topRisks?.length > 0 ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {brief.ceoBrief.topRisks.map(r => (
+                            <div key={r.symbol + r.type} style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>
+                              <b style={{ color: C.text }}>{r.symbol}</b> — {r.type === "portfolio" ? `${ACTION_META[r.action]?.label || r.action}: ${r.reason}` : r.reason}
+                            </div>
+                          ))}
+                        </div>
+                      ) : <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, fontStyle: "italic" }}>None flagged this run</div>}
+                    </div>
+                  </div>
+
+                  {brief.ceoBrief.invalidationConditions?.length > 0 && (
+                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, lineHeight: 1.5, fontStyle: "italic", borderTop: `1px solid ${C.border}55`, paddingTop: 10 }}>
+                      What would invalidate this outlook: {brief.ceoBrief.invalidationConditions.join(" ")}
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+
+              {/* What Changed? — real regime-score/leadership deltas vs real past
+                  snapshots. A horizon with no snapshot that far back yet (this
+                  history only starts accumulating the day this feature shipped)
+                  is shown honestly as "not enough history yet", never guessed. */}
+              {brief.whatChanged && (
+                <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
+                  <SectionLabel icon="🕰️" text="WHAT CHANGED?" color={C.accent} C={C} MONO={MONO} />
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+                    {[["vsYesterday", "Yesterday"], ["vsLastWeek", "Last Week"], ["vsLastMonth", "Last Month"], ["vsLastQuarter", "Last Quarter"]].map(([k, label]) => {
+                      const d = brief.whatChanged[k];
+                      return (
+                        <div key={k} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
+                          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 6 }}>{label}</div>
+                          {d ? (
+                            <>
+                              <div style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>
+                                Regime {d.regimeScoreThen}→{brief.regime?.score} <span style={{ color: d.regimeScoreDelta >= 0 ? C.green : C.red }}>({d.regimeScoreDelta >= 0 ? "+" : ""}{d.regimeScoreDelta})</span>
+                              </div>
+                              {d.topFlowThen?.length > 0 && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 4 }}>Led by {d.topFlowThen.map(f => f.name).join(", ")}</div>}
+                            </>
+                          ) : (
+                            <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, fontStyle: "italic" }}>Not enough history yet</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* CEO action plan */}
+              {brief.actionPlan?.length > 0 && (
+                <div style={{ background: `linear-gradient(135deg, ${C.goldBg}, ${C.card} 55%)`, border: `1px solid ${C.gold}44`, borderRadius: 12, padding: "14px 16px" }}>
+                  <SectionLabel icon="🎯" text="CEO ACTION PLAN" color={C.gold} C={C} MONO={MONO} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {brief.actionPlan.map(a => {
+                      const meta = ACTION_META[a.action] || { label: a.action, key: "textDim" };
+                      const col = C[meta.key] || C.textDim;
+                      return (
+                        <div key={a.symbol} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: C.surface, borderRadius: 8, flexWrap: "wrap" }}>
+                          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, padding: "3px 9px", borderRadius: 6, background: `${col}20`, color: col, minWidth: 90, textAlign: "center" }}>{meta.label}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, minWidth: 52 }}>{a.symbol}</span>
+                          {/* REDUCE/SELL are enriched from real portfolio holdings, not a
+                              scanned setup score — show real weight/P&L instead */}
+                          {a.score != null && <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, minWidth: 40 }}>{a.score}/100</span>}
+                          {a.confidence && <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: a.confidence.composite >= 70 ? C.green : a.confidence.composite >= 50 ? C.amber : C.textDim }}>conf {a.confidence.composite}</span>}
+                          {a.weightPct != null && <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, minWidth: 90 }}>{a.weightPct}% of book</span>}
+                          {a.unrealizedPLpc != null && <span style={{ fontFamily: MONO, fontSize: 10.5, color: a.unrealizedPLpc >= 0 ? C.green : C.red }}>{a.unrealizedPLpc >= 0 ? "+" : ""}{a.unrealizedPLpc.toFixed(1)}%</span>}
+                          {a.held && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.purple, background: `${C.purple}18`, borderRadius: 4, padding: "1px 5px" }}>HELD</span>}
+                          <span style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, flex: 1, minWidth: 160 }}>{a.reason}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
-          {/* What Changed? — real regime-score/leadership deltas vs real past
-              snapshots. A horizon with no snapshot that far back yet (this
-              history only starts accumulating the day this feature shipped)
-              is shown honestly as "not enough history yet", never guessed. */}
-          {brief.whatChanged && (
-            <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
-              <SectionLabel icon="🕰️" text="WHAT CHANGED?" color={C.accent} C={C} MONO={MONO} />
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
-                {[["vsYesterday", "Yesterday"], ["vsLastWeek", "Last Week"], ["vsLastMonth", "Last Month"], ["vsLastQuarter", "Last Quarter"]].map(([k, label]) => {
-                  const d = brief.whatChanged[k];
+          {advTab === "picks" && (
+            <>
+              {/* Picks grid — one card per horizon, each holding multiple real picks */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))", gap: 12 }}>
+                {HORIZONS.map(h => {
+                  const picks = brief.picks?.[h.key] || [];
                   return (
-                    <div key={k} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 6 }}>{label}</div>
-                      {d ? (
-                        <>
-                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>
-                            Regime {d.regimeScoreThen}→{brief.regime?.score} <span style={{ color: d.regimeScoreDelta >= 0 ? C.green : C.red }}>({d.regimeScoreDelta >= 0 ? "+" : ""}{d.regimeScoreDelta})</span>
-                          </div>
-                          {d.topFlowThen?.length > 0 && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 4 }}>Led by {d.topFlowThen.map(f => f.name).join(", ")}</div>}
-                        </>
+                    <div key={h.key} style={{ ...cardStyle(C, { background: C.card }), padding: 14 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginBottom: 10 }}>
+                        <span style={{ fontSize: 15 }}>{h.icon}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.accent, letterSpacing: "0.04em" }}>{h.label}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{h.sub}</span>
+                      </div>
+                      {picks.length === 0 ? (
+                        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, fontStyle: "italic" }}>No real setup fits this horizon right now.</div>
                       ) : (
-                        <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, fontStyle: "italic" }}>Not enough history yet</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {picks.map(p => <PickCard key={p.symbol} p={p} C={C} MONO={MONO} SANS={SANS} />)}
+                        </div>
                       )}
                     </div>
                   );
                 })}
               </div>
-            </div>
+              <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, fontStyle: "italic", marginTop: -6 }}>
+                CONFIDENCE is a real composite of technical (this platform's A+ scan), fundamental, symbol-specific smart-money, and real-portfolio sector fit — only where each actually resolves. Not a full institutional-grade model.
+              </div>
+            </>
           )}
 
-          {/* Picks grid — one card per horizon, each holding multiple real picks */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))", gap: 12 }}>
-            {HORIZONS.map(h => {
-              const picks = brief.picks?.[h.key] || [];
-              return (
-                <div key={h.key} style={{ ...cardStyle(C, { background: C.card }), padding: 14 }}>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginBottom: 10 }}>
-                    <span style={{ fontSize: 15 }}>{h.icon}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.accent, letterSpacing: "0.04em" }}>{h.label}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{h.sub}</span>
+          {advTab === "portfolio-risk" && (
+            <>
+              {/* Portfolio Manager — real live Alpaca account, only renders when connected */}
+              {brief.portfolio && (
+                <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
+                  <SectionLabel icon="💼" text="PORTFOLIO" color={C.purple} C={C} MONO={MONO} />
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                    <StatPill label="EQUITY" value={`$${Math.round(brief.portfolio.equity).toLocaleString()}`} color={C.text} C={C} MONO={MONO} />
+                    <StatPill label="CASH" value={`$${Math.round(brief.portfolio.cash).toLocaleString()}`} color={C.textDim} C={C} MONO={MONO} />
+                    <StatPill label="OPEN RISK" value={`${brief.portfolio.openRiskPct}%`} color={brief.portfolio.openRiskPct >= 6 ? C.red : brief.portfolio.openRiskPct >= 4 ? C.amber : C.green} C={C} MONO={MONO} />
+                    <StatPill label="" value={brief.portfolio.dailyBreakerTripped ? "🔴 DAILY BREAKER TRIPPED" : "✅ Daily breaker OK"} color={brief.portfolio.dailyBreakerTripped ? C.red : C.green} C={C} MONO={MONO} />
+                    <StatPill label="TOP HOLDING" value={`${brief.portfolio.topHoldingWeightPct}% of book`} color={brief.portfolio.topHoldingWeightPct >= 30 ? C.amber : C.textDim} C={C} MONO={MONO} />
+                    <StatPill label="P&L" value={`${brief.portfolio.totalUnrealizedPL >= 0 ? "+" : ""}$${Math.round(brief.portfolio.totalUnrealizedPL).toLocaleString()}`} color={brief.portfolio.totalUnrealizedPL >= 0 ? C.green : C.red} C={C} MONO={MONO} />
                   </div>
-                  {picks.length === 0 ? (
-                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, fontStyle: "italic" }}>No real setup fits this horizon right now.</div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {picks.map(p => <PickCard key={p.symbol} p={p} C={C} MONO={MONO} SANS={SANS} />)}
+                  {brief.portfolio.holdings?.length > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {brief.portfolio.holdings.map(h => (
+                        <div key={h.symbol} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 8px", background: C.surface, borderRadius: 6, fontFamily: MONO, fontSize: 11 }}>
+                          <span style={{ fontWeight: 800, color: C.text, minWidth: 55 }}>{h.symbol}</span>
+                          <span style={{ color: C.textDim, minWidth: 55 }}>{h.weightPct}% book</span>
+                          <span style={{ color: C.textDim }}>${h.current}</span>
+                          {h.beta != null && <span style={{ color: C.textDim }}>β {h.beta.toFixed(2)}</span>}
+                          <span style={{ color: h.unrealizedPLpc >= 0 ? C.green : C.red, marginLeft: "auto" }}>
+                            {h.unrealizedPLpc >= 0 ? "+" : ""}{h.unrealizedPLpc.toFixed(1)}% (${h.unrealizedPL >= 0 ? "+" : ""}{h.unrealizedPL.toFixed(0)})
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
-              );
-            })}
-          </div>
-          <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, fontStyle: "italic", marginTop: -6 }}>
-            CONFIDENCE is a real composite of technical (this platform's A+ scan), fundamental, symbol-specific smart-money, and real-portfolio sector fit — only where each actually resolves. Not a full institutional-grade model.
-          </div>
+              )}
 
-          {/* 5-year thematic thesis */}
-          {brief.thesis5y?.length > 0 && (
-            <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
-              <SectionLabel icon="🔭" text="5-YEAR THEMATIC THESIS" color={C.purple} C={C} MONO={MONO} />
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
-                {brief.thesis5y.map((t, i) => (
-                  <div key={i} style={{ background: `${C.purple}0c`, border: `1px solid ${C.purple}33`, borderRadius: 9, padding: 13 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 6 }}>{t.theme}</div>
-                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.5, marginBottom: 9 }}>{t.why}</div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {t.tickers.map(tk => (
-                        <span key={tk.symbol} style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, padding: "3px 8px", borderRadius: 6,
-                          background: C.surface, border: `1px solid ${C.border}`, color: tk.score != null ? C.accent : C.textSec }}>
-                          {tk.symbol}{tk.score != null ? ` · ${tk.score}` : ""}
-                        </span>
+              {/* Risk Command Center — only the risk types this app can honestly
+                  quantify from real data; the rest are listed as not covered
+                  rather than silently omitted or invented */}
+              {brief.riskCommandCenter && (
+                <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
+                  <SectionLabel icon="🛡️" text="RISK COMMAND CENTER" color={C.red} C={C} MONO={MONO} />
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                    {brief.riskCommandCenter.concentrationRisk && (
+                      <StatPill label="CONCENTRATION" value={`${brief.riskCommandCenter.concentrationRisk} (${brief.riskCommandCenter.topHoldingWeightPct}%)`}
+                        color={brief.riskCommandCenter.concentrationRisk === "HIGH" ? C.red : brief.riskCommandCenter.concentrationRisk === "MODERATE" ? C.amber : C.green} C={C} MONO={MONO} />
+                    )}
+                    {brief.riskCommandCenter.volatilityRisk && (
+                      <StatPill label="VOLATILITY" value={`${brief.riskCommandCenter.volatilityRisk} (β ${brief.riskCommandCenter.weightedBeta})`}
+                        color={brief.riskCommandCenter.volatilityRisk === "HIGH" ? C.red : brief.riskCommandCenter.volatilityRisk === "MODERATE" ? C.amber : C.green} C={C} MONO={MONO} />
+                    )}
+                    {brief.riskCommandCenter.openRiskPct != null && (
+                      <StatPill label="OPEN RISK" value={`${brief.riskCommandCenter.openRiskPct}%`} color={C.textDim} C={C} MONO={MONO} />
+                    )}
+                    {/* Real market-wide reads from HYG/UUP/TLT — single-day % moves,
+                        not a proper spread/curve calc, shown alongside the real
+                        underlying number rather than as a bare label */}
+                    {brief.riskCommandCenter.creditRisk && (
+                      <StatPill label="CREDIT" value={`${brief.riskCommandCenter.creditRisk} (HYG ${brief.riskCommandCenter.creditHygChgPct >= 0 ? "+" : ""}${brief.riskCommandCenter.creditHygChgPct}%)`}
+                        color={brief.riskCommandCenter.creditRisk === "ELEVATED" ? C.red : brief.riskCommandCenter.creditRisk === "WATCH" ? C.amber : C.green} C={C} MONO={MONO} />
+                    )}
+                    {brief.riskCommandCenter.currencyRisk && (
+                      <StatPill label="CURRENCY" value={`${brief.riskCommandCenter.currencyRisk} (UUP ${brief.riskCommandCenter.currencyUupChgPct >= 0 ? "+" : ""}${brief.riskCommandCenter.currencyUupChgPct}%)`}
+                        color={brief.riskCommandCenter.currencyRisk === "ELEVATED" ? C.red : brief.riskCommandCenter.currencyRisk === "WATCH" ? C.amber : C.green} C={C} MONO={MONO} />
+                    )}
+                    {brief.riskCommandCenter.interestRateRisk && (
+                      <StatPill label="RATES" value={`${brief.riskCommandCenter.interestRateRisk} (TLT ${brief.riskCommandCenter.interestRateTltChgPct >= 0 ? "+" : ""}${brief.riskCommandCenter.interestRateTltChgPct}%)`}
+                        color={brief.riskCommandCenter.interestRateRisk === "ELEVATED" ? C.red : brief.riskCommandCenter.interestRateRisk === "WATCH" ? C.amber : C.green} C={C} MONO={MONO} />
+                    )}
+                  </div>
+                  {brief.riskCommandCenter.sectorConcentration && (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                      {Object.entries(brief.riskCommandCenter.sectorConcentration).map(([sec, count]) => (
+                        <span key={sec} style={{ fontFamily: MONO, fontSize: 10, padding: "3px 8px", borderRadius: 6, background: C.surface, border: `1px solid ${C.border}`, color: C.textSec }}>{sec}: {count}</span>
                       ))}
                     </div>
+                  )}
+                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, lineHeight: 1.5 }}>
+                    Not covered (no real data source in this app): {brief.riskCommandCenter.notCovered?.join(", ")}.
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
+              )}
+
+              {/* AI Avoid List — bottom of the same real scan, real reasons */}
+              {brief.avoidList?.length > 0 && (
+                <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
+                  <SectionLabel icon="🚫" text="AVOID LIST · LOWEST-SCORED IN TODAY'S SCAN" color={C.red} C={C} MONO={MONO} />
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
+                    {brief.avoidList.map(a => <AvoidCard key={a.symbol} a={a} C={C} MONO={MONO} SANS={SANS} />)}
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
-          {/* Capital Flow — real sector + macro-asset-class ranking (crypto/gold/treasuries/credit) */}
-          {flowRows.length > 0 && (
-            <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
-              <SectionLabel icon="📊" text="CAPITAL FLOW · REAL, TODAY VS SPY" color={C.accent} C={C} MONO={MONO} />
-              <div>{flowRows.map(s => <SectorBar key={s.symbol} s={s} maxAbs={maxAbsRel} C={C} MONO={MONO} />)}</div>
-            </div>
-          )}
-
-          {/* Scenario Engine — grounded in the real 5-factor regime system;
-              probabilities are a transparent function of today's real
-              score, explicitly labeled illustrative, not a statistical fit */}
-          {brief.scenarios && (
-            <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
-              <SectionLabel icon="🔀" text="SCENARIO ENGINE" color={C.purple} C={C} MONO={MONO} />
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginBottom: 10 }}>
-                {[["best", C.green], ["base", C.textDim], ["worst", C.red]].map(([k, col]) => {
-                  const s = brief.scenarios[k];
-                  return (
-                    <div key={k} style={{ background: `${col}0c`, border: `1px solid ${col}33`, borderRadius: 8, padding: 11 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
-                        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: col }}>{s.label}</span>
-                        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: col }}>{s.probability}%</span>
+          {advTab === "macro-thesis" && (
+            <>
+              {/* 5-year thematic thesis */}
+              {brief.thesis5y?.length > 0 && (
+                <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
+                  <SectionLabel icon="🔭" text="5-YEAR THEMATIC THESIS" color={C.purple} C={C} MONO={MONO} />
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+                    {brief.thesis5y.map((t, i) => (
+                      <div key={i} style={{ background: `${C.purple}0c`, border: `1px solid ${C.purple}33`, borderRadius: 9, padding: 13 }}>
+                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 6 }}>{t.theme}</div>
+                        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.5, marginBottom: 9 }}>{t.why}</div>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {t.tickers.map(tk => (
+                            <span key={tk.symbol} style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, padding: "3px 8px", borderRadius: 6,
+                              background: C.surface, border: `1px solid ${C.border}`, color: tk.score != null ? C.accent : C.textSec }}>
+                              {tk.symbol}{tk.score != null ? ` · ${tk.score}` : ""}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                      <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, lineHeight: 1.45 }}>{s.desc}</div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, lineHeight: 1.5, fontStyle: "italic" }}>
-                {brief.scenarios.shiftConditions?.join(" ")}
-              </div>
-              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginTop: 8 }}>Illustrative probabilities from today's real regime score — not a calibrated statistical forecast.</div>
-            </div>
-          )}
-
-          {/* AI Avoid List — bottom of the same real scan, real reasons */}
-          {brief.avoidList?.length > 0 && (
-            <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
-              <SectionLabel icon="🚫" text="AVOID LIST · LOWEST-SCORED IN TODAY'S SCAN" color={C.red} C={C} MONO={MONO} />
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
-                {brief.avoidList.map(a => <AvoidCard key={a.symbol} a={a} C={C} MONO={MONO} SANS={SANS} />)}
-              </div>
-            </div>
-          )}
-
-          {/* Portfolio Manager — real live Alpaca account, only renders when connected */}
-          {brief.portfolio && (
-            <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
-              <SectionLabel icon="💼" text="PORTFOLIO" color={C.purple} C={C} MONO={MONO} />
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                <StatPill label="EQUITY" value={`$${Math.round(brief.portfolio.equity).toLocaleString()}`} color={C.text} C={C} MONO={MONO} />
-                <StatPill label="CASH" value={`$${Math.round(brief.portfolio.cash).toLocaleString()}`} color={C.textDim} C={C} MONO={MONO} />
-                <StatPill label="OPEN RISK" value={`${brief.portfolio.openRiskPct}%`} color={brief.portfolio.openRiskPct >= 6 ? C.red : brief.portfolio.openRiskPct >= 4 ? C.amber : C.green} C={C} MONO={MONO} />
-                <StatPill label="" value={brief.portfolio.dailyBreakerTripped ? "🔴 DAILY BREAKER TRIPPED" : "✅ Daily breaker OK"} color={brief.portfolio.dailyBreakerTripped ? C.red : C.green} C={C} MONO={MONO} />
-                <StatPill label="TOP HOLDING" value={`${brief.portfolio.topHoldingWeightPct}% of book`} color={brief.portfolio.topHoldingWeightPct >= 30 ? C.amber : C.textDim} C={C} MONO={MONO} />
-                <StatPill label="P&L" value={`${brief.portfolio.totalUnrealizedPL >= 0 ? "+" : ""}$${Math.round(brief.portfolio.totalUnrealizedPL).toLocaleString()}`} color={brief.portfolio.totalUnrealizedPL >= 0 ? C.green : C.red} C={C} MONO={MONO} />
-              </div>
-              {brief.portfolio.holdings?.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {brief.portfolio.holdings.map(h => (
-                    <div key={h.symbol} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 8px", background: C.surface, borderRadius: 6, fontFamily: MONO, fontSize: 11 }}>
-                      <span style={{ fontWeight: 800, color: C.text, minWidth: 55 }}>{h.symbol}</span>
-                      <span style={{ color: C.textDim, minWidth: 55 }}>{h.weightPct}% book</span>
-                      <span style={{ color: C.textDim }}>${h.current}</span>
-                      {h.beta != null && <span style={{ color: C.textDim }}>β {h.beta.toFixed(2)}</span>}
-                      <span style={{ color: h.unrealizedPLpc >= 0 ? C.green : C.red, marginLeft: "auto" }}>
-                        {h.unrealizedPLpc >= 0 ? "+" : ""}{h.unrealizedPLpc.toFixed(1)}% (${h.unrealizedPL >= 0 ? "+" : ""}{h.unrealizedPL.toFixed(0)})
-                      </span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Risk Command Center — only the risk types this app can honestly
-              quantify from real data; the rest are listed as not covered
-              rather than silently omitted or invented */}
-          {brief.riskCommandCenter && (
-            <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
-              <SectionLabel icon="🛡️" text="RISK COMMAND CENTER" color={C.red} C={C} MONO={MONO} />
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-                {brief.riskCommandCenter.concentrationRisk && (
-                  <StatPill label="CONCENTRATION" value={`${brief.riskCommandCenter.concentrationRisk} (${brief.riskCommandCenter.topHoldingWeightPct}%)`}
-                    color={brief.riskCommandCenter.concentrationRisk === "HIGH" ? C.red : brief.riskCommandCenter.concentrationRisk === "MODERATE" ? C.amber : C.green} C={C} MONO={MONO} />
-                )}
-                {brief.riskCommandCenter.volatilityRisk && (
-                  <StatPill label="VOLATILITY" value={`${brief.riskCommandCenter.volatilityRisk} (β ${brief.riskCommandCenter.weightedBeta})`}
-                    color={brief.riskCommandCenter.volatilityRisk === "HIGH" ? C.red : brief.riskCommandCenter.volatilityRisk === "MODERATE" ? C.amber : C.green} C={C} MONO={MONO} />
-                )}
-                {brief.riskCommandCenter.openRiskPct != null && (
-                  <StatPill label="OPEN RISK" value={`${brief.riskCommandCenter.openRiskPct}%`} color={C.textDim} C={C} MONO={MONO} />
-                )}
-                {/* Real market-wide reads from HYG/UUP/TLT — single-day % moves,
-                    not a proper spread/curve calc, shown alongside the real
-                    underlying number rather than as a bare label */}
-                {brief.riskCommandCenter.creditRisk && (
-                  <StatPill label="CREDIT" value={`${brief.riskCommandCenter.creditRisk} (HYG ${brief.riskCommandCenter.creditHygChgPct >= 0 ? "+" : ""}${brief.riskCommandCenter.creditHygChgPct}%)`}
-                    color={brief.riskCommandCenter.creditRisk === "ELEVATED" ? C.red : brief.riskCommandCenter.creditRisk === "WATCH" ? C.amber : C.green} C={C} MONO={MONO} />
-                )}
-                {brief.riskCommandCenter.currencyRisk && (
-                  <StatPill label="CURRENCY" value={`${brief.riskCommandCenter.currencyRisk} (UUP ${brief.riskCommandCenter.currencyUupChgPct >= 0 ? "+" : ""}${brief.riskCommandCenter.currencyUupChgPct}%)`}
-                    color={brief.riskCommandCenter.currencyRisk === "ELEVATED" ? C.red : brief.riskCommandCenter.currencyRisk === "WATCH" ? C.amber : C.green} C={C} MONO={MONO} />
-                )}
-                {brief.riskCommandCenter.interestRateRisk && (
-                  <StatPill label="RATES" value={`${brief.riskCommandCenter.interestRateRisk} (TLT ${brief.riskCommandCenter.interestRateTltChgPct >= 0 ? "+" : ""}${brief.riskCommandCenter.interestRateTltChgPct}%)`}
-                    color={brief.riskCommandCenter.interestRateRisk === "ELEVATED" ? C.red : brief.riskCommandCenter.interestRateRisk === "WATCH" ? C.amber : C.green} C={C} MONO={MONO} />
-                )}
-              </div>
-              {brief.riskCommandCenter.sectorConcentration && (
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-                  {Object.entries(brief.riskCommandCenter.sectorConcentration).map(([sec, count]) => (
-                    <span key={sec} style={{ fontFamily: MONO, fontSize: 10, padding: "3px 8px", borderRadius: 6, background: C.surface, border: `1px solid ${C.border}`, color: C.textSec }}>{sec}: {count}</span>
-                  ))}
+              {/* Capital Flow — real sector + macro-asset-class ranking (crypto/gold/treasuries/credit) */}
+              {flowRows.length > 0 && (
+                <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
+                  <SectionLabel icon="📊" text="CAPITAL FLOW · REAL, TODAY VS SPY" color={C.accent} C={C} MONO={MONO} />
+                  <div>{flowRows.map(s => <SectorBar key={s.symbol} s={s} maxAbs={maxAbsRel} C={C} MONO={MONO} />)}</div>
                 </div>
               )}
-              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, lineHeight: 1.5 }}>
-                Not covered (no real data source in this app): {brief.riskCommandCenter.notCovered?.join(", ")}.
-              </div>
-            </div>
-          )}
 
-          {/* Smart money read */}
-          {brief.smartMoneyRead && (
-            <div style={{ background: `${C.amber}0c`, border: `1px solid ${C.amber}33`, borderRadius: 12, padding: "14px 16px" }}>
-              <SectionLabel icon="🕵️" text="SMART MONEY READ" color={C.amber} C={C} MONO={MONO} />
-              <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.55 }}>{brief.smartMoneyRead}</div>
-            </div>
-          )}
+              {/* Scenario Engine — grounded in the real 5-factor regime system;
+                  probabilities are a transparent function of today's real
+                  score, explicitly labeled illustrative, not a statistical fit */}
+              {brief.scenarios && (
+                <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
+                  <SectionLabel icon="🔀" text="SCENARIO ENGINE" color={C.purple} C={C} MONO={MONO} />
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginBottom: 10 }}>
+                    {[["best", C.green], ["base", C.textDim], ["worst", C.red]].map(([k, col]) => {
+                      const s = brief.scenarios[k];
+                      return (
+                        <div key={k} style={{ background: `${col}0c`, border: `1px solid ${col}33`, borderRadius: 8, padding: 11 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
+                            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: col }}>{s.label}</span>
+                            <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: col }}>{s.probability}%</span>
+                          </div>
+                          <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, lineHeight: 1.45 }}>{s.desc}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, lineHeight: 1.5, fontStyle: "italic" }}>
+                    {brief.scenarios.shiftConditions?.join(" ")}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginTop: 8 }}>Illustrative probabilities from today's real regime score — not a calibrated statistical forecast.</div>
+                </div>
+              )}
 
-          {/* CEO action plan */}
-          {brief.actionPlan?.length > 0 && (
-            <div style={{ background: `linear-gradient(135deg, ${C.goldBg}, ${C.card} 55%)`, border: `1px solid ${C.gold}44`, borderRadius: 12, padding: "14px 16px" }}>
-              <SectionLabel icon="🎯" text="CEO ACTION PLAN" color={C.gold} C={C} MONO={MONO} />
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {brief.actionPlan.map(a => {
-                  const meta = ACTION_META[a.action] || { label: a.action, key: "textDim" };
-                  const col = C[meta.key] || C.textDim;
-                  return (
-                    <div key={a.symbol} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: C.surface, borderRadius: 8, flexWrap: "wrap" }}>
-                      <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, padding: "3px 9px", borderRadius: 6, background: `${col}20`, color: col, minWidth: 90, textAlign: "center" }}>{meta.label}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, minWidth: 52 }}>{a.symbol}</span>
-                      {/* REDUCE/SELL are enriched from real portfolio holdings, not a
-                          scanned setup score — show real weight/P&L instead */}
-                      {a.score != null && <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, minWidth: 40 }}>{a.score}/100</span>}
-                      {a.confidence && <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: a.confidence.composite >= 70 ? C.green : a.confidence.composite >= 50 ? C.amber : C.textDim }}>conf {a.confidence.composite}</span>}
-                      {a.weightPct != null && <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, minWidth: 90 }}>{a.weightPct}% of book</span>}
-                      {a.unrealizedPLpc != null && <span style={{ fontFamily: MONO, fontSize: 10.5, color: a.unrealizedPLpc >= 0 ? C.green : C.red }}>{a.unrealizedPLpc >= 0 ? "+" : ""}{a.unrealizedPLpc.toFixed(1)}%</span>}
-                      {a.held && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.purple, background: `${C.purple}18`, borderRadius: 4, padding: "1px 5px" }}>HELD</span>}
-                      <span style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, flex: 1, minWidth: 160 }}>{a.reason}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+              {/* Smart money read */}
+              {brief.smartMoneyRead && (
+                <div style={{ background: `${C.amber}0c`, border: `1px solid ${C.amber}33`, borderRadius: 12, padding: "14px 16px" }}>
+                  <SectionLabel icon="🕵️" text="SMART MONEY READ" color={C.amber} C={C} MONO={MONO} />
+                  <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.55 }}>{brief.smartMoneyRead}</div>
+                </div>
+              )}
+            </>
           )}
 
           <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "right" }}>
