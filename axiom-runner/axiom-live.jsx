@@ -1579,7 +1579,7 @@ export default function App() {
   const [scanLoading,  setScanLoading]  = useState(false);
   // Scanner filters — hoisted to top level (Rules of Hooks)
   const [sfSig,      setSfSig]      = useState(() => { try { return localStorage.getItem("sf_sig") || "ALL"; } catch { return "ALL"; } });
-  const [sfMinScore, setSfMinScore] = useState(() => { try { return Number(localStorage.getItem("sf_score") || "0"); } catch { return 0; } });
+  const [sfMinScore, setSfMinScore] = useState(() => { try { return Number(localStorage.getItem("sf_score") || "70"); } catch { return 70; } });
   const [sfMaxPrice, setSfMaxPrice] = useState(0);
   const [sfZone,     setSfZone]     = useState("ALL");
   const [scanProgress, setScanProgress] = useState({ done: 0, total: 30 });
