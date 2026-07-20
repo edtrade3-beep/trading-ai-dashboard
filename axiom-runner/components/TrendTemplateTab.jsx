@@ -8,7 +8,7 @@ export default function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
   const [err, setErr]   = React.useState(null);
   const [screen, setScreen] = React.useState(null);
   const [screening, setScreening] = React.useState(false);
-  const [scoreFilter, setScoreFilter] = React.useState("ALL"); // ALL | BUY | 8 | 7 | 6
+  const [scoreFilter, setScoreFilter] = React.useState("7"); // ALL | BUY | 8 | 7 | 6
   const [showHelp, setShowHelp] = React.useState(false);
   const [showReport, setShowReport] = React.useState(false);
   const [rowOpen, setRowOpen] = React.useState(null);   // symbol expanded inline in the table
