@@ -28,7 +28,7 @@ function CompactPrayerNext({ dim }) {
       fetch(`https://api.aladhan.com/v1/timings?latitude=${lat}&longitude=${lng}&method=2`)
         .then(r => r.json()).then(d => { if (d.data) setTimes(d.data.timings); }).catch(() => {});
     };
-    const fallback = () => { if (!done) { done = true; loadByCoords(21.4225, 39.8262); } }; // Makkah
+    const fallback = () => { if (!done) { done = true; loadByCoords(39.3266, -84.5479); } }; // ZIP 45014, Fairfield OH — user's default
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         pos => { done = true; loadByCoords(pos.coords.latitude, pos.coords.longitude); },

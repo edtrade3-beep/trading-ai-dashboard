@@ -1868,7 +1868,7 @@ export default function App() {
   // prayer automatic based on gps").
   const [athanLocationLabel, setAthanLocationLabel] = useState("");
   const [athanMethod, setAthanMethod] = useState(() => Number(localStorage.getItem("athan_method") || "4"));
-  const [athanSoundOn, setAthanSoundOn] = useState(() => localStorage.getItem("athan_sound") !== "off");
+  const [athanSoundOn, setAthanSoundOn] = useState(() => localStorage.getItem("athan_sound") === "on");
   const [athanReminder, setAthanReminder] = useState(() => Number(localStorage.getItem("athan_reminder") || "10"));
   const [athanTimes, setAthanTimes] = useState(null);
   const [athanHijri, setAthanHijri] = useState(null);
@@ -1914,8 +1914,9 @@ export default function App() {
   // automatic based on gps") — a saved manual city (set via the Athan
   // tab's settings) is only used as a fallback if geolocation itself is
   // denied/unsupported/times out, never preferred over a real current
-  // position. Makkah is the final fallback if neither works, so a
-  // brand-new user with zero setup and no GPS still gets real times.
+  // position. ZIP 45014 (Fairfield, OH — user's default, 2026-07-20) is
+  // the final fallback if neither works, so a brand-new session with no
+  // GPS still gets real, locally-relevant times.
   const athanAutoLoaded = useRef(false);
   useEffect(() => {
     if (athanTimes || athanLoading || athanAutoLoaded.current) return;
@@ -1925,7 +1926,7 @@ export default function App() {
       if (done) return;
       done = true;
       if (athanCity && athanCountry) { fetchPrayerTimes(null, null, athanCity, athanCountry); setAthanLocationLabel(athanCity); }
-      else { fetchPrayerTimes(21.4225, 39.8262, null, null); setAthanLocationLabel("Makkah (default)"); }
+      else { fetchPrayerTimes(39.3266, -84.5479, null, null); setAthanLocationLabel("Fairfield, OH 45014 (default)"); }
     };
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
