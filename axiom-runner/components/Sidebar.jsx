@@ -6,6 +6,7 @@
 export const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "Dashboard",     icon: "🏠", tab: "dashboard" },
   { id: "ceo-ai",    label: "CEO AI",        icon: "🧠", tab: "ceo-ai" },
+  { id: "command-center", label: "Command Center", icon: "🛰️", tab: "command-center", badge: "NEW" },
   { id: "best-opportunities", label: "Best Opportunities", icon: "🔥", tab: "best-opportunities" },
   { id: "portfolio-tab", label: "Portfolio", icon: "💼", tab: "portfolio-tab" },
   { id: "capital-allocation", label: "Capital Allocation", icon: "💰", tab: "capital-allocation" },

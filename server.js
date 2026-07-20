@@ -56,6 +56,8 @@ const { startPreMarketAlerts } = require("./src/premarket-alerts");
 const { runMarketRecap }       = require("./src/market-recap");
 const { runMorningGamePlan, runTradeCoach, runWeeklyReview, runMonthlyDeepReview, runApexBriefing } = require("./src/ai-coach");
 const { runCeoRecommendation } = require("./src/ceo-ai");
+const { buildCommandCenter } = require("./src/command-center-ai");
+const { runPredictionTracker } = require("./src/prediction-tracker");
 const { runAutopilotRecap } = require("./src/alpaca-recap");
 const { runServerAutopilot } = require("./src/server-autopilot");
 const { runTrailingStops } = require("./src/trailing-stops");
@@ -128,6 +130,14 @@ server.listen(PORT, HOST, () => {
   }, 15 * 60_000);
   console.log("[WL Alerts] Watchlist + Entry Zone scanner active — checks every 15 min");
 
+  // Prediction tracker — grades Command Center's open trade ideas against
+  // real current prices. Real price checks only (no AI cost), so this runs
+  // far more often than Command Center's own once-daily generation —
+  // hourly catches a hit/stop soon after it happens instead of waiting a
+  // full day, with no cost trade-off since nothing here calls the AI.
+  setInterval(() => { runPredictionTracker().catch(() => {}); }, 60 * 60_000);
+  console.log("[Predictions] Tracker active — grades open ideas every hour");
+
   // Auto-download CFTC data on startup if not already fresh
   setTimeout(() => {
     if (!isDataFresh()) {
@@ -173,7 +183,7 @@ server.listen(PORT, HOST, () => {
 
   // AI Morning Game Plan (~9:40 AM ET) + AI Trade Coach (~4:15 PM ET) — weekdays, server-side.
   // Autopilot recap (~4:05 PM ET) — what the Alpaca paper autopilot did today.
-  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null, _aplusSnapshot = null;
+  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null, _aplusSnapshot = null, _cmdCenterSent = null;
   setInterval(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
@@ -186,6 +196,12 @@ server.listen(PORT, HOST, () => {
     // morning's actual persisted Morning Brief, not yesterday's.
     if (h === 8 && m >= 0 && m < 6 && _apexSent !== today) { _apexSent = today; runApexBriefing().catch(() => {}); }
     if (h === 8 && m >= 10 && m < 16 && _ceoSent !== today) { _ceoSent = today; runCeoRecommendation().catch(() => {}); }
+    // Command Center 8:20 ET — after Apex/CEO AI have run, using whatever
+    // real ADVISOR AI brief already exists (however recently generated —
+    // ADVISOR itself is on-demand only, no daily auto-run, so this doesn't
+    // force a same-day dependency; buildCommandCenter() safely no-ops if no
+    // ADVISOR brief exists at all yet).
+    if (h === 8 && m >= 20 && m < 26 && _cmdCenterSent !== today) { _cmdCenterSent = today; buildCommandCenter().catch(() => {}); }
     if (h === 9 && m >= 40 && m < 46 && _gpSent !== today) { _gpSent = today; runMorningGamePlan().catch(() => {}); }
     if (h === 16 && m >= 5 && m < 11 && _recapAP !== today) { _recapAP = today; runAutopilotRecap().catch(() => {}); }
     if (h === 16 && m >= 15 && m < 21 && _coachSent !== today) { _coachSent = today; runTradeCoach().catch(() => {}); }

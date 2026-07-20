@@ -67,6 +67,7 @@ import AutoPilotEngine from "./components/AutoPilotEngine.jsx";
 import BestOppNotifier from "./components/BestOppNotifier.jsx";
 import SmartMoneyBrief from "./components/SmartMoneyBrief.jsx";
 import AdvisorAiTab from "./components/AdvisorAiTab.jsx";
+import CommandCenterTab from "./components/CommandCenterTab.jsx";
 import CeoAiCard from "./components/CeoAiCard.jsx";
 import TrendTemplateTab from "./components/TrendTemplateTab.jsx";
 import EarlyEntryScanner from "./components/EarlyEntryScanner.jsx";
@@ -3896,6 +3897,7 @@ export default function App() {
       ADVISORAI: "advisor-ai",
       CIO: "advisor-ai",
       CEOAI: "ceo-ai",
+      COMMANDCENTER: "command-center",
       BESTOPPORTUNITIES: "best-opportunities",
       BESTOPP: "best-opportunities",
       // New sidebar tabs (2026-07-19). PORTFOLIO above already maps to the
@@ -6040,6 +6042,12 @@ export default function App() {
             <CeoAiCard C={C} MONO={MONO} SANS={SANS} />
           </div>
         )}
+
+        {/* AI Market Command Center — new tab under CEO AI (2026-07-20,
+            user request). Reuses ADVISOR AI's + CEO AI's real, already-
+            computed output; adds a classified event feed and a real graded
+            trade-idea track record, both genuinely new. */}
+        {activeTab === "command-center" && <CommandCenterTab C={C} MONO={MONO} SANS={SANS} />}
 
         {/* Best Opportunities — moved out of the Dashboard Opportunities
             sub-tab into its own dedicated sidebar spot, right under CEO AI
