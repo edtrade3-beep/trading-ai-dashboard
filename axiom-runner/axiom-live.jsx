@@ -6,7 +6,7 @@ import TrendSetupPanel from "./components/TrendSetupPanel.jsx";
 import SmartScanPanel from "./components/SmartScanPanel.jsx";
 import DayTradeTab from "./components/DayTradeTab.jsx";
 import MarketTerminalTab from "./components/MarketTerminalTab.jsx";
-import { computeRegime, STOCK_TO_SECTOR, SECTOR_ETFS } from "./components/market-helpers.js";
+import { computeRegime, STOCK_TO_SECTOR, SECTOR_ETFS, computeFibLevels } from "./components/market-helpers.js";
 import { FIVEX_DATA, FIVEX_REF } from "./components/fivex-data.js";
 import { qUrl, QURAN_RECITERS, SURAH_LIST } from "./components/quran-data.js";
 import QuranTab from "./components/QuranTab.jsx";
@@ -2970,28 +2970,18 @@ export default function App() {
   }
 
   // ── Fibonacci Calculator ──────────────────────────────────────────────────
+  // Shared computeFibLevels (market-helpers.js) — same real calculation
+  // also auto-runs per symbol in SmartScanPanel and SmartScanTab's deep
+  // dive now, kept in one place so all three never diverge.
   async function fetchFibonacci(ticker) {
     setFibLoading(true); setFibError(""); setFibData(null);
     try {
       const res = await fetch(`/api/market/candles?ticker=${encodeURIComponent(ticker)}&timeframe=1D`);
       const data = await res.json();
       if (!data.ok || !data.bars || data.bars.length < 20) throw new Error("Not enough candle data");
-      const bars = data.bars.slice(-90);
-      const highs = bars.map(b => b.high);
-      const lows  = bars.map(b => b.low);
-      const swingHigh = Math.max(...highs);
-      const swingLow  = Math.min(...lows);
-      const range = swingHigh - swingLow;
-      const last  = bars[bars.length - 1].close;
-      const RATIOS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1, 1.272, 1.618];
-      const LABELS = ["0% (Low)", "23.6%", "38.2%", "50%", "61.8% (Golden)", "78.6%", "100% (High)", "127.2% (Ext)", "161.8% (Ext)"];
-      const levels = RATIOS.map((r, i) => ({
-        label: LABELS[i], ratio: r,
-        price: swingLow + range * r,
-        isKey: [0.382, 0.5, 0.618].includes(r),
-        isExt: r > 1,
-      }));
-      setFibData({ ticker, swingHigh, swingLow, levels, lastPrice: last, highIdx: highs.indexOf(swingHigh), lowIdx: lows.indexOf(swingLow) });
+      const fib = computeFibLevels(data.bars, ticker);
+      if (!fib) throw new Error("Not enough candle data");
+      setFibData(fib);
     } catch (e) {
       setFibError(e.message);
     }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { computeFibLevels } from "./market-helpers.js";
 
 // Inline Smart Scan: SMC (structure / order blocks / FVGs / liquidity) + AI
 // review, off /api/market/smc + /api/market/ai-setup-review. Shared by
@@ -11,6 +12,22 @@ export default function SmartScanPanel({ symbol, chart, C, MONO, SANS }) {
     if (!symbol) return; setState("loading"); setSmc(null); setReview(""); setRvState("idle");
     fetch("/api/market/smc?symbol=" + encodeURIComponent(symbol))
       .then(r => r.json()).then(j => { if (j.ok) { setSmc(j); setState("ok"); } else setState("none"); }).catch(() => setState("none"));
+  }, [symbol]);
+
+  // Fibonacci levels — auto-computed for whichever symbol is loaded, same
+  // real calculation (market-helpers.js computeFibLevels) the standalone
+  // Fibonacci Calculator tab uses, off the same real candle data
+  // (/api/market/candles) — no separate "Calculate" step needed here since
+  // there's always exactly one symbol loaded in this panel.
+  const [fib, setFib] = useState(null);
+  const [fibState, setFibState] = useState("loading");
+  useEffect(() => {
+    if (!symbol) return; setFibState("loading"); setFib(null);
+    fetch(`/api/market/candles?ticker=${encodeURIComponent(symbol)}&timeframe=1D`)
+      .then(r => r.json()).then(j => {
+        const levels = j.ok ? computeFibLevels(j.bars, symbol) : null;
+        if (levels) { setFib(levels); setFibState("ok"); } else setFibState("none");
+      }).catch(() => setFibState("none"));
   }, [symbol]);
   const askAI = () => {
     if (!chart) return;
@@ -67,6 +84,35 @@ export default function SmartScanPanel({ symbol, chart, C, MONO, SANS }) {
           ))}
         </div>
       )}
+
+      {/* Fibonacci levels — independent of SMC's load state, same real
+          data/calc the standalone Fibonacci Calculator tab uses. */}
+      {fibState === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "8px 0" }}>Loading Fibonacci levels…</div>}
+      {fibState === "ok" && fib && (
+        <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px", background: C.bg }}>
+          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, marginBottom: 8 }}>
+            🌀 FIBONACCI LEVELS (90D SWING ${fib.swingLow.toFixed(2)} – ${fib.swingHigh.toFixed(2)})
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {fib.levels.map((lvl, i) => {
+              const range = fib.swingHigh - fib.swingLow;
+              const isCurrent = fib.lastPrice >= lvl.price - range * 0.02 && fib.lastPrice <= lvl.price + range * 0.02;
+              return (
+                <div key={i} style={{
+                  flex: "1 1 100px", minWidth: 90, textAlign: "center", padding: "6px 8px", borderRadius: 6,
+                  background: isCurrent ? "#d6a31222" : lvl.isKey ? "#d6a31210" : "transparent",
+                  border: `1px solid ${isCurrent ? "#d6a312" : lvl.isKey ? "#d6a31255" : C.border}`,
+                }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: lvl.isKey ? "#d6a312" : C.textDim }}>{lvl.label}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text, marginTop: 2 }}>${lvl.price.toFixed(2)}</div>
+                  {isCurrent && <div style={{ fontFamily: MONO, fontSize: 9, color: "#d6a312", marginTop: 2 }}>◄ HERE</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>SMC = Smart Money Concepts. Order blocks = zones institutions likely traded; FVGs = price gaps that often get filled. Educational, not advice.</div>
     </div>
   );

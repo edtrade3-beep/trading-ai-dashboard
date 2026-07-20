@@ -70,6 +70,33 @@ export function computeAPlusScore(row, regime) {
   return { score, reasons, breakdown: { trendPts, rsPts, regimePts, setupPts } };
 }
 
+// Fibonacci retracement/extension levels from real daily candle bars — the
+// same pure calculation FibonacciTab's fetchFibonacci originally had
+// inline, extracted here so it can also auto-run on every stock's
+// technical analysis (MarketTerminalTab's Smart Scan panel, SmartScanTab's
+// per-row deep-dive) without duplicating/diverging the math. Swing
+// high/low over the trailing window (real candle data, no guessing);
+// returns null if there isn't enough real data to compute from.
+export const FIB_RATIOS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1, 1.272, 1.618];
+export const FIB_LABELS = ["0% (Low)", "23.6%", "38.2%", "50%", "61.8% (Golden)", "78.6%", "100% (High)", "127.2% (Ext)", "161.8% (Ext)"];
+export function computeFibLevels(bars, ticker) {
+  if (!Array.isArray(bars) || bars.length < 20) return null;
+  const window = bars.slice(-90);
+  const highs = window.map(b => b.high);
+  const lows = window.map(b => b.low);
+  const swingHigh = Math.max(...highs);
+  const swingLow = Math.min(...lows);
+  const range = swingHigh - swingLow;
+  const last = window[window.length - 1].close;
+  const levels = FIB_RATIOS.map((r, i) => ({
+    label: FIB_LABELS[i], ratio: r,
+    price: swingLow + range * r,
+    isKey: [0.382, 0.5, 0.618].includes(r),
+    isExt: r > 1,
+  }));
+  return { ticker, swingHigh, swingLow, levels, lastPrice: last };
+}
+
 // Next Action — a plain one-word verdict for new-money decisions (not position
 // management — no REDUCE/REMOVE, this doesn't know what you already own).
 // Same row shape as computeAPlusScore. Always returns a `reason`.
