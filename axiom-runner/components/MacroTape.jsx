@@ -10,6 +10,18 @@ export default function MacroTape({ data, cryptoSnapshot, marketSession }) {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
+  // Collapsible (2026-07-20, user request — same treatment as the left
+  // sidebar) — persisted across sessions. Normal document flow, not
+  // position:fixed, so collapsing it just reflows everything below;
+  // no ResizeObserver plumbing needed like the sidebar required.
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem("macrotape_collapsed") === "1"; } catch { return false; }
+  });
+  const toggleCollapsed = () => setCollapsed(v => {
+    const nv = !v;
+    try { localStorage.setItem("macrotape_collapsed", nv ? "1" : "0"); } catch {}
+    return nv;
+  });
 
   if (!data.length) return null;
 
@@ -46,6 +58,32 @@ export default function MacroTape({ data, cryptoSnapshot, marketSession }) {
     regime = "NEUTRAL 🟡"; regimeColor = C.amber; regimeBg = `${C.amber}14`;
   }
 
+  if (collapsed) {
+    const spyChgUp = spyChg >= 0;
+    return (
+      <div style={{
+        display: "flex", alignItems: "center", gap: 10, background: C.surface,
+        borderBottom: `1px solid ${C.border}`, flexShrink: 0, padding: "4px 12px",
+      }}>
+        <button onClick={toggleCollapsed} title="Show market ticker"
+          style={{ border: "none", background: "transparent", color: C.textDim, cursor: "pointer",
+            fontFamily: MONO, fontSize: 11, padding: "2px 4px", display: "flex", alignItems: "center", gap: 4 }}>
+          <span>▸</span><span>MARKET TICKER</span>
+        </button>
+        {spyRow && (
+          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+            S&P <span style={{ color: C.text, fontWeight: 700 }}>{spyRow.price?.toFixed(2)}</span>{" "}
+            <span style={{ color: spyChgUp ? C.green : C.red }}>{spyChgUp ? "+" : ""}{spyChg.toFixed(2)}%</span>
+          </span>
+        )}
+        <span style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: "auto" }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: regimeColor, flexShrink: 0, boxShadow: `0 0 5px ${regimeColor}` }} />
+          <span style={{ fontFamily: MONO, fontSize: 10, color: regimeColor, fontWeight: 700, letterSpacing: "0.06em" }}>{regime}</span>
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       display: "flex", alignItems: "stretch",
@@ -53,6 +91,12 @@ export default function MacroTape({ data, cryptoSnapshot, marketSession }) {
       overflowX: "auto", scrollbarWidth: "none",
       flexShrink: 0,
     }}>
+      <button onClick={toggleCollapsed} title="Hide market ticker"
+        style={{ borderTop: "none", borderLeft: "none", borderBottom: "none", borderRight: `1px solid ${C.border}`,
+          background: "transparent", color: C.textDim,
+          cursor: "pointer", padding: "6px 10px", flexShrink: 0, fontSize: 12 }}>
+        ◂
+      </button>
       {SLOTS.map(slot => {
         const q = data.find(d => d.symbol === slot.sym);
         const chg = q?.changesPercentage || 0;
