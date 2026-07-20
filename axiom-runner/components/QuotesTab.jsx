@@ -387,10 +387,18 @@ export default function QuotesTab({
                         onMouseEnter={e => { e.currentTarget.style.borderLeftColor = sigCol; e.currentTarget.style.background = C.cardHover; }}
                         onMouseLeave={e => { e.currentTarget.style.borderLeftColor = isUp ? C.green : C.red; e.currentTarget.style.background = C.card; }}
                       >
-                        {/* Symbol + signal */}
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                        {/* Symbol + signal + alert toggle */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 6 }}>
                           <span style={{ fontFamily: MONO, fontSize: isTablet ? 16 : 14, fontWeight: 800, color: C.accent }}>{q.symbol}</span>
-                          <span style={{ fontFamily: MONO, fontSize: isTablet ? 10 : 9, fontWeight: 700, color: sigCol, background: `${sigCol}22`, borderRadius: 5, padding: "3px 7px" }}>{mtf.signal}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                            <span style={{ fontFamily: MONO, fontSize: isTablet ? 10 : 9, fontWeight: 700, color: sigCol, background: `${sigCol}22`, borderRadius: 5, padding: "3px 7px" }}>{mtf.signal}</span>
+                            <button
+                              onClick={e => { e.stopPropagation(); if (openAlertSymbol === q.symbol) { setOpenAlertSymbol(null); } else { setOpenAlertSymbol(q.symbol); setWlAlertDir("above"); setWlAlertPrice(q.price ? (q.price * 1.02).toFixed(2) : ""); } }}
+                              title="Set price alert"
+                              style={{ flexShrink: 0, border: `1px solid ${openAlertSymbol === q.symbol ? C.amber + "99" : C.border}`, background: openAlertSymbol === q.symbol ? `${C.amber}18` : "transparent", color: openAlertSymbol === q.symbol ? C.amber : C.textDim, borderRadius: 5, padding: "2px 5px", fontSize: 11, cursor: "pointer", lineHeight: 1 }}>
+                              🔔
+                            </button>
+                          </div>
                         </div>
                         {/* Price */}
                         <div style={{ fontFamily: MONO, fontSize: isTablet ? 20 : 16, fontWeight: 700, color: C.text, marginBottom: 2 }}>
@@ -409,6 +417,45 @@ export default function QuotesTab({
                         {rvol > 0 && (
                           <div style={{ fontFamily: MONO, fontSize: isTablet ? 12 : 10, color: rvol >= 2 ? C.accent : rvol >= 1.2 ? C.amber : C.textDim, marginTop: 4 }}>
                             RVOL {rvol.toFixed(1)}×
+                          </div>
+                        )}
+                        {/* Inline price-alert form — was table-view-only, cards
+                            (the mobile default view) had no way to set a
+                            per-symbol alert at all. Stacked vertically, not
+                            the table version's single flex row, since a card
+                            is only 160-180px wide -- a horizontal row of
+                            select+input+2 buttons doesn't fit that width. */}
+                        {openAlertSymbol === q.symbol && (
+                          <div onClick={e => e.stopPropagation()} style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 6 }}>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <select value={wlAlertDir} onChange={e => setWlAlertDir(e.target.value)}
+                                style={{ flex: 1, minWidth: 0, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "4px 6px", borderRadius: 6 }}>
+                                <option value="above">Above</option>
+                                <option value="below">Below</option>
+                              </select>
+                              <input type="number" step="0.01" value={wlAlertPrice} onChange={e => setWlAlertPrice(e.target.value)}
+                                placeholder="Target"
+                                style={{ flex: 1, minWidth: 0, background: C.surface, border: `1px solid ${C.amber}66`, color: C.text, fontFamily: MONO, fontSize: 11, padding: "4px 6px", borderRadius: 6, outline: "none" }}
+                              />
+                            </div>
+                            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>now: ${(q.price || 0).toFixed(2)}</div>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <button
+                                onClick={async e => {
+                                  e.stopPropagation();
+                                  if (!wlAlertPrice) return;
+                                  await fetch("/api/price-alerts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol: q.symbol, targetPrice: Number(wlAlertPrice), direction: wlAlertDir }) });
+                                  setOpenAlertSymbol(null);
+                                }}
+                                style={{ flex: 1, border: `1px solid ${C.amber}66`, background: `${C.amber}22`, color: C.amber, borderRadius: 6, padding: "5px 0", fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                                SET ALERT
+                              </button>
+                              <button
+                                onClick={e => { e.stopPropagation(); setOpenAlertSymbol(null); }}
+                                style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "5px 10px", fontFamily: MONO, fontSize: 11, cursor: "pointer" }}>
+                                ✕
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
