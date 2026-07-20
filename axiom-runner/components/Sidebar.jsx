@@ -12,6 +12,7 @@ export const SIDEBAR_ITEMS = [
   { id: "mission-status", label: "Mission Status", icon: "🎯", tab: "mission-status" },
   { id: "market-pulse", label: "Market Pulse", icon: "📈", tab: "market-pulse" },
   { id: "market",    label: "Market",        icon: "🌐", tab: "mterminal" },
+  { id: "fibonacci", label: "Fibonacci",     icon: "🌀", tab: "fibonacci" },
   { id: "watchlist", label: "Watchlist",     icon: "⭐", tab: "quotes" },
   { id: "copilot",   label: "AI Copilot",    icon: "🤖", tab: null, badge: "NEW" },
   { id: "advisor-ai", label: "Advisor AI",   icon: "🏛️", tab: "advisor-ai", badge: "NEW" },
