@@ -815,12 +815,11 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
         // market regime + buy-point proximity, so the displayed order always matches the score.
         const top = res.map(r => ({ ...r, _rr: rr(r), _aplus: computeAPlusScore(r, regimeRef.current) }))
           .sort((a, b) => b._aplus.score - a._aplus.score).slice(0, 5);
-        // Flag GO setups that are NEW since we last saw them → highlight + notify.
-        const newGo = [];
-        top.forEach(r => { if (isGo(r) && !seenGo.current.has(r.symbol)) { r._new = true; newGo.push(r.symbol); seenGo.current.add(r.symbol); } });
-        if (newGo.length && notifyOn && "Notification" in window && Notification.permission === "granted") {
-          try { new Notification("🎯 New buy-point: " + newGo.join(", "), { body: "A new GO setup just appeared in Best Opportunities." }); } catch {}
-        }
+        // Flag GO setups that are NEW since we last saw them → visual highlight
+        // only. The actual browser notification is fired by BestOppNotifier,
+        // mounted globally so it keeps working even when this tab isn't open
+        // (2026-07-20) — firing it here too would double-notify when it is.
+        top.forEach(r => { if (isGo(r) && !seenGo.current.has(r.symbol)) { r._new = true; seenGo.current.add(r.symbol); } });
         setRows(top); setState(top.length ? "ok" : "none"); setLastScan(Date.now());
         const syms = top.map(r => r.symbol).join(",");
         if (syms) {

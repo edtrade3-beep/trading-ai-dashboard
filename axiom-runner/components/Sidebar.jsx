@@ -16,6 +16,7 @@ export const SIDEBAR_ITEMS = [
   { id: "copilot",   label: "AI Copilot",    icon: "🤖", tab: null, badge: "NEW" },
   { id: "advisor-ai", label: "Advisor AI",   icon: "🏛️", tab: "advisor-ai", badge: "NEW" },
   { id: "flow",      label: "Options Flow",  icon: "📊", tab: "flow" },
+  { id: "cot",       label: "COT",           icon: "🏦", tab: "cot" },
   { id: "news",      label: "News",          icon: "📰", tab: "news" },
   { id: "alerts",    label: "Alerts",        icon: "🔔", tab: "alerts" },
   { id: "coach",     label: "Coach",         icon: "🧭", tab: "coach" },

@@ -64,6 +64,7 @@ import TelegramAlertsTab from "./components/TelegramAlertsTab.jsx";
 import TradeAdvisorTab from "./components/TradeAdvisorTab.jsx";
 import CompressionTab from "./components/CompressionTab.jsx";
 import AutoPilotEngine from "./components/AutoPilotEngine.jsx";
+import BestOppNotifier from "./components/BestOppNotifier.jsx";
 import SmartMoneyBrief from "./components/SmartMoneyBrief.jsx";
 import AdvisorAiTab from "./components/AdvisorAiTab.jsx";
 import CeoAiCard from "./components/CeoAiCard.jsx";
@@ -6450,6 +6451,7 @@ export default function App() {
 
       {/* Always-on hands-off paper auto-pilot (buys + exits on every tab) */}
       <AutoPilotEngine watchlistData={watchlistData} macroData={macroData} scanResults={scanResults} />
+      <BestOppNotifier macroData={macroData} />
 
       {/* ── CUSTOM SCREENER ──────────────────────────────────────────────── */}
       {activeTab === "tradeplanner" && <TradePlannerTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} />}
