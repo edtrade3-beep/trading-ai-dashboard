@@ -6082,7 +6082,7 @@ export default function App() {
 
         {activeTab === "earnings" && (
           <EarningsTab
-            C={C} MONO={MONO} earningsUpdatedAt={earningsUpdatedAt} setEarningsRefreshTick={setEarningsRefreshTick}
+            C={C} MONO={MONO} SANS={SANS} earningsUpdatedAt={earningsUpdatedAt} setEarningsRefreshTick={setEarningsRefreshTick}
             earningsLoading={earningsLoading} earningsRows={earningsRows}
             watchlistSymbols={watchlistSymbols} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab}
             setQuickLogModal={setQuickLogModal} setWatchlistSymbols={setWatchlistSymbols}

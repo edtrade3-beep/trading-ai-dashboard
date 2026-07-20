@@ -3752,6 +3752,19 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     } catch (e) { return writeJson(res, 502, { ok: false, error: e.message, events: [] }); }
   }
 
+  // ── GET /api/market/earnings-calendar/ai-take — last persisted AI take ───
+  if (pathname === "/api/market/earnings-calendar/ai-take" && req.method === "GET") {
+    const { loadCoachLog } = require("../ai-coach-store");
+    return writeJson(res, 200, { ok: true, take: loadCoachLog().earningsAiTake || null });
+  }
+  // ── POST /api/market/earnings-calendar/ai-take/refresh — force-generate ──
+  if (pathname === "/api/market/earnings-calendar/ai-take/refresh" && req.method === "POST") {
+    const { buildEarningsAiTake } = require("../earnings-ai-take");
+    const built = await buildEarningsAiTake();
+    if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate an AI take (ANTHROPIC_API_KEY not set, no earnings reporting in the next 14 days, or the AI call failed)." });
+    return writeJson(res, 200, { ok: true, take: built });
+  }
+
   // ── GET /api/market/econ-calendar ─────────────────────────────────────────
   if (pathname === "/api/market/econ-calendar" && req.method === "GET") {
     // Key upcoming events with estimated dates (updated quarterly)
