@@ -6567,7 +6567,7 @@ export default function App() {
 
       {activeTab === "fibonacci" && (
         <FibonacciTab
-          C={C} MONO={MONO} fibInput={fibInput} setFibInput={setFibInput} fibTicker={fibTicker}
+          C={C} MONO={MONO} SANS={SANS} fibInput={fibInput} setFibInput={setFibInput} fibTicker={fibTicker}
           setFibTicker={setFibTicker} fetchFibonacci={fetchFibonacci} fibLoading={fibLoading}
           fibError={fibError} fibData={fibData}
         />
