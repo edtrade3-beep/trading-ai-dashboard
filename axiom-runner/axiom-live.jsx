@@ -1933,11 +1933,16 @@ export default function App() {
     if (!athanTimes || !athanReminder) return;
     const PRAYER_KEYS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
     const PRAYER_NAMES_AR = { Fajr: "الفجر", Dhuhr: "الظهر", Asr: "العصر", Maghrib: "المغرب", Isha: "العشاء" };
-    const today = new Date().toISOString().slice(0, 10);
 
     const t = setInterval(() => {
       if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
       const now = new Date();
+      // Computed fresh every tick, not captured once outside the interval —
+      // a laptop left open past midnight would otherwise keep tagging keys
+      // with yesterday's date forever, permanently blocking every future
+      // day's reminders as "already fired" (2026-07-20, real bug found
+      // while investigating "athan dont go off").
+      const today = now.toISOString().slice(0, 10);
       PRAYER_KEYS.forEach(key => {
         const timeStr = athanTimes[key];
         if (!timeStr) return;
@@ -2001,9 +2006,13 @@ export default function App() {
   useEffect(() => {
     if (!athanTimes || !athanSoundOn) return;
     const PRAYER_KEYS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
-    const today = new Date().toISOString().slice(0, 10);
     const t = setInterval(() => {
       const now = new Date();
+      // Same fresh-per-tick fix as the reminder effect above — a stale
+      // date captured once outside the interval would silently stop the
+      // athan from ever firing again after the first midnight the tab
+      // stayed open across.
+      const today = now.toISOString().slice(0, 10);
       PRAYER_KEYS.forEach(key => {
         const timeStr = athanTimes[key];
         if (!timeStr) return;
@@ -5639,6 +5648,28 @@ export default function App() {
 
             {/* Session countdown */}
             <SessionCountdownBadge C={C} MONO={MONO} sessionCountdown={sessionCountdown} compact />
+
+            {/* Athan sound — always-visible control (2026-07-20, user
+                request: "control it from laptop") so it's one click away
+                on every tab, not buried in the Quran tab widget. Clicking
+                also satisfies the browser's audio-autoplay-unlock
+                requirement (needs a real user gesture at least once per
+                session) — a likely real cause of "athan didn't go off"
+                on a tab that was never clicked into. */}
+            <button
+              onClick={() => setAthanSoundOn(v => {
+                const nv = !v;
+                try { localStorage.setItem("athan_sound", nv ? "on" : "off"); } catch {}
+                if (nv) playAthan();
+                return nv;
+              })}
+              title={athanSoundOn ? "Athan sound is ON — click to mute, click again to test" : "Athan sound is OFF — click to enable"}
+              style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${athanSoundOn ? "#14b8a6" : C.border}`,
+                background: athanSoundOn ? "#14b8a618" : C.card, borderRadius: 5, padding: "4px 10px", fontSize: 12, fontFamily: MONO,
+                color: athanSoundOn ? "#14b8a6" : C.textDim, whiteSpace: "nowrap", cursor: "pointer" }}>
+              <span>{athanSoundOn ? "🔔" : "🔕"}</span>
+              <span style={{ fontWeight: 700 }}>ATHAN {athanSoundOn ? "ON" : "OFF"}</span>
+            </button>
 
             {/* Hijri date */}
             {athanHijri && (
