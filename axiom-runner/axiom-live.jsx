@@ -108,6 +108,7 @@ import DashboardTab, { MarketPulseCard, PortfolioSnapshotCard, computeRegimeLabe
 import { BestOpportunities } from "./components/terminal-panels.jsx";
 import TopOpportunityCard from "./components/TopOpportunityCard.jsx";
 import CapitalAllocationCard from "./components/CapitalAllocationCard.jsx";
+import DailyTargetCalculator from "./components/DailyTargetCalculator.jsx";
 import MissionStatusCard from "./components/MissionStatusCard.jsx";
 import ActivePositionsCard from "./components/ActivePositionsCard.jsx";
 import SmartScanTab from "./components/SmartScanTab.jsx";
@@ -6011,9 +6012,12 @@ export default function App() {
         )}
 
         {activeTab === "capital-allocation" && (
-          <div style={{ padding: "16px 20px", maxWidth: 500, margin: "0 auto" }}>
+          <div style={{ padding: "16px 20px", maxWidth: 500, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12 }}>
             <Card C={C} title="CAPITAL ALLOCATION">
               <CapitalAllocationCard C={C} MONO={MONO} SANS={SANS} />
+            </Card>
+            <Card C={C} title="">
+              <DailyTargetCalculator C={C} MONO={MONO} SANS={SANS} />
             </Card>
           </div>
         )}
