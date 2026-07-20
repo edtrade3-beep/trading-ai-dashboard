@@ -3259,6 +3259,19 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     }
   }
 
+  // ── GET /api/market/darkpool/ai-take — last persisted AI take ────────────
+  if (pathname === "/api/market/darkpool/ai-take" && req.method === "GET") {
+    const { loadCoachLog } = require("../ai-coach-store");
+    return writeJson(res, 200, { ok: true, take: loadCoachLog().darkpoolAiTake || null });
+  }
+  // ── POST /api/market/darkpool/ai-take/refresh — force-generate ───────────
+  if (pathname === "/api/market/darkpool/ai-take/refresh" && req.method === "POST") {
+    const { buildDarkpoolAiTake } = require("../darkpool-ai-take");
+    const built = await buildDarkpoolAiTake();
+    if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate an AI take (ANTHROPIC_API_KEY not set, no dark pool data available — configure UNUSUAL_WHALES_API_KEY, or the AI call failed)." });
+    return writeJson(res, 200, { ok: true, take: built });
+  }
+
   // ── GET /api/market/trade-signals — Live trade signal engine ──────────────
   // Scans a universe of stocks and returns actionable LONG/SHORT/CALL/PUT signals
   if (pathname === "/api/market/trade-signals" && req.method === "GET") {
@@ -3640,6 +3653,19 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     } catch (e) {
       return writeJson(res, 502, { ok: false, error: e.message });
     }
+  }
+
+  // ── GET /api/market/short-changes/ai-take — last persisted AI take ───────
+  if (pathname === "/api/market/short-changes/ai-take" && req.method === "GET") {
+    const { loadCoachLog } = require("../ai-coach-store");
+    return writeJson(res, 200, { ok: true, take: loadCoachLog().shortChangesAiTake || null });
+  }
+  // ── POST /api/market/short-changes/ai-take/refresh — force-generate ──────
+  if (pathname === "/api/market/short-changes/ai-take/refresh" && req.method === "POST") {
+    const { buildShortChangesAiTake } = require("../short-changes-ai-take");
+    const built = await buildShortChangesAiTake();
+    if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate an AI take (ANTHROPIC_API_KEY not set, no short-interest data yet, or the AI call failed)." });
+    return writeJson(res, 200, { ok: true, take: built });
   }
 
   // ── GET /api/market/darkpool-heatmap — dark pool activity vs avg by symbol ─

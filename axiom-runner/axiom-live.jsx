@@ -5942,7 +5942,7 @@ export default function App() {
         )}
 
         {activeTab === "short-changes" && (
-          <ShortChangesTab C={C} MONO={MONO} shortChgData={shortChgData} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+          <ShortChangesTab C={C} MONO={MONO} SANS={SANS} shortChgData={shortChgData} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
         )}
 
         {activeTab === "dp-heatmap" && (
@@ -6053,7 +6053,7 @@ export default function App() {
 
         {activeTab === "darkpool" && (
           <DarkPoolTab
-            C={C} MONO={MONO} dpSym={dpSym} setDpSym={setDpSym} dpLoad={dpLoad} setDpLoad={setDpLoad}
+            C={C} MONO={MONO} SANS={SANS} dpSym={dpSym} setDpSym={setDpSym} dpLoad={dpLoad} setDpLoad={setDpLoad}
             dpData={dpData} setDpData={setDpData} dpErr={dpErr} setDpErr={setDpErr}
             setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab}
           />

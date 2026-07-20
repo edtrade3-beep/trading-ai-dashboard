@@ -96,6 +96,16 @@ async function handleRequest(req, res) {
     if (pathname === "/api/scanner/squeeze")      return await handleSqueeze(req, res);
     if (pathname === "/api/scanner/compression")  return await handleCompression(req, res, requestUrl);
     if (pathname === "/api/scanner/insider")      return await handleInsider(req, res);
+    if (pathname === "/api/scanner/insider/ai-take" && req.method === "GET") {
+      const { loadCoachLog } = require("./ai-coach-store");
+      return writeJson(res, 200, { ok: true, take: loadCoachLog().insiderAiTake || null });
+    }
+    if (pathname === "/api/scanner/insider/ai-take/refresh" && req.method === "POST") {
+      const { buildInsiderAiTake } = require("./insider-ai-take");
+      const built = await buildInsiderAiTake();
+      if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate an AI take (ANTHROPIC_API_KEY not set, no insider purchases in the last 3 days, or the AI call failed)." });
+      return writeJson(res, 200, { ok: true, take: built });
+    }
     if (pathname === "/api/scanner/gapfill")      return await handleGapFill(req, res, requestUrl);
 
     if (pathname.startsWith("/api/scanner/")) {

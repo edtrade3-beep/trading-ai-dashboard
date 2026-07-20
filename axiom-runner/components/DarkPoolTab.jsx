@@ -1,5 +1,91 @@
+// AI TAKE — a real Claude call over the same real dark pool prints this tab
+// already renders (never a ticker/value the model typed): what to do, what
+// to avoid, and why. Same "real data in, judgment out" pattern as CotTab's
+// AiTakeSection. Depends entirely on UNUSUAL_WHALES_API_KEY being
+// configured server-side — with no key, GENERATE will honestly report that
+// rather than fabricate a read on data that doesn't exist.
+function AiTakeSection({ C, MONO, SANS }) {
+  const [take, setTake] = React.useState(null);
+  const [state, setState] = React.useState("loading"); // loading | ok | empty | error
+  const [generating, setGenerating] = React.useState(false);
+
+  React.useEffect(() => {
+    fetch("/api/market/darkpool/ai-take").then(r => r.json()).then(d => {
+      if (d && d.ok && d.take) { setTake(d.take); setState("ok"); }
+      else setState("empty");
+    }).catch(() => setState("error"));
+  }, []);
+
+  const generate = () => {
+    setGenerating(true);
+    fetch("/api/market/darkpool/ai-take/refresh", { method: "POST" }).then(r => r.json()).then(d => {
+      if (d && d.ok && d.take) { setTake(d.take); setState("ok"); }
+      else setState("error");
+    }).catch(() => setState("error")).finally(() => setGenerating(false));
+  };
+
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.accent}44`, borderRadius: 12, padding: "14px 16px", marginBottom: 18 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
+        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text, letterSpacing: "0.08em" }}>
+          🤖 AI TAKE — WHAT TO DO
+        </div>
+        <button onClick={generate} disabled={generating}
+          style={{ background: generating ? C.surface : `${C.accent}1a`, border: `1px solid ${C.accent}55`, color: generating ? C.textDim : C.accent,
+            fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 5, cursor: generating ? "not-allowed" : "pointer" }}>
+          {generating ? "⏳ THINKING…" : take ? "↻ NEW TAKE" : "GENERATE TAKE"}
+        </button>
+      </div>
+
+      {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
+      {state === "error" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>Couldn't generate a take — check ANTHROPIC_API_KEY and UNUSUAL_WHALES_API_KEY are both set, and that prints have loaded above.</div>}
+      {state === "empty" && !generating && (
+        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Click "GENERATE TAKE" for an honest AI read on what today's real dark pool prints mean — what to do, what to avoid, and why.</div>
+      )}
+
+      {take && state === "ok" && (
+        <>
+          <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 14 }}>{take.overallTake}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12, marginBottom: 12 }}>
+            <div>
+              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, letterSpacing: "0.06em", marginBottom: 8 }}>✅ DO</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {(take.doThis || []).map((d, i) => (
+                  <div key={i} style={{ background: `${C.green}0c`, border: `1px solid ${C.green}33`, borderRadius: 8, padding: "8px 10px" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{d.action}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, marginTop: 3, lineHeight: 1.4 }}>{d.why}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.red, letterSpacing: "0.06em", marginBottom: 8 }}>🚫 AVOID</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {(take.avoidThis || []).map((d, i) => (
+                  <div key={i} style={{ background: `${C.red}0c`, border: `1px solid ${C.red}33`, borderRadius: 8, padding: "8px 10px" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{d.action}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, marginTop: 3, lineHeight: 1.4 }}>{d.why}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          {take.watchFor && (
+            <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, lineHeight: 1.5, fontStyle: "italic", borderTop: `1px solid ${C.border}55`, paddingTop: 8 }}>
+              👁 Watch for: {take.watchFor}
+            </div>
+          )}
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 8 }}>
+            AI-synthesized from real dark pool print data — not financial advice, cross-check before acting.
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function DarkPoolTab({
-  C, MONO, dpSym, setDpSym, dpLoad, setDpLoad, dpData, setDpData, dpErr, setDpErr,
+  C, MONO, SANS, dpSym, setDpSym, dpLoad, setDpLoad, dpData, setDpData, dpErr, setDpErr,
   setTerminalSymbol, setActiveTab,
 }) {
           const fetchDarkPool = async (sym) => {
@@ -25,6 +111,9 @@ export default function DarkPoolTab({
                 </button>
                 {dpData && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Updated: {new Date(dpData.scannedAt).toLocaleTimeString()}</span>}
               </div>
+
+              <AiTakeSection C={C} MONO={MONO} SANS={SANS} />
+
               {dpErr && <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, marginBottom: 10 }}>⚠ {dpErr}</div>}
               {dpData && dpData.prints.length === 0 && !dpLoad && (
                 <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center", padding: 40 }}>No block prints found. Configure UNUSUAL_WHALES_API_KEY in env vars.</div>
