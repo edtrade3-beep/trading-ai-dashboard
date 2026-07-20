@@ -72,7 +72,7 @@ export default function RiskLabTab({
                   </div>
                   <div style={{ ...card({ padding: 18, textAlign: "center" }) }}>
                     <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.text }}>{(portVol * 100).toFixed(1)}%</div>
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>AVG DAILY VOL</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>AVG DAILY VOLATILITY</div>
                   </div>
                 </div>
                 {/* Stress tests */}
