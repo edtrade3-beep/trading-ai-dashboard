@@ -61,7 +61,14 @@ function sanitizeMarketImpact(raw, watchedByUsername) {
 }
 
 function sanitizeItem(raw, watchedByUsername) {
-  const entity = watchedByUsername.get(String(raw?.entityUsername || "").toLowerCase());
+  // Strip a leading "@" before lookup — the prompt shows accounts as
+  // "@realDonaldTrump", so the model's echoed entityUsername very likely
+  // includes it, but watchedByUsername's keys (from the real watchlist
+  // store) never do. Confirmed live: without this, every item silently
+  // failed this match and got dropped (0 items logged across 12 scanned
+  // accounts on the very first production run).
+  const rawUsername = String(raw?.entityUsername || "").replace(/^@/, "").toLowerCase();
+  const entity = watchedByUsername.get(rawUsername);
   if (!entity) return null; // AI referenced an entity not actually on the watchlist — drop, don't guess
   const oneLine = String(raw?.aiSummary?.oneLine || "").slice(0, 140);
   const sourceCitation = String(raw?.sourceCitation || "").trim();
@@ -105,7 +112,7 @@ const SYSTEM = `You are the X Intelligence Engine for a real trading desk. You d
 - aiSummary: oneLine (under 15 words), executive (2-3 sentences), whyItMatters, possibleReaction, risks, opportunities — all short and concrete, grounded in the real search result.
 - scores: impactScore/confidenceScore/urgencyScore/aiRating, each 0-100, each a real assessment not a filler number.
 
-CRITICAL: only report items you can genuinely cite with a real URL from your search — never fabricate a post, quote, or statement. If a watched account has nothing new and real to report, simply omit it. Do not pad the list to hit a target count.
+CRITICAL: only report items you can genuinely cite with a real URL from your search — never fabricate a post, quote, or statement. If a watched account has nothing new and real to report, simply omit it. Do not pad the list to hit a target count. entityUsername must be the exact username WITHOUT the "@" symbol (e.g. "realDonaldTrump", not "@realDonaldTrump").
 
 Return JSON ONLY, no text outside it:
 {"items":[{"entityUsername":"...","sourceCitation":"https://...","text":"...","sentiment":"bullish|bearish|neutral","confidence":0-100,"urgency":"low|medium|high","category":"...","marketImpact":[{"symbol":"...","assetType":"stock|etf|index|commodity|sector","direction":"bullish|bearish","confidence":0-100,"expectedDurationDays":N,"reasoning":"..."}],"aiSummary":{"oneLine":"...","executive":"...","whyItMatters":"...","possibleReaction":"...","risks":"...","opportunities":"..."},"scores":{"impactScore":0-100,"confidenceScore":0-100,"urgencyScore":0-100,"aiRating":0-100}}]}`;
