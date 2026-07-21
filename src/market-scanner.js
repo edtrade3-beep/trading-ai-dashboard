@@ -4,6 +4,7 @@ const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const { fetchYahooBars } = require("./providers/yahoo");
 const { computeEMA, computeRSI } = require("./indicators");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
+const { nextRotatedSlice } = require("./scan-rotation");
 const { detectFVGs, detectOrderBlocks, detectBOSChoCh, computeVolumeProfile, detectLiquidityLevels } = require("./smc-engine");
 const { computeVerdict } = require("./verdict-engine");
 // Lazy-import bot helpers to avoid circular dep at load time
@@ -1652,21 +1653,6 @@ let watchlistScanOffset = 0;
 // user's own symbols in the merge) were permanently excluded from every
 // scan, no matter how many cycles ran. Rotating which 30-symbol slice runs
 // each cycle means the full list gets covered over several cycles instead
-// of the same 30 forever — same fix shape as X Intel's scan-coverage bug
-// found earlier this session, adapted for a real per-symbol network-call
-// budget instead of an AI token budget (can't just raise the cap here the
-// way X Intel's was raised, since scanWatchlistAlerts fetches bars one
-// real HTTP call at a time, sequentially, per symbol).
-function nextRotatedSlice(all, batchSize, offsetRef) {
-  if (all.length <= batchSize) return all;
-  const start = offsetRef.value % all.length;
-  const slice = start + batchSize <= all.length
-    ? all.slice(start, start + batchSize)
-    : [...all.slice(start), ...all.slice(0, start + batchSize - all.length)];
-  offsetRef.value = (start + batchSize) % all.length;
-  return slice;
-}
-
 async function scanWatchlistAlerts(watchlistSymbols) {
   if (!watchlistSymbols || !watchlistSymbols.length) return;
   if (!telegramConfigured()) return;

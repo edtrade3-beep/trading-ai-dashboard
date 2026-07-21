@@ -28,7 +28,16 @@ async function runMorningGamePlan() {
   if (!KEY() || !isConfigured()) return;
   let syms = [];
   try { syms = (require("./settings-store").loadSettings() || {}).watchlistSymbols || []; } catch {}
-  syms = syms.filter(Boolean).slice(0, 40);
+  // 90, not 40 — confirmed bug: with a real 133-symbol watchlist, a fixed
+  // slice(0,40) here (before any trend-scoring even happens) meant only
+  // the first 40 symbols in the watchlist's stored order could EVER be
+  // considered for "today's best setup," permanently excluding the other
+  // 93 regardless of actual quality. Raised to 90 to match trend-screen's
+  // own route-level cap (routes/market.js) rather than truncating below
+  // it — safe to raise (not rotate) because screenTrendTemplate uses a
+  // bounded 6-worker concurrent pool, not sequential per-symbol calls, so
+  // a bigger queue adds latency, not real rate-limit risk.
+  syms = syms.filter(Boolean).slice(0, 90);
   const screen = syms.length ? await getJson(`/api/market/trend-screen?symbols=${encodeURIComponent(syms.join(","))}`) : null;
   const top = ((screen && screen.results) || [])
     .filter(r => !r.error)

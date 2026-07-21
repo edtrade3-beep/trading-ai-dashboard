@@ -8,6 +8,7 @@
 const https  = require("https");
 const { sendTelegramMessage, isConfigured } = require("./telegram");
 const { shouldSendAlert } = require("./telegram-bot");
+const { nextRotatedSlice } = require("./scan-rotation");
 
 // ── Universe ──────────────────────────────────────────────────────────────────
 const SCAN_UNIVERSE = [
@@ -19,6 +20,7 @@ const SCAN_UNIVERSE = [
 
 const COOLDOWN_MS = 60 * 60_000; // 1h per symbol per direction
 const cooldownMap = new Map();
+let adol22ScanOffset = 0; // same scan-coverage-cutoff fix as market-scanner.js: rotates through the full real watchlist + SCAN_UNIVERSE instead of always scanning the same first 30
 
 // ── Candle fetcher ────────────────────────────────────────────────────────────
 // Tries Alpaca first (not IP-blocked from Render, unlike Yahoo) — same bar shape
@@ -269,9 +271,20 @@ function buildAlertText(type, sym, pattern, price, scoring, atr) {
 // ── Main scan ─────────────────────────────────────────────────────────────────
 async function runAdol22Scan(symbols, spyChg, vixPrice) {
   const results = { bull: null, bear: null };
-  const batch = symbols || SCAN_UNIVERSE;
+  const allSymbols = symbols || SCAN_UNIVERSE;
+  // Confirmed bug: with a real 133-symbol watchlist merged in ahead of
+  // SCAN_UNIVERSE (see runAdol22 below) and a fixed .slice(0,30) here, the
+  // same first 30 symbols (by whatever order the watchlist array happens
+  // to be in) were scanned every 15-min cycle forever — SCAN_UNIVERSE and
+  // ~100 watchlist symbols were permanently excluded regardless of scan
+  // count. Rotated instead of raised, same reasoning as market-scanner.js:
+  // each symbol costs 3 real sequential candle-fetch calls, so raising the
+  // batch size risks real API rate-limiting.
+  const offsetRef = { value: adol22ScanOffset };
+  const batch = nextRotatedSlice(allSymbols, 30, offsetRef);
+  adol22ScanOffset = offsetRef.value;
 
-  for (const sym of batch.slice(0, 30)) {
+  for (const sym of batch) {
     const coolBull = cooldownMap.get(`${sym}:BULL`) || 0;
     const coolBear = cooldownMap.get(`${sym}:BEAR`) || 0;
     const now = Date.now();
@@ -316,7 +329,7 @@ async function runAdol22Scan(symbols, spyChg, vixPrice) {
     } catch {}
   }
 
-  return results;
+  return { ...results, scannedCount: batch.length };
 }
 
 // ── Send alerts ───────────────────────────────────────────────────────────────
@@ -370,15 +383,18 @@ async function runAdol22(watchlistSymbols) {
     return;
   }
 
-  // Merge watchlist with universe (deduplicated)
-  const symbols = [...new Set([...(watchlistSymbols || []), ...SCAN_UNIVERSE])].slice(0, 35);
+  // Merge watchlist with universe (deduplicated). No cap here — the real
+  // per-scan cap + rotation now happens once, inside runAdol22Scan, so the
+  // full real list is what actually cycles through over time instead of
+  // being pre-truncated to the same first 35 before rotation ever runs.
+  const symbols = [...new Set([...(watchlistSymbols || []), ...SCAN_UNIVERSE])];
 
-  console.log(`[ADOL22] Scanning ${symbols.length} symbols… SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}% VIX ${vixPrice.toFixed(1)}`);
+  console.log(`[ADOL22] Universe: ${symbols.length} symbols total (real watchlist + scan universe)… SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}% VIX ${vixPrice.toFixed(1)}`);
 
-  const { bull, bear } = await runAdol22Scan(symbols, spyChg, vixPrice);
+  const { bull, bear, scannedCount } = await runAdol22Scan(symbols, spyChg, vixPrice);
 
   if (!bull && !bear) {
-    console.log("[ADOL22] No A+ setup found this scan");
+    console.log(`[ADOL22] No A+ setup found this scan (scanned ${scannedCount} of ${symbols.length})`);
     // Only send "no setup" message if manually triggered (not on auto-15min to avoid spam)
     const calledManually = global._adol22Manual;
     if (calledManually) {
@@ -388,7 +404,7 @@ async function runAdol22(watchlistSymbols) {
         `━━━━━━━━━━━━━━━━━━━━`,
         `NO A+ SETUP FOUND`,
         ``,
-        `Scanned ${symbols.length} symbols`,
+        `Scanned ${scannedCount} of ${symbols.length} symbols (rotates each cycle)`,
         `SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}%  VIX ${vixPrice.toFixed(1)}`,
         ``,
         `Market conditions: ${vixPrice > 25 ? "⚠️ Elevated VIX — tough conditions" : spyRange < 0.15 ? "Choppy — waiting for momentum" : "Normal — no strong setups right now"}`,
