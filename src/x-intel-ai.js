@@ -117,7 +117,14 @@ CRITICAL: only report items you can genuinely cite with a real URL from your sea
 Return JSON ONLY, no text outside it:
 {"items":[{"entityUsername":"...","sourceCitation":"https://...","text":"...","sentiment":"bullish|bearish|neutral","confidence":0-100,"urgency":"low|medium|high","category":"...","marketImpact":[{"symbol":"...","assetType":"stock|etf|index|commodity|sector","direction":"bullish|bearish","confidence":0-100,"expectedDurationDays":N,"reasoning":"..."}],"aiSummary":{"oneLine":"...","executive":"...","whyItMatters":"...","possibleReaction":"...","risks":"...","opportunities":"..."},"scores":{"impactScore":0-100,"confidenceScore":0-100,"urgencyScore":0-100,"aiRating":0-100}}]}`;
 
-async function runXIntelGeneration({ topN = 12 } = {}) {
+// 40, not the original 12 — confirmed live: with a 32-account watchlist and
+// several default entries scored 85+, the top-12 cutoff permanently
+// excluded 20 real accounts (including 14 of 16 the user had just added)
+// from ever being scanned, no matter how many times the watchlist was
+// refreshed. Raising this doesn't meaningfully raise cost — maxSearches
+// (below) is what actually bounds the number of real web searches per
+// run, not how many accounts are listed in the prompt.
+async function runXIntelGeneration({ topN = 40 } = {}) {
   if (!KEY()) return { ok: false, error: "ANTHROPIC_API_KEY not set" };
 
   const watchlist = listWatchlist().filter((w) => w.status === "active");
