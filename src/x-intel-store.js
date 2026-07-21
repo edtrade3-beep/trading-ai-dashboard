@@ -99,7 +99,11 @@ function dedupeRssItems() {
     const key = `${String(it.entityUsername || "").toLowerCase()}::${String(it.aiSummary?.oneLine || "").toLowerCase()}`;
     if (seen.has(key)) continue; // drop exact duplicates outright
     seen.add(key);
-    if (it.publishedAt && it.capturedAt === it.publishedAt) {
+    // Two generations of the same bug: the original deploy (before
+    // publishedAt existed at all) has no publishedAt field; the first fix
+    // attempt added publishedAt but still left capturedAt===publishedAt
+    // on survivors. Both leave capturedAt untrustworthy for dedup.
+    if (!it.publishedAt || it.capturedAt === it.publishedAt) {
       deduped.push({ ...it, capturedAt: new Date().toISOString() });
       fixedCount++;
     } else {
