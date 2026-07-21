@@ -153,7 +153,12 @@ async function runXIntelGeneration({ topN = 40 } = {}) {
     // more real searches means more tool-result content sharing the same
     // token budget as the final JSON output — the same truncation risk
     // already hit and fixed once this session for Command Center.
-    raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), { model: "claude-sonnet-4-6", maxTokens: 16000, maxSearches: 16 });
+    // timeout raised alongside maxSearches: the default 120s per-turn
+    // socket timeout (tuned for the old maxSearches=4 budget) was
+    // confirmed live to kill the request mid-flight once maxSearches went
+    // to 16 — 16 real sequential searches plus reasoning genuinely needs
+    // more than 120s in one turn.
+    raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), { model: "claude-sonnet-4-6", maxTokens: 16000, maxSearches: 16, timeout: 240000 });
   } catch (e) {
     return { ok: false, error: `AI call failed: ${e.message}` };
   }

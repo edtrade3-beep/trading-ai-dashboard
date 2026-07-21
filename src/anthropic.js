@@ -63,12 +63,12 @@ function anthropicRequest(payload, apiKey, timeoutMs = 120000) {
 
 // Calls Claude with the built-in web_search tool so it can find live data on its own.
 // Returns the concatenated final text. Handles pause_turn (long multi-search turns).
-async function callAnthropicWithSearch(prompt, apiKey, { model = "claude-sonnet-4-6", maxTokens = 6000, maxSearches = 8 } = {}) {
+async function callAnthropicWithSearch(prompt, apiKey, { model = "claude-sonnet-4-6", maxTokens = 6000, maxSearches = 8, timeout = 120000 } = {}) {
   const messages = [{ role: "user", content: prompt }];
   const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: maxSearches }];
   let finalText = "";
   for (let i = 0; i < 4; i++) {
-    const resp = await anthropicRequest({ model, max_tokens: maxTokens, messages, tools }, apiKey);
+    const resp = await anthropicRequest({ model, max_tokens: maxTokens, messages, tools }, apiKey, timeout);
     const content = resp.content || [];
     const text = content.filter(b => b.type === "text").map(b => b.text).join("");
     if (text) finalText = text;
