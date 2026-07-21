@@ -210,6 +210,16 @@ export default function XIntelTab({ C, MONO, SANS }) {
 
   const filteredItems = useMemo(() => categoryFilter === "ALL" ? items : items.filter((it) => it.category === categoryFilter), [items, categoryFilter]);
 
+  // Grouped by real sentiment (bullish/bearish/neutral) instead of just
+  // reverse-chronological — bullish and bearish surface first since those
+  // are the actionable calls; neutral (no real directional read) is kept
+  // but shown last and de-emphasized, not hidden.
+  const groupedBySentiment = useMemo(() => {
+    const groups = { bullish: [], bearish: [], neutral: [] };
+    for (const it of filteredItems) (groups[it.sentiment] || groups.neutral).push(it);
+    return groups;
+  }, [filteredItems]);
+
   const trendingTopics = useMemo(() => {
     const counts = {};
     items.forEach((it) => { counts[it.category] = (counts[it.category] || 0) + 1; });
@@ -350,9 +360,34 @@ export default function XIntelTab({ C, MONO, SANS }) {
             <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Each scan searches real news coverage for recent statements from your watched accounts.</div>
           </div>
         )}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {filteredItems.slice(0, 40).map((it) => <ItemCard key={it.id} it={it} C={C} MONO={MONO} SANS={SANS} />)}
-        </div>
+        {filteredItems.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            {groupedBySentiment.bullish.length > 0 && (
+              <div>
+                <SectionLabel icon="▲" text={`BULLISH (${groupedBySentiment.bullish.length})`} color={C.green} C={C} MONO={MONO} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {groupedBySentiment.bullish.slice(0, 20).map((it) => <ItemCard key={it.id} it={it} C={C} MONO={MONO} SANS={SANS} />)}
+                </div>
+              </div>
+            )}
+            {groupedBySentiment.bearish.length > 0 && (
+              <div>
+                <SectionLabel icon="▼" text={`BEARISH (${groupedBySentiment.bearish.length})`} color={C.red} C={C} MONO={MONO} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {groupedBySentiment.bearish.slice(0, 20).map((it) => <ItemCard key={it.id} it={it} C={C} MONO={MONO} SANS={SANS} />)}
+                </div>
+              </div>
+            )}
+            {groupedBySentiment.neutral.length > 0 && (
+              <div style={{ opacity: 0.7 }}>
+                <SectionLabel icon="○" text={`NEUTRAL — no clear directional read (${groupedBySentiment.neutral.length})`} color={C.textDim} C={C} MONO={MONO} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {groupedBySentiment.neutral.slice(0, 10).map((it) => <ItemCard key={it.id} it={it} C={C} MONO={MONO} SANS={SANS} />)}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
