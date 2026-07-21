@@ -114,6 +114,8 @@ const SYSTEM = `You are the X Intelligence Engine for a real trading desk. You d
 
 CRITICAL: only report items you can genuinely cite with a real URL from your search — never fabricate a post, quote, or statement. If a watched account has nothing new and real to report, simply omit it. Do not pad the list to hit a target count. entityUsername must be the exact username WITHOUT the "@" symbol (e.g. "realDonaldTrump", not "@realDonaldTrump").
 
+SEARCH BUDGET DISCIPLINE: you have a limited number of real searches for this run, covering potentially 30+ watched accounts. Do NOT spend most or all of your searches on the handful of already-famous names (e.g. Trump, Musk, the Fed, White House) just because a generic query easily surfaces them — that starves coverage of the rest of the list. Spread your searches across the FULL watchlist: batch 2-4 lesser-known accounts into a single targeted query where they share a plausible topic (e.g. "unusual_whales OR michaeljburry recent post market"), and prioritize accounts you have not covered in a prior run over re-covering the same mega-famous few every time.
+
 Return JSON ONLY, no text outside it:
 {"items":[{"entityUsername":"...","sourceCitation":"https://...","text":"...","sentiment":"bullish|bearish|neutral","confidence":0-100,"urgency":"low|medium|high","category":"...","marketImpact":[{"symbol":"...","assetType":"stock|etf|index|commodity|sector","direction":"bullish|bearish","confidence":0-100,"expectedDurationDays":N,"reasoning":"..."}],"aiSummary":{"oneLine":"...","executive":"...","whyItMatters":"...","possibleReaction":"...","risks":"...","opportunities":"..."},"scores":{"impactScore":0-100,"confidenceScore":0-100,"urgencyScore":0-100,"aiRating":0-100}}]}`;
 
@@ -140,7 +142,18 @@ async function runXIntelGeneration({ topN = 40 } = {}) {
 
   let raw;
   try {
-    raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), { model: "claude-sonnet-4-6", maxTokens: 8000, maxSearches: 4 });
+    // maxSearches raised 4 -> 16: confirmed live that 4 real searches was
+    // the actual root cause of 4+ consecutive scans only ever surfacing
+    // items from the same ~4 mega-famous entities (Trump/Musk/Fed/
+    // WhiteHouse) despite all 32+ watchlist accounts being listed in the
+    // prompt (topN fix above) — there simply weren't enough real search
+    // calls left to specifically investigate less-famous names once the
+    // model used a couple of generic queries that happened to surface the
+    // famous ones. maxTokens raised alongside it (8000 -> 16000) because
+    // more real searches means more tool-result content sharing the same
+    // token budget as the final JSON output — the same truncation risk
+    // already hit and fixed once this session for Command Center.
+    raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), { model: "claude-sonnet-4-6", maxTokens: 16000, maxSearches: 16 });
   } catch (e) {
     return { ok: false, error: `AI call failed: ${e.message}` };
   }
