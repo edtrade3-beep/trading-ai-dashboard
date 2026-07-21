@@ -92,9 +92,15 @@ function TradeIdeaCard({ idea, C, MONO, SANS }) {
   return (
     <div style={{ background: C.surface, border: `1px solid ${dirCol}44`, borderRadius: 9, padding: "12px 14px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>{idea.symbol}</span>
           <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: dirCol, background: `${dirCol}18`, borderRadius: 5, padding: "2px 7px" }}>{idea.direction}</span>
+          {idea.held && (
+            <span title={idea.heldWeightPct != null ? `${idea.heldWeightPct}% of book${idea.heldUnrealizedPLpc != null ? `, ${idea.heldUnrealizedPLpc >= 0 ? "+" : ""}${idea.heldUnrealizedPLpc.toFixed(1)}% unrealized` : ""}` : undefined}
+              style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, background: `${C.accent}18`, borderRadius: 5, padding: "2px 7px" }}>
+              📌 HELD{idea.heldWeightPct != null ? ` ${idea.heldWeightPct}%` : ""}
+            </span>
+          )}
         </div>
         {idea.confidence != null && (
           <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: idea.confidence >= 70 ? C.green : idea.confidence >= 50 ? C.amber : C.textDim }}>{idea.confidence}/100</span>
@@ -231,11 +237,25 @@ export default function CommandCenterTab({ C, MONO, SANS }) {
 
       {brief && !loading && (
         <>
-          {/* Regime + AI confidence header */}
+          {/* Regime + Command Score + critical-event count header */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
             <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, padding: "6px 14px", borderRadius: 8, background: `${regimeCol}18`, border: `1px solid ${regimeCol}44`, color: regimeCol }}>
               {brief.regime?.label} ({brief.regime?.score}/100)
             </span>
+            {brief.commandScore != null && (
+              <span title="Blend of today's regime score, CEO AI's confidence tier, and the average confidence across today's trade ideas"
+                style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, padding: "6px 14px", borderRadius: 8,
+                  background: `${brief.commandScore >= 70 ? C.green : brief.commandScore >= 45 ? C.amber : C.red}18`,
+                  border: `1px solid ${brief.commandScore >= 70 ? C.green : brief.commandScore >= 45 ? C.amber : C.red}44`,
+                  color: brief.commandScore >= 70 ? C.green : brief.commandScore >= 45 ? C.amber : C.red }}>
+                🎯 COMMAND SCORE {brief.commandScore}/100
+              </span>
+            )}
+            {brief.criticalEventCount > 0 && (
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 8, background: `${C.red}18`, border: `1px solid ${C.red}44`, color: C.red }}>
+                🔴 {brief.criticalEventCount} CRITICAL EVENT{brief.criticalEventCount > 1 ? "S" : ""}
+              </span>
+            )}
             {brief.ceoVerdict && (
               <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
                 CEO AI: <b style={{ color: C.text }}>{brief.ceoVerdict.verdict}</b> ({brief.ceoVerdict.confidence} confidence)
@@ -370,7 +390,7 @@ export default function CommandCenterTab({ C, MONO, SANS }) {
           <TrackRecordSection tr={brief.trackRecord} C={C} MONO={MONO} SANS={SANS} />
 
           <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "right" }}>
-            Generated {new Date(brief.generatedAt).toLocaleString([], { hour: "2-digit", minute: "2-digit" })} · AI-synthesized from real platform data + web search — not financial advice, cross-check before acting. Never executes trades automatically.
+            Generated {new Date(brief.generatedAt).toLocaleString([], { hour: "2-digit", minute: "2-digit" })} · Auto-updates ~8:20 AM ET on trading days, or tap Refresh anytime · AI-synthesized from real platform data + web search — not financial advice, cross-check before acting. Never executes trades automatically.
           </div>
         </>
       )}

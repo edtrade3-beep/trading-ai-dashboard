@@ -34,6 +34,8 @@ const { logPrediction, getTrackRecord } = require("./predictions-store");
 const { computeRiskLab } = require("./risk-lab-calc");
 const { sizePositionByRisk } = require("./risk-guardrails");
 const { fetchYahooBars } = require("./providers/yahoo");
+const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
+const { shouldSendAlert } = require("./telegram-bot");
 const { PORT } = require("./config");
 
 const KEY = () => (process.env.ANTHROPIC_API_KEY || "").trim();
@@ -99,11 +101,16 @@ async function fetchPriceLevels(symbols) {
   return map;
 }
 
-function buildTradeCard(pick, levels, equity, availCash, direction, aiNotes) {
+function buildTradeCard(pick, levels, equity, availCash, direction, aiNotes, holdingsMap) {
   const row = levels.get(pick.symbol);
   if (!row) return null; // no real price levels for this symbol — drop rather than show a card with fabricated numbers
   const qty = equity > 0 ? sizePositionByRisk({ equity, riskPct: 1, entry: row.entry, stop: row.stop, availCash, maxNamePct: 20 }) : null;
   const notes = aiNotes?.[pick.symbol] || {};
+  // Already-held flag — real portfolio position, not a guess. A bullish
+  // idea on a name already in the book is an "add" decision, not a fresh
+  // entry; a bearish/avoid idea on a held name is a genuine live conflict
+  // worth surfacing rather than presenting as if the book were empty.
+  const holding = holdingsMap?.get(pick.symbol) || null;
   return {
     symbol: pick.symbol,
     direction,
@@ -120,7 +127,28 @@ function buildTradeCard(pick, levels, equity, availCash, direction, aiNotes) {
     supportingEvidence: notes.evidence ? String(notes.evidence).slice(0, 300) : null,
     risks: notes.risks ? String(notes.risks).slice(0, 300) : null,
     historicalAnalog: notes.historicalAnalog ? String(notes.historicalAnalog).slice(0, 200) : null,
+    held: !!holding,
+    heldWeightPct: holding?.weightPct ?? null,
+    heldUnrealizedPLpc: holding?.unrealizedPLpc ?? null,
   };
+}
+
+// Composite 0-100 "Command Score" — a transparent blend of three real
+// numbers already computed elsewhere (never a new invented sub-score):
+// today's real regime score, CEO AI's own confidence tier (mapped to a
+// number), and the average confidence across today's real trade ideas.
+// Any part that isn't available is simply excluded from the average,
+// same "don't guess a neutral value" discipline advisor-ai.js's own
+// confidence engine already uses.
+function computeCommandScore(regimeScore, ceoConfidence, ideas) {
+  const parts = [];
+  if (Number.isFinite(regimeScore)) parts.push(regimeScore);
+  const ceoMap = { HIGH: 85, MEDIUM: 55, LOW: 25 };
+  if (ceoConfidence && ceoMap[ceoConfidence] != null) parts.push(ceoMap[ceoConfidence]);
+  const ideaConfidences = ideas.map((i) => i.confidence).filter((c) => Number.isFinite(c));
+  if (ideaConfidences.length) parts.push(ideaConfidences.reduce((a, b) => a + b, 0) / ideaConfidences.length);
+  if (!parts.length) return null;
+  return Math.round(parts.reduce((a, b) => a + b, 0) / parts.length);
 }
 
 async function buildCommandCenter() {
@@ -232,13 +260,17 @@ Search for real, current news now and return the JSON.`;
   }
   if (!parsed) return null;
 
-  const events = sanitizeEvents(parsed.events);
+  // Highest severity first — a CEO reading this once, fast, sees the
+  // events that matter most without having to scan the whole list.
+  const events = sanitizeEvents(parsed.events).sort((a, b) => b.severity - a.severity);
+  const criticalEventCount = events.filter((e) => e.severity >= 7).length;
   const tradeNotes = parsed.tradeNotes && typeof parsed.tradeNotes === "object" ? parsed.tradeNotes : {};
 
+  const holdingsMap = new Map((advisorBrief.portfolio?.holdings || []).map((h) => [h.symbol, h]));
   const equity = Number(riskSnap?.equity || 0);
   const availCash = Number(riskSnap?.cash || 0);
-  const bullishCards = topOpportunities.map((o) => buildTradeCard(o, levels, equity, availCash, "LONG", tradeNotes)).filter(Boolean).slice(0, 5);
-  const bearishCards = bearishCandidates.map((r) => buildTradeCard(r, levels, equity, availCash, "SHORT/AVOID", tradeNotes)).filter(Boolean).slice(0, 5);
+  const bullishCards = topOpportunities.map((o) => buildTradeCard(o, levels, equity, availCash, "LONG", tradeNotes, holdingsMap)).filter(Boolean).slice(0, 5);
+  const bearishCards = bearishCandidates.map((r) => buildTradeCard(r, levels, equity, availCash, "SHORT/AVOID", tradeNotes, holdingsMap)).filter(Boolean).slice(0, 5);
 
   // Log each real trade idea into the predictions ledger (deduped per
   // symbol+direction+day so repeated manual refreshes don't spam the
@@ -256,8 +288,10 @@ Search for real, current news now and return the JSON.`;
 
   const built = {
     regime,
+    commandScore: computeCommandScore(regime?.score, ceoBrief?.confidence, [...bullishCards, ...bearishCards]),
     executiveSummary: String(parsed.executiveSummary || "").slice(0, 1200),
     events,
+    criticalEventCount,
     bullishIdeas: bullishCards,
     bearishIdeas: bearishCards,
     sectorRotation: capitalFlow,
@@ -269,6 +303,20 @@ Search for real, current news now and return the JSON.`;
     generatedAt: Date.now(),
   };
   saveCoachOutput("commandCenter", built);
+
+  // Auto-alert on generation — same server-side pattern ceo-ai.js already
+  // proves out (no client /api/notify call, so it isn't gated behind the
+  // API_AUTH_TOKEN this server doesn't have configured). Quiet-hours/
+  // budget-respecting via shouldSendAlert, same as every other real alert
+  // in this app.
+  if (telegramConfigured() && shouldSendAlert({ category: "ai-coach" })) {
+    const critLine = criticalEventCount ? `\n🔴 ${criticalEventCount} critical event${criticalEventCount > 1 ? "s" : ""}` : "";
+    const topBull = bullishCards[0] ? `\n🟢 Top long: ${bullishCards[0].symbol} (${bullishCards[0].confidence ?? "—"}/100)` : "";
+    const topBear = bearishCards[0] ? `\n🔴 Top avoid: ${bearishCards[0].symbol}` : "";
+    const msg = `🛰️ *AI COMMAND CENTER*\n\n${built.regime?.label || "?"} regime (${built.regime?.score ?? "?"}/100)${built.commandScore != null ? ` · Command Score ${built.commandScore}/100` : ""}${critLine}\n\n${built.executiveSummary.slice(0, 500)}${topBull}${topBear}`;
+    sendTelegramMessage(msg).catch(() => {});
+  }
+
   return built;
 }
 
