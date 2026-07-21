@@ -6,6 +6,7 @@ const watchlistStore = require("../x-intel-watchlist-store");
 const { listItems, getRecent } = require("../x-intel-store");
 const { getTrackRecord } = require("../predictions-store");
 const { runXIntelGeneration } = require("../x-intel-ai");
+const { runXIntelRssPoll } = require("../x-intel-rss");
 
 async function handleXIntel(req, res, requestUrl) {
   const { pathname, searchParams } = requestUrl;
@@ -42,8 +43,21 @@ async function handleXIntel(req, res, requestUrl) {
   }
 
   if (pathname === "/api/x-intel/refresh" && req.method === "POST") {
-    const result = await runXIntelGeneration();
-    return writeJson(res, 200, result);
+    // Run both: the free RSS path always attempts (no API key, no cost),
+    // the AI search path may fail (e.g. usage cap) independently — a
+    // refresh should still surface real RSS items even when AI is down,
+    // rather than the whole click reporting one combined failure.
+    const [ai, rss] = await Promise.all([
+      runXIntelGeneration().catch((e) => ({ ok: false, error: e.message })),
+      runXIntelRssPoll().catch((e) => ({ ok: false, error: e.message })),
+    ]);
+    return writeJson(res, 200, {
+      ok: ai.ok || rss.ok,
+      ai,
+      rss,
+      newItemsCount: (ai.newItemsCount || 0) + (rss.newItemsCount || 0),
+      scanned: ai.scanned,
+    });
   }
 
   if (pathname === "/api/x-intel/feed" && req.method === "GET") {

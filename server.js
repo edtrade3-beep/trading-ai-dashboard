@@ -60,6 +60,7 @@ const { buildCommandCenter } = require("./src/command-center-ai");
 const { runPredictionTracker } = require("./src/prediction-tracker");
 const { revertMisgradedXIntelShorts } = require("./src/predictions-store");
 const { runXIntelGeneration } = require("./src/x-intel-ai");
+const { runXIntelRssPoll } = require("./src/x-intel-rss");
 const { runAutopilotRecap } = require("./src/alpaca-recap");
 const { runServerAutopilot } = require("./src/server-autopilot");
 const { runTrailingStops } = require("./src/trailing-stops");
@@ -170,6 +171,16 @@ server.listen(PORT, HOST, () => {
     runXIntelGeneration().catch(() => {});
   }, 60_000);
   console.log("[X Intel] Watchlist scanner active — 9am + 3pm ET weekdays");
+
+  // X Intel free RSS path — official/company accounts (Fed, White House,
+  // SEC, NVIDIA, Apple, OpenAI) publish real, free, public press-release
+  // feeds directly, so this costs zero AI tokens and can run far more
+  // often than the AI-search path above. No market-hours gating needed
+  // either (these orgs publish on their own schedule, not tied to trading
+  // hours) — just a real per-feed dedup window (48h) inside the poller.
+  setInterval(() => { runXIntelRssPoll().catch((e) => console.warn("[X Intel RSS] poll failed:", e.message)); }, 15 * 60_000);
+  runXIntelRssPoll().catch(() => {}); // also once on startup, not just on the next 15-min tick
+  console.log("[X Intel] Free RSS poller active — every 15 min, official/company accounts");
 
   // Auto-download CFTC data on startup if not already fresh
   setTimeout(() => {

@@ -31,15 +31,17 @@ function SectionLabel({ icon, text, color, C, MONO }) {
 function ItemCard({ it, C, MONO, SANS }) {
   const [open, setOpen] = useState(false);
   const col = CATEGORY_COLOR[it.category] || C.textDim;
+  const isRss = it.analysisSource === "rss";
   return (
     <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 9, padding: "11px 13px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>@{it.entityUsername}</span>
           <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: col, background: `${col}18`, borderRadius: 5, padding: "2px 6px" }}>{it.category.toUpperCase()}</span>
+          {isRss && <span title="Real official RSS feed — not AI-analyzed, no market-impact call made" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, background: `${C.textDim}18`, borderRadius: 5, padding: "2px 6px" }}>🆓 RSS · UNANALYZED</span>}
         </div>
         <div style={{ display: "flex", gap: 8, fontFamily: MONO, fontSize: 10, color: C.textDim }}>
-          <span>IMPACT <b style={{ color: it.scores.impactScore > 80 ? C.red : it.scores.impactScore > 50 ? C.amber : C.textDim }}>{it.scores.impactScore}</b></span>
+          {it.scores && <span>IMPACT <b style={{ color: it.scores.impactScore > 80 ? C.red : it.scores.impactScore > 50 ? C.amber : C.textDim }}>{it.scores.impactScore}</b></span>}
           <span>{new Date(it.capturedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
         </div>
       </div>
@@ -195,8 +197,10 @@ export default function XIntelTab({ C, MONO, SANS }) {
   const refresh = () => {
     setRefreshing(true); setRefreshMsg(null);
     fetch("/api/x-intel/refresh", { method: "POST" }).then((r) => r.json()).then((d) => {
-      if (d.ok) { setRefreshMsg(`Scanned ${d.scanned} accounts, ${d.newItemsCount} new item${d.newItemsCount === 1 ? "" : "s"}.`); loadFeed(); loadWatchlist(); loadTrackRecord(); }
-      else setRefreshMsg(d.error || "Refresh failed");
+      const rssPart = d.rss?.ok ? `Free RSS: ${d.rss.newItemsCount} new (${d.rss.feedsPolled?.length || 0} official feeds).` : `Free RSS: failed (${d.rss?.error || "unknown"}).`;
+      const aiPart = d.ai?.ok ? `AI search: scanned ${d.ai.scanned}, ${d.ai.newItemsCount} new.` : `AI search: ${d.ai?.error || "failed"}.`;
+      setRefreshMsg(`${rssPart} ${aiPart}`);
+      if (d.ok) { loadFeed(); loadWatchlist(); loadTrackRecord(); }
     }).catch((e) => setRefreshMsg(e.message)).finally(() => setRefreshing(false));
   };
 
@@ -263,7 +267,7 @@ export default function XIntelTab({ C, MONO, SANS }) {
       </div>
 
       <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, background: `${C.textDim}0a`, borderRadius: 8, padding: "8px 12px" }}>
-        ℹ️ Sourced from real news coverage of public statements (Claude web search) — no X API, no scraping. Per-post like/reply/repost/view counts, images, and video aren't available through this method.
+        ℹ️ Two real sources, no X API, no scraping: (1) free official RSS feeds (Fed, White House, SEC, NVIDIA, Apple, OpenAI) — real press releases, not AI-analyzed, shown as-is with a 🆓 RSS badge; (2) AI web search for everyone else — real news coverage of public statements, with sentiment/market-impact analysis. Per-post like/reply/repost/view counts, images, and video aren't available through either method.
       </div>
 
       {refreshMsg && <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>{refreshMsg}</div>}
