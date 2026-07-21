@@ -42,7 +42,11 @@ function ItemCard({ it, C, MONO, SANS }) {
         </div>
         <div style={{ display: "flex", gap: 8, fontFamily: MONO, fontSize: 10, color: C.textDim }}>
           {it.scores && <span>IMPACT <b style={{ color: it.scores.impactScore > 80 ? C.red : it.scores.impactScore > 50 ? C.amber : C.textDim }}>{it.scores.impactScore}</b></span>}
-          <span>{new Date(it.capturedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+          {it.publishedAt ? (
+            <span title="Real published date from the source feed">{new Date(it.publishedAt).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
+          ) : (
+            <span>{new Date(it.capturedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+          )}
         </div>
       </div>
       <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }} onClick={() => setOpen((v) => !v)}>{it.aiSummary.oneLine}</div>

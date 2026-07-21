@@ -68,4 +68,31 @@ function getRecent(n = 50) {
   return load().slice(0, n);
 }
 
-module.exports = { logItem, listItems, getRecent, findRecentDuplicate };
+// One-time cleanup for a real bug: the RSS poller (x-intel-rss.js) briefly
+// set capturedAt to the article's real publish date instead of the
+// logging time, which broke findRecentDuplicate's 48h window for any
+// article older than 48h (common — these feeds return weeks of history),
+// causing the same real item to get re-logged on every poll. Removes
+// exact (entityUsername + oneLine) duplicates among analysisSource:"rss"
+// items, keeping the earliest-logged copy. Safe/idempotent — no-op once
+// the duplicates are gone.
+function dedupeRssItems() {
+  const items = load();
+  const seen = new Set();
+  const deduped = [];
+  // Oldest-logged-first so the kept copy is the original, not a repeat.
+  const ordered = [...items].reverse();
+  for (const it of ordered) {
+    if (it.analysisSource !== "rss") { deduped.push(it); continue; }
+    const key = `${String(it.entityUsername || "").toLowerCase()}::${String(it.aiSummary?.oneLine || "").toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(it);
+  }
+  deduped.reverse(); // restore newest-first
+  const removed = items.length - deduped.length;
+  if (removed > 0) save(deduped);
+  return removed;
+}
+
+module.exports = { logItem, listItems, getRecent, findRecentDuplicate, dedupeRssItems };

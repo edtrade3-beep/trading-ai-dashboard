@@ -61,6 +61,7 @@ const { runPredictionTracker } = require("./src/prediction-tracker");
 const { revertMisgradedXIntelShorts } = require("./src/predictions-store");
 const { runXIntelGeneration } = require("./src/x-intel-ai");
 const { runXIntelRssPoll } = require("./src/x-intel-rss");
+const { dedupeRssItems } = require("./src/x-intel-store");
 const { runAutopilotRecap } = require("./src/alpaca-recap");
 const { runServerAutopilot } = require("./src/server-autopilot");
 const { runTrailingStops } = require("./src/trailing-stops");
@@ -142,6 +143,14 @@ server.listen(PORT, HOST, () => {
   try {
     const reverted = revertMisgradedXIntelShorts();
     if (reverted) console.log(`[Predictions] Reverted ${reverted} mis-graded X Intel SHORT prediction(s) for re-grading`);
+  } catch {}
+
+  // One-time cleanup for a real bug in the RSS poller's first deploy (see
+  // dedupeRssItems's comment in x-intel-store.js) — removes the duplicate
+  // RSS items it produced before the capturedAt fix. Idempotent.
+  try {
+    const removedDupes = dedupeRssItems();
+    if (removedDupes) console.log(`[X Intel] Removed ${removedDupes} duplicate RSS item(s) from a real dedup bug`);
   } catch {}
 
   // Prediction tracker — grades Command Center's open trade ideas against

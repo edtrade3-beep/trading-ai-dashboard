@@ -63,7 +63,15 @@ async function runXIntelRssPoll() {
         entityDisplayName: entity.displayName,
         entityCategory: entity.category,
         entityImportanceScore: entity.importanceScore,
-        capturedAt: toIso(raw.pubDate),
+        // capturedAt must be "when we logged this," not the article's real
+        // publish date — findRecentDuplicate's 48h dedup window compares
+        // against capturedAt, and the AI path always uses logging time.
+        // Confirmed live bug: using the real pubDate here meant any item
+        // older than 48h (common — these feeds return weeks of history)
+        // permanently failed the dedup check and got re-logged every poll.
+        // publishedAt keeps the real original date for honest UI display.
+        capturedAt: new Date().toISOString(),
+        publishedAt: toIso(raw.pubDate),
         sourceCitation: raw.link,
         text: raw.summary || raw.title,
         sentiment: "neutral", // honest — no AI judgment performed on this path
