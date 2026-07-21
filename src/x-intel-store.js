@@ -74,24 +74,41 @@ function getRecent(n = 50) {
 // article older than 48h (common — these feeds return weeks of history),
 // causing the same real item to get re-logged on every poll. Removes
 // exact (entityUsername + oneLine) duplicates among analysisSource:"rss"
-// items, keeping the earliest-logged copy. Safe/idempotent — no-op once
-// the duplicates are gone.
+// items, keeping the earliest-logged copy. Also re-stamps every surviving
+// RSS item's capturedAt to now — confirmed live that deduping alone
+// wasn't enough on its own: surviving single-copy items from the buggy
+// batch still carried capturedAt === publishedAt (the bug's exact
+// signature — real items always have these differ post-fix, since
+// capturedAt is logging time and publishedAt is the real original date).
+// A stale capturedAt keeps that item outside the 48h dedup window
+// forever, so the very next poll logs a fresh duplicate right next to
+// it — confirmed live: a first version of this migration that only
+// re-stamped capturedAt when removing an exact duplicate pair (gated on
+// `removed > 0`) missed exactly this case and the duplicate flood
+// continued. Fixed by targeting the bug's signature directly, independent
+// of whether a same-run duplicate existed to trigger a save.
 function dedupeRssItems() {
   const items = load();
   const seen = new Set();
   const deduped = [];
+  let fixedCount = 0;
   // Oldest-logged-first so the kept copy is the original, not a repeat.
   const ordered = [...items].reverse();
   for (const it of ordered) {
     if (it.analysisSource !== "rss") { deduped.push(it); continue; }
     const key = `${String(it.entityUsername || "").toLowerCase()}::${String(it.aiSummary?.oneLine || "").toLowerCase()}`;
-    if (seen.has(key)) continue;
+    if (seen.has(key)) continue; // drop exact duplicates outright
     seen.add(key);
-    deduped.push(it);
+    if (it.publishedAt && it.capturedAt === it.publishedAt) {
+      deduped.push({ ...it, capturedAt: new Date().toISOString() });
+      fixedCount++;
+    } else {
+      deduped.push(it);
+    }
   }
   deduped.reverse(); // restore newest-first
   const removed = items.length - deduped.length;
-  if (removed > 0) save(deduped);
+  if (removed > 0 || fixedCount > 0) save(deduped);
   return removed;
 }
 
