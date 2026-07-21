@@ -7,14 +7,25 @@
 // Grading rule for LONG ideas: hit = price reached target1, stopped = price
 // fell to/through stop, expired = holdingPeriodDays elapsed with neither.
 //
-// SHORT/AVOID ideas came from the same real trend-template scan as LONG
-// ideas (entry/stop/target are inherently framed for a bullish breakout —
-// this platform has no separate short-specific price-level source), so the
-// win condition is flipped rather than treated as a mirrored short entry:
-// hit = price fell to/through the real stop level (the stock broke down,
-// validating the "avoid, this is weak" call), stopped = price instead broke
-// out through the real target (the avoid call was wrong), expired = holding
-// period elapsed with neither.
+// SHORT grading depends on the SOURCE, because two features populate the
+// same stop/target1 fields with OPPOSITE conventions:
+//
+// - Command Center's SHORT/AVOID cards reuse the real bullish-scan price
+//   levels as-is (stop BELOW entry, target ABOVE entry — the same fields a
+//   LONG idea on that symbol would have) and flip the win condition: hit =
+//   price fell to/through the real stop level (the stock broke down,
+//   validating the "avoid" call), stopped = price broke out through the
+//   real target instead.
+// - X Intel's SHORT predictions (source:"x-intel") compute their own real
+//   entry/stop/target from a captured current price with proper mirrored-
+//   short semantics: stop ABOVE entry, target BELOW entry, same as a real
+//   short trade. Grading these with Command Center's flipped rule reads
+//   "stop" (just above entry) as the success condition — confirmed live:
+//   this graded 20 real X-Intel shorts as "hit" within an hour of
+//   generation, regardless of real price movement, because "price <=
+//   entry+3%" is true almost immediately for any barely-moved short.
+//
+// expired = holdingPeriodDays elapsed with neither hit nor stopped.
 const { getOpenPredictions, resolvePrediction } = require("./predictions-store");
 const { fetchYahooQuoteBatch } = require("./providers/yahoo");
 
@@ -38,8 +49,13 @@ async function runPredictionTracker() {
     if (!price) continue; // no real current price — leave open rather than guess
 
     const isLong = pred.direction === "LONG";
-    const hitLevel = isLong ? pred.target1 : pred.stop;
-    const stopLevel = isLong ? pred.stop : (pred.target1 ?? pred.target2);
+    // Anything not explicitly "x-intel" keeps the original Command Center
+    // borrowed-bullish-scan/flipped-condition behavior — safe default for
+    // legacy records with no source field too (predictions-store.js
+    // defaults those to "command-center").
+    const isBorrowedBullishShort = !isLong && pred.source !== "x-intel";
+    const hitLevel = isLong ? pred.target1 : (isBorrowedBullishShort ? pred.stop : pred.target1);
+    const stopLevel = isLong ? pred.stop : (isBorrowedBullishShort ? (pred.target1 ?? pred.target2) : pred.stop);
 
     let status = null;
     if (hitLevel != null && (isLong ? price >= hitLevel : price <= hitLevel)) status = "hit";

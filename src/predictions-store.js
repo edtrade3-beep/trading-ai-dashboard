@@ -77,6 +77,34 @@ function resolvePrediction(id, status, resolvedPrice) {
   return predictions[idx];
 }
 
+// Reverts a prediction back to "open" — for correcting a bad grade (e.g.
+// prediction-tracker.js's real SHORT-semantics bug that mis-graded X Intel
+// predictions as "hit" the moment they were logged, before the fix). Not a
+// resolve — explicitly clears resolvedAt/resolvedPrice too, since "open"
+// means genuinely not yet resolved.
+function reopenPrediction(id) {
+  const predictions = load();
+  const idx = predictions.findIndex((p) => p.id === id);
+  if (idx === -1) return null;
+  predictions[idx] = { ...predictions[idx], status: "open", resolvedAt: null, resolvedPrice: null };
+  save(predictions);
+  return predictions[idx];
+}
+
+// One-time correction for the exact bad-grade signature prediction-
+// tracker.js's SHORT-semantics bug produced: any x-intel-sourced SHORT
+// marked "hit" was graded with the wrong field before the fix — there's no
+// legitimate way a real correction could produce that combination, so this
+// is safe to revert unconditionally. Idempotent: once reverted, these no
+// longer match the filter, so re-running (e.g. on every server restart)
+// finds nothing and does nothing.
+function revertMisgradedXIntelShorts() {
+  const predictions = load();
+  const bad = predictions.filter((p) => p.source === "x-intel" && p.direction === "SHORT" && p.status === "hit");
+  for (const p of bad) reopenPrediction(p.id);
+  return bad.length;
+}
+
 // Real, code-computed accuracy — hit rate among CLOSED predictions only
 // (open ones haven't proven anything yet, so they're excluded from the
 // rate but still shown separately as "in progress"). Pass `source` to
@@ -103,4 +131,4 @@ function getTrackRecord(source) {
   };
 }
 
-module.exports = { logPrediction, getOpenPredictions, resolvePrediction, getTrackRecord };
+module.exports = { logPrediction, getOpenPredictions, resolvePrediction, reopenPrediction, revertMisgradedXIntelShorts, getTrackRecord };

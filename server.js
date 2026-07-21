@@ -58,6 +58,7 @@ const { runMorningGamePlan, runTradeCoach, runWeeklyReview, runMonthlyDeepReview
 const { runCeoRecommendation } = require("./src/ceo-ai");
 const { buildCommandCenter } = require("./src/command-center-ai");
 const { runPredictionTracker } = require("./src/prediction-tracker");
+const { revertMisgradedXIntelShorts } = require("./src/predictions-store");
 const { runXIntelGeneration } = require("./src/x-intel-ai");
 const { runAutopilotRecap } = require("./src/alpaca-recap");
 const { runServerAutopilot } = require("./src/server-autopilot");
@@ -130,6 +131,17 @@ server.listen(PORT, HOST, () => {
     } catch {}
   }, 15 * 60_000);
   console.log("[WL Alerts] Watchlist + Entry Zone scanner active — checks every 15 min");
+
+  // One-time data correction: prediction-tracker.js's SHORT grading logic
+  // was written only for Command Center's borrowed-bullish-scan semantics
+  // and mis-graded every X Intel SHORT prediction as "hit" almost
+  // immediately (confirmed live: 20 real records). Reverts exactly that
+  // bad-grade signature back to "open" so the fixed tracker logic below
+  // can re-grade them correctly. Idempotent — a no-op once none remain.
+  try {
+    const reverted = revertMisgradedXIntelShorts();
+    if (reverted) console.log(`[Predictions] Reverted ${reverted} mis-graded X Intel SHORT prediction(s) for re-grading`);
+  } catch {}
 
   // Prediction tracker — grades Command Center's open trade ideas against
   // real current prices. Real price checks only (no AI cost), so this runs
