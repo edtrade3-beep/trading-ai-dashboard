@@ -68,6 +68,7 @@ import BestOppNotifier from "./components/BestOppNotifier.jsx";
 import SmartMoneyBrief from "./components/SmartMoneyBrief.jsx";
 import AdvisorAiTab from "./components/AdvisorAiTab.jsx";
 import CommandCenterTab from "./components/CommandCenterTab.jsx";
+import XIntelTab from "./components/XIntelTab.jsx";
 import CeoAiCard from "./components/CeoAiCard.jsx";
 import TrendTemplateTab from "./components/TrendTemplateTab.jsx";
 import EarlyEntryScanner from "./components/EarlyEntryScanner.jsx";
@@ -3898,6 +3899,7 @@ export default function App() {
       CIO: "advisor-ai",
       CEOAI: "ceo-ai",
       COMMANDCENTER: "command-center",
+      XINTEL: "x-intel",
       BESTOPPORTUNITIES: "best-opportunities",
       BESTOPP: "best-opportunities",
       // New sidebar tabs (2026-07-19). PORTFOLIO above already maps to the
@@ -6048,6 +6050,12 @@ export default function App() {
             computed output; adds a classified event feed and a real graded
             trade-idea track record, both genuinely new. */}
         {activeTab === "command-center" && <CommandCenterTab C={C} MONO={MONO} SANS={SANS} />}
+
+        {/* X Intelligence Engine — new tab under CEO AI (2026-07-21, user
+            request). No X API, no scraping — real web-search-grounded
+            coverage of watched accounts, same mechanism as Command
+            Center's event feed. See XIntelTab.jsx/x-intel-ai.js headers. */}
+        {activeTab === "x-intel" && <XIntelTab C={C} MONO={MONO} SANS={SANS} />}
 
         {/* Best Opportunities — moved out of the Dashboard Opportunities
             sub-tab into its own dedicated sidebar spot, right under CEO AI

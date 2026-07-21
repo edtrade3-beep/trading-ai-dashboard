@@ -58,6 +58,7 @@ const { runMorningGamePlan, runTradeCoach, runWeeklyReview, runMonthlyDeepReview
 const { runCeoRecommendation } = require("./src/ceo-ai");
 const { buildCommandCenter } = require("./src/command-center-ai");
 const { runPredictionTracker } = require("./src/prediction-tracker");
+const { runXIntelGeneration } = require("./src/x-intel-ai");
 const { runAutopilotRecap } = require("./src/alpaca-recap");
 const { runServerAutopilot } = require("./src/server-autopilot");
 const { runTrailingStops } = require("./src/trailing-stops");
@@ -137,6 +138,25 @@ server.listen(PORT, HOST, () => {
   // full day, with no cost trade-off since nothing here calls the AI.
   setInterval(() => { runPredictionTracker().catch(() => {}); }, 60 * 60_000);
   console.log("[Predictions] Tracker active — grades open ideas every hour");
+
+  // X Intelligence Engine — real web-search-grounded scan of the watchlist
+  // (no X API — see src/x-intel-ai.js's header). Runs a few times across
+  // the trading day rather than once/day like Command Center, since
+  // catching a breaking statement soon after real coverage picks it up is
+  // the whole point; each run is still a real AI+search call, so this is
+  // deliberately every 2 hours (7am-5pm ET), not continuous polling.
+  let _xIntelSlot = null;
+  setInterval(() => {
+    const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
+    if (day < 1 || day > 5) return;
+    if (h < 7 || h > 17 || h % 2 !== 1 || m >= 5) return; // 7,9,11,13,15,17 ET, first 5 min of the hour
+    const slot = `${et.toDateString()}-${h}`;
+    if (_xIntelSlot === slot) return;
+    _xIntelSlot = slot;
+    runXIntelGeneration().catch(() => {});
+  }, 60_000);
+  console.log("[X Intel] Watchlist scanner active — every 2h, 7am-5pm ET weekdays");
 
   // Auto-download CFTC data on startup if not already fresh
   setTimeout(() => {

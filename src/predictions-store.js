@@ -21,7 +21,7 @@ function save(predictions) {
 }
 
 // idea: { symbol, direction ("LONG"|"SHORT"), entry, stop, target1, target2,
-//         confidence (0-100), holdingPeriodDays, generatedAt }
+//         confidence (0-100), holdingPeriodDays, generatedAt, source }
 function logPrediction(idea) {
   const predictions = load();
   const entry = {
@@ -39,6 +39,12 @@ function logPrediction(idea) {
     confidence: idea.confidence ?? null,
     holdingPeriodDays: idea.holdingPeriodDays ?? null,
     generatedAt: idea.generatedAt || new Date().toISOString(),
+    // Which real feature generated this — lets Track Record be filtered
+    // per-source (e.g. X Intel's direction-only calls vs Command Center's
+    // real trend-screen setups) instead of one undifferentiated ledger.
+    // Defaults to "command-center" since that was the only source before
+    // this field existed.
+    source: idea.source || "command-center",
     status: "open", // open | hit | stopped | expired
     resolvedAt: null,
     resolvedPrice: null,
@@ -73,9 +79,11 @@ function resolvePrediction(id, status, resolvedPrice) {
 
 // Real, code-computed accuracy — hit rate among CLOSED predictions only
 // (open ones haven't proven anything yet, so they're excluded from the
-// rate but still shown separately as "in progress").
-function getTrackRecord() {
-  const predictions = load();
+// rate but still shown separately as "in progress"). Pass `source` to
+// scope to one feature's own ledger (e.g. "x-intel") instead of the
+// combined total.
+function getTrackRecord(source) {
+  const predictions = source ? load().filter((p) => p.source === source) : load();
   const closed = predictions.filter((p) => p.status === "hit" || p.status === "stopped");
   const hits = closed.filter((p) => p.status === "hit").length;
   const open = predictions.filter((p) => p.status === "open");
