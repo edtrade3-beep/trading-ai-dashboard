@@ -31,6 +31,7 @@
 const { callAnthropicWithSearch } = require("./anthropic");
 const { saveCoachOutput, loadCoachLog } = require("./ai-coach-store");
 const { logPrediction, getTrackRecord } = require("./predictions-store");
+const { getMostRecentEntry, appendSnapshot } = require("./command-center-history-store");
 const { computeRiskLab } = require("./risk-lab-calc");
 const { sizePositionByRisk } = require("./risk-guardrails");
 const { fetchYahooBars } = require("./providers/yahoo");
@@ -175,6 +176,32 @@ function computeCommandScore(regimeScore, ceoConfidence, ideas) {
   return { score, inputs: inputs.map((i) => ({ ...i, weightPct: i.value != null ? Math.round(100 / used.length) : null })) };
 }
 
+// Real diff against the immediately-prior generation (whether that was
+// minutes ago or days ago) — never fabricated, and explicitly null (not a
+// misleading "no change") on the very first-ever generation, when there's
+// nothing real to compare against.
+function buildWhatChanged(prev, current) {
+  if (!prev) return null;
+  const changes = [];
+  if (Number.isFinite(prev.commandScore) && Number.isFinite(current.commandScore) && prev.commandScore !== current.commandScore) {
+    changes.push({ label: "Command Score", from: prev.commandScore, to: current.commandScore, delta: current.commandScore - prev.commandScore });
+  }
+  if (Number.isFinite(prev.regimeScore) && Number.isFinite(current.regimeScore) && prev.regimeScore !== current.regimeScore) {
+    changes.push({ label: "Regime", from: `${prev.regimeLabel} (${prev.regimeScore})`, to: `${current.regimeLabel} (${current.regimeScore})`, delta: current.regimeScore - prev.regimeScore });
+  }
+  const newBullish = current.bullishSymbols.filter((s) => !(prev.bullishSymbols || []).includes(s));
+  const droppedBullish = (prev.bullishSymbols || []).filter((s) => !current.bullishSymbols.includes(s));
+  const newBearish = current.bearishSymbols.filter((s) => !(prev.bearishSymbols || []).includes(s));
+  const droppedBearish = (prev.bearishSymbols || []).filter((s) => !current.bearishSymbols.includes(s));
+  return {
+    prevAt: prev.at,
+    changes,
+    newBullish, droppedBullish, newBearish, droppedBearish,
+    criticalEventDelta: Number.isFinite(prev.criticalEventCount) ? current.criticalEventCount - prev.criticalEventCount : null,
+    hitRateDelta: Number.isFinite(prev.hitRatePct) && Number.isFinite(current.hitRatePct) ? Math.round((current.hitRatePct - prev.hitRatePct) * 10) / 10 : null,
+  };
+}
+
 async function buildCommandCenter() {
   if (!KEY()) return null;
 
@@ -310,9 +337,28 @@ Search for real, current news now and return the JSON.`;
     } catch { /* non-fatal — track record just won't include this one */ }
   });
 
+  const commandScore = computeCommandScore(regime?.score, ceoBrief?.confidence, [...bullishCards, ...bearishCards]);
+  const trackRecord = getTrackRecord();
+
+  // Read the prior snapshot BEFORE this run's own snapshot is appended —
+  // real diff against whatever was actually generated immediately before
+  // this, not a fabricated "no change".
+  const prevSnapshot = getMostRecentEntry();
+  const currentSnapshot = {
+    commandScore: commandScore.score,
+    regimeScore: regime?.score ?? null,
+    regimeLabel: regime?.label ?? null,
+    criticalEventCount,
+    bullishSymbols: bullishCards.map((c) => c.symbol),
+    bearishSymbols: bearishCards.map((c) => c.symbol),
+    hitRatePct: trackRecord.hitRatePct,
+  };
+  const whatChanged = buildWhatChanged(prevSnapshot, currentSnapshot);
+
   const built = {
     regime,
-    commandScore: computeCommandScore(regime?.score, ceoBrief?.confidence, [...bullishCards, ...bearishCards]),
+    commandScore,
+    whatChanged,
     executiveSummary: String(parsed.executiveSummary || "").slice(0, 500),
     events,
     criticalEventCount,
@@ -323,10 +369,11 @@ Search for real, current news now and return the JSON.`;
     portfolioRisk: { ...riskCC, ...(riskLab ? { var95: riskLab.var95, var99: riskLab.var99, portfolioValue: riskLab.totalValue } : {}) },
     scenarios: advisorBrief.scenarios || null,
     ceoVerdict: ceoBrief ? { verdict: ceoBrief.verdict, confidence: ceoBrief.confidence, biggestRisk: ceoBrief.biggestRisk, flipCondition: ceoBrief.flipCondition } : null,
-    trackRecord: getTrackRecord(),
+    trackRecord,
     generatedAt: Date.now(),
   };
   saveCoachOutput("commandCenter", built);
+  try { appendSnapshot(currentSnapshot); } catch { /* non-fatal — next run just won't have a "what changed" comparison */ }
 
   // Auto-alert on generation — same server-side pattern ceo-ai.js already
   // proves out (no client /api/notify call, so it isn't gated behind the

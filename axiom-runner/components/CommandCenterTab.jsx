@@ -20,6 +20,44 @@ const CATEGORY_COLOR = {
   elections: "#7c5cff", earnings: "#22c55e", other: "#94a3b8",
 };
 
+function timeAgoLabel(iso) {
+  if (!iso) return "";
+  const ms = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(ms / 60000);
+  if (mins < 1) return "moments ago";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+function WhatChangedSection({ wc, C, MONO, SANS }) {
+  if (!wc) return null;
+  const hasAnything = wc.changes?.length || wc.newBullish?.length || wc.droppedBullish?.length || wc.newBearish?.length || wc.droppedBearish?.length || wc.criticalEventDelta || wc.hitRateDelta;
+  return (
+    <div style={{ background: `${C.accent}0a`, border: `1px solid ${C.accent}33`, borderRadius: 12, padding: "12px 16px" }}>
+      <SectionLabel icon="🔄" text={`WHAT CHANGED — SINCE ${timeAgoLabel(wc.prevAt).toUpperCase()}`} color={C.accent} C={C} MONO={MONO} />
+      {!hasAnything ? (
+        <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim }}>No material change since the last report — same score, same ideas.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {wc.changes?.map((c) => (
+            <div key={c.label} style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>
+              {c.label}: {String(c.from)} → <b>{String(c.to)}</b> {c.delta != null && <span style={{ color: c.delta > 0 ? C.green : c.delta < 0 ? C.red : C.textDim }}>({c.delta > 0 ? "+" : ""}{c.delta})</span>}
+            </div>
+          ))}
+          {wc.newBullish?.length > 0 && <div style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>+ New bullish: {wc.newBullish.join(", ")}</div>}
+          {wc.droppedBullish?.length > 0 && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>− Dropped bullish: {wc.droppedBullish.join(", ")}</div>}
+          {wc.newBearish?.length > 0 && <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>+ New bearish/avoid: {wc.newBearish.join(", ")}</div>}
+          {wc.droppedBearish?.length > 0 && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>− Dropped bearish/avoid: {wc.droppedBearish.join(", ")}</div>}
+          {wc.criticalEventDelta ? <div style={{ fontFamily: MONO, fontSize: 12, color: wc.criticalEventDelta > 0 ? C.red : C.green }}>Critical events {wc.criticalEventDelta > 0 ? "+" : ""}{wc.criticalEventDelta}</div> : null}
+          {wc.hitRateDelta ? <div style={{ fontFamily: MONO, fontSize: 12, color: wc.hitRateDelta > 0 ? C.green : C.red }}>Track record hit rate {wc.hitRateDelta > 0 ? "+" : ""}{wc.hitRateDelta}%</div> : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SectionLabel({ icon, text, color, C, MONO }) {
   return (
     <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color, letterSpacing: "0.05em", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
@@ -304,6 +342,10 @@ export default function CommandCenterTab({ C, MONO, SANS }) {
               )}
             </div>
           )}
+
+          {/* What changed since the last generation — real diff, not a
+              fresh-slate snapshot every time. */}
+          <WhatChangedSection wc={brief.whatChanged} C={C} MONO={MONO} SANS={SANS} />
 
           {/* Classified event feed */}
           {brief.events?.length > 0 && (
