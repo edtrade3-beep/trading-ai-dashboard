@@ -152,23 +152,24 @@ server.listen(PORT, HOST, () => {
   console.log("[Predictions] Tracker active — grades open ideas every hour");
 
   // X Intelligence Engine — real web-search-grounded scan of the watchlist
-  // (no X API — see src/x-intel-ai.js's header). Runs a few times across
-  // the trading day rather than once/day like Command Center, since
-  // catching a breaking statement soon after real coverage picks it up is
-  // the whole point; each run is still a real AI+search call, so this is
-  // deliberately every 2 hours (7am-5pm ET), not continuous polling.
+  // (no X API — see src/x-intel-ai.js's header). Cut from every 2h (6x/day)
+  // to 2x/day (9am + 3pm ET): confirmed live that this scan, at the old
+  // cadence + maxSearches:16, was costing ~$29/mo by itself — the single
+  // biggest driver behind hitting the account's Anthropic usage cap. 2x/day
+  // at market-open and mid-afternoon still catches same-day developments,
+  // just not within 2h of them.
   let _xIntelSlot = null;
   setInterval(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
     if (day < 1 || day > 5) return;
-    if (h < 7 || h > 17 || h % 2 !== 1 || m >= 5) return; // 7,9,11,13,15,17 ET, first 5 min of the hour
+    if ((h !== 9 && h !== 15) || m >= 5) return; // 9am, 3pm ET, first 5 min of the hour
     const slot = `${et.toDateString()}-${h}`;
     if (_xIntelSlot === slot) return;
     _xIntelSlot = slot;
     runXIntelGeneration().catch(() => {});
   }, 60_000);
-  console.log("[X Intel] Watchlist scanner active — every 2h, 7am-5pm ET weekdays");
+  console.log("[X Intel] Watchlist scanner active — 9am + 3pm ET weekdays");
 
   // Auto-download CFTC data on startup if not already fresh
   setTimeout(() => {

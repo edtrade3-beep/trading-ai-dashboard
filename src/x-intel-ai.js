@@ -142,23 +142,19 @@ async function runXIntelGeneration({ topN = 40 } = {}) {
 
   let raw;
   try {
-    // maxSearches raised 4 -> 16: confirmed live that 4 real searches was
-    // the actual root cause of 4+ consecutive scans only ever surfacing
-    // items from the same ~4 mega-famous entities (Trump/Musk/Fed/
-    // WhiteHouse) despite all 32+ watchlist accounts being listed in the
-    // prompt (topN fix above) — there simply weren't enough real search
-    // calls left to specifically investigate less-famous names once the
-    // model used a couple of generic queries that happened to surface the
-    // famous ones. maxTokens raised alongside it (8000 -> 16000) because
-    // more real searches means more tool-result content sharing the same
-    // token budget as the final JSON output — the same truncation risk
-    // already hit and fixed once this session for Command Center.
-    // timeout raised alongside maxSearches: the default 120s per-turn
-    // socket timeout (tuned for the old maxSearches=4 budget) was
-    // confirmed live to kill the request mid-flight once maxSearches went
-    // to 16 — 16 real sequential searches plus reasoning genuinely needs
-    // more than 120s in one turn.
-    raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), { model: "claude-sonnet-4-6", maxTokens: 16000, maxSearches: 16, timeout: 240000 });
+    // maxSearches history: 4 (original) was too few — confirmed live it
+    // meant every scan only ever surfaced items from the same ~4
+    // mega-famous entities, no real budget left to check less-famous
+    // accounts. Raised to 16, which fixed coverage but (combined with the
+    // old 6x/day schedule) cost ~$29/mo by itself and was the dominant
+    // driver behind hitting the account's Anthropic usage cap. Settled at
+    // 8 — still double the original broken budget, and the prompt's
+    // "spread searches across the full watchlist" instruction (added
+    // alongside the original raise) does the rest of the coverage work
+    // that raw search count used to have to carry alone. Combined with the
+    // schedule cut to 2x/day (server.js), this should land near/under
+    // $10/mo total for this feature.
+    raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), { model: "claude-sonnet-4-6", maxTokens: 10000, maxSearches: 8, timeout: 180000 });
   } catch (e) {
     return { ok: false, error: `AI call failed: ${e.message}` };
   }
