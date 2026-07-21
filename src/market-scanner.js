@@ -1644,6 +1644,28 @@ function startMarketScanner() {
 // ── Watchlist-specific alerts ─────────────────────────────────────────────
 // Called from server.js after startup — scans user's custom watchlist every 15 min
 const watchlistAlertCooldown = new Map();
+let watchlistScanOffset = 0;
+
+// A fixed slice(0,30) always covers the SAME first 30 symbols forever —
+// confirmed live: with a real 133-symbol watchlist, 103 symbols (including
+// this app's entire hardcoded default watchlist, which sorts after the
+// user's own symbols in the merge) were permanently excluded from every
+// scan, no matter how many cycles ran. Rotating which 30-symbol slice runs
+// each cycle means the full list gets covered over several cycles instead
+// of the same 30 forever — same fix shape as X Intel's scan-coverage bug
+// found earlier this session, adapted for a real per-symbol network-call
+// budget instead of an AI token budget (can't just raise the cap here the
+// way X Intel's was raised, since scanWatchlistAlerts fetches bars one
+// real HTTP call at a time, sequentially, per symbol).
+function nextRotatedSlice(all, batchSize, offsetRef) {
+  if (all.length <= batchSize) return all;
+  const start = offsetRef.value % all.length;
+  const slice = start + batchSize <= all.length
+    ? all.slice(start, start + batchSize)
+    : [...all.slice(start), ...all.slice(0, start + batchSize - all.length)];
+  offsetRef.value = (start + batchSize) % all.length;
+  return slice;
+}
 
 async function scanWatchlistAlerts(watchlistSymbols) {
   if (!watchlistSymbols || !watchlistSymbols.length) return;
@@ -1654,7 +1676,10 @@ async function scanWatchlistAlerts(watchlistSymbols) {
     if (getAlertLevel?.() === "off") return;
     if (checkBudget && !checkBudget()) return; // respect daily cap
 
-    const unique = [...new Set(watchlistSymbols.map(s => String(s).toUpperCase()))].slice(0, 30);
+    const uniqueAll = [...new Set(watchlistSymbols.map(s => String(s).toUpperCase()))];
+    const offsetRef = { value: watchlistScanOffset };
+    const unique = nextRotatedSlice(uniqueAll, 30, offsetRef);
+    watchlistScanOffset = offsetRef.value;
     for (const sym of unique) {
       const coolKey = `${sym}:WL`;
       const last = watchlistAlertCooldown.get(coolKey);
@@ -1713,6 +1738,7 @@ async function scanWatchlistAlerts(watchlistSymbols) {
 
 // ── Entry Zone Alert — fires when a watchlist stock drops into buy zone ────────
 const entryZoneCooldown = new Map();
+let entryZoneScanOffset = 0;
 
 async function scanEntryZoneAlerts(watchlistSymbols, fivexRef = {}) {
   if (!watchlistSymbols?.length || !telegramConfigured()) return;
@@ -1723,7 +1749,10 @@ async function scanEntryZoneAlerts(watchlistSymbols, fivexRef = {}) {
     if (checkBudget && !checkBudget()) return;
 
     const { fetchQuoteBatchWithFallback } = require("./providers/yahoo");
-    const unique = [...new Set(watchlistSymbols.map(s => String(s).toUpperCase()))].slice(0, 30);
+    const uniqueAll = [...new Set(watchlistSymbols.map(s => String(s).toUpperCase()))];
+    const offsetRef = { value: entryZoneScanOffset };
+    const unique = nextRotatedSlice(uniqueAll, 30, offsetRef);
+    entryZoneScanOffset = offsetRef.value;
     const quotes = await fetchQuoteBatchWithFallback(unique).catch(() => []);
 
     for (const q of quotes) {
