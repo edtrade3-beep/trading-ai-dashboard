@@ -115,18 +115,36 @@ function buildTradeCard(pick, levels, equity, availCash, direction, aiNotes, hol
     symbol: pick.symbol,
     direction,
     confidence: pick.confidence?.composite ?? pick.score ?? null,
-    confidenceBasedOn: pick.confidence?.basedOn || null,
+    // Real deterministic sub-scores (already computed by advisor-ai.js's
+    // computeConfidence — technical off this platform's own trend-template
+    // scan, fundamental off real Yahoo growth/margin/valuation/leverage
+    // fields, smartMoney off real insider/short-interest data, portfolioFit
+    // off real sector concentration), previously only surfaced as a label
+    // list — exposed here as the real numbers so the score reads like a
+    // formula, not an AI opinion.
+    confidenceScorecard: {
+      technical: pick.confidence?.technical ?? null,
+      fundamental: pick.confidence?.fundamental ?? null,
+      smartMoney: pick.confidence?.smartMoney ?? null,
+      portfolioFit: pick.confidence?.portfolioFit ?? null,
+    },
     confidenceNotCovered: pick.confidence?.notCovered || null,
+    // Real trend-template scan output (this platform's own deterministic
+    // 8-point system) — the actual rule-based facts the trade idea is
+    // grounded in, not AI-summarized.
+    passCount: Number.isFinite(row.passCount) ? row.passCount : null,
+    rsRating: Number.isFinite(row.rsRating) ? row.rsRating : null,
+    stage: row.stage ? String(row.stage).replace(/ —.*/, "") : null,
     entry: row.entry,
     stop: row.stop,
     target1: row.target2 ? row2(row.entry + (row.target2 - row.entry) * 0.5) : null,
     target2: row.target2 ?? null,
     holdingPeriod: "Swing — 1 to 4 weeks (trend-template breakout horizon)",
     positionSizeShares: qty || null,
-    reason: String(pick.reason || "").slice(0, 200),
-    supportingEvidence: notes.evidence ? String(notes.evidence).slice(0, 300) : null,
-    risks: notes.risks ? String(notes.risks).slice(0, 300) : null,
-    historicalAnalog: notes.historicalAnalog ? String(notes.historicalAnalog).slice(0, 200) : null,
+    reason: String(pick.reason || "").slice(0, 140),
+    supportingEvidence: notes.evidence ? String(notes.evidence).slice(0, 160) : null,
+    risks: notes.risks ? String(notes.risks).slice(0, 160) : null,
+    historicalAnalog: notes.historicalAnalog ? String(notes.historicalAnalog).slice(0, 120) : null,
     held: !!holding,
     heldWeightPct: holding?.weightPct ?? null,
     heldUnrealizedPLpc: holding?.unrealizedPLpc ?? null,
@@ -141,14 +159,20 @@ function buildTradeCard(pick, levels, equity, availCash, direction, aiNotes, hol
 // same "don't guess a neutral value" discipline advisor-ai.js's own
 // confidence engine already uses.
 function computeCommandScore(regimeScore, ceoConfidence, ideas) {
-  const parts = [];
-  if (Number.isFinite(regimeScore)) parts.push(regimeScore);
   const ceoMap = { HIGH: 85, MEDIUM: 55, LOW: 25 };
-  if (ceoConfidence && ceoMap[ceoConfidence] != null) parts.push(ceoMap[ceoConfidence]);
   const ideaConfidences = ideas.map((i) => i.confidence).filter((c) => Number.isFinite(c));
-  if (ideaConfidences.length) parts.push(ideaConfidences.reduce((a, b) => a + b, 0) / ideaConfidences.length);
-  if (!parts.length) return null;
-  return Math.round(parts.reduce((a, b) => a + b, 0) / parts.length);
+  const ideaAvg = ideaConfidences.length ? Math.round(ideaConfidences.reduce((a, b) => a + b, 0) / ideaConfidences.length) : null;
+  const inputs = [
+    { label: "Regime", value: Number.isFinite(regimeScore) ? regimeScore : null },
+    { label: "CEO AI Confidence", value: ceoConfidence && ceoMap[ceoConfidence] != null ? ceoMap[ceoConfidence] : null },
+    { label: "Avg Idea Confidence", value: ideaAvg },
+  ];
+  const used = inputs.filter((i) => i.value != null);
+  const score = used.length ? Math.round(used.reduce((a, i) => a + i.value, 0) / used.length) : null;
+  // Each used input's real equal weight (e.g. 3 inputs -> 33% each) — shown
+  // so the score reads as a formula with visible inputs, not a black-box
+  // AI opinion.
+  return { score, inputs: inputs.map((i) => ({ ...i, weightPct: i.value != null ? Math.round(100 / used.length) : null })) };
 }
 
 async function buildCommandCenter() {
@@ -209,12 +233,12 @@ async function buildCommandCenter() {
 
 2. For POLITICAL statements specifically (Trump or any political figure) — do NOT assume every statement moves markets. Set political:true and statementType to exactly one of "rhetoric" (talk, no concrete proposal), "proposed_policy" (a specific proposal, not yet law/order), or "confirmed_policy" (actually signed/enacted/implemented). Give implementationProbabilityPct (0-100, your honest estimate the rhetoric/proposal actually becomes real policy) and a one-line historicalAnalog to a similar past case if a genuinely relevant one exists (omit rather than force a weak comparison).
 
-You will also be given this desk's own real, already-computed trading ideas (topOpportunities/bearishCandidates, each backed by this platform's own trend-template scan — real entry/stop/target price levels are attached server-side, you never need to invent them) and real portfolio risk data. For each idea, write ONLY the prose (evidence/risks/historicalAnalog) — 1-2 sentences each, grounded in the real score/RS/stage data given, or your real search results if genuinely relevant. Never invent a number for these — if you don't have real grounding for a claim, omit it rather than guess.
+You will also be given this desk's own real, already-computed trading ideas (topOpportunities/bearishCandidates, each backed by this platform's own trend-template scan — real entry/stop/target price levels AND the real passCount/RS/stage numbers are attached server-side, you never need to invent or restate them) and real portfolio risk data. This desk reads like a systematic scanner readout, not a narrative — for each idea's evidence/risks/historicalAnalog, write ONE short clipped fact per field (under 15 words, no filler like "reflects" or "suggesting" — a terminal readout, not an essay), grounded in real data or your real search results. Never invent a number — omit a field entirely rather than guess.
 
-Also write ONE executiveSummary (3-5 sentences) synthesizing: today's real regime, the event feed you just built, and this desk's real risk exposure. Be honest about uncertainty — use probability language, never false certainty.
+Also write ONE executiveSummary: 2-3 short clipped statements (under 20 words each), not a narrative paragraph — state the regime, the single biggest driver, and the single biggest risk, each as a blunt fact. Use probability language for genuine uncertainty, but keep it terse.
 
 Return JSON ONLY, no text outside it:
-{"events":[{"headline":"...","category":"...","severity":1-10,"confidence":0-100,"expectedDurationDays":N,"affectedSectors":["..."],"political":bool,"statementType":"rhetoric|proposed_policy|confirmed_policy or omit if not political","implementationProbabilityPct":0-100 or omit,"historicalAnalog":"..." or omit,"assetImpact":{"spy":{"direction":"up|down|neutral","magnitude":"high|medium|low"},"qqq":{...},"dia":{...},"iwm":{...},"vix":{...},"dxy":{...},"gold":{...},"oil":{...},"btc":{...}},"summary":"1-2 sentences"}],"tradeNotes":{"TICKER":{"evidence":"...","risks":"...","historicalAnalog":"..." or omit}},"executiveSummary":"..."}`;
+{"events":[{"headline":"...","category":"...","severity":1-10,"confidence":0-100,"expectedDurationDays":N,"affectedSectors":["..."],"political":bool,"statementType":"rhetoric|proposed_policy|confirmed_policy or omit if not political","implementationProbabilityPct":0-100 or omit,"historicalAnalog":"..." or omit,"assetImpact":{"spy":{"direction":"up|down|neutral","magnitude":"high|medium|low"},"qqq":{...},"dia":{...},"iwm":{...},"vix":{...},"dxy":{...},"gold":{...},"oil":{...},"btc":{...}},"summary":"one clipped fact, under 15 words"}],"tradeNotes":{"TICKER":{"evidence":"one clipped fact, under 15 words","risks":"one clipped fact, under 15 words","historicalAnalog":"..." or omit}},"executiveSummary":"..."}`;
 
   const prompt = `TODAY'S REAL MARKET REGIME: ${regime?.label} (${regime?.score}/100).
 CAPITAL FLOW (real, today vs SPY): ${capitalFlow.slice(0, 6).map((c) => `${c.symbol} ${c.chg >= 0 ? "+" : ""}${c.chg?.toFixed?.(2)}%`).join(", ") || "unavailable"}
@@ -289,7 +313,7 @@ Search for real, current news now and return the JSON.`;
   const built = {
     regime,
     commandScore: computeCommandScore(regime?.score, ceoBrief?.confidence, [...bullishCards, ...bearishCards]),
-    executiveSummary: String(parsed.executiveSummary || "").slice(0, 1200),
+    executiveSummary: String(parsed.executiveSummary || "").slice(0, 500),
     events,
     criticalEventCount,
     bullishIdeas: bullishCards,
@@ -313,7 +337,7 @@ Search for real, current news now and return the JSON.`;
     const critLine = criticalEventCount ? `\n🔴 ${criticalEventCount} critical event${criticalEventCount > 1 ? "s" : ""}` : "";
     const topBull = bullishCards[0] ? `\n🟢 Top long: ${bullishCards[0].symbol} (${bullishCards[0].confidence ?? "—"}/100)` : "";
     const topBear = bearishCards[0] ? `\n🔴 Top avoid: ${bearishCards[0].symbol}` : "";
-    const msg = `🛰️ *AI COMMAND CENTER*\n\n${built.regime?.label || "?"} regime (${built.regime?.score ?? "?"}/100)${built.commandScore != null ? ` · Command Score ${built.commandScore}/100` : ""}${critLine}\n\n${built.executiveSummary.slice(0, 500)}${topBull}${topBear}`;
+    const msg = `🛰️ *AI COMMAND CENTER*\n\n${built.regime?.label || "?"} regime (${built.regime?.score ?? "?"}/100)${built.commandScore?.score != null ? ` · Command Score ${built.commandScore.score}/100` : ""}${critLine}\n\n${built.executiveSummary.slice(0, 500)}${topBull}${topBear}`;
     sendTelegramMessage(msg).catch(() => {});
   }
 

@@ -113,20 +113,38 @@ function TradeIdeaCard({ idea, C, MONO, SANS }) {
         {idea.target2 != null && <span style={{ color: C.textDim }}>T2 <b style={{ color: C.green }}>${idea.target2}</b></span>}
         {idea.positionSizeShares != null && <span style={{ color: C.textDim }}>SIZE <b style={{ color: C.text }}>{idea.positionSizeShares} sh</b></span>}
       </div>
+      {/* Real deterministic scan facts — this platform's own trend-template
+          rule set, not AI opinion. */}
+      {(idea.passCount != null || idea.rsRating != null || idea.stage) && (
+        <div style={{ display: "flex", gap: 12, fontFamily: MONO, fontSize: 10.5, flexWrap: "wrap", marginBottom: 8, padding: "6px 9px", background: `${C.textDim}0a`, borderRadius: 6 }}>
+          {idea.passCount != null && <span style={{ color: C.textDim }}>TREND <b style={{ color: idea.passCount >= 7 ? C.green : idea.passCount >= 5 ? C.amber : C.red }}>{idea.passCount}/8</b></span>}
+          {idea.rsRating != null && <span style={{ color: C.textDim }}>RS <b style={{ color: idea.rsRating >= 70 ? C.green : C.text }}>{idea.rsRating}</b></span>}
+          {idea.stage && <span style={{ color: C.textDim }}>STAGE <b style={{ color: C.text }}>{idea.stage}</b></span>}
+        </div>
+      )}
       <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 6 }}>{idea.holdingPeriod}</div>
-      {idea.reason && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.45, marginBottom: 6 }}>{idea.reason}</div>}
+      {idea.reason && <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, lineHeight: 1.4, marginBottom: 6 }}>{idea.reason}</div>}
       {idea.supportingEvidence && (
-        <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.text, lineHeight: 1.45, marginBottom: 4 }}><b style={{ color: C.green }}>Evidence:</b> {idea.supportingEvidence}</div>
+        <div style={{ fontFamily: MONO, fontSize: 11, color: C.text, lineHeight: 1.4, marginBottom: 3 }}><b style={{ color: C.green }}>+</b> {idea.supportingEvidence}</div>
       )}
       {idea.risks && (
-        <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.text, lineHeight: 1.45, marginBottom: 4 }}><b style={{ color: C.red }}>Risks:</b> {idea.risks}</div>
+        <div style={{ fontFamily: MONO, fontSize: 11, color: C.text, lineHeight: 1.4, marginBottom: 3 }}><b style={{ color: C.red }}>−</b> {idea.risks}</div>
       )}
       {idea.historicalAnalog && (
-        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, fontStyle: "italic" }}>Historical analog: {idea.historicalAnalog}</div>
+        <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, fontStyle: "italic", marginBottom: 6 }}>↳ {idea.historicalAnalog}</div>
       )}
-      {idea.confidenceBasedOn?.length > 0 && (
-        <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginTop: 6 }}>
-          Confidence based on: {idea.confidenceBasedOn.join(", ")}{idea.confidenceNotCovered?.length ? ` · not covered: ${idea.confidenceNotCovered.join(", ")}` : ""}
+      {/* Confidence scorecard — the real sub-scores behind the composite
+          number above, shown as a formula rather than an opinion. */}
+      {idea.confidenceScorecard && Object.values(idea.confidenceScorecard).some((v) => v != null) && (
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+          {[["TECH", idea.confidenceScorecard.technical], ["FUND", idea.confidenceScorecard.fundamental], ["SMART $", idea.confidenceScorecard.smartMoney], ["FIT", idea.confidenceScorecard.portfolioFit]]
+            .filter(([, v]) => v != null)
+            .map(([label, v]) => (
+              <span key={label} style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>{label} <b style={{ color: v >= 70 ? C.green : v >= 40 ? C.amber : C.red }}>{v}</b></span>
+            ))}
+          {idea.confidenceNotCovered?.length > 0 && (
+            <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>· not covered: {idea.confidenceNotCovered.join(", ")}</span>
+          )}
         </div>
       )}
     </div>
@@ -242,13 +260,12 @@ export default function CommandCenterTab({ C, MONO, SANS }) {
             <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, padding: "6px 14px", borderRadius: 8, background: `${regimeCol}18`, border: `1px solid ${regimeCol}44`, color: regimeCol }}>
               {brief.regime?.label} ({brief.regime?.score}/100)
             </span>
-            {brief.commandScore != null && (
-              <span title="Blend of today's regime score, CEO AI's confidence tier, and the average confidence across today's trade ideas"
-                style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, padding: "6px 14px", borderRadius: 8,
-                  background: `${brief.commandScore >= 70 ? C.green : brief.commandScore >= 45 ? C.amber : C.red}18`,
-                  border: `1px solid ${brief.commandScore >= 70 ? C.green : brief.commandScore >= 45 ? C.amber : C.red}44`,
-                  color: brief.commandScore >= 70 ? C.green : brief.commandScore >= 45 ? C.amber : C.red }}>
-                🎯 COMMAND SCORE {brief.commandScore}/100
+            {brief.commandScore?.score != null && (
+              <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, padding: "6px 14px", borderRadius: 8,
+                background: `${brief.commandScore.score >= 70 ? C.green : brief.commandScore.score >= 45 ? C.amber : C.red}18`,
+                border: `1px solid ${brief.commandScore.score >= 70 ? C.green : brief.commandScore.score >= 45 ? C.amber : C.red}44`,
+                color: brief.commandScore.score >= 70 ? C.green : brief.commandScore.score >= 45 ? C.amber : C.red }}>
+                🎯 COMMAND SCORE {brief.commandScore.score}/100
               </span>
             )}
             {brief.criticalEventCount > 0 && (
@@ -262,6 +279,17 @@ export default function CommandCenterTab({ C, MONO, SANS }) {
               </span>
             )}
           </div>
+
+          {/* Command Score formula — the real inputs and their equal
+              weights, not a black-box number. */}
+          {brief.commandScore?.inputs?.some((i) => i.value != null) && (
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginTop: -6 }}>
+              {brief.commandScore.inputs.filter((i) => i.value != null).map((i) => (
+                <span key={i.label}>{i.label} <b style={{ color: C.text }}>{i.value}</b> <span style={{ opacity: 0.6 }}>({i.weightPct}%)</span></span>
+              )).reduce((acc, el, idx) => idx === 0 ? [el] : [...acc, <span key={`sep${idx}`} style={{ opacity: 0.4 }}> + </span>, el], [])}
+              <span> = <b style={{ color: C.text }}>{brief.commandScore.score}/100</b></span>
+            </div>
+          )}
 
           {/* Executive summary */}
           {brief.executiveSummary && (
