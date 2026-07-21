@@ -71,6 +71,49 @@ function ItemCard({ it, C, MONO, SANS }) {
   );
 }
 
+function TrackRecordSection({ tr, C, MONO, SANS }) {
+  if (!tr) return null;
+  return (
+    <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
+      <SectionLabel icon="📋" text="TRACK RECORD — REAL, CODE-GRADED OUTCOMES" color={C.accent} C={C} MONO={MONO} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 10 }}>
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 11, textAlign: "center" }}>
+          <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: tr.hitRatePct == null ? C.textDim : tr.hitRatePct >= 55 ? C.green : tr.hitRatePct >= 40 ? C.amber : C.red }}>
+            {tr.hitRatePct == null ? "—" : `${tr.hitRatePct}%`}
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>HIT RATE ({tr.closedCount} closed)</div>
+        </div>
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 11, textAlign: "center" }}>
+          <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>{tr.openCount}</div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>OPEN / IN PROGRESS</div>
+        </div>
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 11, textAlign: "center" }}>
+          <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>{tr.totalGenerated}</div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>TOTAL CALLS LOGGED</div>
+        </div>
+      </div>
+      {tr.recent?.length > 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {tr.recent.slice(0, 10).map((p) => {
+            const statusCol = p.status === "hit" ? C.green : p.status === "stopped" ? C.red : p.status === "expired" ? C.textDim : C.amber;
+            return (
+              <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: MONO, fontSize: 11, padding: "6px 10px", background: C.surface, borderRadius: 6 }}>
+                <span style={{ color: C.text, fontWeight: 700 }}>{p.symbol} <span style={{ color: C.textDim, fontWeight: 400 }}>{p.direction}</span></span>
+                <span style={{ color: statusCol, fontWeight: 800 }}>{p.status.toUpperCase()}</span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>No market-impact calls graded yet — fills in as real scans log new predictions.</div>
+      )}
+      <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginTop: 8 }}>
+        Direction-only grading (±3% real price band from the captured entry price) — not a specific price target, since X-sourced calls are directional, not defined-risk trade setups.
+      </div>
+    </div>
+  );
+}
+
 function WatchlistPanel({ C, MONO, SANS, watchlist, reload }) {
   const [form, setForm] = useState({ username: "", displayName: "", category: "Custom", importanceScore: 50, reliabilityScore: 50 });
   const [busy, setBusy] = useState(false);
@@ -102,7 +145,13 @@ function WatchlistPanel({ C, MONO, SANS, watchlist, reload }) {
         <button onClick={addEntry} disabled={busy} style={buttonChrome(C, { padding: "6px 14px", fontSize: 12, fontWeight: 800, background: C.accent, color: "#fff", border: "none" })}>+ ADD</button>
       </div>
       {err && <div style={{ fontFamily: MONO, fontSize: 11, color: C.red, marginBottom: 8 }}>{err}</div>}
-      <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 260, overflowY: "auto" }}>
+      {/* Flows with the page rather than a small nested scroll box — a
+          capped-height inner scroller here made newly-added entries
+          (appended at the end) invisible unless you scrolled inside that
+          small box specifically, easy to miss especially on mobile.
+          Confirmed live: 16 real accounts a user added were fully present
+          in the data but looked "missing" for exactly this reason. */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
         {watchlist.map((w) => (
           <div key={w.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: MONO, fontSize: 11.5, padding: "6px 10px", background: C.surface, borderRadius: 6 }}>
             <span style={{ color: C.text }}>@{w.username} <span style={{ color: C.textDim }}>· {w.category} · imp {w.importanceScore}</span></span>
@@ -120,6 +169,7 @@ function WatchlistPanel({ C, MONO, SANS, watchlist, reload }) {
 export default function XIntelTab({ C, MONO, SANS }) {
   const [items, setItems] = useState([]);
   const [watchlist, setWatchlist] = useState([]);
+  const [trackRecord, setTrackRecord] = useState(null);
   const [state, setState] = useState("loading");
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState(null);
@@ -136,13 +186,16 @@ export default function XIntelTab({ C, MONO, SANS }) {
   const loadWatchlist = () => {
     fetch("/api/x-intel/watchlist").then((r) => r.json()).then((d) => { if (d.ok) setWatchlist(d.watchlist || []); }).catch(() => {});
   };
+  const loadTrackRecord = () => {
+    fetch("/api/x-intel/track-record").then((r) => r.json()).then((d) => { if (d.ok) setTrackRecord(d); }).catch(() => {});
+  };
 
-  useEffect(() => { loadFeed(); loadWatchlist(); }, []);
+  useEffect(() => { loadFeed(); loadWatchlist(); loadTrackRecord(); }, []);
 
   const refresh = () => {
     setRefreshing(true); setRefreshMsg(null);
     fetch("/api/x-intel/refresh", { method: "POST" }).then((r) => r.json()).then((d) => {
-      if (d.ok) { setRefreshMsg(`Scanned ${d.scanned} accounts, ${d.newItemsCount} new item${d.newItemsCount === 1 ? "" : "s"}.`); loadFeed(); loadWatchlist(); }
+      if (d.ok) { setRefreshMsg(`Scanned ${d.scanned} accounts, ${d.newItemsCount} new item${d.newItemsCount === 1 ? "" : "s"}.`); loadFeed(); loadWatchlist(); loadTrackRecord(); }
       else setRefreshMsg(d.error || "Refresh failed");
     }).catch((e) => setRefreshMsg(e.message)).finally(() => setRefreshing(false));
   };
@@ -253,6 +306,10 @@ export default function XIntelTab({ C, MONO, SANS }) {
           </div>
         </div>
       )}
+
+      {/* Track Record — AI Learning: real, code-graded outcomes for every
+          real-symbol market-impact call this engine has made. */}
+      <TrackRecordSection tr={trackRecord} C={C} MONO={MONO} SANS={SANS} />
 
       {/* Search */}
       <div style={{ ...cardStyle(C, { background: C.card }), padding: 14 }}>
