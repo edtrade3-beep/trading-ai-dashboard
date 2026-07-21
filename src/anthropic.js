@@ -24,8 +24,8 @@ function callAnthropicApi(prompt, apiKey, { model = MODELS.sonnet, maxTokens = 1
   return anthropicRequest(payload, apiKey, timeout).then(p => (p.content || []).filter(b => b.type === "text").map(b => b.text).join("") || "");
 }
 
-// Low-level request that returns the full parsed response (for tool-use flows).
-function anthropicRequest(payload, apiKey, timeoutMs = 120000) {
+// Low-level single-attempt request — the actual HTTP call, one key, no retry.
+function anthropicRequestOnce(payload, apiKey, timeoutMs = 120000) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify(payload);
     // Detect prompt caching to send the right beta header.
@@ -59,6 +59,25 @@ function anthropicRequest(payload, apiKey, timeoutMs = 120000) {
     req.write(body);
     req.end();
   });
+}
+
+// Real usage-cap hit live in production: "You have reached your specified
+// API usage limits. You will regain access on 2026-08-01 at 00:00 UTC." —
+// an account-level quota/rate error, not a code bug, so a normal retry on
+// the same key can't help. If a second key is configured
+// (ANTHROPIC_API_KEY_FALLBACK), retry once on that key instead of failing
+// every AI feature in the app until the primary key's limit resets.
+const USAGE_LIMIT_RE = /usage limit|rate.?limit|quota|credit balance/i;
+async function anthropicRequest(payload, apiKey, timeoutMs = 120000) {
+  try {
+    return await anthropicRequestOnce(payload, apiKey, timeoutMs);
+  } catch (err) {
+    const fallbackKey = (process.env.ANTHROPIC_API_KEY_FALLBACK || "").trim();
+    if (fallbackKey && fallbackKey !== apiKey && USAGE_LIMIT_RE.test(err.message)) {
+      return anthropicRequestOnce(payload, fallbackKey, timeoutMs);
+    }
+    throw err;
+  }
 }
 
 // Calls Claude with the built-in web_search tool so it can find live data on its own.
