@@ -187,9 +187,9 @@ server.listen(PORT, HOST, () => {
   // often than the AI-search path above. No market-hours gating needed
   // either (these orgs publish on their own schedule, not tied to trading
   // hours) — just a real per-feed dedup window (48h) inside the poller.
-  setInterval(() => { runXIntelRssPoll().catch((e) => console.warn("[X Intel RSS] poll failed:", e.message)); }, 15 * 60_000);
-  runXIntelRssPoll().catch(() => {}); // also once on startup, not just on the next 15-min tick
-  console.log("[X Intel] Free RSS poller active — every 15 min, official/company accounts");
+  setInterval(() => { runXIntelRssPoll().catch((e) => console.warn("[X Intel RSS] poll failed:", e.message)); }, 5 * 60_000);
+  runXIntelRssPoll().catch(() => {}); // also once on startup, not just on the next 5-min tick
+  console.log("[X Intel] Free RSS poller active — every 5 min, official/company accounts");
 
   // Auto-download CFTC data on startup if not already fresh
   setTimeout(() => {
