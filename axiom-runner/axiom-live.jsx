@@ -5573,9 +5573,17 @@ export default function App() {
           </div>
         )}
 
-        {/* Desktop action buttons — right side of nav bar */}
+        {/* Desktop action buttons — right side of nav bar. Grouped to match
+            the trading flow (same principle as the reorganized Sidebar):
+            look up a symbol → check your live P/L → confirm data is live
+            → data/account actions → quick tool shortcuts → display prefs
+            → ambient/personal (weather, prayer, other-business link) last,
+            same "personal stuff at the end" idea as the sidebar's Personal
+            section. Every handler/style below is unchanged from before —
+            only the order and divider placement changed. */}
         {!isMobile && (
           <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginLeft: 8 }}>
+            {/* ── 1. Symbol lookup ── */}
             <input
               value={symbolSearch}
               onChange={(e) => setSymbolSearch(e.target.value.toUpperCase())}
@@ -5586,6 +5594,49 @@ export default function App() {
             <button onClick={handleSymbolSearch} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.textSec, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer", height: 24 }}>SEARCH</button>
             <button onClick={() => openTradingView(symbolSearch || terminalSymbol)} style={{ border: `1px solid ${C.border}`, background: C.card, color: C.accent, borderRadius: 6, padding: "3px 7px", fontFamily: MONO, fontSize: 12, cursor: "pointer", height: 24 }}>TV</button>
             <span style={{ width: 1, height: 14, background: C.border, flexShrink: 0 }} />
+
+            {/* ── 2. Performance snapshot — "how am I doing right now" ── */}
+            {portfolioSummary.totalCost > 0 && portfolioSummary.totalValue > 0 && (
+              <div onClick={() => setActiveTab("portfolio")} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6,
+                border: `1px solid ${portfolioSummary.totalPnl >= 0 ? C.green : C.red}44`,
+                background: portfolioSummary.totalPnl >= 0 ? `${C.green}0e` : `${C.red}0e`, cursor: "pointer" }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>PORT</span>
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red }}>
+                    {portfolioSummary.totalPnl >= 0 ? "+" : ""}{portfolioSummary.totalPnlPct.toFixed(2)}%
+                  </div>
+                  {(portfolioSummary.dayPnlTotal || 0) !== 0 && (
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: (portfolioSummary.dayPnlTotal||0) >= 0 ? C.green : C.red }}>
+                      Today {(portfolioSummary.dayPnlTotal||0) >= 0 ? "+" : ""}{formatNum(portfolioSummary.dayPnlTotal||0)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {(() => {
+              const today = new Date().toISOString().slice(0, 10);
+              const todayClosed = journalEntries.filter(e => e.status === "closed" && e.pnl != null && (e.closedAt || "").slice(0, 10) === today);
+              if (!todayClosed.length) return null;
+              const todayPnl = todayClosed.reduce((s, e) => s + e.pnl, 0);
+              const color = todayPnl >= 0 ? C.green : C.red;
+              return (
+                <div onClick={() => setActiveTab("journal")} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 6, border: `1px solid ${color}44`, background: `${color}0e`, cursor: "pointer" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>TODAY</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color }}>{todayPnl >= 0 ? "+" : ""}${Math.round(todayPnl)}</span>
+                </div>
+              );
+            })()}
+
+            {/* ── 3. Is my data live? ── */}
+            <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: C.card, borderRadius: 6, border: `1px solid ${C.border}` }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: dataBadge === "LIVE" ? C.green : dataBadge === "STALE" ? C.amber : C.red, boxShadow: `0 0 5px ${dataBadge === "LIVE" ? C.green : C.amber}`, animation: "pulse 2s infinite", flexShrink: 0 }} />
+              <span style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, whiteSpace: "nowrap" }}>
+                {lastUpdate ? `Updated ${lastUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "CONNECTING…"}
+              </span>
+            </div>
+            <span style={{ width: 1, height: 14, background: C.border, flexShrink: 0 }} />
+
+            {/* ── 4. Data & account actions ── */}
             <button onClick={() => { setLoading(true); fetchAll(apiKey).finally(() => setLoading(false)); }} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>{loading ? "⟳" : "REFRESH"}</button>
             <button
               title="Save watchlists, portfolio & settings to server"
@@ -5619,15 +5670,17 @@ export default function App() {
               }}
               style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}55`, color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}
             >☁ LOAD</button>
-            <a href="/dealer" target="_blank" rel="noopener" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>DIXIE</a>
+
+            {/* ── 5. Quick tool shortcuts ── */}
             <button onClick={() => setActiveTab("mytrades")} title="Open MY TRADES (paper auto-pilot positions)" style={{ background: "#7c3aed14", border: `1px solid #7c3aed55`, color: "#a78bfa", fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>📋 TRADES</button>
-            <button onClick={handleLock} style={{ background: `${C.red}10`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>LOCK</button>
             <button onClick={() => setPaletteOpen(true)} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>CMD</button>
+            <button onClick={handleLock} style={{ background: `${C.red}10`, border: `1px solid ${C.red}44`, color: C.red, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>LOCK</button>
+            <span style={{ width: 1, height: 14, background: C.border, flexShrink: 0 }} />
+
+            {/* ── 6. Display preferences ── */}
             <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>
               {themeMode === "dark" ? "☀" : "●"}
             </button>
-
-            {/* ── Brightness dimmer ── */}
             <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 6px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, height: 24 }}
               title={`Brightness ${brightness}% — drag to dim`}>
               <span style={{ fontSize: 12 }}>{brightness <= 60 ? "🌑" : brightness <= 80 ? "🌗" : "☀️"}</span>
@@ -5639,27 +5692,17 @@ export default function App() {
               />
               <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, minWidth: 26 }}>{brightness}%</span>
             </div>
-
-            {/* ── Page zoom (100 → 125 → 150) ── */}
             <button onClick={cycleZoom} title="Zoom the whole page (100 → 125 → 150 → 100)"
               style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 8px", height: 24, cursor: "pointer",
                 background: pageZoom > 1 ? `${C.accent}18` : C.card, border: `1px solid ${pageZoom > 1 ? C.accent : C.border}`, borderRadius: 6,
                 fontFamily: MONO, fontSize: 12, fontWeight: 700, color: pageZoom > 1 ? C.accent : C.textDim }}>
               🔍 {Math.round(pageZoom * 100)}%
             </button>
-
-            {/* ── Status chips (inline after ● button) ── */}
             <span style={{ width: 1, height: 14, background: C.border, flexShrink: 0, marginLeft: 2 }} />
 
-            {/* Live dot + timestamp */}
-            <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: C.card, borderRadius: 6, border: `1px solid ${C.border}` }}>
-              <div style={{ width: 6, height: 6, borderRadius: "50%", background: dataBadge === "LIVE" ? C.green : dataBadge === "STALE" ? C.amber : C.red, boxShadow: `0 0 5px ${dataBadge === "LIVE" ? C.green : C.amber}`, animation: "pulse 2s infinite", flexShrink: 0 }} />
-              <span style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, whiteSpace: "nowrap" }}>
-                {lastUpdate ? `Updated ${lastUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "CONNECTING…"}
-              </span>
-            </div>
-
-            {/* Weather */}
+            {/* ── 7. Ambient / personal — weather, session, prayer, other
+                business — deliberately last, same idea as the Sidebar's
+                Personal section being last. ── */}
             <div style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${C.border}`, background: C.card, borderRadius: 5, padding: "4px 10px", fontSize: 12, fontFamily: MONO, color: C.textSec, whiteSpace: "nowrap" }}>
               <span style={{ color: C.accent, fontWeight: 700 }}>WEATHER {WEATHER_ZIP}</span>
               {weatherData ? (
@@ -5670,7 +5713,6 @@ export default function App() {
               ) : <span style={{ color: C.textDim }}>—</span>}
             </div>
 
-            {/* Session countdown */}
             <SessionCountdownBadge C={C} MONO={MONO} sessionCountdown={sessionCountdown} compact />
 
             {/* Athan sound — always-visible control (2026-07-20, user
@@ -5695,7 +5737,6 @@ export default function App() {
               <span style={{ fontWeight: 700 }}>ATHAN {athanSoundOn ? "ON" : "OFF"}</span>
             </button>
 
-            {/* Hijri date */}
             {athanHijri && (
               <div onClick={() => setActiveTab("athan")} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: "#c9a84c0e", borderRadius: 6, border: "1px solid #c9a84c2a", cursor: "pointer", direction: "rtl" }}>
                 <span style={{ fontSize: 12, fontFamily: "Arial, sans-serif", color: "#c9a84c", fontWeight: 700 }}>
@@ -5704,41 +5745,6 @@ export default function App() {
               </div>
             )}
 
-            {/* Portfolio P/L */}
-            {portfolioSummary.totalCost > 0 && portfolioSummary.totalValue > 0 && (
-              <div onClick={() => setActiveTab("portfolio")} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6,
-                border: `1px solid ${portfolioSummary.totalPnl >= 0 ? C.green : C.red}44`,
-                background: portfolioSummary.totalPnl >= 0 ? `${C.green}0e` : `${C.red}0e`, cursor: "pointer" }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>PORT</span>
-                <div>
-                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: portfolioSummary.totalPnl >= 0 ? C.green : C.red }}>
-                    {portfolioSummary.totalPnl >= 0 ? "+" : ""}{portfolioSummary.totalPnlPct.toFixed(2)}%
-                  </div>
-                  {(portfolioSummary.dayPnlTotal || 0) !== 0 && (
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: (portfolioSummary.dayPnlTotal||0) >= 0 ? C.green : C.red }}>
-                      Today {(portfolioSummary.dayPnlTotal||0) >= 0 ? "+" : ""}{formatNum(portfolioSummary.dayPnlTotal||0)}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Today P/L */}
-            {(() => {
-              const today = new Date().toISOString().slice(0, 10);
-              const todayClosed = journalEntries.filter(e => e.status === "closed" && e.pnl != null && (e.closedAt || "").slice(0, 10) === today);
-              if (!todayClosed.length) return null;
-              const todayPnl = todayClosed.reduce((s, e) => s + e.pnl, 0);
-              const color = todayPnl >= 0 ? C.green : C.red;
-              return (
-                <div onClick={() => setActiveTab("journal")} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 6, border: `1px solid ${color}44`, background: `${color}0e`, cursor: "pointer" }}>
-                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>TODAY</span>
-                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color }}>{todayPnl >= 0 ? "+" : ""}${Math.round(todayPnl)}</span>
-                </div>
-              );
-            })()}
-
-            {/* Quran playing */}
             {quranPlaying && (
               <button onClick={() => { if (quranAudioRef.current) quranAudioRef.current.pause(); }} style={{ background: `#c9a84c18`, border: `1px solid #c9a84c55`, color: "#c9a84c", fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "5px 9px", borderRadius: 6, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
                 <span>▐▌</span>
@@ -5747,6 +5753,8 @@ export default function App() {
                 </span>
               </button>
             )}
+
+            <a href="/dealer" target="_blank" rel="noopener" title="Dixie Motors dealership tools (separate business, not part of this trading platform)" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textSec, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", textDecoration: "none", height: 24, display: "flex", alignItems: "center" }}>DIXIE</a>
           </div>
         )}
       </div>
