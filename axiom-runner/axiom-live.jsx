@@ -5426,6 +5426,31 @@ export default function App() {
     return () => ro.disconnect();
   }, [isMobile, isTablet]);
 
+  // The FAB cluster (Copilot/Reality Check/Checklist) sits fixed at
+  // bottom-right, so on mobile it inevitably passes over whatever real
+  // content happens to be scrolling underneath it — confirmed via real
+  // screenshots covering the tail end of the AI Morning Brief and Market
+  // Health's Risk Stance banner. Rather than shrink the buttons further
+  // (already done, see fab-*-btn mobile CSS below) or remove functionality,
+  // fade them out while the user is actively scrolling — the same pattern
+  // used by Gmail/Twitter's compose FABs — so they never block the exact
+  // moment someone is reading past that screen position, and fade back in
+  // once scrolling settles. Desktop is untouched: the cluster is a much
+  // smaller fraction of a 1440px+ viewport and doesn't need this.
+  const [fabScrolling, setFabScrolling] = useState(false);
+  useEffect(() => {
+    if (!isMobile) return;
+    let hideTimer = null;
+    const onScroll = () => {
+      setFabScrolling(true);
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => setFabScrolling(false), 550);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => { window.removeEventListener("scroll", onScroll); clearTimeout(hideTimer); };
+  }, [isMobile]);
+  const fabFading = isMobile && fabScrolling;
+
   if (!appUnlocked) {
     return (
       <PasswordLockScreen
@@ -5444,8 +5469,8 @@ export default function App() {
     <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: SANS, zoom: (isMobile ? 1 : isTablet ? UI_ZOOM_TABLET : UI_ZOOM) * pageZoom, lineHeight: 1.5, width: "100%", maxWidth: "100vw", overflowX: "hidden", filter: brightness < 100 ? `brightness(${brightness}%)` : "none", transition: "filter 0.2s" }}>
       <IstighfarWidget C={C} themeMode={themeMode} isMobile={isMobile} />
       <div style={{ height: ISTIGHFAR_BAR_H, flexShrink: 0 }} aria-hidden="true" />
-      <TradingCopilot C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistSymbols={watchlistSymbols} statusBarH={statusBarH} />
-      <RealityCheckWidget statusBarH={statusBarH} />
+      <TradingCopilot C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistSymbols={watchlistSymbols} statusBarH={statusBarH} fabFading={fabFading} />
+      <RealityCheckWidget statusBarH={statusBarH} fabFading={fabFading} />
       {/* Google Fonts — Inter (UI) + JetBrains Mono (data/numbers) */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -6854,7 +6879,7 @@ export default function App() {
           content wrapper above, same as IstighfarWidget/TradingCopilot/
           RealityCheckWidget: these are viewport-relative fixed overlays,
           not page content, so they shouldn't inherit the sidebar offset. */}
-      <FloatingChecklistButton C={C} checklistItems={checklistItems} setActiveTab={setActiveTab} statusBarH={statusBarH} />
+      <FloatingChecklistButton C={C} checklistItems={checklistItems} setActiveTab={setActiveTab} statusBarH={statusBarH} fabFading={fabFading} />
 
       <TiltDetectorOverlay C={C} MONO={MONO} SANS={SANS} tiltLocked={tiltLocked} tiltUnlockAt={tiltUnlockAt} setActiveTab={setActiveTab} setTiltLocked={setTiltLocked} setTiltUnlockAt={setTiltUnlockAt} />
 

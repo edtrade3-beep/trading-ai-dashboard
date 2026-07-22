@@ -3,7 +3,7 @@ import { computeRegime, computeAPlusScore } from "./market-helpers.js";
 import { BEST_OPP_UNIVERSE } from "./terminal-panels.jsx";
 
 // 🗣️ Trading Copilot — floating chat that knows your context + can search live news
-export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymbols, statusBarH = 40 }) {
+export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymbols, statusBarH = 40, fabFading = false }) {
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState([]);   // {role, content}
   const [input, setInput] = useState("");
@@ -102,7 +102,8 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
           RealityCheckWidget/FloatingChecklistButton below it. */}
       <button className="fab-copilot-btn" onClick={() => setOpen(o => !o)} title="Trading Copilot"
         style={{ position: "fixed", bottom: 18 + statusBarH, right: 18, zIndex: 9999, width: 54, height: 54, borderRadius: "50%", cursor: "pointer",
-          border: "none", background: C.accent, color: "#fff", fontSize: 22, boxShadow: "0 6px 20px rgba(0,0,0,0.3)" }}>{open ? "✕" : "💬"}</button>
+          border: "none", background: C.accent, color: "#fff", fontSize: 22, boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
+          opacity: fabFading && !open ? 0 : 1, pointerEvents: fabFading && !open ? "none" : "auto", transition: "opacity 0.2s" }}>{open ? "✕" : "💬"}</button>
       {open && (
         <div style={{ position: "fixed", bottom: 82 + statusBarH, right: 18, zIndex: 9999, width: "min(400px, 92vw)", height: "min(560px, 78vh)",
           display: "flex", flexDirection: "column", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: "0 10px 40px rgba(0,0,0,0.4)", overflow: "hidden" }}>

@@ -104,7 +104,7 @@ function positionVerdict(direction, flowBias, narrScore) {
   };
 }
 
-export default function RealityCheckWidget({ statusBarH = 40 } = {}) {
+export default function RealityCheckWidget({ statusBarH = 40, fabFading = false } = {}) {
   const [open, setOpen] = useState(false);
   const [ticker, setTicker] = useState("");
   const [loading, setLoading] = useState(false);
@@ -357,6 +357,7 @@ export default function RealityCheckWidget({ statusBarH = 40 } = {}) {
           background: C.bg, border: `2px solid ${C.accent}`,
           boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
           display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22,
+          opacity: fabFading && !open ? 0 : 1, pointerEvents: fabFading && !open ? "none" : "auto", transition: "opacity 0.2s",
         }}
       >
         {open ? <span style={{ color: C.text, fontSize: 20 }}>×</span> : "🕵️"}

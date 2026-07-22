@@ -1,5 +1,5 @@
 // ── Floating Checklist Button ──
-export default function FloatingChecklistButton({ C, checklistItems, setActiveTab, statusBarH = 40 }) {
+export default function FloatingChecklistButton({ C, checklistItems, setActiveTab, statusBarH = 40, fabFading = false }) {
   const done  = checklistItems.filter(c => c.done).length;
   const total = checklistItems.length;
   const allDone = done === total;
@@ -21,7 +21,8 @@ export default function FloatingChecklistButton({ C, checklistItems, setActiveTa
           background: allDone ? C.green : done > 0 ? C.amber : C.red,
           boxShadow: `0 4px 18px ${allDone ? C.green : done > 0 ? C.amber : C.red}66`,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 20, transition: "all 0.2s" }}>
+          fontSize: 20, transition: "all 0.2s, opacity 0.2s",
+          opacity: fabFading ? 0 : 1, pointerEvents: fabFading ? "none" : "auto" }}>
         ✅
       </button>
     </div>
