@@ -19,6 +19,7 @@ const { fetchFinnhubQuotes, fetchFinnhubNews } = require("../providers/finnhub")
 const { fetchFmpQuotes, fetchFmpFundamentals, fetchFmpEarnings } = require("../providers/fmp");
 const { fetchPolygonQuotes, fetchPolygonNews } = require("../providers/polygon");
 const { applyMomentum } = require("../quote-momentum");
+const SECTOR_THEME_MAP = require("../sector-theme-map");
 const { fetchTradierOptionsFlow } = require("../providers/tradier");
 
 // --- Quote helpers ---
@@ -2447,12 +2448,11 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
 
   // GET /api/market/breadth
   if (pathname === "/api/market/breadth" && req.method === "GET") {
-    const SECTORS = [
-      {sym:"XLK",name:"Technology"},{sym:"XLF",name:"Financials"},{sym:"XLE",name:"Energy"},
-      {sym:"XLV",name:"Health Care"},{sym:"XLI",name:"Industrials"},{sym:"XLY",name:"Cons. Discret."},
-      {sym:"XLP",name:"Cons. Staples"},{sym:"XLRE",name:"Real Estate"},{sym:"XLU",name:"Utilities"},
-      {sym:"XLB",name:"Materials"},{sym:"XLC",name:"Comm. Services"},
-    ];
+    // Sourced from sector-theme-map.js (the one canonical table) instead of
+    // this route's own hand-rolled copy (previously a 3rd, slightly
+    // inconsistent duplicate of advisor-ai.js's and this file's own
+    // distribution-risk section's sector lists).
+    const SECTORS = SECTOR_THEME_MAP.SECTOR_ETFS.map(({ sym, name }) => ({ sym, name }));
     const INDICES = [
       {sym:"SPY",name:"S&P 500"},{sym:"QQQ",name:"Nasdaq 100"},
       {sym:"IWM",name:"Russell 2000"},{sym:"DIA",name:"Dow Jones"},

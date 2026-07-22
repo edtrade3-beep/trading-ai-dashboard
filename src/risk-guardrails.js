@@ -7,15 +7,13 @@
 // sizing, and concentration caps instead of each hand-rolling its own.
 
 // Sector map for correlation control — don't load up on highly-correlated names.
-const SECTORS = {
-  NVDA:"semi",AMD:"semi",AVGO:"semi",MU:"semi",QCOM:"semi",ANET:"semi",MRVL:"semi",SMCI:"semi",ARM:"semi",TXN:"semi",LRCX:"semi",
-  MSFT:"software",ORCL:"software",CRM:"software",ADBE:"software",NOW:"software",PANW:"software",CRWD:"software",PLTR:"software",SNOW:"software",INTU:"software",
-  AAPL:"tech-hw",AMZN:"internet",META:"internet",GOOGL:"internet",NFLX:"internet",UBER:"internet",ABNB:"internet",SHOP:"internet",COIN:"crypto",TSLA:"auto",
-  LLY:"health",UNH:"health",V:"fintech",MA:"fintech",AXP:"fintech",JPM:"bank",
-  COST:"retail",WMT:"retail",HD:"retail",NKE:"retail",MCD:"retail",PEP:"staples",KO:"staples",
-  XOM:"energy",CVX:"energy",GE:"industrial",CAT:"industrial",BA:"industrial",DIS:"media",
-};
-function sectorOf(symbol) { return SECTORS[symbol] || "other"; }
+// Sourced from sector-theme-map.js, the one canonical symbol->sector table
+// (previously this file, routes/market.js, and advisor-ai.js each hand-rolled
+// their own, inconsistent copy). BA/RTX now correctly bucket as "defense"
+// rather than the old generic "industrial" — a real correlation-model
+// improvement, not just a rename, since defense primes move together more
+// tightly with each other than with GE/CAT-style industrials.
+const { SYMBOL_SECTOR: SECTORS, sectorOf } = require("./sector-theme-map");
 
 function isMarketHoursET() {
   const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));

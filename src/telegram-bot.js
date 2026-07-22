@@ -72,6 +72,9 @@ const MAX_DAILY_INFO_MSGS = 10; // generous — normal operation never approache
 const ALWAYS_ALLOW_CATEGORIES = new Set([
   "opportunity", "regime-change", "portfolio-risk", "economic-event",
   "stop-trigger", "target-hit", "breaking-news", "auto-exec",
+  // X Intelligence Engine v2 (Module 13) — new real deterministic triggers
+  // routed through this same existing gate rather than a new dedup system.
+  "unusual-activity", "sentiment-flip", "fed-stance-change",
 ]);
 
 function shouldSendAlert({ category }) {

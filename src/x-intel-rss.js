@@ -17,6 +17,7 @@
 const { fetchRssItems } = require("./rss-fetch");
 const { list: listWatchlist } = require("./x-intel-watchlist-store");
 const { logItem, findRecentDuplicate } = require("./x-intel-store");
+const mentionsStore = require("./x-intel-mentions-store");
 
 // username (matches watchlist entries) -> { url, itemCategory }. Only
 // entities with a confirmed-working free feed are listed; everyone else
@@ -88,6 +89,11 @@ async function runXIntelRssPoll() {
         analysisSource: "rss",
       };
       logItem(item);
+      // Category-level only — RSS items never get a real symbol-level call
+      // (see the honesty note on marketImpact above), so there's no real
+      // symbol/sector/theme to log here, just that a real item landed in
+      // this category, for Trend Velocity's topic-level rollups.
+      mentionsStore.logMention({ source: "rss", category: feed.itemCategory });
       newItemsCount++;
     }
   }

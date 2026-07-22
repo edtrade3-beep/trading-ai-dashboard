@@ -25,6 +25,9 @@ const { sectorOf } = require("./risk-guardrails");
 const { fetchYahooQuoteBatch } = require("./providers/yahoo");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
 const { shouldSendAlert } = require("./telegram-bot");
+const mentionsStore = require("./x-intel-mentions-store");
+const sentimentStore = require("./x-intel-sentiment-store");
+const { sectorOf: themeSectorOf, themesOf } = require("./sector-theme-map");
 
 const KEY = () => (process.env.ANTHROPIC_API_KEY || "").trim();
 
@@ -32,6 +35,10 @@ const CATEGORIES = [
   "Breaking News", "Politics", "Tariffs", "Earnings", "AI", "Semiconductor",
   "Crypto", "Inflation", "InterestRates", "FederalReserve", "Acquisition",
   "Healthcare", "Energy", "Consumer", "Macro", "Other",
+  // Added for the X Intelligence Engine v2 Breaking Event Detector (Module
+  // 3) — same schema, same call, same 2x/day cadence, just a richer
+  // classification the model already has enough context to make.
+  "BankFailure", "CreditDowngrade", "Hack", "ExchangeOutage", "CEOResignation",
 ];
 
 const DEDUP_WINDOW_MS = 48 * 3600_000; // same 48h cooldown convention used elsewhere in this app
@@ -188,10 +195,28 @@ async function runXIntelGeneration({ topN = 40 } = {}) {
 
   const GRADING_BAND_PCT = 0.03; // disclosed direction-confirmation threshold, not a price prediction
 
+  // Per-symbol sentiment tally across this whole run — logged once per
+  // symbol below (not once per item), matching x-intel-sentiment-store.js's
+  // "one real snapshot per symbol per AI-search run" design. Built from the
+  // same real marketImpact[] this call already produces; zero new AI cost.
+  const symbolSentimentTally = new Map(); // symbol -> {bullish, bearish, confidenceSum, confidenceCount}
+
   const logged = [];
   for (const it of newItems) {
     const saved = logItem(it);
     logged.push(saved);
+
+    // Real mention ledger — feeds Trend Velocity (Module 4) and Unusual
+    // Activity (Module 8), neither of which existed before this run could
+    // be compared against real history.
+    mentionsStore.logMention({ source: it.analysisSource || "ai", category: it.category });
+    for (const m of it.marketImpact) {
+      mentionsStore.logMention({ symbol: m.symbol, sector: themeSectorOf(m.symbol), themes: themesOf(m.symbol), source: it.analysisSource || "ai", category: it.category });
+      const tally = symbolSentimentTally.get(m.symbol) || { bullish: 0, bearish: 0, neutral: 0, confidenceSum: 0, confidenceCount: 0 };
+      if (m.direction === "bullish") tally.bullish++; else if (m.direction === "bearish") tally.bearish++; else tally.neutral++;
+      if (Number.isFinite(m.confidence)) { tally.confidenceSum += m.confidence; tally.confidenceCount++; }
+      symbolSentimentTally.set(m.symbol, tally);
+    }
 
     // Update the watchlist entry's real lastSeenPost/lastChecked.
     const entry = watchedByUsername.get(it.entityUsername.toLowerCase());
@@ -221,6 +246,17 @@ async function runXIntelGeneration({ topN = 40 } = {}) {
         });
       } catch {}
     }
+  }
+
+  // Persist one real sentiment snapshot per symbol for this run.
+  for (const [symbol, tally] of symbolSentimentTally) {
+    sentimentStore.logSentimentSnapshot({
+      symbol,
+      bullish: tally.bullish,
+      bearish: tally.bearish,
+      neutral: tally.neutral,
+      avgConfidence: tally.confidenceCount > 0 ? Math.round(tally.confidenceSum / tally.confidenceCount) : null,
+    });
   }
 
   // Mark every checked entity's lastChecked even when nothing new was

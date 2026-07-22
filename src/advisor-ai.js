@@ -26,19 +26,13 @@ async function getJson(path) {
   try { const r = await fetch(`${BASE()}${path}`); return await r.json(); } catch { return null; }
 }
 
-// Same 11 real sector ETFs used elsewhere in this app (RhProDashboard,
-// BreadthTab) — kept as its own constant rather than importing the
-// frontend's market-helpers.js, matching this codebase's existing
-// convention of each backend file defining its own relevant universe
-// (see under10.js UNIVERSE, gapfill.js UNIVERSE).
-const SECTOR_ETFS = [
-  { symbol: "XLK", name: "Technology" }, { symbol: "XLF", name: "Financials" },
-  { symbol: "XLE", name: "Energy" }, { symbol: "XLV", name: "Health Care" },
-  { symbol: "XLI", name: "Industrials" }, { symbol: "XLY", name: "Cons. Discretionary" },
-  { symbol: "XLP", name: "Cons. Staples" }, { symbol: "XLRE", name: "Real Estate" },
-  { symbol: "XLU", name: "Utilities" }, { symbol: "XLB", name: "Materials" },
-  { symbol: "XLC", name: "Comm. Services" },
-];
+// Same 11 real sector ETFs, now sourced from sector-theme-map.js (the one
+// canonical table — this file previously hand-rolled its own copy, along
+// with routes/market.js and risk-guardrails.js each doing the same).
+// Re-shaped to {symbol,name} to match this file's existing downstream
+// `.symbol` references rather than touching every call site.
+const { SECTOR_ETFS: CANONICAL_SECTOR_ETFS } = require("./sector-theme-map");
+const SECTOR_ETFS = CANONICAL_SECTOR_ETFS.map((s) => ({ symbol: s.sym, name: s.name }));
 
 // Capital Flow Engine's non-sector asset classes — all four are already
 // fetched below as part of the existing macro quote call (SPY, QQQ, IWM,

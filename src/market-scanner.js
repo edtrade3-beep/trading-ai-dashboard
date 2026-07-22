@@ -293,6 +293,25 @@ function computeMacroRegime(analysisMap) {
     else if (xlp.composite > xly.composite + 20) { score -= 2; bearFactors.push("Defensives > Cyclicals"); }
   }
 
+  // ── Oil (USO) — a sharp spike reads as inflation/cost-push pressure (risk-off,
+  // same direction gold is already coded above); a slide reads disinflationary.
+  // Modest weight since oil's macro read is noisier than equities/credit/bonds.
+  const uso = g("USO");
+  if (uso) {
+    if (uso.composite >= 68)      { score -= 1; bearFactors.push("Oil ↑ (inflation pressure)"); }
+    else if (uso.composite <= 32) { score += 1; bullFactors.push("Oil ↓ (disinflationary)"); }
+  }
+
+  // ── Bitcoin — treated as a speculative risk-appetite barometer (tends to move
+  // with, not against, equity risk sentiment), not a safe-haven like gold. Callers
+  // vary between the raw BTC-USD symbol and the IBIT ETF proxy elsewhere in this
+  // codebase (see advisor-ai.js's MACRO_ASSET_CLASSES); check both.
+  const btc = g("BTC-USD") || g("IBIT");
+  if (btc) {
+    if (btc.composite >= 65)      { score += 1; bullFactors.push("BTC ↑ (risk appetite)"); }
+    else if (btc.composite <= 35) { score -= 1; bearFactors.push("BTC ↓ (risk aversion)"); }
+  }
+
   const regime = score >= 4 ? "RISK-ON" : score <= -4 ? "RISK-OFF" : "NEUTRAL";
   return { regime, score, bullFactors, bearFactors };
 }

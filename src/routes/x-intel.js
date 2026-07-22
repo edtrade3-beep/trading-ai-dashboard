@@ -7,6 +7,12 @@ const { listItems, getRecent } = require("../x-intel-store");
 const { getTrackRecord } = require("../predictions-store");
 const { runXIntelGeneration } = require("../x-intel-ai");
 const { runXIntelRssPoll } = require("../x-intel-rss");
+const xIntelEngine = require("../x-intel-engine");
+const { PORT } = require("../config");
+
+async function getJson(p) {
+  try { const r = await fetch(`http://127.0.0.1:${process.env.PORT || PORT || 3000}${p}`); return await r.json(); } catch { return null; }
+}
 
 async function handleXIntel(req, res, requestUrl) {
   const { pathname, searchParams } = requestUrl;
@@ -80,6 +86,60 @@ async function handleXIntel(req, res, requestUrl) {
 
   if (pathname === "/api/x-intel/track-record" && req.method === "GET") {
     return writeJson(res, 200, { ok: true, ...getTrackRecord("x-intel") });
+  }
+
+  // ── X Intelligence Engine v2 — consolidation-layer endpoints. All real,
+  // deterministic, zero-new-AI-cost (see x-intel-engine.js's header). ──
+
+  if (pathname === "/api/x-intel/trend" && req.method === "GET") {
+    const velocity = xIntelEngine.computeTrendVelocity();
+    const unusualActivity = velocity.slice(0, 15).map((v) => xIntelEngine.computeUnusualActivity(v.symbol));
+    return writeJson(res, 200, { ok: true, velocity, unusualActivity });
+  }
+
+  if (pathname === "/api/x-intel/sentiment" && req.method === "GET") {
+    const symbol = (searchParams.get("symbol") || "").toUpperCase();
+    if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
+    const trend = xIntelEngine.computeSentimentTrend(symbol);
+    return writeJson(res, 200, { ok: true, trend });
+  }
+
+  if (pathname === "/api/x-intel/regime" && req.method === "GET") {
+    // Real regime/VIX/distribution-risk/persistence data already computed
+    // by Command Center — read it rather than recomputing a 5th scorer.
+    const cc = await getJson("/api/command-center");
+    const brief = cc?.brief;
+    if (!brief?.regime) return writeJson(res, 200, { ok: true, taxonomy: null, note: "Command Center brief not yet generated — refresh it first" });
+    const taxonomy = xIntelEngine.mapToRegimeTaxonomy({
+      regimeLabel: brief.regime.label,
+      regimeScore: brief.regime.score,
+      volRegime: brief.regime.detail?.volRegime,
+      distributionRiskScore: brief.distributionRisk?.riskScore,
+      regimeShift: brief.regimeShift,
+    });
+    return writeJson(res, 200, { ok: true, taxonomy, regime: brief.regime, regimeShift: brief.regimeShift });
+  }
+
+  if (pathname === "/api/x-intel/watchlist-rankings" && req.method === "GET") {
+    const rankings = await xIntelEngine.computeWatchlistRankings();
+    return writeJson(res, 200, { ok: true, rankings });
+  }
+
+  if (pathname === "/api/x-intel/digest" && req.method === "GET") {
+    const digest = xIntelEngine.buildLiveDigest();
+    return writeJson(res, 200, { ok: true, digest });
+  }
+
+  if (pathname === "/api/x-intel/alert-checks" && req.method === "GET") {
+    // Read-only detection — does not send Telegram alerts itself. Real
+    // dispatch (through telegram-bot.js's existing gate) is wired from the
+    // same scheduled job that already runs the AI-search pass, matching
+    // the plan's "no new dedup system" consolidation.
+    const recent = getRecent(150);
+    const mentionedSymbols = [...new Set(recent.flatMap((it) => (it.marketImpact || []).map((m) => m.symbol)))];
+    const sectorFlips = xIntelEngine.detectSectorSentimentFlip(mentionedSymbols);
+    const fedStanceChange = xIntelEngine.detectFedStanceChange();
+    return writeJson(res, 200, { ok: true, sectorFlips, fedStanceChange });
   }
 
   return writeJson(res, 404, { error: "Not found" });
