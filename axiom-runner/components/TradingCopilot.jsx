@@ -96,7 +96,7 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
   const suggestions = ["What's strong today?", "Why is NVDA moving?", "Should I hold my positions?", "Plan a trade for me"];
   return (
     <>
-      <button onClick={() => setOpen(o => !o)} title="Trading Copilot"
+      <button className="fab-copilot-btn" onClick={() => setOpen(o => !o)} title="Trading Copilot"
         style={{ position: "fixed", bottom: 18, right: 18, zIndex: 9999, width: 54, height: 54, borderRadius: "50%", cursor: "pointer",
           border: "none", background: C.accent, color: "#fff", fontSize: 22, boxShadow: "0 6px 20px rgba(0,0,0,0.3)" }}>{open ? "✕" : "💬"}</button>
       {open && (

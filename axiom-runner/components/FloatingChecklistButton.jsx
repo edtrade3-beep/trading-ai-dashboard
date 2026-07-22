@@ -3,9 +3,15 @@ export default function FloatingChecklistButton({ C, checklistItems, setActiveTa
   const done  = checklistItems.filter(c => c.done).length;
   const total = checklistItems.length;
   const allDone = done === total;
+  // bottom:82 stacks this ABOVE the TradingCopilot button (bottom:18,
+  // right:18, 54px tall, z:9999) instead of sitting almost exactly
+  // underneath it — the old bottom:24/right:24 placement put this button
+  // fully behind Copilot's higher z-index, permanently invisible and
+  // unclickable on every screen size.
   return (
-    <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 8000 }}>
+    <div style={{ position: "fixed", bottom: 82, right: 18, zIndex: 8000 }}>
       <button
+        className="fab-checklist-btn"
         onClick={() => setActiveTab("tools")}
         style={{ width: 52, height: 52, borderRadius: "50%", border: "none", cursor: "pointer",
           background: allDone ? C.green : done > 0 ? C.amber : C.red,

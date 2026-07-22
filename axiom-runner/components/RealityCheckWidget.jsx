@@ -348,6 +348,7 @@ export default function RealityCheckWidget() {
       )}
 
       <button
+        className="fab-realitycheck-btn"
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Close Reality Check" : "Open Reality Check"}
         title="Reality Check — real flow vs. the narrative"

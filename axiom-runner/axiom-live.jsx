@@ -5489,6 +5489,14 @@ export default function App() {
              override (not the inline style above), so it has to be fixed
              here, not there. */
           .mobile-content { padding: 10px 10px ${statusBarH + 90}px !important; }
+          /* Shrink the bottom-right FAB cluster (Copilot, Reality Check,
+             Checklist) on mobile — 54/52px circles were covering a real
+             chunk of page content (e.g. Market Health's Risk Stance
+             banner) at whatever scroll position happened to land behind
+             them. 44px matches the existing min-touch-target convention
+             used elsewhere in this file (.mobile-nav-btn etc.) and cuts
+             the covered footprint by roughly a fifth per button. */
+          .fab-copilot-btn, .fab-realitycheck-btn, .fab-checklist-btn { width: 44px !important; height: 44px !important; font-size: 18px !important; }
         `}</style>
       )}
 
