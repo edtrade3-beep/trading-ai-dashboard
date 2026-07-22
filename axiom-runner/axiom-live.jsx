@@ -5446,8 +5446,14 @@ export default function App() {
       clearTimeout(hideTimer);
       hideTimer = setTimeout(() => setFabScrolling(false), 550);
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => { window.removeEventListener("scroll", onScroll); clearTimeout(hideTimer); };
+    // This app's real scroll container is `document.body` (overflow-y:auto,
+    // confirmed live via scrollHeight/clientHeight), not window/
+    // documentElement — a plain window scroll listener never fires here.
+    // 'scroll' events don't bubble, but capture-phase listeners on an
+    // ancestor still see them, so listening on `document` with capture:true
+    // catches it regardless of which element ends up doing the scrolling.
+    document.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    return () => { document.removeEventListener("scroll", onScroll, { capture: true }); clearTimeout(hideTimer); };
   }, [isMobile]);
   const fabFading = isMobile && fabScrolling;
 
