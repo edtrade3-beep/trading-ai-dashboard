@@ -33,7 +33,7 @@ export default function AplusScoreTrackCard({ C, MONO, SANS }) {
       {state === "loading" && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Loading…</div>}
       {state === "err" && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Unavailable right now — try again shortly.</div>}
 
-      {state === "ok" && report && (
+      {report && (
         <>
           {report.daysTracked === 0 ? (
             <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textSec, lineHeight: 1.5 }}>

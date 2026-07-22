@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 function AiTakeSection({ C, MONO, SANS, green, red, yellow, blue, dim }) {
   const [take, setTake] = useState(null);
   const [state, setState] = useState("loading"); // loading | ok | empty | error
+  const [error, setError] = useState(null);
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
@@ -18,11 +19,11 @@ function AiTakeSection({ C, MONO, SANS, green, red, yellow, blue, dim }) {
   }, []);
 
   const generate = () => {
-    setGenerating(true);
+    setGenerating(true); setError(null);
     fetch("/api/cot/ai-take/refresh", { method: "POST" }).then(r => r.json()).then(d => {
       if (d && d.ok && d.take) { setTake(d.take); setState("ok"); }
-      else setState("error");
-    }).catch(() => setState("error")).finally(() => setGenerating(false));
+      else { setError(d?.error || "Unknown error"); setState("error"); }
+    }).catch((e) => { setError(e.message || "Network error"); setState("error"); }).finally(() => setGenerating(false));
   };
 
   return (
@@ -38,13 +39,13 @@ function AiTakeSection({ C, MONO, SANS, green, red, yellow, blue, dim }) {
         </button>
       </div>
 
-      {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: dim }}>Loading…</div>}
-      {state === "error" && <div style={{ fontFamily: MONO, fontSize: 12, color: red }}>Couldn't generate a take — check ANTHROPIC_API_KEY is set, and that COT data is loaded.</div>}
-      {state === "empty" && !generating && (
+      {state === "loading" && !take && <div style={{ fontFamily: MONO, fontSize: 12, color: dim }}>Loading…</div>}
+      {state === "error" && <div style={{ fontFamily: MONO, fontSize: 12, color: red }}>Couldn't generate a take: {error || "unknown error"}</div>}
+      {state === "empty" && !generating && !take && (
         <div style={{ fontFamily: MONO, fontSize: 12, color: dim }}>Click "GENERATE TAKE" for an honest AI read on what today's real positioning data means — what to do, what to avoid, and why.</div>
       )}
 
-      {take && state === "ok" && (
+      {take && (
         <>
           <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 14 }}>{take.overallTake}</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12, marginBottom: 12 }}>

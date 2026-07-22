@@ -5,6 +5,7 @@
 function AiTakeSection({ C, MONO, SANS }) {
   const [take, setTake] = React.useState(null);
   const [state, setState] = React.useState("loading"); // loading | ok | empty | error
+  const [error, setError] = React.useState(null);
   const [generating, setGenerating] = React.useState(false);
 
   React.useEffect(() => {
@@ -15,11 +16,11 @@ function AiTakeSection({ C, MONO, SANS }) {
   }, []);
 
   const generate = () => {
-    setGenerating(true);
+    setGenerating(true); setError(null);
     fetch("/api/scanner/insider/ai-take/refresh", { method: "POST" }).then(r => r.json()).then(d => {
       if (d && d.ok && d.take) { setTake(d.take); setState("ok"); }
-      else setState("error");
-    }).catch(() => setState("error")).finally(() => setGenerating(false));
+      else { setError(d?.error || "Unknown error"); setState("error"); }
+    }).catch((e) => { setError(e.message || "Network error"); setState("error"); }).finally(() => setGenerating(false));
   };
 
   return (
@@ -35,13 +36,13 @@ function AiTakeSection({ C, MONO, SANS }) {
         </button>
       </div>
 
-      {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
-      {state === "error" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>Couldn't generate a take — check ANTHROPIC_API_KEY is set, and that purchases have loaded above.</div>}
-      {state === "empty" && !generating && (
+      {state === "loading" && !take && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
+      {state === "error" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>Couldn't generate a take: {error || "unknown error"}</div>}
+      {state === "empty" && !generating && !take && (
         <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Click "GENERATE TAKE" for an honest AI read on what these real insider purchases mean — what to do, what to avoid, and why.</div>
       )}
 
-      {take && state === "ok" && (
+      {take && (
         <>
           <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 14 }}>{take.overallTake}</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12, marginBottom: 12 }}>

@@ -9,16 +9,18 @@ import { useState, useEffect } from "react";
 export default function TradingLessonCard({ C, MONO, SANS }) {
   const [lesson, setLesson] = useState(null);
   const [state, setState] = useState("loading"); // loading | ok | error
+  const [error, setError] = useState(null);
   const [regenerating, setRegenerating] = useState(false);
 
   const fetchLesson = (force) => {
     if (force) setRegenerating(true);
+    setError(null);
     fetch("/api/ai-hub/trading-lesson", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ force: !!force }),
     }).then(r => r.json()).then(d => {
       if (d && d.ok && d.lesson) { setLesson(d.lesson); setState("ok"); }
-      else { setState("error"); }
-    }).catch(() => setState("error")).finally(() => setRegenerating(false));
+      else { setError(d?.error || "Unknown error"); setState("error"); }
+    }).catch((e) => { setError(e.message || "Network error"); setState("error"); }).finally(() => setRegenerating(false));
   };
   useEffect(() => { fetchLesson(false); }, []);
 
@@ -34,9 +36,9 @@ export default function TradingLessonCard({ C, MONO, SANS }) {
           {regenerating ? "…" : "↻ New Lesson"}
         </button>
       </div>
-      {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
-      {state === "error" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>Couldn't load a lesson — check ANTHROPIC_API_KEY is set.</div>}
-      {state === "ok" && lesson && (
+      {state === "loading" && !lesson && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
+      {state === "error" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, marginBottom: lesson ? 8 : 0 }}>Couldn't load a lesson: {error || "unknown error"}</div>}
+      {lesson && (
         <div>
           <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.accent, marginBottom: 6 }}>{lesson.title}</div>
           <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.6, marginBottom: 6 }}>{lesson.teach}</div>

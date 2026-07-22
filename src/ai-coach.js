@@ -170,7 +170,10 @@ async function buildApexBriefing() {
 
   let fg = null; try { fg = await getJson("/api/market/feargreed"); } catch {}
   const out = await postJson("/api/market/apex-cio", { regime, stocks, sectors, fearGreed: fg ? `${fg.value ?? fg.score ?? ""} ${fg.label || fg.rating || ""}` : "n/a" });
-  if (!out || !out.ok || !out.report) return null;
+  // /api/market/apex-cio already returns a real out.error on failure (e.g.
+  // a genuine usage-cap message) — previously discarded here, so neither
+  // the refresh route nor the UI could show what actually happened.
+  if (!out || !out.ok || !out.report) throw new Error(out?.error || "Morning briefing generation failed");
 
   const built = { report: out.report, regime, sectors, stocks, generatedAt: Date.now() };
   saveCoachOutput("apex", built);
@@ -178,7 +181,13 @@ async function buildApexBriefing() {
 }
 
 async function runApexBriefing() {
-  const built = await buildApexBriefing();
+  let built;
+  try {
+    built = await buildApexBriefing();
+  } catch (e) {
+    console.warn("[Morning Briefing] scheduled generation failed:", e.message);
+    return;
+  }
   if (!built) return;
   if (!shouldSendAlert({ category: "ai-coach" })) return;
   const header = `🧠 *TRADE PRO AI — MORNING BRIEFING*\n${new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}\n\n`;

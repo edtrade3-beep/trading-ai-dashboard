@@ -20,7 +20,7 @@ function line(p) {
 }
 
 async function buildDarkpoolAiTake() {
-  if (!KEY()) return null;
+  if (!KEY()) throw new Error("ANTHROPIC_API_KEY not set");
 
   let d;
   try {
@@ -60,10 +60,10 @@ doThis and avoidThis should each have 2-4 items, ranked by conviction, each tied
     const raw = await callAnthropicApi(prompt, KEY(), { model: MODELS.sonnet, maxTokens: 1200, system: SYSTEM, cache: true });
     const m = (raw || "").match(/\{[\s\S]*\}/);
     take = JSON.parse(m ? m[0] : raw);
-  } catch {
-    return null;
+  } catch (e) {
+    throw new Error(`AI call failed: ${e.message}`);
   }
-  if (!take || !take.overallTake) return null;
+  if (!take || !take.overallTake) throw new Error("AI returned an incomplete response");
 
   const built = { ...take, generatedAt: Date.now() };
   saveCoachOutput("darkpoolAiTake", built);

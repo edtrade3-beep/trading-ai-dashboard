@@ -119,9 +119,13 @@ async function handleAiHub(req, res, requestUrl) {
   }
 
   if (pathname === "/api/ai-hub/morning-brief/refresh" && req.method === "POST") {
-    const built = await buildApexBriefing();
-    if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate a briefing (ANTHROPIC_API_KEY not set, market data unavailable, or the AI call failed)." });
-    return writeJson(res, 200, { ok: true, brief: built });
+    try {
+      const built = await buildApexBriefing();
+      if (!built) return writeJson(res, 200, { ok: false, error: "Market data unavailable." });
+      return writeJson(res, 200, { ok: true, brief: built });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e.message });
+    }
   }
 
   if (pathname === "/api/ai-hub/risk-snapshot" && req.method === "GET") {

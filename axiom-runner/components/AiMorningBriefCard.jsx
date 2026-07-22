@@ -9,6 +9,7 @@ import { rhMarkdown } from "./rhpro-shared.jsx";
 export default function AiMorningBriefCard({ C, MONO, SANS }) {
   const [brief, setBrief] = useState(null);
   const [state, setState] = useState("loading"); // loading | ok | empty | error
+  const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = () => {
@@ -20,11 +21,11 @@ export default function AiMorningBriefCard({ C, MONO, SANS }) {
   useEffect(load, []);
 
   const refresh = () => {
-    setRefreshing(true);
+    setRefreshing(true); setError(null);
     fetch("/api/ai-hub/morning-brief/refresh", { method: "POST" }).then(r => r.json()).then(d => {
       if (d && d.ok && d.brief) { setBrief(d.brief); setState("ok"); }
-      else { setState("error"); }
-    }).catch(() => setState("error")).finally(() => setRefreshing(false));
+      else { setError(d?.error || "Unknown error"); setState("error"); }
+    }).catch((e) => { setError(e.message || "Network error"); setState("error"); }).finally(() => setRefreshing(false));
   };
 
   return (
@@ -42,14 +43,14 @@ export default function AiMorningBriefCard({ C, MONO, SANS }) {
           {refreshing ? "Generating…" : "↻ Refresh"}
         </button>
       </div>
-      {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "10px 0" }}>Loading…</div>}
-      {state === "empty" && (
+      {state === "loading" && !brief && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "10px 0" }}>Loading…</div>}
+      {state === "empty" && !brief && (
         <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, padding: "10px 0", lineHeight: 1.5 }}>
           No briefing generated yet today — this runs automatically on weekday mornings, or click Refresh to generate one now.
         </div>
       )}
-      {state === "error" && <div style={{ fontFamily: SANS, fontSize: 12, color: C.red, padding: "10px 0" }}>Couldn't generate a briefing — check ANTHROPIC_API_KEY is set.</div>}
-      {state === "ok" && brief?.report && (
+      {state === "error" && <div style={{ fontFamily: SANS, fontSize: 12, color: C.red, padding: "10px 0" }}>Couldn't generate a briefing: {error || "unknown error"}</div>}
+      {brief?.report && (
         <div style={{ maxHeight: 420, overflowY: "auto" }}>{rhMarkdown(brief.report, C, MONO, SANS)}</div>
       )}
     </div>

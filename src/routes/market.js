@@ -3276,9 +3276,13 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
   // ── POST /api/market/darkpool/ai-take/refresh — force-generate ───────────
   if (pathname === "/api/market/darkpool/ai-take/refresh" && req.method === "POST") {
     const { buildDarkpoolAiTake } = require("../darkpool-ai-take");
-    const built = await buildDarkpoolAiTake();
-    if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate an AI take (ANTHROPIC_API_KEY not set, no dark pool data available — configure UNUSUAL_WHALES_API_KEY, or the AI call failed)." });
-    return writeJson(res, 200, { ok: true, take: built });
+    try {
+      const built = await buildDarkpoolAiTake();
+      if (!built) return writeJson(res, 200, { ok: false, error: "No dark pool data available — configure UNUSUAL_WHALES_API_KEY." });
+      return writeJson(res, 200, { ok: true, take: built });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e.message });
+    }
   }
 
   // ── GET /api/market/trade-signals — Live trade signal engine ──────────────
@@ -3672,9 +3676,13 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
   // ── POST /api/market/short-changes/ai-take/refresh — force-generate ──────
   if (pathname === "/api/market/short-changes/ai-take/refresh" && req.method === "POST") {
     const { buildShortChangesAiTake } = require("../short-changes-ai-take");
-    const built = await buildShortChangesAiTake();
-    if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate an AI take (ANTHROPIC_API_KEY not set, no short-interest data yet, or the AI call failed)." });
-    return writeJson(res, 200, { ok: true, take: built });
+    try {
+      const built = await buildShortChangesAiTake();
+      if (!built) return writeJson(res, 200, { ok: false, error: "No short-interest data yet." });
+      return writeJson(res, 200, { ok: true, take: built });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e.message });
+    }
   }
 
   // ── GET /api/market/darkpool-heatmap — dark pool activity vs avg by symbol ─
@@ -3769,9 +3777,13 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
   // ── POST /api/market/earnings-calendar/ai-take/refresh — force-generate ──
   if (pathname === "/api/market/earnings-calendar/ai-take/refresh" && req.method === "POST") {
     const { buildEarningsAiTake } = require("../earnings-ai-take");
-    const built = await buildEarningsAiTake();
-    if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate an AI take (ANTHROPIC_API_KEY not set, no earnings reporting in the next 14 days, or the AI call failed)." });
-    return writeJson(res, 200, { ok: true, take: built });
+    try {
+      const built = await buildEarningsAiTake();
+      if (!built) return writeJson(res, 200, { ok: false, error: "No earnings reporting in the next 14 days." });
+      return writeJson(res, 200, { ok: true, take: built });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e.message });
+    }
   }
 
   // ── GET /api/market/econ-calendar ─────────────────────────────────────────

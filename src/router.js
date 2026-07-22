@@ -104,9 +104,13 @@ async function handleRequest(req, res) {
     }
     if (pathname === "/api/scanner/insider/ai-take/refresh" && req.method === "POST") {
       const { buildInsiderAiTake } = require("./insider-ai-take");
-      const built = await buildInsiderAiTake();
-      if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate an AI take (ANTHROPIC_API_KEY not set, no insider purchases in the last 3 days, or the AI call failed)." });
-      return writeJson(res, 200, { ok: true, take: built });
+      try {
+        const built = await buildInsiderAiTake();
+        if (!built) return writeJson(res, 200, { ok: false, error: "No insider purchases in the last 3 days." });
+        return writeJson(res, 200, { ok: true, take: built });
+      } catch (e) {
+        return writeJson(res, 200, { ok: false, error: e.message });
+      }
     }
     if (pathname === "/api/scanner/gapfill")      return await handleGapFill(req, res, requestUrl);
 

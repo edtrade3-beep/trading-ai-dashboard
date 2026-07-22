@@ -111,9 +111,13 @@ async function handleCOT(req, res, requestUrl) {
   // ── POST /api/cot/ai-take/refresh — force-generate a fresh AI take ────────
   if (pathname === "/api/cot/ai-take/refresh" && req.method === "POST") {
     const { buildCotAiTake } = require("../cot-ai-take");
-    const built = await buildCotAiTake();
-    if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate an AI take (ANTHROPIC_API_KEY not set, no COT data loaded yet, or the AI call failed)." });
-    return writeJson(res, 200, { ok: true, take: built });
+    try {
+      const built = await buildCotAiTake();
+      if (!built) return writeJson(res, 200, { ok: false, error: "No COT data loaded yet." });
+      return writeJson(res, 200, { ok: true, take: built });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e.message });
+    }
   }
 
   // ── POST /api/cot/telegram/test ───────────────────────────────────────────
