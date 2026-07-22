@@ -286,8 +286,19 @@ ${ceoBrief ? `TODAY'S CEO AI CALL: ${ceoBrief.verdict} (confidence ${ceoBrief.co
 
 Search for real, current news now and return the JSON.`;
 
-  let parsed;
-  let rawForDebug = "";
+  // AI enrichment (event feed, per-idea narrative notes, executive
+  // summary) attempted but NOT required — everything below this point
+  // (regime, real trade cards with real price levels, portfolio risk,
+  // CEO verdict, trackRecord) is already-computed real data independent
+  // of this call. Previously a failed/capped AI call threw and the whole
+  // function returned null, so Command Center showed nothing at all
+  // during an outage even though almost none of its content actually
+  // needs a fresh AI call. Now: real data always builds; AI enrichment
+  // layers on top only when it succeeds, and its absence is disclosed
+  // honestly (aiUnavailable flag + a real-data-only executive summary)
+  // rather than silently omitted or shown as stale/fabricated.
+  let parsed = null;
+  let aiError = null;
   try {
     // maxSearches trimmed 6->3: fewer web_search rounds means less tool-use
     // content eating into the same max_tokens budget as the final JSON —
@@ -296,26 +307,18 @@ Search for real, current news now and return the JSON.`;
     // runtime, still no valid JSON) — the search rounds themselves, not
     // just event/idea count, were the dominant cost eating the budget.
     const raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), { model: "claude-sonnet-4-6", maxTokens: 8000, maxSearches: 3 });
-    rawForDebug = raw || "";
     const m = (raw || "").match(/\{[\s\S]*\}/);
     parsed = JSON.parse(m ? m[0] : raw);
   } catch (e) {
-    // Re-thrown (not swallowed to null) so the route can surface the real
-    // reason during this rollout instead of the generic catch-all message —
-    // debugging blind against a production-only failure (no local
-    // ANTHROPIC_API_KEY to reproduce with) wasted real diagnosis time
-    // already. Safe to revert to a plain `return null` once this is
-    // confirmed stable.
-    const err = new Error(`AI call/parse failed: ${e.message} | raw length: ${rawForDebug.length} | raw tail: ${rawForDebug.slice(-300)}`);
-    throw err;
+    aiError = e.message;
+    console.warn("[Command Center] AI enrichment unavailable, falling back to real-data-only:", aiError);
   }
-  if (!parsed) return null;
 
   // Highest severity first — a CEO reading this once, fast, sees the
   // events that matter most without having to scan the whole list.
-  const events = sanitizeEvents(parsed.events).sort((a, b) => b.severity - a.severity);
+  const events = parsed ? sanitizeEvents(parsed.events).sort((a, b) => b.severity - a.severity) : [];
   const criticalEventCount = events.filter((e) => e.severity >= 7).length;
-  const tradeNotes = parsed.tradeNotes && typeof parsed.tradeNotes === "object" ? parsed.tradeNotes : {};
+  const tradeNotes = parsed?.tradeNotes && typeof parsed.tradeNotes === "object" ? parsed.tradeNotes : {};
 
   const holdingsMap = new Map((advisorBrief.portfolio?.holdings || []).map((h) => [h.symbol, h]));
   const equity = Number(riskSnap?.equity || 0);
@@ -355,11 +358,19 @@ Search for real, current news now and return the JSON.`;
   };
   const whatChanged = buildWhatChanged(prevSnapshot, currentSnapshot);
 
+  // Real-data-only fallback summary when AI enrichment failed — built
+  // from real regime/idea data already on hand, not a fabricated
+  // narrative. Clearly labeled so it's never mistaken for the AI's
+  // actual read.
+  const fallbackSummary = `${regime?.label || "?"} regime (${regime?.score ?? "?"}/100). ${bullishCards.length ? `${bullishCards.length} real bullish setup${bullishCards.length > 1 ? "s" : ""} (${bullishCards.map((c) => c.symbol).join(", ")}).` : "No qualifying bullish setups today."} AI event feed and narrative unavailable this run — showing real computed data only.`;
+
   const built = {
     regime,
     commandScore,
     whatChanged,
-    executiveSummary: String(parsed.executiveSummary || "").slice(0, 500),
+    executiveSummary: parsed ? String(parsed.executiveSummary || "").slice(0, 500) : fallbackSummary,
+    aiUnavailable: !parsed,
+    aiError: aiError || null,
     events,
     criticalEventCount,
     bullishIdeas: bullishCards,

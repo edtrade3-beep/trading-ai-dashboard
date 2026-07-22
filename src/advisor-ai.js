@@ -293,6 +293,30 @@ function attachRealData(pick, rankedMap) {
   };
 }
 
+// Real, deterministic fallback for actionPlan when the AI call is
+// unavailable — reuses this platform's own already-computed
+// computeNextAction (trend-template stage/verdict/volume-confirmation
+// logic, no AI involved) instead of returning nothing. Command Center's
+// topOpportunities/topRisks derive from actionPlan, so this is what keeps
+// its real trade cards populated during an AI outage too, not just this
+// brief's own display.
+function buildFallbackActionPlan(ranked, portfolio) {
+  const nextToAction = { BUY: "BUY_NOW", BREAKOUT: "WATCH", WATCH: "WATCH", WAIT: "WAIT", AVOID: "AVOID" };
+  const fromScan = ranked
+    .filter((r) => ["BUY", "BREAKOUT", "WATCH"].includes(r.next.action))
+    .slice(0, 10)
+    .map((r) => ({ symbol: r.symbol, action: nextToAction[r.next.action], reason: r.next.reason, score: r.aplus.score, confidence: r.confidence || null, held: false }));
+
+  // Real concentration-risk flag on holdings over 20% of equity — the same
+  // maxNamePct convention already used elsewhere in this app's real
+  // position sizing (risk-guardrails.js), not a fabricated portfolio call.
+  const fromPortfolio = (portfolio?.holdings || [])
+    .filter((h) => h.weightPct > 20)
+    .map((h) => ({ symbol: h.symbol, action: "REDUCE", reason: `Concentration risk — ${h.weightPct}% of portfolio equity (>20% threshold).`, held: true, weightPct: h.weightPct, unrealizedPLpc: h.unrealizedPLpc }));
+
+  return [...fromPortfolio, ...fromScan].slice(0, 12);
+}
+
 async function buildAdvisorBrief() {
   if (!KEY()) return null;
 
@@ -620,7 +644,18 @@ ${newsLines || "none fetched"}
 
 Return the JSON now.`;
 
-  let raw;
+  // AI enrichment (picks curated by timeframe, actionPlan judgment calls,
+  // 5-year thesis, executive narrative) attempted but not required —
+  // regime/sectors/capitalFlow/whatChanged/ranked setups/avoidList/
+  // portfolio/riskCommandCenter above are all already-computed real data.
+  // Previously any AI failure returned null here, discarding all of that
+  // real data too. Now: real data always builds; when the AI call fails,
+  // actionPlan falls back to buildFallbackActionPlan (this platform's own
+  // deterministic computeNextAction logic, not AI judgment), and the
+  // AI-only fields (thesis5y, per-timeframe curation, narrative) are
+  // honestly empty/labeled rather than fabricated.
+  let raw = null;
+  let aiError = null;
   try {
     // max_tokens is a per-turn budget that also covers the model's
     // web_search tool-use content (queries + returned results), not just
@@ -630,25 +665,28 @@ Return the JSON now.`;
     // truncated mid-report). Bumped again here since structured JSON with
     // multiple picks per horizon is larger than the old single-pick prose.
     raw = await callAnthropicWithSearch(prompt + "\n\n" + system, KEY(), { model: "claude-sonnet-4-6", maxTokens: 6000, maxSearches: 4 });
-  } catch {
-    return null;
+  } catch (e) {
+    aiError = e.message;
   }
-  if (!raw || !raw.trim()) return null;
+  if (!aiError && (!raw || !raw.trim())) aiError = "AI call returned no usable output";
 
-  let parsed;
-  try {
-    const m = raw.match(/\{[\s\S]*\}/);
-    parsed = JSON.parse(m ? m[0] : raw);
-  } catch {
-    return null;
+  let parsed = null;
+  if (!aiError) {
+    try {
+      const m = raw.match(/\{[\s\S]*\}/);
+      parsed = JSON.parse(m ? m[0] : raw);
+    } catch {
+      aiError = "AI response wasn't valid JSON";
+    }
   }
+  if (aiError) console.warn("[Advisor AI] AI enrichment unavailable, falling back to real-data-only:", aiError);
 
   const mapPicks = (arr) => (Array.isArray(arr) ? arr : [])
     .map(p => attachRealData(p, rankedMap))
     .filter(Boolean)
     .slice(0, 6);
 
-  const thesis5y = (Array.isArray(parsed.thesis5y) ? parsed.thesis5y : []).slice(0, 4).map(t => ({
+  const thesis5y = parsed ? (Array.isArray(parsed.thesis5y) ? parsed.thesis5y : []).slice(0, 4).map(t => ({
     theme: String(t?.theme || "").slice(0, 80),
     why: String(t?.why || "").slice(0, 500),
     // Real tickers only get enriched with real score/action if they happen
@@ -659,7 +697,7 @@ Return the JSON now.`;
       const row = rankedMap.get(String(sym || "").toUpperCase());
       return row ? { symbol: row.symbol, score: row.aplus.score, action: row.next.action } : { symbol: String(sym || "").toUpperCase(), score: null, action: null };
     }),
-  })).filter(t => t.theme);
+  })).filter(t => t.theme) : []; // genuinely AI-only speculative content — no real deterministic substitute exists
 
   // REDUCE/SELL are enriched from real portfolio holdings, not the scanned-
   // setups map — a real held position (e.g. OKTA in a real test portfolio)
@@ -667,7 +705,7 @@ Return the JSON now.`;
   // `row` there would silently drop a legitimate REDUCE/SELL call. Every
   // other action still requires the symbol to be a real scanned setup.
   const heldMap = new Map((portfolio?.holdings || []).map(h => [h.symbol, h]));
-  const actionPlan = (Array.isArray(parsed.actionPlan) ? parsed.actionPlan : [])
+  const actionPlan = !parsed ? buildFallbackActionPlan(ranked, portfolio) : (Array.isArray(parsed.actionPlan) ? parsed.actionPlan : [])
     .map(p => {
       const symbol = String(p?.symbol || "").toUpperCase();
       const action = String(p?.action || "").toUpperCase().replace(/\s+/g, "_");
@@ -683,11 +721,20 @@ Return the JSON now.`;
       return { symbol: row.symbol, action, reason, score: row.aplus.score, confidence: row.confidence || null, held: heldMap.has(row.symbol) };
     }).filter(Boolean).slice(0, 12);
 
-  const picks = {
+  // Without AI, there's no real substitute for "which timeframe fits this
+  // setup" (a genuine judgment call) — rather than fake that curation,
+  // the top real-ranked setups go into `swing` only, clearly a fallback
+  // (not AI-curated), and the other three buckets stay honestly empty.
+  const picks = parsed ? {
     tactical: mapPicks(parsed.picks?.tactical),
     swing: mapPicks(parsed.picks?.swing),
     position: mapPicks(parsed.picks?.position),
     core: mapPicks(parsed.picks?.core),
+  } : {
+    tactical: [],
+    swing: ranked.slice(0, 5).map((r) => attachRealData({ symbol: r.symbol, why: r.next.reason }, rankedMap)).filter(Boolean),
+    position: [],
+    core: [],
   };
 
   // CEO Executive Brief — the spec's "one-page dashboard" concept, built as
@@ -771,11 +818,17 @@ Return the JSON now.`;
     invalidationConditions: scenarios.shiftConditions || [],
   };
 
+  // Real-data-only fallback summary when AI enrichment failed — built from
+  // real regime/scan data already on hand, not a fabricated narrative.
+  const fallbackExecSummary = `${regime.label} regime (${regime.score}/100). ${actionPlan.length} real signal${actionPlan.length === 1 ? "" : "s"} from the deterministic trend-template scan (not AI-curated by timeframe). AI analysis unavailable this run${aiError ? ` (${aiError.slice(0, 100)})` : ""} — showing real computed data only.`;
+
   const built = {
-    executiveSummary: String(parsed.executiveSummary || "").slice(0, 1200),
+    executiveSummary: parsed ? String(parsed.executiveSummary || "").slice(0, 1200) : fallbackExecSummary,
+    aiUnavailable: !parsed,
+    aiError: aiError || null,
     picks,
     thesis5y,
-    smartMoneyRead: String(parsed.smartMoneyRead || "").slice(0, 800),
+    smartMoneyRead: parsed ? String(parsed.smartMoneyRead || "").slice(0, 800) : "",
     actionPlan,
     avoidList,
     portfolio,

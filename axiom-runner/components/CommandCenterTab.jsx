@@ -332,7 +332,12 @@ export default function CommandCenterTab({ C, MONO, SANS }) {
           {/* Executive summary */}
           {brief.executiveSummary && (
             <div style={{ background: `${C.gold}0c`, border: `1px solid ${C.gold}33`, borderRadius: 12, padding: "14px 16px" }}>
-              <SectionLabel icon="📝" text="AI EXECUTIVE SUMMARY" color={C.gold} C={C} MONO={MONO} />
+              <SectionLabel icon="📝" text={brief.aiUnavailable ? "EXECUTIVE SUMMARY — REAL DATA ONLY" : "AI EXECUTIVE SUMMARY"} color={C.gold} C={C} MONO={MONO} />
+              {brief.aiUnavailable && (
+                <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginBottom: 8 }}>
+                  AI event feed and narrative unavailable this run{brief.aiError ? ` (${brief.aiError.slice(0, 100)})` : ""} — the numbers below (regime, trade ideas, price levels) are still real and computed, just without AI enrichment.
+                </div>
+              )}
               <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.55 }}>{brief.executiveSummary}</div>
               {brief.ceoVerdict?.biggestRisk && (
                 <div style={{ fontFamily: SANS, fontSize: 12, color: C.red, marginTop: 8 }}><b>Biggest risk:</b> {brief.ceoVerdict.biggestRisk}</div>

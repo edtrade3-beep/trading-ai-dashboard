@@ -290,7 +290,12 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
             <>
               {/* Executive summary hero */}
               <div style={{ background: `linear-gradient(135deg, ${C.goldBg}, ${C.card} 60%)`, border: `1px solid ${C.gold}55`, borderRadius: 12, padding: "16px 18px" }}>
-                <SectionLabel icon="📋" text="EXECUTIVE SUMMARY" color={C.gold} C={C} MONO={MONO} />
+                <SectionLabel icon="📋" text={brief.aiUnavailable ? "EXECUTIVE SUMMARY — REAL DATA ONLY" : "EXECUTIVE SUMMARY"} color={C.gold} C={C} MONO={MONO} />
+                {brief.aiUnavailable && (
+                  <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginBottom: 8 }}>
+                    AI curation/narrative unavailable this run{brief.aiError ? ` (${brief.aiError.slice(0, 100)})` : ""} — picks below are this platform's own deterministic trend-template scan, not AI-selected.
+                  </div>
+                )}
                 <div style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.6 }}>{brief.executiveSummary || "—"}</div>
               </div>
 
