@@ -181,6 +181,7 @@ export default function XIntelTab({ C, MONO, SANS }) {
   const [refreshMsg, setRefreshMsg] = useState(null);
   const [showWatchlist, setShowWatchlist] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [sentimentFilter, setSentimentFilter] = useState("ALL");
   const [search, setSearch] = useState({ symbol: "", entity: "", keyword: "" });
   const [searchResults, setSearchResults] = useState(null);
 
@@ -216,7 +217,16 @@ export default function XIntelTab({ C, MONO, SANS }) {
     fetch(`/api/x-intel/search?${qs.toString()}`).then((r) => r.json()).then((d) => setSearchResults(d.ok ? d.items : []));
   };
 
-  const filteredItems = useMemo(() => categoryFilter === "ALL" ? items : items.filter((it) => it.category === categoryFilter), [items, categoryFilter]);
+  const filteredItems = useMemo(() => {
+    let out = categoryFilter === "ALL" ? items : items.filter((it) => it.category === categoryFilter);
+    if (sentimentFilter !== "ALL") out = out.filter((it) => it.sentiment === sentimentFilter);
+    return out;
+  }, [items, categoryFilter, sentimentFilter]);
+
+  const sentimentCounts = useMemo(() => {
+    const base = categoryFilter === "ALL" ? items : items.filter((it) => it.category === categoryFilter);
+    return { bullish: base.filter((it) => it.sentiment === "bullish").length, bearish: base.filter((it) => it.sentiment === "bearish").length, neutral: base.filter((it) => it.sentiment === "neutral").length };
+  }, [items, categoryFilter]);
 
   // Grouped by real sentiment (bullish/bearish/neutral) instead of just
   // reverse-chronological — bullish and bearish surface first since those
@@ -349,9 +359,9 @@ export default function XIntelTab({ C, MONO, SANS }) {
         )}
       </div>
 
-      {/* Live Feed / category-filterable */}
+      {/* Live Feed / category + sentiment filterable */}
       <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
           <SectionLabel icon="📡" text="LIVE FEED" color={C.accent} C={C} MONO={MONO} />
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {["ALL", "Breaking News", "Politics", "CEOs", "FederalReserve"].filter((c) => c === "ALL" || items.some((it) => it.category === c)).map((c) => (
@@ -359,6 +369,17 @@ export default function XIntelTab({ C, MONO, SANS }) {
                 border: `1px solid ${categoryFilter === c ? C.accent : C.border}`, background: categoryFilter === c ? `${C.accent}18` : "transparent", color: categoryFilter === c ? C.accent : C.textDim }}>{c}</button>
             ))}
           </div>
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+          {[
+            { key: "ALL", label: "ALL", col: C.textSec },
+            { key: "bullish", label: `▲ BULLISH (${sentimentCounts.bullish})`, col: C.green },
+            { key: "bearish", label: `▼ BEARISH (${sentimentCounts.bearish})`, col: C.red },
+            { key: "neutral", label: `○ NEUTRAL (${sentimentCounts.neutral})`, col: C.textDim },
+          ].map(({ key, label, col }) => (
+            <button key={key} onClick={() => setSentimentFilter(key)} style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 6, cursor: "pointer",
+              border: `1px solid ${sentimentFilter === key ? col : C.border}`, background: sentimentFilter === key ? `${col}18` : "transparent", color: sentimentFilter === key ? col : C.textDim }}>{label}</button>
+          ))}
         </div>
         {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center", padding: 30 }}>Loading…</div>}
         {state === "ok" && filteredItems.length === 0 && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center", padding: 30 }}>No items in this category yet.</div>}
