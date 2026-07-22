@@ -282,7 +282,7 @@ ${institutional.insider ? `Insider: ${String(institutional.insider).slice(0, 300
 ${institutional.darkPool ? `Dark Pool: ${String(institutional.darkPool).slice(0, 300)}` : "Dark Pool: none generated yet"}
 ${institutional.shortChanges ? `Short Interest: ${String(institutional.shortChanges).slice(0, 300)}` : "Short Interest: none generated yet"}
 
-${ceoBrief ? `TODAY'S CEO AI CALL: ${ceoBrief.verdict} (confidence ${ceoBrief.confidence})` : ""}
+${ceoBrief?.verdict ? `TODAY'S CEO AI CALL: ${ceoBrief.verdict} (confidence ${ceoBrief.confidence})` : ""}
 
 Search for real, current news now and return the JSON.`;
 
@@ -379,7 +379,13 @@ Search for real, current news now and return the JSON.`;
     institutional,
     portfolioRisk: { ...riskCC, ...(riskLab ? { var95: riskLab.var95, var99: riskLab.var99, portfolioValue: riskLab.totalValue } : {}) },
     scenarios: advisorBrief.scenarios || null,
-    ceoVerdict: ceoBrief ? { verdict: ceoBrief.verdict, confidence: ceoBrief.confidence, biggestRisk: ceoBrief.biggestRisk, flipCondition: ceoBrief.flipCondition } : null,
+    // ceoBrief can now be a real-data-only fallback (verdict:null) when
+    // CEO AI's own AI call was unavailable — checking ceoBrief.verdict
+    // specifically (not just ceoBrief's truthiness) so this stays real
+    // null instead of a truthy {verdict:null,...} object, which would
+    // otherwise render as a literal "CEO AI: null (null confidence)" in
+    // the UI (brief.ceoVerdict && (...) only checks truthiness there).
+    ceoVerdict: ceoBrief?.verdict ? { verdict: ceoBrief.verdict, confidence: ceoBrief.confidence, biggestRisk: ceoBrief.biggestRisk, flipCondition: ceoBrief.flipCondition } : null,
     trackRecord,
     generatedAt: Date.now(),
   };
