@@ -271,7 +271,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         )}
         {/* ── Per-symbol detail tabs ── */}
         <div style={{ display: "flex", gap: 4, margin: "4px 0 12px", flexWrap: "wrap", borderBottom: `1px solid ${C.border}`, paddingBottom: 8 }}>
-          {[["chart", "📈 Chart"], ["smart", "🔬 Smart Scan"], ["valuation", "📊 Valuation"], ["analysts", "🎯 Analysts"], ["investors", "🏦 Investors"], ["earnings", "💰 Earnings"], ["company", "🏢 Company"], ["social", "💬 Social"], ["news", "📰 News"]].map(([id, lbl]) => (
+          {/* "Symbol News" not bare "News" — this is a per-symbol detail
+              tab, and the Sidebar has its own separate, global "📰 News"
+              nav item (different page entirely). Same exact-label-collision
+              class already found and fixed once this session in
+              XIntelTab.jsx's sub-nav. */}
+          {[["chart", "📈 Chart"], ["smart", "🔬 Smart Scan"], ["valuation", "📊 Valuation"], ["analysts", "🎯 Analysts"], ["investors", "🏦 Investors"], ["earnings", "💰 Earnings"], ["company", "🏢 Company"], ["social", "💬 Social"], ["news", "📰 Symbol News"]].map(([id, lbl]) => (
             <button key={id} onClick={() => setDTab(id)}
               style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", borderRadius: 7, cursor: "pointer",
                 border: `1px solid ${dTab === id ? C.accent : "transparent"}`, background: dTab === id ? `${C.accent}16` : "transparent", color: dTab === id ? C.accent : C.textDim }}>

@@ -156,9 +156,16 @@ export default function XIntelTab({ C, MONO, SANS, macroData, setActiveTab }) {
 
       {showWatchlist && <WatchlistPanel C={C} MONO={MONO} SANS={SANS} watchlist={watchlist} reload={loadWatchlist} />}
 
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", borderBottom: `1px solid ${C.border}`, paddingBottom: 10 }}>
+      {/* Horizontal-scroll, single row — NOT flexWrap. Matches this
+          codebase's established sub-nav convention (SubNavBar.jsx:
+          overflowX:"auto", whiteSpace:"nowrap" per button). The original
+          flexWrap version wrapped to a 2nd row on mobile at exactly the
+          screen position the fixed FAB cluster occupies, confirmed live
+          via screenshot — obscuring the Trend tab button entirely. */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", overflowX: "auto", scrollbarWidth: "none", borderBottom: `1px solid ${C.border}`, paddingBottom: 10 }}>
         {SUB_TABS.map((t) => (
           <button key={t.key} onClick={() => setSubTab(t.key)} style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 800, padding: "6px 12px", borderRadius: 6, cursor: "pointer",
+            whiteSpace: "nowrap", flexShrink: 0, minHeight: 40,
             border: `1px solid ${subTab === t.key ? C.accent : C.border}`, background: subTab === t.key ? `${C.accent}18` : "transparent", color: subTab === t.key ? C.accent : C.textDim }}>
             {t.icon} {t.label}
           </button>
