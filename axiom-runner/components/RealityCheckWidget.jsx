@@ -104,7 +104,7 @@ function positionVerdict(direction, flowBias, narrScore) {
   };
 }
 
-export default function RealityCheckWidget() {
+export default function RealityCheckWidget({ statusBarH = 40 } = {}) {
   const [open, setOpen] = useState(false);
   const [ticker, setTicker] = useState("");
   const [loading, setLoading] = useState(false);
@@ -159,7 +159,7 @@ export default function RealityCheckWidget() {
   })();
 
   return (
-    <div style={{ position: "fixed", bottom: 18, right: 86, zIndex: 300, fontFamily: SANS }}>
+    <div style={{ position: "fixed", bottom: 18 + statusBarH, right: 86, zIndex: 300, fontFamily: SANS }}>
       {open && (
         <div
           role="dialog"

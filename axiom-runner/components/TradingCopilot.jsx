@@ -3,7 +3,7 @@ import { computeRegime, computeAPlusScore } from "./market-helpers.js";
 import { BEST_OPP_UNIVERSE } from "./terminal-panels.jsx";
 
 // 🗣️ Trading Copilot — floating chat that knows your context + can search live news
-export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymbols }) {
+export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymbols, statusBarH = 40 }) {
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState([]);   // {role, content}
   const [input, setInput] = useState("");
@@ -96,11 +96,15 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
   const suggestions = ["What's strong today?", "Why is NVDA moving?", "Should I hold my positions?", "Plan a trade for me"];
   return (
     <>
+      {/* bottom offsets add statusBarH (real, dynamic — can wrap to 2 lines)
+          so this never sits on top of the fixed status bar at the very
+          bottom of the viewport, same real-measurement fix applied to
+          RealityCheckWidget/FloatingChecklistButton below it. */}
       <button className="fab-copilot-btn" onClick={() => setOpen(o => !o)} title="Trading Copilot"
-        style={{ position: "fixed", bottom: 18, right: 18, zIndex: 9999, width: 54, height: 54, borderRadius: "50%", cursor: "pointer",
+        style={{ position: "fixed", bottom: 18 + statusBarH, right: 18, zIndex: 9999, width: 54, height: 54, borderRadius: "50%", cursor: "pointer",
           border: "none", background: C.accent, color: "#fff", fontSize: 22, boxShadow: "0 6px 20px rgba(0,0,0,0.3)" }}>{open ? "✕" : "💬"}</button>
       {open && (
-        <div style={{ position: "fixed", bottom: 82, right: 18, zIndex: 9999, width: "min(400px, 92vw)", height: "min(560px, 78vh)",
+        <div style={{ position: "fixed", bottom: 82 + statusBarH, right: 18, zIndex: 9999, width: "min(400px, 92vw)", height: "min(560px, 78vh)",
           display: "flex", flexDirection: "column", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: "0 10px 40px rgba(0,0,0,0.4)", overflow: "hidden" }}>
           <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent }}>🗣️ TRADING COPILOT <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 400, color: C.textDim }}>· knows your watchlist & positions</span></div>
           <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>

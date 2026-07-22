@@ -5444,8 +5444,8 @@ export default function App() {
     <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: SANS, zoom: (isMobile ? 1 : isTablet ? UI_ZOOM_TABLET : UI_ZOOM) * pageZoom, lineHeight: 1.5, width: "100%", maxWidth: "100vw", overflowX: "hidden", filter: brightness < 100 ? `brightness(${brightness}%)` : "none", transition: "filter 0.2s" }}>
       <IstighfarWidget C={C} themeMode={themeMode} isMobile={isMobile} />
       <div style={{ height: ISTIGHFAR_BAR_H, flexShrink: 0 }} aria-hidden="true" />
-      <TradingCopilot C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistSymbols={watchlistSymbols} />
-      <RealityCheckWidget />
+      <TradingCopilot C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistSymbols={watchlistSymbols} statusBarH={statusBarH} />
+      <RealityCheckWidget statusBarH={statusBarH} />
       {/* Google Fonts — Inter (UI) + JetBrains Mono (data/numbers) */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -6854,7 +6854,7 @@ export default function App() {
           content wrapper above, same as IstighfarWidget/TradingCopilot/
           RealityCheckWidget: these are viewport-relative fixed overlays,
           not page content, so they shouldn't inherit the sidebar offset. */}
-      <FloatingChecklistButton C={C} checklistItems={checklistItems} setActiveTab={setActiveTab} />
+      <FloatingChecklistButton C={C} checklistItems={checklistItems} setActiveTab={setActiveTab} statusBarH={statusBarH} />
 
       <TiltDetectorOverlay C={C} MONO={MONO} SANS={SANS} tiltLocked={tiltLocked} tiltUnlockAt={tiltUnlockAt} setActiveTab={setActiveTab} setTiltLocked={setTiltLocked} setTiltUnlockAt={setTiltUnlockAt} />
 
