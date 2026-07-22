@@ -49,7 +49,7 @@ function summarizeJournal(jp) {
 }
 
 async function buildCeoRecommendation() {
-  if (!KEY()) return null;
+  if (!KEY()) throw new Error("ANTHROPIC_API_KEY not set");
 
   const [scanner, risk, fed, journal, coachLog] = await Promise.all([
     getJson("/api/scanner/status"),
@@ -86,15 +86,22 @@ You are writing for a CEO who reads this in 30 seconds, not a report. Every fiel
 {"verdict":"one punchy headline line — the overall stance","confidence":"HIGH, MEDIUM, or LOW","topAction":"1-2 sentences MAX: the specific action (or explicit WAIT) and the one concrete data point behind it","contrarianTake":"1 sentence MAX: the single non-obvious angle a mechanical read would miss — cut if you don't have a genuinely sharp one","biggestRisk":"1-2 sentences MAX: the single biggest risk and one early-warning sign to watch for it","flipCondition":"1 sentence MAX: the exact observable event that would change today's call","departmentReadout":[{"department":"Scanner AI","note":"under 12 words — what it found, or that it found nothing"},{"department":"Risk Manager AI","note":"under 12 words"},{"department":"Macro AI","note":"under 12 words"},{"department":"Market Intelligence AI","note":"under 12 words"},{"department":"Journal AI","note":"under 12 words"}]}`;
   const prompt = `Today's department reports:\n\n${departmentReports}\n\nGive your final call. One CEO reading this once, fast — not a report.`;
 
+  // CEO AI is genuinely AI-only judgment — cross-department synthesis has
+  // no real deterministic substitute the way Command Center/Advisor AI's
+  // real trend-template data did, so this doesn't get a real-data
+  // fallback. What it DOES get: the real failure reason propagated
+  // instead of swallowed, so a real usage-cap error doesn't get shown to
+  // the user as a generic (and, during that specific outage, actively
+  // wrong) "check your API key is set" guess.
   let recommendation;
   try {
     const raw = await callAnthropicApi(prompt, KEY(), { model: MODELS.sonnet, maxTokens: 1500, system: SYSTEM, cache: true });
     const m = (raw || "").match(/\{[\s\S]*\}/);
     recommendation = JSON.parse(m ? m[0] : raw);
-  } catch {
-    return null;
+  } catch (e) {
+    throw new Error(`CEO AI call failed: ${e.message}`);
   }
-  if (!recommendation || !recommendation.verdict) return null;
+  if (!recommendation || !recommendation.verdict) throw new Error("CEO AI returned an incomplete response (no verdict)");
 
   const built = { ...recommendation, generatedAt: Date.now() };
   saveCoachOutput("ceo", built);
@@ -102,8 +109,13 @@ You are writing for a CEO who reads this in 30 seconds, not a report. Every fiel
 }
 
 async function runCeoRecommendation() {
-  const built = await buildCeoRecommendation();
-  if (!built) return;
+  let built;
+  try {
+    built = await buildCeoRecommendation();
+  } catch (e) {
+    console.warn("[CEO AI] scheduled generation failed:", e.message);
+    return;
+  }
   if (!telegramConfigured() || !shouldSendAlert({ category: "ai-coach" })) return;
   const confidence = built.confidence ? ` (${built.confidence} confidence)` : "";
   const contrarian = built.contrarianTake ? `\n\n🔭 *Contrarian take:* ${built.contrarianTake}` : "";

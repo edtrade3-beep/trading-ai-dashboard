@@ -173,9 +173,15 @@ async function handleAiHub(req, res, requestUrl) {
   }
 
   if (pathname === "/api/ai-hub/ceo-brief/refresh" && req.method === "POST") {
-    const built = await buildCeoRecommendation();
-    if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate a CEO recommendation (ANTHROPIC_API_KEY not set or the AI call failed)." });
-    return writeJson(res, 200, { ok: true, brief: built });
+    // buildCeoRecommendation() now throws the real failure reason instead
+    // of returning null, so the UI can show what actually happened (e.g.
+    // a real usage-cap message) instead of a generic guess.
+    try {
+      const built = await buildCeoRecommendation();
+      return writeJson(res, 200, { ok: true, brief: built });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e.message });
+    }
   }
 
   if (pathname === "/api/ai-hub/advisor-brief" && req.method === "GET") {

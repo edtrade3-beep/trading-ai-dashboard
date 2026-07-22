@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 export default function CeoAiCard({ C, MONO, SANS }) {
   const [brief, setBrief] = useState(null);
   const [state, setState] = useState("loading"); // loading | ok | empty | error
+  const [error, setError] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
 
@@ -21,11 +22,11 @@ export default function CeoAiCard({ C, MONO, SANS }) {
   useEffect(load, []);
 
   const generate = () => {
-    setGenerating(true);
+    setGenerating(true); setError(null);
     fetch("/api/ai-hub/ceo-brief/refresh", { method: "POST" }).then(r => r.json()).then(d => {
       if (d && d.ok && d.brief) { setBrief(d.brief); setState("ok"); }
-      else { setState("error"); }
-    }).catch(() => setState("error")).finally(() => setGenerating(false));
+      else { setError(d?.error || "Unknown error"); setState("error"); }
+    }).catch((e) => { setError(e.message || "Network error"); setState("error"); }).finally(() => setGenerating(false));
   };
 
   // Deliberately styled to be unmissable — gold border/glow (this app's
@@ -60,16 +61,19 @@ export default function CeoAiCard({ C, MONO, SANS }) {
         </button>
       </div>
 
-      {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
-      {state === "error" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>Couldn't generate — check ANTHROPIC_API_KEY is set.</div>}
-      {state === "empty" && (
+      {state === "loading" && !brief && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
+      {/* Real failure reason (e.g. a genuine usage-cap message), not a
+          generic guess — a prior successful brief (if any) stays visible
+          below rather than disappearing behind this. */}
+      {state === "error" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, marginBottom: brief ? 10 : 0 }}>Couldn't generate: {error || "unknown error"}</div>}
+      {state === "empty" && !brief && (
         <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, lineHeight: 1.6 }}>
           Not run yet today. Click <b style={{ color: C.text }}>Generate</b> — it reads what Scanner AI, Portfolio Risk, Macro AI, and
           Journal AI have already found and thinks like a CIO about it: what the crowd's likely missing, what the silence
           in a report actually means, and whether there's an asymmetric setup nobody flagged individually.
         </div>
       )}
-      {state === "ok" && brief && (
+      {brief && (
         <div>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
             <div style={{ fontFamily: SANS, fontSize: 22, fontWeight: 800, color: C.text, lineHeight: 1.3, flex: 1 }}>{brief.verdict}</div>
