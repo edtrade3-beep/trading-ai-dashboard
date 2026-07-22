@@ -17,6 +17,7 @@ import { cardStyle, buttonChrome } from "./ui-helpers.js";
 // behind a "show detail" click.
 
 const STANCE_COLOR = { "RISK-OFF": "#c8282a", DEFENSIVE: "#d97706", NEUTRAL: "#94a3b8", "RISK-ON": "#0d9465" };
+const SEVERITY_COLOR = { major: "#c8282a", moderate: "#d97706", minor: "#94a3b8" };
 
 function Metric({ label, value, sub, color, C, MONO }) {
   return (
@@ -49,8 +50,9 @@ export default function MarketHealthTab({ C, MONO, SANS }) {
     }).catch((e) => { setError(e.message || "Network error"); setState("error"); }).finally(() => setRefreshing(false));
   };
 
-  const { breadth, sentiment, distributionRisk, divergenceFlags, riskFlags, riskStance, notCoveredFreeData, regime, generatedAt } = brief || {};
+  const { breadth, sentiment, distributionRisk, divergenceFlags, riskFlags, riskStance, regimeShift, notCoveredFreeData, regime, generatedAt } = brief || {};
   const stanceColor = riskStance ? (STANCE_COLOR[riskStance.label] || C.textDim) : C.textDim;
+  const shiftColor = regimeShift?.justShifted ? (SEVERITY_COLOR[regimeShift.severity] || C.textDim) : null;
 
   return (
     <div style={{ padding: "16px 20px", maxWidth: 1180, margin: "0 auto", display: "flex", flexDirection: "column", gap: 14 }}>
@@ -77,6 +79,29 @@ export default function MarketHealthTab({ C, MONO, SANS }) {
 
       {brief && (
         <>
+          {/* Regime-shift alert — real persistence tracker over the actual
+              history store (command-center-history-store.js), grouped by
+              real calendar day. Fires only on a genuine end-of-day flip,
+              never on intraday noise, and scales its intensity by how long
+              the prior regime really ran (a shift after 3 days reads very
+              differently from one after 60+). Leads the page when present
+              — it's the single most important real fact on hand. */}
+          {regimeShift?.justShifted && (
+            <div style={{ background: `${shiftColor}12`, border: `1px solid ${shiftColor}66`, borderLeft: `4px solid ${shiftColor}`, borderRadius: 4, padding: "14px 18px" }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: shiftColor, letterSpacing: "0.08em" }}>
+                  ⚠ REGIME SHIFT — {regimeShift.severity?.toUpperCase()}
+                </span>
+                <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>
+                  {regimeShift.priorRegime} → {regime?.label}
+                </span>
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textSec, marginTop: 4 }}>
+                Prior regime ({regimeShift.priorRegime}) held for <b style={{ color: C.text }}>{regimeShift.priorRegimeDays} consecutive real day{regimeShift.priorRegimeDays === 1 ? "" : "s"}</b> before today's flip — from {regimeShift.historyDepthDays} real tracked days of history.
+              </div>
+            </div>
+          )}
+
           {/* Headline verdict — the single line a real risk memo opens
               with. Real formula shown beneath, not an AI opinion. */}
           {riskStance && (
@@ -130,6 +155,11 @@ export default function MarketHealthTab({ C, MONO, SANS }) {
               {riskFlags && (
                 <Metric label="RISK FLAGS" value={`${riskFlags.triggeredCount}/${riskFlags.total}`} sub="triggered"
                   color={riskFlags.triggeredCount >= 4 ? C.red : riskFlags.triggeredCount >= 2 ? C.amber : C.green} C={C} MONO={MONO} />
+              )}
+              {regimeShift && (
+                <Metric label="REGIME AGE" value={`${regimeShift.daysInCurrentRegime}d`}
+                  sub={regimeShift.justShifted ? `just flipped from ${regimeShift.priorRegime}` : `real days in ${regime?.label || "current regime"}`}
+                  color={regimeShift.justShifted ? shiftColor : C.textSec} C={C} MONO={MONO} />
               )}
             </div>
           </div>

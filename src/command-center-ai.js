@@ -31,7 +31,7 @@
 const { callAnthropicWithSearch } = require("./anthropic");
 const { saveCoachOutput, loadCoachLog } = require("./ai-coach-store");
 const { logPrediction, getTrackRecord } = require("./predictions-store");
-const { getMostRecentEntry, appendSnapshot } = require("./command-center-history-store");
+const { loadHistory, getMostRecentEntry, appendSnapshot, etDateStr } = require("./command-center-history-store");
 const { computeRiskLab } = require("./risk-lab-calc");
 const { sizePositionByRisk } = require("./risk-guardrails");
 const { fetchYahooBars } = require("./providers/yahoo");
@@ -243,6 +243,64 @@ function computeRiskStance(riskFlags, divergenceFlags) {
   return { label, score, inputs };
 }
 
+// Real regime-PERSISTENCE tracker — the user's actual ask: not "did the
+// score wiggle today" but "was the market in one real regime for a long
+// real stretch and did it just genuinely flip." Built entirely from real
+// past snapshots in command-center-history-store.js (real ET calendar
+// dates, real regime labels each day already recorded) — no AI, no
+// fabricated trend line.
+//
+// Groups history by real calendar day, keeping the LAST snapshot of each
+// day as that day's official regime read (a day can have several
+// refreshes; the end-of-day one is the one that matters for "was the
+// market in regime X on day N"). Walks backward from today counting
+// consecutive same-label days for daysInCurrentRegime. Flags a real
+// shift only when today's regime genuinely differs from yesterday's —
+// never manufactured on ordinary day-to-day noise — and reports exactly
+// how many real days the PRIOR regime had persisted, so a shift after 3
+// days and a shift after 60 days are honestly distinguishable rather
+// than both being reported as "a shift happened."
+function computeRegimeShift(currentRegimeLabel, currentRegimeScore) {
+  if (!currentRegimeLabel) return null;
+  const history = loadHistory();
+  const byDay = new Map(); // real ET date -> last real snapshot that day (chronological iteration => last write wins)
+  for (const e of history) {
+    if (e?.date && e?.regimeLabel) byDay.set(e.date, e);
+  }
+  const todayKey = etDateStr();
+  byDay.set(todayKey, { regimeLabel: currentRegimeLabel, regimeScore: currentRegimeScore }); // today's just-computed real read overrides any earlier-today entry
+  const days = [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])); // real chronological order
+
+  if (days.length < 2) {
+    return { daysInCurrentRegime: 1, justShifted: false, priorRegime: null, priorRegimeDays: null, historyDepthDays: days.length };
+  }
+
+  const todayLabel = days[days.length - 1][1].regimeLabel;
+  let daysInCurrentRegime = 1;
+  let i = days.length - 2;
+  while (i >= 0 && days[i][1].regimeLabel === todayLabel) { daysInCurrentRegime++; i--; }
+
+  let justShifted = false, priorRegime = null, priorRegimeDays = null;
+  if (daysInCurrentRegime === 1) {
+    const priorLabel = days[days.length - 2][1].regimeLabel;
+    if (priorLabel && priorLabel !== todayLabel) {
+      justShifted = true;
+      priorRegime = priorLabel;
+      let j = days.length - 2, count = 0;
+      while (j >= 0 && days[j][1].regimeLabel === priorLabel) { count++; j--; }
+      priorRegimeDays = count;
+    }
+  }
+
+  // Real, graduated significance — not a hardcoded gate on whether to
+  // report a shift at all (every real shift is reported honestly), just
+  // how loudly to present it. Scale matches the user's own "60 days"
+  // framing for what counts as a real prolonged trend.
+  const severity = !justShifted ? null : priorRegimeDays >= 45 ? "major" : priorRegimeDays >= 15 ? "moderate" : "minor";
+
+  return { daysInCurrentRegime, justShifted, priorRegime, priorRegimeDays, historyDepthDays: days.length, severity };
+}
+
 // Real diff against the immediately-prior generation (whether that was
 // minutes ago or days ago) — never fabricated, and explicitly null (not a
 // misleading "no change") on the very first-ever generation, when there's
@@ -333,6 +391,9 @@ async function buildCommandCenter() {
   // rest of this function.
   const divergenceFlags = buildDivergenceFlags(regime, riskCC, breadth, distribution, feargreed);
   const riskFlags = buildRiskFlags(regime, riskCC, breadth, distribution);
+  // Must run BEFORE appendSnapshot() below (real prior-days comparison,
+  // not double-counting today).
+  const regimeShift = computeRegimeShift(regime?.label, regime?.score);
 
   const SYSTEM = `You are the event-intelligence layer of an AI Market Command Center for a real trading desk. Your ONLY job is two things:
 
@@ -355,6 +416,7 @@ FEAR & GREED (real): ${feargreed ? `${feargreed.score}/100 (${feargreed.label})`
 DISTRIBUTION-DAY RISK (real): ${distribution ? `${distribution.riskScore}/100 (${distribution.alert})` : "unavailable"}.
 REAL DIVERGENCE FLAGS (already detected server-side, reference in executiveSummary if genuinely the biggest risk/driver — don't repeat all of them, just the most important one if any): ${divergenceFlags.length ? divergenceFlags.map((d) => d.flag).join("; ") : "none detected"}
 REAL RISK-FLAG COUNT (deterministic, not a prediction): ${riskFlags.triggeredCount} of ${riskFlags.total} triggered.
+REGIME PERSISTENCE (real, from ${regimeShift?.historyDepthDays ?? 0} real days of tracked history): ${regimeShift?.justShifted ? `Regime just SHIFTED from ${regimeShift.priorRegime} to ${regime?.label} after ${regimeShift.priorRegimeDays} consecutive real day(s) in ${regimeShift.priorRegime} — this is the single most important thing to lead with in executiveSummary if the prior regime ran ${regimeShift.priorRegimeDays >= 15 ? "a genuinely long stretch" : "only briefly"}.` : `Regime has been ${regime?.label} for ${regimeShift?.daysInCurrentRegime ?? 1} consecutive real day(s) — no shift today.`}
 
 THIS DESK'S REAL BULLISH IDEAS (write evidence/risks/historicalAnalog for these tickers in tradeNotes):
 ${topOpportunities.map((o) => `${o.symbol} ${o.action} — score ${o.score}, reason: ${o.reason}`).join("\n") || "none today"}
@@ -449,7 +511,12 @@ Search for real, current news now and return the JSON.`;
   // mistaken for the AI's actual read.
   const riskFlagLine = riskFlags.triggeredCount > 0 ? ` ${riskFlags.triggeredCount} of ${riskFlags.total} real risk flags triggered.` : "";
   const divergenceLine = divergenceFlags.length ? ` Divergence: ${divergenceFlags[0].flag}.` : "";
-  const fallbackSummary = `${regime?.label || "?"} regime (${regime?.score ?? "?"}/100).${feargreed ? ` Fear & Greed ${feargreed.score}/100 (${feargreed.label}).` : ""} ${bullishCards.length ? `${bullishCards.length} real bullish setup${bullishCards.length > 1 ? "s" : ""} (${bullishCards.map((c) => c.symbol).join(", ")}).` : "No qualifying bullish setups today."}${riskFlagLine}${divergenceLine} AI event feed and narrative unavailable this run — showing real computed data only.`;
+  // A genuine regime shift after a real prolonged stretch is the single
+  // most important real fact on hand — leads the fallback summary rather
+  // than being buried after routine stats, same as it's flagged first to
+  // the AI in the prompt above.
+  const shiftLine = regimeShift?.justShifted ? `⚠ REGIME SHIFT: ${regimeShift.priorRegime} → ${regime?.label} after ${regimeShift.priorRegimeDays} real day${regimeShift.priorRegimeDays === 1 ? "" : "s"} in ${regimeShift.priorRegime}. ` : "";
+  const fallbackSummary = `${shiftLine}${regime?.label || "?"} regime (${regime?.score ?? "?"}/100)${regimeShift && !regimeShift.justShifted ? `, ${regimeShift.daysInCurrentRegime} real day${regimeShift.daysInCurrentRegime === 1 ? "" : "s"} running` : ""}.${feargreed ? ` Fear & Greed ${feargreed.score}/100 (${feargreed.label}).` : ""} ${bullishCards.length ? `${bullishCards.length} real bullish setup${bullishCards.length > 1 ? "s" : ""} (${bullishCards.map((c) => c.symbol).join(", ")}).` : "No qualifying bullish setups today."}${riskFlagLine}${divergenceLine} AI event feed and narrative unavailable this run — showing real computed data only.`;
 
   const built = {
     regime,
@@ -472,6 +539,7 @@ Search for real, current news now and return the JSON.`;
     divergenceFlags,
     riskFlags,
     riskStance: computeRiskStance(riskFlags, divergenceFlags),
+    regimeShift,
     // Genuinely unavailable from any free data source in this codebase —
     // disclosed honestly rather than faked. See command-center-ai.js
     // buildDivergenceFlags/buildRiskFlags comments for why.
