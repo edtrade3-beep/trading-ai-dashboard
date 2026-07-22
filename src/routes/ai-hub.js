@@ -177,9 +177,11 @@ async function handleAiHub(req, res, requestUrl) {
   }
 
   if (pathname === "/api/ai-hub/ceo-brief/refresh" && req.method === "POST") {
-    // buildCeoRecommendation() now throws the real failure reason instead
-    // of returning null, so the UI can show what actually happened (e.g.
-    // a real usage-cap message) instead of a generic guess.
+    // buildCeoRecommendation() no longer throws/returns null on an AI
+    // failure — it always returns real department data (built.aiUnavailable
+    // discloses when the AI judgment layer specifically couldn't run, with
+    // built.aiError carrying the real reason). The try/catch here is just a
+    // safety net for a genuinely unexpected error.
     try {
       const built = await buildCeoRecommendation();
       return writeJson(res, 200, { ok: true, brief: built });

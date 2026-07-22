@@ -73,7 +73,22 @@ export default function CeoAiCard({ C, MONO, SANS }) {
           in a report actually means, and whether there's an asymmetric setup nobody flagged individually.
         </div>
       )}
-      {brief && (
+      {brief && brief.aiUnavailable && (
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.amber, letterSpacing: "0.05em", marginBottom: 6 }}>⚠ REAL DATA ONLY — NO AI JUDGMENT THIS RUN</div>
+          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 10, lineHeight: 1.5 }}>
+            AI synthesis unavailable{brief.aiError ? ` (${brief.aiError.slice(0, 100)})` : ""} — there's no real substitute for the CEO's cross-department judgment call, so it's honestly left blank rather than faked. Below is the same real department data that call would have been based on.
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {(brief.departmentReadout || []).map((d, i) => (
+              <div key={i} style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 10px" }}>
+                <b style={{ color: C.accent }}>{d.department}:</b> {d.note}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {brief && !brief.aiUnavailable && (
         <div>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
             <div style={{ fontFamily: SANS, fontSize: 22, fontWeight: 800, color: C.text, lineHeight: 1.3, flex: 1 }}>{brief.verdict}</div>
