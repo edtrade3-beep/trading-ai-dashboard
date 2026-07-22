@@ -226,6 +226,23 @@ function buildRiskFlags(regime, riskCC, breadth, distribution) {
   return { triggeredCount, total: checks.length, checks };
 }
 
+// Real, deterministic composite verdict — the single headline read a real
+// institutional risk memo opens with, before the supporting detail. Not
+// AI judgment: each triggered risk flag contributes 1 point, each real
+// divergence contributes 2 (a genuine internal contradiction between two
+// real signals is a stronger tell than one flag alone) — same "formula
+// with visible inputs" pattern as Command Score, just for risk stance
+// instead of opportunity.
+function computeRiskStance(riskFlags, divergenceFlags) {
+  const inputs = [
+    { label: "Risk flags triggered", value: riskFlags.triggeredCount, weight: "×1" },
+    { label: "Divergences detected", value: divergenceFlags.length, weight: "×2" },
+  ];
+  const score = riskFlags.triggeredCount + divergenceFlags.length * 2;
+  const label = score >= 6 ? "RISK-OFF" : score >= 3 ? "DEFENSIVE" : score >= 1 ? "NEUTRAL" : "RISK-ON";
+  return { label, score, inputs };
+}
+
 // Real diff against the immediately-prior generation (whether that was
 // minutes ago or days ago) — never fabricated, and explicitly null (not a
 // misleading "no change") on the very first-ever generation, when there's
@@ -454,6 +471,7 @@ Search for real, current news now and return the JSON.`;
     distributionRisk: distribution ? { riskScore: distribution.riskScore, alert: distribution.alert, warnings: distribution.warnings, rotationDiff: distribution.rotationDiff } : null,
     divergenceFlags,
     riskFlags,
+    riskStance: computeRiskStance(riskFlags, divergenceFlags),
     // Genuinely unavailable from any free data source in this codebase —
     // disclosed honestly rather than faked. See command-center-ai.js
     // buildDivergenceFlags/buildRiskFlags comments for why.

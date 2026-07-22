@@ -1,19 +1,29 @@
 import { useState, useEffect } from "react";
 import { cardStyle, buttonChrome } from "./ui-helpers.js";
 
-// MARKET HEALTH — Chief Market Strategist / Risk Officer scope, moved out
-// of Command Center into its own tab. All real, free, zero-AI-cost data:
-// breadth (% of sectors above 50/200-day MA), Fear & Greed composite,
-// distribution-day risk score, a deterministic Divergence Engine, and a
-// transparent Risk-Flag count — see src/command-center-ai.js's
-// buildDivergenceFlags/buildRiskFlags for the real rule-based logic.
-// Reads the same persisted Command Center brief this data already lives
-// in (GET /api/command-center) and the same refresh endpoint (POST
+// MARKET HEALTH — Chief Market Strategist / Risk Officer scope. All real,
+// free, zero-AI-cost data: breadth (% of sectors above 50/200-day MA),
+// Fear & Greed composite, distribution-day risk score, a deterministic
+// Divergence Engine, a transparent Risk-Flag count, and a composite Risk
+// Stance verdict — see src/command-center-ai.js's buildDivergenceFlags/
+// buildRiskFlags/computeRiskStance for the real rule-based logic. Reads
+// the same persisted Command Center brief this data already lives in
+// (GET /api/command-center) and the same refresh endpoint (POST
 // /api/command-center/refresh) — no new backend, no new AI call.
-function SectionLabel({ icon, text, color, C, MONO }) {
+//
+// Styled as a real risk-desk readout, not a dashboard widget grid: one
+// headline verdict, a dense data strip, and a real flag table always
+// visible — an institutional risk memo doesn't hide its own evidence
+// behind a "show detail" click.
+
+const STANCE_COLOR = { "RISK-OFF": "#c8282a", DEFENSIVE: "#d97706", NEUTRAL: "#94a3b8", "RISK-ON": "#0d9465" };
+
+function Metric({ label, value, sub, color, C, MONO }) {
   return (
-    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color, letterSpacing: "0.05em", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-      <span>{icon}</span><span>{text}</span>
+    <div style={{ borderLeft: `3px solid ${color}`, paddingLeft: 10 }}>
+      <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.07em" }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 900, color, fontVariantNumeric: "tabular-nums", lineHeight: 1.15 }}>{value}</div>
+      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{sub}</div>
     </div>
   );
 }
@@ -23,7 +33,6 @@ export default function MarketHealthTab({ C, MONO, SANS }) {
   const [state, setState] = useState("loading"); // loading | ok | empty | error
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [showDetail, setShowDetail] = useState(false);
 
   const load = () => {
     fetch("/api/command-center").then((r) => r.json()).then((d) => {
@@ -40,25 +49,26 @@ export default function MarketHealthTab({ C, MONO, SANS }) {
     }).catch((e) => { setError(e.message || "Network error"); setState("error"); }).finally(() => setRefreshing(false));
   };
 
-  const { breadth, sentiment, distributionRisk, divergenceFlags, riskFlags, notCoveredFreeData, regime } = brief || {};
+  const { breadth, sentiment, distributionRisk, divergenceFlags, riskFlags, riskStance, notCoveredFreeData, regime, generatedAt } = brief || {};
+  const stanceColor = riskStance ? (STANCE_COLOR[riskStance.label] || C.textDim) : C.textDim;
 
   return (
-    <div style={{ padding: "16px 20px", maxWidth: 1180, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ padding: "16px 20px", maxWidth: 1180, margin: "0 auto", display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
         <div>
-          <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 900, color: C.text }}>🩺 MARKET HEALTH</div>
-          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-            Real breadth, sentiment, distribution risk, and divergence checks — free data, zero AI cost, updates whenever Command Center refreshes
+          <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 900, color: C.text, letterSpacing: "0.02em" }}>MARKET HEALTH</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 2 }}>
+            REAL DATA · ZERO AI COST · {generatedAt ? `AS OF ${new Date(generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "NOT YET GENERATED"}
           </div>
         </div>
-        <button onClick={refresh} disabled={refreshing} style={buttonChrome(C, { padding: "9px 18px", fontSize: 12, fontWeight: 800, background: refreshing ? C.surface : C.gold, color: refreshing ? C.textDim : "#fff", border: "none" })}>
+        <button onClick={refresh} disabled={refreshing} style={buttonChrome(C, { padding: "9px 18px", fontSize: 12, fontWeight: 800, borderRadius: 4, background: refreshing ? C.surface : C.gold, color: refreshing ? C.textDim : "#fff", border: "none" })}>
           {refreshing ? "REFRESHING…" : "↻ REFRESH"}
         </button>
       </div>
 
       {state === "loading" && !brief && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center", padding: 30 }}>Loading…</div>}
       {state === "empty" && !brief && (
-        <div style={{ ...cardStyle(C, { background: C.card }), padding: 40, textAlign: "center" }}>
+        <div style={{ ...cardStyle(C, { background: C.card }), borderRadius: 4, padding: 40, textAlign: "center" }}>
           <div style={{ fontFamily: MONO, fontSize: 12, color: C.text, fontWeight: 700, marginBottom: 6 }}>No data yet — click Refresh</div>
           <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Requires a real Advisor AI brief to exist first — generate one on the Advisor AI tab if this comes back empty.</div>
         </div>
@@ -67,92 +77,120 @@ export default function MarketHealthTab({ C, MONO, SANS }) {
 
       {brief && (
         <>
-          {regime && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "6px 12px", borderRadius: 8,
-                background: `${regime.label === "GREEN" ? C.green : regime.label === "YELLOW" ? C.amber : C.red}18`,
-                border: `1px solid ${regime.label === "GREEN" ? C.green : regime.label === "YELLOW" ? C.amber : C.red}44`,
-                color: regime.label === "GREEN" ? C.green : regime.label === "YELLOW" ? C.amber : C.red }}>
-                {regime.label} ({regime.score}/100)
-              </span>
-              {regime.detail?.volRegime && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "6px 12px" }}>VIX regime: {regime.detail.volRegime}</span>}
+          {/* Headline verdict — the single line a real risk memo opens
+              with. Real formula shown beneath, not an AI opinion. */}
+          {riskStance && (
+            <div style={{ background: `${stanceColor}0e`, border: `1px solid ${stanceColor}55`, borderLeft: `4px solid ${stanceColor}`, borderRadius: 4, padding: "16px 18px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em" }}>RISK STANCE</span>
+                  <span style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: stanceColor, letterSpacing: "0.03em" }}>{riskStance.label}</span>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {regime && (
+                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 4,
+                      background: `${regime.label === "GREEN" ? C.green : regime.label === "YELLOW" ? C.amber : C.red}18`,
+                      border: `1px solid ${regime.label === "GREEN" ? C.green : regime.label === "YELLOW" ? C.amber : C.red}44`,
+                      color: regime.label === "GREEN" ? C.green : regime.label === "YELLOW" ? C.amber : C.red }}>
+                      REGIME {regime.label} {regime.score}/100
+                    </span>
+                  )}
+                  {regime?.detail?.volRegime && (
+                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 4, background: C.surface, border: `1px solid ${C.border}`, color: C.textSec }}>
+                      VIX {regime.detail.volRegime.toUpperCase()}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginTop: 8 }}>
+                {riskStance.inputs.map((i, idx) => (
+                  <span key={i.label}>{idx > 0 ? "  +  " : ""}{i.label} <b style={{ color: C.text }}>{i.value}</b> ({i.weight})</span>
+                ))}
+                <span> = <b style={{ color: stanceColor }}>{riskStance.score}</b></span>
+              </div>
             </div>
           )}
 
-          <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 12 }}>
+          {/* Dense data strip — 4 real metrics, no card padding to spare,
+              a real risk-desk readout not a widget grid. */}
+          <div style={{ ...cardStyle(C, { background: C.card }), borderRadius: 4, padding: "16px 18px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 18 }}>
               {breadth && (
-                <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>BREADTH</div>
-                  <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: breadth.above50Pct >= 50 ? C.green : C.red }}>{breadth.above50Pct}%</div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>above 50-day MA · A/D {breadth.adRatio}</div>
-                </div>
+                <Metric label="BREADTH" value={`${breadth.above50Pct}%`} sub={`above 50d MA · A/D ${breadth.adRatio}`}
+                  color={breadth.above50Pct >= 50 ? C.green : C.red} C={C} MONO={MONO} />
               )}
               {sentiment && (
-                <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>FEAR &amp; GREED</div>
-                  <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: sentiment.score >= 75 ? C.green : sentiment.score <= 25 ? C.red : C.amber }}>{sentiment.score}</div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{sentiment.label}</div>
-                </div>
+                <Metric label="FEAR &amp; GREED" value={sentiment.score} sub={sentiment.label}
+                  color={sentiment.score >= 75 ? C.green : sentiment.score <= 25 ? C.red : C.amber} C={C} MONO={MONO} />
               )}
               {distributionRisk && (
-                <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>DISTRIBUTION RISK</div>
-                  <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: distributionRisk.riskScore >= 70 ? C.red : distributionRisk.riskScore >= 40 ? C.amber : C.green }}>{distributionRisk.riskScore}</div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{distributionRisk.alert}</div>
-                </div>
+                <Metric label="DISTRIBUTION RISK" value={distributionRisk.riskScore} sub={distributionRisk.alert}
+                  color={distributionRisk.riskScore >= 70 ? C.red : distributionRisk.riskScore >= 40 ? C.amber : C.green} C={C} MONO={MONO} />
               )}
               {riskFlags && (
-                <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>RISK FLAGS</div>
-                  <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: riskFlags.triggeredCount >= 4 ? C.red : riskFlags.triggeredCount >= 2 ? C.amber : C.green }}>{riskFlags.triggeredCount}/{riskFlags.total}</div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>triggered</div>
-                </div>
+                <Metric label="RISK FLAGS" value={`${riskFlags.triggeredCount}/${riskFlags.total}`} sub="triggered"
+                  color={riskFlags.triggeredCount >= 4 ? C.red : riskFlags.triggeredCount >= 2 ? C.amber : C.green} C={C} MONO={MONO} />
               )}
             </div>
+          </div>
 
-            {divergenceFlags?.length > 0 && (
-              <div style={{ marginBottom: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-                <SectionLabel icon="⚠" text="DIVERGENCE FLAGS" color={C.amber} C={C} MONO={MONO} />
+          {/* Divergence flags — treated as alert rows, not soft chips. */}
+          <div style={{ ...cardStyle(C, { background: C.card }), borderRadius: 4, padding: "14px 18px" }}>
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.text, letterSpacing: "0.06em", marginBottom: 10 }}>DIVERGENCE ENGINE</div>
+            {divergenceFlags?.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
                 {divergenceFlags.map((d, i) => (
-                  <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.text, background: `${C.amber}0c`, border: `1px solid ${C.amber}33`, borderRadius: 6, padding: "6px 10px" }}>
-                    <b>{d.flag}</b> — {d.detail}
+                  <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "8px 10px", background: `${C.amber}0c`, borderLeft: `3px solid ${C.amber}` }}>
+                    <span style={{ fontFamily: MONO, fontSize: 12, flexShrink: 0 }}>⚠</span>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>{d.flag}</div>
+                      <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, marginTop: 2 }}>{d.detail}</div>
+                    </div>
                   </div>
                 ))}
               </div>
-            )}
-            {(!divergenceFlags || divergenceFlags.length === 0) && (
-              <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim, marginBottom: 10 }}>No divergences detected — internals agree with the headline regime read.</div>
-            )}
-
-            {riskFlags?.checks?.length > 0 && (
-              <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8, marginBottom: 8 }}>
-                <button onClick={() => setShowDetail((v) => !v)}
-                  style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                  {showDetail ? "▾ HIDE RISK-FLAG DETAIL" : "▸ SHOW RISK-FLAG DETAIL"}
-                </button>
-                {showDetail && (
-                  <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {riskFlags.checks.map((c, i) => (
-                      <span key={i} style={{ fontFamily: MONO, fontSize: 10.5, color: c.triggered ? C.red : C.textDim, background: C.surface, border: `1px solid ${c.triggered ? C.red : C.border}44`, borderRadius: 6, padding: "4px 8px" }}>
-                        {c.triggered ? "🔴" : "⚪"} {c.label}: {String(c.detail)}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {notCoveredFreeData?.length > 0 && (
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, background: `${C.textDim}0a`, borderRadius: 6, padding: "8px 10px" }}>
-                ℹ️ Not available from free data: {notCoveredFreeData.join(" · ")}
-              </div>
+            ) : (
+              <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim, padding: "4px 10px", borderLeft: `3px solid ${C.green}44` }}>No divergences — internals agree with the headline regime read.</div>
             )}
           </div>
 
-          {!breadth && !sentiment && !distributionRisk && !riskFlags && (
-            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center", padding: 30 }}>
-              No market-health data in the current Command Center brief yet — click Refresh to generate one.
+          {/* Risk-flag scorecard — a real table, always visible. An
+              institutional risk memo doesn't hide its own evidence
+              behind a "show detail" click. */}
+          {riskFlags?.checks?.length > 0 && (
+            <div style={{ ...cardStyle(C, { background: C.card }), borderRadius: 4, padding: "14px 18px" }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.text, letterSpacing: "0.06em", marginBottom: 10 }}>RISK-FLAG SCORECARD</div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 11.5 }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                      <th style={{ textAlign: "left", padding: "4px 8px", color: C.textDim, fontWeight: 700 }}>FLAG</th>
+                      <th style={{ textAlign: "left", padding: "4px 8px", color: C.textDim, fontWeight: 700 }}>STATUS</th>
+                      <th style={{ textAlign: "left", padding: "4px 8px", color: C.textDim, fontWeight: 700 }}>REAL VALUE</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {riskFlags.checks.map((c, i) => (
+                      <tr key={i} style={{ borderBottom: i < riskFlags.checks.length - 1 ? `1px solid ${C.border}66` : "none" }}>
+                        <td style={{ padding: "6px 8px", color: C.text }}>{c.label}</td>
+                        <td style={{ padding: "6px 8px", fontWeight: 800, color: c.triggered ? C.red : C.green }}>{c.triggered ? "TRIGGERED" : "CLEAR"}</td>
+                        <td style={{ padding: "6px 8px", color: C.textSec, fontVariantNumeric: "tabular-nums" }}>{String(c.detail)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Data coverage footnote — honest disclosure, styled as a real
+              source footnote rather than an inline info callout. */}
+          {notCoveredFreeData?.length > 0 && (
+            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+              <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 4 }}>DATA COVERAGE — NOT AVAILABLE FREE</div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, lineHeight: 1.6 }}>
+                {notCoveredFreeData.map((n, i) => <div key={i}>· {n}</div>)}
+              </div>
             </div>
           )}
         </>
