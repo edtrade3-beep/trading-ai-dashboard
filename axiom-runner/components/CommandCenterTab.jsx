@@ -58,87 +58,6 @@ function WhatChangedSection({ wc, C, MONO, SANS }) {
   );
 }
 
-// Real, free, zero-new-AI-cost data (breadth/fear-greed/distribution-risk/
-// divergence flags/risk-flag count — all computed server-side in
-// command-center-ai.js from already-shipped, already-free endpoints, none
-// of it AI-derived). Shown alongside a persistent honest disclosure of
-// the handful of things no free data source in this app can cover.
-function MarketHealthSection({ brief, C, MONO, SANS }) {
-  const [showDetail, setShowDetail] = useState(false);
-  const { breadth, sentiment, distributionRisk, divergenceFlags, riskFlags, notCoveredFreeData } = brief;
-  if (!breadth && !sentiment && !distributionRisk && !riskFlags) return null;
-  return (
-    <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
-      <SectionLabel icon="🩺" text="MARKET HEALTH — REAL DATA" color={C.accent} C={C} MONO={MONO} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 12 }}>
-        {breadth && (
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>BREADTH</div>
-            <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: breadth.above50Pct >= 50 ? C.green : C.red }}>{breadth.above50Pct}%</div>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>above 50-day MA · A/D {breadth.adRatio}</div>
-          </div>
-        )}
-        {sentiment && (
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>FEAR &amp; GREED</div>
-            <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: sentiment.score >= 75 ? C.green : sentiment.score <= 25 ? C.red : C.amber }}>{sentiment.score}</div>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{sentiment.label}</div>
-          </div>
-        )}
-        {distributionRisk && (
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>DISTRIBUTION RISK</div>
-            <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: distributionRisk.riskScore >= 70 ? C.red : distributionRisk.riskScore >= 40 ? C.amber : C.green }}>{distributionRisk.riskScore}</div>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{distributionRisk.alert}</div>
-          </div>
-        )}
-        {riskFlags && (
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>RISK FLAGS</div>
-            <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: riskFlags.triggeredCount >= 4 ? C.red : riskFlags.triggeredCount >= 2 ? C.amber : C.green }}>{riskFlags.triggeredCount}/{riskFlags.total}</div>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>triggered</div>
-          </div>
-        )}
-      </div>
-
-      {divergenceFlags?.length > 0 && (
-        <div style={{ marginBottom: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.amber }}>⚠ DIVERGENCE FLAGS</div>
-          {divergenceFlags.map((d, i) => (
-            <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.text, background: `${C.amber}0c`, border: `1px solid ${C.amber}33`, borderRadius: 6, padding: "6px 10px" }}>
-              <b>{d.flag}</b> — {d.detail}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {riskFlags?.checks?.length > 0 && (
-        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8, marginBottom: 8 }}>
-          <button onClick={() => setShowDetail((v) => !v)}
-            style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-            {showDetail ? "▾ HIDE RISK-FLAG DETAIL" : "▸ SHOW RISK-FLAG DETAIL"}
-          </button>
-          {showDetail && (
-            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {riskFlags.checks.map((c, i) => (
-                <span key={i} style={{ fontFamily: MONO, fontSize: 10.5, color: c.triggered ? C.red : C.textDim, background: C.surface, border: `1px solid ${c.triggered ? C.red : C.border}44`, borderRadius: 6, padding: "4px 8px" }}>
-                  {c.triggered ? "🔴" : "⚪"} {c.label}: {String(c.detail)}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {notCoveredFreeData?.length > 0 && (
-        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, background: `${C.textDim}0a`, borderRadius: 6, padding: "8px 10px" }}>
-          ℹ️ Not available from free data: {notCoveredFreeData.join(" · ")}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function SectionLabel({ icon, text, color, C, MONO }) {
   return (
     <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color, letterSpacing: "0.05em", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
@@ -432,10 +351,6 @@ export default function CommandCenterTab({ C, MONO, SANS }) {
           {/* What changed since the last generation — real diff, not a
               fresh-slate snapshot every time. */}
           <WhatChangedSection wc={brief.whatChanged} C={C} MONO={MONO} SANS={SANS} />
-
-          {/* Real market-health data: breadth/Fear&Greed/distribution-risk/
-              divergence flags/risk-flag count — all free, zero new AI cost. */}
-          <MarketHealthSection brief={brief} C={C} MONO={MONO} SANS={SANS} />
 
           {/* Classified event feed */}
           {brief.events?.length > 0 && (

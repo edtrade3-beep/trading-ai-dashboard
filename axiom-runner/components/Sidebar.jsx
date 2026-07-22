@@ -15,6 +15,7 @@ export const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "Dashboard",     icon: "🏠", tab: "dashboard", section: "Overview" },
   { id: "ceo-ai",    label: "CEO AI",        icon: "🧠", tab: "ceo-ai", section: "Overview" },
   { id: "command-center", label: "Command Center", icon: "🛰️", tab: "command-center", badge: "NEW", section: "Overview" },
+  { id: "market-health", label: "Market Health", icon: "🩺", tab: "market-health", badge: "NEW", section: "Overview" },
 
   // 2. RESEARCH & INTEL — gathering real information before deciding
   // anything: regime/sentiment, charts, news, positioning, deep research.
