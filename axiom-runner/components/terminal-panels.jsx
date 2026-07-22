@@ -139,7 +139,7 @@ export function AiWhyPanel({ symbol, price, changePct, C, MONO, SANS }) {
         </button>
       </div>
       {state === "err" && <div style={{ fontFamily: MONO, fontSize: 12, color: "#ef4444", marginTop: 8 }}>⚠ {err}</div>}
-      {state === "ok" && (
+      {reply && (
         <div style={{ fontFamily: SANS, fontSize: 13, lineHeight: 1.5, color: C.text, marginTop: 10, whiteSpace: "pre-wrap" }}>{reply}</div>
       )}
       {state === "idle" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 8 }}>Live web-searched catalyst — click Ask AI.</div>}
@@ -446,13 +446,15 @@ export function AiPredictPanel({ symbol, chart, C, MONO, SANS }) {
   const dflt = () => { const d = new Date(); d.setMonth(d.getMonth() + 3); return d.toISOString().slice(0, 10); };
   const [date, setDate] = useState(dflt());
   const [reply, setReply] = useState(""); const [state, setState] = useState("idle");
-  useEffect(() => { setReply(""); setState("idle"); }, [symbol]);
+  const [predictErr, setPredictErr] = useState("");
+  useEffect(() => { setReply(""); setState("idle"); setPredictErr(""); }, [symbol]);
   const go = () => {
     if (!chart) return;
-    setState("loading");
+    setState("loading"); setPredictErr("");
     fetch("/api/market/ai-predict", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ symbol, price: chart.price, targetDate: date, stage: chart.stage, rsRating: chart.rsRating, hi52: chart.hi52, lo52: chart.lo52, momentum: chart.momentum }) })
-      .then(r => r.json()).then(j => { if (j.ok) { setReply(j.reply); setState("ok"); } else setState("err"); }).catch(() => setState("err"));
+      .then(r => r.json()).then(j => { if (j.ok) { setReply(j.reply); setState("ok"); } else { setPredictErr(j.error || "Prediction failed"); setState("err"); } })
+      .catch((e) => { setPredictErr(e.message || "Network error"); setState("err"); });
   };
   return (
     <div style={{ marginTop: 14, border: `1px solid #7c5cff55`, borderRadius: 12, padding: "12px 14px", background: "rgba(124,92,255,0.06)" }}>
@@ -466,8 +468,8 @@ export function AiPredictPanel({ symbol, chart, C, MONO, SANS }) {
           {state === "loading" ? "Predicting…" : "Predict"}
         </button>
       </div>
-      {state === "err" && <div style={{ fontFamily: MONO, fontSize: 12, color: "#c8282a" }}>⚠ Prediction failed — try again.</div>}
-      {state === "ok" && <div style={{ fontFamily: SANS, fontSize: 13, lineHeight: 1.6, color: C.text, whiteSpace: "pre-wrap" }}>{reply}</div>}
+      {state === "err" && <div style={{ fontFamily: MONO, fontSize: 12, color: "#c8282a" }}>⚠ {predictErr || "Prediction failed — try again."}</div>}
+      {reply && <div style={{ fontFamily: SANS, fontSize: 13, lineHeight: 1.6, color: C.text, whiteSpace: "pre-wrap" }}>{reply}</div>}
       {state === "idle" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 6 }}>Pick a date → AI projects a target price + range. Educational, not advice.</div>}
     </div>
   );
