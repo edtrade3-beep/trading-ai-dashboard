@@ -52,6 +52,20 @@ async function resolveUserId(username) {
 // cursor) means a post already read is never billed again on a later
 // call — a real, free way to avoid duplicate-read cost, not just a
 // dedup-after-the-fact check.
+//
+// start_time is a real safety constraint, not just an optimization: X's
+// docs state this endpoint returns posts in strict reverse-chronological
+// order (most recent first), but a live test against a real paid account
+// returned results spanning back 4+ months for high-frequency accounts
+// (e.g. @Bloomberg, @realDonaldTrump) — contradicting that documented
+// order. Root cause unconfirmed (could be a pay-per-use-tier-specific
+// quirk undocumented as of this writing). Rather than trust "most recent
+// N" ordering alone, start_time forces X to only consider posts within
+// an explicit recent window, so a live ordering quirk can't surface old
+// content regardless of its cause. Only applied on the first check per
+// account (no sinceId yet) — once since_id exists it's already an exact
+// real cursor and takes precedence.
+const FIRST_CHECK_WINDOW_MS = 7 * 24 * 3600_000;
 async function fetchUserTweets(userId, sinceId = null) {
   if (!userId) return { tweets: [], newestId: sinceId };
   const params = new URLSearchParams({
@@ -59,6 +73,7 @@ async function fetchUserTweets(userId, sinceId = null) {
     "max_results": "10",
   });
   if (sinceId) params.set("since_id", sinceId);
+  else params.set("start_time", new Date(Date.now() - FIRST_CHECK_WINDOW_MS).toISOString());
   const data = await xFetch(`/users/${userId}/tweets?${params.toString()}`);
   const tweets = Array.isArray(data?.data) ? data.data : [];
   const newestId = data?.meta?.newest_id || sinceId;

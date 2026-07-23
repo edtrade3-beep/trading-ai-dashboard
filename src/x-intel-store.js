@@ -116,4 +116,22 @@ function dedupeRssItems() {
   return removed;
 }
 
-module.exports = { logItem, listItems, getRecent, findRecentDuplicate, dedupeRssItems };
+// One-time cleanup for a real bug: the very first live X API call (before
+// providers/x-api.js added a start_time constraint) returned posts
+// spanning back 4+ months for some accounts instead of genuinely recent
+// ones — see that file's header comment for the full explanation. Removes
+// x-api-sourced items whose real publishedAt is older than maxAgeMs; RSS
+// and any item without a real publishedAt are left untouched.
+function pruneStaleXApiItems(maxAgeMs) {
+  const items = load();
+  const cutoff = Date.now() - maxAgeMs;
+  const kept = items.filter((it) => {
+    if (it.analysisSource !== "x-api" || !it.publishedAt) return true;
+    return new Date(it.publishedAt).getTime() >= cutoff;
+  });
+  const removed = items.length - kept.length;
+  if (removed > 0) save(kept);
+  return removed;
+}
+
+module.exports = { logItem, listItems, getRecent, findRecentDuplicate, dedupeRssItems, pruneStaleXApiItems };

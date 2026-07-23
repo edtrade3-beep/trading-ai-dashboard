@@ -62,7 +62,7 @@ const { revertMisgradedXIntelShorts } = require("./src/predictions-store");
 const { runXIntelXApiGeneration } = require("./src/x-intel-ai");
 const { runXIntelRssPoll } = require("./src/x-intel-rss");
 const { getRemainingReads: getRemainingXApiReads } = require("./src/x-api-usage-store");
-const { dedupeRssItems } = require("./src/x-intel-store");
+const { dedupeRssItems, pruneStaleXApiItems } = require("./src/x-intel-store");
 const { runAutopilotRecap } = require("./src/alpaca-recap");
 const { runServerAutopilot } = require("./src/server-autopilot");
 const { runTrailingStops } = require("./src/trailing-stops");
@@ -152,6 +152,15 @@ server.listen(PORT, HOST, () => {
   try {
     const removedDupes = dedupeRssItems();
     if (removedDupes) console.log(`[X Intel] Removed ${removedDupes} duplicate RSS item(s) from a real dedup bug`);
+  } catch {}
+
+  // One-time cleanup for a real bug on the very first live X API call: no
+  // start_time constraint meant some accounts returned posts spanning
+  // back 4+ months instead of genuinely recent ones (see
+  // providers/x-api.js's fetchUserTweets comment). Idempotent.
+  try {
+    const removedStale = pruneStaleXApiItems(7 * 24 * 3600_000);
+    if (removedStale) console.log(`[X Intel] Removed ${removedStale} stale X API item(s) from a real first-call ordering bug`);
   } catch {}
 
   // Prediction tracker — grades Command Center's open trade ideas against
