@@ -123,6 +123,7 @@ async function runXIntelXApiGeneration({ topN } = {}) {
   const prioritized = [...watchlist].sort((a, b) => (b.importanceScore || 0) - (a.importanceScore || 0)).slice(0, n);
 
   const logged = [];
+  const errors = [];
   let realReadsThisRun = 0;
   for (const entity of prioritized) {
     if (realReadsThisRun >= remainingReads) break; // real, hard stop — never spend past what's actually left in the budget
@@ -158,6 +159,10 @@ async function runXIntelXApiGeneration({ topN } = {}) {
       // shouldn't stop the rest of the prioritized run — same "never stop
       // because one source failed" discipline as everywhere else.
       console.warn(`[X Intel X-API] ${entity.username} failed:`, e.message);
+      // Surfaced in the API response (capped) so a real failure mode is
+      // diagnosable from the outside without server log access — this is
+      // a real caught error message, not synthesized.
+      if (errors.length < 5) errors.push({ username: entity.username, error: e.message });
     }
   }
 
@@ -183,7 +188,7 @@ async function runXIntelXApiGeneration({ topN } = {}) {
     }
   }
 
-  return { ok: true, newItemsCount: logged.length, scanned: prioritized.length, realReadsUsed: realReadsThisRun };
+  return { ok: true, newItemsCount: logged.length, scanned: prioritized.length, realReadsUsed: realReadsThisRun, errors };
 }
 
 module.exports = { runXIntelXApiGeneration, CATEGORIES };
