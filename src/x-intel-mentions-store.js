@@ -25,7 +25,7 @@ function save(mentions) {
   writeJsonAtomic(STORE_PATH, { mentions });
 }
 
-// Called once per real logged X Intel item (both the RSS and AI-search
+// Called once per real logged X Intel item (both the RSS and real X API
 // paths) for each real symbol/sector/theme it actually touched — never
 // synthesized, always mirrors what was really extracted for that item.
 function logMention({ symbol = null, sector = null, themes = [], source, category }) {
