@@ -5,12 +5,13 @@ const { writeJson, readRequestBody } = require("../utils");
 const watchlistStore = require("../x-intel-watchlist-store");
 const { listItems, getRecent } = require("../x-intel-store");
 const { getTrackRecord } = require("../predictions-store");
-const { runXIntelGeneration } = require("../x-intel-ai");
+const { runXIntelXApiGeneration } = require("../x-intel-ai");
 const { runXIntelRssPoll } = require("../x-intel-rss");
 const xIntelEngine = require("../x-intel-engine");
 const { PORT } = require("../config");
 const anthropicUsage = require("../anthropic-usage-store");
 const creditSaverMode = require("../credit-saver-mode");
+const xApiUsage = require("../x-api-usage-store");
 
 async function getJson(p) {
   try { const r = await fetch(`http://127.0.0.1:${process.env.PORT || PORT || 3000}${p}`); return await r.json(); } catch { return null; }
@@ -51,20 +52,22 @@ async function handleXIntel(req, res, requestUrl) {
   }
 
   if (pathname === "/api/x-intel/refresh" && req.method === "POST") {
-    // Run both: the free RSS path always attempts (no API key, no cost),
-    // the AI search path may fail (e.g. usage cap) independently — a
-    // refresh should still surface real RSS items even when AI is down,
-    // rather than the whole click reporting one combined failure.
-    const [ai, rss] = await Promise.all([
-      runXIntelGeneration().catch((e) => ({ ok: false, error: e.message })),
+    // Run both: the free RSS path always attempts (no cost), the real X
+    // API path may fail independently (rate limit, exhausted monthly read
+    // budget, missing/invalid token) — a refresh should still surface real
+    // RSS items even when the X API path is down, rather than the whole
+    // click reporting one combined failure. Anthropic is no longer part
+    // of this feature at all (removed per explicit user direction).
+    const [xApi, rss] = await Promise.all([
+      runXIntelXApiGeneration().catch((e) => ({ ok: false, error: e.message })),
       runXIntelRssPoll().catch((e) => ({ ok: false, error: e.message })),
     ]);
     return writeJson(res, 200, {
-      ok: ai.ok || rss.ok,
-      ai,
+      ok: xApi.ok || rss.ok,
+      xApi,
       rss,
-      newItemsCount: (ai.newItemsCount || 0) + (rss.newItemsCount || 0),
-      scanned: ai.scanned,
+      newItemsCount: (xApi.newItemsCount || 0) + (rss.newItemsCount || 0),
+      scanned: xApi.scanned,
     });
   }
 
@@ -161,6 +164,26 @@ async function handleXIntel(req, res, requestUrl) {
       budgetUSD: creditSaverMode.BUDGET_USD,
       today, month, projection, remaining, avgDaily, byFeature, mode,
       thresholds: anthropicUsage.THRESHOLDS,
+    });
+  }
+
+  // ── Real X API spend — a SEPARATE $25/month budget line from the
+  // Anthropic Credit Management System above. X Intelligence Engine is the
+  // only feature that spends against this one (see x-intel-ai.js's header
+  // for the full removal-of-Anthropic rationale). ──
+
+  if (pathname === "/api/x-intel/x-api-budget" && req.method === "GET") {
+    const today = xApiUsage.getTodayUsage();
+    const month = xApiUsage.getMonthUsage();
+    const projection = xApiUsage.getMonthEndProjection();
+    const remaining = xApiUsage.getRemainingBudget();
+    const remainingReads = xApiUsage.getRemainingReads();
+    return writeJson(res, 200, {
+      ok: true,
+      budgetUSD: 25,
+      costPerRead: xApiUsage.COST_PER_READ,
+      today, month, projection, remaining, remainingReads,
+      thresholds: xApiUsage.THRESHOLDS,
     });
   }
 

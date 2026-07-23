@@ -1,15 +1,17 @@
 import { useState, useEffect } from "react";
 import { cardStyle } from "./ui-helpers.js";
 
-// BUDGET — the Credit Management System. Tracks real Anthropic API spend
-// (the actual cost driver behind X Intel's AI-search path and every other
-// AI feature in this app — there is no "X API" cost, see the header note
-// below) against a real $25/month target. Every number here comes from
+// BUDGET — two separate real budget lines. (1) Anthropic API spend,
+// whole-account, for every AI feature EXCEPT X Intelligence Engine now
+// (Command Center, Advisor AI, CEO AI, AI Coach, etc.) — from
 // src/anthropic-usage-store.js, built from real usage.{input_tokens,
-// output_tokens} Anthropic returns on every real API response — nothing
-// here is estimated or simulated. Whole-account, not X-Intel-only, since
-// Anthropic bills account-wide; X Intel is flagged as the biggest real
-// lever (per its own cost history) rather than the only cost source.
+// output_tokens} Anthropic returns on every real API response. (2) Real
+// X.com API spend, X-Intelligence-only, from src/x-api-usage-store.js,
+// built from real post-read counts on every real X API response.
+// Anthropic was fully removed from X Intelligence Engine per explicit
+// user direction (2026-07) — it no longer contributes to line (1) at all,
+// and gets its own separate $25/month cap in line (2) instead. Nothing on
+// this page is estimated or simulated.
 const MODE_COLOR = { normal: "#0d9465", saver: "#d97706" };
 
 function Metric({ label, value, sub, color, C, MONO }) {
@@ -25,11 +27,13 @@ function Metric({ label, value, sub, color, C, MONO }) {
 export default function XIntelBudget({ C, MONO, SANS }) {
   const [data, setData] = useState(null);
   const [state, setState] = useState("loading");
+  const [xApiData, setXApiData] = useState(null);
 
   useEffect(() => {
     fetch("/api/x-intel/budget").then((r) => r.json()).then((d) => {
       if (d.ok) { setData(d); setState("ok"); } else setState("error");
     }).catch(() => setState("error"));
+    fetch("/api/x-intel/x-api-budget").then((r) => r.json()).then((d) => { if (d.ok) setXApiData(d); }).catch(() => {});
   }, []);
 
   if (state === "loading") return <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Loading…</div>;
@@ -40,10 +44,13 @@ export default function XIntelBudget({ C, MONO, SANS }) {
   const modeColor = MODE_COLOR[data.mode.mode] || C.textDim;
   const overBudget = data.projection > data.budgetUSD;
 
+  const xPctUsed = xApiData ? Math.min(100, (xApiData.month.costUSD / xApiData.budgetUSD) * 100) : 0;
+  const xOverBudget = xApiData ? xApiData.projection > xApiData.budgetUSD : false;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, background: `${C.textDim}0a`, borderRadius: 8, padding: "8px 12px" }}>
-        Real Anthropic API spend, whole-account (Anthropic bills account-wide, not per-feature — there is no separate "X API" cost; X Intelligence uses free RSS + Anthropic's web-search tool, see the tab header). Every number below comes from real token/search counts on real API responses, logged the moment each call completes.
+        Real Anthropic API spend, whole-account, for every AI feature EXCEPT X Intelligence Engine (see the separate X API card below — Anthropic was fully removed from X Intel per explicit user direction). Every number below comes from real token/search counts on real API responses, logged the moment each call completes.
       </div>
 
       {/* Mode banner */}
@@ -57,7 +64,7 @@ export default function XIntelBudget({ C, MONO, SANS }) {
         {data.mode.reason && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginTop: 6 }}>{data.mode.reason}</div>}
         {data.mode.mode === "saver" && (
           <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginTop: 8 }}>
-            Real reductions active: X Intel 2x/day → 1x/day, maxSearches 8→4 · Command Center maxSearches 3→2 · Advisor AI maxSearches 4→2. Free RSS feeds and real-time alerts unaffected.
+            Real reductions active: Command Center maxSearches 3→2 · Advisor AI maxSearches 4→2. X Intelligence Engine no longer spends Anthropic budget at all — see the separate X API card below for its real, independent budget. Free RSS feeds and real-time alerts unaffected.
           </div>
         )}
       </div>
@@ -133,6 +140,34 @@ export default function XIntelBudget({ C, MONO, SANS }) {
             );
           })}
         </div>
+      </div>
+
+      {/* Real X API budget — separate line, X-Intelligence-only */}
+      <div style={{ ...cardStyle(C, { background: C.card }), borderRadius: 4, padding: "16px 18px", borderLeft: `4px solid #1d9bf0` }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.text, letterSpacing: "0.06em", marginBottom: 4 }}>🐦 X API BUDGET — X INTELLIGENCE ENGINE ONLY</div>
+        {!xApiData ? (
+          <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim, marginTop: 8 }}>Loading…</div>
+        ) : (
+          <>
+            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 12 }}>
+              ${xApiData.costPerRead}/real post read, X's real published pay-per-use rate. A separate $25/month cap from the Anthropic budget above.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 18 }}>
+              <Metric label="THIS MONTH" value={`$${xApiData.month.costUSD.toFixed(2)}`} sub={`${xApiData.month.reads} reads`} color={xPctUsed >= 90 ? C.red : xPctUsed >= 50 ? C.amber : C.green} C={C} MONO={MONO} />
+              <Metric label="REMAINING" value={`$${xApiData.remaining.toFixed(2)}`} sub={`${xApiData.remainingReads} reads left`} color={xApiData.remaining <= 0 ? C.red : C.text} C={C} MONO={MONO} />
+              <Metric label="MONTH-END PROJECTION" value={`$${xApiData.projection.toFixed(2)}`} sub={xOverBudget ? "over budget" : "on track"} color={xOverBudget ? C.red : C.green} C={C} MONO={MONO} />
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginBottom: 3 }}>MONTH-TO-DATE ({xPctUsed.toFixed(1)}%)</div>
+              <div style={{ height: 8, borderRadius: 4, background: C.surface, overflow: "hidden" }}>
+                <div style={{ width: `${xPctUsed}%`, height: "100%", background: xPctUsed >= 90 ? C.red : xPctUsed >= 50 ? C.amber : "#1d9bf0" }} />
+              </div>
+            </div>
+            {xApiData.remainingReads <= 0 && (
+              <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.red, marginTop: 10 }}>Real monthly X API read budget exhausted — X Intel scans are paused until next month.</div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

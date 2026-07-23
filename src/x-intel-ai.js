@@ -1,299 +1,189 @@
-// x-intel-ai.js — X Intelligence Engine synthesis, without the X API.
+// x-intel-ai.js — X Intelligence Engine, real X API (Anthropic removed
+// from this feature per explicit user direction, 2026-07). Real posts via
+// providers/x-api.js (Bearer-token app-only auth), real deterministic
+// classification via x-intel-x-classifiers.js (cashtag extraction +
+// keyword category matching) — NOT an AI replacement, disclosed honestly.
 //
-// Real constraint, stated once here rather than re-litigated at every call
-// site: there is no free, ToS-compliant way to scrape or monitor X.com
-// directly (X's Terms of Service explicitly prohibit scraping, X actively
-// blocks/bans/sues scrapers, and bridges like Nitter are the same
-// violation one layer removed — confirmed via the plan reviewed with the
-// user before this file was written). What this file actually does
-// instead: the exact same real web_search-grounding mechanism already
-// proven in command-center-ai.js/advisor-ai.js — Claude searches real news
-// coverage of what a watched public figure/account/org said, and every
-// item logged carries a real source citation. This is watchlist-scoped and
-// schema-richer than Command Center's general event feed, not a
-// duplicate of it.
+// What's genuinely gone, not faked: sentiment judgment (bullish/bearish),
+// executive summaries, impact/confidence scoring, and per-symbol direction
+// calls. Raw X posts don't carry that interpretation — building a
+// keyword-based fake version of it would violate this app's "never
+// fabricate" rule as much as inventing a quote would. Every item's
+// `sentiment` stays "neutral" and `aiSummary`/`scores` stay null, exactly
+// the same honest pattern x-intel-rss.js already used for its free path.
 //
-// Never available through this method (disclosed, not faked): per-post
-// like/reply/repost/view counts, images/video, the exact original post
-// timestamp (only when real coverage of it was published). No field for
-// any of these exists in the schema below.
-const { callAnthropicWithSearch } = require("./anthropic");
-const { getMode } = require("./credit-saver-mode");
+// What's genuinely NEW and real, not available before: exact real
+// `created_at` timestamps (previously disclosed as unavailable), and real
+// `public_metrics` (like/retweet/reply counts — also previously disclosed
+// as unavailable). Used here for a real, deterministic "high engagement"
+// alert signal, replacing the AI's old impactScore for that purpose.
+//
+// Real, hard budget constraint: X's pay-per-use pricing is $0.005/post
+// read. At the user's confirmed $25/month cap, that's ~5,000 real reads
+// for the whole month — verified via x-api-usage-store.js's exact
+// $0.005 rate. With up to 500 watched accounts, checking everyone even
+// once a day would cost 15,000/month, 3x over budget — so this uses the
+// same real prioritized-subset discipline (importanceScore-sorted topN)
+// the old Anthropic path already used for search budget, just re-aimed at
+// a real monthly read count.
+const { resolveUserId, fetchUserTweets } = require("./providers/x-api");
+const { extractCashtags, classifyCategory } = require("./x-intel-x-classifiers");
+const { CATEGORIES } = require("./x-intel-categories");
 const { list: listWatchlist, update: updateWatchlistEntry } = require("./x-intel-watchlist-store");
 const { logItem, findRecentDuplicate } = require("./x-intel-store");
-const { logPrediction } = require("./predictions-store");
 const { sectorOf } = require("./risk-guardrails");
-const { fetchYahooQuoteBatch } = require("./providers/yahoo");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
 const { shouldSendAlert } = require("./telegram-bot");
 const mentionsStore = require("./x-intel-mentions-store");
-const sentimentStore = require("./x-intel-sentiment-store");
 const { sectorOf: themeSectorOf, themesOf } = require("./sector-theme-map");
-
-const KEY = () => (process.env.ANTHROPIC_API_KEY || "").trim();
-
-const CATEGORIES = [
-  "Breaking News", "Politics", "Tariffs", "Earnings", "AI", "Semiconductor",
-  "Crypto", "Inflation", "InterestRates", "FederalReserve", "Acquisition",
-  "Healthcare", "Energy", "Consumer", "Macro", "Other",
-  // Added for the X Intelligence Engine v2 Breaking Event Detector (Module
-  // 3) — same schema, same call, same 2x/day cadence, just a richer
-  // classification the model already has enough context to make.
-  "BankFailure", "CreditDowngrade", "Hack", "ExchangeOutage", "CEOResignation",
-];
+const xApiUsage = require("./x-api-usage-store");
 
 const DEDUP_WINDOW_MS = 48 * 3600_000; // same 48h cooldown convention used elsewhere in this app
-const HIGH_PRIORITY_IMPORTANCE = 90; // Telegram-alert condition 3: watched high-priority account
+const HIGH_PRIORITY_IMPORTANCE = 90;
+// Real engagement thresholds for the "high engagement" alert signal —
+// replaces the old AI impactScore-based condition. Chosen as a real,
+// round, conservative bar (most posts from most accounts won't clear
+// this); tune once live data shows what's actually typical for this
+// specific watchlist's accounts.
+const HIGH_ENGAGEMENT_LIKES = 2000;
+const HIGH_ENGAGEMENT_RETWEETS = 500;
 
-function clamp0to100(n, fallback = null) {
-  const v = Number(n);
-  return Number.isFinite(v) ? Math.max(0, Math.min(100, Math.round(v))) : fallback;
+// Real per-run budget: topN accounts checked. Checks the REAL X API
+// budget (x-api-usage-store.js), not the Anthropic Credit Saver Mode —
+// X Intel no longer spends any Anthropic budget at all, so gating this on
+// Anthropic's mode would be checking the wrong number entirely. 40
+// accounts x 4 runs/day x ~30 days = ~4,800 real reads/month if every
+// checked account actually has a new post every run (the real worst
+// case) — under the ~5,000/month budget with headroom for one-time
+// xUserId lookups. Reduced to 15 once real projected month-end X API
+// spend exceeds the $25 budget, same real trigger the Anthropic system
+// uses, just a simpler inline check since this is the only call site that
+// spends this specific budget (no cross-feature hysteresis needed the
+// way Anthropic's system needs it across ~10 different callers).
+function topNForRun() {
+  return xApiUsage.getMonthEndProjection() > 25 ? 15 : 40;
 }
 
-function sanitizeMarketImpact(raw, watchedByUsername) {
-  if (!Array.isArray(raw)) return [];
-  return raw.slice(0, 8).map((m) => {
-    const direction = m?.direction === "bearish" ? "bearish" : m?.direction === "bullish" ? "bullish" : null;
-    const symbol = String(m?.symbol || "").toUpperCase().trim();
-    if (!symbol || !direction) return null;
-    return {
-      symbol,
-      assetType: ["stock", "etf", "index", "commodity", "sector"].includes(m?.assetType) ? m.assetType : "stock",
-      direction,
-      confidence: clamp0to100(m?.confidence, 50),
-      expectedDurationDays: Number.isFinite(Number(m?.expectedDurationDays)) ? Math.max(1, Math.min(60, Math.round(Number(m.expectedDurationDays)))) : 5,
-      reasoning: String(m?.reasoning || "").slice(0, 220),
-      sector: sectorOf(symbol),
-    };
-  }).filter(Boolean);
+function sanitizeMarketImpact(symbols) {
+  return symbols.map((symbol) => ({
+    symbol,
+    assetType: "stock",
+    // Honest: a cashtag mention is real evidence the post is ABOUT this
+    // symbol, not evidence of bullish/bearish intent — no AI judgment
+    // exists to make that call anymore, so direction/confidence are
+    // explicitly null rather than guessed.
+    direction: null,
+    confidence: null,
+    expectedDurationDays: null,
+    reasoning: "Real $cashtag mention in the post text (deterministic extraction, not AI-judged).",
+    sector: sectorOf(symbol),
+  }));
 }
 
-function sanitizeItem(raw, watchedByUsername) {
-  // Strip a leading "@" before lookup — the prompt shows accounts as
-  // "@realDonaldTrump", so the model's echoed entityUsername very likely
-  // includes it, but watchedByUsername's keys (from the real watchlist
-  // store) never do. Confirmed live: without this, every item silently
-  // failed this match and got dropped (0 items logged across 12 scanned
-  // accounts on the very first production run).
-  const rawUsername = String(raw?.entityUsername || "").replace(/^@/, "").toLowerCase();
-  const entity = watchedByUsername.get(rawUsername);
-  if (!entity) return null; // AI referenced an entity not actually on the watchlist — drop, don't guess
-  const oneLine = String(raw?.aiSummary?.oneLine || "").slice(0, 140);
-  const sourceCitation = String(raw?.sourceCitation || "").trim();
-  if (!oneLine || !sourceCitation || !/^https?:\/\//.test(sourceCitation)) return null; // no real citation — drop rather than log an ungrounded item
-  const category = CATEGORIES.includes(raw?.category) ? raw.category : "Other";
+function buildItem(entity, tweet) {
+  const text = String(tweet.text || "");
+  const symbols = extractCashtags(text);
+  const metrics = tweet.public_metrics || {};
+  const likes = Number(metrics.like_count) || 0;
+  const retweets = Number(metrics.retweet_count) || 0;
   return {
     entityUsername: entity.username,
     entityDisplayName: entity.displayName,
     entityCategory: entity.category,
     entityImportanceScore: entity.importanceScore,
     capturedAt: new Date().toISOString(),
-    sourceCitation,
-    text: String(raw?.text || "").slice(0, 500),
-    sentiment: ["bullish", "bearish", "neutral"].includes(raw?.sentiment) ? raw.sentiment : "neutral",
-    confidence: clamp0to100(raw?.confidence, 50),
-    urgency: ["low", "medium", "high"].includes(raw?.urgency) ? raw.urgency : "low",
-    category,
-    marketImpact: sanitizeMarketImpact(raw?.marketImpact, watchedByUsername),
+    publishedAt: tweet.created_at || null, // real exact timestamp — genuinely new capability
+    sourceCitation: `https://x.com/${entity.username}/status/${tweet.id}`,
+    text: text.slice(0, 500),
+    sentiment: "neutral", // honest — no AI judgment performed, same as the RSS path
+    confidence: null,
+    urgency: "low",
+    category: classifyCategory(text), // real keyword match, disclosed as such
+    marketImpact: sanitizeMarketImpact(symbols),
     aiSummary: {
-      oneLine,
-      executive: String(raw?.aiSummary?.executive || "").slice(0, 400),
-      whyItMatters: String(raw?.aiSummary?.whyItMatters || "").slice(0, 300),
-      possibleReaction: String(raw?.aiSummary?.possibleReaction || "").slice(0, 250),
-      risks: String(raw?.aiSummary?.risks || "").slice(0, 250),
-      opportunities: String(raw?.aiSummary?.opportunities || "").slice(0, 250),
+      oneLine: text.slice(0, 140),
+      executive: "", whyItMatters: "", possibleReaction: "", risks: "", opportunities: "",
     },
-    scores: {
-      impactScore: clamp0to100(raw?.scores?.impactScore, 30),
-      confidenceScore: clamp0to100(raw?.scores?.confidenceScore, 50),
-      urgencyScore: clamp0to100(raw?.scores?.urgencyScore, 20),
-      aiRating: clamp0to100(raw?.scores?.aiRating, 50),
-    },
+    scores: null, // honest — not AI-scored; UI shows "—" instead of a fabricated number
+    analysisSource: "x-api",
+    // Real, disclosed-as-real engagement counts — genuinely new, never
+    // available through the old Anthropic web-search path.
+    realEngagement: { likes, retweets, replies: Number(metrics.reply_count) || 0, quotes: Number(metrics.quote_count) || 0 },
   };
 }
 
-const SYSTEM = `You are the X Intelligence Engine for a real trading desk. You do NOT have access to the X/Twitter API or any scraper — your only tool is real web search. Search real news coverage (Reuters, Bloomberg, CNBC, AP, and similar) for genuinely NEW public statements or posts attributed to the specific watched accounts/people/orgs given to you below, published very recently (last 24-48 hours). For each REAL item you find with a real, citable source URL:
-
-- text: a real quote or accurate paraphrase of what was actually said — never invent a quote.
-- sentiment (bullish/bearish/neutral), confidence 0-100 that this is genuinely market-relevant, urgency (low/medium/high), category (exactly one of: ${CATEGORIES.join("/")}).
-- marketImpact: array of real, specific stocks/ETFs/indexes/commodities/sectors this plausibly affects — for each: assetType, direction (bullish/bearish only), confidence 0-100, expectedDurationDays (how long the effect plausibly persists), reasoning (one clipped fact, not a sentence).
-- aiSummary: oneLine (under 15 words), executive (2-3 sentences), whyItMatters, possibleReaction, risks, opportunities — all short and concrete, grounded in the real search result.
-- scores: impactScore/confidenceScore/urgencyScore/aiRating, each 0-100, each a real assessment not a filler number.
-
-CRITICAL: only report items you can genuinely cite with a real URL from your search — never fabricate a post, quote, or statement. If a watched account has nothing new and real to report, simply omit it. Do not pad the list to hit a target count. entityUsername must be the exact username WITHOUT the "@" symbol (e.g. "realDonaldTrump", not "@realDonaldTrump").
-
-SEARCH BUDGET DISCIPLINE: you have a limited number of real searches for this run, covering potentially 30+ watched accounts. Do NOT spend most or all of your searches on the handful of already-famous names (e.g. Trump, Musk, the Fed, White House) just because a generic query easily surfaces them — that starves coverage of the rest of the list. Spread your searches across the FULL watchlist: batch 2-4 lesser-known accounts into a single targeted query where they share a plausible topic (e.g. "unusual_whales OR michaeljburry recent post market"), and prioritize accounts you have not covered in a prior run over re-covering the same mega-famous few every time.
-
-Return JSON ONLY, no text outside it:
-{"items":[{"entityUsername":"...","sourceCitation":"https://...","text":"...","sentiment":"bullish|bearish|neutral","confidence":0-100,"urgency":"low|medium|high","category":"...","marketImpact":[{"symbol":"...","assetType":"stock|etf|index|commodity|sector","direction":"bullish|bearish","confidence":0-100,"expectedDurationDays":N,"reasoning":"..."}],"aiSummary":{"oneLine":"...","executive":"...","whyItMatters":"...","possibleReaction":"...","risks":"...","opportunities":"..."},"scores":{"impactScore":0-100,"confidenceScore":0-100,"urgencyScore":0-100,"aiRating":0-100}}]}`;
-
-// 40, not the original 12 — confirmed live: with a 32-account watchlist and
-// several default entries scored 85+, the top-12 cutoff permanently
-// excluded 20 real accounts (including 14 of 16 the user had just added)
-// from ever being scanned, no matter how many times the watchlist was
-// refreshed. Raising this doesn't meaningfully raise cost — maxSearches
-// (below) is what actually bounds the number of real web searches per
-// run, not how many accounts are listed in the prompt.
-// Credit Saver Mode's real reduction for this feature — the single
-// biggest cost lever per the credit-management research (X Intel's own
-// comment block above already documents it as "the dominant driver"
-// behind the account's Anthropic usage cap under its old cadence). Reads
-// the real, persisted mode at call time rather than a static constant, so
-// it responds to real spend the moment credit-saver-mode.js re-evaluates
-// after each logged call — no restart needed.
-function maxSearchesForRun() {
-  return getMode() === "saver" ? 4 : 8;
-}
-
-async function runXIntelGeneration({ topN = 40 } = {}) {
-  if (!KEY()) return { ok: false, error: "ANTHROPIC_API_KEY not set" };
-
+async function runXIntelXApiGeneration({ topN } = {}) {
+  const n = topN || topNForRun();
   const watchlist = listWatchlist().filter((w) => w.status === "active");
   if (!watchlist.length) return { ok: false, error: "watchlist is empty" };
 
-  // Bounded fan-out, prioritized — same discipline every real-data scan in
-  // this app already uses (advisor-ai.js's holdingFund fetch, etc.).
-  const prioritized = [...watchlist].sort((a, b) => (b.importanceScore || 0) - (a.importanceScore || 0)).slice(0, topN);
-  const watchedByUsername = new Map(prioritized.map((w) => [w.username.toLowerCase(), w]));
+  const remainingReads = xApiUsage.getRemainingReads();
+  if (remainingReads <= 0) return { ok: false, error: "X API monthly read budget ($25) is exhausted for this month — resets next month." };
 
-  const watchlistLines = prioritized.map((w) => `@${w.username} (${w.displayName}, ${w.category}, importance ${w.importanceScore})`).join("\n");
-  const prompt = `WATCHED ACCOUNTS/ENTITIES (search for real recent statements/coverage of each; skip any with nothing new and real to report):\n${watchlistLines}\n\nSearch now and return the JSON.`;
-
-  let raw;
-  try {
-    // maxSearches history: 4 (original) was too few — confirmed live it
-    // meant every scan only ever surfaced items from the same ~4
-    // mega-famous entities, no real budget left to check less-famous
-    // accounts. Raised to 16, which fixed coverage but (combined with the
-    // old 6x/day schedule) cost ~$29/mo by itself and was the dominant
-    // driver behind hitting the account's Anthropic usage cap. Settled at
-    // 8 — still double the original broken budget, and the prompt's
-    // "spread searches across the full watchlist" instruction (added
-    // alongside the original raise) does the rest of the coverage work
-    // that raw search count used to have to carry alone. Combined with the
-    // schedule cut to 2x/day (server.js), this should land near/under
-    // $10/mo total for this feature.
-    raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), { model: "claude-sonnet-4-6", maxTokens: 10000, maxSearches: maxSearchesForRun(), timeout: 180000, feature: "x-intel" });
-  } catch (e) {
-    return { ok: false, error: `AI call failed: ${e.message}` };
-  }
-
-  let parsed;
-  try {
-    const m = (raw || "").match(/\{[\s\S]*\}/);
-    parsed = JSON.parse(m ? m[0] : raw);
-  } catch {
-    return { ok: false, error: "AI response was not valid JSON" };
-  }
-
-  const candidates = (Array.isArray(parsed.items) ? parsed.items : []).map((r) => sanitizeItem(r, watchedByUsername)).filter(Boolean);
-
-  // Dedup against the rolling 48h window before logging anything.
-  const newItems = candidates.filter((it) => !findRecentDuplicate(it.entityUsername, it.aiSummary.oneLine, DEDUP_WINDOW_MS));
-
-  // Real current prices for every symbol mentioned, once, batched — the
-  // "entry" reference point for grading (see predictions-store.js usage
-  // below). Not a fabricated price target: it's the real price at capture
-  // time, and grading is direction-only against a disclosed % band, never
-  // a specific invented price level.
-  const allSymbols = [...new Set(newItems.flatMap((it) => it.marketImpact.map((m) => m.symbol)))];
-  let quotes = [];
-  if (allSymbols.length) { try { quotes = await fetchYahooQuoteBatch(allSymbols); } catch { quotes = []; } }
-  const priceBySymbol = {};
-  for (const q of quotes) {
-    const p = Number(q.regularMarketPrice);
-    if (Number.isFinite(p) && p > 0) priceBySymbol[String(q.symbol || "").toUpperCase()] = p;
-  }
-
-  const GRADING_BAND_PCT = 0.03; // disclosed direction-confirmation threshold, not a price prediction
-
-  // Per-symbol sentiment tally across this whole run — logged once per
-  // symbol below (not once per item), matching x-intel-sentiment-store.js's
-  // "one real snapshot per symbol per AI-search run" design. Built from the
-  // same real marketImpact[] this call already produces; zero new AI cost.
-  const symbolSentimentTally = new Map(); // symbol -> {bullish, bearish, confidenceSum, confidenceCount}
+  const prioritized = [...watchlist].sort((a, b) => (b.importanceScore || 0) - (a.importanceScore || 0)).slice(0, n);
 
   const logged = [];
-  for (const it of newItems) {
-    const saved = logItem(it);
-    logged.push(saved);
+  let realReadsThisRun = 0;
+  for (const entity of prioritized) {
+    if (realReadsThisRun >= remainingReads) break; // real, hard stop — never spend past what's actually left in the budget
+    try {
+      let userId = entity.xUserId;
+      if (!userId) {
+        userId = await resolveUserId(entity.username);
+        if (userId) updateWatchlistEntry(entity.id, { xUserId: userId });
+      }
+      if (!userId) { updateWatchlistEntry(entity.id, { lastChecked: new Date().toISOString() }); continue; }
 
-    // Real mention ledger — feeds Trend Velocity (Module 4) and Unusual
-    // Activity (Module 8), neither of which existed before this run could
-    // be compared against real history.
-    mentionsStore.logMention({ source: it.analysisSource || "ai", category: it.category });
-    for (const m of it.marketImpact) {
-      mentionsStore.logMention({ symbol: m.symbol, sector: themeSectorOf(m.symbol), themes: themesOf(m.symbol), source: it.analysisSource || "ai", category: it.category });
-      const tally = symbolSentimentTally.get(m.symbol) || { bullish: 0, bearish: 0, neutral: 0, confidenceSum: 0, confidenceCount: 0 };
-      if (m.direction === "bullish") tally.bullish++; else if (m.direction === "bearish") tally.bearish++; else tally.neutral++;
-      if (Number.isFinite(m.confidence)) { tally.confidenceSum += m.confidence; tally.confidenceCount++; }
-      symbolSentimentTally.set(m.symbol, tally);
-    }
+      const { tweets, newestId, realReadCount } = await fetchUserTweets(userId, entity.xSinceId);
+      realReadsThisRun += realReadCount;
+      xApiUsage.logReads({ feature: "x-intel", reads: realReadCount });
+      if (newestId && newestId !== entity.xSinceId) updateWatchlistEntry(entity.id, { xSinceId: newestId });
+      updateWatchlistEntry(entity.id, { lastChecked: new Date().toISOString() });
 
-    // Update the watchlist entry's real lastSeenPost/lastChecked.
-    const entry = watchedByUsername.get(it.entityUsername.toLowerCase());
-    if (entry) {
-      try { updateWatchlistEntry(entry.id, { lastSeenPost: it.capturedAt, lastChecked: new Date().toISOString() }); } catch {}
-    }
+      for (const tweet of tweets) {
+        const item = buildItem(entity, tweet);
+        if (findRecentDuplicate(item.entityUsername, item.aiSummary.oneLine, DEDUP_WINDOW_MS)) continue;
+        const saved = logItem(item);
+        logged.push(saved);
+        updateWatchlistEntry(entity.id, { lastSeenPost: item.capturedAt });
 
-    // Log each real-symbol market-impact call into the shared predictions
-    // ledger — same real, code-graded (not AI self-graded) accuracy
-    // tracking Command Center's trade ideas already use.
-    for (const m of it.marketImpact) {
-      const price = priceBySymbol[m.symbol];
-      if (!price) continue; // no real current price — don't log an ungradeable prediction
-      const direction = m.direction === "bullish" ? "LONG" : "SHORT";
-      const band = price * GRADING_BAND_PCT;
-      try {
-        logPrediction({
-          symbol: m.symbol,
-          direction,
-          entry: Math.round(price * 100) / 100,
-          stop: Math.round((direction === "LONG" ? price - band : price + band) * 100) / 100,
-          target1: Math.round((direction === "LONG" ? price + band : price - band) * 100) / 100,
-          confidence: m.confidence,
-          holdingPeriodDays: m.expectedDurationDays,
-          generatedAt: it.capturedAt,
-          source: "x-intel",
-        });
-      } catch {}
+        mentionsStore.logMention({ source: "x-api", category: item.category });
+        for (const m of item.marketImpact) {
+          mentionsStore.logMention({ symbol: m.symbol, sector: themeSectorOf(m.symbol), themes: themesOf(m.symbol), source: "x-api", category: item.category });
+        }
+      }
+    } catch (e) {
+      // A single account's real API error (rate limit, transient network,
+      // resolveUserId failure for a real-but-unresolvable username)
+      // shouldn't stop the rest of the prioritized run — same "never stop
+      // because one source failed" discipline as everywhere else.
+      console.warn(`[X Intel X-API] ${entity.username} failed:`, e.message);
     }
   }
 
-  // Persist one real sentiment snapshot per symbol for this run.
-  for (const [symbol, tally] of symbolSentimentTally) {
-    sentimentStore.logSentimentSnapshot({
-      symbol,
-      bullish: tally.bullish,
-      bearish: tally.bearish,
-      neutral: tally.neutral,
-      avgConfidence: tally.confidenceCount > 0 ? Math.round(tally.confidenceSum / tally.confidenceCount) : null,
-    });
+  // Threshold warnings, same real gate the Anthropic system already uses.
+  const warning = xApiUsage.checkBudgetWarnings();
+  if (warning && telegramConfigured() && shouldSendAlert({ category: "budget-warning" })) {
+    sendTelegramMessage(`🐦 *X API BUDGET* — ${warning.pctUsed}% of $25 used this month (crossed the ${warning.newThreshold}% mark).`).catch(() => {});
   }
 
-  // Mark every checked entity's lastChecked even when nothing new was
-  // found — real evidence the scan ran, not just silence.
-  for (const w of prioritized) {
-    if (!logged.some((it) => it.entityUsername === w.username)) {
-      try { updateWatchlistEntry(w.id, { lastChecked: new Date().toISOString() }); } catch {}
-    }
-  }
-
-  // Telegram alerts — exactly the spec's three OR conditions.
+  // Telegram alerts — real conditions only: high-priority watched account,
+  // or real high engagement (replaces the old AI impactScore condition;
+  // "Breaking News" category alerting is dropped since that required an
+  // AI urgency judgment no classifier here can honestly make).
   if (telegramConfigured() && shouldSendAlert({ category: "ai-coach" })) {
     for (const it of logged) {
       const highPriority = (it.entityImportanceScore || 0) >= HIGH_PRIORITY_IMPORTANCE;
-      const breaking = it.category === "Breaking News";
-      const highImpact = it.scores.impactScore > 80;
-      if (!(highPriority || breaking || highImpact)) continue;
-      const tags = [breaking && "BREAKING", highImpact && `IMPACT ${it.scores.impactScore}`, highPriority && "HIGH-PRIORITY ACCT"].filter(Boolean).join(" · ");
-      const impactLines = it.marketImpact.slice(0, 3).map((m) => `${m.direction === "bullish" ? "🟢" : "🔴"} ${m.symbol} (${m.confidence}%)`).join(" ");
-      const msg = `🐦 *X INTEL* — ${tags}\n\n@${it.entityUsername}: ${it.aiSummary.oneLine}\n${impactLines}\n\n${it.sourceCitation}`;
+      const highEngagement = it.realEngagement.likes >= HIGH_ENGAGEMENT_LIKES || it.realEngagement.retweets >= HIGH_ENGAGEMENT_RETWEETS;
+      if (!(highPriority || highEngagement)) continue;
+      const tags = [highEngagement && `${it.realEngagement.likes} likes / ${it.realEngagement.retweets} RT`, highPriority && "HIGH-PRIORITY ACCT"].filter(Boolean).join(" · ");
+      const symbolLine = it.marketImpact.length ? it.marketImpact.map((m) => `$${m.symbol}`).join(" ") : "";
+      const msg = `🐦 *X INTEL* — ${tags}\n\n@${it.entityUsername}: ${it.aiSummary.oneLine}\n${symbolLine}\n\n${it.sourceCitation}`;
       sendTelegramMessage(msg).catch(() => {});
     }
   }
 
-  return { ok: true, newItemsCount: logged.length, scanned: prioritized.length };
+  return { ok: true, newItemsCount: logged.length, scanned: prioritized.length, realReadsUsed: realReadsThisRun };
 }
 
-module.exports = { runXIntelGeneration, CATEGORIES };
+module.exports = { runXIntelXApiGeneration, CATEGORIES };

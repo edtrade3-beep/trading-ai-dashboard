@@ -59,9 +59,9 @@ const { runCeoRecommendation } = require("./src/ceo-ai");
 const { buildCommandCenter } = require("./src/command-center-ai");
 const { runPredictionTracker } = require("./src/prediction-tracker");
 const { revertMisgradedXIntelShorts } = require("./src/predictions-store");
-const { runXIntelGeneration } = require("./src/x-intel-ai");
+const { runXIntelXApiGeneration } = require("./src/x-intel-ai");
 const { runXIntelRssPoll } = require("./src/x-intel-rss");
-const { getMode: getCreditSaverMode } = require("./src/credit-saver-mode");
+const { getRemainingReads: getRemainingXApiReads } = require("./src/x-api-usage-store");
 const { dedupeRssItems } = require("./src/x-intel-store");
 const { runAutopilotRecap } = require("./src/alpaca-recap");
 const { runServerAutopilot } = require("./src/server-autopilot");
@@ -162,32 +162,31 @@ server.listen(PORT, HOST, () => {
   setInterval(() => { runPredictionTracker().catch(() => {}); }, 60 * 60_000);
   console.log("[Predictions] Tracker active — grades open ideas every hour");
 
-  // X Intelligence Engine — real web-search-grounded scan of the watchlist
-  // (no X API — see src/x-intel-ai.js's header). Cut from every 2h (6x/day)
-  // to 2x/day (9am + 3pm ET): confirmed live that this scan, at the old
-  // cadence + maxSearches:16, was costing ~$29/mo by itself — the single
-  // biggest driver behind hitting the account's Anthropic usage cap. 2x/day
-  // at market-open and mid-afternoon still catches same-day developments,
-  // just not within 2h of them.
-  // Credit Saver Mode real cadence cut: 2x/day -> 1x/day (drop the 3pm
-  // run, keep 9am) — the real, persisted mode is checked at fire time, not
-  // baked into this schedule, so it reacts to real spend the same run it
-  // crosses into/out of Saver Mode without a restart. See
-  // credit-saver-mode.js / x-intel-ai.js's maxSearchesForRun() for the
-  // matching per-call maxSearches reduction.
+  // X Intelligence Engine — real X.com API scan of the watchlist (Anthropic
+  // removed from this feature per explicit user direction, 2026-07 — see
+  // src/x-intel-ai.js's header for the full rationale). Anthropic's Credit
+  // Saver Mode no longer gates this at all: X Intel doesn't spend a single
+  // Anthropic token anymore, so that mode is the wrong signal. Real gate
+  // instead: the real X API monthly read budget ($25 -> ~5,000 reads),
+  // checked at fire time via x-api-usage-store.js. 4 runs/day spread
+  // through market hours (9:30am, 11am, 1pm, 3pm ET) matches the real
+  // budget math already used in x-intel-ai.js's topNForRun() comment (40
+  // accounts x 4 runs/day x ~30 days =~ 4,800 real reads/month). Skips a
+  // run entirely if the real monthly budget is already exhausted, rather
+  // than firing a call that would just immediately error.
   let _xIntelSlot = null;
   setInterval(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
     if (day < 1 || day > 5) return;
-    if ((h !== 9 && h !== 15) || m >= 5) return; // 9am, 3pm ET, first 5 min of the hour
-    if (h === 15 && getCreditSaverMode() === "saver") return; // Saver Mode: 9am only
+    if (![9, 11, 13, 15].includes(h) || m >= 5) return; // 9:30/11/1/3 ET, first 5 min of the hour
+    if (getRemainingXApiReads() <= 0) return; // real monthly X API budget exhausted — resets next month
     const slot = `${et.toDateString()}-${h}`;
     if (_xIntelSlot === slot) return;
     _xIntelSlot = slot;
-    runXIntelGeneration().catch(() => {});
+    runXIntelXApiGeneration().catch(() => {});
   }, 60_000);
-  console.log("[X Intel] Watchlist scanner active — 9am + 3pm ET weekdays (3pm skipped in Credit Saver Mode)");
+  console.log("[X Intel] Watchlist scanner active — 9am/11am/1pm/3pm ET weekdays (real X API budget, skips a run if exhausted)");
 
   // X Intel free RSS path — official/company accounts (Fed, White House,
   // SEC, NVIDIA, Apple, OpenAI) publish real, free, public press-release

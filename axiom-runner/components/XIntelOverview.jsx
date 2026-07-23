@@ -29,6 +29,7 @@ function ItemCard({ it, C, MONO, SANS }) {
   const [open, setOpen] = useState(false);
   const col = CATEGORY_COLOR[it.category] || C.textDim;
   const isRss = it.analysisSource === "rss";
+  const isXApi = it.analysisSource === "x-api";
   return (
     <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 9, padding: "11px 13px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
@@ -36,6 +37,12 @@ function ItemCard({ it, C, MONO, SANS }) {
           <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>@{it.entityUsername}</span>
           <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: col, background: `${col}18`, borderRadius: 5, padding: "2px 6px" }}>{it.category.toUpperCase()}</span>
           {isRss && <span title="Real official RSS feed — not AI-analyzed, no market-impact call made" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, background: `${C.textDim}18`, borderRadius: 5, padding: "2px 6px" }}>🆓 RSS · UNANALYZED</span>}
+          {isXApi && <span title="Real X.com post — deterministic cashtag/category extraction, no AI sentiment or direction judgment made" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, background: `${C.textDim}18`, borderRadius: 5, padding: "2px 6px" }}>🐦 X API · UNANALYZED</span>}
+          {isXApi && (it.realEngagement?.likes > 0 || it.realEngagement?.retweets > 0) && (
+            <span title="Real engagement counts from X" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.textDim }}>
+              ♥ {it.realEngagement.likes} · ↻ {it.realEngagement.retweets}
+            </span>
+          )}
         </div>
         <div style={{ display: "flex", gap: 8, fontFamily: MONO, fontSize: 10, color: C.textDim }}>
           {it.scores && <span>IMPACT <b style={{ color: it.scores.impactScore > 80 ? C.red : it.scores.impactScore > 50 ? C.amber : C.textDim }}>{it.scores.impactScore}</b></span>}
@@ -60,8 +67,9 @@ function ItemCard({ it, C, MONO, SANS }) {
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
           {it.marketImpact.map((m) => (
             <span key={m.symbol} title={m.reasoning} style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: 5,
-              background: m.direction === "bullish" ? `${C.green}15` : `${C.red}15`, color: m.direction === "bullish" ? C.green : C.red }}>
-              {m.direction === "bullish" ? "▲" : "▼"} {m.symbol} {m.confidence}%
+              background: m.direction == null ? `${C.textDim}15` : m.direction === "bullish" ? `${C.green}15` : `${C.red}15`,
+              color: m.direction == null ? C.textDim : m.direction === "bullish" ? C.green : C.red }}>
+              {m.direction == null ? "●" : m.direction === "bullish" ? "▲" : "▼"} {m.symbol}{m.confidence != null ? ` ${m.confidence}%` : ""}
             </span>
           ))}
         </div>

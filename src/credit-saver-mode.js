@@ -1,10 +1,12 @@
 // credit-saver-mode.js — real, persisted budget-mode state. Re-evaluated
 // every time real usage is logged (see anthropic.js's instrumentation
 // calling checkAndUpdateMode() after each real call). Not cosmetic: the
-// real callers this session cares about most (x-intel-ai.js, command-
-// center-ai.js, advisor-ai.js) read getMode() at call time and reduce
-// their real cadence/maxSearches when in "saver" — see each file's own
-// comment at the read site for the exact real reduction.
+// real callers this session cares about most (command-center-ai.js,
+// advisor-ai.js) read getMode() at call time and reduce their real
+// maxSearches when in "saver" — see each file's own comment at the read
+// site for the exact real reduction. x-intel-ai.js no longer reads this
+// at all — X Intel was migrated off Anthropic entirely (2026-07) and now
+// tracks its own separate real budget in x-api-usage-store.js.
 const path = require("node:path");
 const { ROOT } = require("./config");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");

@@ -125,8 +125,8 @@ export default function XIntelTab({ C, MONO, SANS, macroData, setActiveTab }) {
     setRefreshing(true); setRefreshMsg(null);
     fetch("/api/x-intel/refresh", { method: "POST" }).then((r) => r.json()).then((d) => {
       const rssPart = d.rss?.ok ? `Free RSS: ${d.rss.newItemsCount} new (${d.rss.feedsPolled?.length || 0} official feeds).` : `Free RSS: failed (${d.rss?.error || "unknown"}).`;
-      const aiPart = d.ai?.ok ? `AI search: scanned ${d.ai.scanned}, ${d.ai.newItemsCount} new.` : `AI search: ${d.ai?.error || "failed"}.`;
-      setRefreshMsg(`${rssPart} ${aiPart}`);
+      const xApiPart = d.xApi?.ok ? `X API: scanned ${d.xApi.scanned}, ${d.xApi.newItemsCount} new (${d.xApi.realReadsUsed || 0} reads used).` : `X API: ${d.xApi?.error || "failed"}.`;
+      setRefreshMsg(`${rssPart} ${xApiPart}`);
       if (d.ok) { loadFeed(); loadWatchlist(); loadTrackRecord(); }
     }).catch((e) => setRefreshMsg(e.message)).finally(() => setRefreshing(false));
   };
@@ -151,7 +151,7 @@ export default function XIntelTab({ C, MONO, SANS, macroData, setActiveTab }) {
       </div>
 
       <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, background: `${C.textDim}0a`, borderRadius: 8, padding: "8px 12px" }}>
-        ℹ️ Two real sources, no X API, no scraping: (1) free official RSS feeds (Fed, White House, SEC, NVIDIA, Apple, OpenAI) — real press releases, not AI-analyzed, shown as-is with a 🆓 RSS badge; (2) AI web search for everyone else — real news coverage of public statements, with sentiment/market-impact analysis. Per-post like/reply/repost/view counts, images, and video aren't available through either method.
+        ℹ️ Two real sources, no AI, no scraping: (1) free official RSS feeds (Fed, White House, SEC, NVIDIA, Apple, OpenAI) — real press releases, shown as-is with a 🆓 RSS badge; (2) the real X.com API for the rest of the watchlist — real posts with real timestamps and real like/retweet/reply counts, shown as-is with a 🐦 X API badge. Neither path uses AI: cashtag ($TICKER) extraction and category tagging are real deterministic pattern-matching, not sentiment/market-impact judgment — no direction, confidence, or executive-summary calls are made on either source.
       </div>
 
       {refreshMsg && <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>{refreshMsg}</div>}

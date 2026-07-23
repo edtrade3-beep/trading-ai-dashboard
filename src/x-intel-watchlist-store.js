@@ -48,6 +48,12 @@ function seedDefaults() {
     lastChecked: null,
     status: "active",
     createdAt: now,
+    // Real X API user ID + pagination cursor, resolved/cached once the
+    // first time this account is checked via the X API — never
+    // re-resolved after that, so a repeat username lookup never recurs
+    // as a real cost against the monthly read budget.
+    xUserId: null,
+    xSinceId: null,
   }));
 }
 
@@ -83,6 +89,8 @@ function add({ username, displayName, category, importanceScore, reliabilityScor
     lastChecked: null,
     status: "active",
     createdAt: new Date().toISOString(),
+    xUserId: null,
+    xSinceId: null,
   };
   watchlist.push(entry);
   save(watchlist);
@@ -100,7 +108,7 @@ function update(id, patch) {
   const watchlist = load();
   const idx = watchlist.findIndex((w) => w.id === id);
   if (idx === -1) return null;
-  const allowed = ["displayName", "category", "importanceScore", "reliabilityScore", "status", "lastSeenPost", "lastChecked"];
+  const allowed = ["displayName", "category", "importanceScore", "reliabilityScore", "status", "lastSeenPost", "lastChecked", "xUserId", "xSinceId"];
   for (const k of allowed) {
     if (patch[k] !== undefined) watchlist[idx][k] = patch[k];
   }
