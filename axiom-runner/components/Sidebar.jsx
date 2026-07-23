@@ -1,8 +1,9 @@
 // Persistent left sidebar nav — replaces the old two-tier top pill-bar +
-// SubNavBar with a single flat list, per the approved dashboard-redesign
-// plan. Everything not listed here stays reachable via the command palette
-// exactly as it already was when SubNavBar trimmed these same tabs from
-// visibility (see the "hide, don't delete" comments in SubNavBar.jsx).
+// SubNavBar (deleted — confirmed dead code, never rendered anywhere once
+// this file took over) with a single flat list, per the approved
+// dashboard-redesign plan. Everything not listed here stays reachable via
+// the command palette, same "hide, don't delete" convention SubNavBar
+// used to document before this file replaced it.
 //
 // Ordered to match a real trading day's flow, not the order features
 // shipped in — grouped via each item's `section` field. Sidebar.jsx groups
@@ -10,44 +11,50 @@
 // still just flat-maps the array in order, so the same trading-flow
 // ordering benefits it too even without visible section headers there.
 export const SIDEBAR_ITEMS = [
-  // 1. OVERVIEW — where the day starts: the big picture and the AI's
-  // top-level call before anything else.
+  // 1. OVERVIEW — where the day starts: the single general landing page.
   { id: "dashboard", label: "Dashboard",     icon: "🏠", tab: "dashboard", section: "Overview" },
-  { id: "ceo-ai",    label: "CEO AI",        icon: "🧠", tab: "ceo-ai", section: "Overview" },
-  { id: "command-center", label: "Command Center", icon: "🛰️", tab: "command-center", badge: "NEW", section: "Overview" },
-  { id: "market-health", label: "Market Health", icon: "🩺", tab: "market-health", badge: "NEW", section: "Overview" },
 
-  // 2. RESEARCH & INTEL — gathering real information before deciding
-  // anything: regime/sentiment, charts, news, positioning, deep research.
+  // 2. AI DESK — the four AI-brief/strategy tools, grouped together
+  // instead of scattered across Overview/Research & Intel (real finding
+  // from a site-reorg audit: these were split across 3 sections purely by
+  // shipping order, not by any logical distinction between them).
+  { id: "ceo-ai",    label: "CEO AI",        icon: "🧠", tab: "ceo-ai", section: "AI Desk" },
+  { id: "command-center", label: "Command Center", icon: "🛰️", tab: "command-center", badge: "NEW", section: "AI Desk" },
+  { id: "advisor-ai", label: "Advisor AI",   icon: "🏛️", tab: "advisor-ai", badge: "NEW", section: "AI Desk" },
+  { id: "x-intel", label: "X Intelligence", icon: "🐦", tab: "x-intel", badge: "NEW", section: "AI Desk" },
+
+  // 3. RESEARCH & INTEL — gathering real market data before deciding
+  // anything: regime/breadth, charts, news, positioning. The three
+  // "Market ___" items are grouped adjacently here for the same reason
+  // as AI Desk above.
+  { id: "market-health", label: "Market Health", icon: "🩺", tab: "market-health", badge: "NEW", section: "Research & Intel" },
   { id: "market-pulse", label: "Market Pulse", icon: "📈", tab: "market-pulse", section: "Research & Intel" },
   { id: "market",    label: "Market",        icon: "🌐", tab: "mterminal", section: "Research & Intel" },
-  { id: "x-intel", label: "X Intelligence", icon: "🐦", tab: "x-intel", badge: "NEW", section: "Research & Intel" },
-  { id: "advisor-ai", label: "Advisor AI",   icon: "🏛️", tab: "advisor-ai", badge: "NEW", section: "Research & Intel" },
   { id: "news",      label: "News",          icon: "📰", tab: "news", section: "Research & Intel" },
   { id: "cot",       label: "COT",           icon: "🏦", tab: "cot", section: "Research & Intel" },
 
-  // 3. OPPORTUNITIES — turning research into real candidate trades.
+  // 4. OPPORTUNITIES — turning research into real candidate trades.
   { id: "best-opportunities", label: "Best Opportunities", icon: "🔥", tab: "best-opportunities", section: "Opportunities" },
   { id: "watchlist", label: "Watchlist",     icon: "⭐", tab: "quotes", section: "Opportunities" },
   { id: "flow",      label: "Options Flow",  icon: "📊", tab: "flow", section: "Opportunities" },
   { id: "fibonacci", label: "Fibonacci",     icon: "🌀", tab: "fibonacci", section: "Opportunities" },
 
-  // 4. PORTFOLIO & RISK — what's actually on, and how much room is left.
+  // 5. PORTFOLIO & RISK — what's actually on, and how much room is left.
   { id: "portfolio-tab", label: "Portfolio", icon: "💼", tab: "portfolio-tab", section: "Portfolio & Risk" },
   { id: "capital-allocation", label: "Capital Allocation", icon: "💰", tab: "capital-allocation", section: "Portfolio & Risk" },
   { id: "mission-status", label: "Mission Status", icon: "🎯", tab: "mission-status", section: "Portfolio & Risk" },
 
-  // 5. ASSISTANT — callable at any point in the flow, kept as its own
+  // 6. ASSISTANT — callable at any point in the flow, kept as its own
   // section rather than forced into research or portfolio.
   { id: "copilot",   label: "AI Copilot",    icon: "🤖", tab: null, badge: "NEW", section: "Assistant" },
 
-  // 6. REVIEW & GROWTH — after the trading day: coaching, notification
+  // 7. REVIEW & GROWTH — after the trading day: coaching, notification
   // tuning, and ongoing education.
   { id: "coach",     label: "Coach",         icon: "🧭", tab: "coach", section: "Review & Growth" },
   { id: "alerts",    label: "Alerts",        icon: "🔔", tab: "alerts", section: "Review & Growth" },
   { id: "learn",     label: "Learn",         icon: "🎓", tab: "education", section: "Review & Growth" },
 
-  // 7. PERSONAL — not part of the trading flow, deliberately last.
+  // 8. PERSONAL — not part of the trading flow, deliberately last.
   { id: "quran",     label: "Quran",         icon: "☪️", tab: "quran", section: "Personal" },
 ];
 // Scanner/Journal removed from the visible sidebar (2026-07-17, user

@@ -46,13 +46,18 @@ const ADV_TABS = [
 ];
 
 function AdvSubNav({ C, MONO, active, setActive }) {
+  // Horizontal-scroll single row, not flexWrap — standardized across every
+  // tab's internal sub-nav in the 2026-07-22 site reorg, same fix already
+  // shipped for XIntelTab.jsx after flexWrap wrapped into the fixed FAB
+  // cluster's screen position on mobile there.
   return (
-    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+    <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", overflowX: "auto", scrollbarWidth: "none" }}>
       {ADV_TABS.map(t => (
         <button key={t.id} onClick={() => setActive(t.id)}
           style={{
             fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.04em",
             padding: "7px 13px", borderRadius: 7, cursor: "pointer",
+            whiteSpace: "nowrap", flexShrink: 0, minHeight: 40,
             border: `1px solid ${active === t.id ? C.accent : C.border}`,
             background: active === t.id ? `${C.accent}18` : C.card,
             color: active === t.id ? C.accent : C.textSec,

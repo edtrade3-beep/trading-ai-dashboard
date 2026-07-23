@@ -89,7 +89,7 @@ export default function RhProDashboard({ C, MONO, SANS, macroData, sectorData })
               ))}
             </div>
             <div style={{ marginTop: 10, fontFamily: SANS, fontSize: 11.5, color: C.textSec }}>💡 <b>The one rule that matters:</b> a green market + a high-score stock + at its buy zone + sized to 1% risk = a real trade. Miss any of those and it's a WAIT, not a trade.</div>
-            <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 11, color: C.textDim }}>Also still here, just not in this bar — reach them via <b>CMD</b>: 📋 Watchlists (<code>WATCHLISTS GO</code>), 🗺 Heat Map (<code>SECTORHEAT GO</code>), 📓 Journal (<code>JOURNAL GO</code>), 🖥 Terminal (top nav).</div>
+            <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 11, color: C.textDim }}>Also still here, just not in this bar — reach them via <b>CMD</b>: 📋 Ranked Lists (<code>WATCHLISTS GO</code>), 🗺 Heat Map (<code>SECTORHEAT GO</code>), 📓 Journal (<code>JOURNAL GO</code>), 🖥 Terminal (top nav).</div>
           </div>
         </div>
       )}

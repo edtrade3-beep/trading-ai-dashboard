@@ -269,16 +269,23 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             })()}
           </div>
         )}
-        {/* ── Per-symbol detail tabs ── */}
-        <div style={{ display: "flex", gap: 4, margin: "4px 0 12px", flexWrap: "wrap", borderBottom: `1px solid ${C.border}`, paddingBottom: 8 }}>
-          {/* "Symbol News" not bare "News" — this is a per-symbol detail
-              tab, and the Sidebar has its own separate, global "📰 News"
-              nav item (different page entirely). Same exact-label-collision
-              class already found and fixed once this session in
-              XIntelTab.jsx's sub-nav. */}
+        {/* ── Per-symbol detail tabs ──
+            "Symbol News" not bare "News" — this is a per-symbol detail
+            tab, and the Sidebar has its own separate, global "📰 News"
+            nav item (different page entirely). Same exact-label-collision
+            class already found and fixed once this session in
+            XIntelTab.jsx's sub-nav.
+            Horizontal-scroll single row, not flexWrap — standardized
+            across every tab's internal sub-nav in the 2026-07-22 site
+            reorg, same fix already shipped for XIntelTab.jsx after
+            flexWrap wrapped into the fixed FAB cluster's screen position
+            on mobile there. 9 tabs here is the widest sub-nav in the app,
+            so this one benefits most from scrolling instead of wrapping. */}
+        <div style={{ display: "flex", gap: 4, margin: "4px 0 12px", flexWrap: "nowrap", overflowX: "auto", scrollbarWidth: "none", borderBottom: `1px solid ${C.border}`, paddingBottom: 8 }}>
           {[["chart", "📈 Chart"], ["smart", "🔬 Smart Scan"], ["valuation", "📊 Valuation"], ["analysts", "🎯 Analysts"], ["investors", "🏦 Investors"], ["earnings", "💰 Earnings"], ["company", "🏢 Company"], ["social", "💬 Social"], ["news", "📰 Symbol News"]].map(([id, lbl]) => (
             <button key={id} onClick={() => setDTab(id)}
               style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", borderRadius: 7, cursor: "pointer",
+                whiteSpace: "nowrap", flexShrink: 0, minHeight: 40,
                 border: `1px solid ${dTab === id ? C.accent : "transparent"}`, background: dTab === id ? `${C.accent}16` : "transparent", color: dTab === id ? C.accent : C.textDim }}>
               {lbl}
             </button>

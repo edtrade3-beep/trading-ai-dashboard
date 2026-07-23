@@ -33,7 +33,14 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
   return (
     <div style={{ padding: "8px 4px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
-        <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>📋 SMART WATCHLISTS</div>
+        {/* Renamed from "SMART WATCHLISTS" — real site-reorg finding: this
+            shares zero code/data with the real user watchlist
+            (data/watchlist.json, QuotesTab.jsx). It's the same scan engine
+            as RhProScanner.jsx (RH_UNIVERSE + rhScore/computeAPlusScore/
+            computeNextAction), just re-bucketed into named lists below —
+            "Ranked Lists" describes that accurately without colliding
+            with the unrelated real watchlist feature. */}
+        <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>📋 AI RANKED LISTS</div>
         <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>auto-sorted from {RH_UNIVERSE.length} stocks · {ranAt ? ranAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "…"}</div>
         <button onClick={scan} disabled={loading} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 16px", borderRadius: 8, border: "none", color: "#fff", background: loading ? C.textDim : C.accent, cursor: "pointer" }}>{loading ? "⏳…" : "↻ REFRESH"}</button>
       </div>

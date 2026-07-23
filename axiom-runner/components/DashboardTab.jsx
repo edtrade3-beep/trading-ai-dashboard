@@ -636,13 +636,21 @@ const DASH_TABS = [
 ];
 
 function DashSubNav({ C, MONO, active, setActive }) {
+  // Horizontal-scroll single row, not flexWrap — standardized across every
+  // tab's internal sub-nav in the 2026-07-22 site reorg after flexWrap was
+  // confirmed to wrap into the fixed FAB cluster's screen position on
+  // mobile in XIntelTab.jsx (obscured a button entirely). This is the
+  // Dashboard, the highest-traffic screen, so it gets the same fix even
+  // though live testing found this specific 4-tab row currently wraps
+  // clear of the FAB zone — consistency removes the risk permanently.
   return (
-    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+    <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", overflowX: "auto", scrollbarWidth: "none", marginBottom: 14 }}>
       {DASH_TABS.map(t => (
         <button key={t.id} onClick={() => setActive(t.id)}
           style={{
             fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.04em",
             padding: "7px 13px", borderRadius: 7, cursor: "pointer",
+            whiteSpace: "nowrap", flexShrink: 0, minHeight: 40,
             border: `1px solid ${active === t.id ? C.accent : C.border}`,
             background: active === t.id ? `${C.accent}18` : C.card,
             color: active === t.id ? C.accent : C.textSec,
