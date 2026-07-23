@@ -18,6 +18,7 @@
 // timestamp (only when real coverage of it was published). No field for
 // any of these exists in the schema below.
 const { callAnthropicWithSearch } = require("./anthropic");
+const { getMode } = require("./credit-saver-mode");
 const { list: listWatchlist, update: updateWatchlistEntry } = require("./x-intel-watchlist-store");
 const { logItem, findRecentDuplicate } = require("./x-intel-store");
 const { logPrediction } = require("./predictions-store");
@@ -133,6 +134,17 @@ Return JSON ONLY, no text outside it:
 // refreshed. Raising this doesn't meaningfully raise cost — maxSearches
 // (below) is what actually bounds the number of real web searches per
 // run, not how many accounts are listed in the prompt.
+// Credit Saver Mode's real reduction for this feature — the single
+// biggest cost lever per the credit-management research (X Intel's own
+// comment block above already documents it as "the dominant driver"
+// behind the account's Anthropic usage cap under its old cadence). Reads
+// the real, persisted mode at call time rather than a static constant, so
+// it responds to real spend the moment credit-saver-mode.js re-evaluates
+// after each logged call — no restart needed.
+function maxSearchesForRun() {
+  return getMode() === "saver" ? 4 : 8;
+}
+
 async function runXIntelGeneration({ topN = 40 } = {}) {
   if (!KEY()) return { ok: false, error: "ANTHROPIC_API_KEY not set" };
 
@@ -161,7 +173,7 @@ async function runXIntelGeneration({ topN = 40 } = {}) {
     // that raw search count used to have to carry alone. Combined with the
     // schedule cut to 2x/day (server.js), this should land near/under
     // $10/mo total for this feature.
-    raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), { model: "claude-sonnet-4-6", maxTokens: 10000, maxSearches: 8, timeout: 180000 });
+    raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), { model: "claude-sonnet-4-6", maxTokens: 10000, maxSearches: maxSearchesForRun(), timeout: 180000, feature: "x-intel" });
   } catch (e) {
     return { ok: false, error: `AI call failed: ${e.message}` };
   }

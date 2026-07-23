@@ -46,7 +46,7 @@ async function runMorningGamePlan() {
   const rows = top.length ? top.map(r => `${r.symbol} (${r.passCount}/8, RS ${r.rsRating}, ${r.atBuyPoint ? "at buy point" : "building"})`).join(", ") : "nothing qualifies — cash";
   const SYSTEM = `You are a head trader writing the team's morning game plan in ONE short paragraph (max 60 words). Direct and actionable: today's stance (aggressive long / selective / cash), the 1-3 best tickers to focus on, and one risk to respect. No fluff, no disclaimers.`;
   const prompt = `Date: ${new Date().toDateString()}. Strongest watchlist setups this morning: ${rows}. Write the morning game plan.`;
-  const plan = await callAnthropicApi(prompt, KEY(), { model: MODELS.haiku, maxTokens: 200, system: SYSTEM, cache: true }).catch(() => "");
+  const plan = await callAnthropicApi(prompt, KEY(), { model: MODELS.haiku, maxTokens: 200, system: SYSTEM, cache: true, feature: "coach-gameplan" }).catch(() => "");
   if (!plan) return;
   saveCoachOutput("gameplan", { text: plan.trim(), rows });
   if (shouldSendAlert({ category: "ai-coach" })) sendTelegramMessage(`🌅 *MORNING GAME PLAN*\n\n${plan.trim()}`).catch(() => {});
@@ -62,7 +62,7 @@ async function runTradeCoach() {
   if (!todayT.length) return;
   const SYSTEM = `You are a tough-but-fair trading coach reviewing a trader's CLOSED trades for the day. Specific and honest — praise discipline, call out mistakes (cutting winners early, holding losers, oversizing, revenge trades). Max 80 words. Format:\nWENT WELL: one line.\nFIX: 1-2 specific things.\nTOMORROW: one focus.`;
   const rows = todayT.map(t => `${t.symbol} ${t.side || "long"}: $${t.entry}→$${t.exit}, P&L $${Math.round(t.pnl)}`).join("\n");
-  const coach = await callAnthropicApi(`Today's closed trades:\n${rows}\n\nCoach me.`, KEY(), { model: MODELS.haiku, maxTokens: 250, system: SYSTEM, cache: true }).catch(() => "");
+  const coach = await callAnthropicApi(`Today's closed trades:\n${rows}\n\nCoach me.`, KEY(), { model: MODELS.haiku, maxTokens: 250, system: SYSTEM, cache: true, feature: "coach-trade" }).catch(() => "");
   if (!coach) return;
   saveCoachOutput("tradeCoach", { text: coach.trim(), date: today, tradeCount: todayT.length });
   if (shouldSendAlert({ category: "ai-coach" })) sendTelegramMessage(`🎯 *AI TRADE COACH* — ${today}\n\n${coach.trim()}`).catch(() => {});
@@ -87,7 +87,7 @@ async function runWeeklyReview() {
   const stats = `${week.length} trades · ${winRate}% win · net $${Math.round(net)} · avg win $${Math.round(avgWin)} · avg loss $${Math.round(avgLoss)}`;
   const patterns = patternSummaryLine(week);
   const patternPrompt = patterns ? `\n\nKnown patterns so far:\n${patterns}` : "";
-  const review = await callAnthropicApi(`This week's stats: ${stats}\n\nClosed trades:\n${rows}${patternPrompt}\n\nWhat's my #1 recurring mistake?`, KEY(), { model: MODELS.fable, maxTokens: 500, system: SYSTEM, cache: true, timeout: 120000 }).catch(() => "");
+  const review = await callAnthropicApi(`This week's stats: ${stats}\n\nClosed trades:\n${rows}${patternPrompt}\n\nWhat's my #1 recurring mistake?`, KEY(), { model: MODELS.fable, maxTokens: 500, system: SYSTEM, cache: true, timeout: 120000, feature: "coach-weekly" }).catch(() => "");
   if (!review) return;
   const tiers = tierStatsLine(week);
   const tierBlock = tiers ? `\n\nBY SETUP:\n${tiers}` : "";
@@ -113,7 +113,7 @@ async function runMonthlyDeepReview() {
   const SYSTEM = `You are a hedge-fund risk manager doing a rigorous, skeptical monthly review of an automated PAPER trading strategy. Be brutally honest — most retail strategies have no edge. Assess: (1) is the edge statistically real yet or is the sample too small? (2) which setup tier/type is carrying or dragging the results? (3) 2-3 concrete parameter changes to test next month. Do not be encouraging for its own sake. Max 220 words. End with a one-line verdict: KEEP / TUNE / STOP.`;
   const rows = trades.map(t => `${t.symbol} ${t.side || "long"}: $${t.entry}→$${t.exit}, P&L $${Math.round(t.pnl)}`).join("\n");
   const prompt = `Track record: ${stats}\n${tiers ? `By setup tier:\n${tiers}\n` : ""}${patterns ? `Behavioral patterns:\n${patterns}\n` : ""}\nTrades:\n${rows}\n\nIs the edge real? Verdict + what to change.`;
-  const review = await callAnthropicApi(prompt, KEY(), { model: MODELS.fable, maxTokens: 600, system: SYSTEM, cache: true, timeout: 150000 }).catch(() => "");
+  const review = await callAnthropicApi(prompt, KEY(), { model: MODELS.fable, maxTokens: 600, system: SYSTEM, cache: true, timeout: 150000, feature: "coach-monthly" }).catch(() => "");
   if (!review) return;
   saveCoachOutput("monthly", { text: review.trim(), stats, tiers, patterns });
   if (shouldSendAlert({ category: "ai-coach" })) sendTelegramMessage(`🔬 *MONTHLY DEEP REVIEW* — Fable\n${stats}${tiers ? `\n\n${tiers}` : ""}${patterns ? `\n\n${patterns}` : ""}\n\n${review.trim()}`).catch(() => {});

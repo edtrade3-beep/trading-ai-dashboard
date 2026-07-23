@@ -75,6 +75,10 @@ const ALWAYS_ALLOW_CATEGORIES = new Set([
   // X Intelligence Engine v2 (Module 13) — new real deterministic triggers
   // routed through this same existing gate rather than a new dedup system.
   "unusual-activity", "sentiment-flip", "fed-stance-change",
+  // Credit Management System — real 50/75/90/95%-of-budget threshold
+  // crossings (src/anthropic-usage-store.js's checkBudgetWarnings, only
+  // fires once per threshold per real month), same gate, no new system.
+  "budget-warning",
 ]);
 
 function shouldSendAlert({ category }) {

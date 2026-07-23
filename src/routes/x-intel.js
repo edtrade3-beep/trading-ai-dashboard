@@ -9,6 +9,8 @@ const { runXIntelGeneration } = require("../x-intel-ai");
 const { runXIntelRssPoll } = require("../x-intel-rss");
 const xIntelEngine = require("../x-intel-engine");
 const { PORT } = require("../config");
+const anthropicUsage = require("../anthropic-usage-store");
+const creditSaverMode = require("../credit-saver-mode");
 
 async function getJson(p) {
   try { const r = await fetch(`http://127.0.0.1:${process.env.PORT || PORT || 3000}${p}`); return await r.json(); } catch { return null; }
@@ -140,6 +142,26 @@ async function handleXIntel(req, res, requestUrl) {
     const sectorFlips = xIntelEngine.detectSectorSentimentFlip(mentionedSymbols);
     const fedStanceChange = xIntelEngine.detectFedStanceChange();
     return writeJson(res, 200, { ok: true, sectorFlips, fedStanceChange });
+  }
+
+  // ── Credit Management System — real Anthropic API spend, whole-account
+  // (Anthropic bills account-wide, not per-feature; X Intel is the biggest
+  // real lever, not the only real cost source — see the approved plan). ──
+
+  if (pathname === "/api/x-intel/budget" && req.method === "GET") {
+    const today = anthropicUsage.getTodayUsage();
+    const month = anthropicUsage.getMonthUsage();
+    const projection = anthropicUsage.getMonthEndProjection();
+    const remaining = anthropicUsage.getRemainingBudget();
+    const avgDaily = anthropicUsage.getAverageDailySpend();
+    const byFeature = anthropicUsage.getCostByFeature();
+    const mode = creditSaverMode.getState();
+    return writeJson(res, 200, {
+      ok: true,
+      budgetUSD: creditSaverMode.BUDGET_USD,
+      today, month, projection, remaining, avgDaily, byFeature, mode,
+      thresholds: anthropicUsage.THRESHOLDS,
+    });
   }
 
   return writeJson(res, 404, { error: "Not found" });

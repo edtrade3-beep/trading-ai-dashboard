@@ -1456,7 +1456,7 @@ Return ONLY valid JSON, no markdown: {"firstName":"","customerEmail":"","custome
       const messages = [{ role: "user", content: prompt }];
       let text = "";
       for (let i = 0; i < 5; i++) {
-        const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 1000, system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools }, key, 90000);
+        const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 1000, system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools }, key, 90000, "flight-finder");
         const content = resp.content || [];
         const t = content.filter(c => c.type === "text").map(c => c.text).join("");
         if (t) text = t;
@@ -1482,7 +1482,7 @@ Return ONLY valid JSON, no markdown: {"firstName":"","customerEmail":"","custome
       const messages = [{ role: "user", content: prompt }];
       let text = "";
       for (let i = 0; i < 5; i++) {
-        const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 1000, system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools }, key, 90000);
+        const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 1000, system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools }, key, 90000, "deal-finder");
         const content = resp.content || [];
         const t = content.filter(c => c.type === "text").map(c => c.text).join("");
         if (t) text = t;
@@ -1508,7 +1508,7 @@ Return ONLY valid JSON, no markdown: {"firstName":"","customerEmail":"","custome
       const messages = [{ role: "user", content: prompt }];
       let text = "";
       for (let i = 0; i < 4; i++) {
-        const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 600, system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools }, key, 60000);
+        const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 600, system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools }, key, 60000, "ai-bottom");
         const content = resp.content || [];
         const t = content.filter(c => c.type === "text").map(c => c.text).join("");
         if (t) text = t;
@@ -1615,7 +1615,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
       let text = "";
       for (let i = 0; i < 6; i++) {
         const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 700,
-          system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools: AI_COPILOT_TOOLS }, key, 60000);
+          system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools: AI_COPILOT_TOOLS }, key, 60000, "trading-copilot");
         const content = resp.content || [];
         const t = content.filter(c => c.type === "text").map(c => c.text).join("");
         if (t) text = t;
@@ -1658,7 +1658,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
       let text = "";
       for (let i = 0; i < 4; i++) {
         const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 500,
-          system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools }, key, 55000);
+          system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools }, key, 55000, "ai-why");
         const content = resp.content || [];
         const t = content.filter(c => c.type === "text").map(c => c.text).join("");
         if (t) text = t;
@@ -1686,7 +1686,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
       let text = "";
       for (let i = 0; i < 3; i++) {
         const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 300,
-          system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools }, key, 45000);
+          system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools }, key, 45000, "ai-predict");
         const content = resp.content || [];
         const t = content.filter(c => c.type === "text").map(c => c.text).join("");
         if (t) text = t;

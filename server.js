@@ -61,6 +61,7 @@ const { runPredictionTracker } = require("./src/prediction-tracker");
 const { revertMisgradedXIntelShorts } = require("./src/predictions-store");
 const { runXIntelGeneration } = require("./src/x-intel-ai");
 const { runXIntelRssPoll } = require("./src/x-intel-rss");
+const { getMode: getCreditSaverMode } = require("./src/credit-saver-mode");
 const { dedupeRssItems } = require("./src/x-intel-store");
 const { runAutopilotRecap } = require("./src/alpaca-recap");
 const { runServerAutopilot } = require("./src/server-autopilot");
@@ -168,18 +169,25 @@ server.listen(PORT, HOST, () => {
   // biggest driver behind hitting the account's Anthropic usage cap. 2x/day
   // at market-open and mid-afternoon still catches same-day developments,
   // just not within 2h of them.
+  // Credit Saver Mode real cadence cut: 2x/day -> 1x/day (drop the 3pm
+  // run, keep 9am) — the real, persisted mode is checked at fire time, not
+  // baked into this schedule, so it reacts to real spend the same run it
+  // crosses into/out of Saver Mode without a restart. See
+  // credit-saver-mode.js / x-intel-ai.js's maxSearchesForRun() for the
+  // matching per-call maxSearches reduction.
   let _xIntelSlot = null;
   setInterval(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
     if (day < 1 || day > 5) return;
     if ((h !== 9 && h !== 15) || m >= 5) return; // 9am, 3pm ET, first 5 min of the hour
+    if (h === 15 && getCreditSaverMode() === "saver") return; // Saver Mode: 9am only
     const slot = `${et.toDateString()}-${h}`;
     if (_xIntelSlot === slot) return;
     _xIntelSlot = slot;
     runXIntelGeneration().catch(() => {});
   }, 60_000);
-  console.log("[X Intel] Watchlist scanner active — 9am + 3pm ET weekdays");
+  console.log("[X Intel] Watchlist scanner active — 9am + 3pm ET weekdays (3pm skipped in Credit Saver Mode)");
 
   // X Intel free RSS path — official/company accounts (Fed, White House,
   // SEC, NVIDIA, Apple, OpenAI) publish real, free, public press-release

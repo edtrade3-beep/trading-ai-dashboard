@@ -29,6 +29,7 @@
 // clearly-scoped classification of something the model actually searched
 // for — never invented.
 const { callAnthropicWithSearch } = require("./anthropic");
+const { getMode } = require("./credit-saver-mode");
 const { saveCoachOutput, loadCoachLog } = require("./ai-coach-store");
 const { logPrediction, getTrackRecord } = require("./predictions-store");
 const { loadHistory, getMostRecentEntry, appendSnapshot, etDateStr } = require("./command-center-history-store");
@@ -453,7 +454,10 @@ Search for real, current news now and return the JSON.`;
     // Confirmed live: even 8000 tokens still failed at 6 searches (121s
     // runtime, still no valid JSON) — the search rounds themselves, not
     // just event/idea count, were the dominant cost eating the budget.
-    const raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), { model: "claude-sonnet-4-6", maxTokens: 8000, maxSearches: 3 });
+    // Credit Saver Mode: 3->2 real searches when projected spend is over
+    // budget — smaller cut than X Intel's (already trimmed once for the
+    // truncation reason above, less room to cut further without breaking).
+    const raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), { model: "claude-sonnet-4-6", maxTokens: 8000, maxSearches: getMode() === "saver" ? 2 : 3, feature: "command-center" });
     const m = (raw || "").match(/\{[\s\S]*\}/);
     parsed = JSON.parse(m ? m[0] : raw);
   } catch (e) {

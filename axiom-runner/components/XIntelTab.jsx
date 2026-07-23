@@ -8,6 +8,7 @@ import XIntelRegime from "./XIntelRegime.jsx";
 import XIntelWatchlist from "./XIntelWatchlist.jsx";
 import XIntelAlerts from "./XIntelAlerts.jsx";
 import XIntelHeatmap from "./XIntelHeatmap.jsx";
+import XIntelBudget from "./XIntelBudget.jsx";
 
 // X INTELLIGENCE ENGINE v2 — src/x-intel-ai.js + src/x-intel-engine.js. NOT
 // the X API, NOT scraping — see x-intel-ai.js's header for the full
@@ -47,6 +48,7 @@ const SUB_TABS = [
   { key: "watchlist", label: "Rankings", icon: "🎯" },
   { key: "alerts", label: "Signals", icon: "🔔" },
   { key: "heatmap", label: "Heatmap", icon: "🗺️" },
+  { key: "budget", label: "Budget", icon: "💳" },
 ];
 
 function WatchlistPanel({ C, MONO, SANS, watchlist, reload }) {
@@ -183,6 +185,7 @@ export default function XIntelTab({ C, MONO, SANS, macroData, setActiveTab }) {
       {subTab === "watchlist" && <XIntelWatchlist C={C} MONO={MONO} SANS={SANS} />}
       {subTab === "alerts" && <XIntelAlerts C={C} MONO={MONO} SANS={SANS} />}
       {subTab === "heatmap" && <XIntelHeatmap C={C} MONO={MONO} SANS={SANS} items={items} setActiveTab={setActiveTab} />}
+      {subTab === "budget" && <XIntelBudget C={C} MONO={MONO} SANS={SANS} />}
     </div>
   );
 }

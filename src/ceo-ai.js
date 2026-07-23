@@ -99,7 +99,7 @@ You are writing for a CEO who reads this in 30 seconds, not a report. Every fiel
     aiError = "ANTHROPIC_API_KEY not set";
   } else {
     try {
-      const raw = await callAnthropicApi(prompt, KEY(), { model: MODELS.sonnet, maxTokens: 1500, system: SYSTEM, cache: true });
+      const raw = await callAnthropicApi(prompt, KEY(), { model: MODELS.sonnet, maxTokens: 1500, system: SYSTEM, cache: true, feature: "ceo-ai" });
       const m = (raw || "").match(/\{[\s\S]*\}/);
       recommendation = JSON.parse(m ? m[0] : raw);
       if (!recommendation || !recommendation.verdict) { recommendation = null; aiError = "CEO AI returned an incomplete response (no verdict)"; }

@@ -15,6 +15,7 @@
 // server-side from the real trend-screen scan after Claude responds, so a
 // hallucinated number can never reach the UI even if the model tried.
 const { callAnthropicWithSearch } = require("./anthropic");
+const { getMode } = require("./credit-saver-mode");
 const { saveCoachOutput, loadCoachLog } = require("./ai-coach-store");
 const { loadHistory, appendSnapshot, snapshotDaysAgo } = require("./advisor-history-store");
 const { PORT } = require("./config");
@@ -658,7 +659,7 @@ Return the JSON now.`;
     // target output size (confirmed live earlier at 1800 this silently
     // truncated mid-report). Bumped again here since structured JSON with
     // multiple picks per horizon is larger than the old single-pick prose.
-    raw = await callAnthropicWithSearch(prompt + "\n\n" + system, KEY(), { model: "claude-sonnet-4-6", maxTokens: 6000, maxSearches: 4 });
+    raw = await callAnthropicWithSearch(prompt + "\n\n" + system, KEY(), { model: "claude-sonnet-4-6", maxTokens: 6000, maxSearches: getMode() === "saver" ? 2 : 4, feature: "advisor-ai" });
   } catch (e) {
     aiError = e.message;
   }
