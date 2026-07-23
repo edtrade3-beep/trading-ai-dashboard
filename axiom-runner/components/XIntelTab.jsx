@@ -151,7 +151,7 @@ export default function XIntelTab({ C, MONO, SANS, macroData, setActiveTab }) {
       </div>
 
       <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, background: `${C.textDim}0a`, borderRadius: 8, padding: "8px 12px" }}>
-        ℹ️ Two real sources, no AI, no scraping: (1) free official RSS feeds (Fed, White House, SEC, NVIDIA, Apple, OpenAI) — real press releases, shown as-is with a 🆓 RSS badge; (2) the real X.com API for the rest of the watchlist — real posts with real timestamps and real like/retweet/reply counts, shown as-is with a 🐦 X API badge. Neither path uses AI: cashtag ($TICKER) extraction and category tagging are real deterministic pattern-matching, not sentiment/market-impact judgment — no direction, confidence, or executive-summary calls are made on either source.
+        ℹ️ Two real sources, no AI, no scraping: (1) free official RSS feeds (Fed, White House, SEC, and 9 company/news newsrooms including NVIDIA, Apple, OpenAI, Microsoft, AMD, WSJ, FT, CNBC) — real press releases, shown as-is with a 🆓 RSS badge; (2) the real X.com API for the rest of the watchlist — real posts with real timestamps and real like/retweet/reply counts, shown as-is with a 🐦 X API badge. An account with a free RSS feed is never also billed via the paid API. Neither path uses AI: cashtag ($TICKER) extraction and category tagging are real deterministic pattern-matching, not sentiment/market-impact judgment — no direction, confidence, or executive-summary calls are made on either source.
       </div>
 
       {refreshMsg && <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>{refreshMsg}</div>}
