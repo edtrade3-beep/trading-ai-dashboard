@@ -91,16 +91,33 @@ function reopenPrediction(id) {
   return predictions[idx];
 }
 
-// One-time correction for the exact bad-grade signature prediction-
-// tracker.js's SHORT-semantics bug produced: any x-intel-sourced SHORT
-// marked "hit" was graded with the wrong field before the fix — there's no
-// legitimate way a real correction could produce that combination, so this
-// is safe to revert unconditionally. Idempotent: once reverted, these no
-// longer match the filter, so re-running (e.g. on every server restart)
-// finds nothing and does nothing.
+// Correction for the exact bad-grade signature prediction-tracker.js's now-
+// fixed SHORT-semantics bug produced: it graded 20 real X-Intel shorts as
+// "hit" within an hour of generation, regardless of real price movement
+// (see prediction-tracker.js's header comment for the full mechanism).
+//
+// NOT unconditional on source+direction+status alone — that was a real bug
+// in this function itself, found 2026-07-23: this runs on every server
+// restart (server.js), and prediction-tracker.js's CURRENT SHORT-grading
+// logic is correct, so a reverted trade can legitimately earn a real "hit"
+// later once actually re-graded (hourly). Reverting on status alone can't
+// tell that legitimate hit apart from the original bad one — confirmed
+// live: a real, correctly-earned hit got silently stripped back to "open"
+// on a routine restart, with no bug in the grade itself, only in this
+// migration re-running against it. Gated to the bug's own documented
+// signature instead: resolvedAt implausibly close to generatedAt. Real
+// price rarely closes a ±3% band that fast, so this still safely catches
+// every genuine instance of the original bug while leaving real hits
+// alone, and stays idempotent in the way the old comment assumed (a
+// legitimately-resolved trade never matches this window, at any restart).
+const MISGRADE_WINDOW_MS = 2 * 3600_000; // 2h — generous margin over the bug's documented "within an hour"
 function revertMisgradedXIntelShorts() {
   const predictions = load();
-  const bad = predictions.filter((p) => p.source === "x-intel" && p.direction === "SHORT" && p.status === "hit");
+  const bad = predictions.filter((p) => {
+    if (p.source !== "x-intel" || p.direction !== "SHORT" || p.status !== "hit") return false;
+    if (!p.resolvedAt || !p.generatedAt) return false; // no timing evidence — don't guess, leave it
+    return new Date(p.resolvedAt).getTime() - new Date(p.generatedAt).getTime() < MISGRADE_WINDOW_MS;
+  });
   for (const p of bad) reopenPrediction(p.id);
   return bad.length;
 }
