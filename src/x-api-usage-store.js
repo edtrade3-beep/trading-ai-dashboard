@@ -2,12 +2,12 @@
 // anthropic-usage-store.js's exact architecture (same atomic-write
 // pattern, same aggregate functions), pointed at the X API's real
 // pay-per-use pricing ($0.005/real post read) instead of Anthropic's
-// per-token pricing. A SEPARATE $25/month budget line from the Anthropic
-// Credit Management System — that system stays fully intact for every
-// other AI feature in this app (Command Center, Advisor AI, CEO AI,
-// etc.); X Intelligence Engine no longer contributes to it at all once
-// Anthropic is removed from this feature, and gets its own real tracker
-// here instead.
+// per-token pricing. A SEPARATE budget line from the Anthropic Credit
+// Management System — that system stays fully intact for every other AI
+// feature in this app (Command Center, Advisor AI, CEO AI, etc.); X
+// Intelligence Engine no longer contributes to it at all once Anthropic
+// is removed from this feature, and gets its own real tracker here
+// instead.
 const path = require("node:path");
 const { ROOT } = require("./config");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
@@ -15,6 +15,11 @@ const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const STORE_PATH = path.join(ROOT, "data", "x-api-usage.json");
 const RETENTION_MS = 400 * 24 * 3600_000; // ~13 months, same retention as the Anthropic ledger
 const COST_PER_READ = 0.005; // X's real, published pay-per-use rate
+// Real hard monthly cap — user explicitly lowered this from the original
+// $25 to $10 to try the X API path at smaller real spend first (2026-07).
+// Single source of truth: every function below defaults to this instead
+// of a scattered literal.
+const X_API_BUDGET_USD = 10;
 
 function load() {
   const data = readJsonSafe(STORE_PATH, { entries: [], warnedThresholds: {} });
@@ -62,17 +67,17 @@ function getMonthEndProjection(d = new Date()) {
   return Math.round((costUSD / daysElapsed) * daysInMonth * 100) / 100;
 }
 
-function getRemainingBudget(budgetUSD = 25, d = new Date()) {
+function getRemainingBudget(budgetUSD = X_API_BUDGET_USD, d = new Date()) {
   const { costUSD } = getMonthUsage(d);
   return Math.round((budgetUSD - costUSD) * 100) / 100;
 }
 
-function getRemainingReads(budgetUSD = 25, d = new Date()) {
+function getRemainingReads(budgetUSD = X_API_BUDGET_USD, d = new Date()) {
   return Math.max(0, Math.floor(getRemainingBudget(budgetUSD, d) / COST_PER_READ));
 }
 
 const THRESHOLDS = [50, 75, 90, 95];
-function checkBudgetWarnings(budgetUSD = 25, d = new Date()) {
+function checkBudgetWarnings(budgetUSD = X_API_BUDGET_USD, d = new Date()) {
   const key = monthKey(d);
   const { costUSD } = getMonthUsage(d);
   const pctUsed = (costUSD / budgetUSD) * 100;
@@ -90,4 +95,5 @@ function checkBudgetWarnings(budgetUSD = 25, d = new Date()) {
 module.exports = {
   logReads, getTodayUsage, getMonthUsage, getMonthEndProjection,
   getRemainingBudget, getRemainingReads, checkBudgetWarnings, THRESHOLDS, COST_PER_READ, monthKey,
+  X_API_BUDGET_USD,
 };

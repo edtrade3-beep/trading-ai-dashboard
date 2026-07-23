@@ -167,10 +167,11 @@ async function handleXIntel(req, res, requestUrl) {
     });
   }
 
-  // ── Real X API spend — a SEPARATE $25/month budget line from the
-  // Anthropic Credit Management System above. X Intelligence Engine is the
-  // only feature that spends against this one (see x-intel-ai.js's header
-  // for the full removal-of-Anthropic rationale). ──
+  // ── Real X API spend — a SEPARATE budget line from the Anthropic Credit
+  // Management System above ($10/month, lowered from an initial $25 to
+  // try the X API path at smaller real spend first). X Intelligence
+  // Engine is the only feature that spends against this one (see
+  // x-intel-ai.js's header for the full removal-of-Anthropic rationale). ──
 
   if (pathname === "/api/x-intel/x-api-budget" && req.method === "GET") {
     const today = xApiUsage.getTodayUsage();
@@ -180,7 +181,7 @@ async function handleXIntel(req, res, requestUrl) {
     const remainingReads = xApiUsage.getRemainingReads();
     return writeJson(res, 200, {
       ok: true,
-      budgetUSD: 25,
+      budgetUSD: xApiUsage.X_API_BUDGET_USD,
       costPerRead: xApiUsage.COST_PER_READ,
       today, month, projection, remaining, remainingReads,
       thresholds: xApiUsage.THRESHOLDS,

@@ -167,13 +167,15 @@ server.listen(PORT, HOST, () => {
   // src/x-intel-ai.js's header for the full rationale). Anthropic's Credit
   // Saver Mode no longer gates this at all: X Intel doesn't spend a single
   // Anthropic token anymore, so that mode is the wrong signal. Real gate
-  // instead: the real X API monthly read budget ($25 -> ~5,000 reads),
-  // checked at fire time via x-api-usage-store.js. 4 runs/day spread
-  // through market hours (9:30am, 11am, 1pm, 3pm ET) matches the real
-  // budget math already used in x-intel-ai.js's topNForRun() comment (40
-  // accounts x 4 runs/day x ~30 days =~ 4,800 real reads/month). Skips a
-  // run entirely if the real monthly budget is already exhausted, rather
-  // than firing a call that would just immediately error.
+  // instead: the real X API monthly read budget ($10 -> ~2,000 reads,
+  // lowered from an initial $25 to try the X API path at smaller real
+  // spend first), checked at fire time via x-api-usage-store.js. 4 runs/day
+  // spread through market hours (9:30am, 11am, 1pm, 3pm ET) matches the
+  // real budget math already used in x-intel-ai.js's topNForRun() comment
+  // (15 accounts x ~84 real weekday runs/month =~ 1,260 real reads/month
+  // worst case). Skips a run entirely if the real monthly budget is
+  // already exhausted, rather than firing a call that would just
+  // immediately error.
   let _xIntelSlot = null;
   setInterval(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));

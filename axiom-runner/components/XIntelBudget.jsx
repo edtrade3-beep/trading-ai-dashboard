@@ -10,7 +10,9 @@ import { cardStyle } from "./ui-helpers.js";
 // built from real post-read counts on every real X API response.
 // Anthropic was fully removed from X Intelligence Engine per explicit
 // user direction (2026-07) — it no longer contributes to line (1) at all,
-// and gets its own separate $25/month cap in line (2) instead. Nothing on
+// and gets its own separate, smaller $10/month cap in line (2) instead
+// (lowered from an initial $25 to try the X API path at smaller real
+// spend first, 2026-07). Nothing on
 // this page is estimated or simulated.
 const MODE_COLOR = { normal: "#0d9465", saver: "#d97706" };
 
@@ -150,7 +152,7 @@ export default function XIntelBudget({ C, MONO, SANS }) {
         ) : (
           <>
             <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 12 }}>
-              ${xApiData.costPerRead}/real post read, X's real published pay-per-use rate. A separate $25/month cap from the Anthropic budget above.
+              ${xApiData.costPerRead}/real post read, X's real published pay-per-use rate. A separate ${xApiData.budgetUSD}/month cap from the Anthropic budget above.
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 18 }}>
               <Metric label="THIS MONTH" value={`$${xApiData.month.costUSD.toFixed(2)}`} sub={`${xApiData.month.reads} reads`} color={xPctUsed >= 90 ? C.red : xPctUsed >= 50 ? C.amber : C.green} C={C} MONO={MONO} />

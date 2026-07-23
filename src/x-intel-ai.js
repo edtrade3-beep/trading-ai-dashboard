@@ -19,13 +19,15 @@
 // alert signal, replacing the AI's old impactScore for that purpose.
 //
 // Real, hard budget constraint: X's pay-per-use pricing is $0.005/post
-// read. At the user's confirmed $25/month cap, that's ~5,000 real reads
-// for the whole month — verified via x-api-usage-store.js's exact
-// $0.005 rate. With up to 500 watched accounts, checking everyone even
-// once a day would cost 15,000/month, 3x over budget — so this uses the
-// same real prioritized-subset discipline (importanceScore-sorted topN)
-// the old Anthropic path already used for search budget, just re-aimed at
-// a real monthly read count.
+// read. At the user's confirmed $10/month cap (lowered from an initial
+// $25 to try the X API path at smaller real spend first, 2026-07), that's
+// ~2,000 real reads for the whole month — verified via
+// x-api-usage-store.js's exact $0.005 rate and its X_API_BUDGET_USD
+// constant. With up to 500 watched accounts, checking everyone even once
+// a day would cost 15,000/month, far over budget — so this uses the same
+// real prioritized-subset discipline (importanceScore-sorted topN) the
+// old Anthropic path already used for search budget, just re-aimed at a
+// real monthly read count.
 const { resolveUserId, fetchUserTweets } = require("./providers/x-api");
 const { extractCashtags, classifyCategory } = require("./x-intel-x-classifiers");
 const { CATEGORIES } = require("./x-intel-categories");
@@ -51,17 +53,18 @@ const HIGH_ENGAGEMENT_RETWEETS = 500;
 // Real per-run budget: topN accounts checked. Checks the REAL X API
 // budget (x-api-usage-store.js), not the Anthropic Credit Saver Mode —
 // X Intel no longer spends any Anthropic budget at all, so gating this on
-// Anthropic's mode would be checking the wrong number entirely. 40
-// accounts x 4 runs/day x ~30 days = ~4,800 real reads/month if every
-// checked account actually has a new post every run (the real worst
-// case) — under the ~5,000/month budget with headroom for one-time
-// xUserId lookups. Reduced to 15 once real projected month-end X API
-// spend exceeds the $25 budget, same real trigger the Anthropic system
+// Anthropic's mode would be checking the wrong number entirely. Real math
+// at the $10/month cap: cron only fires on weekdays, ~21 trading
+// days/month x 4 runs/day = ~84 runs/month. 15 accounts/run x 84 runs =
+// ~1,260 real reads/month worst case (every checked account has a new
+// post every run) — under the ~2,000/month budget with real headroom for
+// one-time xUserId lookups. Reduced to 8 once real projected month-end X
+// API spend exceeds the budget, same real trigger the Anthropic system
 // uses, just a simpler inline check since this is the only call site that
 // spends this specific budget (no cross-feature hysteresis needed the
 // way Anthropic's system needs it across ~10 different callers).
 function topNForRun() {
-  return xApiUsage.getMonthEndProjection() > 25 ? 15 : 40;
+  return xApiUsage.getMonthEndProjection() > xApiUsage.X_API_BUDGET_USD ? 8 : 15;
 }
 
 function sanitizeMarketImpact(symbols) {
@@ -118,7 +121,7 @@ async function runXIntelXApiGeneration({ topN } = {}) {
   if (!watchlist.length) return { ok: false, error: "watchlist is empty" };
 
   const remainingReads = xApiUsage.getRemainingReads();
-  if (remainingReads <= 0) return { ok: false, error: "X API monthly read budget ($25) is exhausted for this month — resets next month." };
+  if (remainingReads <= 0) return { ok: false, error: `X API monthly read budget ($${xApiUsage.X_API_BUDGET_USD}) is exhausted for this month — resets next month.` };
 
   const prioritized = [...watchlist].sort((a, b) => (b.importanceScore || 0) - (a.importanceScore || 0)).slice(0, n);
 
@@ -169,7 +172,7 @@ async function runXIntelXApiGeneration({ topN } = {}) {
   // Threshold warnings, same real gate the Anthropic system already uses.
   const warning = xApiUsage.checkBudgetWarnings();
   if (warning && telegramConfigured() && shouldSendAlert({ category: "budget-warning" })) {
-    sendTelegramMessage(`🐦 *X API BUDGET* — ${warning.pctUsed}% of $25 used this month (crossed the ${warning.newThreshold}% mark).`).catch(() => {});
+    sendTelegramMessage(`🐦 *X API BUDGET* — ${warning.pctUsed}% of $${xApiUsage.X_API_BUDGET_USD} used this month (crossed the ${warning.newThreshold}% mark).`).catch(() => {});
   }
 
   // Telegram alerts — real conditions only: high-priority watched account,
