@@ -233,6 +233,12 @@ async function handleAlpaca(req, res, requestUrl) {
       if (b.take_profit) order.take_profit = { limit_price: String(b.take_profit) };
       if (b.stop_loss) order.stop_loss = { stop_price: String(b.stop_loss) };
     }
+    // Standalone protective stop on an already-open position — distinct from
+    // the bracket case above (which only applies to a NEW entry order).
+    // Alpaca expects stop_price as a top-level field, not nested, for a
+    // plain type:"stop" order. Existing long-only guard above already
+    // covers this (side:"sell" already validated against real held qty).
+    if (order.type === "stop" && b.stop_price) order.stop_price = String(b.stop_price);
     const a = await alpaca("/v2/orders", "POST", order);
     if (!a._ok) return writeJson(res, 200, { ok: false, error: a.data?.message || "order rejected", status: a._status });
     return writeJson(res, 200, { ok: true, order: { id: a.data.id, symbol: a.data.symbol, qty: Number(a.data.qty), side: a.data.side, status: a.data.status } });
