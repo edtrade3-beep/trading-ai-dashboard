@@ -137,7 +137,7 @@ export default function XIntelTab({ C, MONO, SANS, macroData, setActiveTab }) {
         <div>
           <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 900, color: C.text }}>🐦 X INTELLIGENCE ENGINE</div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-            Real news coverage of watched accounts, AI-classified with market impact — not the X API, not scraping
+            Real posts + press releases from watched accounts, via the real X API and free RSS — no AI, no scraping
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
