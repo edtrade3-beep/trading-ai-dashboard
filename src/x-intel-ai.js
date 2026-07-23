@@ -32,6 +32,7 @@ const { resolveUserId, fetchUserTweets } = require("./providers/x-api");
 const { extractCashtags, classifyCategory } = require("./x-intel-x-classifiers");
 const { CATEGORIES } = require("./x-intel-categories");
 const { list: listWatchlist, update: updateWatchlistEntry } = require("./x-intel-watchlist-store");
+const { KNOWN_RSS_FEEDS } = require("./x-intel-rss");
 const { logItem, findRecentDuplicate } = require("./x-intel-store");
 const { sectorOf } = require("./risk-guardrails");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
@@ -117,7 +118,11 @@ function buildItem(entity, tweet) {
 
 async function runXIntelXApiGeneration({ topN } = {}) {
   const n = topN || topNForRun();
-  const watchlist = listWatchlist().filter((w) => w.status === "active");
+  // Real budget discipline: an account already covered by a free, verified
+  // RSS feed (x-intel-rss.js's KNOWN_RSS_FEEDS) shouldn't also spend paid
+  // X API reads on redundant coverage — that was a real gap (every account
+  // was being double-checked) found and fixed 2026-07-23.
+  const watchlist = listWatchlist().filter((w) => w.status === "active" && !KNOWN_RSS_FEEDS[w.username]);
   if (!watchlist.length) return { ok: false, error: "watchlist is empty" };
 
   const remainingReads = xApiUsage.getRemainingReads();

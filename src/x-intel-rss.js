@@ -1,8 +1,15 @@
 // x-intel-rss.js — free path for X Intel's official/company accounts.
 // Zero AI cost: these orgs publish real, free, public RSS feeds directly,
 // which is both cheaper AND faster than waiting for AI web search to find
-// news coverage of them. Confirmed live (2026-07-21) — each URL below
-// returns real RSS/Atom content, verified by hand before wiring in.
+// news coverage of them. Confirmed live (2026-07-21, expanded 2026-07-23)
+// — each URL below returns real RSS/Atom content, verified by hand (curl,
+// checked real HTTP 200 + real channel title) before wiring in. Skipped
+// candidates that failed verification rather than guess: Reuters (every
+// tested URL either 401'd or connection-failed — looks bot-blocked) and
+// legacy Twitter-instance-RSS-bridge services (deliberately not used —
+// solving a paid-API dependency by routing through an unofficial
+// third-party scraper isn't "free data", it's a fragile, unverifiable
+// substitute).
 //
 // Honesty discipline, same as the AI path: every logged item carries a
 // real source URL and real title/summary text. What this path does NOT
@@ -29,6 +36,18 @@ const KNOWN_RSS_FEEDS = {
   NVIDIA: { url: "https://nvidianews.nvidia.com/releases.xml", itemCategory: "Semiconductor" },
   Apple: { url: "https://www.apple.com/newsroom/rss-feed.rss", itemCategory: "Other" },
   OpenAI: { url: "https://openai.com/news/rss.xml", itemCategory: "AI" },
+  // Added 2026-07-23 — real official/targeted feeds for 6 more watchlist
+  // accounts that were previously only reachable via paid X API reads.
+  // Deliberately picked the targeted section feed over each org's general
+  // homepage/all-news firehose where one exists (WSJ Markets not WSJ all,
+  // FT Markets not FT homepage, CNBC Economy not CNBC all) — matches the
+  // user's "no junk data" instruction.
+  Microsoft: { url: "https://news.microsoft.com/source/feed/", itemCategory: "Other" },
+  AMD: { url: "https://ir.amd.com/rss/news-releases.xml", itemCategory: "Semiconductor" },
+  WSJ: { url: "https://feeds.content.dowjones.io/public/rss/RSSMarketsMain", itemCategory: "Macro" },
+  FinancialTimes: { url: "https://www.ft.com/markets?format=rss", itemCategory: "Macro" },
+  CNBC: { url: "https://www.cnbc.com/id/20910258/device/rss/rss.html", itemCategory: "Macro" },
+  ProSyn: { url: "https://www.project-syndicate.org/rss", itemCategory: "Macro" },
 };
 
 const DEDUP_WINDOW_MS = 48 * 3600_000;

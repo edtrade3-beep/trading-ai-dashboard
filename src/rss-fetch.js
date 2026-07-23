@@ -12,7 +12,11 @@ function get(url, timeoutMs = 10000) {
   return new Promise((resolve, reject) => {
     const req = https.get(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; AMTradingPlatform/1.0)" } }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        get(res.headers.location, timeoutMs).then(resolve, reject);
+        // Some real feeds (e.g. ir.amd.com) 301 to a relative path with no
+        // scheme/host — https.get() throws "Invalid URL" on that directly.
+        // Resolve against the original request URL, same as a browser would.
+        const target = new URL(res.headers.location, url).toString();
+        get(target, timeoutMs).then(resolve, reject);
         return;
       }
       if (res.statusCode !== 200) { res.resume(); return reject(new Error(`HTTP ${res.statusCode}`)); }
