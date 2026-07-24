@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { NUM } from "./theme.js";
 
 // Trade-setup verdict banner (GO/WAIT/AVOID) + entry/stop/target stat boxes +
@@ -7,16 +7,34 @@ import { NUM } from "./theme.js";
 // DayTradeTab and MarketTerminalTab.
 export default function TrendSetupPanel({ data, C, MONO, SANS }) {
   const [alertMsg, setAlertMsg] = useState("");
-  if (!data || !data.setup) return null;
-  const su = data.setup, passN = Number(data.score) || 0;
-  const armAlert = () => {
+  const su = data && data.setup;
+  const armAlert = (auto) => {
     fetch("/api/price-alerts", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ symbol: data.symbol, targetPrice: su.entry, direction: "above", requireVolume: true, note: "Minervini pivot breakout" }) })
       .then(r => r.json())
-      .then(d => setAlertMsg(d.error ? d.error : `🔔 Armed — you'll be alerted when ${data.symbol} breaks $${su.entry} on volume`))
+      .then(d => {
+        if (d.error) { setAlertMsg(d.error); return; }
+        const already = d.deduped ? "already armed" : "Armed";
+        setAlertMsg(`🔔 ${already} — you'll be alerted when ${data.symbol} breaks $${su.entry} on volume`);
+      })
       .catch(e => setAlertMsg(e.message));
-    setTimeout(() => setAlertMsg(""), 5000);
+    if (!auto) setTimeout(() => setAlertMsg(""), 5000);
   };
+  // Auto-arm — was previously a manual click only. Fires once per real
+  // symbol+pivot combo (not on every re-render/poll refresh) via the ref
+  // guard below; the new server-side dedup in routes/price-alerts.js
+  // (added alongside this) means even a remount/revisit of the same
+  // symbol never creates a duplicate alert or duplicate Telegram message.
+  const armedFor = useRef(null);
+  useEffect(() => {
+    if (!su || !data?.symbol) return;
+    const key = `${data.symbol}@${su.entry}`;
+    if (armedFor.current === key) return;
+    armedFor.current = key;
+    armAlert(true);
+  }, [data?.symbol, su?.entry]);
+  if (!data || !data.setup) return null;
+  const passN = Number(data.score) || 0;
   const vColor = su.verdict === "GO" ? "#0d9465" : su.verdict === "WAIT" ? "#d6a312" : "#c8282a";
   const bl = (() => {
     if (su.verdict === "GO") return `Buy candidate — ${passN}/8 pass and it's breaking out. Enter above ${su.entry} pivot, stop ${su.stop}.`;
@@ -42,12 +60,16 @@ export default function TrendSetupPanel({ data, C, MONO, SANS }) {
         <b style={{ color: vColor }}>{su.verdict} · {data.stage}:</b> {bl}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <button onClick={armAlert}
+        {/* Auto-armed on load (see the useEffect above) — this button is
+            now a manual re-arm fallback for if that silently failed
+            (network hiccup), not the only way to set the alert. */}
+        <button onClick={() => armAlert(false)}
+          title="Alert is set automatically — click to re-confirm/re-arm"
           style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "6px 14px", borderRadius: 8, cursor: "pointer",
             border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent }}>
-          🔔 Alert me at pivot ${su.entry}
+          🔔 Alert armed at pivot ${su.entry}
         </button>
-        {alertMsg && <span style={{ fontFamily: MONO, fontSize: 11, color: "#0d9465" }}>{alertMsg}</span>}
+        {alertMsg && <span style={{ fontFamily: MONO, fontSize: 11, color: alertMsg.includes("Armed") || alertMsg.includes("armed") ? "#0d9465" : "#c8282a" }}>{alertMsg}</span>}
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {box("Entry (pivot)", "$" + su.entry, C.accent, `${su.abovePivotPct}% vs pivot`)}

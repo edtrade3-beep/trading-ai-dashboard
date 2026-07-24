@@ -34,6 +34,21 @@ async function handlePriceAlerts(req, res, requestUrl) {
       return writeJson(res, 400, { error: "direction must be 'above' or 'below'" });
     }
 
+    const alerts = loadPriceAlerts();
+
+    // Real dedup — this endpoint used to create a brand-new alert on every
+    // call with no idempotency check, which is fine for a one-off manual
+    // click but breaks the moment a caller auto-arms an alert every time a
+    // panel renders/remounts (confirmed real bug found wiring TrendSetup-
+    // Panel.jsx's pivot alert to auto-arm instead of requiring a click —
+    // it would have silently created a new duplicate alert, and Telegram
+    // message, on every mount). Same symbol+direction+price within a $0.01
+    // tolerance (float rounding) and still active → return the existing
+    // alert instead of creating a duplicate.
+    const existing = alerts.find(a => a.status === "active" && a.symbol === symbol &&
+      a.direction === direction && Math.abs(a.targetPrice - targetPrice) < 0.01);
+    if (existing) return writeJson(res, 200, { ok: true, alert: existing, deduped: true });
+
     const alert = {
       id: `pa-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       symbol,
@@ -46,7 +61,6 @@ async function handlePriceAlerts(req, res, requestUrl) {
       triggeredAt: null,
     };
 
-    const alerts = loadPriceAlerts();
     // Cap at 50 alerts
     if (alerts.filter(a => a.status === "active").length >= 50) {
       return writeJson(res, 422, { error: "Maximum 50 active price alerts allowed" });
