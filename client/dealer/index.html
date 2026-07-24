@@ -401,6 +401,15 @@
       <div id="reportCards"></div>
     </div>
   </div>
+
+  <div class="tab" id="t-settings">
+    <div class="card">
+      <h2>⚙️ Live Pricing Data Sources</h2>
+      <div class="muted" style="font-size:13px;margin-bottom:12px">Powers Price Beater and Market Report with real comparable listings instead of an estimate. Set at most one key per row — MarketCheck and Auto.dev are both real dealer-listing APIs (either works), Brave is a web-search fallback. Keys are stored server-side and never shown back once saved.</div>
+      <div id="settingsStatus" style="margin-bottom:14px"></div>
+      <div id="settingsRows"></div>
+    </div>
+  </div>
 </div>
 
 <div id="printArea" style="display:none"></div>
@@ -411,7 +420,8 @@
 var TABS = [
   ["workspace","🚗 Workspace"],["import","📥 Bulk Import"],["profit","💵 Profit"],
   ["ad","📣 FB Ad"],["desc","📦 Package"],["photos","📷 Photos"],["post","🚀 Post"],
-  ["print","🖨 Print"],["dash","📈 Dashboard"],["report","📊 Market Report"]
+  ["print","🖨 Print"],["dash","📈 Dashboard"],["report","📊 Market Report"],
+  ["settings","⚙️ Settings"]
 ];
 var INV_COLS = [["stock","Stock#"],["vin","VIN"],["year","Year"],["make","Make"],["model","Model"],["trim","Trim"],["mileage","Mileage"],["cost","Cost"],["price","Price"],["profit","Profit"]];
 var INV_KEY = "dam_inventory_v1", CUR_KEY = "dam_current_v1";
@@ -471,6 +481,7 @@ function showTab(id){
   if(id==="ad") genAd();
   if(id==="dash") renderDash();
   if(id==="post") renderPostAssistant();
+  if(id==="settings") renderSettings();
   window.scrollTo(0,0);
 }
 
@@ -586,9 +597,68 @@ function fetchApiStatus(){
     if(engine==="autodev") html='<span class="pill green">● LIVE · Auto.dev</span> <span class="muted" style="font-size:12px">Real dealer listings active.</span>';
     else if(engine==="marketcheck") html='<span class="pill green">● LIVE · MarketCheck</span> <span class="muted" style="font-size:12px">Real dealer listings active.</span>';
     else if(engine==="brave") html='<span class="pill yellow">● Brave search</span> <span class="muted" style="font-size:12px">Web-search comps (less precise).</span>';
-    else html='<span class="pill yellow">○ Estimate mode</span> <span class="muted" style="font-size:12px">No live API key set — using a market estimate. Add <b>AUTODEV_API_KEY</b> in Render for real listings.</span>';
+    else html='<span class="pill yellow">○ Estimate mode</span> <span class="muted" style="font-size:12px">No live API key set — using a market estimate. Set one under ⚙️ Settings for real listings.</span>';
     $("pbApi").innerHTML=html;
   }).catch(function(){ $("pbApi").innerHTML=""; });
+}
+
+// ⚙️ Settings tab — lets a dealer set/enable the same pricing-engine keys
+// src/dealership/routes.js's /api/dealer/ai-key already supported (set +
+// on/off toggle), previously only reachable by editing Render's env vars
+// directly. Never re-displays a saved key's value — the GET endpoint only
+// returns booleans (configured/on), by design (routes.js line ~753), so
+// this UI shows "configured" state, not the key itself.
+var SETTINGS_PROVIDERS = [
+  ["marketcheck","MarketCheck","Real dealer-listing API — most precise comps."],
+  ["autodev","Auto.dev","Real dealer-listing API — alternative to MarketCheck."],
+  ["brave","Brave Search","Web-search fallback if neither listing API is set."],
+];
+function renderSettings(){
+  fetch("/api/dealer/ai-key").then(function(r){return r.json();}).then(function(d){
+    var statusHtml = d.configured
+      ? '<span class="pill green">● LIVE · '+(d.engine==="autodev"?"Auto.dev":d.engine==="marketcheck"?"MarketCheck":"Brave")+'</span> <span class="muted" style="font-size:12px">Real listings active for Price Beater and Market Report.</span>'
+      : '<span class="pill yellow">○ Estimate mode</span> <span class="muted" style="font-size:12px">No live source configured — Price Beater and Market Report use a market estimate instead.</span>';
+    $("settingsStatus").innerHTML = statusHtml;
+
+    var configuredMap = { marketcheck: d.marketcheck, autodev: d.autodev, brave: d.brave };
+    var onMap = { marketcheck: d.mcOn, autodev: d.adOn, brave: d.braveOn };
+
+    var rowsHtml = SETTINGS_PROVIDERS.map(function(p){
+      var id = p[0], label = p[1], desc = p[2];
+      var configured = !!configuredMap[id], on = !!onMap[id];
+      var pill = !configured ? '<span class="pill" style="background:rgba(148,163,184,.18);color:var(--muted,#94a3b8)">not set</span>'
+        : on ? '<span class="pill green">● on</span>' : '<span class="pill yellow">○ off</span>';
+      return ''
+        +'<div class="card" style="margin-bottom:10px">'
+          +'<div class="row" style="align-items:center;justify-content:space-between;margin-bottom:8px">'
+            +'<div><b>'+label+'</b> '+pill+'<div class="muted" style="font-size:12px">'+desc+'</div></div>'
+            +(configured ? '<button class="btn ghost" onclick="toggleSettingsProvider(\''+id+'\','+(!on)+')">'+(on?"Turn off":"Turn on")+'</button>' : '')
+          +'</div>'
+          +'<div class="row" style="align-items:flex-end">'
+            +'<div style="flex:1"><label>'+(configured?"Replace key":"API key")+'</label><input type="password" id="settingsKey_'+id+'" placeholder="'+(configured?"leave blank to keep current key":"paste key here")+'" /></div>'
+            +'<button class="btn" onclick="saveSettingsProvider(\''+id+'\')">Save</button>'
+          +'</div>'
+        +'</div>';
+    }).join("");
+    $("settingsRows").innerHTML = rowsHtml;
+  }).catch(function(){ $("settingsStatus").innerHTML=""; $("settingsRows").innerHTML='<div class="muted">Could not load settings — try refreshing.</div>'; });
+}
+function saveSettingsProvider(provider){
+  var input = $("settingsKey_"+provider);
+  var key = (input.value||"").trim();
+  if(!key){ toast("Enter a key first"); return; }
+  fetch("/api/dealer/ai-key",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({provider:provider,key:key})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(d.ok){ toast(provider+" key saved"); input.value=""; renderSettings(); fetchApiStatus(); }
+      else toast(d.error||"Save failed");
+    }).catch(function(){ toast("Save failed"); });
+}
+function toggleSettingsProvider(provider, enabled){
+  fetch("/api/dealer/ai-key",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({provider:provider,enabled:enabled})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(d.ok){ toast(provider+(enabled?" turned on":" turned off")); renderSettings(); fetchApiStatus(); }
+      else toast(d.error||"Update failed");
+    }).catch(function(){ toast("Update failed"); });
 }
 
 function findCheapest(){
