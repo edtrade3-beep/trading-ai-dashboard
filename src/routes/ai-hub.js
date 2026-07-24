@@ -98,6 +98,21 @@ async function buildRiskSnapshot() {
     bySector[sec] = (bySector[sec] || 0) + 1;
   }
 
+  // Real $-weighted single-position concentration — zero extra fetches,
+  // positions already carry real marketValue from Alpaca. Same 20%/30%
+  // thresholds HoldingsTab.jsx's manual-portfolio analysis already uses,
+  // applied here to the real live account instead.
+  const totalValue = positions.reduce((s, p) => s + (Number(p.marketValue) || 0), 0);
+  const concentrationFlags = totalValue > 0
+    ? positions
+        .map((p) => ({ symbol: p.symbol, pct: Math.round(((Number(p.marketValue) || 0) / totalValue) * 1000) / 10 }))
+        .filter((p) => p.pct >= 20)
+        .sort((a, b) => b.pct - a.pct)
+    : [];
+  const topPositionPct = totalValue > 0
+    ? Math.round((Math.max(0, ...positions.map((p) => Number(p.marketValue) || 0)) / totalValue) * 1000) / 10
+    : 0;
+
   return {
     ok: true,
     equity, cash, buyingPower: account.buyingPower,
@@ -107,6 +122,8 @@ async function buildRiskSnapshot() {
     dailyBreakerTripped,
     positionCount: positions.length,
     sectorConcentration: bySector,
+    topPositionPct,
+    concentrationFlags,
   };
 }
 
@@ -131,6 +148,27 @@ async function handleAiHub(req, res, requestUrl) {
   if (pathname === "/api/ai-hub/risk-snapshot" && req.method === "GET") {
     const snapshot = await buildRiskSnapshot();
     return writeJson(res, 200, snapshot);
+  }
+
+  // GET /api/ai-hub/portfolio-correlation — real correlation/sector/factor
+  // analysis on the account's actual live Alpaca positions. Deliberately
+  // NOT part of risk-snapshot (which PortfolioRiskCard polls every 60s) —
+  // this needs a real historical-bars fetch per held symbol plus 3 factor
+  // proxies, same "expensive, so button-gated, not auto-polled" discipline
+  // HoldingsTab.jsx's own runPortfolioAnalysis() already follows for its
+  // manual-portfolio version of this exact analysis.
+  if (pathname === "/api/ai-hub/portfolio-correlation" && req.method === "GET") {
+    const posResp = await getJson("/api/alpaca/positions");
+    if (!posResp || !posResp.ok) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key" });
+    const positions = posResp.positions || [];
+    if (!positions.length) return writeJson(res, 200, { ok: true, syms: [], matrix: {}, sectors: {}, clusters: [], factorExposure: [], insufficientData: [] });
+    try {
+      const { computePortfolioCorrelation } = require("../portfolio-correlation-calc");
+      const result = await computePortfolioCorrelation(positions, getJson);
+      return writeJson(res, 200, { ok: true, ...result, computedAt: new Date().toISOString() });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e.message });
+    }
   }
 
   if (pathname === "/api/ai-hub/coach-log" && req.method === "GET") {
