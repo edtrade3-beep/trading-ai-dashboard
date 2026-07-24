@@ -12,6 +12,7 @@ import { qUrl, QURAN_RECITERS, SURAH_LIST } from "./components/quran-data.js";
 import QuranTab from "./components/QuranTab.jsx";
 import MoversTab from "./components/MoversTab.jsx";
 import TradingCopilot from "./components/TradingCopilot.jsx";
+import QuickTradePanel from "./components/QuickTradePanel.jsx";
 import PredictionsTab from "./components/PredictionsTab.jsx";
 import ProPathTab from "./components/ProPathTab.jsx";
 import CoursesTab from "./components/CoursesTab.jsx";
@@ -5481,6 +5482,7 @@ export default function App() {
       <IstighfarWidget C={C} themeMode={themeMode} isMobile={isMobile} />
       <div style={{ height: ISTIGHFAR_BAR_H, flexShrink: 0 }} aria-hidden="true" />
       <TradingCopilot C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistSymbols={watchlistSymbols} statusBarH={statusBarH} fabFading={fabFading} />
+      <QuickTradePanel C={C} MONO={MONO} SANS={SANS} terminalSymbol={terminalSymbol} setTerminalSymbol={setTerminalSymbol} macroData={macroData} scanResults={scanResults} statusBarH={statusBarH} fabFading={fabFading} />
       <RealityCheckWidget statusBarH={statusBarH} fabFading={fabFading} />
       {/* Google Fonts — Inter (UI) + JetBrains Mono (data/numbers) */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -6603,7 +6605,7 @@ export default function App() {
       {activeTab === "tradeplanner" && <TradePlannerTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} />}
       {activeTab === "dipbuy" && <DipBuyTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} />}
       {(activeTab === "greenlight" || activeTab === "mytrades") && <>
-        <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} sectorData={sectorData} />
+        <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} sectorData={sectorData} setTerminalSymbol={setTerminalSymbol} />
         <MyTradesTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} />
       </>}
       {activeTab === "trendtemplate" && <TrendTemplateTab C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />}

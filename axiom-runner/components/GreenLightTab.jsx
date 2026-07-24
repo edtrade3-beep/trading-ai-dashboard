@@ -132,7 +132,7 @@ function AutopilotStatusCard({ C, MONO, SANS }) {
   );
 }
 
-export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFor, scanResults, sectorData }) {
+export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFor, scanResults, sectorData, setTerminalSymbol }) {
   const spyQ   = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
   const spyChg = Number(spyQ?.changesPercentage || 0);
   // Sector strength: rank the 11 SPDR sector ETFs by today's move; top half = "strong" (Step 2 of the A+ spec).
@@ -475,7 +475,15 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
               </button>
             );
           })()}
-          <button onClick={() => setGlExpanded(glExpanded === r.symbol ? null : r.symbol)}
+          <button onClick={() => {
+              const opening = glExpanded !== r.symbol;
+              setGlExpanded(opening ? r.symbol : null);
+              // Real "re-architect Green Light" wiring: expanding a setup also
+              // loads it into the Quick Trade panel's selected ticker, so the
+              // signal you just reviewed here is one click from real execution
+              // instead of Green Light's old localStorage-only fake "buy".
+              if (opening && setTerminalSymbol) setTerminalSymbol(r.symbol);
+            }}
             style={{ background: `${C.accent}15`, border: `1px solid ${C.accent}44`, color: C.accent,
               borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700,
               padding: "6px 12px", cursor: "pointer" }}>
