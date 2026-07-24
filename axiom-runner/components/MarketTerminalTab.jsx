@@ -150,11 +150,6 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
 
   return (
     <div style={{ width: "100%" }}>
-    <PerformanceCard C={C} MONO={MONO} SANS={SANS} />
-    <BestOpportunities C={C} MONO={MONO} SANS={SANS} onPick={loadSym} macroData={macroData} setActiveTab={setActiveTab} />
-    <MarketPulseBar C={C} MONO={MONO} SANS={SANS} />
-    <SentimentRow C={C} MONO={MONO} SANS={SANS} />
-    <SectorHeatStrip sectorData={sectorData} C={C} MONO={MONO} SANS={SANS} />
     <div style={{ width: "100%", display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
       {/* ── LEFT: movers list ── */}
       <div style={{ flex: "1 1 320px", minWidth: 300, maxWidth: 420 }}>
@@ -313,6 +308,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         {dTab === "news" && <NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
       </div>
     </div>
+
+    <PerformanceCard C={C} MONO={MONO} SANS={SANS} />
+    <BestOpportunities C={C} MONO={MONO} SANS={SANS} onPick={loadSym} macroData={macroData} setActiveTab={setActiveTab} />
+    <MarketPulseBar C={C} MONO={MONO} SANS={SANS} />
+    <SentimentRow C={C} MONO={MONO} SANS={SANS} />
+    <SectorHeatStrip sectorData={sectorData} C={C} MONO={MONO} SANS={SANS} />
     </div>
   );
 }
