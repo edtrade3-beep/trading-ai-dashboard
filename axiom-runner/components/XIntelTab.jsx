@@ -137,7 +137,7 @@ export default function XIntelTab({ C, MONO, SANS, macroData, setActiveTab }) {
         <div>
           <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 900, color: C.text }}>🐦 X INTELLIGENCE ENGINE</div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-            Real posts + press releases from watched accounts, via the real X API and free RSS — no AI, no scraping
+            Real posts + press releases from watched accounts, via the real X API and free RSS, with real AI sentiment classification — no scraping
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -151,7 +151,7 @@ export default function XIntelTab({ C, MONO, SANS, macroData, setActiveTab }) {
       </div>
 
       <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, background: `${C.textDim}0a`, borderRadius: 8, padding: "8px 12px" }}>
-        ℹ️ Two real sources, no AI, no scraping: (1) free official RSS feeds (Fed, White House, SEC, and 9 company/news newsrooms including NVIDIA, Apple, OpenAI, Microsoft, AMD, WSJ, FT, CNBC) — real press releases, shown as-is with a 🆓 RSS badge; (2) the real X.com API for the rest of the watchlist — real posts with real timestamps and real like/retweet/reply counts, shown as-is with a 🐦 X API badge. An account with a free RSS feed is never also billed via the paid API. Neither path uses AI: cashtag ($TICKER) extraction and category tagging are real deterministic pattern-matching, not sentiment/market-impact judgment — no direction, confidence, or executive-summary calls are made on either source.
+        ℹ️ Two real sources, no scraping: (1) free official RSS feeds (Fed, White House, SEC, and 9 company/news newsrooms including NVIDIA, Apple, OpenAI, Microsoft, AMD, WSJ, FT, CNBC) — real press releases, shown as-is with a 🆓 RSS badge; (2) the real X.com API for the rest of the watchlist — real posts with real timestamps and real like/retweet/reply counts, shown as-is with a 🐦 X API badge. An account with a free RSS feed is never also billed via the paid API. Each item gets a real AI sentiment call (Claude Haiku, tracked in the Anthropic budget) — bullish/bearish/neutral with a confidence score, shown as a colored badge; falls back to an honestly-marked "unanalyzed" neutral if Credit Saver Mode is active or the call fails. Cashtag ($TICKER) extraction and category tagging remain real deterministic pattern-matching, not AI — no per-symbol direction, confidence, or executive-summary calls are made.
       </div>
 
       {refreshMsg && <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>{refreshMsg}</div>}

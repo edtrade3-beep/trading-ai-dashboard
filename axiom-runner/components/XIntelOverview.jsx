@@ -36,8 +36,17 @@ function ItemCard({ it, C, MONO, SANS }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>@{it.entityUsername}</span>
           <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: col, background: `${col}18`, borderRadius: 5, padding: "2px 6px" }}>{it.category.toUpperCase()}</span>
-          {isRss && <span title="Real official RSS feed — not AI-analyzed, no market-impact call made" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, background: `${C.textDim}18`, borderRadius: 5, padding: "2px 6px" }}>🆓 RSS · UNANALYZED</span>}
-          {isXApi && <span title="Real X.com post — deterministic cashtag/category extraction, no AI sentiment or direction judgment made" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, background: `${C.textDim}18`, borderRadius: 5, padding: "2px 6px" }}>🐦 X API · UNANALYZED</span>}
+          {isRss && <span title="Real official RSS feed — deterministic category tagging, no market-impact call made" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, background: `${C.textDim}18`, borderRadius: 5, padding: "2px 6px" }}>🆓 RSS</span>}
+          {isXApi && <span title="Real X.com post — deterministic cashtag/category extraction, no AI direction/confidence judgment made" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, background: `${C.textDim}18`, borderRadius: 5, padding: "2px 6px" }}>🐦 X API</span>}
+          {it.sentimentAnalyzed ? (
+            <span title="Real AI sentiment classification (Claude Haiku)" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, borderRadius: 5, padding: "2px 6px",
+              color: it.sentiment === "bullish" ? C.green : it.sentiment === "bearish" ? C.red : C.textDim,
+              background: it.sentiment === "bullish" ? `${C.green}18` : it.sentiment === "bearish" ? `${C.red}18` : `${C.textDim}18` }}>
+              {it.sentiment === "bullish" ? "▲" : it.sentiment === "bearish" ? "▼" : "○"} {it.sentiment.toUpperCase()}{it.confidence != null ? ` ${it.confidence}%` : ""}
+            </span>
+          ) : (
+            (isRss || isXApi) && <span title="No AI sentiment call was made for this item (missing API key, Credit Saver Mode, or a real failure) — shown as neutral, not guessed" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.textDim, opacity: 0.7 }}>· unanalyzed</span>
+          )}
           {isXApi && (it.realEngagement?.likes > 0 || it.realEngagement?.retweets > 0) && (
             <span title="Real engagement counts from X" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.textDim }}>
               ♥ {it.realEngagement.likes} · ↻ {it.realEngagement.retweets}

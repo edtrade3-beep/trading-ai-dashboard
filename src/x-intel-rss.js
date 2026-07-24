@@ -11,20 +11,24 @@
 // third-party scraper isn't "free data", it's a fragile, unverifiable
 // substitute).
 //
-// Honesty discipline, same as the AI path: every logged item carries a
-// real source URL and real title/summary text. What this path does NOT
-// do — and must not fabricate — is AI-style analysis: no sentiment
-// judgment, no market-impact symbol calls, no confidence/impact scores.
-// Those require real reasoning this free path doesn't perform. Items are
-// marked analysisSource:"rss" so the UI can show them as real-but-
-// unanalyzed, and no prediction gets logged for them (logPrediction is
-// only called from the AI path, where a real reasoned call was made).
+// Honesty discipline: every logged item carries a real source URL and
+// real title/summary text. Real AI sentiment classification was brought
+// back 2026-07 per explicit user request (see x-intel-sentiment-ai.js) —
+// a small, focused Anthropic call, not a full re-analysis. What this path
+// still does NOT do — and must not fabricate — is deeper AI-style
+// analysis: no market-impact symbol calls, no confidence/impact scores,
+// no executive summaries. Those require real reasoning this free path
+// still doesn't perform. Items are marked analysisSource:"rss" and
+// sentimentAnalyzed reflects whether a real AI call actually classified
+// this specific item; no prediction gets logged for them (logPrediction
+// is only called from Command Center, where a full reasoned call is made).
 "use strict";
 
 const { fetchRssItems } = require("./rss-fetch");
 const { list: listWatchlist } = require("./x-intel-watchlist-store");
 const { logItem, findRecentDuplicate } = require("./x-intel-store");
 const mentionsStore = require("./x-intel-mentions-store");
+const { classifySentiment } = require("./x-intel-sentiment-ai");
 
 // username (matches watchlist entries) -> { url, itemCategory }. Only
 // entities with a confirmed-working free feed are listed; everyone else
@@ -78,6 +82,11 @@ async function runXIntelRssPoll() {
     for (const raw of items.slice(0, RECENT_PER_FEED)) {
       const oneLine = raw.title.slice(0, 140);
       if (findRecentDuplicate(username, oneLine, DEDUP_WINDOW_MS)) continue;
+      // Real AI sentiment classification, brought back 2026-07 per
+      // explicit user request — see x-intel-sentiment-ai.js's header.
+      // Dedup already ran above, so this never spends a real AI call on
+      // an item that's about to be discarded.
+      const { sentiment, confidence, analyzed } = await classifySentiment(raw.summary || raw.title);
       const item = {
         entityUsername: entity.username,
         entityDisplayName: entity.displayName,
@@ -94,8 +103,9 @@ async function runXIntelRssPoll() {
         publishedAt: toIso(raw.pubDate),
         sourceCitation: raw.link,
         text: raw.summary || raw.title,
-        sentiment: "neutral", // honest — no AI judgment performed on this path
-        confidence: null,
+        sentiment,
+        confidence,
+        sentimentAnalyzed: analyzed, // real disclosure flag, same as the X API path
         urgency: "low",
         category: feed.itemCategory,
         marketImpact: [], // honest — no reasoned symbol-level call made; fabricating one would violate this app's real-data-only rule

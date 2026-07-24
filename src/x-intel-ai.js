@@ -1,16 +1,23 @@
-// x-intel-ai.js — X Intelligence Engine, real X API (Anthropic removed
-// from this feature per explicit user direction, 2026-07). Real posts via
-// providers/x-api.js (Bearer-token app-only auth), real deterministic
-// classification via x-intel-x-classifiers.js (cashtag extraction +
-// keyword category matching) — NOT an AI replacement, disclosed honestly.
+// x-intel-ai.js — X Intelligence Engine, real X API (Anthropic's full
+// web-search analysis removed from this feature per explicit user
+// direction, 2026-07). Real posts via providers/x-api.js (Bearer-token
+// app-only auth), real deterministic classification via
+// x-intel-x-classifiers.js (cashtag extraction + keyword category
+// matching) — NOT an AI replacement, disclosed honestly.
 //
-// What's genuinely gone, not faked: sentiment judgment (bullish/bearish),
-// executive summaries, impact/confidence scoring, and per-symbol direction
-// calls. Raw X posts don't carry that interpretation — building a
-// keyword-based fake version of it would violate this app's "never
-// fabricate" rule as much as inventing a quote would. Every item's
-// `sentiment` stays "neutral" and `aiSummary`/`scores` stay null, exactly
-// the same honest pattern x-intel-rss.js already used for its free path.
+// Real AI sentiment classification was brought back 2026-07 per explicit
+// user request, after the initial migration left every item honestly
+// neutral — see x-intel-sentiment-ai.js's header for the cost discipline
+// (Haiku, no web search tool, Credit Saver Mode gated; a small fraction
+// of the old per-item web-search cost this feature used to carry).
+//
+// What's still genuinely gone, not faked: executive summaries,
+// impact/confidence scoring, and per-symbol direction calls. Raw X posts
+// don't carry that interpretation — building a keyword-based fake version
+// of it would violate this app's "never fabricate" rule as much as
+// inventing a quote would. `aiSummary`/`scores` stay null/empty, and each
+// item's `sentimentAnalyzed` flag honestly discloses whether its
+// `sentiment` reflects a real AI call or the safe neutral fallback.
 //
 // What's genuinely NEW and real, not available before: exact real
 // `created_at` timestamps (previously disclosed as unavailable), and real
@@ -33,6 +40,7 @@ const { extractCashtags, classifyCategory } = require("./x-intel-x-classifiers")
 const { CATEGORIES } = require("./x-intel-categories");
 const { list: listWatchlist, update: updateWatchlistEntry } = require("./x-intel-watchlist-store");
 const { KNOWN_RSS_FEEDS } = require("./x-intel-rss");
+const { classifySentiment } = require("./x-intel-sentiment-ai");
 const { logItem, findRecentDuplicate } = require("./x-intel-store");
 const { sectorOf } = require("./risk-guardrails");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
@@ -84,12 +92,18 @@ function sanitizeMarketImpact(symbols) {
   }));
 }
 
-function buildItem(entity, tweet) {
+async function buildItem(entity, tweet) {
   const text = String(tweet.text || "");
   const symbols = extractCashtags(text);
   const metrics = tweet.public_metrics || {};
   const likes = Number(metrics.like_count) || 0;
   const retweets = Number(metrics.retweet_count) || 0;
+  // Real AI sentiment classification, brought back 2026-07 per explicit
+  // user request — see x-intel-sentiment-ai.js's header for the real cost
+  // discipline (Haiku, no web search, Credit Saver Mode gated). Falls back
+  // to honest neutral (analyzed:false) if no key/Saver Mode/a real
+  // failure, same as before this was reintroduced.
+  const { sentiment, confidence, analyzed } = await classifySentiment(text);
   return {
     entityUsername: entity.username,
     entityDisplayName: entity.displayName,
@@ -99,8 +113,9 @@ function buildItem(entity, tweet) {
     publishedAt: tweet.created_at || null, // real exact timestamp — genuinely new capability
     sourceCitation: `https://x.com/${entity.username}/status/${tweet.id}`,
     text: text.slice(0, 500),
-    sentiment: "neutral", // honest — no AI judgment performed, same as the RSS path
-    confidence: null,
+    sentiment,
+    confidence,
+    sentimentAnalyzed: analyzed, // real disclosure flag — UI shows this honestly, not a blanket claim
     urgency: "low",
     category: classifyCategory(text), // real keyword match, disclosed as such
     marketImpact: sanitizeMarketImpact(symbols),
@@ -150,8 +165,12 @@ async function runXIntelXApiGeneration({ topN } = {}) {
       updateWatchlistEntry(entity.id, { lastChecked: new Date().toISOString() });
 
       for (const tweet of tweets) {
-        const item = buildItem(entity, tweet);
-        if (findRecentDuplicate(item.entityUsername, item.aiSummary.oneLine, DEDUP_WINDOW_MS)) continue;
+        // Dedup-check on the raw text BEFORE spending a real AI sentiment
+        // call — no point classifying a post that's about to be discarded
+        // as a duplicate anyway.
+        const oneLinePreview = String(tweet.text || "").slice(0, 140);
+        if (findRecentDuplicate(entity.username, oneLinePreview, DEDUP_WINDOW_MS)) continue;
+        const item = await buildItem(entity, tweet);
         const saved = logItem(item);
         logged.push(saved);
         updateWatchlistEntry(entity.id, { lastSeenPost: item.capturedAt });
