@@ -38,6 +38,7 @@ const { handleCompression }   = require("./routes/compression");
 const { handleInsider }       = require("./routes/insider");
 const { handleGapFill }       = require("./routes/gapfill");
 const { handleAlpaca }        = require("./routes/alpaca");
+const { handleQuickTrade }    = require("./routes/quick-trade");
 const { handleHoldings }      = require("./routes/holdings");
 const { handleFed }           = require("./routes/fed");
 const { sendTelegramAlert, sendTelegramMessage, sendTelegramVoice, isConfigured: telegramConfigured } = require("./telegram");
@@ -63,7 +64,12 @@ async function handleRequest(req, res) {
       // Tradier can go LIVE (TRADIER_LIVE=true) — its config/order/cancel routes
       // need the same gate the Alpaca equivalents already have. (Read-only GETs
       // like /positions and /orders aren't POST/DELETE, so they stay open.)
-      pathname.startsWith("/api/autoexec/")
+      pathname.startsWith("/api/autoexec/") ||
+      // Quick Trade Engine — every mutating route moves real money on the
+      // real paper account, same gate as the legacy Alpaca routes above.
+      // /precheck is GET-only (read-only risk-gate status) and intentionally
+      // not listed here.
+      pathname.startsWith("/api/quick-trade/")
     )) {
       if (!AUTH_TOKEN) return writeJson(res, 401, { ok: false, error: "unauthorized — API_AUTH_TOKEN is not configured on the server" });
       const tok = req.headers["x-api-token"] || "";
@@ -145,6 +151,10 @@ async function handleRequest(req, res) {
 
     if (pathname.startsWith("/api/alpaca/")) {
       return await handleAlpaca(req, res, requestUrl);
+    }
+
+    if (pathname.startsWith("/api/quick-trade/")) {
+      return await handleQuickTrade(req, res, requestUrl);
     }
 
     if (pathname === "/api/holdings") {
