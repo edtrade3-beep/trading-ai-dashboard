@@ -1,6 +1,6 @@
 export default function ScreenerTab({
   C, MONO, scanResults, screenerRules, setScreenerRules, screenerResults, setScreenerResults,
-  screenerRan, setScreenerRan, themeMode, setActiveTab, setTvOsSymbol, setTvOsInput,
+  screenerRan, setScreenerRan, themeMode, setActiveTab, setTerminalSymbol,
 }) {
         const FIELDS = [
           { id: "score",    label: "AI Score",    get: r => r.score },
@@ -120,7 +120,7 @@ export default function ScreenerTab({
                               <td style={{ fontFamily: MONO, fontSize: 12, color: C.text, textAlign: "right", padding: "8px 12px" }}>${Number(row.quote?.price || 0).toFixed(2)}</td>
                               <td style={{ fontFamily: MONO, fontSize: 12, color: rvol && rvol >= 1.5 ? C.green : C.textDim, textAlign: "right", padding: "8px 12px" }}>{rvol ? rvol.toFixed(2) + "x" : "—"}</td>
                               <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                                <button onClick={() => { setActiveTab("openstock"); setTvOsSymbol(row.ticker); setTvOsInput(row.ticker); }}
+                                <button onClick={() => { setTerminalSymbol(row.ticker); try { localStorage.setItem("mterminal_load_sym", row.ticker); } catch {} setActiveTab("mterminal"); }}
                                   style={{ fontFamily: MONO, fontSize: 12, background: `${C.accent}22`, border: `1px solid ${C.accent}44`, color: C.accent, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
                                   CHART
                                 </button>

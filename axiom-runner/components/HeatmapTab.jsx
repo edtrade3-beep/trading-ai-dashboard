@@ -1,5 +1,5 @@
 export default function HeatmapTab({
-  C, MONO, portfolioHoldings, watchlistData, setActiveTab, setTvOsSymbol, setTvOsInput,
+  C, MONO, portfolioHoldings, watchlistData, setActiveTab, setTerminalSymbol,
 }) {
         const positions = (portfolioHoldings || []).filter(h => h.shares > 0);
         const enriched = positions.map(h => {
@@ -60,7 +60,7 @@ export default function HeatmapTab({
                       const tileH   = Math.max(64, Math.min(140, tileW * 0.6));
                       return (
                         <button key={h.symbol}
-                          onClick={() => { setActiveTab("openstock"); setTvOsSymbol(h.symbol); setTvOsInput(h.symbol); }}
+                          onClick={() => { setTerminalSymbol(h.symbol); try { localStorage.setItem("mterminal_load_sym", h.symbol); } catch {} setActiveTab("mterminal"); }}
                           title={`${h.symbol}: ${h.pnlPct >= 0 ? "+" : ""}${h.pnlPct.toFixed(2)}% · $${h.value.toFixed(0)}`}
                           style={{ width: tileW, height: tileH, background: pnlColor(h.pnlPct),
                             border: `1px solid ${h.pnlPct > 0 ? C.green : h.pnlPct < 0 ? C.red : C.border}44`,

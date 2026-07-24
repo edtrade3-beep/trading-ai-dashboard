@@ -6644,7 +6644,7 @@ export default function App() {
           C={C} MONO={MONO} scanResults={scanResults} screenerRules={screenerRules}
           setScreenerRules={setScreenerRules} screenerResults={screenerResults}
           setScreenerResults={setScreenerResults} screenerRan={screenerRan} setScreenerRan={setScreenerRan}
-          themeMode={themeMode} setActiveTab={setActiveTab} setTvOsSymbol={setTvOsSymbol} setTvOsInput={setTvOsInput}
+          themeMode={themeMode} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol}
         />
       )}
 
@@ -6653,14 +6653,14 @@ export default function App() {
           C={C} MONO={MONO} watchlistSymbols={watchlistSymbols} shortIntInput={shortIntInput}
           setShortIntInput={setShortIntInput} fetchShortInterest={fetchShortInterest}
           shortIntLoading={shortIntLoading} shortIntData={shortIntData} themeMode={themeMode}
-          setActiveTab={setActiveTab} setTvOsSymbol={setTvOsSymbol} setTvOsInput={setTvOsInput}
+          setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol}
         />
       )}
 
       {activeTab === "heatmap" && (
         <HeatmapTab
           C={C} MONO={MONO} portfolioHoldings={portfolioHoldings} watchlistData={watchlistData}
-          setActiveTab={setActiveTab} setTvOsSymbol={setTvOsSymbol} setTvOsInput={setTvOsInput}
+          setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol}
         />
       )}
 

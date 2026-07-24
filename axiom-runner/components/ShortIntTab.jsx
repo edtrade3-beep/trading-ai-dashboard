@@ -1,6 +1,6 @@
 export default function ShortIntTab({
   C, MONO, watchlistSymbols, shortIntInput, setShortIntInput, fetchShortInterest,
-  shortIntLoading, shortIntData, themeMode, setActiveTab, setTvOsSymbol, setTvOsInput,
+  shortIntLoading, shortIntData, themeMode, setActiveTab, setTerminalSymbol,
 }) {
         const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
         const defaultTickers = watchlistSymbols.slice(0, 20).join(",");
@@ -52,7 +52,7 @@ export default function ShortIntTab({
                         return (
                           <tr key={row.symbol} style={{ borderTop: `1px solid ${C.border}33`, background: i % 2 === 0 ? "transparent" : (themeMode === "dark" ? "#ffffff04" : "#00000003") }}>
                             <td style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.accent, padding: "9px 14px" }}>
-                              <button onClick={() => { setActiveTab("openstock"); setTvOsSymbol(row.symbol); setTvOsInput(row.symbol); }}
+                              <button onClick={() => { setTerminalSymbol(row.symbol); try { localStorage.setItem("mterminal_load_sym", row.symbol); } catch {} setActiveTab("mterminal"); }}
                                 style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 13, fontWeight: 800, cursor: "pointer", padding: 0 }}>
                                 {row.symbol}
                               </button>
