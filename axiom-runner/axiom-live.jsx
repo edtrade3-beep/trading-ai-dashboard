@@ -6104,7 +6104,7 @@ export default function App() {
             request). No X API, no scraping — real web-search-grounded
             coverage of watched accounts, same mechanism as Command
             Center's event feed. See XIntelTab.jsx/x-intel-ai.js headers. */}
-        {activeTab === "x-intel" && <XIntelTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} />}
+        {activeTab === "x-intel" && <XIntelTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} setTvOsSymbol={setTvOsSymbol} setTvOsInput={setTvOsInput} />}
 
         {/* Best Opportunities — moved out of the Dashboard Opportunities
             sub-tab into its own dedicated sidebar spot, right under CEO AI

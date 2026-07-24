@@ -97,7 +97,7 @@ function WatchlistPanel({ C, MONO, SANS, watchlist, reload }) {
   );
 }
 
-export default function XIntelTab({ C, MONO, SANS, macroData, setActiveTab }) {
+export default function XIntelTab({ C, MONO, SANS, macroData, setActiveTab, setTvOsSymbol, setTvOsInput }) {
   const [items, setItems] = useState([]);
   const [watchlist, setWatchlist] = useState([]);
   const [trackRecord, setTrackRecord] = useState(null);
@@ -177,7 +177,7 @@ export default function XIntelTab({ C, MONO, SANS, macroData, setActiveTab }) {
         ))}
       </div>
 
-      {subTab === "overview" && <XIntelOverview C={C} MONO={MONO} SANS={SANS} items={items} state={state} trackRecord={trackRecord} />}
+      {subTab === "overview" && <XIntelOverview C={C} MONO={MONO} SANS={SANS} items={items} state={state} trackRecord={trackRecord} setActiveTab={setActiveTab} setTvOsSymbol={setTvOsSymbol} setTvOsInput={setTvOsInput} />}
       {subTab === "social" && <XIntelSocial C={C} MONO={MONO} SANS={SANS} items={items} />}
       {subTab === "trend" && <XIntelTrend C={C} MONO={MONO} SANS={SANS} />}
       {subTab === "macro" && <XIntelMacro C={C} MONO={MONO} SANS={SANS} macroData={macroData} />}
