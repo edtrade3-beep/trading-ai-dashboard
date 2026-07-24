@@ -20,6 +20,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const [loadingChart, setLoadingChart] = useState(false);
   const [query, setQuery] = useState("");
   const [dTab, setDTab] = useState("chart");   // per-symbol detail tab
+  const [chartTf, setChartTf] = useState("1d"); // chart candle granularity, 5m → 1wk
   const [sortBy, setSortBy] = useState("bucket");  // movers sort
   const [source, setSource] = useState("movers");  // movers | watchlist
   const [wlRows, setWlRows] = useState(null);
@@ -54,32 +55,38 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     load(); const t = setInterval(load, 90000); return () => clearInterval(t);
   }, []);
 
-  const loadSym = useCallback((s) => {
+  // tf param lets a caller (timeframe buttons) override the current chartTf
+  // in the same click that also changes it, avoiding a stale-closure refetch.
+  const loadSym = useCallback((s, tf) => {
     const symbol = String(s || "").trim().toUpperCase();
     if (!symbol) return;
+    const useTf = tf || chartTf;
     setSym(symbol); setLoadingChart(true);
-    fetch("/api/market/trend-template?symbol=" + encodeURIComponent(symbol))
+    fetch(`/api/market/trend-template?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(useTf)}`)
       .then(r => r.json())
       .then(d => { if (!d.error) setChart(d); })
       .catch(() => {})
       .finally(() => setLoadingChart(false));
-  }, []);
+  }, [chartTf]);
   useEffect(() => {
     let pending = null;
     try { pending = localStorage.getItem("mterminal_load_sym"); if (pending) localStorage.removeItem("mterminal_load_sym"); } catch {}
     loadSym(pending || "NVDA");
-  }, [loadSym]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Live refresh — silently re-pull the loaded symbol every 45s (no spinner, keeps
   // chart zoom) so price + setup stay current during the session.
   useEffect(() => {
     if (!sym) return;
     const t = setInterval(() => {
-      fetch("/api/market/trend-template?symbol=" + encodeURIComponent(sym))
+      fetch(`/api/market/trend-template?symbol=${encodeURIComponent(sym)}&interval=${encodeURIComponent(chartTf)}`)
         .then(r => r.json()).then(d => { if (d && !d.error) setChart(d); }).catch(() => {});
     }, 45000);
     return () => clearInterval(t);
-  }, [sym]);
+  }, [sym, chartTf]);
+
+  const setTf = useCallback((tf) => { setChartTf(tf); loadSym(sym, tf); }, [sym, loadSym]);
 
   // Market cap + P/E from fundamentals (Yahoo local / FMP on cloud). Best-effort.
   const [fund, setFund] = useState(null);
@@ -289,6 +296,21 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
 
         {dTab === "chart" && (
           <>
+            {/* Candle timeframe — 5 min through weekly. Real Alpaca intraday
+                bars under a day, real Yahoo weekly bars for 1W; the daily
+                Minervini rating/pivot/stop/target never change with this —
+                see the "Rating reflects the daily setup" note on the chart
+                for anything other than 1D. */}
+            <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
+              {[["5m", "5m"], ["15m", "15m"], ["30m", "30m"], ["1h", "1H"], ["1d", "1D"], ["1wk", "1W"]].map(([id, lbl]) => (
+                <button key={id} onClick={() => setTf(id)} disabled={loadingChart}
+                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: loadingChart ? "default" : "pointer",
+                    border: `1px solid ${chartTf === id ? C.accent : C.border}`, background: chartTf === id ? `${C.accent}18` : "transparent",
+                    color: chartTf === id ? C.accent : C.textDim, opacity: loadingChart ? 0.6 : 1 }}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
             {chart
               ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={520} />
               : <div style={{ height: 520, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}

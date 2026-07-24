@@ -575,6 +575,34 @@ function ttSmaSeries(values, period) {
   return values.map((_, i) => ttSmaAt(values, period, i));
 }
 
+// Real interval → (provider, range) map for the chart's timeframe picker.
+// Alpaca's real intraday bars (already this app's low-latency intraday
+// source elsewhere) for anything under a day; Yahoo weekly for "1wk" —
+// deliberately NOT inventing a 4h bucket neither provider actually has.
+// The Minervini scoring below always runs on real daily bars regardless of
+// this pick — the rating/pivot/stop/target reflect the daily swing thesis
+// no matter which candle granularity you're currently looking at.
+const TT_INTERVAL_MAP = {
+  "5m":  { provider: "alpaca", range: "5d",  tf: "5m" },
+  "15m": { provider: "alpaca", range: "1mo", tf: "15m" },
+  "30m": { provider: "alpaca", range: "3mo", tf: "30m" },
+  "1h":  { provider: "alpaca", range: "6mo", tf: "60m" },
+  "1wk": { provider: "yahoo",  range: "5y",  tf: "1wk" },
+};
+async function fetchIntervalBars(symbol, interval) {
+  const cfg = TT_INTERVAL_MAP[interval];
+  if (!cfg) return null;
+  try {
+    if (cfg.provider === "alpaca") {
+      const { fetchAlpacaBars } = require("../providers/alpaca-data");
+      const bars = await fetchAlpacaBars(symbol, cfg.range, cfg.tf);
+      return Array.isArray(bars) && bars.length >= 20 ? bars : null;
+    }
+    const bars = await fetchYahooBars(symbol, cfg.range, cfg.tf);
+    return Array.isArray(bars) && bars.length >= 20 ? bars : null;
+  } catch { return null; }
+}
+
 // IBD-style weighted momentum: most recent quarter double-weighted.
 function ttWeightedMomentum(closes) {
   const last = closes.length - 1;
@@ -986,7 +1014,7 @@ async function buildMarketOutlook() {
 const _ttCache = new Map();
 const TT_TTL_MS = 120_000;
 async function buildTrendTemplate(symbol, opts = {}) {
-  const key = `${symbol}:${opts.light ? 1 : 0}`;
+  const key = `${symbol}:${opts.light ? 1 : 0}:${opts.interval || "1d"}`;
   const hit = _ttCache.get(key);
   if (hit && Date.now() - hit.ts < TT_TTL_MS) return hit.data;
   const data = await _buildTrendTemplate(symbol, opts);
@@ -1192,6 +1220,30 @@ async function _buildTrendTemplate(symbol, opts = {}) {
     ma150: ttSmaSeries(closes, 150).map((v) => (v == null ? null : round2(v))),
     ma200: ttSmaSeries(closes, 200).map((v) => (v == null ? null : round2(v))),
   };
+  result.intervalUsed = "1d";
+
+  // Optional alternate-granularity candles for the chart's timeframe picker.
+  // Only the candles + their own MAs swap — score/criteria/setup (pivot,
+  // stop, targets, verdict) stay the real daily computation above, since
+  // Minervini's template is fundamentally a daily/weekly method. Honest
+  // fallback to daily on any real fetch failure — intervalUsed tells the
+  // frontend what actually came back rather than silently mislabeling it.
+  if (opts.interval && opts.interval !== "1d") {
+    const altBars = await fetchIntervalBars(symbol, opts.interval);
+    if (altBars) {
+      const altCloses = altBars.map((b) => b.close);
+      result.bars = altBars.map((b) => ({
+        time: b.time, open: round2(b.open), high: round2(b.high), low: round2(b.low),
+        close: round2(b.close), volume: Math.round(b.volume || 0),
+      }));
+      result.series = {
+        ma50: ttSmaSeries(altCloses, 50).map((v) => (v == null ? null : round2(v))),
+        ma150: ttSmaSeries(altCloses, 150).map((v) => (v == null ? null : round2(v))),
+        ma200: ttSmaSeries(altCloses, 200).map((v) => (v == null ? null : round2(v))),
+      };
+      result.intervalUsed = opts.interval;
+    }
+  }
   return result;
 }
 
@@ -1339,8 +1391,9 @@ async function handleMarket(req, res, requestUrl) {
   if (pathname === "/api/market/trend-template" && req.method === "GET") {
     const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
     if (!symbol) return writeJson(res, 400, { error: "Symbol is required." });
+    const interval = (searchParams.get("interval") || "1d").trim();
     try {
-      const payload = await buildTrendTemplate(symbol);
+      const payload = await buildTrendTemplate(symbol, { interval });
       return writeJson(res, 200, payload);
     } catch (err) {
       return writeJson(res, 502, { error: err instanceof Error ? err.message : "Trend Template failed." });

@@ -98,7 +98,10 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     if (exitIdx >= 0) markers.push({ time: toTime(bars[exitIdx].time), position: "aboveBar", color: C.red, shape: "arrowDown", text: "EXIT" });
     s.candle.setMarkers(markers);
 
-    if (symRef.current !== data.symbol) { chart.timeScale().fitContent(); symRef.current = data.symbol; }
+    // Re-fit on a symbol OR timeframe change (switching 5m→1D on the same
+    // symbol leaves a stale zoom range from the old granularity otherwise).
+    const viewKey = `${data.symbol}:${data.intervalUsed || "1d"}`;
+    if (symRef.current !== viewKey) { chart.timeScale().fitContent(); symRef.current = viewKey; }
   }, [data, C]);
 
   if (typeof window !== "undefined" && !window.LightweightCharts) {
@@ -173,6 +176,13 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
             </div>
           )}
           {upside != null && <div style={{ fontFamily: MONO, fontSize: 10, color: "#f59e0b", marginTop: 5 }}>🎯 {upside > 0 ? "+" : ""}{upside}% to target</div>}
+          {/* Minervini's template is a daily/weekly method — the rating and
+              price levels above are always the real daily computation, even
+              while you're looking at an intraday candle granularity. Say so
+              rather than let it look like a live intraday rating. */}
+          {data.intervalUsed && data.intervalUsed !== "1d" && (
+            <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim, marginTop: 5, fontStyle: "italic" }}>Rating reflects the daily setup</div>
+          )}
         </div>
       )}
     </div>
