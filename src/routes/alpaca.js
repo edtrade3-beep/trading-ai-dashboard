@@ -2,32 +2,16 @@
 // Set ALPACA_KEY_ID and ALPACA_SECRET_KEY in the environment (use PAPER keys).
 const { writeJson } = require("../utils");
 const { tierStats } = require("../autopilot-journal");
+const { resolveAlpacaKeys, alpacaTradingRequest } = require("../providers/alpaca-client");
 
-const BASE = "https://paper-api.alpaca.markets"; // PAPER only — never live
-
-function keys() {
-  return {
-    id: process.env.ALPACA_KEY_ID || process.env.ALPACA_API_KEY_ID || "",
-    secret: process.env.ALPACA_SECRET_KEY || process.env.ALPACA_API_SECRET_KEY || "",
-  };
-}
-
-async function alpaca(path, method = "GET", body = null) {
-  const { id, secret } = keys();
-  if (!id || !secret) return { _noKey: true };
-  const r = await fetch(`${BASE}${path}`, {
-    method,
-    headers: {
-      "APCA-API-KEY-ID": id,
-      "APCA-API-SECRET-KEY": secret,
-      "Content-Type": "application/json",
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await r.text();
-  let json; try { json = JSON.parse(text); } catch { json = { raw: text }; }
-  return { _status: r.status, _ok: r.ok, ...((json && typeof json === "object") ? { data: json } : { data: json }) };
-}
+// keys()/alpaca() now thin aliases over the real shared client
+// (src/providers/alpaca-client.js) — extracted 2026-07 after finding this
+// exact same real logic independently duplicated 3x across this file,
+// trailing-stops.js, and providers/alpaca-data.js (Quick Trade Engine
+// build). Every call site below is unchanged — the shared client returns
+// the identical {_ok, _status, data, _noKey} shape this file already reads.
+const keys = resolveAlpacaKeys;
+const alpaca = alpacaTradingRequest;
 
 async function readBody(req) {
   let body = ""; for await (const chunk of req) body += chunk;

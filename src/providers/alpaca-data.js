@@ -1,10 +1,15 @@
 // Free Alpaca market data (you already have the keys). Returns bars in the SAME
 // shape as the Yahoo provider so it can transparently replace it. Equities only —
 // crypto (BTC-USD) and indices (^VIX) are left to Yahoo via the caller's fallback.
-const KEYS = () => ({
-  id: process.env.ALPACA_KEY_ID || process.env.ALPACA_API_KEY_ID || "",
-  secret: process.env.ALPACA_SECRET_KEY || process.env.ALPACA_API_SECRET_KEY || "",
-});
+//
+// This file hits a different real host (data.alpaca.markets, not the
+// paper-api.alpaca.markets trading API) with different headers/pagination,
+// so only the real key-resolution logic is genuinely shared with
+// routes/alpaca.js / trailing-stops.js — reuses alpaca-client.js's
+// resolveAlpacaKeys() for that (same env-var fallback chain, one real
+// source of truth), keeps its own request logic since it's a real,
+// different API surface.
+const { resolveAlpacaKeys: KEYS } = require("./alpaca-client");
 const TF = {
   "1m": "1Min", "2m": "2Min", "5m": "5Min", "15m": "15Min", "30m": "30Min",
   "60m": "1Hour", "1h": "1Hour", "1d": "1Day", "1day": "1Day", "1wk": "1Week", "1w": "1Week",

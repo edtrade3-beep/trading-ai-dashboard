@@ -12,24 +12,20 @@ const ACTIVATE_PCT = Number(process.env.TRAIL_ACTIVATE_PCT) || 4;   // start tra
 const TRAIL_PCT    = Number(process.env.TRAIL_PCT) || 3;           // keep stop 3% below the high price
 const TARGET_R_MULTIPLE = Number(process.env.TRAIL_TARGET_R) || 2; // extend target to this multiple of the new stop's risk distance
 
-const APCA = "https://paper-api.alpaca.markets";
-function keys() {
-  return {
-    id: process.env.ALPACA_KEY_ID || process.env.ALPACA_API_KEY_ID || "",
-    secret: process.env.ALPACA_SECRET_KEY || process.env.ALPACA_API_SECRET_KEY || "",
-  };
-}
+const { resolveAlpacaKeys, alpacaTradingRequest } = require("./providers/alpaca-client");
+const keys = resolveAlpacaKeys;
+// Local shim preserving this file's original real contract (returns null
+// on no-key or any fetch error — this is a 5-minute cron, it must never
+// throw and break the interval on a transient network blip) while
+// delegating the actual request to the real shared client, extracted
+// 2026-07 after finding this exact logic independently duplicated 3x
+// (routes/alpaca.js, this file, providers/alpaca-data.js's key resolver)
+// during the Quick Trade Engine build.
 async function apca(pathStr, method = "GET", body = null) {
-  const { id, secret } = keys();
-  if (!id || !secret) return null;
   try {
-    const r = await fetch(`${APCA}${pathStr}`, {
-      method,
-      headers: { "APCA-API-KEY-ID": id, "APCA-API-SECRET-KEY": secret, "Content-Type": "application/json" },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    const j = await r.json().catch(() => null);
-    return { ok: r.ok, status: r.status, data: j };
+    const res = await alpacaTradingRequest(pathStr, method, body);
+    if (res._noKey) return null;
+    return { ok: res.ok, status: res.status, data: res.data };
   } catch { return null; }
 }
 function isMarketHoursET() {
