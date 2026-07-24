@@ -11,7 +11,18 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
   const symRef = React.useRef(null);
   const H = height || 520;
   const [showInfo, setShowInfo] = React.useState(false);
-  const toTime = (ms) => { const d = new Date(ms); return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() }; };
+  // Lightweight Charts needs a plain Unix-seconds timestamp (UTCTimestamp)
+  // for anything with intraday precision — the {year,month,day} BusinessDay
+  // form only carries date resolution, so every 5m/15m/30m/1h bar within the
+  // same calendar day would collide on the same "time" key (non-unique,
+  // non-ascending), which the library rejects outright (blank chart /
+  // "Value is null" crash — confirmed live once the real Alpaca intraday
+  // picker started feeding this component actual sub-daily bars).
+  const isIntraday = data && data.intervalUsed && data.intervalUsed !== "1d" && data.intervalUsed !== "1wk";
+  const toTime = (ms) => {
+    if (isIntraday) return Math.floor(ms / 1000);
+    const d = new Date(ms); return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+  };
 
   // Create the chart + series once per symbol / theme / size.
   React.useEffect(() => {
@@ -45,6 +56,9 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
   React.useEffect(() => {
     const s = seriesRef.current, chart = chartRef.current;
     if (!s || !chart || !data || !data.bars) return;
+    // Show clock time on the x-axis for intraday granularities (otherwise
+    // Lightweight Charts just repeats the date across every bar in a day).
+    chart.applyOptions({ timeScale: { timeVisible: !!isIntraday, secondsVisible: false } });
     const bars = data.bars, n = bars.length;
     s.candle.setData(bars.map(b => ({ time: toTime(b.time), open: b.open, high: b.high, low: b.low, close: b.close })));
     s.vol.setData(bars.map(b => ({ time: toTime(b.time), value: b.volume, color: (b.close >= b.open ? C.green : C.red) + "55" })));
