@@ -1518,7 +1518,7 @@ export default function App() {
       localStorage.setItem("axiom_seen_start", "1");
       return "start";
     }
-    return "greenlight";  // default landing: A+ Green Light + Auto-Pilot
+    return "x-intel";  // default landing: X Intelligence Engine (changed 2026-07 per user request)
   });
   // Save tab on change
   React.useEffect(() => { try { localStorage.setItem("last_tab", activeTab); } catch {} }, [activeTab]);
