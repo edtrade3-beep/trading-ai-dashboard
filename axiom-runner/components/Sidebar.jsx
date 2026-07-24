@@ -34,6 +34,14 @@ export const SIDEBAR_ITEMS = [
   { id: "cot",       label: "COT",           icon: "🏦", tab: "cot", section: "Research & Intel" },
 
   // 4. OPPORTUNITIES — turning research into real candidate trades.
+  // Green Light was the app's original default landing tab (until it was
+  // changed to X Intelligence, 2026-07) — it never had its own sidebar
+  // entry or command-palette alias because it never needed one before;
+  // that made it completely unreachable the moment it stopped being the
+  // default. Real regression, found live ("WHERE IS THE GREEN LIGHT
+  // TRADE") and fixed here — same real BUY-zone signal engine ai-coach.js's
+  // 7am Telegram scan and the AutoPilot engines already run on.
+  { id: "greenlight", label: "Green Light", icon: "🟢", tab: "greenlight", section: "Opportunities" },
   { id: "best-opportunities", label: "Best Opportunities", icon: "🔥", tab: "best-opportunities", section: "Opportunities" },
   { id: "watchlist", label: "Watchlist",     icon: "⭐", tab: "quotes", section: "Opportunities" },
   { id: "flow",      label: "Options Flow",  icon: "📊", tab: "flow", section: "Opportunities" },

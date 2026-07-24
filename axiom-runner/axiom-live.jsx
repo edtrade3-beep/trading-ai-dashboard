@@ -3839,6 +3839,11 @@ export default function App() {
     const toTab = {
       MONITOR: "dashboard",
       DASHBOARD: "dashboard",
+      // Added alongside the new Sidebar.jsx entry — Green Light had no
+      // palette alias either, only reachable before by being the default
+      // startup tab (changed away from it 2026-07).
+      GREENLIGHT: "greenlight",
+      GREEN: "greenlight",
       TERMINAL: "mterminal",
       MACRO: "macro",
       NEWS: "news",
