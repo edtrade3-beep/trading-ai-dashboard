@@ -25,9 +25,9 @@ function SectionLabel({ icon, text, color, C, MONO }) {
   );
 }
 
-function ItemCard({ it, C, MONO, SANS, setActiveTab, setTvOsSymbol, setTvOsInput }) {
-  const canOpen = setActiveTab && setTvOsSymbol && setTvOsInput;
-  const openSymbol = (symbol) => { setActiveTab("openstock"); setTvOsSymbol(symbol); setTvOsInput(symbol); };
+function ItemCard({ it, C, MONO, SANS, setActiveTab, setTerminalSymbol }) {
+  const canOpen = setActiveTab && setTerminalSymbol;
+  const openSymbol = (symbol) => { setTerminalSymbol(symbol); try { localStorage.setItem("mterminal_load_sym", symbol); } catch {} setActiveTab("mterminal"); };
   const [open, setOpen] = useState(false);
   const col = CATEGORY_COLOR[it.category] || C.textDim;
   const isRss = it.analysisSource === "rss";
@@ -95,9 +95,9 @@ function ItemCard({ it, C, MONO, SANS, setActiveTab, setTvOsSymbol, setTvOsInput
   );
 }
 
-function TrackRecordSection({ tr, C, MONO, SANS, setActiveTab, setTvOsSymbol, setTvOsInput }) {
-  const canOpen = setActiveTab && setTvOsSymbol && setTvOsInput;
-  const openSymbol = (symbol) => { setActiveTab("openstock"); setTvOsSymbol(symbol); setTvOsInput(symbol); };
+function TrackRecordSection({ tr, C, MONO, SANS, setActiveTab, setTerminalSymbol }) {
+  const canOpen = setActiveTab && setTerminalSymbol;
+  const openSymbol = (symbol) => { setTerminalSymbol(symbol); try { localStorage.setItem("mterminal_load_sym", symbol); } catch {} setActiveTab("mterminal"); };
   if (!tr) return null;
   return (
     <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
@@ -142,7 +142,7 @@ function TrackRecordSection({ tr, C, MONO, SANS, setActiveTab, setTvOsSymbol, se
   );
 }
 
-export default function XIntelOverview({ C, MONO, SANS, items, state, trackRecord, setActiveTab, setTvOsSymbol, setTvOsInput }) {
+export default function XIntelOverview({ C, MONO, SANS, items, state, trackRecord, setActiveTab, setTerminalSymbol }) {
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [sentimentFilter, setSentimentFilter] = useState("ALL");
   const [search, setSearch] = useState({ symbol: "", entity: "", keyword: "" });
@@ -211,7 +211,7 @@ export default function XIntelOverview({ C, MONO, SANS, items, state, trackRecor
           <SectionLabel icon="📌" text="MOST MENTIONED STOCKS" color={C.accent} C={C} MONO={MONO} />
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {mostMentioned.length ? mostMentioned.map(([sym, d]) => (
-              <span key={sym} onClick={setActiveTab && setTvOsSymbol && setTvOsInput ? () => { setActiveTab("openstock"); setTvOsSymbol(sym); setTvOsInput(sym); } : undefined}
+              <span key={sym} onClick={setActiveTab && setTerminalSymbol ? () => { setTerminalSymbol(sym); try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab("mterminal"); } : undefined}
                 title={setActiveTab ? `Open ${sym}` : undefined}
                 style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6, cursor: setActiveTab ? "pointer" : "default",
                   background: d.bullish >= d.bearish ? `${C.green}15` : `${C.red}15`, color: d.bullish >= d.bearish ? C.green : C.red }}>{sym} ×{d.count}</span>
@@ -227,7 +227,7 @@ export default function XIntelOverview({ C, MONO, SANS, items, state, trackRecor
         </div>
       </div>
 
-      <TrackRecordSection tr={trackRecord} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} setTvOsSymbol={setTvOsSymbol} setTvOsInput={setTvOsInput} />
+      <TrackRecordSection tr={trackRecord} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
 
       <div style={{ ...cardStyle(C, { background: C.card }), padding: 14 }}>
         <SectionLabel icon="🔍" text="SEARCH" color={C.textSec} C={C} MONO={MONO} />
@@ -243,7 +243,7 @@ export default function XIntelOverview({ C, MONO, SANS, items, state, trackRecor
         </div>
         {searchResults && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {searchResults.length ? searchResults.map((it) => <ItemCard key={it.id} it={it} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} setTvOsSymbol={setTvOsSymbol} setTvOsInput={setTvOsInput} />) : <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>No matching items.</div>}
+            {searchResults.length ? searchResults.map((it) => <ItemCard key={it.id} it={it} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />) : <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>No matching items.</div>}
           </div>
         )}
       </div>
@@ -283,7 +283,7 @@ export default function XIntelOverview({ C, MONO, SANS, items, state, trackRecor
               <div>
                 <SectionLabel icon="▲" text={`BULLISH (${groupedBySentiment.bullish.length})`} color={C.green} C={C} MONO={MONO} />
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {groupedBySentiment.bullish.slice(0, 20).map((it) => <ItemCard key={it.id} it={it} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} setTvOsSymbol={setTvOsSymbol} setTvOsInput={setTvOsInput} />)}
+                  {groupedBySentiment.bullish.slice(0, 20).map((it) => <ItemCard key={it.id} it={it} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />)}
                 </div>
               </div>
             )}
@@ -291,7 +291,7 @@ export default function XIntelOverview({ C, MONO, SANS, items, state, trackRecor
               <div>
                 <SectionLabel icon="▼" text={`BEARISH (${groupedBySentiment.bearish.length})`} color={C.red} C={C} MONO={MONO} />
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {groupedBySentiment.bearish.slice(0, 20).map((it) => <ItemCard key={it.id} it={it} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} setTvOsSymbol={setTvOsSymbol} setTvOsInput={setTvOsInput} />)}
+                  {groupedBySentiment.bearish.slice(0, 20).map((it) => <ItemCard key={it.id} it={it} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />)}
                 </div>
               </div>
             )}
@@ -299,7 +299,7 @@ export default function XIntelOverview({ C, MONO, SANS, items, state, trackRecor
               <div style={{ opacity: 0.7 }}>
                 <SectionLabel icon="○" text={`NEUTRAL — no clear directional read (${groupedBySentiment.neutral.length})`} color={C.textDim} C={C} MONO={MONO} />
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {groupedBySentiment.neutral.slice(0, 10).map((it) => <ItemCard key={it.id} it={it} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} setTvOsSymbol={setTvOsSymbol} setTvOsInput={setTvOsInput} />)}
+                  {groupedBySentiment.neutral.slice(0, 10).map((it) => <ItemCard key={it.id} it={it} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />)}
                 </div>
               </div>
             )}
