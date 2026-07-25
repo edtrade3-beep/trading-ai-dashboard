@@ -29,6 +29,7 @@ const { list: listWatchlist } = require("./x-intel-watchlist-store");
 const { logItem, findRecentDuplicate } = require("./x-intel-store");
 const mentionsStore = require("./x-intel-mentions-store");
 const { classifySentiment } = require("./x-intel-sentiment-ai");
+const { classifyCategory, classifyUrgency, computeItemImportance } = require("./x-intel-x-classifiers");
 
 // username (matches watchlist entries) -> { url, itemCategory }. Only
 // entities with a confirmed-working free feed are listed; everyone else
@@ -87,11 +88,22 @@ async function runXIntelRssPoll() {
       // Dedup already ran above, so this never spends a real AI call on
       // an item that's about to be discarded.
       const { sentiment, confidence, analyzed } = await classifySentiment(raw.summary || raw.title);
+      // Real content-based category, same classifier the X API path
+      // already used — was feed.itemCategory before (a single fixed label
+      // for every item a feed ever produces), which is how an NVIDIA blog
+      // post about a healthcare-robot simulation framework ended up tagged
+      // "Semiconductor" and a WSJ luxury-goods story ended up tagged
+      // "Macro" (confirmed live). feed.itemCategory is no longer used for
+      // classification — real content should win over a stale per-source
+      // guess, same "honest over convenient" rule as everywhere else here.
+      const category = classifyCategory(raw.summary || raw.title);
       const item = {
         entityUsername: entity.username,
         entityDisplayName: entity.displayName,
         entityCategory: entity.category,
         entityImportanceScore: entity.importanceScore,
+        itemImportanceScore: computeItemImportance(entity.importanceScore, category),
+        urgency: classifyUrgency(category),
         // capturedAt must be "when we logged this," not the article's real
         // publish date — findRecentDuplicate's 48h dedup window compares
         // against capturedAt, and the AI path always uses logging time.
@@ -106,8 +118,7 @@ async function runXIntelRssPoll() {
         sentiment,
         confidence,
         sentimentAnalyzed: analyzed, // real disclosure flag, same as the X API path
-        urgency: "low",
-        category: feed.itemCategory,
+        category,
         marketImpact: [], // honest — no reasoned symbol-level call made; fabricating one would violate this app's real-data-only rule
         aiSummary: {
           oneLine,
@@ -121,8 +132,9 @@ async function runXIntelRssPoll() {
       // Category-level only — RSS items never get a real symbol-level call
       // (see the honesty note on marketImpact above), so there's no real
       // symbol/sector/theme to log here, just that a real item landed in
-      // this category, for Trend Velocity's topic-level rollups.
-      mentionsStore.logMention({ source: "rss", category: feed.itemCategory });
+      // this category, for Trend Velocity's topic-level rollups. Uses the
+      // real per-item category now, not the old fixed per-feed label.
+      mentionsStore.logMention({ source: "rss", category });
       newItemsCount++;
     }
   }

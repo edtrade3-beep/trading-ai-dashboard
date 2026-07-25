@@ -55,8 +55,14 @@ function ItemCard({ it, C, MONO, SANS, setActiveTab, setTerminalSymbol }) {
             </span>
           )}
         </div>
-        <div style={{ display: "flex", gap: 8, fontFamily: MONO, fontSize: 10, color: C.textDim }}>
-          {it.scores && <span>IMPACT <b style={{ color: it.scores.impactScore > 80 ? C.red : it.scores.impactScore > 50 ? C.amber : C.textDim }}>{it.scores.impactScore}</b></span>}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+          {/* Real, content-derived urgency (category severity — a Fed
+              decision or bank failure reads "high", routine company PR
+              reads "low") — replaces the old IMPACT slot, which only ever
+              read it.scores, a field that's always null (honestly, not a
+              bug) since no per-item AI scoring call is made on this path. */}
+          {it.urgency === "high" && <span title="High-severity category (Fed/earnings/M&A-class news)" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.red, background: `${C.red}18`, borderRadius: 5, padding: "2px 6px" }}>● URGENT</span>}
+          {it.urgency === "medium" && <span title="Medium-severity category" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.amber, background: `${C.amber}18`, borderRadius: 5, padding: "2px 6px" }}>● NOTABLE</span>}
           {it.publishedAt ? (
             <span title="Real published date from the source feed">{new Date(it.publishedAt).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
           ) : (
@@ -170,6 +176,13 @@ export default function XIntelOverview({ C, MONO, SANS, items, state, trackRecor
   const groupedBySentiment = useMemo(() => {
     const groups = { bullish: [], bearish: [], neutral: [] };
     for (const it of filteredItems) (groups[it.sentiment] || groups.neutral).push(it);
+    // Real per-item importance now exists (itemImportanceScore — content-
+    // derived, not just the posting entity's static score) — sort each
+    // group by it so the genuinely significant items surface first instead
+    // of pure reverse-chronological, which used to bury real signal under
+    // routine PR the moment it was posted more recently.
+    const byImportance = (a, b) => (b.itemImportanceScore ?? 0) - (a.itemImportanceScore ?? 0);
+    groups.bullish.sort(byImportance); groups.bearish.sort(byImportance); groups.neutral.sort(byImportance);
     return groups;
   }, [filteredItems]);
 
@@ -252,9 +265,14 @@ export default function XIntelOverview({ C, MONO, SANS, items, state, trackRecor
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
           <SectionLabel icon="📡" text="LIVE FEED" color={C.accent} C={C} MONO={MONO} />
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {["ALL", "Breaking News", "Politics", "CEOs", "FederalReserve"].filter((c) => c === "ALL" || items.some((it) => it.category === c)).map((c) => (
+            {/* "CEOs" was never a real category (the real taxonomy calls it
+                CEOResignation) — the button always matched zero items,
+                confirmed live. Fixed to the real value; label stays reader-
+                friendly. */}
+            {[["ALL", "ALL"], ["Breaking News", "Breaking News"], ["Politics", "Politics"], ["CEOResignation", "CEO News"], ["FederalReserve", "FederalReserve"]]
+              .filter(([c]) => c === "ALL" || items.some((it) => it.category === c)).map(([c, label]) => (
               <button key={c} onClick={() => setCategoryFilter(c)} style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, padding: "4px 10px", borderRadius: 6, cursor: "pointer",
-                border: `1px solid ${categoryFilter === c ? C.accent : C.border}`, background: categoryFilter === c ? `${C.accent}18` : "transparent", color: categoryFilter === c ? C.accent : C.textDim }}>{c}</button>
+                border: `1px solid ${categoryFilter === c ? C.accent : C.border}`, background: categoryFilter === c ? `${C.accent}18` : "transparent", color: categoryFilter === c ? C.accent : C.textDim }}>{label}</button>
             ))}
           </div>
         </div>

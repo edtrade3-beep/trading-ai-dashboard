@@ -36,7 +36,7 @@
 // old Anthropic path already used for search budget, just re-aimed at a
 // real monthly read count.
 const { resolveUserId, fetchUserTweets } = require("./providers/x-api");
-const { extractCashtags, classifyCategory } = require("./x-intel-x-classifiers");
+const { extractCashtags, classifyCategory, classifyUrgency, computeItemImportance } = require("./x-intel-x-classifiers");
 const { CATEGORIES } = require("./x-intel-categories");
 const { list: listWatchlist, update: updateWatchlistEntry } = require("./x-intel-watchlist-store");
 const { KNOWN_RSS_FEEDS } = require("./x-intel-rss");
@@ -104,11 +104,18 @@ async function buildItem(entity, tweet) {
   // to honest neutral (analyzed:false) if no key/Saver Mode/a real
   // failure, same as before this was reintroduced.
   const { sentiment, confidence, analyzed } = await classifySentiment(text);
+  const category = classifyCategory(text); // real keyword match, disclosed as such
   return {
     entityUsername: entity.username,
     entityDisplayName: entity.displayName,
     entityCategory: entity.category,
     entityImportanceScore: entity.importanceScore,
+    // Real per-item importance/urgency — derived from what this specific
+    // item is about (category severity), not just who posted it. Fixes a
+    // confirmed live bug where every item from an entity showed the exact
+    // same importance and urgency was hardcoded "low" for everything.
+    itemImportanceScore: computeItemImportance(entity.importanceScore, category),
+    urgency: classifyUrgency(category),
     capturedAt: new Date().toISOString(),
     publishedAt: tweet.created_at || null, // real exact timestamp — genuinely new capability
     sourceCitation: `https://x.com/${entity.username}/status/${tweet.id}`,
@@ -116,8 +123,7 @@ async function buildItem(entity, tweet) {
     sentiment,
     confidence,
     sentimentAnalyzed: analyzed, // real disclosure flag — UI shows this honestly, not a blanket claim
-    urgency: "low",
-    category: classifyCategory(text), // real keyword match, disclosed as such
+    category,
     marketImpact: sanitizeMarketImpact(symbols),
     aiSummary: {
       oneLine: text.slice(0, 140),

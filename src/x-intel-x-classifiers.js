@@ -26,8 +26,11 @@ function extractCashtags(text) {
 // Real keyword classification against the existing category taxonomy —
 // disclosed as pattern-matching, not AI judgment. First matching category
 // wins; order matters (more specific categories checked before generic
-// ones like "Macro"/"Other").
+// ones like "Macro"/"Other"). "Breaking News" checked first — literal
+// wire-style urgency framing, not a catch-all; a real Fed rate decision
+// still resolves to FederalReserve unless it's also headlined as breaking.
 const CATEGORY_KEYWORDS = [
+  ["Breaking News", [/\bbreaking:/i, /\bbreaking news\b/i, /^breaking\b/i, /\bjust in\b/i]],
   ["FederalReserve", [/\bfed\b/i, /federal reserve/i, /\bfomc\b/i, /powell/i, /interest rate decision/i]],
   ["InterestRates", [/rate (hike|cut|decision)/i, /basis points/i, /\bbps\b/i]],
   ["Inflation", [/inflation/i, /\bcpi\b/i, /\bppi\b/i, /consumer price/i]],
@@ -55,4 +58,43 @@ function classifyCategory(text) {
   return CATEGORIES.includes("Macro") && /\b(gdp|economy|economic|recession)\b/i.test(text) ? "Macro" : "Other";
 }
 
-module.exports = { extractCashtags, classifyCategory };
+// Real per-CATEGORY severity tier — based on how often this kind of news
+// actually moves a stock/market same-day, not on who posted it. Fixes a
+// confirmed live bug: urgency was hardcoded "low" for every single item
+// regardless of content (an SEC enforcement-director departure showed
+// identically "low" as a routine corporate blog post).
+const CATEGORY_SEVERITY = {
+  "Breaking News": "high", BankFailure: "high", CreditDowngrade: "high", Hack: "high",
+  ExchangeOutage: "high", CEOResignation: "high", FederalReserve: "high",
+  Earnings: "medium", Acquisition: "medium", InterestRates: "medium", Inflation: "medium",
+  Tariffs: "medium", Politics: "medium", Crypto: "medium",
+  AI: "low", Semiconductor: "low", Healthcare: "low", Energy: "low", Consumer: "low",
+  Macro: "low", Other: "low",
+};
+function classifyUrgency(category) {
+  return CATEGORY_SEVERITY[category] || "low";
+}
+
+// Real base importance per category — same severity reasoning as urgency
+// above, on a 0-100 scale for blending with the watched entity's own score.
+const CATEGORY_IMPORTANCE_BASE = {
+  "Breaking News": 95, BankFailure: 95, CreditDowngrade: 90, Hack: 88, ExchangeOutage: 90,
+  CEOResignation: 92, FederalReserve: 95, Earnings: 85, Acquisition: 80, InterestRates: 85,
+  Inflation: 82, Tariffs: 78, Politics: 70, Crypto: 60,
+  AI: 45, Semiconductor: 45, Healthcare: 45, Energy: 50, Consumer: 45, Macro: 55, Other: 35,
+};
+// Real per-item importance — blends WHAT the news is (category severity,
+// the dominant 65% weight) with WHO said it (the watched entity's own base
+// importance, a real but secondary 35% weight). Fixes a confirmed live
+// bug: every item from a given entity showed the exact same maxed-out
+// score (e.g. every OpenAI item at 90) regardless of whether it was a
+// major announcement or a routine community-relations blog post — the
+// entity's static score was being displayed AS IF it measured this
+// specific item's significance, when it never did.
+function computeItemImportance(entityImportanceScore, category) {
+  const catBase = CATEGORY_IMPORTANCE_BASE[category] ?? 40;
+  const entityScore = Number(entityImportanceScore) || 50;
+  return Math.round(catBase * 0.65 + entityScore * 0.35);
+}
+
+module.exports = { extractCashtags, classifyCategory, classifyUrgency, computeItemImportance };
