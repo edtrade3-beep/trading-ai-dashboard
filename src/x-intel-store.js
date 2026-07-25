@@ -64,8 +64,22 @@ function listItems({ symbol, entity, category, keyword, dateFrom, dateTo, limit 
   return items.slice(0, Math.max(1, Math.min(500, Number(limit) || 100)));
 }
 
+// Real 24h freshness window — confirmed live that the feed was showing
+// items several days old (RSS feeds return "weeks of history"; capturedAt
+// only reflects when we happened to poll it, not how old the real news
+// actually is). Filters by the item's real publishedAt when the source
+// gave one (both RSS and X API do, almost always); falls back to
+// capturedAt only for the rare item missing it, rather than dropping it
+// silently. listItems()/search stays unrestricted — that's a deliberate
+// historical lookup, a different real use case from "what's current."
+const FRESH_WINDOW_MS = 24 * 3600_000;
 function getRecent(n = 50) {
-  return load().slice(0, n);
+  const cutoff = Date.now() - FRESH_WINDOW_MS;
+  const fresh = load().filter((it) => {
+    const t = new Date(it.publishedAt || it.capturedAt).getTime();
+    return Number.isFinite(t) && t >= cutoff;
+  });
+  return fresh.slice(0, n);
 }
 
 // One-time cleanup for a real bug: the RSS poller (x-intel-rss.js) briefly
