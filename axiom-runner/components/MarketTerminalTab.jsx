@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import TrendChart from "./TrendChart.jsx";
 import TrendSetupPanel from "./TrendSetupPanel.jsx";
 import SmartScanPanel from "./SmartScanPanel.jsx";
@@ -86,6 +86,19 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   }, [sym, chartTf]);
 
   const setTf = useCallback((tf) => { setChartTf(tf); loadSym(sym, tf); }, [sym, loadSym]);
+
+  // Real "jump to the chart" behavior — user asked for the chart to open
+  // "underneath the search" after Movers & Watchlist got moved back above
+  // the Chart zone; a full reorder would just re-flip the same back-and-
+  // forth preference already reversed once this session, so this scrolls
+  // to the existing chart zone instead of moving it. Only wired at the two
+  // real user-initiated symbol-load sites (search submit, mover/watchlist
+  // row click) — not the initial mount load or the silent 45s refresh, and
+  // not the timeframe buttons (user is already looking at the chart then).
+  const chartZoneRef = useRef(null);
+  const scrollToChart = useCallback(() => {
+    chartZoneRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   // Market cap + P/E from fundamentals (Yahoo local / FMP on cloud). Best-effort.
   const [fund, setFund] = useState(null);
@@ -176,7 +189,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           looks at the real app; this reflects the current one. ── */}
       <div style={{ width: "100%" }}>
         <SectionHeader icon="🔥" label="Movers & Watchlist" />
-        <form onSubmit={(e) => { e.preventDefault(); loadSym(query); setQuery(""); }} style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+        <form onSubmit={(e) => { e.preventDefault(); loadSym(query); setQuery(""); scrollToChart(); }} style={{ display: "flex", gap: 6, marginBottom: 8 }}>
           <input value={query} onChange={e => setQuery(e.target.value)} placeholder="🔍 Load any symbol…"
             style={{ flex: 1, fontFamily: MONO, fontSize: 13, padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.text }} />
         </form>
@@ -217,7 +230,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           {((source === "movers" && !lb) || (source === "watchlist" && wlRows === null)) && <div style={{ padding: "24px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
           {source === "watchlist" && Array.isArray(wlRows) && wlRows.length === 0 && <div style={{ padding: "24px 12px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Your watchlist is empty — add names from any tab.</div>}
           {rows.map((r, i) => (
-            <div key={r.symbol} onClick={() => loadSym(r.symbol)}
+            <div key={r.symbol} onClick={() => { loadSym(r.symbol); scrollToChart(); }}
               style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 0.8fr", padding: "9px 12px", alignItems: "center", cursor: "pointer",
                 borderBottom: i < rows.length - 1 ? `1px solid ${C.border}` : "none",
                 background: r.symbol === sym ? "rgba(34,212,126,0.10)" : (i % 2 ? "transparent" : "rgba(127,127,127,0.03)") }}>
@@ -238,7 +251,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
       </div>
 
       {/* ── ZONE 2: pro chart ── */}
-      <div style={{ width: "100%" }}>
+      <div ref={chartZoneRef} style={{ width: "100%" }}>
         <SectionHeader icon="📈" label="Chart" />
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
           <span style={{ fontFamily: SANS, fontSize: 24, fontWeight: 900, color: C.text }}>{sym}</span>
