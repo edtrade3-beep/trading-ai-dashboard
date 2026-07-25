@@ -404,6 +404,16 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
               </div>
             );
           })()}
+          {/* Invalidation — the real trend-breaking condition(s), distinct
+              from the ATR stop above. r.invalidation === null means no real
+              trend data was fetched for this symbol yet (honest "—", not a
+              fabricated "trend intact"); an empty array is real information
+              (trend data loaded, genuinely zero invalidation signals firing). */}
+          {r.invalidation !== null && (
+            <div style={{ marginTop: 6, fontFamily: MONO, fontSize: 10.5, color: r.invalidation.length ? C.amber : C.textDim }}>
+              🚫 <b>Invalidation:</b> {r.invalidation.length ? r.invalidation.join(" · ") : "None — trend intact"}
+            </div>
+          )}
         </div>
 
         {/* Trade levels */}

@@ -352,8 +352,17 @@ export function computeGreenLight(q, spyChg, scanRow, regime = null, trend = nul
   const shortPassed = shortChecks.filter(c => c.pass).length;
   const shortSignal = shortPassed >= 4 ? "SHORT" : shortPassed >= 3 ? "WATCH" : "NONE";
 
+  // Invalidation — the real trend-breaking condition(s), distinct from the
+  // ATR stop price above. Already computed server-side on every trend-
+  // template response (_buildTrendTemplate's sellSignals, market.js) but
+  // never threaded through to Green Light before — the charter asks every
+  // Watchlist row to show this. null (not []) means no real trend data was
+  // fetched for this symbol yet, distinct from an empty array meaning
+  // "trend data is real, and it genuinely fired zero invalidation signals."
+  const invalidation = trend ? (Array.isArray(trend.setup && trend.setup.sellSignals) ? trend.setup.sellSignals : []) : null;
+
   return {
-    checks, passed, signal, px, chg, stop, t1, t2, rvol, rsi, atrPct,
+    checks, passed, signal, px, chg, stop, t1, t2, rvol, rsi, atrPct, invalidation,
     shortChecks, shortPassed, shortSignal,
     bestEntry: +bestEntry.toFixed(2), entryNote, relStrength: +relStrength.toFixed(2), isLeader,
     rr: +rr.toFixed(1), rrPass, atEntry,
