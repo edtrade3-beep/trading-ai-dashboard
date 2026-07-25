@@ -36,6 +36,13 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
       rightPriceScale: { borderColor: C.border || "#ccc" },
       timeScale: { borderColor: C.border || "#ccc" },
       crosshair: { mode: LC.CrosshairMode ? LC.CrosshairMode.Normal : 1 },
+      // Mouse-wheel scroll was hijacked by the chart's own zoom/pan (default
+      // library behavior) — scrolling the PAGE past the chart instead zoomed
+      // or panned it, which read as "the chart messes up" (confirmed live).
+      // Click-drag pan and pinch-zoom on touch still work; only the wheel
+      // is disabled so it always scrolls the page like everything else here.
+      handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+      handleScale: { mouseWheel: false, pinch: true, axisPressedMouseMove: true },
     });
     const candle = chart.addCandlestickSeries({ upColor: C.green, downColor: C.red, borderUpColor: C.green, borderDownColor: C.red, wickUpColor: C.green, wickDownColor: C.red });
     const vol = chart.addHistogramSeries({ priceScaleId: "vol", priceFormat: { type: "volume" } });
