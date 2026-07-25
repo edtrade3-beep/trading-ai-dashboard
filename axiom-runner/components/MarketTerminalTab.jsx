@@ -7,7 +7,6 @@ import {
   MarketPulseBar, SentimentRow, MarketNewsWire, AnalystPeerPanel,
   FundamentalsPanel, CompanyProfile, AiPredictPanel, COTPanel,
   PredictionMarkets, SocialFeed, InvestorsPanel, TradeExtrasPanel,
-  PerformanceCard,
 } from "./terminal-panels.jsx";
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
@@ -262,9 +261,16 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 </button>
               ))}
             </div>
-            {chart
-              ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={620} />
-              : <div style={{ height: 620, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
+            {/* Right padding reserves clearance for the fixed bottom-right FAB
+                cluster (Copilot/QuickTrade/RealityCheck, right:18, ~54-70px
+                wide each) — now that the chart is full-width its own right
+                price scale/PIVOT-STOP-BASE LOW labels would otherwise render
+                directly under those icons and get covered (confirmed live). */}
+            <div style={{ paddingRight: 90 }}>
+              {chart
+                ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={620} />
+                : <div style={{ height: 620, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
+            </div>
             <TrendSetupPanel data={chart} C={C} MONO={MONO} SANS={SANS} />
             <TradeExtrasPanel data={chart} macroData={macroData} C={C} MONO={MONO} SANS={SANS} />
             <AiWhyPanel symbol={sym} price={chart && chart.price} changePct={symDayPct} C={C} MONO={MONO} SANS={SANS} />
@@ -350,10 +356,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         BestOpportunities used to also render here — removed (2026-07-25,
         user request) since it's genuinely the same real component/scan
         already on its own dedicated sidebar tab; keeping both was pure
-        duplication, not two different views of it. */}
+        duplication, not two different views of it. My Performance moved
+        out the same day, to Mission Status (with Portfolio Risk/A+ Score
+        Track — the other performance/risk-health cards it belongs with),
+        since this page is for browsing charts, not tracking your P&L. */}
     <div style={{ marginTop: 14 }}>
       <SectionHeader icon="🌍" label="Market Snapshot" />
-      <PerformanceCard C={C} MONO={MONO} SANS={SANS} />
       <MarketPulseBar C={C} MONO={MONO} SANS={SANS} />
       <SentimentRow C={C} MONO={MONO} SANS={SANS} />
       <SectorHeatStrip sectorData={sectorData} C={C} MONO={MONO} SANS={SANS} />

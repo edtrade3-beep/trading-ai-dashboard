@@ -109,7 +109,7 @@ import PortfolioRiskCard from "./components/PortfolioRiskCard.jsx";
 import TradingLessonCard from "./components/TradingLessonCard.jsx";
 import AplusScoreTrackCard from "./components/AplusScoreTrackCard.jsx";
 import DashboardTab, { MarketPulseCard, PortfolioSnapshotCard, computeRegimeLabel, Card } from "./components/DashboardTab.jsx";
-import { BestOpportunities } from "./components/terminal-panels.jsx";
+import { BestOpportunities, PerformanceCard } from "./components/terminal-panels.jsx";
 import TopOpportunityCard from "./components/TopOpportunityCard.jsx";
 import CapitalAllocationCard from "./components/CapitalAllocationCard.jsx";
 import DailyTargetCalculator from "./components/DailyTargetCalculator.jsx";
@@ -6176,6 +6176,11 @@ export default function App() {
                   a natural fit right below Mission Status. */}
               <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} />
               <AplusScoreTrackCard C={C} MONO={MONO} SANS={SANS} />
+              {/* My Performance — moved off Market Terminal (2026-07-25, user
+                  request), same reasoning as the two cards above: a real
+                  performance snapshot belongs with the other performance/
+                  risk cards here, not on the chart-browsing page. */}
+              <PerformanceCard C={C} MONO={MONO} SANS={SANS} />
             </div>
           );
         })()}
