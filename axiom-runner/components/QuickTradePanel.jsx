@@ -56,6 +56,29 @@ export default function QuickTradePanel({ C, MONO, SANS, terminalSymbol, setTerm
   // (Market Terminal, Green Light deep-dive, etc.) — same shared source of
   // truth every other tab already reads.
   useEffect(() => { if (terminalSymbol) setSymbolInput(terminalSymbol); }, [terminalSymbol]);
+
+  // Real handoff from Trade Planner's generated plan — same window-event
+  // convention TradingCopilot already uses for "open-ai-copilot". Trade
+  // Planner computes a real entry/stop/target/shares plan but previously had
+  // no path into this panel at all; the user had to manually retype every
+  // number. Prefills the bracket fields with the plan's own real numbers —
+  // still requires a real confirm/submit click, never auto-submits.
+  useEffect(() => {
+    const onLoadPlan = (e) => {
+      const d = e.detail || {};
+      if (!d.symbol) return;
+      setOpen(true);
+      setSymbolInput(String(d.symbol).toUpperCase());
+      setSizeMethod("shares");
+      if (d.shares > 0) setShares(d.shares);
+      if (d.stopLoss > 0) setStopLoss(String(d.stopLoss));
+      if (d.takeProfit > 0) setTakeProfit(String(d.takeProfit));
+      setUseBracket(true);
+      setOrderType("market");
+    };
+    window.addEventListener("open-quick-trade", onLoadPlan);
+    return () => window.removeEventListener("open-quick-trade", onLoadPlan);
+  }, []);
   const symbol = (symbolInput || "").trim().toUpperCase();
 
   // Real quote poll — same 60s Alpaca-first fast path HoldingsTab uses.

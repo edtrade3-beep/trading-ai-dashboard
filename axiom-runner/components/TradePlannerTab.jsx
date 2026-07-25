@@ -190,6 +190,15 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
               ))}
             </div>
           </div>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("open-quick-trade", {
+              detail: { symbol: input, shares: result.shares, stopLoss: result.stopLoss, takeProfit: result.t1 },
+            }))}
+            style={{width:"100%",padding:"12px 16px",borderRadius:8,border:`2px solid ${C.accent}`,background:C.accent,
+              color:"#fff",fontFamily:MONO,fontSize:13,fontWeight:900,letterSpacing:"0.04em",cursor:"pointer"}}
+            title="Opens Quick Trade with this plan's symbol, shares, stop, and Target 1 prefilled into the bracket order — still requires you to review and submit">
+            ⚡ EXECUTE VIA QUICK TRADE — {result.shares} sh · stop ${result.stopLoss} · target ${result.t1}
+          </button>
           <div style={{...card,borderTop:`3px solid ${C.green}`}}>
             <div style={{fontFamily:MONO,fontSize:11,fontWeight:900,color:C.textDim,letterSpacing:"0.1em",marginBottom:12}}>🗺 EXIT STRATEGY</div>
             {[{step:"1",action:"ENTER",price:`$${result.price.toFixed(2)}`,detail:`Buy ${result.shares} shares — max risk $${result.riskAmt.toFixed(0)}`,col:C.accent},
