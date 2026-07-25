@@ -581,6 +581,21 @@ Search for real, current news now and return the JSON.`;
     sendTelegramMessage(msg).catch(() => {});
   }
 
+  // Real, proactive regime-change alert — charter's "flag changing market
+  // regime, don't wait for the user to ask." computeRegimeShift() already
+  // detects this every day (used above only as *context* inside the daily
+  // brief text), but until now nothing ever sent a dedicated alert for it —
+  // a shift only surfaced if the user happened to open Command Center.
+  // Uses the always-allow "regime-change" category (never budget-throttled,
+  // same tier as opportunity/portfolio-risk/stop-trigger) so this genuinely
+  // proactive signal can't get silently dropped by the 10/day info budget
+  // the routine "ai-coach" summary above shares with other daily digests.
+  if (telegramConfigured() && regimeShift?.justShifted && shouldSendAlert({ category: "regime-change" })) {
+    const sev = regimeShift.severity === "major" ? "🔴" : regimeShift.severity === "moderate" ? "🟠" : "🟡";
+    const msg = `${sev} *MARKET REGIME SHIFT*\n\n${regimeShift.priorRegime} → *${built.regime?.label || "?"}* (${built.regime?.score ?? "?"}/100)\nPrior regime held for ${regimeShift.priorRegimeDays} real day${regimeShift.priorRegimeDays === 1 ? "" : "s"}.`;
+    sendTelegramMessage(msg).catch(() => {});
+  }
+
   return built;
 }
 
