@@ -206,7 +206,11 @@ export default function QuickTradePanel({ C, MONO, SANS, terminalSymbol, setTerm
           opacity: fabFading && !open ? 0 : 1, pointerEvents: fabFading && !open ? "none" : "auto", transition: "opacity 0.2s" }}>{open ? "✕" : "⚡"}</button>
 
       {open && (
-        <div style={{ position: "fixed", bottom: 82 + statusBarH, left: 18, zIndex: 9999, width: "min(360px, 92vw)", maxHeight: "min(680px, 80vh)",
+        <div style={{ position: "fixed", bottom: 82 + statusBarH, left: 18, zIndex: 9999, width: "min(360px, 92vw)",
+          // Was capped at 680px/80vh, which on a normal (not-maximized)
+          // browser window pushed the panel's top edge up over the header —
+          // it's bottom-anchored, so a shorter cap is what moves it down.
+          maxHeight: "min(560px, 70vh)",
           display: "flex", flexDirection: "column", background: "#14120f", border: "1px solid #3a2f22", borderRadius: 14,
           boxShadow: "0 10px 40px rgba(0,0,0,0.5)", overflow: "hidden", color: "#e8e0d4" }}>
           <div style={{ padding: "10px 12px", borderBottom: "1px solid #3a2f22", display: "flex", alignItems: "center", gap: 8 }}>
