@@ -56,7 +56,23 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     symRef.current = null; // force a fitContent on next data fill
     const onResize = () => chart.applyOptions({ width: el.clientWidth || 800 });
     window.addEventListener("resize", onResize);
-    return () => { window.removeEventListener("resize", onResize); chart.remove(); chartRef.current = null; seriesRef.current = null; };
+    // handleScroll.mouseWheel:false above kills ALL wheel-driven chart
+    // interaction, not just the vertical case — a genuine horizontal
+    // trackpad swipe (a wheel event with deltaX, same as deltaY for
+    // vertical scroll) stopped panning the chart through history too
+    // (confirmed live: dates never changed on a horizontal swipe).
+    // Restore just that one axis manually: deltaX-dominant wheel events
+    // pan the time scale directly via the API; deltaY-dominant ones are
+    // left alone so the page keeps scrolling normally.
+    const onWheel = (e) => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      const ts = chart.timeScale();
+      const pos = ts.scrollPosition();
+      if (typeof pos === "number") ts.scrollToPosition(pos + e.deltaX / 60, false);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => { window.removeEventListener("resize", onResize); el.removeEventListener("wheel", onWheel); chart.remove(); chartRef.current = null; seriesRef.current = null; };
   }, [data && data.symbol, C, H, SANS]);
 
   // Push data + overlays whenever `data` changes (keeps zoom on live refresh).
