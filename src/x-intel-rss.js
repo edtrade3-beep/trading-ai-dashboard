@@ -12,24 +12,27 @@
 // substitute).
 //
 // Honesty discipline: every logged item carries a real source URL and
-// real title/summary text. Real AI sentiment classification was brought
-// back 2026-07 per explicit user request (see x-intel-sentiment-ai.js) —
-// a small, focused Anthropic call, not a full re-analysis. What this path
-// still does NOT do — and must not fabricate — is deeper AI-style
-// analysis: no market-impact symbol calls, no confidence/impact scores,
-// no executive summaries. Those require real reasoning this free path
-// still doesn't perform. Items are marked analysisSource:"rss" and
-// sentimentAnalyzed reflects whether a real AI call actually classified
-// this specific item; no prediction gets logged for them (logPrediction
-// is only called from Command Center, where a full reasoned call is made).
+// real title/summary text. Sentiment classification is real deterministic
+// keyword-matching (x-intel-x-classifiers.js's classifySentimentDeterministic)
+// — Anthropic was removed from X Intel entirely 2026-07-25 per explicit
+// user request (it had briefly used a small Haiku call for this; that's
+// gone now, replaced with the same zero-cost, zero-API-dependency,
+// disclosed-as-pattern-matching discipline classifyCategory already used).
+// What this path still does NOT do — and must not fabricate — is deeper
+// AI-style analysis: no market-impact symbol calls, no confidence/impact
+// scores, no executive summaries. Those require real reasoning this free
+// path never performed. Items are marked analysisSource:"rss" and
+// sentimentAnalyzed reflects whether a real classification actually ran
+// on this specific item (false only for empty text); no prediction gets
+// logged for them (logPrediction is only called from Command Center,
+// where a full reasoned call is made).
 "use strict";
 
 const { fetchRssItems } = require("./rss-fetch");
 const { list: listWatchlist } = require("./x-intel-watchlist-store");
 const { logItem, findRecentDuplicate } = require("./x-intel-store");
 const mentionsStore = require("./x-intel-mentions-store");
-const { classifySentiment } = require("./x-intel-sentiment-ai");
-const { classifyCategory, classifyUrgency, computeItemImportance } = require("./x-intel-x-classifiers");
+const { classifyCategory, classifyUrgency, computeItemImportance, classifySentimentDeterministic } = require("./x-intel-x-classifiers");
 
 // username (matches watchlist entries) -> { url, itemCategory }. Only
 // entities with a confirmed-working free feed are listed; everyone else
@@ -83,11 +86,10 @@ async function runXIntelRssPoll() {
     for (const raw of items.slice(0, RECENT_PER_FEED)) {
       const oneLine = raw.title.slice(0, 140);
       if (findRecentDuplicate(username, oneLine, DEDUP_WINDOW_MS)) continue;
-      // Real AI sentiment classification, brought back 2026-07 per
-      // explicit user request — see x-intel-sentiment-ai.js's header.
-      // Dedup already ran above, so this never spends a real AI call on
-      // an item that's about to be discarded.
-      const { sentiment, confidence, analyzed } = await classifySentiment(raw.summary || raw.title);
+      // Real deterministic keyword sentiment — see
+      // x-intel-x-classifiers.js's header. Dedup already ran above, so
+      // this never wastes work on an item that's about to be discarded.
+      const { sentiment, confidence, analyzed, source: sentimentSource } = classifySentimentDeterministic(raw.summary || raw.title);
       // Real content-based category, same classifier the X API path
       // already used — was feed.itemCategory before (a single fixed label
       // for every item a feed ever produces), which is how an NVIDIA blog
@@ -118,6 +120,7 @@ async function runXIntelRssPoll() {
         sentiment,
         confidence,
         sentimentAnalyzed: analyzed, // real disclosure flag, same as the X API path
+        sentimentSource, // "keyword" — real deterministic classification, not AI; UI must not claim otherwise
         category,
         marketImpact: [], // honest — no reasoned symbol-level call made; fabricating one would violate this app's real-data-only rule
         aiSummary: {

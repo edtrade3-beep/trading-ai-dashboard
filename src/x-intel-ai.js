@@ -1,23 +1,19 @@
-// x-intel-ai.js — X Intelligence Engine, real X API (Anthropic's full
-// web-search analysis removed from this feature per explicit user
-// direction, 2026-07). Real posts via providers/x-api.js (Bearer-token
-// app-only auth), real deterministic classification via
-// x-intel-x-classifiers.js (cashtag extraction + keyword category
-// matching) — NOT an AI replacement, disclosed honestly.
+// x-intel-ai.js — X Intelligence Engine, real X API. Anthropic is no
+// longer used anywhere in this feature (2026-07-25, explicit user
+// request — even the small Haiku sentiment call was removed). Real posts
+// via providers/x-api.js (Bearer-token app-only auth), real deterministic
+// classification via x-intel-x-classifiers.js (cashtag extraction,
+// keyword category matching, keyword sentiment matching) — NOT an AI
+// replacement, disclosed honestly throughout.
 //
-// Real AI sentiment classification was brought back 2026-07 per explicit
-// user request, after the initial migration left every item honestly
-// neutral — see x-intel-sentiment-ai.js's header for the cost discipline
-// (Haiku, no web search tool, Credit Saver Mode gated; a small fraction
-// of the old per-item web-search cost this feature used to carry).
-//
-// What's still genuinely gone, not faked: executive summaries,
-// impact/confidence scoring, and per-symbol direction calls. Raw X posts
-// don't carry that interpretation — building a keyword-based fake version
-// of it would violate this app's "never fabricate" rule as much as
-// inventing a quote would. `aiSummary`/`scores` stay null/empty, and each
-// item's `sentimentAnalyzed` flag honestly discloses whether its
-// `sentiment` reflects a real AI call or the safe neutral fallback.
+// What's genuinely gone, not faked: executive summaries, impact/confidence
+// scoring, and per-symbol direction calls. Raw X posts don't carry that
+// interpretation — building a keyword-based fake version of it would
+// violate this app's "never fabricate" rule as much as inventing a quote
+// would. `aiSummary`/`scores` stay null/empty, and each item's
+// `sentimentAnalyzed` flag honestly discloses whether its `sentiment`
+// reflects a real keyword classification or the safe neutral fallback
+// (empty text only).
 //
 // What's genuinely NEW and real, not available before: exact real
 // `created_at` timestamps (previously disclosed as unavailable), and real
@@ -36,11 +32,10 @@
 // old Anthropic path already used for search budget, just re-aimed at a
 // real monthly read count.
 const { resolveUserId, fetchUserTweets } = require("./providers/x-api");
-const { extractCashtags, classifyCategory, classifyUrgency, computeItemImportance } = require("./x-intel-x-classifiers");
+const { extractCashtags, classifyCategory, classifyUrgency, computeItemImportance, classifySentimentDeterministic } = require("./x-intel-x-classifiers");
 const { CATEGORIES } = require("./x-intel-categories");
 const { list: listWatchlist, update: updateWatchlistEntry } = require("./x-intel-watchlist-store");
 const { KNOWN_RSS_FEEDS } = require("./x-intel-rss");
-const { classifySentiment } = require("./x-intel-sentiment-ai");
 const { logItem, findRecentDuplicate } = require("./x-intel-store");
 const { sectorOf } = require("./risk-guardrails");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
@@ -98,12 +93,12 @@ async function buildItem(entity, tweet) {
   const metrics = tweet.public_metrics || {};
   const likes = Number(metrics.like_count) || 0;
   const retweets = Number(metrics.retweet_count) || 0;
-  // Real AI sentiment classification, brought back 2026-07 per explicit
-  // user request — see x-intel-sentiment-ai.js's header for the real cost
-  // discipline (Haiku, no web search, Credit Saver Mode gated). Falls back
-  // to honest neutral (analyzed:false) if no key/Saver Mode/a real
-  // failure, same as before this was reintroduced.
-  const { sentiment, confidence, analyzed } = await classifySentiment(text);
+  // Real deterministic keyword sentiment — Anthropic removed from X Intel
+  // entirely 2026-07-25 per explicit user request. See
+  // x-intel-x-classifiers.js's header for the real discipline this
+  // replaces the old Haiku call with (zero cost, zero API dependency,
+  // disclosed as pattern-matching not AI judgment).
+  const { sentiment, confidence, analyzed, source: sentimentSource } = classifySentimentDeterministic(text);
   const category = classifyCategory(text); // real keyword match, disclosed as such
   return {
     entityUsername: entity.username,
@@ -123,6 +118,7 @@ async function buildItem(entity, tweet) {
     sentiment,
     confidence,
     sentimentAnalyzed: analyzed, // real disclosure flag — UI shows this honestly, not a blanket claim
+    sentimentSource, // "keyword" — real deterministic classification, not AI; UI must not claim otherwise
     category,
     marketImpact: sanitizeMarketImpact(symbols),
     aiSummary: {

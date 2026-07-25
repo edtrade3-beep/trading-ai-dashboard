@@ -41,13 +41,13 @@ function ItemCard({ it, C, MONO, SANS, setActiveTab, setTerminalSymbol }) {
           {isRss && <span title="Real official RSS feed — deterministic category tagging, no market-impact call made" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, background: `${C.textDim}18`, borderRadius: 5, padding: "2px 6px" }}>🆓 RSS</span>}
           {isXApi && <span title="Real X.com post — deterministic cashtag/category extraction, no AI direction/confidence judgment made" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, background: `${C.textDim}18`, borderRadius: 5, padding: "2px 6px" }}>🐦 X API</span>}
           {it.sentimentAnalyzed ? (
-            <span title="Real AI sentiment classification (Claude Haiku)" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, borderRadius: 5, padding: "2px 6px",
+            <span title={it.sentimentSource === "keyword" ? "Real deterministic keyword sentiment — pattern-matching, not AI judgment" : "Sentiment classification"} style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, borderRadius: 5, padding: "2px 6px",
               color: it.sentiment === "bullish" ? C.green : it.sentiment === "bearish" ? C.red : C.textDim,
               background: it.sentiment === "bullish" ? `${C.green}18` : it.sentiment === "bearish" ? `${C.red}18` : `${C.textDim}18` }}>
               {it.sentiment === "bullish" ? "▲" : it.sentiment === "bearish" ? "▼" : "○"} {it.sentiment.toUpperCase()}{it.confidence != null ? ` ${it.confidence}%` : ""}
             </span>
           ) : (
-            (isRss || isXApi) && <span title="No AI sentiment call was made for this item (missing API key, Credit Saver Mode, or a real failure) — shown as neutral, not guessed" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.textDim, opacity: 0.7 }}>· unanalyzed</span>
+            (isRss || isXApi) && <span title="No sentiment classification ran on this item (empty text) — shown as neutral, not guessed" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.textDim, opacity: 0.7 }}>· unanalyzed</span>
           )}
           {isXApi && (it.realEngagement?.likes > 0 || it.realEngagement?.retweets > 0) && (
             <span title="Real engagement counts from X" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.textDim }}>
@@ -64,9 +64,13 @@ function ItemCard({ it, C, MONO, SANS, setActiveTab, setTerminalSymbol }) {
           {it.urgency === "high" && <span title="High-severity category (Fed/earnings/M&A-class news)" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.red, background: `${C.red}18`, borderRadius: 5, padding: "2px 6px" }}>● URGENT</span>}
           {it.urgency === "medium" && <span title="Medium-severity category" style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.amber, background: `${C.amber}18`, borderRadius: 5, padding: "2px 6px" }}>● NOTABLE</span>}
           {it.publishedAt ? (
-            <span title="Real published date from the source feed">{new Date(it.publishedAt).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
+            <span title="Real published date/time from the source feed">
+              {new Date(it.publishedAt).toLocaleDateString([], { month: "short", day: "numeric" })} · {new Date(it.publishedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </span>
           ) : (
-            <span>{new Date(it.capturedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+            <span title="Real time this item was logged (no publish timestamp available from the source)">
+              {new Date(it.capturedAt).toLocaleDateString([], { month: "short", day: "numeric" })} · {new Date(it.capturedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </span>
           )}
         </div>
       </div>

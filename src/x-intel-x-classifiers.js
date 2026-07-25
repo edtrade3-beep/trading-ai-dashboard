@@ -97,4 +97,42 @@ function computeItemImportance(entityImportanceScore, category) {
   return Math.round(catBase * 0.65 + entityScore * 0.35);
 }
 
-module.exports = { extractCashtags, classifyCategory, classifyUrgency, computeItemImportance };
+// Real, deterministic bullish/bearish keyword lexicon — replaces the
+// Anthropic sentiment call (2026-07-25, explicit user request: no
+// Anthropic API for X Intel at all, not even the small Haiku sentiment
+// classification). Same honest discipline as classifyCategory above:
+// disclosed as pattern-matching, not AI judgment — never claims to be a
+// calibrated probability or real interpretation. Zero cost, zero API
+// dependency, zero rate-limit risk — can always run, unlike the old path
+// which silently fell back to "unanalyzed" the moment Anthropic's account-
+// level usage cap was hit (which is exactly what triggered this change).
+const BULLISH_PATTERNS = [
+  /beats? (estimates|expectations|forecast)/i, /exceeds? expectations/i, /record (revenue|profit|earnings)/i,
+  /raises? (guidance|forecast)/i, /strong demand/i, /\bsurges?\b/i, /\brallies?\b/i, /\bsoars?\b/i,
+  /\bjumps?\b/i, /upgrad(e|ed|es|ing)/i, /buy rating/i, /\boutperform/i, /share (buyback|repurchase)/i,
+  /wins? (contract|deal)/i, /strong quarter/i, /tops? forecast/i, /(approval granted|granted approval)/i,
+  /expands? (into|operations)/i,
+];
+const BEARISH_PATTERNS = [
+  /misses? (estimates|expectations|forecast)/i, /falls? short/i, /(cuts?|lowers?) (guidance|forecast)/i,
+  /weak demand/i, /\bplunges?\b/i, /\btumbles?\b/i, /\bslides?\b/i, /\bsinks?\b/i,
+  /downgrad(e|ed|es|ing)/i, /sell rating/i, /\bunderperform/i, /\brecall(s|ed|ing)?\b/i, /\blawsuit/i,
+  /\binvestigation\b/i, /\bresigns?\b/i, /steps? down/i, /\bbankruptcy\b/i, /\blayoffs?\b/i, /job cuts/i,
+  /\bwarns?\b/i, /disappointing/i, /losses? widen/i,
+];
+function classifySentimentDeterministic(text) {
+  const clean = String(text || "").trim();
+  if (!clean) return { sentiment: "neutral", confidence: null, analyzed: false, source: "keyword" };
+  const bullCount = BULLISH_PATTERNS.filter((p) => p.test(clean)).length;
+  const bearCount = BEARISH_PATTERNS.filter((p) => p.test(clean)).length;
+  if (bullCount === 0 && bearCount === 0) return { sentiment: "neutral", confidence: null, analyzed: true, source: "keyword" };
+  const sentiment = bullCount > bearCount ? "bullish" : bearCount > bullCount ? "bearish" : "neutral";
+  // Confidence is an honest proxy for keyword-match strength, not a
+  // calibrated probability — capped at 70 (never claims AI-level certainty)
+  // and null whenever the signal itself is a tie/neutral.
+  const netMatches = Math.abs(bullCount - bearCount);
+  const confidence = sentiment === "neutral" ? null : Math.min(70, 40 + netMatches * 15);
+  return { sentiment, confidence, analyzed: true, source: "keyword" };
+}
+
+module.exports = { extractCashtags, classifyCategory, classifyUrgency, computeItemImportance, classifySentimentDeterministic };
