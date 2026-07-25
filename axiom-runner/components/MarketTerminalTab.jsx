@@ -7,7 +7,7 @@ import {
   MarketPulseBar, SentimentRow, MarketNewsWire, AnalystPeerPanel,
   FundamentalsPanel, CompanyProfile, AiPredictPanel, COTPanel,
   PredictionMarkets, SocialFeed, InvestorsPanel, TradeExtrasPanel,
-  PerformanceCard, BestOpportunities,
+  PerformanceCard,
 } from "./terminal-panels.jsx";
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
@@ -155,14 +155,25 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     return null;
   })();
 
+  // Section header — same treatment for all 3 zones on this page (Chart /
+  // Movers & Watchlist / Market Snapshot) so a long page reads as clearly
+  // delineated zones instead of one undifferentiated scroll.
+  const SectionHeader = ({ icon, label }) => (
+    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: 1, color: C.textDim,
+      textTransform: "uppercase", paddingBottom: 6, marginBottom: 4, borderBottom: `1px solid ${C.border}` }}>
+      {icon} {label}
+    </div>
+  );
+
   return (
     <div style={{ width: "100%" }}>
     {/* Chart goes first / full-width so it gets the room it deserves; the
         movers/watchlist list — previously a side-by-side left column that
         squeezed the chart down to ~2/3 width — now sits stacked below it. */}
     <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* ── TOP: pro chart ── */}
+      {/* ── ZONE 1: pro chart ── */}
       <div style={{ width: "100%" }}>
+        <SectionHeader icon="📈" label="Chart" />
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
           <span style={{ fontFamily: SANS, fontSize: 24, fontWeight: 900, color: C.text }}>{sym}</span>
           {chart && chart.price != null && <span style={{ fontFamily: MONO, fontSize: 18, color: C.text }}>${chart.price.toFixed(2)}</span>}
@@ -270,8 +281,9 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         {dTab === "news" && <NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
       </div>
 
-      {/* ── BOTTOM: movers list ── */}
+      {/* ── ZONE 2: movers / watchlist / wires ── */}
       <div style={{ width: "100%" }}>
+        <SectionHeader icon="🔥" label="Movers & Watchlist" />
         <form onSubmit={(e) => { e.preventDefault(); loadSym(query); setQuery(""); }} style={{ display: "flex", gap: 6, marginBottom: 8 }}>
           <input value={query} onChange={e => setQuery(e.target.value)} placeholder="🔍 Load any symbol…"
             style={{ flex: 1, fontFamily: MONO, fontSize: 13, padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.text }} />
@@ -334,11 +346,18 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
       </div>
     </div>
 
-    <PerformanceCard C={C} MONO={MONO} SANS={SANS} />
-    <BestOpportunities C={C} MONO={MONO} SANS={SANS} onPick={loadSym} macroData={macroData} setActiveTab={setActiveTab} />
-    <MarketPulseBar C={C} MONO={MONO} SANS={SANS} />
-    <SentimentRow C={C} MONO={MONO} SANS={SANS} />
-    <SectorHeatStrip sectorData={sectorData} C={C} MONO={MONO} SANS={SANS} />
+    {/* ── ZONE 3: market-wide snapshot ──
+        BestOpportunities used to also render here — removed (2026-07-25,
+        user request) since it's genuinely the same real component/scan
+        already on its own dedicated sidebar tab; keeping both was pure
+        duplication, not two different views of it. */}
+    <div style={{ marginTop: 14 }}>
+      <SectionHeader icon="🌍" label="Market Snapshot" />
+      <PerformanceCard C={C} MONO={MONO} SANS={SANS} />
+      <MarketPulseBar C={C} MONO={MONO} SANS={SANS} />
+      <SentimentRow C={C} MONO={MONO} SANS={SANS} />
+      <SectorHeatStrip sectorData={sectorData} C={C} MONO={MONO} SANS={SANS} />
+    </div>
     </div>
   );
 }
