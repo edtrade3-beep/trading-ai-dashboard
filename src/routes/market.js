@@ -3948,3 +3948,4 @@ module.exports = handleMarket;
 module.exports.runAiScanTool = runAiScanTool; // exposed for reuse/testing — handleMarket itself remains the default callable export
 module.exports.screenTrendTemplate = screenTrendTemplate; // exposed for aplus-score-history.js's daily snapshot job
 module.exports.fetchMarketQuotes = fetchMarketQuotes; // exposed for the same job's regime calc + forward-return current-price lookup
+module.exports.buildTrendTemplate = buildTrendTemplate; // exposed for trailing-stops.js's real-position invalidation check — { light: true } skips bars/series but keeps setup.sellSignals

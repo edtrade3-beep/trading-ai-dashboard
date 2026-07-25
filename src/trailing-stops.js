@@ -14,6 +14,44 @@ const TARGET_R_MULTIPLE = Number(process.env.TRAIL_TARGET_R) || 2; // extend tar
 
 const { resolveAlpacaKeys, alpacaTradingRequest } = require("./providers/alpaca-client");
 const keys = resolveAlpacaKeys;
+
+// Real "warn on deteriorating trades" — the one charter-required proactive-
+// automation piece that genuinely didn't exist anywhere (confirmed via a
+// fresh gap-check 2026-07-25): nothing watched OPEN positions for their own
+// trend-template invalidation signals (sellSignals — "Closed below 50-day
+// MA" etc., the same real data just wired into Green Light rows the same
+// day) and said something unprompted. { light: true } skips the heavy
+// bars/series build but keeps setup.sellSignals, so this is cheap even
+// across a full position list (small, bounded — not the whole watchlist).
+// In-memory dedup only (resets on redeploy) — this is advisory, not a
+// money-moving action, so a rare duplicate warning after a restart is an
+// acceptable tradeoff for not needing a persistent store.
+const warnedInvalidations = new Set(); // `${symbol}:${reason}`
+async function checkInvalidations(positions) {
+  if (!positions.length) return [];
+  let buildTrendTemplate;
+  try { ({ buildTrendTemplate } = require("./routes/market")); } catch { return []; }
+  const warnings = [];
+  for (const p of positions) {
+    if (Number(p.qty) <= 0) continue; // longs only, same scope as the trailing-stop logic below
+    let tt;
+    try { tt = await buildTrendTemplate(p.symbol, { light: true }); } catch { continue; }
+    const signals = (tt && tt.setup && Array.isArray(tt.setup.sellSignals)) ? tt.setup.sellSignals : [];
+    for (const reason of signals) {
+      const key = `${p.symbol}:${reason}`;
+      if (warnedInvalidations.has(key)) continue;
+      warnedInvalidations.add(key);
+      warnings.push({ symbol: p.symbol, reason });
+    }
+    // Signal cleared — allow it to warn again if it re-triggers later.
+    for (const key of [...warnedInvalidations]) {
+      if (key.startsWith(`${p.symbol}:`) && !signals.includes(key.slice(p.symbol.length + 1))) {
+        warnedInvalidations.delete(key);
+      }
+    }
+  }
+  return warnings;
+}
 // Local shim preserving this file's original real contract (returns null
 // on no-key or any fetch error — this is a 5-minute cron, it must never
 // throw and break the interval on a transient network blip) while
@@ -105,6 +143,15 @@ async function runTrailingStops() {
       await sendTelegramMessage(`📈 TRAILING STOPS — winner(s) running, protection raised:\n${lines.join("\n")}`);
     }
   }
+
+  const warnings = await checkInvalidations(positions);
+  if (warnings.length) {
+    console.log(`[Trailing stops] ${warnings.length} new invalidation warning(s)`);
+    if (telegramConfigured()) {
+      const lines = warnings.map(w => `${w.symbol}: ${w.reason}`);
+      await sendTelegramMessage(`⚠️ INVALIDATION — thesis breaking on open position(s):\n${lines.join("\n")}`);
+    }
+  }
 }
 
-module.exports = { runTrailingStops };
+module.exports = { runTrailingStops, checkInvalidations, warnedInvalidations };
