@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { NUM } from "./theme.js";
 import { computeRegime, computeAPlusScore, STOCK_TO_SECTOR, SECTOR_ETFS } from "./market-helpers.js";
 
@@ -764,6 +764,18 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
   const [onlyStrong, setOnlyStrong] = useState(true);   // RS ≥ 70 quality filter
   const [lastScan, setLastScan] = useState(0);
   const [notifyOn, setNotifyOn] = useState(() => localStorage.getItem("bestopp_notify") === "on");
+  // Auto-add — real, explicit user request (2026-07-27): whenever a symbol
+  // shows up in this real ranked scan (BEST_OPP_UNIVERSE, ~40 stocks, not
+  // just whatever's already on the Watchlist — Green Light's own WATCH list
+  // was checked first and found to already BE sourced from the Watchlist,
+  // so there was nothing to auto-add there), add it to the persistent
+  // Watchlist automatically. Defaults ON per the explicit ask; still exposed
+  // as a toggle (same reversibility convention as every other automation in
+  // this app) since a 5-symbol list refreshing every 5 min could otherwise
+  // grow the watchlist unboundedly with no way to opt back out.
+  const [autoWatchlist, setAutoWatchlist] = useState(() => localStorage.getItem("bestopp_autowatchlist") !== "off");
+  const autoAddedRef = useRef(new Set()); // symbols already processed this session — avoid re-fetching /api/watchlist every 5-min scan for names already added
+  const [autoAddMsg, setAutoAddMsg] = useState("");
   // trend-screen's r.price is the last DAILY bar close, so during pre-market
   // it still shows yesterday's number. Overlay a real current price (same
   // Yahoo v8-chart path already proven reliable from the cloud for
@@ -841,6 +853,34 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
     const t = setInterval(scan, 5 * 60 * 1000);
     return () => { clearTimeout(kick); clearInterval(t); };
   }, [onlyStrong]); // eslint-disable-line
+
+  // Auto-add newly-ranked symbols to the persistent Watchlist. Same real
+  // localStorage+server read-merge-write convention MarketTerminalTab.jsx's
+  // manual "⭐ Add to Watchlist" button already uses — reused here, not
+  // reinvented. Only runs for symbols this session hasn't already processed
+  // (autoAddedRef), so a stock staying in the top-5 across repeated 5-min
+  // scans doesn't re-fetch/re-post every time.
+  useEffect(() => {
+    if (!autoWatchlist || !rows || !rows.length) return;
+    const fresh = rows.map(r => r.symbol).filter(s => !autoAddedRef.current.has(s));
+    if (!fresh.length) return;
+    fresh.forEach(s => autoAddedRef.current.add(s));
+    let local = [];
+    try { local = JSON.parse(localStorage.getItem("dm_watchlist") || "[]"); } catch {}
+    local = local.map(x => String(x).toUpperCase());
+    const genuinelyNew = fresh.filter(s => !local.includes(s));
+    if (!genuinelyNew.length) return; // already on the watchlist — nothing to do
+    const next = [...new Set([...local, ...genuinelyNew])];
+    try { localStorage.setItem("dm_watchlist", JSON.stringify(next)); } catch {}
+    setAutoAddMsg(`⭐ Auto-added ${genuinelyNew.join(", ")} to Watchlist`);
+    setTimeout(() => setAutoAddMsg(""), 4000);
+    fetch("/api/watchlist").then(r => r.json()).then(d => {
+      const server = Array.isArray(d.symbols) ? d.symbols.map(x => String(x).toUpperCase()) : [];
+      const merged = [...new Set([...server, ...next])];
+      return fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbols: merged }) });
+    }).catch(() => {});
+  }, [rows, autoWatchlist]);
+
   const vBadge = (r) => {
     if (r.verdict === "GO" || (r.atBuyPoint && r.volConfirmed)) return ["🟢 GO — buy point", "#0d9465"];
     if (r.actionable) return ["🟡 READY — near pivot", "#d6a312"];
@@ -868,6 +908,12 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
               border: `1px solid ${notifyOn ? "#7c5cff" : C.border}`, background: notifyOn ? "rgba(124,92,255,0.12)" : C.bg, color: notifyOn ? "#7c5cff" : C.textDim }}>
             {notifyOn ? "🔔 Alerts ON" : "🔕 Alert me on new GO"}
           </button>
+          <button onClick={() => { const v = !autoWatchlist; setAutoWatchlist(v); localStorage.setItem("bestopp_autowatchlist", v ? "on" : "off"); }}
+            title="Automatically add every symbol that shows up in this ranked list to your Watchlist"
+            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "8px 12px", borderRadius: 8, cursor: "pointer",
+              border: `1px solid ${autoWatchlist ? "#d6a312" : C.border}`, background: autoWatchlist ? "rgba(214,163,18,0.12)" : C.bg, color: autoWatchlist ? "#d6a312" : C.textDim }}>
+            {autoWatchlist ? "⭐ Auto-watchlist ON" : "Auto-watchlist OFF"}
+          </button>
           <button onClick={scan} disabled={state === "loading"}
             style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, padding: "10px 20px", borderRadius: 10, cursor: state === "loading" ? "wait" : "pointer",
               border: "none", background: C.accent, color: "#fff" }}>
@@ -875,6 +921,7 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
           </button>
         </div>
       </div>
+      {autoAddMsg && <div style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 700, color: "#d6a312", padding: "0 16px 8px" }}>{autoAddMsg}</div>}
       {/* Market-regime banner — breakouts work in green markets, fail in red ones. */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", background: `${regime.color}14`, borderTop: `1px solid ${C.border}`, borderBottom: state === "ok" || state === "none" ? `1px solid ${C.border}` : "none", flexWrap: "wrap" }}>
         <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: regime.color }}>MARKET: {regime.label} {regime.score}/100</span>
