@@ -47,27 +47,90 @@ export function computeRegime(macroData) {
   return { score, label, color, factors, vixVal };
 }
 
-// A+ Score — one 0-100 number for "how good is this setup right now", combining trend-template
-// quality (40pt), relative strength (30pt), current market regime (20pt), and buy-point proximity
-// (10pt). A score with no explanation isn't actionable, so this always returns `reasons`.
-// Row shape: { passCount (0-8), rsRating (0-100), verdict, atBuyPoint, volConfirmed, actionable }.
+// A+ Score — one 0-100 number for "how good is this setup right now," across 9 real
+// dimensions (extended 2026-07-27 from an original 4 — trend/RS/regime/setup — per
+// explicit user request, matching the "AI Market Intelligence Platform" spec's
+// Technical/Momentum/Volume/Risk/Volatility/Catalyst/Fundamental breadth). Every new
+// dimension reuses a field `/api/market/trend-screen` ALREADY computes and returns on
+// this same `row` object — zero new API calls, zero paid infra, matching this app's
+// free-tier-stack constraint and its repeated "grep before building — the data usually
+// already exists" lesson. A score with no explanation isn't actionable, so this always
+// returns `reasons` (now 9 lines, one per dimension).
+//
+// Row shape used: { passCount (0-8), rsRating (0-100), verdict, atBuyPoint, volConfirmed,
+// actionable, confidence (real breakout-engine 0-100), volRatio, riskPct, tightening,
+// vcpGrade, earningsSoon, earningsDte, epsGrowth }.
+//
+// Deliberately did NOT build a "reward:risk ratio" dimension from riskPct+target2 —
+// target2 is defined as `entry + 2*(entry-stop)` (routes/market.js), i.e. mechanically
+// exactly 2x riskPct for every single row by construction. A "ratio" dimension built from
+// those two fields would score identically for every stock — fake differentiation, not a
+// real signal. Used riskPct alone instead (tighter stop = genuinely less capital at risk
+// for the same fixed 2R target), which does vary meaningfully row to row.
+//
+// Where real data can be legitimately absent for a symbol (thin-coverage tickers lacking
+// forward EPS, no earnings date on file, no breakout state yet) this gives an honest
+// mid-point credit rather than a punishing zero or a fabricated number — same "honest null,
+// never fabricated" discipline used everywhere else in this app (X Intel sentiment, halal
+// screening, etc.).
 export function computeAPlusScore(row, regime) {
   const passCount = Number(row?.passCount || 0);
   const rsRating = Number(row?.rsRating || 0);
   const regimeScore = Number(regime?.score ?? 0);
-  const trendPts = Math.round((passCount / 8) * 40);
-  const rsPts = Math.round((rsRating / 100) * 30);
-  const regimePts = Math.round((regimeScore / 100) * 20);
+
+  // 1. Trend structure — Minervini 8-point trend template pass count.
+  const trendPts = Math.round((passCount / 8) * 20);
+  // 2. Relative strength — percentile rank vs the screened universe.
+  const rsPts = Math.round((rsRating / 100) * 15);
+  // 3. Market regime/alignment — today's real SPY/QQQ/VIX-derived regime score.
+  const regimePts = Math.round((regimeScore / 100) * 15);
+
+  // 4. Setup/breakout quality — actionability plus the real breakout-engine
+  // confidence (0-100, from vcpBreakoutEngine) when a breakout state exists.
   const isGo = row?.verdict === "GO" || (row?.atBuyPoint && row?.volConfirmed);
-  const setupPts = isGo ? 10 : row?.actionable ? 6 : 0;
-  const score = Math.max(0, Math.min(100, trendPts + rsPts + regimePts + setupPts));
+  const breakoutConf = Number(row?.confidence) || 0;
+  const setupBase = isGo ? 12 : row?.actionable ? 7 : 0;
+  const setupBonus = Math.round((breakoutConf / 100) * 3);
+  const setupPts = Math.min(15, setupBase + setupBonus);
+
+  // 5. Volume confirmation — real volume vs the 50-day average; 2x+ = full credit.
+  const volRatio = Number(row?.volRatio);
+  const volPts = Number.isFinite(volRatio) ? Math.round(Math.max(0, Math.min(1, volRatio / 2)) * 10) : 5;
+
+  // 6. Risk tightness — real % distance from entry to stop; tighter = less capital
+  // at risk for the same fixed 2R target this platform always uses (see note above).
+  const riskPct = Number(row?.riskPct);
+  const riskPts = Number.isFinite(riskPct) && riskPct > 0 ? Math.round(Math.max(0, Math.min(1, (10 - riskPct) / 7)) * 10) : 5;
+
+  // 7. Volatility/base tightness — real VCP contraction pattern (each pullback
+  // shallower than the last) is Minervini's own volatility-contraction signal.
+  const volatilityPts = row?.tightening ? 5 : (row?.vcpGrade && row.vcpGrade !== "-" ? 3 : 2);
+
+  // 8. Catalyst/earnings risk — real days-to-earnings; imminent earnings is
+  // genuine added uncertainty (gap risk), not a bonus signal, so it REDUCES
+  // points rather than adding them — matches the charter's "protect capital
+  // first" ordering.
+  const catalystPts = row?.earningsSoon ? 0 : (row?.earningsDte == null ? 3 : 5);
+
+  // 9. Fundamental momentum — real forward-vs-trailing EPS growth % when Yahoo
+  // has both figures (often absent for thin-coverage names/ETFs — honest
+  // mid-point credit then, not a fabricated growth number).
+  const epsGrowth = Number(row?.epsGrowth);
+  const fundamentalPts = Number.isFinite(epsGrowth) ? Math.round(Math.max(0, Math.min(1, (epsGrowth + 10) / 30)) * 5) : 3;
+
+  const score = Math.max(0, Math.min(100, trendPts + rsPts + regimePts + setupPts + volPts + riskPts + volatilityPts + catalystPts + fundamentalPts));
   const reasons = [
     `${passCount}/8 trend template criteria met`,
     rsRating >= 90 ? `RS ${rsRating} — top-decile market leader` : rsRating >= 70 ? `RS ${rsRating} — market leader` : `RS ${rsRating} — below leader threshold`,
     `Market regime ${regime?.label || "?"} (${regimeScore}/100)${regimeScore >= 75 ? " — favorable for breakouts" : regimeScore >= 55 ? " — mixed, be selective" : " — unfavorable, high failure risk"}`,
-    isGo ? "At buy point with volume confirmation" : row?.actionable ? "Near pivot, not yet confirmed" : "Not yet actionable",
+    isGo ? `At buy point with volume confirmation${breakoutConf ? ` (${breakoutConf}% breakout confidence)` : ""}` : row?.actionable ? "Near pivot, not yet confirmed" : "Not yet actionable",
+    Number.isFinite(volRatio) ? `Volume ${volRatio.toFixed(1)}x the 50-day average` : "Volume data unavailable",
+    Number.isFinite(riskPct) && riskPct > 0 ? `${riskPct.toFixed(1)}% risk to stop — ${riskPct <= 5 ? "tight, low-risk entry" : riskPct <= 8 ? "moderate risk" : "wide stop, higher risk"}` : "Risk distance unavailable",
+    row?.tightening ? "VCP tightening — each pullback shallower than the last" : row?.vcpGrade && row.vcpGrade !== "-" ? `VCP grade ${row.vcpGrade}, not yet tightening` : "No real VCP base detected",
+    row?.earningsSoon ? `⚠️ Earnings within ${row.earningsDte} day${row.earningsDte === 1 ? "" : "s"} — added gap risk` : row?.earningsDte == null ? "Earnings date unavailable" : `No earnings for ${row.earningsDte} days`,
+    Number.isFinite(epsGrowth) ? `EPS growth (fwd vs TTM): ${epsGrowth >= 0 ? "+" : ""}${epsGrowth}%` : "Forward EPS data unavailable",
   ];
-  return { score, reasons, breakdown: { trendPts, rsPts, regimePts, setupPts } };
+  return { score, reasons, breakdown: { trendPts, rsPts, regimePts, setupPts, volPts, riskPts, volatilityPts, catalystPts, fundamentalPts } };
 }
 
 // Fibonacci retracement/extension levels from real daily candle bars — the
