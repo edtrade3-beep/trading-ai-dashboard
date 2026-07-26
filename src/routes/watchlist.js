@@ -32,3 +32,4 @@ async function handleWatchlist(req, res) {
 
 module.exports = handleWatchlist;
 module.exports.loadWatchlist = loadWatchlist;
+module.exports.saveWatchlist = saveWatchlist;

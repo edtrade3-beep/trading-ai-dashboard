@@ -335,6 +335,19 @@ server.listen(PORT, HOST, () => {
   setInterval(() => require("./src/watchlist-turn-alerts").checkWatchlistTurns().catch(() => {}), 15 * 60_000);
   console.log("[Watchlist turns] Buy/sell verdict-change alerts active — every 15 min, market hours only");
 
+  // Market auto-watchlist — real, continuous scan of a curated ~96-symbol
+  // universe that auto-adds any GO (ready to pop) or WATCH (actionable,
+  // building) setup to the Watchlist (2026-07-26, explicit user request:
+  // "scan whole us market ... add all watch stocks ready to pop or in watch
+  // status in watch list automaticaly and make sure keep doing it" — full
+  // US market scoped down to this curated universe per a confirmed
+  // AskUserQuestion, free-tier data stack). Additive-only, read-only against
+  // the account — no SERVER_AUTOPILOT gate needed. Runs every 30 min
+  // (heavier scan than the 15-min Watchlist-only check above) during market
+  // hours only.
+  setInterval(() => require("./src/market-auto-watchlist").runMarketAutoWatchlist().catch(() => {}), 30 * 60_000);
+  console.log("[Market auto-watchlist] Continuous GO/WATCH scan active — every 30 min, market hours only");
+
   // Deal watches: disabled from Telegram (not trading-related)
   // setInterval(checkDealWatches, 30 * 60 * 1000);
 
