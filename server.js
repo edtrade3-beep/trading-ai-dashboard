@@ -326,6 +326,15 @@ server.listen(PORT, HOST, () => {
   }, 15 * 60_000);
   console.log("[ADOL22] Market scanner active — every 15 min, market hours only");
 
+  // Watchlist turn alerts — real Telegram ping when a Watchlist symbol's
+  // chart verdict (GO/WAIT/AVOID) flips, i.e. a real buy or sell/exit signal
+  // (2026-07-26, explicit user request, scoped to Watchlist only via an
+  // AskUserQuestion). Read-only (never places/modifies a trade), so this
+  // runs unconditionally — not gated behind SERVER_AUTOPILOT like the
+  // stop-ratcheting/trade-mutating automation above.
+  setInterval(() => require("./src/watchlist-turn-alerts").checkWatchlistTurns().catch(() => {}), 15 * 60_000);
+  console.log("[Watchlist turns] Buy/sell verdict-change alerts active — every 15 min, market hours only");
+
   // Deal watches: disabled from Telegram (not trading-related)
   // setInterval(checkDealWatches, 30 * 60 * 1000);
 
