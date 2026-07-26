@@ -6046,7 +6046,7 @@ export default function App() {
             wlistRenameVal={wlistRenameVal} wlistRenaming={wlistRenaming} wlSearchFocused={wlSearchFocused}
             wlSearchQuery={wlSearchQuery}
             sorted={sorted} signalFiltered={signalFiltered} sortCol={sortCol} sortDir={sortDir} handleSort={handleSort}
-            trendMap={trendMap}
+            trendMap={trendMap} macroData={macroData}
             MARKET_UNIVERSE_SYMBOLS={MARKET_UNIVERSE_SYMBOLS}
             setActiveTab={setActiveTab} setActiveWlistId={setActiveWlistId} setLoading={setLoading}
             setOpenAlertSymbol={setOpenAlertSymbol} setOpenNoteSymbol={setOpenNoteSymbol}

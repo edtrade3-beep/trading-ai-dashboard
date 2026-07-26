@@ -1,6 +1,12 @@
 import { Badge, ScoreBar, TrendTag, formatNum } from "./ui-atoms.jsx";
 import { LAYOUT } from "./theme.js";
 import { computeScores, classifyTrend, computeMTFSignal } from "./trading-utils.js";
+// A+ Score — a real, deliberately SEPARATE second signal from this tab's own
+// Composite/Tech/Fund system (2026-07-27, explicit user request, same
+// additive-not-replacing pattern already used on RhPro Watchlists/Scanner).
+// trendMap[symbol] is already a real /api/market/trend-screen row (same one
+// rhScore/computeScores already consume above) — no new fetch needed.
+import { computeAPlusScore, computeRegime } from "./market-helpers.js";
 
 export default function QuotesTab({
   C, MONO, SANS, isTablet, apiKey, settings, marketSession,
@@ -8,7 +14,7 @@ export default function QuotesTab({
   activeWlistId, openAlertSymbol, openNoteSymbol,
   scoreFilter, signalFilter, trendFilter, volumeFilter,
   wlAlertDir, wlAlertPrice, wlCardView, wlistRenameVal, wlistRenaming, wlSearchFocused, wlSearchQuery,
-  sorted, signalFiltered, sortCol, sortDir, handleSort, trendMap,
+  sorted, signalFiltered, sortCol, sortDir, handleSort, trendMap, macroData,
   setActiveTab, setActiveWlistId, setLoading, setOpenAlertSymbol, setOpenNoteSymbol, setQuickLogModal,
   setScanExpanded, setScanResults, setScoreFilter, setSelectedStock, setSettings, setSignalFilter,
   setTerminalSymbol, setTrendFilter, setVolumeFilter, setWatchlistInput, setWatchlistNotes,
@@ -25,6 +31,7 @@ export default function QuotesTab({
       {children}{sortCol === col ? (sortDir === "desc" ? " ▼" : " ▲") : ""}
     </th>
   );
+  const regime = computeRegime(macroData);
 
   return watchlistData.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: LAYOUT.gridGap, alignItems: "start", width: "100%", overflow: "hidden" }}>
@@ -373,6 +380,7 @@ export default function QuotesTab({
                     const trend  = classifyTrend(q);
                     const rvol   = q.avgVolume ? (q.volume / q.avgVolume) : 0;
                     const mtf    = computeMTFSignal(q, trendMap?.[q.symbol]);
+                    const aplus  = computeAPlusScore(trendMap?.[q.symbol] || {}, regime);
                     const sigCol = mtf.signal === "BUY" ? C.green : mtf.signal === "SELL" ? C.red : C.amber;
                     const trendArrow = trend.includes("Up") ? "▲" : trend.includes("Down") ? "▼" : "─";
                     const trendCol   = trend.includes("Up") ? C.green : trend.includes("Down") ? C.red : C.textDim;
@@ -409,9 +417,14 @@ export default function QuotesTab({
                           {isUp ? "+" : ""}{chg.toFixed(2)}%
                         </div>
                         {/* Trend + Score row */}
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                           <span style={{ fontFamily: MONO, fontSize: isTablet ? 12 : 11, color: trendCol }}>{trendArrow} {trend.replace(" Up","").replace(" Down","").replace("Strong","").trim() || trend}</span>
-                          <span style={{ fontFamily: MONO, fontSize: isTablet ? 12 : 11, color: C.textDim }}>S:{Math.round(scores.composite)}</span>
+                          <span style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                            <span style={{ fontFamily: MONO, fontSize: isTablet ? 12 : 11, color: C.textDim }}>S:{Math.round(scores.composite)}</span>
+                            {/* A+ — separate real 9-dimension score, same additive-not-replacing pattern as the table view above */}
+                            <span title={aplus.reasons.join(" · ")} style={{ fontFamily: MONO, fontSize: isTablet ? 11 : 10, fontWeight: 900, color: "#fff", cursor: "help",
+                              background: aplus.score >= 80 ? "#0d9465" : aplus.score >= 60 ? "#d6a312" : "#c8282a", borderRadius: 4, padding: "1px 5px" }}>A+{aplus.score}</span>
+                          </span>
                         </div>
                         {/* RVOL */}
                         {rvol > 0 && (
@@ -489,6 +502,12 @@ export default function QuotesTab({
                         <SortH col="composite">SCORE</SortH>
                         <SortH col="tech">TECH</SortH>
                         {!isTablet && <SortH col="fund">FUND</SortH>}
+                        {/* A+ — the platform's separate 9-dimension trend/RS/regime/setup/
+                            volume/risk/volatility/catalyst/fundamental score (market-helpers.js),
+                            deliberately NOT merged into the Composite/Tech/Fund system above —
+                            same "keep parallel scoring systems separate" rule this app already
+                            follows for RhPro Watchlists/Scanner. */}
+                        {!isTablet && <th title="A+ Score — a separate, real 9-dimension composite" style={{ padding: "10px 8px", fontSize: 12, fontFamily: MONO, color: C.textDim, textAlign: "center", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>A+</th>}
                         <th style={{ padding: "10px 8px", fontSize: 12, fontFamily: MONO, color: C.textDim, textAlign: "center", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>SIGNAL</th>
                         <th style={{ padding: "10px 8px", fontSize: 12, fontFamily: MONO, color: C.textDim, textAlign: "center", borderBottom: `1px solid ${C.border}` }}>⚡</th>
                       </tr>
@@ -501,7 +520,10 @@ export default function QuotesTab({
                         const trend = classifyTrend(q);
                         const rvol = q.avgVolume ? (q.volume / q.avgVolume) : 0;
                         const mtf = computeMTFSignal(q, trendMap?.[q.symbol]);
-                        const colSpan = ((marketSession === "PREMARKET" || marketSession === "AFTERMARKET") ? 15 : 14) - (isTablet ? 4 : 0);
+                        const aplus = computeAPlusScore(trendMap?.[q.symbol] || {}, regime);
+                        // +1 base column count and +1 to the tablet-hidden count below for the new
+                        // A+ column (also !isTablet-gated, same as 5M/30M/MKT CAP/FUND — now 5 total).
+                        const colSpan = ((marketSession === "PREMARKET" || marketSession === "AFTERMARKET") ? 16 : 15) - (isTablet ? 5 : 0);
                         return (
                           <React.Fragment key={q.symbol}>
                           <tr
@@ -625,6 +647,11 @@ export default function QuotesTab({
                             </td>
                             {!isTablet && <td style={{ padding: "7px 6px", borderBottom: `1px solid ${C.border}`, minWidth: 55 }}>
                               <ScoreBar value={scores.fund} color={C.purple} />
+                            </td>}
+                            {!isTablet && <td style={{ padding: "7px 6px", borderBottom: `1px solid ${C.border}`, textAlign: "center", minWidth: 50 }}>
+                              <span title={aplus.reasons.join(" · ")} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: "#fff",
+                                background: aplus.score >= 80 ? "#0d9465" : aplus.score >= 60 ? "#d6a312" : "#c8282a",
+                                borderRadius: 4, padding: "2px 6px", cursor: "help" }}>{aplus.score}</span>
                             </td>}
                             <td style={{ padding: "7px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "center", minWidth: 90 }}>
                               {(() => {
