@@ -127,7 +127,14 @@ export function computeAPlusScore(row, regime) {
     Number.isFinite(volRatio) ? `Volume ${volRatio.toFixed(1)}x the 50-day average` : "Volume data unavailable",
     Number.isFinite(riskPct) && riskPct > 0 ? `${riskPct.toFixed(1)}% risk to stop — ${riskPct <= 5 ? "tight, low-risk entry" : riskPct <= 8 ? "moderate risk" : "wide stop, higher risk"}` : "Risk distance unavailable",
     row?.tightening ? "VCP tightening — each pullback shallower than the last" : row?.vcpGrade && row.vcpGrade !== "-" ? `VCP grade ${row.vcpGrade}, not yet tightening` : "No real VCP base detected",
-    row?.earningsSoon ? `⚠️ Earnings within ${row.earningsDte} day${row.earningsDte === 1 ? "" : "s"} — added gap risk` : row?.earningsDte == null ? "Earnings date unavailable" : `No earnings for ${row.earningsDte} days`,
+    row?.earningsSoon ? `⚠️ Earnings within ${row.earningsDte} day${row.earningsDte === 1 ? "" : "s"} — added gap risk`
+      : row?.earningsDte == null ? "Earnings date unavailable"
+      // Real edge case: the provider's "next earnings" timestamp can lag
+      // behind an earnings date that already passed, giving a negative
+      // days-to-earnings — "No earnings for -74 days" reads as nonsense,
+      // so phrase it as what it actually is (a stale/past date) instead.
+      : row.earningsDte < 0 ? `Last earnings ${Math.abs(row.earningsDte)} day${Math.abs(row.earningsDte) === 1 ? "" : "s"} ago`
+      : `No earnings for ${row.earningsDte} days`,
     Number.isFinite(epsGrowth) ? `EPS growth (fwd vs TTM): ${epsGrowth >= 0 ? "+" : ""}${epsGrowth}%` : "Forward EPS data unavailable",
   ];
   return { score, reasons, breakdown: { trendPts, rsPts, regimePts, setupPts, volPts, riskPts, volatilityPts, catalystPts, fundamentalPts } };

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { computeGreenLight } from "./trading-utils.js";
 import { smartScanZoneOf, exportSmartScanZonePDF } from "./smartscan-shared.js";
 import { FIVEX_REF } from "./fivex-data.js";
+import { computeAPlusScore, computeRegime } from "./market-helpers.js";
 
 export default function SmartScanTab({
   C, MONO, SANS, isTablet, macroData, watchlistSymbols,
@@ -23,6 +24,14 @@ export default function SmartScanTab({
           // this session), which permanently capped the chip's "passed" count
           // and hid the true GREEN LIGHT 5/5 signal.
           const [smartScanTrendMap, setSmartScanTrendMap] = useState({});
+          // A+ Score — the platform's separate real 9-dimension composite
+          // (market-helpers.js), deliberately NOT merged into this tab's own
+          // SMC/momentum score above — same "keep parallel scoring systems
+          // separate" rule already applied to Watchlist/Green Light/Best
+          // Opportunities. Reuses smartScanTrendMap, which was ALREADY being
+          // fetched here for the Quick Read Green Light chip below — turned
+          // out to be zero-cost, not the extra fetch originally flagged.
+          const smartScanRegime = computeRegime(macroData);
           // "Why is this moving" — real web-searched /api/market/ai-why, same
           // on-demand pattern already used on the Opportunities tab. This
           // deep-dive expanded row is the SHARED destination MoversTab/
@@ -491,6 +500,7 @@ export default function SmartScanTab({
                         const _ttScore = Math.round(_ttChecks / 7 * 100);
                         const _macdScore = row.macdBull === true ? 72 : row.macdBull === false ? 30 : 50;
                         const composite = (row.score || 50) * 0.35 + _ttScore * 0.35 + _macdScore * 0.15 + 50 * 0.15;
+                        const aplus = computeAPlusScore(smartScanTrendMap[row.ticker] || {}, smartScanRegime);
                         const verdictColor = composite >= 72 ? "#00e676" : composite >= 62 ? C.green : composite >= 53 ? C.amber : composite >= 40 ? C.red : "#ff2244";
                         const verdictLabel = composite >= 72 ? "STRONG BUY" : composite >= 62 ? "BUY" : composite >= 53 ? "WATCH" : composite >= 40 ? "AVOID" : "SELL/SHORT";
                         // The real field on the smart-scan quote shape is changesPercentage
@@ -613,7 +623,13 @@ export default function SmartScanTab({
 
                               {/* Signal badge — uses the hoisted verdict so bar + badge always agree */}
                               <td style={{ padding: "12px 10px", borderBottom: `1px solid ${C.border}22` }}>
-                                <div><span style={{ ...SIG_STYLE(verdictColor), background: `${verdictColor}22`, borderColor: `${verdictColor}55`, fontSize: 12 }}>{verdictLabel}</span><div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: verdictColor, marginTop: 2 }}>{composite.toFixed(0)}/100</div></div>
+                                <div>
+                                  <span style={{ ...SIG_STYLE(verdictColor), background: `${verdictColor}22`, borderColor: `${verdictColor}55`, fontSize: 12 }}>{verdictLabel}</span>
+                                  {/* A+ — separate real 9-dimension score, additive not replacing */}
+                                  <span title={aplus.reasons.join(" · ")} style={{ marginLeft: 5, fontFamily: MONO, fontSize: 10, fontWeight: 900, color: "#fff", cursor: "help",
+                                    background: aplus.score >= 80 ? "#0d9465" : aplus.score >= 60 ? "#d6a312" : "#c8282a", borderRadius: 4, padding: "2px 5px" }}>A+{aplus.score}</span>
+                                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: verdictColor, marginTop: 2 }}>{composite.toFixed(0)}/100</div>
+                                </div>
                               </td>
 
                               {/* Ticker + Quick Read */}
