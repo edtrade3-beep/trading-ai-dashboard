@@ -43,6 +43,12 @@ export const SIDEBAR_ITEMS = [
   // 7am Telegram scan and the AutoPilot engines already run on.
   { id: "greenlight", label: "Green Light", icon: "🟢", tab: "greenlight", section: "Opportunities" },
   { id: "best-opportunities", label: "Best Opportunities", icon: "🔥", tab: "best-opportunities", section: "Opportunities" },
+  // Was palette-only (PREDICTIONS alias) since it shipped — given a real
+  // sidebar home 2026-07-27 per explicit user request ("put prediction as a
+  // tab"). Includes SPY/QQQ/IWM/DIA by default (tagged MARKET), plus
+  // whatever's on the watchlist — same real trend-template signal as the
+  // rest of the app, not a separate forecasting system.
+  { id: "predictions", label: "Predictions", icon: "🔮", tab: "predictions", section: "Opportunities" },
   { id: "watchlist", label: "Watchlist",     icon: "⭐", tab: "quotes", section: "Opportunities" },
   { id: "flow",      label: "Options Flow",  icon: "📊", tab: "flow", section: "Opportunities" },
   { id: "fibonacci", label: "Fibonacci",     icon: "🌀", tab: "fibonacci", section: "Opportunities" },
