@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { computeRegime, STOCK_TO_SECTOR } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore, STOCK_TO_SECTOR } from "./market-helpers.js";
 import {
   computeScores, computeGreenLight, logTradeNote, addPaperTrade,
   addPaperOption, alpacaOption,
@@ -250,7 +250,14 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
     const scanRow = (scanResults || []).find(r => r.ticker === q.symbol);
     const gl = computeGreenLight(q, spyChg, scanRow, regime.score, trendMap[q.symbol]);
     const sec = STOCK_TO_SECTOR[q.symbol];
-    return { ...gl, symbol: q.symbol, name: q.name, q, sector: sec || null, strongSector: sec ? strongSectors.has(sec) : null };
+    // A+ Score — the platform's separate real 9-dimension composite
+    // (market-helpers.js), deliberately NOT merged into Green Light's own
+    // computeGreenLight AI Review (aScore/grade/risk) — same "keep parallel
+    // scoring systems separate" rule already applied to Watchlist/RhPro.
+    // Reuses the same trendMap[symbol] row computeGreenLight itself already
+    // consumes above — no new fetch.
+    const aplus = computeAPlusScore(trendMap[q.symbol] || {}, regime);
+    return { ...gl, symbol: q.symbol, name: q.name, q, sector: sec || null, strongSector: sec ? strongSectors.has(sec) : null, aplus };
   }).filter(r => r.px > 0).sort((a, b) => b.aScore - a.aScore || b.passed - a.passed);
 
   const green  = results.filter(r => r.signal === "GREEN");
@@ -940,6 +947,12 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
                 <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: sc }}>{score}</span>
                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent }}>{r.symbol}</span>
                 <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, whiteSpace: "nowrap" }}>${r.px.toFixed(2)}</span>
+                {/* A+ Score — separate real 9-dimension composite (market-helpers.js),
+                    deliberately NOT merged into this column's own score above
+                    (aScore/bearScore/passed*20) — same additive-not-replacing
+                    pattern already used on Watchlist/RhPro. */}
+                {r.aplus && <span title={r.aplus.reasons.join(" · ")} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 900, color: "#fff", cursor: "help",
+                  background: r.aplus.score >= 80 ? "#0d9465" : r.aplus.score >= 60 ? "#d6a312" : "#c8282a", borderRadius: 4, padding: "1px 5px", whiteSpace: "nowrap" }}>A+{r.aplus.score}</span>}
               </div>
               {badge}
             </div>
