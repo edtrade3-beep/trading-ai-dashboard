@@ -27,6 +27,27 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
   // recreation) avoids this entirely.
   const fillToViewport = height === "fill";
   const H = fillToViewport ? 560 : (height || 520); // 560 = static fallback for the wrapper divs' initial layout only, in fill mode; the real value is computed+applied imperatively below once mounted
+  // Hoisted to component scope (not just inside the chart-creation effect)
+  // so the data-fill effect below can also call them — real live bug found
+  // after shipping: measuring available height only ONCE at chart-creation
+  // time could run before sibling content above the chart (rating card,
+  // indicator pills, etc., some of it async-loaded) had finished laying
+  // out, baking in a too-small height that then never got corrected unless
+  // the user actually resized their browser window. Re-measuring every
+  // time real bar data arrives (data-fill effect runs on initial load AND
+  // every live refresh) self-corrects within one refresh cycle even if the
+  // very first measurement was taken too early.
+  const computeFillHeight = () => {
+    const el = elRef.current;
+    if (!el) return 520;
+    return Math.max(320, Math.floor(window.innerHeight - el.getBoundingClientRect().top - 20));
+  };
+  const applyHeight = (h) => {
+    const el = elRef.current;
+    if (!el) return;
+    el.style.height = h + "px";
+    if (el.parentElement) el.parentElement.style.height = h + "px";
+  };
   const [showInfo, setShowInfo] = React.useState(false);
   // Lightweight Charts needs a plain Unix-seconds timestamp (UTCTimestamp)
   // for anything with intraday precision — the {year,month,day} BusinessDay
@@ -46,17 +67,24 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     const LC = window.LightweightCharts, el = elRef.current;
     if (!LC || !el) return;
     el.innerHTML = "";
-    // Real available space below the chart's own top edge down to the
-    // bottom of the viewport, minus a small breathing-room margin; 320
-    // floor so a very short window never shrinks the chart into something
-    // unusable.
-    const computeFillHeight = () => Math.max(320, Math.floor(window.innerHeight - el.getBoundingClientRect().top - 20));
-    const applyHeight = (h) => {
-      el.style.height = h + "px";
-      if (el.parentElement) el.parentElement.style.height = h + "px";
-    };
     const initialHeight = fillToViewport ? computeFillHeight() : H;
     if (fillToViewport) applyHeight(initialHeight);
+    let raf1 = 0, raf2 = 0;
+    if (fillToViewport) {
+      // One same-tick correction isn't always enough — sibling content
+      // above the chart (rating card, indicator pills) can still be
+      // mid-layout on the very first paint. Two chained rAFs (one full
+      // layout/paint cycle apart) catches that without a fixed setTimeout
+      // guess. The data-fill effect below re-corrects again on every real
+      // refresh as a final backstop.
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
+          const h = computeFillHeight();
+          applyHeight(h);
+          chart.applyOptions({ height: h });
+        });
+      });
+    }
     const chart = LC.createChart(el, {
       width: el.clientWidth || 800, height: initialHeight,
       layout: { background: { color: "transparent" }, textColor: C.textDim || "#888", fontFamily: SANS },
@@ -87,6 +115,26 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
       if (fillToViewport) { const h = computeFillHeight(); applyHeight(h); chart.applyOptions({ height: h }); }
     };
     window.addEventListener("resize", onResize);
+    // Real live bug found after shipping: MarketTerminalTab's own auto-scroll-
+    // to-chart feature (a different fix, same session) smooth-scrolls the
+    // page when you search/click a symbol — that animation takes real wall-
+    // clock time to settle, and computeFillHeight() measured the chart's top
+    // edge mid-animation, baking in a transient (too-small) position that
+    // then only got corrected on an actual browser resize. A scroll listener
+    // — not just resize — keeps this self-correcting through that animation
+    // and any ordinary manual scrolling, rAF-throttled so a smooth-scroll's
+    // many scroll events don't thrash layout every frame.
+    let scrollRaf = 0;
+    const onScroll = () => {
+      if (!fillToViewport || scrollRaf) return;
+      scrollRaf = requestAnimationFrame(() => {
+        scrollRaf = 0;
+        const h = computeFillHeight();
+        applyHeight(h);
+        chart.applyOptions({ height: h });
+      });
+    };
+    if (fillToViewport) window.addEventListener("scroll", onScroll, { passive: true });
     // handleScroll.mouseWheel:false above kills ALL wheel-driven chart
     // interaction, not just the vertical case — a genuine horizontal
     // trackpad swipe (a wheel event with deltaX, same as deltaY for
@@ -103,13 +151,25 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
       if (typeof pos === "number") ts.scrollToPosition(pos + e.deltaX / 60, false);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
-    return () => { window.removeEventListener("resize", onResize); el.removeEventListener("wheel", onWheel); chart.remove(); chartRef.current = null; seriesRef.current = null; };
+    return () => {
+      cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); cancelAnimationFrame(scrollRaf);
+      window.removeEventListener("resize", onResize);
+      if (fillToViewport) window.removeEventListener("scroll", onScroll);
+      el.removeEventListener("wheel", onWheel);
+      chart.remove(); chartRef.current = null; seriesRef.current = null;
+    };
   }, [data && data.symbol, C, H, SANS]);
 
   // Push data + overlays whenever `data` changes (keeps zoom on live refresh).
   React.useEffect(() => {
     const s = seriesRef.current, chart = chartRef.current;
     if (!s || !chart || !data || !data.bars) return;
+    // Real backstop for the fill-to-viewport height: this effect fires on
+    // initial load AND every live refresh, by which point sibling content
+    // above the chart has reliably finished its own layout — re-measuring
+    // here self-corrects even if the chart-creation effect's own rAF-based
+    // check (right after mount) still ran too early.
+    if (fillToViewport) { const h = computeFillHeight(); applyHeight(h); chart.applyOptions({ height: h }); }
     // Show clock time on the x-axis for intraday granularities (otherwise
     // Lightweight Charts just repeats the date across every bar in a day).
     chart.applyOptions({ timeScale: { timeVisible: !!isIntraday, secondsVisible: false } });
