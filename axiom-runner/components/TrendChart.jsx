@@ -9,7 +9,24 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
   const chartRef = React.useRef(null);
   const seriesRef = React.useRef(null);
   const symRef = React.useRef(null);
-  const H = height || 520;
+  // height="fill" (opt-in, currently only MarketTerminalTab.jsx) sizes the
+  // chart to whatever real vertical space is left below it in the viewport,
+  // instead of a fixed pixel number — fixes a real live bug (screenshot,
+  // 2026-07-26): a hardcoded 620 was taller than the available space on the
+  // user's actual screen, cutting off BASE LOW/STOP behind the page fold and
+  // the floating FAB stack. Other TrendChart call sites (Dashboard's small
+  // widget, TrendTemplateTab) keep passing their own fixed number, untouched.
+  // Deliberately NOT React state: an earlier version drove this through
+  // useState, which made window resize change `H`, which re-ran the
+  // chart-creation effect below (it depends on H) and tore down/recreated
+  // the whole chart+series — but the separate data-filling effect further
+  // down only depends on [data, C], so it never re-ran after that
+  // recreation, leaving a genuinely blank chart after any resize (caught
+  // live before shipping). Applying height imperatively inside the same
+  // resize handler that already updates width (same pattern, zero
+  // recreation) avoids this entirely.
+  const fillToViewport = height === "fill";
+  const H = fillToViewport ? 560 : (height || 520); // 560 = static fallback for the wrapper divs' initial layout only, in fill mode; the real value is computed+applied imperatively below once mounted
   const [showInfo, setShowInfo] = React.useState(false);
   // Lightweight Charts needs a plain Unix-seconds timestamp (UTCTimestamp)
   // for anything with intraday precision — the {year,month,day} BusinessDay
@@ -29,8 +46,19 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     const LC = window.LightweightCharts, el = elRef.current;
     if (!LC || !el) return;
     el.innerHTML = "";
+    // Real available space below the chart's own top edge down to the
+    // bottom of the viewport, minus a small breathing-room margin; 320
+    // floor so a very short window never shrinks the chart into something
+    // unusable.
+    const computeFillHeight = () => Math.max(320, Math.floor(window.innerHeight - el.getBoundingClientRect().top - 20));
+    const applyHeight = (h) => {
+      el.style.height = h + "px";
+      if (el.parentElement) el.parentElement.style.height = h + "px";
+    };
+    const initialHeight = fillToViewport ? computeFillHeight() : H;
+    if (fillToViewport) applyHeight(initialHeight);
     const chart = LC.createChart(el, {
-      width: el.clientWidth || 800, height: H,
+      width: el.clientWidth || 800, height: initialHeight,
       layout: { background: { color: "transparent" }, textColor: C.textDim || "#888", fontFamily: SANS },
       grid: { vertLines: { color: (C.border || "#cccccc") + "44" }, horzLines: { color: (C.border || "#cccccc") + "44" } },
       rightPriceScale: { borderColor: C.border || "#ccc" },
@@ -54,7 +82,10 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     chartRef.current = chart;
     seriesRef.current = { candle, vol, ma50, ma150, ma200, bbU, bbL, priceLines: [] };
     symRef.current = null; // force a fitContent on next data fill
-    const onResize = () => chart.applyOptions({ width: el.clientWidth || 800 });
+    const onResize = () => {
+      chart.applyOptions({ width: el.clientWidth || 800 });
+      if (fillToViewport) { const h = computeFillHeight(); applyHeight(h); chart.applyOptions({ height: h }); }
+    };
     window.addEventListener("resize", onResize);
     // handleScroll.mouseWheel:false above kills ALL wheel-driven chart
     // interaction, not just the vertical case — a genuine horizontal

@@ -354,7 +354,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 icons and get covered (confirmed live). */}
             <div style={{ paddingRight: 90 }}>
               {chart
-                ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={620} />
+                ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height="fill" />
                 : <div style={{ height: 620, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
             </div>
             <TrendSetupPanel data={chart} C={C} MONO={MONO} SANS={SANS} />
