@@ -255,6 +255,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         <SectionHeader icon="📈" label="Chart" />
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
           <span style={{ fontFamily: SANS, fontSize: 24, fontWeight: 900, color: C.text }}>{sym}</span>
+          {/* Real company/fund name from the same fundamentals fetch already
+              used for Market Cap/P/E above — no new API call. Honest-null:
+              some tickers (esp. thin ETFs) never resolve a name from any of
+              the 3 fallback providers, so this just doesn't render rather
+              than showing the bare symbol twice or a fabricated title. */}
+          {fund && fund.name && fund.name !== sym && <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: C.textDim }}>{fund.name}</span>}
           {chart && chart.price != null && <span style={{ fontFamily: MONO, fontSize: 18, color: C.text }}>${chart.price.toFixed(2)}</span>}
           {chart && !loadingChart && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#0d9465" }}>
