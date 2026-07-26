@@ -1523,6 +1523,16 @@ export default function App() {
   });
   // Save tab on change
   React.useEffect(() => { try { localStorage.setItem("last_tab", activeTab); } catch {} }, [activeTab]);
+  // Real, confirmed live bug (2026-07-26, found checking Smart Scan on
+  // mobile): the mobile hamburger menu's own nav-grid buttons explicitly
+  // call setMobileMenuOpen(false) alongside setActiveTab(...), but in-page
+  // cross-tab handoff links (e.g. StartHereTab's "Open Smart Scan →" CTA,
+  // which only calls setActiveTab) have no way to know the drawer is open,
+  // and don't close it — leaving the drawer's full-height nav grid stacked
+  // on top of the newly-active tab's content. Closing on every activeTab
+  // change here (root cause, not per-link) fixes this for every current and
+  // future handoff link, not just this one.
+  React.useEffect(() => { setMobileMenuOpen(false); }, [activeTab]);
   const [loading, setLoading] = useState(false);
   const [portfolioHoldings, setPortfolioHoldings] = useState(DEFAULT_PORTFOLIO);
   const [csvImportModal, setCsvImportModal] = useState(null); // null | { rows, parseInfo }
