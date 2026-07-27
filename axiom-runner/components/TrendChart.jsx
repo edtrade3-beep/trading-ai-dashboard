@@ -107,7 +107,19 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
       width: el.clientWidth || 800, height: initialHeight,
       layout: { background: { color: "transparent" }, textColor: C.textDim || "#888", fontFamily: SANS },
       grid: { vertLines: { color: (C.border || "#cccccc") + "44" }, horzLines: { color: (C.border || "#cccccc") + "44" } },
-      rightPriceScale: { borderColor: C.border || "#ccc" },
+      // bottom:0.22 reserves the bottom ~22% of the chart for the volume
+      // histogram's own price scale below (top:0.84, ~16%). Without this,
+      // the main scale defaults to the FULL chart height for its own price
+      // labels (PIVOT/STOP/T1/T2/T3/BASE LOW/AI TARGET included) — its
+      // low-end labels could land in the exact same pixel band as the
+      // volume pane's own axis label, rendering as illegible overlapping
+      // text. Real live bug (screenshot, 2026-07-27: "stretch chart so i
+      // can see all numbers") — BASE LOW and the volume scale's last-value
+      // label were stacked directly on top of each other. A taller chart
+      // alone wouldn't fix this (both scales are proportional margins, so
+      // the same relative overlap persists at any height) — the real fix
+      // is giving the two scales non-overlapping territory.
+      rightPriceScale: { borderColor: C.border || "#ccc", scaleMargins: { top: 0.08, bottom: 0.22 } },
       timeScale: { borderColor: C.border || "#ccc" },
       crosshair: { mode: LC.CrosshairMode ? LC.CrosshairMode.Normal : 1 },
       // Mouse-wheel scroll was hijacked by the chart's own zoom/pan (default
