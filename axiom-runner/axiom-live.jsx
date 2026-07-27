@@ -4935,6 +4935,10 @@ export default function App() {
         score: Math.min(99, Math.max(60, Math.round((Number(row.notional || 0) / Math.max(threshold, 1)) * 60))),
         text: `${row.tradeType} ${row.side} flow ${formatNum(row.notional || 0)} at ${row.strike} (${row.expiry || "near-term"})`,
         category: row.tradeType === "DARKPOOL" ? "dark-pool" : row.tradeType === "SWEEP" ? "sweep" : "flow-spike",
+        // Real CALL/PUT side from the options-flow row — lets the tape
+        // classify dark-pool/sweep flow as bullish/bearish instead of the
+        // flat neutral "amber" every flow item got before.
+        optionSide: row.side,
       }));
   }, [flowRows, flowFilters.autoAlertNotional]);
   const tvWebhookAlerts = useMemo(() => {
@@ -4948,6 +4952,7 @@ export default function App() {
         score: Math.max(60, Math.min(99, Number(row?.score || 78))),
         text: `TradingView ${side}${px > 0 ? ` @ ${px.toFixed(2)}` : ""} - ${row?.message || "Signal received"}`,
         source: "tradingview",
+        side,
       };
     });
   }, [tvWebhookRows]);
@@ -4955,13 +4960,32 @@ export default function App() {
     () => [...tvWebhookAlerts, ...econAutoRiskAlerts, ...macroEventAlerts, ...alerts, ...flowAlerts].sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 12),
     [tvWebhookAlerts, econAutoRiskAlerts, macroEventAlerts, alerts, flowAlerts]
   );
+  // "all" | "bullish" | "bearish" — filters the running news/dark-pool tape
+  // (2026-07-27, explicit user request).
+  const [tapeFilter, setTapeFilter] = useState(() => { try { return localStorage.getItem("ax_tape_filter") || "all"; } catch { return "all"; } });
+  useEffect(() => { try { localStorage.setItem("ax_tape_filter", tapeFilter); } catch {} }, [tapeFilter]);
   const topHeadlineTape = useMemo(() => {
-    const alertItems = (combinedAlerts || []).slice(0, 8).map((a) => ({
-      kind: "ALERT",
-      symbol: a.symbol,
-      text: `${a.symbol} ${String(a.type || "").toUpperCase()} ${a.text}`,
-      tone: a.type === "risk" ? "red" : a.type === "flow" ? "amber" : "green",
-    }));
+    const alertItems = (combinedAlerts || []).slice(0, 8).map((a) => {
+      // Dark-pool/sweep/flow-spike items carry a real CALL/PUT side from the
+      // options-flow data — use it for real bullish/bearish classification
+      // instead of the flat neutral "amber" every flow item used to get
+      // regardless of direction. TradingView webhook alerts carry a real
+      // BUY/SELL side the same way. Only genuinely non-directional items
+      // (a plain macro/economic alert with neither) fall back to neutral.
+      const isFlow = a.category === "dark-pool" || a.category === "sweep" || a.category === "flow-spike";
+      let bias = "neutral";
+      if (isFlow && a.optionSide === "CALL") bias = "bullish";
+      else if (isFlow && a.optionSide === "PUT") bias = "bearish";
+      else if (a.side === "BUY" || a.type === "opportunity") bias = "bullish";
+      else if (a.side === "SELL" || a.type === "risk") bias = "bearish";
+      return {
+        kind: "ALERT",
+        symbol: a.symbol,
+        text: `${a.symbol} ${String(a.type || "").toUpperCase()} ${a.text}`,
+        tone: bias === "bearish" ? "red" : bias === "bullish" ? "green" : "amber",
+        bias,
+      };
+    });
     const newsItems = (newsData || []).slice(0, 10).map((n) => {
       const t = String(n?.title || "");
       const s = String(n?.ticker || "");
@@ -4973,10 +4997,11 @@ export default function App() {
         symbol: s || "MKT",
         text: `${s ? `${s} ` : ""}${t}`,
         tone: isUp ? "green" : isDown ? "red" : "accent",
+        bias: isUp ? "bullish" : isDown ? "bearish" : "neutral",
       };
     });
     const all = [...alertItems, ...newsItems];
-    return all.length ? all : [{ kind: "INFO", symbol: "MKT", text: "Waiting for alerts/news flow...", tone: "accent" }];
+    return all.length ? all : [{ kind: "INFO", symbol: "MKT", text: "Waiting for alerts/news flow...", tone: "accent", bias: "neutral" }];
   }, [combinedAlerts, newsData]);
   const selectedTvSource = useMemo(
     () => LIVE_TV_SOURCES.find((s) => s.id === tvSource) || LIVE_TV_SOURCES[0],
@@ -5942,7 +5967,7 @@ export default function App() {
         {/* Market Index Strip — matches screenshot layout */}
         <MacroTape data={macroData} cryptoSnapshot={cryptoSnapshot} marketSession={marketSession} />
 
-        <NewsAlertTape C={C} MONO={MONO} SANS={SANS} topHeadlineTape={topHeadlineTape} />
+        <NewsAlertTape C={C} MONO={MONO} SANS={SANS} topHeadlineTape={topHeadlineTape} tapeFilter={tapeFilter} setTapeFilter={setTapeFilter} />
       </div>
 
       {error && (
