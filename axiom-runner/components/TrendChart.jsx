@@ -10,6 +10,7 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
   const seriesRef = React.useRef(null);
   const symRef = React.useRef(null);
   const fillTimeoutsRef = React.useRef([]);
+  const settleScrollCleanupRef = React.useRef(null);
   // height="fill" (opt-in, currently only MarketTerminalTab.jsx) sizes the
   // chart to whatever real vertical space is left below it in the viewport,
   // instead of a fixed pixel number — fixes a real live bug (screenshot,
@@ -157,6 +158,7 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     return () => {
       cancelAnimationFrame(raf1); cancelAnimationFrame(raf2);
       fillTimeoutsRef.current.forEach(clearTimeout); fillTimeoutsRef.current = [];
+      if (settleScrollCleanupRef.current) { settleScrollCleanupRef.current(); settleScrollCleanupRef.current = null; }
       window.removeEventListener("resize", onResize);
       el.removeEventListener("wheel", onWheel);
       chart.remove(); chartRef.current = null; seriesRef.current = null;
@@ -172,13 +174,8 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     // content above the chart has reliably finished its own layout —
     // re-measuring here self-corrects even if the chart-creation effect's
     // own rAF-based check (right after mount) still ran too early.
-    // Bounded follow-up corrections (not a live scroll listener — removed,
-    // see the chart-creation effect's comment) catch the one case that
-    // genuinely still needs a delayed re-check: MarketTerminalTab's
-    // auto-scroll-to-chart animation, which takes real wall-clock time
-    // (a few hundred ms) to settle after this effect's first, immediate
-    // pass already ran.
     fillTimeoutsRef.current.forEach(clearTimeout); fillTimeoutsRef.current = [];
+    if (settleScrollCleanupRef.current) { settleScrollCleanupRef.current(); settleScrollCleanupRef.current = null; }
     const settleCorrect = () => {
       const el = elRef.current, c = chartRef.current;
       if (!el || !c) return;
@@ -186,7 +183,32 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
       c.applyOptions({ width: el.clientWidth || 800 });
     };
     settleCorrect();
-    fillTimeoutsRef.current.push(setTimeout(settleCorrect, 400), setTimeout(settleCorrect, 900));
+    // Catches MarketTerminalTab's auto-scroll-to-chart animation settling.
+    // A first version guessed fixed 400ms/900ms delays — wrong on a page
+    // with more content above the chart (production has a Prediction
+    // Markets section local didn't), where the real smooth-scroll took
+    // longer and a manual scroll landing inside that guess window got
+    // "locked in" mid-animation (confirmed live 2026-07-27: heights
+    // 622→682→802 instead of settling once). Real fix: watch scroll and
+    // debounce-correct only once it actually stops (any duration, no
+    // guessing), then fully detach — capped at 3s so this can never
+    // linger into ordinary later scrolling and cause the earlier
+    // "stretch on scroll" bug again.
+    if (fillToViewport) {
+      let debounce = 0, hardCap = 0;
+      const onSettleScroll = () => {
+        clearTimeout(debounce);
+        debounce = setTimeout(() => { settleCorrect(); teardown(); }, 150);
+      };
+      const teardown = () => {
+        clearTimeout(debounce); clearTimeout(hardCap);
+        window.removeEventListener("scroll", onSettleScroll);
+        if (settleScrollCleanupRef.current === teardown) settleScrollCleanupRef.current = null;
+      };
+      hardCap = setTimeout(teardown, 3000);
+      window.addEventListener("scroll", onSettleScroll, { passive: true });
+      settleScrollCleanupRef.current = teardown;
+    }
     // Show clock time on the x-axis for intraday granularities (otherwise
     // Lightweight Charts just repeats the date across every bar in a day).
     chart.applyOptions({ timeScale: { timeVisible: !!isIntraday, secondsVisible: false } });
