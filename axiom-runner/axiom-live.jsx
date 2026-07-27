@@ -6,7 +6,7 @@ import TrendSetupPanel from "./components/TrendSetupPanel.jsx";
 import SmartScanPanel from "./components/SmartScanPanel.jsx";
 import DayTradeTab from "./components/DayTradeTab.jsx";
 import MarketTerminalTab from "./components/MarketTerminalTab.jsx";
-import { computeRegime, STOCK_TO_SECTOR, SECTOR_ETFS, computeFibLevels } from "./components/market-helpers.js";
+import { computeRegime, computeAPlusScore, STOCK_TO_SECTOR, SECTOR_ETFS, computeFibLevels } from "./components/market-helpers.js";
 import { FIVEX_DATA, FIVEX_REF } from "./components/fivex-data.js";
 import { qUrl, QURAN_RECITERS, SURAH_LIST } from "./components/quran-data.js";
 import QuranTab from "./components/QuranTab.jsx";
@@ -1565,6 +1565,13 @@ export default function App() {
   const [trendFilter,  setTrendFilter]  = useState("ALL"); // ALL | Strong Up | Up | Flat | Weak | Down
   const [volumeFilter, setVolumeFilter] = useState("ALL"); // ALL | HIGH | NORMAL | LOW
   const [scoreFilter,  setScoreFilter]  = useState("70+"); // ALL | 70+ | 60+ | 50+ | <50
+  // A+ Score filter — separate from scoreFilter above (that one filters the
+  // Composite/Tech/Fund system; this filters the real 9-dimension A+ score,
+  // market-helpers.js). Same additive-not-replacing pattern as the A+ column
+  // itself. Defaults to ALL (not a restrictive bucket) so it can't silently
+  // hide most of the watchlist the way scoreFilter's "70+" default already
+  // does — that's the exact complaint this was added to address.
+  const [aplusFilter, setAplusFilter] = useState("ALL"); // ALL | 80+ | 60+ | <60
   const [sortDir, setSortDir] = useState("desc");
   // Default card view on tablet AND mobile (better for touch)
   const [wlCardView, setWlCardView] = useState(() => typeof window !== "undefined" && window.innerWidth <= 1100);
@@ -4339,6 +4346,8 @@ export default function App() {
     });
   }, [watchlistData, trendMap, sortCol, sortDir]);
 
+  const wlRegime = useMemo(() => computeRegime(macroData), [macroData]);
+
   const signalFiltered = useMemo(() => {
     return sorted.filter(q => {
       // Signal
@@ -4352,7 +4361,7 @@ export default function App() {
         if (volumeFilter === "NORMAL" && (rvol < 0.8 || rvol >= 1.5)) return false;
         if (volumeFilter === "LOW"    && rvol >= 0.8) return false;
       }
-      // Score
+      // Score (Composite/Tech/Fund system)
       if (scoreFilter !== "ALL") {
         const s = computeScores(q, trendMap[q.symbol]).composite;
         if (scoreFilter === "70+" && s < 70)  return false;
@@ -4360,9 +4369,16 @@ export default function App() {
         if (scoreFilter === "50+" && s < 50)  return false;
         if (scoreFilter === "<50" && s >= 50) return false;
       }
+      // A+ Score — separate real 9-dimension score, see aplusFilter above
+      if (aplusFilter !== "ALL") {
+        const a = computeAPlusScore(trendMap[q.symbol] || {}, wlRegime).score;
+        if (aplusFilter === "80+" && a < 80)  return false;
+        if (aplusFilter === "60+" && a < 60)  return false;
+        if (aplusFilter === "<60" && a >= 60) return false;
+      }
       return true;
     });
-  }, [sorted, signalFilter, trendFilter, volumeFilter, scoreFilter]);
+  }, [sorted, signalFilter, trendFilter, volumeFilter, scoreFilter, aplusFilter, trendMap, wlRegime]);
 
   const handleSort = (col) => {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -6066,7 +6082,7 @@ export default function App() {
             watchlistData={watchlistData} watchlistSymbols={watchlistSymbols} watchlists={watchlists}
             watchlistNotes={watchlistNotes}
             activeWlistId={activeWlistId} openAlertSymbol={openAlertSymbol} openNoteSymbol={openNoteSymbol}
-            scoreFilter={scoreFilter} signalFilter={signalFilter} trendFilter={trendFilter} volumeFilter={volumeFilter}
+            scoreFilter={scoreFilter} aplusFilter={aplusFilter} signalFilter={signalFilter} trendFilter={trendFilter} volumeFilter={volumeFilter}
             wlAlertDir={wlAlertDir} wlAlertPrice={wlAlertPrice} wlCardView={wlCardView}
             wlistRenameVal={wlistRenameVal} wlistRenaming={wlistRenaming} wlSearchFocused={wlSearchFocused}
             wlSearchQuery={wlSearchQuery}
@@ -6076,7 +6092,7 @@ export default function App() {
             setActiveTab={setActiveTab} setActiveWlistId={setActiveWlistId} setLoading={setLoading}
             setOpenAlertSymbol={setOpenAlertSymbol} setOpenNoteSymbol={setOpenNoteSymbol}
             setQuickLogModal={setQuickLogModal} setScanExpanded={setScanExpanded} setScanResults={setScanResults}
-            setScoreFilter={setScoreFilter} setSelectedStock={setSelectedStock} setSettings={setSettings}
+            setScoreFilter={setScoreFilter} setAplusFilter={setAplusFilter} setSelectedStock={setSelectedStock} setSettings={setSettings}
             setSignalFilter={setSignalFilter} setTerminalSymbol={setTerminalSymbol} setTrendFilter={setTrendFilter}
             setVolumeFilter={setVolumeFilter} setWatchlistInput={setWatchlistInput}
             setWatchlistNotes={setWatchlistNotes} setWatchlists={setWatchlists}

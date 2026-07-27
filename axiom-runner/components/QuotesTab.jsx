@@ -12,11 +12,11 @@ export default function QuotesTab({
   C, MONO, SANS, isTablet, apiKey, settings, marketSession,
   watchlistData, watchlistSymbols, watchlists, watchlistNotes,
   activeWlistId, openAlertSymbol, openNoteSymbol,
-  scoreFilter, signalFilter, trendFilter, volumeFilter,
+  scoreFilter, aplusFilter, signalFilter, trendFilter, volumeFilter,
   wlAlertDir, wlAlertPrice, wlCardView, wlistRenameVal, wlistRenaming, wlSearchFocused, wlSearchQuery,
   sorted, signalFiltered, sortCol, sortDir, handleSort, trendMap, macroData,
   setActiveTab, setActiveWlistId, setLoading, setOpenAlertSymbol, setOpenNoteSymbol, setQuickLogModal,
-  setScanExpanded, setScanResults, setScoreFilter, setSelectedStock, setSettings, setSignalFilter,
+  setScanExpanded, setScanResults, setScoreFilter, setAplusFilter, setSelectedStock, setSettings, setSignalFilter,
   setTerminalSymbol, setTrendFilter, setVolumeFilter, setWatchlistInput, setWatchlistNotes,
   setWatchlists, setWatchlistSymbols, setWlAlertDir, setWlAlertPrice, setWlCardView,
   setWlistRenameVal, setWlistRenaming, setWlSearchFocused, setWlSearchQuery,
@@ -240,7 +240,7 @@ export default function QuotesTab({
                 </div>
               </div>
               {watchlistData.length >= 3 && (() => {
-                const anyFilter = signalFilter !== "ALL" || trendFilter !== "ALL" || volumeFilter !== "ALL" || scoreFilter !== "ALL";
+                const anyFilter = signalFilter !== "ALL" || trendFilter !== "ALL" || volumeFilter !== "ALL" || scoreFilter !== "ALL" || aplusFilter !== "ALL";
                 const Pill = ({ active, col, bg, bdr, onClick, children }) => (
                   <button onClick={onClick} style={{
                     fontFamily: MONO, fontSize: 12, fontWeight: active ? 800 : 400,
@@ -303,11 +303,22 @@ export default function QuotesTab({
                       <Pill key={v} active={scoreFilter === v} col={C.accent} bg={C.accentGlow} bdr={C.accent} onClick={() => setScoreFilter(v)}>{v}</Pill>
                     ))}
 
+                    <Sep />
+
+                    {/* A+ — separate real 9-dimension score (market-helpers.js), filters
+                        independently from SCORE (Composite/Tech/Fund) above — same
+                        additive-not-replacing pattern as the A+ column itself, and the
+                        exact "filter by score" gap this was added to close, 2026-07-27. */}
+                    <span title="Filters by the real 9-dimension A+ Score, separate from SCORE above" style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", whiteSpace: "nowrap", cursor: "help" }}>A+</span>
+                    {["ALL","80+","60+","<60"].map(v => (
+                      <Pill key={v} active={aplusFilter === v} col="#d6a312" bg="#d6a31222" bdr="#d6a312" onClick={() => setAplusFilter(v)}>{v}</Pill>
+                    ))}
+
                     {/* Reset all */}
                     {anyFilter && (
                       <>
                         <Sep />
-                        <button onClick={() => { setSignalFilter("ALL"); setTrendFilter("ALL"); setVolumeFilter("ALL"); setScoreFilter("ALL"); }}
+                        <button onClick={() => { setSignalFilter("ALL"); setTrendFilter("ALL"); setVolumeFilter("ALL"); setScoreFilter("ALL"); setAplusFilter("ALL"); }}
                           style={{ fontFamily: MONO, fontSize: 12, color: C.red, background: "none", border: "none", cursor: "pointer", padding: "2px 4px" }}>
                           ✕ RESET
                         </button>
