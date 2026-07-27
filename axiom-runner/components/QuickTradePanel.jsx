@@ -26,7 +26,7 @@ const DOLLAR_PRESETS = [500, 1000, 2500, 5000];
 const RISK_PRESETS = [50, 100, 250, 500];
 const R_MULTIPLES = [1, 2, 3, 4];
 
-export default function QuickTradePanel({ C, MONO, SANS, terminalSymbol, setTerminalSymbol, macroData, scanResults, statusBarH = 40, fabFading = false }) {
+export default function QuickTradePanel({ C, MONO, SANS, terminalSymbol, setTerminalSymbol, macroData, scanResults, statusBarH = 40, fabFading = false, isMobile = false }) {
   const [open, setOpen] = useState(false);
   const [symbolInput, setSymbolInput] = useState(terminalSymbol || "AAPL");
   const [quote, setQuote] = useState(null);
@@ -223,9 +223,13 @@ export default function QuickTradePanel({ C, MONO, SANS, terminalSymbol, setTerm
 
   return (
     <>
+      {/* Mobile: shrunk from 54px + 18px offset to 42px + 10px offset — part
+          of tightening the mobile FAB stack's footprint over table content
+          (see FloatingChecklistButton.jsx for the matching right-side row). */}
       <button onClick={() => setOpen(o => !o)} title="Quick Trade"
-        style={{ position: "fixed", bottom: 18 + statusBarH, left: 18, zIndex: 9999, width: 54, height: 54, borderRadius: "50%", cursor: "pointer",
-          border: "none", background: "#c96f00", color: "#fff", fontSize: 22, boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
+        style={{ position: "fixed", bottom: (isMobile ? 10 : 18) + statusBarH, left: isMobile ? 10 : 18, zIndex: 9999,
+          width: isMobile ? 42 : 54, height: isMobile ? 42 : 54, borderRadius: "50%", cursor: "pointer",
+          border: "none", background: "#c96f00", color: "#fff", fontSize: isMobile ? 18 : 22, boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
           opacity: fabFading && !open ? 0 : 1, pointerEvents: fabFading && !open ? "none" : "auto", transition: "opacity 0.2s" }}>{open ? "✕" : "⚡"}</button>
 
       {open && (

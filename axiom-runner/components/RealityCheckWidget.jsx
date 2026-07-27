@@ -104,7 +104,7 @@ function positionVerdict(direction, flowBias, narrScore) {
   };
 }
 
-export default function RealityCheckWidget({ statusBarH = 40, fabFading = false } = {}) {
+export default function RealityCheckWidget({ statusBarH = 40, fabFading = false, isMobile = false } = {}) {
   const [open, setOpen] = useState(false);
   const [ticker, setTicker] = useState("");
   const [loading, setLoading] = useState(false);
@@ -159,7 +159,7 @@ export default function RealityCheckWidget({ statusBarH = 40, fabFading = false 
   })();
 
   return (
-    <div style={{ position: "fixed", bottom: 18 + statusBarH, right: 86, zIndex: 300, fontFamily: SANS }}>
+    <div style={{ position: "fixed", bottom: (isMobile ? 10 : 18) + statusBarH, right: isMobile ? 60 : 86, zIndex: 300, fontFamily: SANS }}>
       {open && (
         <div
           role="dialog"
@@ -353,14 +353,14 @@ export default function RealityCheckWidget({ statusBarH = 40, fabFading = false 
         aria-label={open ? "Close Reality Check" : "Open Reality Check"}
         title="Reality Check — real flow vs. the narrative"
         style={{
-          width: 52, height: 52, borderRadius: "50%", cursor: "pointer",
+          width: isMobile ? 42 : 52, height: isMobile ? 42 : 52, borderRadius: "50%", cursor: "pointer",
           background: C.bg, border: `2px solid ${C.accent}`,
           boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
-          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22,
+          display: "flex", alignItems: "center", justifyContent: "center", fontSize: isMobile ? 18 : 22,
           opacity: fabFading && !open ? 0 : 1, pointerEvents: fabFading && !open ? "none" : "auto", transition: "opacity 0.2s",
         }}
       >
-        {open ? <span style={{ color: C.text, fontSize: 20 }}>×</span> : "🕵️"}
+        {open ? <span style={{ color: C.text, fontSize: isMobile ? 16 : 20 }}>×</span> : "🕵️"}
       </button>
     </div>
   );

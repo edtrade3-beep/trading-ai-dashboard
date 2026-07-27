@@ -18,18 +18,22 @@ export default function FloatingChecklistButton({ C, checklistItems, setActiveTa
   // covering 2-3 rows of whatever table/list was underneath (confirmed live
   // on the Sniper Scanner table — the "plan" buttons for rows 4-6 measured
   // inside the FAB stack's bounding box). Collapsing to a single row next to
-  // RealityCheckWidget (right:86, 44px wide, i.e. spanning 86-130) frees that
-  // entire upper row back to real content.
+  // RealityCheckWidget freed the entire upper row back to real content.
+  // Further tightened: all 4 mobile FABs shrunk 54/52px -> 42px and pulled
+  // in from bottom/right:18 to bottom/right:10, with matching tighter gaps
+  // between them (Copilot right:10-52, RealityCheck right:60-102, this
+  // button right:110-152) — shrinks the row's total footprint (both height
+  // and width) so less of whatever's underneath gets covered.
   return (
-    <div style={{ position: "fixed", bottom: (isMobile ? 18 : 82) + statusBarH, right: isMobile ? 146 : 18, zIndex: 8000 }}>
+    <div style={{ position: "fixed", bottom: (isMobile ? 10 : 82) + statusBarH, right: isMobile ? 110 : 18, zIndex: 8000 }}>
       <button
         className="fab-checklist-btn"
         onClick={() => setActiveTab("tools")}
-        style={{ width: 52, height: 52, borderRadius: "50%", border: "none", cursor: "pointer",
+        style={{ width: isMobile ? 42 : 52, height: isMobile ? 42 : 52, borderRadius: "50%", border: "none", cursor: "pointer",
           background: allDone ? C.green : done > 0 ? C.amber : C.red,
           boxShadow: `0 4px 18px ${allDone ? C.green : done > 0 ? C.amber : C.red}66`,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 20, transition: "all 0.2s, opacity 0.2s",
+          fontSize: isMobile ? 17 : 20, transition: "all 0.2s, opacity 0.2s",
           opacity: fabFading ? 0 : 1, pointerEvents: fabFading ? "none" : "auto" }}>
         ✅
       </button>
